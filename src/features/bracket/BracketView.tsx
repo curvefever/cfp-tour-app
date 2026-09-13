@@ -25,7 +25,7 @@ import { Alert, Badge, Button, Input, ScoreInput, cn } from '../../components/ui
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
-const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
+const bracketRowBase = 'rounded-[5px] border-l-[3px] border-l-transparent px-2 py-1 text-xs';
 
 function FollowBanner({
   state,
@@ -140,11 +140,11 @@ function resultClasses(
   return cn(
     result === 'advance' && 'border-l-success text-success',
     result === 'eliminate' && 'border-l-surface-hover text-muted line-through opacity-50',
-    result === 'lucky' && 'border-l-accent text-accent',
+    result === 'lucky' && 'border-l-lucky text-lucky',
     result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
     result === 'promote' && 'border-l-success text-success',
     result === 'demote' && 'border-l-warning text-warning',
-    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
+    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(92_201_245_/_27%)]',
   );
 }
 
@@ -199,7 +199,7 @@ function FinalColumn({
             className={cn(
               bracketRowBase,
               progress.complete && 'border-l-success text-success',
-              followed === name && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
+              followed === name && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(92_201_245_/_27%)]',
             )}
             key={name}
           >
@@ -285,8 +285,8 @@ function FinalColumn({
 function LuckyLoserDisclaimer({ round }: { round: TournamentRound }) {
   const direct = round.advPerRoom ?? 0;
   return (
-    <div className='mb-2 rounded-md border border-accent/30 bg-accent/5 px-2.5 py-1.5 text-[0.68rem] text-muted'>
-      <span className='font-semibold text-accent'>★ Lucky loser{round.luckyCount === 1 ? '' : 's'}: </span>
+    <div className='mb-2 rounded-md border border-lucky/30 bg-lucky/5 px-2.5 py-1.5 text-[0.68rem] text-muted'>
+      <span className='font-semibold text-lucky'>★ Lucky loser{round.luckyCount === 1 ? '' : 's'}: </span>
       Top {direct} advance{direct === 1 ? 's' : ''} directly from each room. {round.luckyCount} extra spot
       {round.luckyCount === 1 ? '' : 's'} go{round.luckyCount === 1 ? 'es' : ''} to whoever's next-best
       finisher scores highest as a share of their own room's total — compared across every room.
@@ -298,13 +298,13 @@ function LuckyLoserStandingsPanel({ state, roundIndex }: { state: TournamentStat
   const standings = computeLuckyLoserStandings(state, roundIndex);
   if (!standings?.length) return null;
   return (
-    <div className='mb-2 rounded-md border border-accent/30 bg-accent/5 px-2.5 py-1.5 text-[0.68rem]'>
-      <div className='mb-1 font-semibold tracking-[0.05em] text-accent uppercase'>Lucky loser race</div>
+    <div className='mb-2 rounded-md border border-lucky/30 bg-lucky/5 px-2.5 py-1.5 text-[0.68rem]'>
+      <div className='mb-1 font-semibold tracking-[0.05em] text-lucky uppercase'>Lucky loser race</div>
       {standings.map((entry) => (
         <div
           className={cn(
             'flex items-center justify-between gap-2 py-px',
-            entry.leading ? 'font-semibold text-accent' : 'text-muted',
+            entry.leading ? 'font-semibold text-lucky' : 'text-muted',
           )}
           key={entry.name}
         >
@@ -603,8 +603,8 @@ function RoundBody({
       {(state.byes[roundIndex] ?? []).map((name) => (
         <div
           className={cn(
-            'mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning',
-            followKey === name && 'border-solid shadow-[0_0_0_1px_rgb(0_229_255_/_27%)]',
+            'mb-2.5 rounded-lg border border-dashed border-lucky bg-surface-low px-2.5 py-2 text-xs text-lucky',
+            followKey === name && 'border-solid shadow-[0_0_0_1px_rgb(92_201_245_/_27%)]',
           )}
           key={name}
         >
@@ -745,7 +745,7 @@ export function BracketView() {
       </div>
       <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
         <Badge tone='success'>Advanced</Badge>
-        <Badge tone='accent'>Lucky loser</Badge>
+        <Badge tone='lucky'>Lucky loser</Badge>
         <Badge tone='danger'>Eliminated</Badge>
       </div>
       <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds' ref={scroll}>
