@@ -40,7 +40,7 @@ const rowTones: Record<TableRowTone, string> = {
   eliminate:
     '[&:last-child>td]:border-b-0 [&>td]:bg-danger/3 [&>td]:opacity-70 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-danger',
   lucky:
-    '[&:last-child>td]:border-b-0 [&>td]:bg-accent/4 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-accent',
+    '[&:last-child>td]:border-b-0 [&>td]:bg-lucky/4 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-lucky',
   tie: '[&:last-child>td]:border-b-0 [&>td]:bg-danger/8 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-danger',
   warning:
     '[&:last-child>td]:border-b-0 [&>td]:bg-warning/3 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-warning',
