@@ -131,6 +131,7 @@ export class SyncCoordinator {
           this.onStatus({ kind: 'error', message: error instanceof Error ? error.message : String(error) });
       },
     );
+    if (this.mode === 'writer') this.schedulePush();
   }
 
   setCurrent(state: TournamentState): void {
