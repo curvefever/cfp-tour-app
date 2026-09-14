@@ -26,8 +26,8 @@ import {
   PanelTitle,
   Select,
   Textarea,
-  TimelineDot,
-  TimelineDots,
+  Timeline,
+  TimelineItem,
   TwoColumnGrid,
 } from '../../components/ui';
 
@@ -484,24 +484,24 @@ export function SetupView() {
       {state.rounds.length && !state.started ? (
         <Panel id='preview-wrap'>
           <PanelTitle>Schedule Preview</PanelTitle>
-          <TimelineDots>
-            {state.rounds.map((round, index) => {
-              const label = round.isFinal
-                ? 'Final'
-                : round.bracket === 'winners'
-                  ? 'WB'
-                  : round.bracket === 'losers'
-                    ? 'LB'
-                    : `${round.players} ${format?.unitLabelPlural ?? 'Players'}`;
-              return (
-                <TimelineDot
-                  key={index}
-                  milestone={index === 0 || round.isFinal || round.isSemis}
-                  tooltip={`Round ${round.roundNum} · ${label}`}
-                />
-              );
-            })}
-          </TimelineDots>
+          <Timeline>
+            {state.rounds.map((round, index) => (
+              <TimelineItem
+                key={index}
+                label={
+                  round.isFinal
+                    ? 'Final'
+                    : round.bracket === 'winners'
+                      ? 'WB'
+                      : round.bracket === 'losers'
+                        ? 'LB'
+                        : `${round.players} ${format?.unitLabelPlural ?? 'Players'}`
+                }
+              >
+                {round.roundNum}
+              </TimelineItem>
+            ))}
+          </Timeline>
           <ButtonRow>
             <Button variant='success' onClick={() => updateState({ ...state, curRound: 0, started: true })}>
               ✓ Confirm & Start

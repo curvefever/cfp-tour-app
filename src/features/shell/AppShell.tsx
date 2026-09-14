@@ -52,21 +52,21 @@ export function AppShell() {
             {app.state.title || 'Unnamed Tournament — click to name'}
           </button>
           <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
-          <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(92_201_245_/_40%)]'>
+          <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(0_229_255_/_40%)]'>
             {currentRound?.roundNum ?? '—'}
           </div>
         </div>
       </header>
       <nav
         aria-label='Tournament sections'
-        className='sticky top-14 z-40 flex flex-wrap gap-1.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
+        className='sticky top-14 z-40 flex flex-wrap gap-0.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
       >
         {TABS.filter((tab) => !(app.isViewer && tab.key === 'archive')).map((tab) => (
           <button
             key={tab.key}
             className={cn(
-              'cursor-pointer rounded-full px-4 py-2 text-sm text-muted transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary max-[700px]:flex-auto max-[700px]:px-2',
-              app.activeTab === tab.key && 'bg-primary text-on-primary hover:text-on-primary',
+              'cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-muted transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary max-[700px]:flex-auto max-[700px]:px-2',
+              app.activeTab === tab.key && 'border-primary text-primary',
             )}
             aria-current={app.activeTab === tab.key ? 'page' : undefined}
             onClick={() => chooseTab(tab.key)}

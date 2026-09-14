@@ -36,7 +36,7 @@ export function Position({
 
 export function ByeCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className='mb-4 flex items-center gap-3 rounded-lg border border-dashed border-lucky bg-lucky-soft px-3.5 py-2.5'>
+    <div className='mb-4 flex items-center gap-3 rounded-lg border border-accent bg-accent-soft px-4 py-3'>
       {children}
     </div>
   );

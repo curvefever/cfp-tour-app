@@ -23,8 +23,8 @@ import {
   Panel,
   PanelTitle,
   StatStrip,
-  TimelineDot,
-  TimelineDots,
+  Timeline,
+  TimelineItem,
   cn,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -148,16 +148,17 @@ export function RunningAdmin() {
       />
       <Panel>
         <PanelTitle>Tournament progress</PanelTitle>
-        <TimelineDots>
+        <Timeline>
           {state.rounds.map((entry, index) => (
-            <TimelineDot
+            <TimelineItem
               key={index}
-              milestone={index === 0 || entry.isFinal || entry.isSemis}
+              label={entry.isFinal ? 'Final' : entry.isSemis ? 'Semis' : `R${entry.roundNum}`}
               state={index < state.curRound ? 'done' : index === state.curRound ? 'current' : 'upcoming'}
-              tooltip={entry.isFinal ? 'Final' : entry.isSemis ? 'Semis' : `R${entry.roundNum}`}
-            />
+            >
+              {index < state.curRound ? '✓' : entry.isFinal ? '🏆' : entry.isSemis ? 'S' : entry.roundNum}
+            </TimelineItem>
           ))}
-        </TimelineDots>
+        </Timeline>
       </Panel>
       <ReservePanel state={state} />
       <ManageRoster state={state} />

@@ -271,7 +271,7 @@ export function RoomScores({ state, room }: { state: TournamentState; room: numb
                         status === 'Advances' || status === '▲ Promotes'
                           ? 'success'
                           : status.includes('Lucky')
-                            ? 'lucky'
+                            ? 'accent'
                             : status === 'Eliminated' || status === '☠ Eliminated' || status.includes('Tie')
                               ? 'danger'
                               : status === '▼ Demotes'
