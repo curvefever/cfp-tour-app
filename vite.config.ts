@@ -14,5 +14,23 @@ export default defineConfig({
   ssr: {
     external: ['firebase-admin', 'firebase-admin/app', 'firebase-admin/database'],
   },
-  plugins: [tanstackStart(), tailwindcss(), viteReact(), nitro({ traceDeps: ['firebase-admin*'] })],
+  environments: {
+    ssr: {
+      build: {
+        rollupOptions: {
+          external: ['firebase-admin', 'firebase-admin/app', 'firebase-admin/database'],
+        },
+      },
+    },
+  },
+  plugins: [
+    tanstackStart(),
+    tailwindcss(),
+    viteReact(),
+    nitro({
+      rolldownConfig: {
+        external: [/^firebase-admin(?:\/|$)/],
+      },
+    }),
+  ],
 });
