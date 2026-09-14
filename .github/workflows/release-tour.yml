@@ -89,7 +89,7 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test -- src/features/sync/firebase-paths.test.ts
+      - run: pnpm test -- src/features/sync/firebase-paths.test.ts src/features/sync/live-sync.test.ts
 
   build:
     needs: [resolve, verify]
