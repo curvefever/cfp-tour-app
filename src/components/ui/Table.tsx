@@ -36,14 +36,14 @@ type TableRowTone = 'default' | 'advance' | 'eliminate' | 'lucky' | 'tie' | 'war
 const rowTones: Record<TableRowTone, string> = {
   default: '[&:last-child>td]:border-b-0',
   advance:
-    '[&:last-child>td]:border-b-0 [&>td]:bg-success/3 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-success',
+    '[&:last-child>td]:border-b-0 [&>td]:bg-success-soft [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-success',
   eliminate:
-    '[&:last-child>td]:border-b-0 [&>td]:bg-danger/3 [&>td]:opacity-70 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-danger',
+    '[&:last-child>td]:border-b-0 [&>td]:bg-danger-soft [&>td]:opacity-70 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-danger',
   lucky:
-    '[&:last-child>td]:border-b-0 [&>td]:bg-accent/4 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-accent',
+    '[&:last-child>td]:border-b-0 [&>td]:bg-lucky-soft [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-lucky',
   tie: '[&:last-child>td]:border-b-0 [&>td]:bg-danger/8 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-danger',
   warning:
-    '[&:last-child>td]:border-b-0 [&>td]:bg-warning/3 [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-warning',
+    '[&:last-child>td]:border-b-0 [&>td]:bg-warning-soft [&>td:first-child]:border-l-2 [&>td:first-child]:border-l-warning',
 };
 
 export function TableRow({
