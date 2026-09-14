@@ -1,0 +1,12 @@
+.git
+.github
+.tanstack
+.agents
+node_modules
+dist
+.output
+.env
+.env.*
+*.log
+npm-debug.log*
+pnpm-debug.log*

@@ -1,0 +1,204 @@
+permissions:
+  contents: read
+  packages: write
+
+name: Deploy tour
+
+on:
+  push:
+    branches:
+      - main
+      - test
+  workflow_dispatch:
+    inputs:
+      deployment_environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - test
+          - prod
+      git_ref:
+        description: Git branch, tag, or commit to build and deploy
+        required: true
+        type: string
+
+concurrency:
+  group: tour-deploy-${{ github.event_name == 'workflow_dispatch' && inputs.deployment_environment || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    outputs:
+      commit_sha: ${{ steps.release.outputs.commit_sha }}
+      deployment_environment: ${{ steps.release.outputs.deployment_environment }}
+      image_alias: ${{ steps.release.outputs.image_alias }}
+      image_tag: ${{ steps.release.outputs.image_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.git_ref || github.sha }}
+
+      - name: Resolve deployment
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          COMMIT_SHA="$(git rev-parse HEAD)"
+
+          if [ "${{ github.event_name }}" = 'workflow_dispatch' ]; then
+            DEPLOYMENT_ENVIRONMENT="${{ inputs.deployment_environment }}"
+          elif [ "${GITHUB_REF_NAME}" = 'main' ]; then
+            DEPLOYMENT_ENVIRONMENT='prod'
+          elif [ "${GITHUB_REF_NAME}" = 'test' ]; then
+            DEPLOYMENT_ENVIRONMENT='test'
+          else
+            echo "Error: unsupported deployment branch '${GITHUB_REF_NAME}'"
+            exit 1
+          fi
+
+          if [ "${DEPLOYMENT_ENVIRONMENT}" = 'prod' ]; then
+            IMAGE_ALIAS='latest'
+          else
+            IMAGE_ALIAS='test-latest'
+          fi
+
+          echo "commit_sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "deployment_environment=${DEPLOYMENT_ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+          echo "image_alias=${IMAGE_ALIAS}" >> "$GITHUB_OUTPUT"
+          echo "image_tag=sha-${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: resolve
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.commit_sha }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test -- src/features/sync/firebase-paths.test.ts
+
+  build:
+    needs: [resolve, verify]
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    environment: ${{ needs.resolve.outputs.deployment_environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.commit_sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push tour image
+        uses: useblacksmith/build-push-action@v1
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ needs.resolve.outputs.image_tag }}
+            ghcr.io/${{ github.repository }}:${{ needs.resolve.outputs.image_alias }}
+
+  deploy:
+    needs: [resolve, build]
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    environment: ${{ needs.resolve.outputs.deployment_environment }}
+    timeout-minutes: 3
+    steps:
+      - name: Configure deploy SSH key
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          install -m 700 -d "$HOME/.ssh"
+          SSH_KEY_FILE="$HOME/.ssh/cfp_deploy"
+          printf '%s\n' '${{ secrets.SSH_KEY_DEPLOY != '' && secrets.SSH_KEY_DEPLOY || secrets.SSH_KEY }}' > "$SSH_KEY_FILE"
+          chmod 600 "$SSH_KEY_FILE"
+          echo "CFP_DEPLOY_SSH_KEY_FILE=$SSH_KEY_FILE" >> "$GITHUB_ENV"
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:gha
+
+      - name: Resolve target Tailscale IP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HOSTS_RAW="${{ vars.HOSTS_TOUR }}"
+          HOST="${HOSTS_RAW//[[:space:]]/}"
+          HOST="${HOST#[}"
+          HOST="${HOST%]}"
+          HOST="${HOST%%,*}"
+
+          if [ -z "${HOST}" ]; then
+            echo "Error: vars.HOSTS_TOUR did not resolve to a valid host"
+            echo "Raw value: ${HOSTS_RAW}"
+            exit 1
+          fi
+
+          TARGET_IP="$(tailscale ip -4 "${HOST}" | head -n 1)"
+
+          if [ -z "${TARGET_IP}" ]; then
+            echo "Error: Could not resolve Tailscale IPv4 for ${HOST}"
+            exit 1
+          fi
+
+          echo "Resolved ${HOST} to Tailscale IP ${TARGET_IP}"
+          echo "CFP_DEPLOY_TARGET_NAME=${HOST}" >> "$GITHUB_ENV"
+          echo "CFP_DEPLOY_TARGET_HOST=${TARGET_IP}" >> "$GITHUB_ENV"
+
+      - name: Wait for SSH on target host
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          HOST="${CFP_DEPLOY_TARGET_HOST}"
+          SSH_KEY_FILE="${CFP_DEPLOY_SSH_KEY_FILE}"
+          SSH_OPTS="-4 -i ${SSH_KEY_FILE} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+          for attempt in $(seq 1 6); do
+            echo "Checking SSH connectivity to ${HOST} (attempt ${attempt}/6)..."
+            if ssh ${SSH_OPTS} deploy@${HOST} true; then
+              echo "SSH connectivity to ${HOST} is ready"
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "Error: SSH to ${HOST} did not become ready within 30 seconds"
+          exit 1
+
+      - name: Deploy tour service
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VERSION="${{ needs.resolve.outputs.image_tag }}"
+          HOST="${CFP_DEPLOY_TARGET_NAME}"
+          TARGET_IP="${CFP_DEPLOY_TARGET_HOST}"
+          SSH_KEY_FILE="${CFP_DEPLOY_SSH_KEY_FILE}"
+          SSH_OPTS="-4 -i ${SSH_KEY_FILE} -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+          echo "Deploying tour@${VERSION} to ${HOST} (${TARGET_IP}) (${{ needs.resolve.outputs.deployment_environment }})"
+          ssh ${SSH_OPTS} deploy@${TARGET_IP} -- sudo -n /srv/deploy.sh "tour@${VERSION}"

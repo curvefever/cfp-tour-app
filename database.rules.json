@@ -6,6 +6,24 @@
         ".write": false
       }
     },
+    "environments": {
+      "test": {
+        "tournaments": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        }
+      },
+      "prod": {
+        "tournaments": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        }
+      }
+    },
     "adminAuth": {
       ".read": false,
       ".write": false
