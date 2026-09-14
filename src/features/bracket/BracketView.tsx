@@ -133,17 +133,36 @@ function TeamScoreFields({ children }: { children: ReactNode }) {
   );
 }
 
-function resultClasses(
-  result: 'advance' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '',
-  followed: boolean,
-) {
+type ResultKind = 'advance' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '';
+
+function resultClasses(result: ResultKind, followed: boolean) {
+  const border =
+    result === 'advance' || result === 'promote'
+      ? 'border-l-success'
+      : result === 'eliminate' || result === 'pending'
+        ? 'border-l-danger'
+        : result === 'lucky'
+          ? 'border-l-lucky'
+          : result === 'demote'
+            ? 'border-l-warning'
+            : '';
+  // followed always wins the row's background — a tone's own tint is suppressed rather than
+  // stacked, since cn() here is a plain joiner with no Tailwind-merge dedup for conflicting bg-*.
+  const tint = followed
+    ? ''
+    : result === 'advance' || result === 'promote'
+      ? 'bg-success-soft'
+      : result === 'lucky'
+        ? 'bg-lucky-soft'
+        : result === 'pending'
+          ? 'bg-danger-soft'
+          : result === 'demote'
+            ? 'bg-warning-soft'
+            : '';
   return cn(
-    result === 'advance' && 'border-l-success text-success',
-    result === 'eliminate' && 'border-l-surface-hover text-muted line-through opacity-50',
-    result === 'lucky' && 'border-l-lucky text-lucky',
-    result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
-    result === 'promote' && 'border-l-success text-success',
-    result === 'demote' && 'border-l-warning text-warning',
+    border,
+    tint,
+    result === 'eliminate' && 'opacity-55',
     followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(92_201_245_/_27%)]',
   );
 }
@@ -357,7 +376,7 @@ function PlaceholderRound({
     return (
       <>
         {(round.matches ?? []).map((match, roomIndex) => (
-          <div className='mb-2' key={roomIndex}>
+          <div className='mb-2 rounded-lg bg-surface-low p-2.5' key={roomIndex}>
             <RoomLabel>
               Group {match.group} · Room {roomIndex + 1} ({round.rooms[roomIndex]})
             </RoomLabel>
@@ -388,7 +407,7 @@ function PlaceholderRound({
       {round.rooms.map((slots, roomIndex) => {
         const roomLabels = projected?.[roomIndex] ?? null;
         return (
-          <div className='mb-2' key={roomIndex}>
+          <div className='mb-2 rounded-lg bg-surface-low p-2.5' key={roomIndex}>
             <RoomLabel>
               Room {roomIndex + 1} ({slots})
             </RoomLabel>
@@ -487,7 +506,7 @@ function RoundBody({
             )
           : scored;
         return (
-          <div className='mb-2' key={room}>
+          <div className='mb-2 rounded-lg bg-surface-low p-2.5' key={room}>
             <RoomLabel>
               {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {room} (
               {units.length})
@@ -518,7 +537,7 @@ function RoundBody({
                 <>
                   {showResults && lucky ? '★ ' : ''}
                   {showResults && resolvedTieNames.has(entry.name) ? (
-                    <Badge className='ml-0.5 px-1.5 py-px text-[0.6rem]' tone='warning'>
+                    <Badge className='ml-0.5 px-1.5 py-px text-[0.6rem]' tone='lucky'>
                       ⚖ TB
                     </Badge>
                   ) : null}
@@ -642,28 +661,24 @@ function RoundColumn({
 }) {
   const accentClass =
     accent === 'wb'
-      ? 'border-t-2 border-t-success'
+      ? 'border-b-success'
       : accent === 'lb'
-        ? 'border-t-2 border-t-warning'
+        ? 'border-b-warning'
         : accent === 'gf'
-          ? 'border-t-2 border-t-accent'
-          : '';
+          ? 'border-b-accent'
+          : 'border-b-transparent';
+  // No column-level card/box — matches the approved mockup, where a round
+  // column is just a bare label above loose room cards, never its own
+  // bordered/backgrounded container. Only individual rooms get a background.
   const headerClass = cn(
-    'flex w-full items-center gap-1 border-b border-surface-hover bg-surface-low px-3 py-2.5 text-left text-xs font-bold tracking-[0.08em] text-muted uppercase',
+    'mb-3 flex w-full items-center gap-1 border-b-2 pb-1.5 text-left text-[0.64rem] font-bold tracking-[0.1em] text-muted uppercase',
     onToggle && 'cursor-pointer',
     (current || followed) && 'text-primary',
     accentClass,
-    collapsed && 'h-45 border-b-0 py-2 pr-0 pl-0.5 whitespace-nowrap [writing-mode:vertical-rl]',
+    collapsed && 'mb-0 h-45 border-b-0 pb-0 whitespace-nowrap [writing-mode:vertical-rl]',
   );
   return (
-    <div
-      className={cn(
-        'w-52.5 min-w-52.5 shrink-0 overflow-hidden rounded-lg border border-surface-hover bg-surface',
-        collapsed && 'w-8.5 min-w-8.5',
-        current && 'border-primary shadow-[0_0_0_1px_var(--app-primary-soft)]',
-      )}
-      data-ri={roundIndex}
-    >
+    <div className={cn('shrink-0', collapsed ? 'w-8.5 min-w-8.5' : 'w-52.5 min-w-52.5')} data-ri={roundIndex}>
       {onToggle ? (
         <button className={headerClass} onClick={onToggle}>
           <span
@@ -679,7 +694,7 @@ function RoundColumn({
       ) : (
         <div className={headerClass}>{label}</div>
       )}
-      {!collapsed ? <div className='p-2.5'>{children}</div> : null}
+      {!collapsed ? children : null}
     </div>
   );
 }
@@ -725,7 +740,7 @@ export function BracketView() {
     <div id='br-content'>
       <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
         <Input
-          className='max-w-65'
+          className='max-w-55 rounded-full'
           id='br-follow-input'
           placeholder='Follow a player or team…'
           type='text'
