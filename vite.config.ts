@@ -11,5 +11,8 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  ssr: {
+    external: ['firebase-admin', 'firebase-admin/app', 'firebase-admin/database'],
+  },
   plugins: [tanstackStart(), tailwindcss(), viteReact(), nitro({ traceDeps: ['firebase-admin*'] })],
 });
