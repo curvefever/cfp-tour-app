@@ -14,7 +14,7 @@ describe('projectFutureRoundSlots', () => {
       buildRound({ roundNum: 2, rooms: [2], players: 2, advPerRoom: 1, luckyCount: 0 }),
     ];
     const result = project(rounds, 0);
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Winner of Room 1', 'Winner of Room 2']);
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Winner of Room 1A', 'Winner of Room 1B']);
   });
 
   it('orders tier-major/room-minor for advPerRoom > 1, appending lucky-loser tokens last', () => {
@@ -24,12 +24,12 @@ describe('projectFutureRoundSlots', () => {
     ];
     const result = project(rounds, 0);
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
-      'Room 1, Rank 1',
-      'Room 2, Rank 1',
-      'Room 3, Rank 1',
-      'Room 1, Rank 2',
-      'Room 2, Rank 2',
-      'Room 3, Rank 2',
+      'Room 1A, Rank 1',
+      'Room 1B, Rank 1',
+      'Room 1C, Rank 1',
+      'Room 1A, Rank 2',
+      'Room 1B, Rank 2',
+      'Room 1C, Rank 2',
       '★ Lucky loser (any room)',
     ]);
   });
@@ -134,8 +134,8 @@ describe('projectFutureRoundSlots', () => {
     // every room's rank-2); chunked into 2 target rooms of size 2 each:
     // room1 <- [R1r1, R2r1], room2 <- [R1r2, R2r2] -- each target room now
     // draws from both source rooms, not just one.
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1, Rank 1', 'Room 2, Rank 1']);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1, Rank 2', 'Room 2, Rank 2']);
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1B, Rank 1']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 2', 'Room 1B, Rank 2']);
   });
 
   it('projects a no-elim (e.g. "None" pooling warmup) round using each room\'s own size -- nobody is cut, but within-room rank still carries forward, and room sizes can differ; every target room\'s slot count always matches its own declared size exactly', () => {
@@ -149,11 +149,11 @@ describe('projectFutureRoundSlots', () => {
     // smaller); chunked into rooms sized [3, 2]:
     // room1 (size 3) <- [R1r1, R2r1, R1r2], room2 (size 2) <- [R2r2, R1r3].
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
-      'Room 1, Rank 1',
-      'Room 2, Rank 1',
-      'Room 1, Rank 2',
+      'Room 1A, Rank 1',
+      'Room 1B, Rank 1',
+      'Room 1A, Rank 2',
     ]);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 2, Rank 2', 'Room 1, Rank 3']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 2', 'Room 1A, Rank 3']);
   });
 
   it('resolves every round in a chain of no-elim rounds feeding a real elimination round -- poisoning no longer cascades past a no-elim predecessor', () => {
@@ -166,7 +166,7 @@ describe('projectFutureRoundSlots', () => {
     const result = project(rounds, 0);
     expect(result[1]).not.toBeNull();
     expect(result[2]).not.toBeNull();
-    expect(result[3]?.[0].map(projectedSlotLabelText)).toEqual(['Winner of Room 1']);
+    expect(result[3]?.[0].map(projectedSlotLabelText)).toEqual(['Winner of Room 3A']);
   });
 
   it('falls back to null on a structural token-count mismatch (e.g. an unmodeled bye), and poisons downstream rounds', () => {
@@ -208,7 +208,7 @@ describe('projectFutureRoundSlots', () => {
     const result = project(rounds, 0);
     expect(result[2]?.[0].map((slot) => slot.kind)).toEqual(['room-rank', 'round-edge']);
     expect(result[2]?.[0].map(projectedSlotLabelText)).toEqual([
-      'Winner of Room 1',
+      'Winner of Room 1A',
       'Advanced from LB Round 1',
     ]);
   });

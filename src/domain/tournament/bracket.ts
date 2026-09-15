@@ -5,15 +5,25 @@ import type { TournamentRound, TournamentState } from './types';
 interface BracketRoundLabel {
   label: string;
   accent: '' | 'wb' | 'lb' | 'gf';
+  /** The round number as shown in `label` (the WB/LB-specific counter for bracket rounds, `roundNum` otherwise). */
+  roundNumber: number;
 }
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
   let winnersRound = 0;
   let losersRound = 0;
   return state.rounds.map((round) => {
-    if (round.bracket === 'winners') return { label: `WB Round ${++winnersRound}`, accent: 'wb' };
-    if (round.bracket === 'losers') return { label: `LB Round ${++losersRound}`, accent: 'lb' };
-    if (round.bracket === 'grand-final') return { label: '🏆 Grand Final', accent: 'gf' };
+    if (round.bracket === 'winners') {
+      winnersRound += 1;
+      return { label: `WB Round ${winnersRound}`, accent: 'wb', roundNumber: winnersRound };
+    }
+    if (round.bracket === 'losers') {
+      losersRound += 1;
+      return { label: `LB Round ${losersRound}`, accent: 'lb', roundNumber: losersRound };
+    }
+    if (round.bracket === 'grand-final') {
+      return { label: '🏆 Grand Final', accent: 'gf', roundNumber: round.roundNum };
+    }
     const label = round.isFinal
       ? '🏆 Final'
       : round.isSemis
@@ -27,7 +37,7 @@ export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): Brac
               : round.isKingsValley
                 ? `Round ${round.roundNum} (Kings Valley)`
                 : `Round ${round.roundNum}`;
-    return { label, accent: '' };
+    return { label, accent: '', roundNumber: round.roundNum };
   });
 }
 
@@ -73,16 +83,30 @@ export function bracketRoundDefaultCollapsed(roundIndex: number, currentRound: n
   return roundIndex < currentRound - 1;
 }
 
+/** Formats a 1-indexed room number as a letter (1 -> A, 26 -> Z, 27 -> AA, ...). */
+export function roomLetter(room: number): string {
+  let n = room;
+  let label = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    label = String.fromCharCode(65 + rem) + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label || '?';
+}
+
 export type ProjectedSlotLabel =
-  | { kind: 'room-rank'; room: number; rank: number; advPerRoom: number }
+  | { kind: 'room-rank'; room: number; rank: number; advPerRoom: number; sourceRound: number }
   | { kind: 'lucky' }
   | { kind: 'qualifier-cutoff' }
   | { kind: 'round-edge'; sourceRoundIndex: number; edge: 'advanced' | 'dropped'; label: string };
 
 export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
   switch (slot.kind) {
-    case 'room-rank':
-      return slot.advPerRoom === 1 ? `Winner of Room ${slot.room}` : `Room ${slot.room}, Rank ${slot.rank}`;
+    case 'room-rank': {
+      const tag = `${slot.sourceRound}${roomLetter(slot.room)}`;
+      return slot.advPerRoom === 1 ? `Winner of Room ${tag}` : `Room ${tag}, Rank ${slot.rank}`;
+    }
     case 'lucky':
       return '★ Lucky loser (any room)';
     case 'qualifier-cutoff':
@@ -156,6 +180,12 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
  * existing pairingTBD note; a mid-pooling-phase hop; or a structural token-count
  * mismatch, e.g. an unmodeled bye). A null result poisons every downstream round fed
  * (even indirectly) by that round.
+ *
+ * Each room-rank token also carries the source round's own display number
+ * (bracketRoundLabels' WB/LB-specific counter for bracket rounds, roundNum
+ * otherwise) so `projectedSlotLabelText` can render e.g. "Room 1A, Rank 2"
+ * instead of a bare "Room A, Rank 2" -- once rooms are lettered, "Room A"
+ * alone no longer identifies which round it's from.
  */
 export function projectFutureRoundSlots(
   state: Pick<TournamentState, 'rounds' | 'curRound'>,
@@ -198,6 +228,7 @@ export function projectFutureRoundSlots(
     for (const { sourceIndex, edge } of predecessors) {
       const source = rounds[sourceIndex];
       const sourceLabel = labels[sourceIndex]?.label ?? `Round ${source.roundNum}`;
+      const sourceRound = labels[sourceIndex]?.roundNumber ?? source.roundNum;
       if (edge === 'losers') {
         for (let i = 0; i < losersSideCount(source); i += 1) {
           pool.push({
@@ -235,7 +266,7 @@ export function projectFutureRoundSlots(
           for (let room = 1; room <= source.rooms.length; room += 1) {
             const roomSize = source.rooms[room - 1];
             if (rank > roomSize) continue;
-            pool.push({ kind: 'room-rank', room, rank, advPerRoom: roomSize });
+            pool.push({ kind: 'room-rank', room, rank, advPerRoom: roomSize, sourceRound });
           }
         }
         continue;
@@ -244,7 +275,7 @@ export function projectFutureRoundSlots(
       // Tier-major (rank outer, room inner) -- see the function doc comment above.
       for (let rank = 1; rank <= advPerRoom; rank += 1) {
         for (let room = 1; room <= source.rooms.length; room += 1)
-          pool.push({ kind: 'room-rank', room, rank, advPerRoom });
+          pool.push({ kind: 'room-rank', room, rank, advPerRoom, sourceRound });
       }
       for (let i = 0; i < source.luckyCount; i += 1) pool.push({ kind: 'lucky' });
     }

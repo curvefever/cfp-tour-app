@@ -3,6 +3,7 @@ import {
   computeQualificationStandings,
   roomBasedComputeAdvancement,
 } from '../../domain/tournament/advancement';
+import { roomLetter } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { getFinalUnitScore, getUnitScore, orderRoomByScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -99,7 +100,7 @@ export function ScoreboardView() {
           <div className='mb-5' key={room}>
             <div className='flex flex-wrap items-center justify-between gap-1.5 rounded-t-lg border border-b-0 border-surface-hover bg-surface-low px-4 py-2.5'>
               <div className='text-xl font-bold tracking-[0.05em] text-primary'>
-                {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {room}
+                {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {roomLetter(room)}
               </div>
               <div className='mt-0.5 text-xs text-muted'>Top {round.isNoElim ? 'all' : direct} advance</div>
             </div>

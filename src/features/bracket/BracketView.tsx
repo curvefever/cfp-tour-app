@@ -12,6 +12,7 @@ import {
   bracketRoundLabels,
   projectedSlotLabelText,
   projectFutureRoundSlots,
+  roomLetter,
   type BracketFollowStatus,
   type ProjectedSlotLabel,
 } from '../../domain/tournament/bracket';
@@ -52,7 +53,7 @@ function FollowBanner({
       ? `out in ${roundName}`
       : follow.isBye
         ? `${roundName} · BYE, advances automatically`
-        : `${roundName} · Room ${follow.room}`;
+        : `${roundName} · Room ${roomLetter(follow.room)}`;
   return (
     <div
       className={cn(
@@ -339,7 +340,7 @@ function LuckyLoserStandingsPanel({ state, roundIndex }: { state: TournamentStat
           key={entry.name}
         >
           <span className='min-w-0 flex-1 truncate'>
-            {entry.leading ? '★ ' : ''}Room {entry.room} · {unitDisplay(state, entry.name).label}
+            {entry.leading ? '★ ' : ''}Room {roomLetter(entry.room)} · {unitDisplay(state, entry.name).label}
           </span>
           <span>{(entry.pct * 100).toFixed(1)}%</span>
         </div>
@@ -360,11 +361,12 @@ function KingsValleyDisclaimer({ round }: { round: TournamentRound }) {
           const promote = round.kvPromoteCounts?.[roomIndex] ?? 0;
           const cut = isBottom ? (round.kvEliminateCount ?? 0) : (round.kvDemoteCounts?.[roomIndex] ?? 0);
           const stay = size - promote - cut;
+          const cutText = isBottom
+            ? `bottom ${cut} are eliminated`
+            : `bottom ${cut} demote to Room ${roomLetter(roomIndex + 2)}`;
           return (
             <div key={roomIndex}>
-              Room {roomIndex + 1} ({size}): top {promote} promote,{' '}
-              {isBottom ? `bottom ${cut} are eliminated` : `bottom ${cut} demote to Room ${roomIndex + 2}`},{' '}
-              {stay} stay.
+              Room {roomLetter(roomIndex + 1)} ({size}): top {promote} promote, {cutText}, {stay} stay.
             </div>
           );
         })}
@@ -389,7 +391,7 @@ function PlaceholderRound({
         {(round.matches ?? []).map((match, roomIndex) => (
           <div className='mb-2' key={roomIndex}>
             <RoomLabel>
-              Group {match.group} · Room {roomIndex + 1} ({round.rooms[roomIndex]})
+              Group {match.group} · Room {roomLetter(roomIndex + 1)} ({round.rooms[roomIndex]})
             </RoomLabel>
             {match.pair.map((name) => (
               <div
@@ -420,7 +422,7 @@ function PlaceholderRound({
         return (
           <div className='mb-2' key={roomIndex}>
             <RoomLabel>
-              Room {roomIndex + 1} ({slots})
+              Room {roomLetter(roomIndex + 1)} ({slots})
             </RoomLabel>
             {Array.from({ length: slots }, (_, slot) => (
               <div
@@ -520,7 +522,7 @@ function RoundBody({
         return (
           <div className='mb-2' key={room}>
             <RoomLabel>
-              {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {room} (
+              {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {roomLetter(room)} (
               {units.length})
             </RoomLabel>
             {display.map((entry, index) => {

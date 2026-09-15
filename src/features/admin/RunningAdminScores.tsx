@@ -1,4 +1,5 @@
 import { getAllTies, isTieResolved } from '../../domain/tournament/advancement';
+import { roomLetter } from '../../domain/tournament/bracket';
 import { resolveTournamentTie } from '../../domain/tournament/mutations';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { tieResolutionList } from '../../domain/tournament/scoring';
@@ -18,7 +19,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
         'groupLabel' in tie && tie.groupLabel
           ? `⚠ Tie-break required — Group ${tie.groupLabel} qualification cutoff (${tie.fp.toFixed(5)} FP)`
           : 'score' in tie
-            ? `⚠ Tie-break required — Room ${tie.rm} (score ${tie.score})`
+            ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
             : `⚠ Tie-break required — Qualification cutoff (${tie.fp.toFixed(5)} FP)`;
       return (
         <div

@@ -1,3 +1,4 @@
+import { roomLetter } from '../../domain/tournament/bracket';
 import { computeRankings, type RankingDisplay } from '../../domain/tournament/rankings';
 import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
@@ -133,7 +134,7 @@ export function RankingsContent({
                       <strong className='text-warning'>BYE — advances automatically</strong>
                     ) : (
                       <>
-                        Room <strong className='text-primary'>{unit.room}</strong>
+                        Room <strong className='text-primary'>{roomLetter(unit.room)}</strong>
                       </>
                     )}
                   </small>
