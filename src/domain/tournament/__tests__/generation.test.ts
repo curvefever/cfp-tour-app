@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
 import { getMinimumBracketUnits } from '../schedule-generation';
+import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
 import { fixedIdSource, sequenceRandom } from './test-fixtures';
@@ -364,6 +365,13 @@ describe('generateTournament -- round-0 seeding', () => {
       { name: 'P1', room: 2, isLucky: false },
     ]);
     expect(result.state.tournamentId).toBe('test-tournament-id');
+    // Round 0's assignment must be recorded into roomHistory at generation
+    // time -- otherwise the first live transition runs tieredSeed against an
+    // empty history and fails to diversify rooms (see qual-table bug fix).
+    expect(result.state.roomHistory).toEqual({
+      [roomPairKey('P2', 'P3')]: 0,
+      [roomPairKey('P4', 'P1')]: 0,
+    });
   });
 
   it('benches the first roster-order player under the Bye odd-count strategy, deterministically', () => {

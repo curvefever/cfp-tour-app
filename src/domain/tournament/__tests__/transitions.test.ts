@@ -4,9 +4,11 @@ import {
   raceDoubleEliminationBracketPhase,
   sharedFinalDoubleEliminationBracketPhase,
 } from '../double-elimination';
+import { generateTournament } from '../generation';
 import { roomPairKey, snakeSeed } from '../seeding';
-import { createDefaultTournamentState } from '../state-defaults';
-import { buildRound } from './test-fixtures';
+import { createTournamentRuntime } from '../runtime';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { buildRound, sequenceRandom } from './test-fixtures';
 import type { RoundAssignment } from '../types';
 
 describe('advanceTournamentRound — missing roomSize backstop', () => {
@@ -185,8 +187,8 @@ describe('advanceTournamentRound — bye-prepend dedup at a cumulative-standings
       cfg: { poolingPhase: 'qual-table', qualAdv: 2 },
       players: ['P1', 'P2', 'P3', 'P4'],
       rounds: [
-        buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 }),
-        buildRound({ roundNum: 2, isQual: true, rooms: [3], players: 3 }),
+        buildRound({ roundNum: 1, isQual: true, isNoElim: true, rooms: [4], players: 4 }),
+        buildRound({ roundNum: 2, isQual: true, isNoElim: true, rooms: [3], players: 3 }),
         buildRound({ roundNum: 3, isQual: false, rooms: [2], players: 2 }),
       ],
       assignments: [
@@ -687,6 +689,78 @@ describe('advanceTournamentRound — tieredSeed reduces round-to-round staleness
     // newly-seeded pairs are now recorded too, tagged with round index 2.
     for (const pair of roundIndex1Pairs) expect(secondAdvance.state.roomHistory[pair]).toBeDefined();
     for (const pair of roundIndex2Pairs) expect(secondAdvance.state.roomHistory[pair]).toBe(2);
+  });
+});
+
+describe('generateTournament + advanceTournamentRound — qual-table roomHistory continuity', () => {
+  function roomsFromAssignments(assignments: RoundAssignment[]): string[][] {
+    const byRoom = new Map<number, string[]>();
+    for (const entry of assignments) {
+      if (entry.room === null) continue;
+      byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
+    }
+    return [...byRoom.entries()].sort(([a], [b]) => a - b).map(([, names]) => names);
+  }
+
+  /** Deterministic per-room ranking by seat position, independent of names --
+   * seat 0 in each room "wins" that room, seat 1 is the runner-up, etc. --
+   * so tier membership (which drives tieredSeed's waves) is fully controlled
+   * by the test rather than depending on the random seed's exact output. */
+  function scoresForRooms(roundIndex: number, rooms: string[][]): Record<string, number> {
+    const scores: Record<string, number> = {};
+    rooms.forEach((names, roomZeroBased) => {
+      names.forEach((_, position) => {
+        scores[`r${roundIndex}-rm${roomZeroBased + 1}-p${position}`] = 100 - position * 10;
+      });
+    });
+    return scores;
+  }
+
+  it('does not re-pair a round-0 roommate in round 1, now that round 0 is recorded into roomHistory', () => {
+    const state0 = createDefaultTournamentState({
+      confirmedCount: 16,
+      players: Array.from({ length: 16 }, (_, index) => `P${index + 1}`),
+    });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'qual-table',
+      oddCountStrategy: 'none',
+    });
+    const runtime = createTournamentRuntime({ random: sequenceRandom([0.12, 0.34, 0.56, 0.78, 0.23]) });
+    const generated = generateTournament(state0, form, runtime);
+    expect(generated.status).toBe('generated');
+    if (generated.status !== 'generated') return;
+
+    // The fix under test: round 0's random assignment must already be
+    // recorded into roomHistory at generation time -- before this, it was
+    // always empty here, and the very first live qual-table transition ran
+    // tieredSeed with no real signal to diversify against.
+    expect(Object.keys(generated.state.roomHistory).length).toBeGreaterThan(0);
+
+    const round0Rooms = roomsFromAssignments(generated.state.assignments[0]);
+    expect(round0Rooms.length).toBeGreaterThanOrEqual(2);
+    const [roomWinner, roomRunnerUp] = round0Rooms[0];
+
+    const stateWithScores = {
+      ...generated.state,
+      scores: { ...generated.state.scores, ...scoresForRooms(0, round0Rooms) },
+    };
+    const advanced = advanceTournamentRound(stateWithScores);
+    expect(advanced.status).toBe('advanced');
+    if (advanced.status !== 'advanced') return;
+
+    const round1RoomOf = new Map<string, number>();
+    roomsFromAssignments(advanced.state.assignments[1]).forEach((names, roomZeroBased) => {
+      for (const name of names) round1RoomOf.set(name, roomZeroBased);
+    });
+    // Before the fix, empty roomHistory on this first transition meant every
+    // candidate permutation tied on cost, so the deterministic tie-break fell
+    // back to the identity permutation -- reproducing round 0's exact room
+    // structure (the user-reported symptom). With round 0 now recorded, the
+    // room's own winner and runner-up -- who have real, recorded history
+    // together -- must land in different round-1 rooms.
+    expect(round1RoomOf.get(roomWinner)).not.toBe(round1RoomOf.get(roomRunnerUp));
   });
 });
 

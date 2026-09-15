@@ -7,7 +7,7 @@ import {
 } from './pooling';
 import { distributeRooms, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
-import { randomSeed } from './seeding';
+import { randomSeed, recordRoomHistory } from './seeding';
 import {
   buildTournamentProgression,
   getMinimumBracketUnits,
@@ -338,6 +338,7 @@ export function generateTournament(
     luckyLosers: progression.rounds.map(() => []),
     byes: progression.rounds.map(() => []),
     poolingByeCounts: {},
+    roomHistory: {},
     pendingBracketSeeds: {},
     qualTable: roster.map((name) => ({
       name,
@@ -376,5 +377,6 @@ export function generateTournament(
   } else {
     state.assignments[0] = randomSeed(initialPool, state.rounds[0].rooms, runtime.random);
   }
+  state.roomHistory = recordRoomHistory(state.roomHistory, state.assignments[0], 0);
   return { status: 'generated', state };
 }
