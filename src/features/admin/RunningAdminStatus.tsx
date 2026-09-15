@@ -97,18 +97,6 @@ export function TournamentSettingsRecap({ state }: { state: TournamentState }) {
   );
 }
 
-export function phaseLabel(state: TournamentState) {
-  const round = state.rounds[state.curRound];
-  if (!round) return '—';
-  if (round.isFinal) return round.bracket === 'grand-final' ? '🏆 Grand Final' : '🏆 Final';
-  if (round.isSemis) return '⚔ Semi-Finals';
-  if (round.isQual) return `Round ${round.roundNum} (Qual)`;
-  if (round.isSwiss) return `Round ${round.roundNum} (Swiss)`;
-  if (round.isGroupStage) return `Round ${round.roundNum} (Group)`;
-  if (round.isNoElim) return `Round ${round.roundNum} (No elim)`;
-  return `Round ${round.roundNum}`;
-}
-
 export function LiveSyncCard() {
   const app = useTournamentApp();
   const [copied, setCopied] = useState(false);

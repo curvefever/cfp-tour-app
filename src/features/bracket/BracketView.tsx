@@ -18,9 +18,14 @@ import {
 } from '../../domain/tournament/bracket';
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { getGameFormat } from '../../domain/tournament/formats';
-import { setFinalScore, setRoundScore } from '../../domain/tournament/mutations';
+import { resolveTournamentTie, setFinalScore, setRoundScore } from '../../domain/tournament/mutations';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
-import { getDefenderIndex, getUnitScore, orderRoomByScore } from '../../domain/tournament/scoring';
+import {
+  getDefenderIndex,
+  getUnitScore,
+  orderRoomByScore,
+  tieResolutionList,
+} from '../../domain/tournament/scoring';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
@@ -373,6 +378,52 @@ function KingsValleyDisclaimer({ round }: { round: TournamentRound }) {
       </div>
     </div>
   );
+}
+
+function TieBanners({ state }: { state: TournamentState }) {
+  const app = useTournamentApp();
+  const ties = getAllTies(state, state.curRound);
+  return Object.entries(ties)
+    .filter(([key, tie]) => !isTieResolved(key, tie, state))
+    .map(([key, tie]) => {
+      const resolved = tieResolutionList(state, key);
+      const remaining = tie.players.filter((player) => !resolved.includes(player.name));
+      const heading =
+        'groupLabel' in tie && tie.groupLabel
+          ? `⚠ Tie-break required — Group ${tie.groupLabel} qualification cutoff (${tie.fp.toFixed(5)} FP)`
+          : 'score' in tie
+            ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
+            : `⚠ Tie-break required — Qualification cutoff (${tie.fp.toFixed(5)} FP)`;
+      return (
+        <div
+          className='mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-danger bg-danger-soft px-4.5 py-3.5'
+          key={key}
+        >
+          <div>
+            <div className='font-semibold text-danger'>{heading}</div>
+            <div className='mt-1 text-xs text-muted'>
+              {resolved.length
+                ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
+                : ''}
+              tied: {tie.players.map((player) => unitDisplay(state, player.name).label).join(', ')} — pick who
+              ranks next
+            </div>
+          </div>
+          <ButtonRow className='mt-0'>
+            {remaining.map((player) => (
+              <Button
+                size='sm'
+                variant='warning'
+                key={player.name}
+                onClick={() => app.updateState((current) => resolveTournamentTie(current, key, player.name))}
+              >
+                {unitDisplay(state, player.name).label} ranks next
+              </Button>
+            ))}
+          </ButtonRow>
+        </div>
+      );
+    });
 }
 
 function PlaceholderRound({
@@ -886,6 +937,7 @@ export function BracketView() {
         <Badge tone='accent'>Lucky loser</Badge>
         <Badge tone='danger'>Eliminated</Badge>
       </div>
+      {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds' ref={scroll}>
         {app.state.rounds.map((round, roundIndex) => {
@@ -919,7 +971,7 @@ export function BracketView() {
             <Button
               variant='success'
               disabled={pendingTies}
-              title={pendingTies ? 'Resolve tie-breaks in Admin first' : undefined}
+              title={pendingTies ? 'Resolve the tie-break above first' : undefined}
               onClick={advance}
             >
               Next Round →

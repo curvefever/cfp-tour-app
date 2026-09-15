@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { getGameFormat } from '../../domain/tournament/formats';
 import { resetTournamentState } from '../../domain/tournament/mutations';
 import {
   findLatestArchiveEntryForTournament,
@@ -19,13 +18,11 @@ import {
   ModalActions,
   Panel,
   PanelTitle,
-  StatStrip,
   Timeline,
   TimelineItem,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { TieBanners } from './RunningAdminScores';
-import { LiveSyncCard, TournamentSettingsRecap, phaseLabel } from './RunningAdminStatus';
+import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
 
 type AdminPrompt =
   { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary } | { kind: 'reset' };
@@ -42,7 +39,6 @@ export function RunningAdmin() {
     return () => window.removeEventListener('curve-tour:archive-status', showStatus);
   }, []);
   if (!round) return <Alert tone='danger'>The saved tournament has no current round.</Alert>;
-  const assignments = state.assignments[state.curRound] ?? [];
 
   function mintArchiveId(index = loadArchiveIndex(window.localStorage)) {
     let id = String(app.runtime.clock.now());
@@ -112,28 +108,12 @@ export function RunningAdmin() {
         </Field>
       </Panel>
       <TournamentSettingsRecap state={state} />
-      <TieBanners state={state} />
       {archiveStatus ? (
         <Alert tone='success' id='archive-save-status'>
           {archiveStatus}
         </Alert>
       ) : null}
       <LiveSyncCard />
-      <StatStrip
-        items={[
-          { label: 'Round', value: phaseLabel(state) },
-          { label: getGameFormat(state.gameFormat)?.unitLabelPlural, value: assignments.length },
-          { label: 'Rooms', value: round.rooms.length },
-          {
-            label: 'Advancing',
-            value: round.isNoElim
-              ? 'All'
-              : round.isFinal
-                ? '—'
-                : `${round.advTotal}${round.luckyCount ? ` + ${round.luckyCount} LL` : ''}`,
-          },
-        ]}
-      />
       <Panel>
         <PanelTitle>Tournament progress</PanelTitle>
         <Timeline>
