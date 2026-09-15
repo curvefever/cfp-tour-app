@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { getAllTies, isTieResolved } from '../../domain/tournament/advancement';
+import { useEffect, useState } from 'react';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { resetTournamentState } from '../../domain/tournament/mutations';
-import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import {
   findLatestArchiveEntryForTournament,
   loadArchiveIndex,
@@ -11,7 +9,6 @@ import {
 } from '../../lib/persistence/archive';
 import { saveBracketFollow } from '../../lib/persistence/storage';
 import { archiveEntryStorageKey } from '../../lib/persistence/storage-keys';
-import { ByeCard, TournamentUnit } from '../../components/tournament/TournamentUnit';
 import {
   Alert,
   Button,
@@ -25,12 +22,10 @@ import {
   StatStrip,
   Timeline,
   TimelineItem,
-  cn,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { FinalsScores, RoomScores, TieBanners } from './RunningAdminScores';
-import { ManageRoster, ReservePanel } from './RunningAdminRoster';
-import { LiveSyncCard, Standings, phaseLabel } from './RunningAdminStatus';
+import { TieBanners } from './RunningAdminScores';
+import { LiveSyncCard, TournamentSettingsRecap, phaseLabel } from './RunningAdminStatus';
 
 type AdminPrompt =
   { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary } | { kind: 'reset' };
@@ -39,7 +34,6 @@ export function RunningAdmin() {
   const app = useTournamentApp();
   const state = app.state;
   const round = state.rounds[state.curRound];
-  const [message, setMessage] = useState('');
   const [archiveStatus, setArchiveStatus] = useState('');
   const [prompt, setPrompt] = useState<AdminPrompt | null>(null);
   useEffect(() => {
@@ -47,14 +41,8 @@ export function RunningAdmin() {
     window.addEventListener('curve-tour:archive-status', showStatus);
     return () => window.removeEventListener('curve-tour:archive-status', showStatus);
   }, []);
-  const pendingTies = useMemo(
-    () =>
-      Object.entries(getAllTies(state, state.curRound)).some(([key, tie]) => !isTieResolved(key, tie, state)),
-    [state],
-  );
   if (!round) return <Alert tone='danger'>The saved tournament has no current round.</Alert>;
   const assignments = state.assignments[state.curRound] ?? [];
-  const last = state.curRound >= state.rounds.length - 1 || round.bracket === 'grand-final';
 
   function mintArchiveId(index = loadArchiveIndex(window.localStorage)) {
     let id = String(app.runtime.clock.now());
@@ -123,8 +111,8 @@ export function RunningAdmin() {
           />
         </Field>
       </Panel>
+      <TournamentSettingsRecap state={state} />
       <TieBanners state={state} />
-      {message ? <Alert tone='danger'>{message}</Alert> : null}
       {archiveStatus ? (
         <Alert tone='success' id='archive-save-status'>
           {archiveStatus}
@@ -160,84 +148,7 @@ export function RunningAdmin() {
           ))}
         </Timeline>
       </Panel>
-      <ReservePanel state={state} />
-      <ManageRoster state={state} />
-      <Standings state={state} />
-      {state.curRound > 0 && assignments.length && !round.isQual && !round.isSwiss && !round.isGroupStage ? (
-        <div className='mb-4.5 rounded-lg border border-surface-hover bg-surface-low px-4 py-3.5'>
-          <div className='mb-2.5 text-[0.72rem] font-semibold tracking-[0.12em] text-warning uppercase'>
-            Room Assignments — {phaseLabel(state)}
-          </div>
-          <div className='grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2'>
-            {[...assignments]
-              .sort((a, b) => (a.room ?? 0) - (b.room ?? 0))
-              .map((entry) => (
-                <div
-                  className={cn(
-                    'flex min-w-0 items-center justify-between gap-2 rounded-[5px] border border-surface-hover bg-surface px-3 py-2',
-                    entry.room === null && 'border-accent',
-                  )}
-                  key={entry.name}
-                >
-                  <TournamentUnit state={state} name={entry.name} />
-                  <span className='shrink-0 rounded-sm bg-primary-soft px-2.5 py-0.5 text-sm font-bold text-primary'>
-                    {entry.room === null ? 'BYE' : `Room ${entry.room}`}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-      ) : null}
-      {round.isFinal ? (
-        <FinalsScores state={state} />
-      ) : (
-        <>
-          {Array.from({ length: round.rooms.length }, (_, index) => (
-            <RoomScores key={index} state={state} room={index + 1} />
-          ))}
-          {(state.byes[state.curRound] ?? []).map((name) => (
-            <ByeCard key={name}>
-              <strong>BYE</strong>
-              <TournamentUnit state={state} name={name} />
-              <span className='ml-auto text-xs text-muted'>Advances automatically — no room this round</span>
-            </ByeCard>
-          ))}
-        </>
-      )}
       <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
-        {!last ? (
-          <Button
-            variant='success'
-            disabled={pendingTies}
-            title={pendingTies ? 'Resolve tie-breaks first' : undefined}
-            onClick={() => {
-              // Last-resort backstop: every known failure mode returns a
-              // 'blocked' result instead of throwing, but this guards
-              // against any future/unanticipated throw deep in the
-              // advancement logic crashing the whole Admin panel mid-tournament.
-              let result;
-              try {
-                result = advanceTournamentRound(state);
-              } catch (error) {
-                setMessage(error instanceof Error ? error.message : String(error));
-                return;
-              }
-              if (result.status === 'advanced') {
-                setMessage('');
-                app.updateState(result.state);
-              } else if (result.status === 'blocked') setMessage(result.message);
-            }}
-          >
-            Next Round →
-          </Button>
-        ) : null}
-        {state.curRound > 0 ? (
-          <Button
-            onClick={() => app.updateState((current) => ({ ...current, curRound: current.curRound - 1 }))}
-          >
-            ← Previous
-          </Button>
-        ) : null}
         <Button variant='accent' onClick={requestArchiveSave}>
           💾 Save to Archive
         </Button>

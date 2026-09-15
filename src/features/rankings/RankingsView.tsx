@@ -3,6 +3,7 @@ import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { downloadRankingsImage } from './rankings-image';
+import { ManageRoster, ReservePanel } from './RankingsRoster';
 import { Position } from '../../components/tournament/TournamentUnit';
 import { Alert, Badge, Button, ButtonRow, cn } from '../../components/ui';
 
@@ -60,7 +61,15 @@ function RoundLabel({ round }: { round: TournamentRound }) {
   );
 }
 
-function RosterOnly({ state }: { state: TournamentState }) {
+function RosterOnly({ state, editable }: { state: TournamentState; editable: boolean }) {
+  if (editable) {
+    return (
+      <>
+        <ReservePanel state={state} />
+        <ManageRoster state={state} />
+      </>
+    );
+  }
   const rows = [
     ...rosterKeys(state.players).map((name) => ({ name, badge: 'Registered' })),
     ...rosterKeys(state.reserves).map((name) => ({ name, badge: 'Reserve' })),
@@ -86,15 +95,17 @@ function RosterOnly({ state }: { state: TournamentState }) {
 export function RankingsContent({
   state,
   downloads = true,
+  editable = false,
 }: {
   state: TournamentState;
   downloads?: boolean;
+  editable?: boolean;
 }) {
   if (!state.players.length && !state.reserves.length) {
     return <Alert>No players registered yet — check back once the organiser loads a roster in Admin.</Alert>;
   }
   const data = computeRankings(state);
-  if (!data) return <RosterOnly state={state} />;
+  if (!data) return <RosterOnly state={state} editable={editable} />;
   return (
     <div id='rk-content'>
       <p className='text-muted'>
@@ -141,6 +152,27 @@ export function RankingsContent({
           </RankingGrid>
         </>
       ) : null}
+      {editable ? (
+        <ReservePanel state={state} />
+      ) : state.reserves.length ? (
+        <>
+          <SectionTitle>Reserves</SectionTitle>
+          <RankingGrid>
+            {rosterKeys(state.reserves).map((name) => {
+              const info = unitDisplay(state, name);
+              return (
+                <RankingRow key={name}>
+                  <span className='text-center text-lg font-bold text-muted'>—</span>
+                  <span className='min-w-0'>
+                    <Unit entry={{ name, ...info }} />
+                  </span>
+                  <Badge>Reserve</Badge>
+                </RankingRow>
+              );
+            })}
+          </RankingGrid>
+        </>
+      ) : null}
       {data.finalComplete || data.eliminatedList.length ? (
         <>
           <SectionTitle>Final standings</SectionTitle>
@@ -168,11 +200,17 @@ export function RankingsContent({
           </RankingGrid>
         </>
       ) : null}
+      {editable ? (
+        <>
+          <SectionTitle>Manage roster</SectionTitle>
+          <ManageRoster state={state} />
+        </>
+      ) : null}
     </div>
   );
 }
 
 export function RankingsView() {
-  const { state } = useTournamentApp();
-  return <RankingsContent state={state} />;
+  const app = useTournamentApp();
+  return <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer} />;
 }

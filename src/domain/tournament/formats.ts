@@ -3,7 +3,9 @@ import type {
   GameFormatKey,
   ImplementedGameFormatKey,
   OddCountStrategyKey,
+  PoolingPhaseKey,
   RoomSize,
+  ScheduleLogicKey,
 } from "./types";
 
 export const GAME_FORMATS: Readonly<
@@ -61,6 +63,20 @@ export const ODD_COUNT_STRATEGY_LABELS = {
   bye: "Bye — a team can sit out a round when needed",
   flex: "Flex — a room can occasionally hold one extra team",
 } as const;
+
+export const SCHEDULE_LOGIC_LABELS: Record<ScheduleLogicKey, string> = {
+  "single-elimination": "Single elimination",
+  "double-elimination": "Double elimination",
+  "double-elimination-shared-final": "Double elimination — FFA/Team",
+  "kings-valley": "Kings Valley",
+};
+
+export const POOLING_PHASE_LABELS: Record<PoolingPhaseKey, string> = {
+  none: "None — standard elimination from R1",
+  "qual-table": "Qualification Table",
+  swiss: "Swiss",
+  "group-stage": "Group Stage",
+};
 
 export function getGameFormat(
   key: GameFormatKey,

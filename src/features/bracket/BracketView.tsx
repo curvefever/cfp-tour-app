@@ -3,6 +3,7 @@ import {
   computeLuckyLoserStandings,
   detectTieBreaks,
   getAllTies,
+  hasPendingTies,
   isTieResolved,
 } from '../../domain/tournament/advancement';
 import {
@@ -19,9 +20,10 @@ import { getGameFormat } from '../../domain/tournament/formats';
 import { setFinalScore, setRoundScore } from '../../domain/tournament/mutations';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex, getUnitScore, orderRoomByScore } from '../../domain/tournament/scoring';
+import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
-import { Alert, Badge, Button, Input, ScoreInput, cn } from '../../components/ui';
+import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
@@ -105,16 +107,18 @@ function BracketScoreInput({
   scoreKey,
   roundIndex,
   room,
+  className = cn(compactScoreClass, 'ml-auto'),
 }: {
   state: TournamentState;
   scoreKey: string;
   roundIndex: number;
   room: number;
+  className?: string;
 }) {
   const app = useTournamentApp();
   return (
     <ScoreInput
-      className={cn(compactScoreClass, 'ml-auto')}
+      className={className}
       min='0'
       value={state.scores[scoreKey] ?? ''}
       data-key={scoreKey}
@@ -165,6 +169,9 @@ function FinalColumn({
   const progress = finalsProgressState(state, roundIndex, round);
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
+  const games = round.numGames ?? 1;
+  const [tab, setTab] = useState(progress.nextGame ?? 1);
+  const activeTab = Math.min(tab, games);
   const names = progress.complete
     ? progress.order.filter((name): name is string => Boolean(name))
     : assignments.map((entry) => entry.name);
@@ -183,16 +190,42 @@ function FinalColumn({
           ) : null}
         </div>
       ) : null}
-      {editable && progress.nextGame !== null ? (
+      {editable && games > 1 ? (
+        <div className='mb-1.5 flex flex-wrap gap-1'>
+          {Array.from({ length: games }, (_, index) => (
+            <Button
+              key={index}
+              size='sm'
+              className={cn(
+                'px-1.5 py-0.5 text-[0.68rem]',
+                activeTab === index + 1 && tab !== 0 && 'border-primary bg-primary-soft text-primary',
+              )}
+              onClick={() => setTab(index + 1)}
+            >
+              G{index + 1}
+            </Button>
+          ))}
+          <Button
+            size='sm'
+            className={cn(
+              'px-1.5 py-0.5 text-[0.68rem]',
+              tab === 0 && 'border-primary bg-primary-soft text-primary',
+            )}
+            onClick={() => setTab(0)}
+          >
+            📊 Total
+          </Button>
+        </div>
+      ) : null}
+      {editable && tab !== 0 ? (
         <div className='mb-1 text-[0.68rem] font-semibold tracking-[0.05em] text-primary uppercase'>
-          Game {progress.nextGame} — enter scores
+          Game {activeTab} — enter scores
         </div>
       ) : null}
       {names.map((name, index) => {
         const unit = progress.units.find((entry) => entry.name === name);
         if (!unit) return null;
         const winner = progress.complete && index === 0;
-        const nextGame = progress.nextGame;
         const team = teamMap[name];
         return (
           <div
@@ -223,9 +256,9 @@ function FinalColumn({
                 </span>
               ))}
             </div>
-            {editable && nextGame !== null ? (
+            {editable && tab !== 0 ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-                <span className='text-[0.68rem] text-muted'>G{nextGame}</span>
+                <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
                 {teamSize ? (
                   <TeamScoreFields>
                     {Array.from({ length: teamSize }, (_, memberIndex) => {
@@ -239,7 +272,7 @@ function FinalColumn({
                             placeholder='—'
                           />
                         );
-                      const key = `game${nextGame}-${name}-m${memberIndex}`;
+                      const key = `game${activeTab}-${name}-m${memberIndex}`;
                       return (
                         <label key={key}>
                           <span>{member.name}</span>
@@ -257,7 +290,7 @@ function FinalColumn({
                   </TeamScoreFields>
                 ) : (
                   (() => {
-                    const key = `game${nextGame}-${name}`;
+                    const key = `game${activeTab}-${name}`;
                     return (
                       <ScoreInput
                         className={compactScoreClass}
@@ -275,9 +308,6 @@ function FinalColumn({
           </div>
         );
       })}
-      {editable && progress.nextGame !== null && progress.nextGame > 1 ? (
-        <div className='text-[0.68rem] text-muted'>Earlier games are edited in Admin</div>
-      ) : null}
     </>
   );
 }
@@ -447,7 +477,8 @@ function RoundBody({
     );
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
-  const rowsEditable = editable && roundIndex === state.curRound && (round.numGames ?? 1) <= 1;
+  const rowsEditable = editable && roundIndex === state.curRound;
+  const games = round.numGames ?? 1;
   const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
@@ -514,9 +545,35 @@ function RoundBody({
                         ? 'advance'
                         : 'eliminate';
               const followed = followKey === entry.name;
+              const kvLabel =
+                round.isKingsValley && showResults
+                  ? result === 'promote'
+                    ? '▲ Promotes'
+                    : result === 'demote'
+                      ? '▼ Demotes'
+                      : result === 'eliminate'
+                        ? '☠ Eliminated'
+                        : '— Stays'
+                  : null;
               const badges = (
                 <>
                   {showResults && lucky ? '★ ' : ''}
+                  {kvLabel ? (
+                    <Badge
+                      className='ml-0.5 px-1.5 py-px text-[0.6rem]'
+                      tone={
+                        result === 'promote'
+                          ? 'success'
+                          : result === 'demote'
+                            ? 'warning'
+                            : result === 'eliminate'
+                              ? 'danger'
+                              : 'neutral'
+                      }
+                    >
+                      {kvLabel}
+                    </Badge>
+                  ) : null}
                   {showResults && resolvedTieNames.has(entry.name) ? (
                     <Badge className='ml-0.5 px-1.5 py-px text-[0.6rem]' tone='warning'>
                       ⚖ TB
@@ -556,25 +613,82 @@ function RoundBody({
                                 placeholder='—'
                               />
                             );
-                          const key = `r${roundIndex}-rm${room}-p${entry.position}-m${memberIndex}`;
+                          if (games <= 1) {
+                            const key = `r${roundIndex}-rm${room}-p${entry.position}-m${memberIndex}`;
+                            return (
+                              <label key={key}>
+                                <span>{member.name}</span>
+                                <BracketScoreInput
+                                  state={state}
+                                  scoreKey={key}
+                                  roundIndex={roundIndex}
+                                  room={room}
+                                />
+                              </label>
+                            );
+                          }
                           return (
-                            <label key={key}>
+                            <label key={memberIndex}>
                               <span>{member.name}</span>
-                              <BracketScoreInput
-                                state={state}
-                                scoreKey={key}
-                                roundIndex={roundIndex}
-                                room={room}
-                              />
+                              {Array.from({ length: games }, (_, gameIndex) => {
+                                const key = `r${roundIndex}-rm${room}-p${entry.position}-g${gameIndex + 1}-m${memberIndex}`;
+                                return (
+                                  <BracketScoreInput
+                                    key={key}
+                                    state={state}
+                                    scoreKey={key}
+                                    roundIndex={roundIndex}
+                                    room={room}
+                                    className={compactScoreClass}
+                                  />
+                                );
+                              })}
                             </label>
                           );
                         })}
+                        {games > 1 ? (
+                          <span className='text-[0.68rem] font-bold text-foreground'>
+                            Total {getUnitScore(state, roundIndex, room, entry.position, 0)}
+                          </span>
+                        ) : null}
                       </TeamScoreFields>
                     ) : null}
                   </div>
                 );
               }
               const key = `r${roundIndex}-rm${room}-p${entry.position}`;
+              if (rowsEditable && games > 1) {
+                return (
+                  <div className={cn(bracketRowBase, resultClasses(result, followed))} key={entry.name}>
+                    <div className='flex items-center gap-1.5'>
+                      <span className='min-w-0 flex-1'>
+                        {badges}
+                        {entry.name}
+                      </span>
+                    </div>
+                    <TeamScoreFields>
+                      {Array.from({ length: games }, (_, gameIndex) => {
+                        const gameKey = `${key}-g${gameIndex + 1}`;
+                        return (
+                          <label key={gameKey}>
+                            <span>G{gameIndex + 1}</span>
+                            <BracketScoreInput
+                              state={state}
+                              scoreKey={gameKey}
+                              roundIndex={roundIndex}
+                              room={room}
+                              className={compactScoreClass}
+                            />
+                          </label>
+                        );
+                      })}
+                      <span className='text-[0.68rem] font-bold text-foreground'>
+                        Total {getUnitScore(state, roundIndex, room, entry.position, 0)}
+                      </span>
+                    </TeamScoreFields>
+                  </div>
+                );
+              }
               return (
                 <div
                   className={cn(bracketRowBase, 'flex items-center gap-1.5', resultClasses(result, followed))}
@@ -689,6 +803,7 @@ export function BracketView() {
   const [collapse, setCollapse] = useState<Record<number, boolean>>({});
   const [query, setQuery] = useState('');
   const [followKey, setFollowKey] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
   const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!app.hydrated) return;
@@ -703,6 +818,27 @@ export function BracketView() {
   if (!app.state.rounds.length)
     return <Alert>Start a tournament in Admin to see the bracket overview.</Alert>;
   const editable = app.unlocked && !app.isViewer && app.state.started;
+  const pendingTies = hasPendingTies(app.state, app.state.curRound);
+  const currentRound = app.state.rounds[app.state.curRound];
+  const isLastRound =
+    app.state.curRound >= app.state.rounds.length - 1 || currentRound?.bracket === 'grand-final';
+  function advance() {
+    // Last-resort backstop: every known failure mode returns a 'blocked'
+    // result instead of throwing, but this guards against any
+    // future/unanticipated throw deep in the advancement logic crashing the
+    // whole Bracket view mid-tournament.
+    let result;
+    try {
+      result = advanceTournamentRound(app.state);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    if (result.status === 'advanced') {
+      setMessage('');
+      app.updateState(result.state);
+    } else if (result.status === 'blocked') setMessage(result.message);
+  }
   function chooseFollow(value: string) {
     setQuery(value);
     const resolved = resolveUnitQuery(app.state, value);
@@ -748,6 +884,7 @@ export function BracketView() {
         <Badge tone='accent'>Lucky loser</Badge>
         <Badge tone='danger'>Eliminated</Badge>
       </div>
+      {message ? <Alert tone='danger'>{message}</Alert> : null}
       <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds' ref={scroll}>
         {app.state.rounds.map((round, roundIndex) => {
           const collapsed =
@@ -774,6 +911,27 @@ export function BracketView() {
           );
         })}
       </div>
+      {editable ? (
+        <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
+          {!isLastRound ? (
+            <Button
+              variant='success'
+              disabled={pendingTies}
+              title={pendingTies ? 'Resolve tie-breaks in Admin first' : undefined}
+              onClick={advance}
+            >
+              Next Round →
+            </Button>
+          ) : null}
+          {app.state.curRound > 0 ? (
+            <Button
+              onClick={() => app.updateState((current) => ({ ...current, curRound: current.curRound - 1 }))}
+            >
+              ← Previous
+            </Button>
+          ) : null}
+        </ButtonRow>
+      ) : null}
     </div>
   );
 }
