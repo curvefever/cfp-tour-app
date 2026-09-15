@@ -17,7 +17,7 @@ describe('projectFutureRoundSlots', () => {
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Winner of Room 1', 'Winner of Room 2']);
   });
 
-  it('orders room-major/rank-minor for advPerRoom > 1, appending lucky-loser tokens last', () => {
+  it('orders tier-major/room-minor for advPerRoom > 1, appending lucky-loser tokens last', () => {
     const rounds = [
       buildRound({ roundNum: 1, rooms: [3, 3, 3], players: 9, advPerRoom: 2, luckyCount: 1 }),
       buildRound({ roundNum: 2, rooms: [7], players: 7, advPerRoom: 7, luckyCount: 0 }),
@@ -25,10 +25,10 @@ describe('projectFutureRoundSlots', () => {
     const result = project(rounds, 0);
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
       'Room 1, Rank 1',
-      'Room 1, Rank 2',
       'Room 2, Rank 1',
-      'Room 2, Rank 2',
       'Room 3, Rank 1',
+      'Room 1, Rank 2',
+      'Room 2, Rank 2',
       'Room 3, Rank 2',
       '★ Lucky loser (any room)',
     ]);
@@ -123,17 +123,19 @@ describe('projectFutureRoundSlots', () => {
     expect(project(groupRounds, 0)[1]).toBeNull();
   });
 
-  it("projects a mid-pooling-phase hop (qual round 1 -> qual round 2, neither is the last) via the same per-room-rank shape as any other no-elim round -- everyone advances, ranked within their own room, then chunked sequentially into the target round's own declared room sizes (not snake-seeded -- see bracket.ts's comment on why the projection deliberately diverges from the real transition's snakeSeed here)", () => {
+  it("projects a mid-pooling-phase hop (qual round 1 -> qual round 2, neither is the last) via the same per-room-rank shape as any other no-elim round -- everyone advances, ranked within their own room, then chunked tier-major into the target round's own declared room sizes (not tieredSeed-ed -- see bracket.ts's comment on why the projection deliberately diverges from the real transition's tieredSeed here, while still spreading same-source-room candidates across target rooms instead of collapsing to same-room carryover)", () => {
     const rounds = [
       buildRound({ roundNum: 1, rooms: [2, 2], players: 4, isQual: true, isNoElim: true }),
       buildRound({ roundNum: 2, rooms: [2, 2], players: 4, isQual: true, isNoElim: true }),
       buildRound({ roundNum: 3, rooms: [2, 2], players: 4, isQual: true, isNoElim: true }),
     ];
     const result = project(rounds, 0);
-    // Pool = [R1r1, R1r2, R2r1, R2r2] (room-major); chunked sequentially into
-    // 2 target rooms of size 2 each: room1 <- [R1r1, R1r2], room2 <- [R2r1, R2r2].
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1, Rank 1', 'Room 1, Rank 2']);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 2, Rank 1', 'Room 2, Rank 2']);
+    // Pool = [R1r1, R2r1, R1r2, R2r2] (tier-major: every room's rank-1, then
+    // every room's rank-2); chunked into 2 target rooms of size 2 each:
+    // room1 <- [R1r1, R2r1], room2 <- [R1r2, R2r2] -- each target room now
+    // draws from both source rooms, not just one.
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1, Rank 1', 'Room 2, Rank 1']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1, Rank 2', 'Room 2, Rank 2']);
   });
 
   it('projects a no-elim (e.g. "None" pooling warmup) round using each room\'s own size -- nobody is cut, but within-room rank still carries forward, and room sizes can differ; every target room\'s slot count always matches its own declared size exactly', () => {
@@ -142,14 +144,16 @@ describe('projectFutureRoundSlots', () => {
       buildRound({ roundNum: 2, rooms: [3, 2], players: 5, isNoElim: true }),
     ];
     const result = project(rounds, 0);
-    // Pool = [R1r1, R1r2, R1r3, R2r1, R2r2]; chunked sequentially into rooms
-    // sized [3, 2]: room1 (size 3) <- [R1r1, R1r2, R1r3], room2 (size 2) <- [R2r1, R2r2].
+    // Pool = [R1r1, R2r1, R1r2, R2r2, R1r3] (tier-major: rank 1 from both
+    // rooms, rank 2 from both rooms, rank 3 only from room 1 since room 2 is
+    // smaller); chunked into rooms sized [3, 2]:
+    // room1 (size 3) <- [R1r1, R2r1, R1r2], room2 (size 2) <- [R2r2, R1r3].
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
       'Room 1, Rank 1',
+      'Room 2, Rank 1',
       'Room 1, Rank 2',
-      'Room 1, Rank 3',
     ]);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 2, Rank 1', 'Room 2, Rank 2']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 2, Rank 2', 'Room 1, Rank 3']);
   });
 
   it('resolves every round in a chain of no-elim rounds feeding a real elimination round -- poisoning no longer cascades past a no-elim predecessor', () => {

@@ -136,10 +136,21 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
 /**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
- * predecessor (e.g. the "None" pooling phase's warmup rounds) still contributes a
- * real per-room projection -- nobody is cut, but roomBasedComputeAdvancement ranks
- * each room's occupants by score before handing the whole room on, so the same
- * room-rank shape applies, just with every position filled instead of a top-N cut.
+ * predecessor (e.g. the "None" pooling phase's warmup rounds, or a mid-Qualification-
+ * Table round) still contributes a real per-room projection -- nobody is cut, but
+ * roomBasedComputeAdvancement ranks each room's occupants by score before handing the
+ * whole room on, so the same room-rank shape applies, just with every position filled
+ * instead of a top-N cut.
+ *
+ * Both the no-elim branch and the ordinary cutting-round branch below build their
+ * room-rank tokens tier-major (every room's own rank-1 finisher, then every room's
+ * own rank-2, ...) rather than room-major -- this deliberately spreads same-source-
+ * room candidates across different target rooms once chunked, matching in spirit
+ * (though not exactly) what the real transition's tiered/diversity-aware seeding
+ * (tieredSeed, seeding.ts) actually tends to do, instead of the room-major ordering's
+ * worst-case collapse into "every room carries straight over unchanged" whenever
+ * source and target share the same room shape (see the chunking comment below).
+ *
  * A round index maps to null when its origin genuinely can't be resolved ahead of
  * time (group-stage -- handled by real names elsewhere; Swiss -- handled by the
  * existing pairingTBD note; a mid-pooling-phase hop; or a structural token-count
@@ -217,18 +228,22 @@ export function projectFutureRoundSlots(
         // rather than treating a no-elim round as unknowable. Room sizes can
         // differ (e.g. [8,8,7,7,7]), so this must be computed per room, not
         // from a single round-wide advPerRoom the way every other room-based
-        // round already is.
-        for (let room = 1; room <= source.rooms.length; room += 1) {
-          const roomSize = source.rooms[room - 1];
-          for (let rank = 1; rank <= roomSize; rank += 1) {
+        // round already is. Tier-major (rank outer, room inner) -- see the
+        // function doc comment above for why.
+        const maxRoomSize = Math.max(0, ...source.rooms);
+        for (let rank = 1; rank <= maxRoomSize; rank += 1) {
+          for (let room = 1; room <= source.rooms.length; room += 1) {
+            const roomSize = source.rooms[room - 1];
+            if (rank > roomSize) continue;
             pool.push({ kind: 'room-rank', room, rank, advPerRoom: roomSize });
           }
         }
         continue;
       }
       const advPerRoom = source.advPerRoom ?? 0;
-      for (let room = 1; room <= source.rooms.length; room += 1) {
-        for (let rank = 1; rank <= advPerRoom; rank += 1)
+      // Tier-major (rank outer, room inner) -- see the function doc comment above.
+      for (let rank = 1; rank <= advPerRoom; rank += 1) {
+        for (let room = 1; room <= source.rooms.length; room += 1)
           pool.push({ kind: 'room-rank', room, rank, advPerRoom });
       }
       for (let i = 0; i < source.luckyCount; i += 1) pool.push({ kind: 'lucky' });
@@ -241,16 +256,21 @@ export function projectFutureRoundSlots(
       continue;
     }
 
-    // Chunk the pool directly into round.rooms' declared sizes rather than
-    // trying to mirror the real transition's own diversity/recency-aware
-    // wave-based seeding (tieredSeed/tieredBracketSeed, seeding.ts) --
-    // that seeding depends on live match history and per-round scores this
-    // display doesn't have and shouldn't need. So a projected room's
-    // contents can drift from what actually lands there once the round is
-    // reached. That drift is accepted as the honest tradeoff: every
-    // projected slot always matches its own room's displayed size exactly
-    // (no more blank dashes or invisible overflow into another room), which
-    // is the property this display is for.
+    // Chunk the tier-major pool directly into round.rooms' declared sizes
+    // rather than trying to mirror the real transition's own diversity/
+    // recency-aware wave-based seeding (tieredSeed/tieredBracketSeed,
+    // seeding.ts) exactly -- that seeding depends on live match history and
+    // per-round scores this display doesn't have and shouldn't need.
+    // Building the pool tier-major (see the function doc comment above)
+    // already keeps same-source-room candidates apart across target rooms
+    // in the common case (source and target sharing a room shape), so this
+    // sequential chunk is a much closer approximation than a naive
+    // room-major slice would be -- but the exact target-room assignment can
+    // still drift from what the real transition produces. That residual
+    // drift is accepted as the honest tradeoff: every projected slot always
+    // matches its own room's displayed size exactly (no more blank dashes
+    // or invisible overflow into another room), which is the property this
+    // display is for.
     const seeded = sequentialSeed(
       pool.map((_, index) => String(index)),
       round.rooms,
