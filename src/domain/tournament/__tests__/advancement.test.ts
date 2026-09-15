@@ -4,6 +4,7 @@ import {
   computeGroupStandings,
   computeLuckyLoserStandings,
   computeQualificationStandings,
+  computeStandingsCutoffAdvancing,
   detectTieBreaks,
   doubleEliminationComputeAdvancement,
   hasPendingTies,
@@ -387,6 +388,134 @@ describe('roomBasedComputeAdvancement', () => {
     // Tier 1 (rank-1 finishers, sorted among themselves by fairPoints) first,
     // then tier 2 (rank-2 finishers) -- never clustered by group.
     expect(result.advancing.map((entry) => entry.name)).toEqual(['P4', 'P1', 'P2', 'P3']);
+  });
+});
+
+describe('computeStandingsCutoffAdvancing', () => {
+  it('returns the real cutoff advancing set for the last qualification-table round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      cfg: { poolingPhase: 'qual-table', qualAdv: 2 },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 }),
+        buildRound({ roundNum: 2, isQual: false, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toEqual(new Set(['P1', 'P2']));
+  });
+
+  it('returns the real cutoff advancing set for the last group-stage round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      cfg: { qualifiersPerGroup: 2 },
+      groups: [
+        { label: 'A', members: ['P1', 'P2'] },
+        { label: 'B', members: ['P3', 'P4'] },
+      ],
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          isGroupStage: true,
+          rooms: [2, 2],
+          roomGroups: ['A', 'B'],
+          players: 4,
+        }),
+        buildRound({ roundNum: 2, isGroupStage: false, rooms: [4], players: 4 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 2, isLucky: false },
+          { name: 'P4', room: 2, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 50, 'r0-rm1-p1': 10, 'r0-rm2-p0': 5, 'r0-rm2-p1': 100 },
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toEqual(new Set(['P1', 'P2', 'P3', 'P4']));
+  });
+
+  it('returns null for an ordinary no-elim round (nobody is cut by a cross-round cutoff)', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, isNoElim: true, rooms: [3], advTotal: 3, players: 3 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 },
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toBeNull();
+  });
+
+  it('returns null for an ordinary elimination round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, rooms: [4], advPerRoom: 2, luckyCount: 0, players: 4 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toBeNull();
+  });
+
+  it('returns null for a Kings Valley round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: [4],
+          players: 4,
+          isKingsValley: true,
+          kvPromoteCounts: [1],
+          kvDemoteCounts: [0],
+          kvEliminateCount: 1,
+        }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+      ],
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toBeNull();
+  });
+
+  it('returns null for a Final round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, isFinal: true, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+    });
+    expect(computeStandingsCutoffAdvancing(state, 0)).toBeNull();
   });
 });
 

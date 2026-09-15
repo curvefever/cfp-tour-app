@@ -41,7 +41,7 @@ function scoreRoom(
     .filter((entry): entry is ScoredUnit => entry.score !== null);
 }
 
-function isLastStandingsRound(state: TournamentState, roundIndex: number): boolean {
+export function isLastStandingsRound(state: TournamentState, roundIndex: number): boolean {
   const round = state.rounds[roundIndex];
   const nextRound = state.rounds[roundIndex + 1];
   return Boolean(
@@ -395,6 +395,27 @@ export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: 
     advancing: [...direct, ...luckyNames.map((name) => ({ name, isLucky: true }))],
     luckyNames,
   };
+}
+
+/**
+ * The real per-unit advancing set for a round that carries a cross-round standings cutoff
+ * (the last qual-table/Swiss round, or the last group-stage round) -- these rounds are always
+ * flagged `isNoElim: true` structurally (nobody is cut room-by-room), which is a separate
+ * concept from "nobody is cut at all": the real cutoff is cross-room, decided by cumulative
+ * standings, not by room position. Returns null for every other round (ordinary no-elim,
+ * ordinary elimination, Kings Valley, double-elimination, Final), so callers know to keep
+ * using their own per-room logic unchanged there.
+ */
+export function computeStandingsCutoffAdvancing(
+  state: TournamentState,
+  roundIndex: number,
+): Set<string> | null {
+  const round = state.rounds[roundIndex];
+  const nextRound = state.rounds[roundIndex + 1];
+  if (!round) return null;
+  const isLastGroupRound = Boolean(round.isGroupStage && !nextRound?.isGroupStage);
+  if (!isLastStandingsRound(state, roundIndex) && !isLastGroupRound) return null;
+  return new Set(roomBasedComputeAdvancement(state, roundIndex).advancing.map((entry) => entry.name));
 }
 
 export interface AdvancementTierMember {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   computeLuckyLoserStandings,
+  computeStandingsCutoffAdvancing,
   detectTieBreaks,
   getAllTies,
   hasPendingTies,
@@ -533,6 +534,14 @@ function RoundBody({
   const rowsEditable = editable && roundIndex === state.curRound;
   const games = round.numGames ?? 1;
   const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
+  let cutoffAdvancing: Set<string> | null = null;
+  if (!round.bracket && !round.isKingsValley) {
+    try {
+      cutoffAdvancing = computeStandingsCutoffAdvancing(state, roundIndex);
+    } catch (error) {
+      console.error(`Standings-cutoff computation failed for round ${round.roundNum}`, error);
+    }
+  }
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
     Object.entries(roomTies)
@@ -577,7 +586,9 @@ function RoundBody({
               {units.length})
             </RoomLabel>
             {display.map((entry, index) => {
-              const advances = round.isNoElim || index < direct;
+              const advances = cutoffAdvancing
+                ? cutoffAdvancing.has(entry.name)
+                : round.isNoElim || index < direct;
               const lucky = luckyNames.includes(entry.name);
               const pending = showResults && pendingTieNames.has(entry.name);
               const result = pending
