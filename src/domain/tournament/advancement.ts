@@ -230,19 +230,41 @@ function applyCutoffOrder(
   return output;
 }
 
-function applyQualCutoffOrder(
+export function applyQualCutoffOrder(
   table: TournamentStanding[],
   state: Pick<TournamentState, 'qualTable' | 'cfg' | 'tieResolutions'>,
 ): TournamentStanding[] {
   return applyCutoffOrder(table, detectQualCutoffTie(state), state);
 }
 
-function applyGroupCutoffOrder(
+export function applyGroupCutoffOrder(
   label: string,
   table: TournamentStanding[],
   state: Pick<TournamentState, 'groupStandings' | 'cfg' | 'tieResolutions'>,
 ): TournamentStanding[] {
   return applyCutoffOrder(table, detectGroupCutoffTie(label, state), state);
+}
+
+/**
+ * Dense/competition ranking by totalFP -- a tie shares one rank, and the next
+ * distinct value's rank correctly skips ahead by the tie's size (e.g. a
+ * three-way tie at rank 2 is followed by rank 5, not rank 3). An entrant with
+ * no rounds played yet (totalFP === null) gets rank: null rather than a
+ * misleading sequential number.
+ */
+export function rankStandings(
+  entries: readonly TournamentStanding[],
+): Array<TournamentStanding & { rank: number | null }> {
+  let rank = 0;
+  let previousFP: number | null | undefined;
+  return entries.map((entry, index) => {
+    if (entry.totalFP === null) return { ...entry, rank: null };
+    if (entry.totalFP !== previousFP) {
+      rank = index + 1;
+      previousFP = entry.totalFP;
+    }
+    return { ...entry, rank };
+  });
 }
 
 interface StandingAccumulator {

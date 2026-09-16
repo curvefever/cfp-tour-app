@@ -1,3 +1,4 @@
+import { rankStandings } from '../../../domain/tournament/advancement';
 import type { TournamentStanding, TournamentState } from '../../../domain/tournament/types';
 import { TournamentUnit } from '../../../components/tournament/TournamentUnit';
 import {
@@ -36,9 +37,9 @@ export function TournamentStandings({
                 </TableRow>
               </thead>
               <tbody>
-                {entries.map((entry, index) => (
+                {rankStandings(entries).map((entry) => (
                   <TableRow key={entry.name}>
-                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{entry.rank ?? '—'}</TableCell>
                     <TableCell>
                       <TournamentUnit state={state} name={entry.name} />
                     </TableCell>

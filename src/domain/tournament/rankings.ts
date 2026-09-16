@@ -1,3 +1,4 @@
+import { rankStandings } from './advancement';
 import { computeGrandFinalRaceState } from './finals';
 import { getFinalUnitScore, getUnitScore, orderRoomByScore } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
@@ -203,18 +204,15 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const poolRanks = new Map<string, { rank: number; fp: number | null; groupLabel?: string }>();
   if (state.cfg.poolingPhase === 'group-stage') {
     for (const [label, table] of Object.entries(state.groupStandings)) {
-      table.forEach((entry, index) =>
-        poolRanks.set(entry.name, {
-          rank: index + 1,
-          fp: entry.totalFP,
-          groupLabel: label,
-        }),
-      );
+      for (const entry of rankStandings(table)) {
+        if (entry.rank !== null)
+          poolRanks.set(entry.name, { rank: entry.rank, fp: entry.totalFP, groupLabel: label });
+      }
     }
   } else if (state.cfg.poolingPhase && state.cfg.poolingPhase !== 'none') {
-    state.qualTable.forEach((entry, index) =>
-      poolRanks.set(entry.name, { rank: index + 1, fp: entry.totalFP }),
-    );
+    for (const entry of rankStandings(state.qualTable)) {
+      if (entry.rank !== null) poolRanks.set(entry.name, { rank: entry.rank, fp: entry.totalFP });
+    }
   }
 
   const display = (name: string): RankingDisplay => ({

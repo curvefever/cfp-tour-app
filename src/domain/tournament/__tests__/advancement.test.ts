@@ -11,8 +11,10 @@ import {
   invalidateStaleTieResolutions,
   isTieResolved,
   kingsValleyComputeAdvancement,
+  rankStandings,
   roomBasedComputeAdvancement,
 } from '../advancement';
+import type { TournamentStanding } from '../types';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
 
@@ -902,5 +904,32 @@ describe('buildAdvancementTiers', () => {
     expect(bye?.pct).toBe(1);
     expect(bye?.sourceRoom).toBe(0);
     expect(tiers[1].members.map((member) => member.name)).toEqual(['P2']);
+  });
+});
+
+describe('rankStandings', () => {
+  function standing(name: string, totalFP: number | null): TournamentStanding {
+    return { name, totalFP, totalScore: 0, played: totalFP === null ? 0 : 1 };
+  }
+
+  it('assigns plain sequential ranks when nobody is tied', () => {
+    const entries = [standing('P1', 1), standing('P2', 2), standing('P3', 3)];
+    expect(rankStandings(entries).map((entry) => entry.rank)).toEqual([1, 2, 3]);
+  });
+
+  it('gives a tie a shared rank, and the next distinct entry correctly skips ahead', () => {
+    const entries = [
+      standing('P1', 1),
+      standing('P2', 2),
+      standing('P3', 2),
+      standing('P4', 2),
+      standing('P5', 5),
+    ];
+    expect(rankStandings(entries).map((entry) => entry.rank)).toEqual([1, 2, 2, 2, 5]);
+  });
+
+  it('gives an entry with no rounds played (totalFP null) a null rank instead of a sequential number', () => {
+    const entries = [standing('P1', 1), standing('P2', null), standing('P3', null)];
+    expect(rankStandings(entries).map((entry) => entry.rank)).toEqual([1, null, null]);
   });
 });

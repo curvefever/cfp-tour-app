@@ -1,4 +1,9 @@
-import { computeGroupStandings, computeQualificationStandings } from '../../domain/tournament/advancement';
+import {
+  applyGroupCutoffOrder,
+  applyQualCutoffOrder,
+  computeGroupStandings,
+  computeQualificationStandings,
+} from '../../domain/tournament/advancement';
 import { getGameFormat } from '../../domain/tournament/formats';
 import type { TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -13,13 +18,22 @@ function ScoreboardStandings({ state }: { state: TournamentState }) {
   if (!hasGroups && !hasStandings) {
     return <Alert>No standings table for this tournament format — check Bracket for live results.</Alert>;
   }
+  const currentRound = state.rounds[state.curRound];
+  const poolingActive = Boolean(currentRound?.isQual || currentRound?.isSwiss || currentRound?.isGroupStage);
+  const suffix = poolingActive ? '' : ' (Final)';
   const groupStandings = hasGroups ? computeGroupStandings(state) : null;
   const tables = hasGroups
-    ? state.groups.map((group) => [group.label, groupStandings?.[group.label] ?? []] as const)
+    ? state.groups.map(
+        (group) =>
+          [
+            `${group.label}${suffix}`,
+            applyGroupCutoffOrder(group.label, groupStandings?.[group.label] ?? [], state),
+          ] as const,
+      )
     : [
         [
-          state.cfg.poolingPhase === 'swiss' ? 'Swiss Standings' : 'Qualification Table',
-          computeQualificationStandings(state),
+          `${state.cfg.poolingPhase === 'swiss' ? 'Swiss Standings' : 'Qualification Table'}${suffix}`,
+          applyQualCutoffOrder(computeQualificationStandings(state), state),
         ] as const,
       ];
   return <TournamentStandings state={state} tables={tables} />;
