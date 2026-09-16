@@ -2,7 +2,7 @@ import { rankStandings } from './advancement';
 import { computeGrandFinalRaceState } from './finals';
 import { getFinalUnitScore, getUnitScore, orderRoomByScore } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
-import type { RoundAssignment, TournamentRound, TournamentState } from './types';
+import type { RoundAssignment, TournamentRound, TournamentState, WithdrawnUnit } from './types';
 
 export interface RankingDisplay {
   name: string;
@@ -34,6 +34,8 @@ interface TournamentRankings {
   finalComplete: boolean;
   finalists: FinalistRanking[];
   eliminatedList: EliminatedRanking[];
+  dnfList: WithdrawnUnit[];
+  noShows: WithdrawnUnit[];
   lastRound: TournamentRound;
   lastRi: number;
 }
@@ -162,6 +164,13 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     } else active = [...lastAssignments];
   } else active = [...lastAssignments];
 
+  // A removed/swapped-out unit's old name can still linger in a round that
+  // was fully pre-generated before the withdrawal (e.g. group-stage's whole
+  // schedule is built upfront) -- exclude anyone no longer on the roster so
+  // they never appear as "still in tournament".
+  const rosterSet = new Set(rosterKeys(state.players));
+  active = active.filter((entry) => rosterSet.has(entry.name));
+
   const activeNames = new Set(active.map(({ name }) => name));
   const finalistNames = new Set(finalistValues.map(({ name }) => name));
   const eliminatedValues = rosterKeys(state.players)
@@ -219,6 +228,8 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     name,
     ...unitDisplay(state, name),
   });
+  const dnfList = state.withdrawnUnits.filter((unit) => unit.playedAnyMatch);
+  const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
   return {
     stillActive: active
       .map((entry) => ({
@@ -237,6 +248,8 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       ...entry,
       ...display(entry.name),
     })),
+    dnfList,
+    noShows,
     lastRound,
     lastRi,
   };

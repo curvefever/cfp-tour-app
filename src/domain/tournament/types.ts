@@ -120,6 +120,21 @@ export interface DefenderChange {
   memberIdx: number;
 }
 
+/**
+ * A roster unit removed or swapped out mid-tournament. Snapshotted at the
+ * moment of departure (via unitDisplay(), before the unit is stripped from
+ * state.players) -- for a team, the live TournamentTeam object backing its
+ * display name is gone once removed, so there's nothing left in state to
+ * re-derive `label`/`members` from afterward.
+ */
+export interface WithdrawnUnit {
+  name: string;
+  label: string;
+  members: string[] | null;
+  playedAnyMatch: boolean;
+  reason: 'removed' | 'swapped';
+}
+
 export interface GeneratedTournamentConfig {
   n: number;
   poolingPhase: PoolingPhaseKey;
@@ -175,6 +190,7 @@ export interface TournamentState {
   groupStandings: Record<string, TournamentStanding[]>;
   tieResolutions: Record<string, string | string[]>;
   defenderChanges: Record<string, DefenderChange[]>;
+  withdrawnUnits: WithdrawnUnit[];
   reserveOpen: boolean;
   started: boolean;
   needsSave: boolean;

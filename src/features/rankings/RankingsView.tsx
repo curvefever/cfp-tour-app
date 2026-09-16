@@ -62,12 +62,34 @@ function RoundLabel({ round }: { round: TournamentRound }) {
   );
 }
 
+function NoShowsPanel({ state }: { state: TournamentState }) {
+  const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
+  if (!noShows.length) return null;
+  return (
+    <>
+      <SectionTitle>No-shows (admin only)</SectionTitle>
+      <RankingGrid>
+        {noShows.map((unit) => (
+          <RankingRow key={`noshow-${unit.name}`}>
+            <span className='text-center text-lg font-bold text-muted'>—</span>
+            <span className='min-w-0'>
+              <Unit entry={unit} />
+            </span>
+            <Badge>No-show</Badge>
+          </RankingRow>
+        ))}
+      </RankingGrid>
+    </>
+  );
+}
+
 function RosterOnly({ state, editable }: { state: TournamentState; editable: boolean }) {
   if (editable) {
     return (
       <>
         <ReservePanel state={state} />
         <ManageRoster state={state} />
+        <NoShowsPanel state={state} />
       </>
     );
   }
@@ -174,7 +196,7 @@ export function RankingsContent({
           </RankingGrid>
         </>
       ) : null}
-      {data.finalComplete || data.eliminatedList.length ? (
+      {data.finalComplete || data.eliminatedList.length || data.dnfList.length ? (
         <>
           <SectionTitle>Final standings</SectionTitle>
           <RankingGrid>
@@ -198,6 +220,15 @@ export function RankingsContent({
                 </Badge>
               </RankingRow>
             ))}
+            {data.dnfList.map((unit) => (
+              <RankingRow key={`dnf-${unit.name}`}>
+                <Position>DNF</Position>
+                <span className='min-w-0'>
+                  <Unit entry={unit} />
+                </span>
+                <Badge>DNF — did not finish</Badge>
+              </RankingRow>
+            ))}
           </RankingGrid>
         </>
       ) : null}
@@ -205,6 +236,7 @@ export function RankingsContent({
         <>
           <SectionTitle>Manage roster</SectionTitle>
           <ManageRoster state={state} />
+          <NoShowsPanel state={state} />
         </>
       ) : null}
     </div>

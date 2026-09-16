@@ -6,10 +6,16 @@ import {
 import { progressGrandFinalRace } from './finals';
 import { getGameFormat } from './formats';
 import { validateRoomCap } from './room-distribution';
-import { isDisplayNameTaken, rosterKeys } from './roster';
+import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
-import { scoreKeysForPosition, tieResolutionList } from './scoring';
-import type { MaterializedGamemodeConfig, TournamentRoster, TournamentState, TournamentTeam } from './types';
+import { getFinalUnitScore, getUnitScore, scoreKeysForPosition, tieResolutionList } from './scoring';
+import type {
+  MaterializedGamemodeConfig,
+  TournamentRoster,
+  TournamentState,
+  TournamentTeam,
+  WithdrawnUnit,
+} from './types';
 
 function dirty(state: TournamentState): TournamentState {
   return { ...state, needsSave: true };
@@ -268,7 +274,7 @@ function removeUnitFromCurrentRoom(state: TournamentState, key: string, teamSize
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize ?? 0;
-  let next = removeUnitFromCurrentRoom(state, key, teamSize);
+  let next = removeUnitFromCurrentRoom(recordWithdrawal(state, key, 'removed'), key, teamSize);
   const strip = (values: string[]) => values.filter((name) => name !== key);
   const tieResolutions = Object.fromEntries(
     Object.entries(next.tieResolutions).map(([tieKey, value]) => {
@@ -287,9 +293,60 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     qualTable: next.qualTable.filter((entry) => entry.name !== key),
     luckyLosers: next.luckyLosers.map(strip),
     byes: next.byes.map(strip),
+    groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),
     tieResolutions,
   };
   return dirty(next);
+}
+
+/**
+ * True if `key` was ever assigned to a real room (not a bye) or a Final slot
+ * with at least one non-null score recorded. Final-round assignment entries
+ * always carry room: null (scores live in state.finalScores, read via
+ * getFinalUnitScore) -- a unit removed right after competing in the Final
+ * must still count as having played, so that path is handled separately from
+ * the room-based getUnitScore check every other round uses.
+ */
+function hasPlayedAnyMatch(state: TournamentState, key: string): boolean {
+  return state.assignments.some((roundAssignments, roundIndex) => {
+    const found = roundAssignments.find((entry) => entry.name === key);
+    if (!found) return false;
+    const round = state.rounds[roundIndex];
+    if (round?.isFinal) {
+      const games = round.numGames ?? 1;
+      return Array.from({ length: games }, (_, i) => i + 1).some(
+        (game) => getFinalUnitScore(state, key, game, null) !== null,
+      );
+    }
+    if (found.room === null) return false;
+    const roomAssignments = roundAssignments.filter((entry) => entry.room === found.room);
+    const position = roomAssignments.findIndex((entry) => entry.name === key);
+    return getUnitScore(state, roundIndex, found.room, position, null) !== null;
+  });
+}
+
+/**
+ * Records `key`'s outgoing display info before it's stripped from
+ * state.players -- must be called with the pre-removal `state`, since
+ * unitDisplay()/hasPlayedAnyMatch() both depend on state.players/reserves/
+ * assignments still containing `key`. A team's display name doesn't survive
+ * being removed from the roster (the live TournamentTeam object is gone),
+ * so this snapshot is the only place that information can still be captured.
+ */
+function recordWithdrawal(
+  state: TournamentState,
+  key: string,
+  reason: WithdrawnUnit['reason'],
+): TournamentState {
+  const info = unitDisplay(state, key);
+  const entry: WithdrawnUnit = {
+    name: key,
+    label: info.label,
+    members: info.members,
+    playedAnyMatch: hasPlayedAnyMatch(state, key),
+    reason,
+  };
+  return { ...state, withdrawnUnits: [...state.withdrawnUnits, entry] };
 }
 
 function replaceAssignedUnit(
@@ -346,11 +403,17 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
 
   const replaced = replaceAssignedUnit(state, oldName, trimmed);
   if (!replaced) return state;
+  const withdrawn = recordWithdrawal(state, oldName, 'swapped');
 
   return dirty({
     ...replaced,
+    withdrawnUnits: withdrawn.withdrawnUnits,
     players: players.filter((name) => name !== oldName).concat(trimmed),
     reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
+    groups: state.groups.map((group) => ({
+      ...group,
+      members: group.members.map((name) => (name === oldName ? trimmed : name)),
+    })),
   });
 }
 
@@ -369,9 +432,11 @@ export function swapTeam(
   if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
   const replaced = replaceAssignedUnit(state, oldTeamId, replacement.teamId, teamSize);
   if (!replaced) return state;
+  const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped');
 
   return dirty({
     ...replaced,
+    withdrawnUnits: withdrawn.withdrawnUnits,
     players: (state.players as TournamentTeam[])
       .filter((team) => team.teamId !== oldTeamId)
       .concat(replacement),
@@ -458,6 +523,7 @@ export function resetRoster(state: TournamentState): TournamentState {
     pendingBracketSeeds: {},
     tieResolutions: {},
     defenderChanges: {},
+    withdrawnUnits: [],
     curRound: 0,
     reserveOpen: true,
     started: false,
@@ -481,6 +547,7 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     luckyLosers: [],
     byes: [],
     defenderChanges: {},
+    withdrawnUnits: [],
     curRound: 0,
     reserveOpen: true,
     started: false,

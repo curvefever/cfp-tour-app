@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeRankings } from '../rankings';
 import { createDefaultTournamentState } from '../state-defaults';
+import type { TournamentState } from '../types';
 import { buildRound } from './test-fixtures';
 
 describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
@@ -45,5 +46,110 @@ describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
   it('leaves non-Kings-Valley same-round eliminations ordered purely by pct (regression -- no room field populated)', () => {
     const rankings = computeRankings(buildState(false));
     expect(rankings?.eliminatedList.map((entry) => entry.name)).toEqual(['P4', 'P2']);
+  });
+});
+
+describe('computeRankings -- DNF/no-show', () => {
+  function buildActiveState(withdrawnUnits: TournamentState['withdrawnUnits'] = []) {
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2'],
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2, advPerRoom: 1 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50 },
+      withdrawnUnits,
+    });
+  }
+
+  it('puts a unit that played at least one match in dnfList, not noShows', () => {
+    const rankings = computeRankings(
+      buildActiveState([{ name: 'P3', label: 'P3', members: null, playedAnyMatch: true, reason: 'removed' }]),
+    );
+    expect(rankings?.dnfList.map((entry) => entry.name)).toEqual(['P3']);
+    expect(rankings?.noShows).toEqual([]);
+  });
+
+  it('puts a unit that never played in noShows, not dnfList', () => {
+    const rankings = computeRankings(
+      buildActiveState([
+        { name: 'P4', label: 'P4', members: null, playedAnyMatch: false, reason: 'swapped' },
+      ]),
+    );
+    expect(rankings?.noShows.map((entry) => entry.name)).toEqual(['P4']);
+    expect(rankings?.dnfList).toEqual([]);
+  });
+
+  it('leaves both lists empty when nobody has withdrawn (no effect on existing fixtures)', () => {
+    const rankings = computeRankings(buildActiveState());
+    expect(rankings?.dnfList).toEqual([]);
+    expect(rankings?.noShows).toEqual([]);
+  });
+
+  it('keeps a withdrawn unit absent from eliminatedList even when historical assignments still reference its old name', () => {
+    // P1 was swapped out for P3 after round 0 -- round 0's assignments still
+    // say "P1", but the current roster (and round 1's assignments) say "P3".
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P2', 'P3'],
+      curRound: 1,
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [2], players: 2, advPerRoom: 1 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2, advPerRoom: 1 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      scores: {
+        'r0-rm1-p0': 100,
+        'r0-rm1-p1': 50,
+        'r1-rm1-p0': 100,
+        'r1-rm1-p1': 50,
+      },
+      withdrawnUnits: [{ name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'swapped' }],
+    });
+    const rankings = computeRankings(state);
+    expect(rankings?.eliminatedList.some((entry) => entry.name === 'P1')).toBe(false);
+    expect(rankings?.dnfList.map((entry) => entry.name)).toEqual(['P1']);
+  });
+
+  it('excludes a ghost name from stillActive when it lingers in a pre-generated round after the unit was removed', () => {
+    // Group-stage rounds are all pre-generated upfront, so a removed unit's
+    // name can still appear in a later round's own assignments -- the
+    // current roster (state.players) is the source of truth for who's
+    // really still active, not the raw assignment list.
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P2', 'P3'],
+      curRound: 1,
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [2], players: 2, isGroupStage: true }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2, isGroupStage: true }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [
+          { name: 'P1', room: 1, isLucky: false }, // ghost -- P1 was removed, but round 2 was pre-built with it
+          { name: 'P3', room: 1, isLucky: false },
+        ],
+      ],
+      withdrawnUnits: [{ name: 'P1', label: 'P1', members: null, playedAnyMatch: false, reason: 'removed' }],
+    });
+    const rankings = computeRankings(state);
+    expect(rankings?.stillActive.map((entry) => entry.name)).toEqual(['P3']);
   });
 });
