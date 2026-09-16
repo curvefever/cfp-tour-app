@@ -71,7 +71,7 @@ export function generateTournament(
   const config: GeneratedTournamentConfig = {
     n: current.confirmedCount,
     poolingPhase: form.poolingPhase,
-    qualAdv: parsed(form.qualAdv, 24),
+    qualAdv: current.confirmedCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
     groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
@@ -112,7 +112,11 @@ export function generateTournament(
     }
   }
   if (config.poolingPhase !== 'none') {
-    config.qualAdv = Math.min(Math.max(config.qualAdv, floorMin), config.n);
+    const rawQualAdv = Number.parseInt(form.qualAdv, 10);
+    if (!Number.isFinite(rawQualAdv) || rawQualAdv < 1) {
+      return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
+    }
+    config.qualAdv = Math.min(Math.max(rawQualAdv, floorMin), config.n);
   }
 
   // The number of units that will actually enter the bracket phase.

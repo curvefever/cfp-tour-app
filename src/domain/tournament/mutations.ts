@@ -21,6 +21,15 @@ function dirty(state: TournamentState): TournamentState {
   return { ...state, needsSave: true };
 }
 
+// Scores must be non-negative integers. Rejects (rather than truncates)
+// decimals so "5.7" doesn't silently become "5", and rejects negatives --
+// 0 is a real, complete score. Number(), not parseInt, so a fractional
+// part is actually detected instead of silently dropped by truncation.
+function isValidNonNegativeInteger(value: string): boolean {
+  const numeric = Number(value);
+  return Number.isInteger(numeric) && numeric >= 0;
+}
+
 export function setRoundScore(
   state: TournamentState,
   key: string,
@@ -28,10 +37,11 @@ export function setRoundScore(
   roundIndex: number,
   room: number,
 ): TournamentState {
-  const parsed = value === '' || value === null ? null : Number.parseInt(String(value), 10);
+  const raw = value === '' || value === null ? null : String(value);
+  const parsed = raw !== null && isValidNonNegativeInteger(raw) ? Number.parseInt(raw, 10) : null;
   let next = {
     ...state,
-    scores: { ...state.scores, [key]: Number.isNaN(parsed) ? null : parsed },
+    scores: { ...state.scores, [key]: parsed },
   };
   next = invalidateStaleTieResolutions(next, roundIndex, room);
   const round = next.rounds[next.curRound];
@@ -49,13 +59,11 @@ export function setFinalScore(
   key: string,
   value: string | number | null,
 ): TournamentState {
-  const parsed = value === '' || value === null ? '' : Number.parseInt(String(value), 10);
+  const raw = value === '' || value === null ? null : String(value);
+  const parsed = raw !== null && isValidNonNegativeInteger(raw) ? Number.parseInt(raw, 10) : '';
   const updated = dirty({
     ...state,
-    finalScores: {
-      ...state.finalScores,
-      [key]: typeof parsed === 'number' && Number.isNaN(parsed) ? '' : parsed,
-    },
+    finalScores: { ...state.finalScores, [key]: parsed },
   });
   return progressGrandFinalRace(updated).state;
 }

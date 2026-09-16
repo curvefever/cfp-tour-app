@@ -67,6 +67,37 @@ describe('generateTournament -- validation failures', () => {
       expect(result.message).toContain('got 5');
     }
   });
+
+  it('rejects an empty "Advance to bracket" value instead of silently defaulting to 24', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('Advance to bracket');
+    }
+  });
+
+  it('rejects "0" for "Advance to bracket" instead of silently defaulting to 24', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '0' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+  });
+
+  it('rejects a negative "Advance to bracket" value', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '-3' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+  });
+
+  it('ignores qualAdv validation entirely when poolingPhase is "none"', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'none', qualAdv: '' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
 });
 
 describe('generateTournament -- Group Stage format gating', () => {

@@ -127,6 +127,7 @@ function BracketScoreInput({
     <ScoreInput
       className={className}
       min='0'
+      step={1}
       value={state.scores[scoreKey] ?? ''}
       data-key={scoreKey}
       onChange={(event) =>
@@ -286,6 +287,7 @@ function FinalColumn({
                           <ScoreInput
                             className={compactScoreClass}
                             min='0'
+                            step={1}
                             value={state.finalScores[key] ?? ''}
                             onChange={(event) =>
                               app.updateState((current) => setFinalScore(current, key, event.target.value))
@@ -302,6 +304,7 @@ function FinalColumn({
                       <ScoreInput
                         className={compactScoreClass}
                         min='0'
+                        step={1}
                         value={state.finalScores[key] ?? ''}
                         onChange={(event) =>
                           app.updateState((current) => setFinalScore(current, key, event.target.value))

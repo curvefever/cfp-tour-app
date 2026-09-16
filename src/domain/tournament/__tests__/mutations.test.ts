@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { removeRosterUnit, swapIndividual, swapTeam } from '../mutations';
+import { removeRosterUnit, setFinalScore, setRoundScore, swapIndividual, swapTeam } from '../mutations';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
 
@@ -190,5 +190,73 @@ describe('swapTeam', () => {
     ]);
     // Existing groups-remap behavior, unchanged by this plan -- regression coverage only.
     expect(result.groups).toEqual([{ label: 'A', members: ['t3', 't2'] }]);
+  });
+});
+
+describe('setRoundScore', () => {
+  const baseState = () => createDefaultTournamentState({ scores: {} });
+
+  it('rejects a negative integer string, stores null', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', '-5', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBeNull();
+  });
+
+  it('rejects a decimal string, stores null', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', '5.7', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBeNull();
+  });
+
+  it('accepts "0" and stores 0', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', '0', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBe(0);
+  });
+
+  it('accepts a positive integer string', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', '42', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBe(42);
+  });
+
+  it('treats an empty string as unset (regression)', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', '', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBeNull();
+  });
+
+  it('treats non-numeric garbage as unset (regression)', () => {
+    const result = setRoundScore(baseState(), 'r0-rm1-p0', 'abc', 0, 1);
+    expect(result.scores['r0-rm1-p0']).toBeNull();
+  });
+});
+
+describe('setFinalScore', () => {
+  const baseState = () => createDefaultTournamentState({ finalScores: {} });
+
+  it('rejects a negative integer string, stores ""', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', '-5');
+    expect(result.finalScores['game1-P1']).toBe('');
+  });
+
+  it('rejects a decimal string, stores ""', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', '5.7');
+    expect(result.finalScores['game1-P1']).toBe('');
+  });
+
+  it('accepts "0" and stores 0', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', '0');
+    expect(result.finalScores['game1-P1']).toBe(0);
+  });
+
+  it('accepts a positive integer string', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', '42');
+    expect(result.finalScores['game1-P1']).toBe(42);
+  });
+
+  it('treats an empty string as unset (regression)', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', '');
+    expect(result.finalScores['game1-P1']).toBe('');
+  });
+
+  it('treats non-numeric garbage as unset (regression)', () => {
+    const result = setFinalScore(baseState(), 'game1-P1', 'abc');
+    expect(result.finalScores['game1-P1']).toBe('');
   });
 });
