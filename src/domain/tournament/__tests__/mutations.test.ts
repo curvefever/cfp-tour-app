@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { removeRosterUnit, setFinalScore, setRoundScore, swapIndividual, swapTeam } from '../mutations';
+import {
+  addReserveUnit,
+  removeRosterUnit,
+  setFinalScore,
+  setRoundScore,
+  swapIndividual,
+  swapTeam,
+} from '../mutations';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
+
+const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
 
 describe('removeRosterUnit', () => {
   it('records a withdrawal with reason "removed" and playedAnyMatch: true when a real score exists', () => {
@@ -258,5 +267,114 @@ describe('setFinalScore', () => {
   it('treats non-numeric garbage as unset (regression)', () => {
     const result = setFinalScore(baseState(), 'game1-P1', 'abc');
     expect(result.finalScores['game1-P1']).toBe('');
+  });
+});
+
+describe('addReserveUnit -- qualifying-round restriction', () => {
+  function workingRoundState(overrides: Partial<Parameters<typeof createDefaultTournamentState>[0]> = {}) {
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: ROOM_SIZE },
+      players: ['P1', 'P2'],
+      reserves: ['P3'],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      rounds: [buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 })],
+      curRound: 0,
+      cfg: { poolingPhase: 'qual-table' },
+      ...overrides,
+    });
+  }
+
+  it('allows a reserve when 0 qualifying rounds are completed', () => {
+    const result = addReserveUnit(workingRoundState(), 'P3');
+    expect(result.status).toBe('added');
+  });
+
+  it('allows a reserve when exactly 1 qualifying round is completed', () => {
+    const state = workingRoundState({
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        [],
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      curRound: 1,
+    });
+    const result = addReserveUnit(state, 'P3');
+    expect(result.status).toBe('added');
+  });
+
+  it('blocks a reserve once 2 qualifying rounds are completed, for qual-table', () => {
+    const state = createDefaultTournamentState({
+      cfg: { poolingPhase: 'qual-table' },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 3, isQual: true, rooms: [2], players: 2 }),
+      ],
+      curRound: 2,
+    });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'qualification-in-progress' });
+  });
+
+  it('blocks a reserve once 2 qualifying rounds are completed, for swiss too (same standings engine)', () => {
+    const state = createDefaultTournamentState({
+      cfg: { poolingPhase: 'swiss' },
+      rounds: [
+        buildRound({ roundNum: 1, isSwiss: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isSwiss: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 3, isSwiss: true, rooms: [2], players: 2 }),
+      ],
+      curRound: 2,
+    });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'qualification-in-progress' });
+  });
+
+  it('still blocks Group Stage with its own reason, regardless of round count (regression)', () => {
+    const state = createDefaultTournamentState({
+      cfg: { poolingPhase: 'group-stage' },
+      rounds: [
+        buildRound({ roundNum: 1, isGroupStage: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isGroupStage: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 3, isGroupStage: true, rooms: [2], players: 2 }),
+      ],
+      curRound: 2,
+    });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'group-stage' });
+  });
+
+  it('leaves poolingPhase "none" unaffected regardless of round count (regression)', () => {
+    const rounds = Array.from({ length: 6 }, (_, index) =>
+      buildRound({ roundNum: index + 1, rooms: [2], players: 2 }),
+    );
+    const assignments = Array.from({ length: 5 }, () => [] as never[]);
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: ROOM_SIZE },
+      players: ['P1', 'P2'],
+      reserves: ['P3'],
+      cfg: { poolingPhase: 'none' },
+      rounds,
+      assignments: [
+        ...assignments,
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      curRound: 5,
+    });
+    const result = addReserveUnit(state, 'P3');
+    expect(result.status).toBe('added');
   });
 });

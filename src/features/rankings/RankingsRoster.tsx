@@ -37,6 +37,8 @@ function handleReserveResult(
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
       "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts.",
+    'qualification-in-progress':
+      "Can't add a reserve now — more than one qualifying round has already been played, so a new entrant could never earn a fair standing.",
     'strict-room':
       "Can't add this reserve — the selected strict odd-count strategy requires every room to remain even.",
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",

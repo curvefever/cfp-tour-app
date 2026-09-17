@@ -16,7 +16,7 @@ import {
 } from '../advancement';
 import type { TournamentStanding } from '../types';
 import { createDefaultTournamentState } from '../state-defaults';
-import { buildRound } from './test-fixtures';
+import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
   it('detects a tie on the multi-game total, not a single game score', () => {
@@ -177,6 +177,58 @@ describe('computeQualificationStandings', () => {
     });
     expect(computeQualificationStandings(state).map((entry) => entry.name)).toEqual(['P3', 'P1', 'P2', 'P4']);
   });
+
+  it('averages fairPoints across rounds played instead of summing, so a stronger multi-round record outranks a single lucky round', () => {
+    // G plays 3 rounds: rank1, rank1, rank2 (strong, one slip).
+    // H only plays the final round (e.g. joined late as a reserve): rank2, once.
+    // H's raw SUM (one round) is smaller than G's SUM (three rounds) even
+    // though G's actual rate of performance is clearly better -- averaging
+    // is what correctly ranks G ahead of H.
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['G', 'H', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'],
+      cfg: { poolingPhase: 'qual-table' },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [4], players: 4 }),
+        buildRound({ roundNum: 3, isQual: true, rooms: [4, 4], players: 8 }),
+      ],
+      assignments: [
+        buildAssignments(['G', 'Y1', 'Y2', 'Y3'], [4]),
+        buildAssignments(['G', 'Y1', 'Y2', 'Y3'], [4]),
+        buildAssignments(['Y1', 'G', 'Y2', 'Y3', 'Y4', 'H', 'Y5', 'Y6'], [4, 4]),
+      ],
+      scores: {
+        'r0-rm1-p0': 400,
+        'r0-rm1-p1': 300,
+        'r0-rm1-p2': 200,
+        'r0-rm1-p3': 100,
+        'r1-rm1-p0': 400,
+        'r1-rm1-p1': 300,
+        'r1-rm1-p2': 200,
+        'r1-rm1-p3': 100,
+        'r2-rm1-p0': 400,
+        'r2-rm1-p1': 300,
+        'r2-rm1-p2': 200,
+        'r2-rm1-p3': 100,
+        'r2-rm2-p0': 400,
+        'r2-rm2-p1': 300,
+        'r2-rm2-p2': 200,
+        'r2-rm2-p3': 100,
+      },
+    });
+    const standings = computeQualificationStandings(state);
+    const g = standings.find((entry) => entry.name === 'G');
+    const h = standings.find((entry) => entry.name === 'H');
+    expect(g?.played).toBe(3);
+    expect(h?.played).toBe(1);
+    // Sanity check the raw sums would have flipped this the other way.
+    expect((g?.totalFP as number) * 3).toBeGreaterThan((h?.totalFP as number) * 1);
+    expect(g?.totalFP).toBeLessThan(h?.totalFP as number);
+    expect(standings.findIndex((entry) => entry.name === 'G')).toBeLessThan(
+      standings.findIndex((entry) => entry.name === 'H'),
+    );
+  });
 });
 
 describe('computeGroupStandings', () => {
@@ -209,6 +261,36 @@ describe('computeGroupStandings', () => {
     const standings = computeGroupStandings(state);
     expect(standings.A.map((entry) => entry.name)).toEqual(['P1', 'P2']);
     expect(standings.B.map((entry) => entry.name)).toEqual(['P3', 'P4']);
+  });
+
+  it('averages fairPoints across rounds played, same as the qualification-table path, since both share materializeStandings', () => {
+    // G plays both rounds (rank1, then rank2). H only plays round 2 (a
+    // round-robin bye left them out of round 1) with a single rank1 result.
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      groups: [{ label: 'A', members: ['G', 'H', 'Y1', 'Y2'] }],
+      rounds: [
+        buildRound({ roundNum: 1, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
+        buildRound({ roundNum: 2, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
+      ],
+      assignments: [buildAssignments(['G', 'Y1', 'Y2'], [3]), buildAssignments(['H', 'G', 'Y1'], [3])],
+      scores: {
+        'r0-rm1-p0': 300,
+        'r0-rm1-p1': 200,
+        'r0-rm1-p2': 100,
+        'r1-rm1-p0': 300,
+        'r1-rm1-p1': 200,
+        'r1-rm1-p2': 100,
+      },
+    });
+    const standings = computeGroupStandings(state).A;
+    const g = standings.find((entry) => entry.name === 'G');
+    const h = standings.find((entry) => entry.name === 'H');
+    expect(g?.played).toBe(2);
+    expect(h?.played).toBe(1);
+    // G: (fp(1,300) + fp(2,200)) / 2. H: fp(1,300) / 1.
+    expect(g?.totalFP).toBeCloseTo((0.997 + 1.998) / 2, 5);
+    expect(h?.totalFP).toBeCloseTo(0.997, 5);
   });
 });
 

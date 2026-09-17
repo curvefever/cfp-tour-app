@@ -148,7 +148,16 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
 
 export type ReserveAddResult =
   | { status: 'added'; state: TournamentState }
-  | { status: 'blocked'; reason: 'closed' | 'group-stage' | 'strict-room' | 'room-cap' | 'duplicate-name' }
+  | {
+      status: 'blocked';
+      reason:
+        | 'closed'
+        | 'group-stage'
+        | 'qualification-in-progress'
+        | 'strict-room'
+        | 'room-cap'
+        | 'duplicate-name';
+    }
   | { status: 'confirm-over-cap'; room: number; count: number };
 
 export function addReserveUnit(
@@ -159,6 +168,16 @@ export function addReserveUnit(
   if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
   if (state.cfg.poolingPhase === 'group-stage') {
     return { status: 'blocked', reason: 'group-stage' };
+  }
+  // A reserve joining a qualification-table/Swiss standings phase must still
+  // get to play at least two of the remaining rounds themselves -- otherwise
+  // a single lucky round could win a real qualifying spot outright, with no
+  // volume discount once Fair Points is averaged rather than summed.
+  const completedQualRounds = state.rounds
+    .slice(0, state.curRound)
+    .filter((round) => round.isQual || round.isSwiss).length;
+  if (completedQualRounds > 1) {
+    return { status: 'blocked', reason: 'qualification-in-progress' };
   }
   const format = getGameFormat(state.gameFormat);
   const roomSize = state.gamemodeConfig.roomSize;

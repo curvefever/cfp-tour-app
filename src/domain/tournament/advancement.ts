@@ -272,11 +272,17 @@ interface StandingAccumulator {
   rounds: Array<{ fp: number; score: number }>;
 }
 
+// totalFP is an average across rounds played, not a sum -- despite the name
+// (kept for compatibility with the persisted TournamentState shape) -- so a
+// unit with fewer counted rounds (a bye, a late-joining reserve) is ranked by
+// rate of performance, not rewarded simply for having a smaller sample.
 function materializeStandings(entries: StandingAccumulator[]): TournamentStanding[] {
   return entries
     .map((entry) => ({
       name: entry.name,
-      totalFP: entry.rounds.length ? entry.rounds.reduce((total, round) => total + round.fp, 0) : null,
+      totalFP: entry.rounds.length
+        ? entry.rounds.reduce((total, round) => total + round.fp, 0) / entry.rounds.length
+        : null,
       totalScore: entry.rounds.reduce((total, round) => total + round.score, 0),
       played: entry.rounds.length,
     }))
