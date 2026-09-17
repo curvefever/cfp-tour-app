@@ -6,6 +6,19 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Extend Playwright e2e to run against the real test site (done — 2026-09-17)
+Closed the remaining half of `HANDOFF.md`'s design-question #5, same day as the local-only version below — the organiser's own stated plan was "local first, extend to the real test site once that's proven," and the local step passed cleanly with no issues, so this followed immediately.
+
+`playwright.config.ts` now derives its target from an optional `PLAYWRIGHT_BASE_URL` env var, defaulting to `http://localhost:3000`; the `webServer` block (which auto-starts `pnpm dev`) is conditional on the resolved hostname actually being `localhost` — pointed at a real deployed URL, there's nothing local to spin up, and trying to would be wrong anyway. No changes needed to `e2e/smoke.spec.ts` itself: the same three tests (shell renders, tab switching, login wall exists) are equally valid against any real deployment, local or not, since they only ever exercise the public, unauthenticated read paths.
+
+Ran `PLAYWRIGHT_BASE_URL=https://tournaments-test.curvefever.pro pnpm run test:e2e` — **all 3 tests passed on the first try**, no Cloudflare/bot-protection challenge blocking Playwright's browser, no flakiness, no config surprises. This had been a real open question going in (the production site's own network log shows a `cdn-cgi/challenge-platform` script, confirming Cloudflare is in front of it) — worth stating plainly that it just worked, since that wasn't guaranteed.
+
+**Testing**: the run above, plus a full re-run of the local-target path (`pnpm run test:e2e` with no env var) to confirm the conditional `webServer` logic didn't regress the default case — still 3/3 passing. `pnpm exec tsc --noEmit`/`eslint`/`prettier --check` on `playwright.config.ts` — clean, only the pre-existing unrelated `BracketView.tsx` error present. `pnpm vitest run` — 396 tests, unaffected.
+
+**Out of scope, explicit**: this only proves *read-only, unauthenticated* pages work against the real site — it says nothing about whether authenticated admin actions would work there, since that's still item #7's unrelated, unresolved question (real CFP test credentials vs. a Firebase emulator). No CI wiring to actually run this automatically against the test site on a schedule or on push — that's a separate decision if the organiser wants it.
+
+---
+
 ## Playwright e2e — first test, running locally only (done — 2026-09-17)
 Closed the last parked design question from Stage 1 test-coverage work (`HANDOFF.md`'s "Deliberately parked design questions" #5), following the organiser's own recommendation: start with a Playwright test running against a local copy of the app, extend to the real test site only once this step proves solid — that extension is explicitly not done here.
 
