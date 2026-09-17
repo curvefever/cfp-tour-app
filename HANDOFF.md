@@ -6,7 +6,7 @@ A web app for setting up and running Curve Fever Pro tournaments — organisers 
 ---
 
 ## About these two files
-`HANDOFF.md` (this file) covers **current state only** — what the app does today, its rules, what's still open, and what's next. Detailed, dated write-ups of every individual build live in **`HANDOFF_LOG.md`** instead, in the same folder — kept separate so a fresh session only has to read this file in full to get oriented, and can `grep`/search the log for a specific past decision on demand rather than reading it start to end. Both files are gitignored, local-only working docs — not part of the public repo. Process/workflow rules (how to work, not what's built) now live in `AGENTS.md` under "Working process" — `CLAUDE.md` was retired 2026-09-10 once its content was folded in there.
+`HANDOFF.md` (this file) covers **current state only** — what the app does today, its rules, what's still open, and what's next. Detailed, dated write-ups of every individual build live in **`HANDOFF_LOG.md`** instead, in the same folder — kept separate so a fresh session only has to read this file in full to get oriented, and can `grep`/search the log for a specific past decision on demand rather than reading it start to end. Both files are tracked in the repo (as of 2026-09-17 — previously gitignored, local-only working docs, switched over so they're versioned alongside the code). Process/workflow rules (how to work, not what's built) now live in `AGENTS.md` under "Working process" — `CLAUDE.md` was retired 2026-09-10 once its content was folded in there.
 
 ---
 
