@@ -131,11 +131,12 @@ describe('projectFutureRoundSlots', () => {
     ];
     const result = project(rounds, 0);
     // Pool = [R1r1, R2r1, R1r2, R2r2] (tier-major: every room's rank-1, then
-    // every room's rank-2); chunked into 2 target rooms of size 2 each:
-    // room1 <- [R1r1, R2r1], room2 <- [R1r2, R2r2] -- each target room now
-    // draws from both source rooms, not just one.
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1B, Rank 1']);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 2', 'Room 1B, Rank 2']);
+    // every room's rank-2); distributed round-robin (rotating one room per
+    // tier) into 2 target rooms of size 2 each: room1 <- [R1r1, R2r2],
+    // room2 <- [R2r1, R1r2] -- each target room draws from both source
+    // rooms AND both rank tiers, instead of one tier's worth per room.
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1B, Rank 2']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 1', 'Room 1A, Rank 2']);
   });
 
   it('projects a no-elim (e.g. "None" pooling warmup) round using each room\'s own size -- nobody is cut, but within-room rank still carries forward, and room sizes can differ; every target room\'s slot count always matches its own declared size exactly', () => {
@@ -146,14 +147,16 @@ describe('projectFutureRoundSlots', () => {
     const result = project(rounds, 0);
     // Pool = [R1r1, R2r1, R1r2, R2r2, R1r3] (tier-major: rank 1 from both
     // rooms, rank 2 from both rooms, rank 3 only from room 1 since room 2 is
-    // smaller); chunked into rooms sized [3, 2]:
-    // room1 (size 3) <- [R1r1, R2r1, R1r2], room2 (size 2) <- [R2r2, R1r3].
+    // smaller); distributed round-robin (rotating one room per tier) into
+    // rooms sized [3, 2]: room1 (size 3) <- [R1r1, R2r2, R1r3], room2
+    // (size 2) <- [R2r1, R1r2] -- room1 spans all three rank tiers instead
+    // of only ranks 1-2.
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
       'Room 1A, Rank 1',
-      'Room 1B, Rank 1',
-      'Room 1A, Rank 2',
+      'Room 1B, Rank 2',
+      'Room 1A, Rank 3',
     ]);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 2', 'Room 1A, Rank 3']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 1', 'Room 1A, Rank 2']);
   });
 
   it('resolves every round in a chain of no-elim rounds feeding a real elimination round -- poisoning no longer cascades past a no-elim predecessor', () => {
@@ -211,5 +214,41 @@ describe('projectFutureRoundSlots', () => {
       'Winner of Room 1A',
       'Advanced from LB Round 1',
     ]);
+  });
+
+  it('regression: a target room spanning multiple rank tiers gets a full spread of ranks and source rooms, not just the leading tier(s)', () => {
+    // Reproduces a live-reported bug: 4 source rooms feeding a same-shaped
+    // 8/7/7/7 target round used to chunk the first two whole rank-tiers
+    // (ranks 1 and 2 from every source room) straight into target Room A,
+    // so it looked like Room A would only ever hold the very best players.
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [8, 7, 7, 7], players: 29, isNoElim: true }),
+      buildRound({ roundNum: 2, rooms: [8, 7, 7, 7], players: 29, isNoElim: true }),
+    ];
+    const result = project(rounds, 0);
+    const roomA = result[1]?.[0] ?? [];
+    expect(roomA).toHaveLength(8);
+
+    const ranksInRoomA = new Set(roomA.map((slot) => (slot.kind === 'room-rank' ? slot.rank : null)));
+    expect(ranksInRoomA.size).toBeGreaterThan(2);
+    expect(
+      Math.max(...[...ranksInRoomA].filter((rank): rank is number => rank !== null)),
+    ).toBeGreaterThanOrEqual(5);
+
+    const sourceRoomsInRoomA = new Set(roomA.map((slot) => (slot.kind === 'room-rank' ? slot.room : null)));
+    expect(sourceRoomsInRoomA.size).toBeGreaterThan(1);
+  });
+
+  it('spreads ranks across uneven target room sizes on the ordinary cutting-round branch too', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [6, 6, 6], players: 18, advPerRoom: 3, luckyCount: 0 }),
+      buildRound({ roundNum: 2, rooms: [4, 3, 2], players: 9, advPerRoom: 1, luckyCount: 0 }),
+    ];
+    const result = project(rounds, 0);
+    expect(result[1]?.map((room) => room.length)).toEqual([4, 3, 2]);
+
+    const roomA = result[1]?.[0] ?? [];
+    const ranksInRoomA = new Set(roomA.map((slot) => (slot.kind === 'room-rank' ? slot.rank : null)));
+    expect(ranksInRoomA.size).toBeGreaterThan(1);
   });
 });

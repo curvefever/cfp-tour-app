@@ -1,5 +1,4 @@
 import { lastAssignedRound } from './rankings';
-import { sequentialSeed } from './seeding';
 import type { TournamentRound, TournamentState } from './types';
 
 interface BracketRoundLabel {
@@ -157,6 +156,64 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
   return predecessors;
 }
 
+function tierKeyOf(entry: ProjectedSlotLabel): string {
+  switch (entry.kind) {
+    case 'room-rank':
+      return `rank:${entry.sourceRound}:${entry.rank}`;
+    case 'round-edge':
+      return `edge:${entry.sourceRoundIndex}:${entry.edge}`;
+    case 'lucky':
+      return 'lucky';
+    case 'qualifier-cutoff':
+      return 'qualifier-cutoff';
+  }
+}
+
+/**
+ * Distributes a tier-major-ordered pool (see projectFutureRoundSlots' doc
+ * comment) across a target round's rooms so every room receives a spread
+ * across tiers, not a block from just the leading tier(s) -- the flaw a
+ * plain sequential chop has whenever a room's size spans more than one
+ * source-room's worth of a single tier (e.g. 4 source rooms feeding an
+ * 8-slot room chops the first two whole rank-tiers into that one room).
+ *
+ * Walks the pool in its existing tier-major order, round-robin-assigning
+ * each tier's own entries across rooms that still have remaining capacity,
+ * and rotates the round-robin's starting room by one every time the tier
+ * changes (not per entry) -- so a room's contents mix source rooms across
+ * tiers instead of correlating with the same source room every time.
+ * Collapses to plain sequential chunking when there's only one target room,
+ * since there's nothing left to rotate against.
+ */
+function distributeTierMajorPool(pool: ProjectedSlotLabel[], roomSizes: number[]): ProjectedSlotLabel[][] {
+  const byRoom: ProjectedSlotLabel[][] = roomSizes.map(() => []);
+  const remaining = [...roomSizes];
+  let offset = 0;
+  let previousTierKey: string | null = null;
+  let indexInTier = 0;
+
+  for (const entry of pool) {
+    const tierKey = tierKeyOf(entry);
+    if (tierKey !== previousTierKey) {
+      if (previousTierKey !== null) offset += 1;
+      previousTierKey = tierKey;
+      indexInTier = 0;
+    }
+
+    for (let attempt = 0; attempt < roomSizes.length; attempt += 1) {
+      const roomIndex = (offset + indexInTier + attempt) % roomSizes.length;
+      if (remaining[roomIndex] > 0) {
+        byRoom[roomIndex].push(entry);
+        remaining[roomIndex] -= 1;
+        break;
+      }
+    }
+    indexInTier += 1;
+  }
+
+  return byRoom;
+}
+
 /**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
@@ -168,12 +225,16 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
  *
  * Both the no-elim branch and the ordinary cutting-round branch below build their
  * room-rank tokens tier-major (every room's own rank-1 finisher, then every room's
- * own rank-2, ...) rather than room-major -- this deliberately spreads same-source-
- * room candidates across different target rooms once chunked, matching in spirit
- * (though not exactly) what the real transition's tiered/diversity-aware seeding
- * (tieredSeed, seeding.ts) actually tends to do, instead of the room-major ordering's
- * worst-case collapse into "every room carries straight over unchanged" whenever
- * source and target share the same room shape (see the chunking comment below).
+ * own rank-2, ...) rather than room-major, and the pool is then distributed across
+ * target rooms tier-by-tier with a rotating round-robin (see distributeTierMajorPool
+ * below) rather than chopped sequentially -- together this spreads same-source-room
+ * candidates across different target rooms AND spreads every target room's own
+ * contents across the full range of ranks, matching in spirit (though not exactly)
+ * what the real transition's tiered/diversity-aware seeding (tieredSeed, seeding.ts)
+ * actually tends to do, instead of a room-major ordering's worst-case collapse into
+ * "every room carries straight over unchanged," or a tier-major pool's own worst-case
+ * collapse into "the first room is nothing but the top rank(s)" once naively chopped
+ * (see the chunking comment below).
  *
  * A round index maps to null when its origin genuinely can't be resolved ahead of
  * time (group-stage -- handled by real names elsewhere; Swiss -- handled by the
@@ -287,31 +348,23 @@ export function projectFutureRoundSlots(
       continue;
     }
 
-    // Chunk the tier-major pool directly into round.rooms' declared sizes
-    // rather than trying to mirror the real transition's own diversity/
-    // recency-aware wave-based seeding (tieredSeed/tieredBracketSeed,
-    // seeding.ts) exactly -- that seeding depends on live match history and
-    // per-round scores this display doesn't have and shouldn't need.
-    // Building the pool tier-major (see the function doc comment above)
-    // already keeps same-source-room candidates apart across target rooms
-    // in the common case (source and target sharing a room shape), so this
-    // sequential chunk is a much closer approximation than a naive
-    // room-major slice would be -- but the exact target-room assignment can
-    // still drift from what the real transition produces. That residual
-    // drift is accepted as the honest tradeoff: every projected slot always
-    // matches its own room's displayed size exactly (no more blank dashes
-    // or invisible overflow into another room), which is the property this
-    // display is for.
-    const seeded = sequentialSeed(
-      pool.map((_, index) => String(index)),
-      round.rooms,
-    );
-    const byRoom: ProjectedSlotLabel[][] = round.rooms.map(() => []);
-    for (const assignment of seeded) {
-      if (assignment.room === null) continue;
-      byRoom[assignment.room - 1]?.push(pool[Number(assignment.name)]);
-    }
-    result[targetIndex] = byRoom;
+    // Distribute the tier-major pool into round.rooms' declared sizes via
+    // distributeTierMajorPool rather than trying to mirror the real
+    // transition's own diversity/recency-aware wave-based seeding
+    // (tieredSeed/tieredBracketSeed, seeding.ts) exactly -- that seeding
+    // depends on live match history and per-round scores this display
+    // doesn't have and shouldn't need. distributeTierMajorPool's own
+    // round-robin-per-tier chunking keeps same-source-room candidates apart
+    // across target rooms AND keeps every target room's own contents spread
+    // across ranks instead of collapsing into a single leading tier, so
+    // together with the tier-major pool ordering this is a much closer
+    // approximation than a naive room-major or plain-sequential slice would
+    // be -- but the exact target-room assignment can still drift from what
+    // the real transition produces. That residual drift is accepted as the
+    // honest tradeoff: every projected slot always matches its own room's
+    // displayed size exactly (no more blank dashes or invisible overflow
+    // into another room), which is the property this display is for.
+    result[targetIndex] = distributeTierMajorPool(pool, round.rooms);
   }
   return result;
 }
