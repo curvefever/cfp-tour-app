@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   computeLuckyLoserStandings,
   computeStandingsCutoffAdvancing,
@@ -11,6 +11,7 @@ import {
   bracketFollowStatus,
   bracketRoundDefaultCollapsed,
   bracketRoundLabels,
+  bracketRowGroups,
   projectedSlotLabelText,
   projectFutureRoundSlots,
   roomLetter,
@@ -865,13 +866,81 @@ function RoundColumn({
   );
 }
 
+/**
+ * Renders a double-elimination tournament's winners/losers rounds as two
+ * stacked rows (winners above losers, the terminal Final grouped with
+ * winners) instead of one row interleaving them -- see `bracketRowGroups`.
+ * Degenerates to a single row, identical to before this split existed, for
+ * every other format (single-elimination, Kings Valley, pooling-only).
+ * Shared between `BracketView` (editable, has collapse/follow state) and
+ * `ArchivedBracket` (read-only, has neither) via optional props.
+ */
+function BracketRounds({
+  state,
+  labels,
+  projectedSlots,
+  editable,
+  followKey,
+  collapse,
+  onToggleCollapse,
+  followedRounds,
+}: {
+  state: TournamentState;
+  labels: ReturnType<typeof bracketRoundLabels>;
+  projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
+  editable: boolean;
+  followKey: string | null;
+  collapse?: Record<number, boolean>;
+  onToggleCollapse?: (roundIndex: number, collapsed: boolean) => void;
+  followedRounds?: BracketFollowStatus['rounds'];
+}) {
+  const groups = bracketRowGroups(state);
+  function renderRow(indices: number[], key: string) {
+    if (!indices.length) return null;
+    return (
+      <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row={key} key={key}>
+        {indices.map((roundIndex) => {
+          const collapsed =
+            collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
+          return (
+            <RoundColumn
+              accent={labels[roundIndex]?.accent}
+              collapsed={collapsed}
+              current={roundIndex === state.curRound}
+              followed={Boolean(followedRounds?.[roundIndex])}
+              key={roundIndex}
+              label={labels[roundIndex]?.label}
+              onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+              roundIndex={roundIndex}
+            >
+              <RoundBody
+                state={state}
+                roundIndex={roundIndex}
+                editable={editable}
+                followKey={followKey}
+                projected={projectedSlots[roundIndex] ?? null}
+              />
+            </RoundColumn>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div className='flex flex-col gap-3.5' id='br-rounds'>
+      {renderRow(groups.preBracket, 'pre')}
+      {renderRow(groups.winners, 'wb')}
+      {renderRow(groups.losers, 'lb')}
+    </div>
+  );
+}
+
 export function BracketView() {
   const app = useTournamentApp();
   const [collapse, setCollapse] = useState<Record<number, boolean>>({});
   const [query, setQuery] = useState('');
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const scroll = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!app.hydrated) return;
     const stored = readBracketFollow(window.localStorage);
@@ -915,13 +984,9 @@ export function BracketView() {
       queueMicrotask(() => {
         const status = bracketFollowStatus(app.state, resolved);
         const column = status
-          ? scroll.current?.querySelector<HTMLElement>(`[data-ri="${status.lastRi}"]`)
+          ? document.querySelector<HTMLElement>(`#br-rounds [data-ri="${status.lastRi}"]`)
           : null;
-        if (column && scroll.current)
-          scroll.current.scrollTo({
-            left: Math.max(0, column.offsetLeft - (scroll.current.clientWidth - column.offsetWidth) / 2),
-            behavior: 'smooth',
-          });
+        column?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       });
   }
   return (
@@ -953,32 +1018,18 @@ export function BracketView() {
       </div>
       {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
-      <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds' ref={scroll}>
-        {app.state.rounds.map((round, roundIndex) => {
-          const collapsed =
-            collapse[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, app.state.curRound);
-          return (
-            <RoundColumn
-              accent={labels[roundIndex]?.accent}
-              collapsed={collapsed}
-              current={roundIndex === app.state.curRound}
-              followed={Boolean(follow?.rounds[roundIndex])}
-              key={roundIndex}
-              label={labels[roundIndex]?.label}
-              onToggle={() => setCollapse((current) => ({ ...current, [roundIndex]: !collapsed }))}
-              roundIndex={roundIndex}
-            >
-              <RoundBody
-                state={app.state}
-                roundIndex={roundIndex}
-                editable={editable}
-                followKey={followKey}
-                projected={projectedSlots[roundIndex] ?? null}
-              />
-            </RoundColumn>
-          );
-        })}
-      </div>
+      <BracketRounds
+        state={app.state}
+        labels={labels}
+        projectedSlots={projectedSlots}
+        editable={editable}
+        followKey={followKey}
+        collapse={collapse}
+        onToggleCollapse={(roundIndex, collapsed) =>
+          setCollapse((current) => ({ ...current, [roundIndex]: !collapsed }))
+        }
+        followedRounds={follow?.rounds}
+      />
       {editable ? (
         <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
           {!isLastRound ? (
@@ -1008,23 +1059,12 @@ export function ArchivedBracket({ state }: { state: TournamentState }) {
   const labels = bracketRoundLabels(state);
   const projectedSlots = projectFutureRoundSlots(state);
   return (
-    <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3'>
-      {state.rounds.map((_, roundIndex) => (
-        <RoundColumn
-          accent={labels[roundIndex]?.accent}
-          key={roundIndex}
-          label={labels[roundIndex]?.label}
-          roundIndex={roundIndex}
-        >
-          <RoundBody
-            state={state}
-            roundIndex={roundIndex}
-            editable={false}
-            followKey={null}
-            projected={projectedSlots[roundIndex] ?? null}
-          />
-        </RoundColumn>
-      ))}
-    </div>
+    <BracketRounds
+      state={state}
+      labels={labels}
+      projectedSlots={projectedSlots}
+      editable={false}
+      followKey={null}
+    />
   );
 }

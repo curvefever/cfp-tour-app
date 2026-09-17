@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectedSlotLabelText, projectFutureRoundSlots } from '../bracket';
+import { bracketRowGroups, projectedSlotLabelText, projectFutureRoundSlots } from '../bracket';
 import type { TournamentRound } from '../types';
 import { buildRound } from './test-fixtures';
 
@@ -250,5 +250,61 @@ describe('projectFutureRoundSlots', () => {
     const roomA = result[1]?.[0] ?? [];
     const ranksInRoomA = new Set(roomA.map((slot) => (slot.kind === 'room-rank' ? slot.rank : null)));
     expect(ranksInRoomA.size).toBeGreaterThan(1);
+  });
+});
+
+describe('bracketRowGroups', () => {
+  it('splits a double-elimination (race) schedule into winners/losers rows, with the grand final appended to winners', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [2, 2], players: 4, bracket: 'winners', winnersTo: 2, losersTo: 1 }),
+      buildRound({ roundNum: 1, rooms: [2], players: 2, bracket: 'losers', winnersTo: 2, losersTo: null }),
+      buildRound({ roundNum: 2, rooms: [2], players: 2, bracket: 'winners', winnersTo: 3, losersTo: null }),
+      buildRound({ roundNum: 3, rooms: [2], players: 2, bracket: 'grand-final', isFinal: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [], winners: [0, 2, 3], losers: [1] });
+  });
+
+  it('splits a double-elimination-shared-final schedule, identifying the untagged terminal Final round by isFinal + position', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 4, bracket: 'winners', winnersTo: 2, losersTo: 1 }),
+      buildRound({ roundNum: 1, rooms: [2], players: 2, bracket: 'losers', winnersTo: 2, losersTo: null }),
+      buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [], winners: [0, 2], losers: [1] });
+  });
+
+  it('degenerates to a single preBracket row, in original order, for single-elimination (no bracket field at all)', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4, 4], players: 8, advPerRoom: 1, luckyCount: 0 }),
+      buildRound({ roundNum: 2, rooms: [2], players: 2, advPerRoom: 1, luckyCount: 0, isFinal: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [0, 1], winners: [], losers: [] });
+  });
+
+  it('degenerates to a single preBracket row for Kings Valley', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4, 4], players: 8, isKingsValley: true }),
+      buildRound({ roundNum: 2, rooms: [4, 4], players: 8, isKingsValley: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [0, 1], winners: [], losers: [] });
+  });
+
+  it('degenerates to a single preBracket row for a pooling-only schedule with no bracket phase', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4, 4], players: 8, isQual: true, isNoElim: true }),
+      buildRound({ roundNum: 2, rooms: [4, 4], players: 8, isQual: true, isNoElim: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [0, 1], winners: [], losers: [] });
+  });
+
+  it('captures only the leading pooling rounds in preBracket when a pooling phase feeds into a double-elimination bracket', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4, 4], players: 8, isQual: true, isNoElim: true }),
+      buildRound({ roundNum: 2, rooms: [4, 4], players: 8, isQual: true, isNoElim: true }),
+      buildRound({ roundNum: 3, rooms: [4, 4], players: 8, bracket: 'winners', winnersTo: 4, losersTo: 3 }),
+      buildRound({ roundNum: 3, rooms: [4], players: 4, bracket: 'losers', winnersTo: 4, losersTo: null }),
+      buildRound({ roundNum: 4, rooms: [2], players: 2, bracket: 'grand-final', isFinal: true }),
+    ];
+    expect(bracketRowGroups({ rounds })).toEqual({ preBracket: [0, 1], winners: [2, 4], losers: [3] });
   });
 });

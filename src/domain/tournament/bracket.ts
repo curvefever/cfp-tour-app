@@ -82,6 +82,49 @@ export function bracketRoundDefaultCollapsed(roundIndex: number, currentRound: n
   return roundIndex < currentRound - 1;
 }
 
+export interface BracketRowGroups {
+  /** Pooling rounds, or -- for a non-double-elimination format -- every round, in original order. */
+  preBracket: number[];
+  /** `bracket === 'winners'` round indices, in order, with the terminal Final/Grand-Final index appended last. */
+  winners: number[];
+  /** `bracket === 'losers'` round indices, in order. */
+  losers: number[];
+}
+
+/**
+ * Splits a tournament's rounds into display groups for Bracket view, so the
+ * winners bracket (WB) and losers bracket (LB) -- interleaved in
+ * `state.rounds`' own array order (wb1, lb1, wb2, lb2, ..., wbLast, final) --
+ * can be rendered as two separate rows instead of one interleaved row. The
+ * terminal Final/Grand-Final round is grouped with `winners` (appended
+ * last), matching where the organiser wants it displayed.
+ *
+ * Degenerates to `{ preBracket: every index in order, winners: [], losers: [] }`
+ * whenever there's no `winners`-bracket round at all (single-elimination,
+ * Kings Valley, pooling-only) -- reconstructing `state.rounds`' exact
+ * original order, so every non-double-elimination format is unaffected.
+ */
+export function bracketRowGroups(state: Pick<TournamentState, 'rounds'>): BracketRowGroups {
+  const { rounds } = state;
+  const winners: number[] = [];
+  const losers: number[] = [];
+  let final: number | null = null;
+  rounds.forEach((round, index) => {
+    if (round.bracket === 'winners') winners.push(index);
+    else if (round.bracket === 'losers') losers.push(index);
+    else if (round.bracket === 'grand-final') final = index;
+  });
+  if (!winners.length) return { preBracket: rounds.map((_, index) => index), winners: [], losers: [] };
+  if (final === null) {
+    const lastIndex = rounds.length - 1;
+    if (rounds[lastIndex]?.isFinal) final = lastIndex;
+  }
+  if (final !== null) winners.push(final);
+  const bracketIndices = new Set([...winners, ...losers]);
+  const preBracket = rounds.map((_, index) => index).filter((index) => !bracketIndices.has(index));
+  return { preBracket, winners, losers };
+}
+
 /** Formats a 1-indexed room number as a letter (1 -> A, 26 -> Z, 27 -> AA, ...). */
 export function roomLetter(room: number): string {
   let n = room;
