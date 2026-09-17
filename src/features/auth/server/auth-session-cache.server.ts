@@ -5,8 +5,8 @@ import {
   getUsernameFromPayload,
   type AuthRolePayload,
   type AuthSnapshot,
-} from "../auth.shared";
-import { postJSON } from "../../../lib/api";
+} from '../auth.shared';
+import { postJSON } from '../../../lib/api';
 
 const AUTH_SESSION_CACHE_TTL_MS = 60 * 1000;
 
@@ -40,11 +40,16 @@ function getCache(): Map<string, CachedAuthSession> {
   return state.__tourAuthSessionCache;
 }
 
+/** Test-only seam: the cache otherwise lives on globalThis for the process's lifetime, which would leak entries between tests. */
+export function resetAuthSessionCache(): void {
+  getCache().clear();
+}
+
 function requestDeviceData(request: Request): string {
   return JSON.stringify({
-    language: request.headers.get("accept-language")?.split(",")[0]?.trim() || "",
-    platform: request.headers.get("sec-ch-ua-platform")?.replaceAll('"', "") || "",
-    userAgent: request.headers.get("user-agent") || "",
+    language: request.headers.get('accept-language')?.split(',')[0]?.trim() || '',
+    platform: request.headers.get('sec-ch-ua-platform')?.replaceAll('"', '') || '',
+    userAgent: request.headers.get('user-agent') || '',
   });
 }
 
@@ -52,16 +57,22 @@ function cloneSnapshot(snapshot: AuthSnapshot): AuthSnapshot {
   return { ...snapshot, roles: [...snapshot.roles] };
 }
 
-async function fetchAuthSnapshot({ fallbackUsername, hostname, pid, request, token }: AuthSessionRequest): Promise<AuthSnapshot> {
+async function fetchAuthSnapshot({
+  fallbackUsername,
+  hostname,
+  pid,
+  request,
+  token,
+}: AuthSessionRequest): Promise<AuthSnapshot> {
   const response = await postJSON<AuthTokenResponse>(
-    "/auth/logintoken",
+    '/auth/logintoken',
     { token, version: NET_VERSION, deviceID: pid, deviceData: requestDeviceData(request), pid },
     { hostname },
   );
   const username = getUsernameFromPayload(response.username, fallbackUsername);
   return {
     roles: extractAccountRoles(response),
-    status: "authenticated",
+    status: 'authenticated',
     userId: getUserIdFromPayload(response, username),
     username,
   };

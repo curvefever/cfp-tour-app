@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const tsconfigRootDir = path.dirname(fileURLToPath(import.meta.url));
-const typedFiles = ['src/**/*.{ts,tsx}', '*.ts'];
+const typedFiles = ['src/**/*.{ts,tsx}', '*.ts', 'e2e/**/*.ts'];
 
 export default tseslint.config(
   {
