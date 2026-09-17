@@ -12,6 +12,7 @@ import { getFinalUnitScore, getUnitScore, scoreKeysForPosition, tieResolutionLis
 import type {
   MaterializedGamemodeConfig,
   TournamentRoster,
+  TournamentRound,
   TournamentState,
   TournamentTeam,
   WithdrawnUnit,
@@ -298,6 +299,86 @@ function removeUnitFromCurrentRoom(state: TournamentState, key: string, teamSize
   );
 }
 
+/** The other name in a group-stage pair, given one of its two members. */
+function otherMember(pair: [string, string], key: string): string {
+  return pair[0] === key ? pair[1] : pair[0];
+}
+
+/**
+ * Patches every not-yet-reached group-stage round (index > state.curRound)
+ * so a roster change already applied to state.groups doesn't leave a ghost
+ * name baked into that round's matches/groupByes -- removeRosterUnit's
+ * strip() and swapIndividual/swapTeam's groups remap only ever touch
+ * state.groups, never the future TournamentRound objects that were built
+ * from group membership once, upfront, at generation time.
+ *
+ * newKey === null means "removed": oldKey's future match becomes a bye for
+ * its surviving opponent -- the same fallback buildRoundRobinRounds already
+ * uses when a group's own round-robin schedule runs out early. If oldKey was
+ * already scheduled as a bye that round, it's simply dropped. Either way,
+ * rooms/byeCount/players are recomputed, and a dropped match's roomGroups
+ * entry (same index) is filtered in lockstep so room numbers -- derived
+ * fresh from array position by seedFromGroupStageRound/BracketView -- keep
+ * lining up with the right group label after the shift.
+ *
+ * newKey is a string for "swapped": oldKey is relabeled to newKey wherever
+ * it appears. Group size is unchanged by a swap, so rooms/byeCount/players/
+ * roomGroups are left untouched.
+ *
+ * A no-op outside group-stage pooling.
+ */
+function patchFutureGroupStageRounds(
+  state: TournamentState,
+  oldKey: string,
+  newKey: string | null,
+): TournamentRound[] {
+  if (state.cfg.poolingPhase !== 'group-stage') return state.rounds;
+
+  return state.rounds.map((round, index) => {
+    if (index <= state.curRound || !round.isGroupStage) return round;
+    const matches = round.matches ?? [];
+    const groupByes = round.groupByes ?? [];
+
+    if (newKey !== null) {
+      const relabel = (name: string) => (name === oldKey ? newKey : name);
+      const touchesOldKey =
+        matches.some((match) => match.pair.includes(oldKey)) || groupByes.includes(oldKey);
+      if (!touchesOldKey) return round;
+      return {
+        ...round,
+        matches: matches.map((match) => ({ ...match, pair: match.pair.map(relabel) as [string, string] })),
+        groupByes: groupByes.map(relabel),
+      };
+    }
+
+    if (groupByes.includes(oldKey)) {
+      const nextGroupByes = groupByes.filter((name) => name !== oldKey);
+      return {
+        ...round,
+        groupByes: nextGroupByes,
+        byeCount: nextGroupByes.length,
+        players: round.players - 1,
+      };
+    }
+
+    const matchIndex = matches.findIndex((match) => match.pair.includes(oldKey));
+    if (matchIndex < 0) return round;
+    const survivor = otherMember(matches[matchIndex].pair, oldKey);
+    const nextMatches = matches.filter((_, position) => position !== matchIndex);
+    const nextRoomGroups = round.roomGroups?.filter((_, position) => position !== matchIndex);
+    const nextGroupByes = [...groupByes, survivor];
+    return {
+      ...round,
+      matches: nextMatches,
+      roomGroups: nextRoomGroups,
+      groupByes: nextGroupByes,
+      rooms: nextMatches.map(() => 2),
+      byeCount: nextGroupByes.length,
+      players: round.players - 1,
+    };
+  });
+}
+
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize ?? 0;
@@ -322,6 +403,7 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     byes: next.byes.map(strip),
     groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),
     tieResolutions,
+    rounds: patchFutureGroupStageRounds(next, key, null),
   };
   return dirty(next);
 }
@@ -441,6 +523,7 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
       ...group,
       members: group.members.map((name) => (name === oldName ? trimmed : name)),
     })),
+    rounds: patchFutureGroupStageRounds(replaced, oldName, trimmed),
   });
 }
 
@@ -472,6 +555,7 @@ export function swapTeam(
       ...group,
       members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
     })),
+    rounds: patchFutureGroupStageRounds(replaced, oldTeamId, replacement.teamId),
   });
 }
 

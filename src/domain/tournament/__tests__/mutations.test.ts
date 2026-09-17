@@ -202,6 +202,253 @@ describe('swapTeam', () => {
   });
 });
 
+describe('future group-stage rounds -- removeRosterUnit/swapIndividual/swapTeam', () => {
+  const round0 = buildRound({
+    roundNum: 1,
+    isGroupStage: true,
+    rooms: [2],
+    players: 6,
+    matches: [{ group: 'A', pair: ['P1', 'P2'] }],
+    groupByes: ['P3', 'P4'],
+    roomGroups: ['A'],
+  });
+
+  it('converts a future match into a bye for the survivor, and shifts other groups into place', () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2, 2],
+      players: 6,
+      byeCount: 2,
+      matches: [
+        { group: 'A', pair: ['P1', 'P3'] },
+        { group: 'B', pair: ['Q1', 'Q2'] },
+      ],
+      groupByes: ['P2', 'P4'],
+      roomGroups: ['A', 'B'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P2', 'P3', 'P4', 'Q1', 'Q2'],
+      groups: [
+        { label: 'A', members: ['P1', 'P2', 'P3', 'P4'] },
+        { label: 'B', members: ['Q1', 'Q2'] },
+      ],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [],
+      ],
+      scores: {},
+    });
+    const result = removeRosterUnit(state, 'P1');
+    expect(result.rounds[1]).toMatchObject({
+      matches: [{ group: 'B', pair: ['Q1', 'Q2'] }],
+      groupByes: ['P2', 'P4', 'P3'],
+      rooms: [2],
+      byeCount: 3,
+      players: 5,
+      roomGroups: ['B'],
+    });
+    // The already-reached round is byte-for-byte untouched.
+    expect(result.rounds[0]).toBe(round0);
+  });
+
+  it("drops the unit from a future round's existing groupByes when it has no match that round", () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2],
+      players: 4,
+      byeCount: 2,
+      matches: [{ group: 'A', pair: ['P3', 'P4'] }],
+      groupByes: ['P1', 'P2'],
+      roomGroups: ['A'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      groups: [{ label: 'A', members: ['P1', 'P2', 'P3', 'P4'] }],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [],
+      ],
+      scores: {},
+    });
+    const result = removeRosterUnit(state, 'P1');
+    expect(result.rounds[1]).toMatchObject({
+      matches: [{ group: 'A', pair: ['P3', 'P4'] }],
+      groupByes: ['P2'],
+      rooms: [2],
+      byeCount: 1,
+      players: 3,
+      roomGroups: ['A'],
+    });
+  });
+
+  it('relabels old -> new in a future match on swapIndividual, with no room/bye/player-count change', () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2],
+      players: 3,
+      byeCount: 1,
+      matches: [{ group: 'A', pair: ['P1', 'P3'] }],
+      groupByes: ['P2'],
+      roomGroups: ['A'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P2', 'P3'],
+      groups: [{ label: 'A', members: ['P1', 'P2', 'P3'] }],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [],
+      ],
+      scores: {},
+    });
+    const result = swapIndividual(state, 'P1', 'P5');
+    expect(result.rounds[1]).toMatchObject({
+      matches: [{ group: 'A', pair: ['P5', 'P3'] }],
+      groupByes: ['P2'],
+      rooms: [2],
+      byeCount: 1,
+      players: 3,
+      roomGroups: ['A'],
+    });
+    expect(result.rounds[0]).toBe(round0);
+  });
+
+  it('relabels old -> new in a future groupByes entry on swapIndividual', () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2],
+      players: 3,
+      byeCount: 1,
+      matches: [{ group: 'A', pair: ['P3', 'P4'] }],
+      groupByes: ['P1'],
+      roomGroups: ['A'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P3', 'P4'],
+      groups: [{ label: 'A', members: ['P1', 'P3', 'P4'] }],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [[{ name: 'P1', room: 1, isLucky: false }], []],
+      scores: {},
+    });
+    const result = swapIndividual(state, 'P1', 'P5');
+    expect(result.rounds[1]).toMatchObject({
+      matches: [{ group: 'A', pair: ['P3', 'P4'] }],
+      groupByes: ['P5'],
+    });
+  });
+
+  it('relabels old -> new in a future match on swapTeam the same way', () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2],
+      players: 3,
+      matches: [{ group: 'A', pair: ['t1', 't3'] }],
+      groupByes: [],
+      roomGroups: ['A'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [
+        { teamId: 't1', teamName: 'Team One', members: [{ name: 'Alice' }, { name: 'Bob' }] },
+        { teamId: 't3', teamName: 'Team Three', members: [{ name: 'Carl' }, { name: 'Dave' }] },
+      ],
+      groups: [{ label: 'A', members: ['t1', 't3'] }],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [[{ name: 't1', room: 1, isLucky: false }], []],
+      scores: {},
+    });
+    const result = swapTeam(state, 't1', {
+      teamId: 't5',
+      teamName: 'Team Five',
+      members: [{ name: 'Erin' }, { name: 'Frank' }],
+    });
+    expect(result.rounds[1]).toMatchObject({
+      matches: [{ group: 'A', pair: ['t5', 't3'] }],
+    });
+  });
+
+  it('leaves non-group-stage pooling phases completely unaffected (regression)', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2'],
+      cfg: { poolingPhase: 'qual-table' },
+      curRound: 0,
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [],
+      ],
+      scores: {},
+    });
+    const removed = removeRosterUnit(state, 'P1');
+    expect(removed.rounds).toBe(state.rounds);
+    const swapped = swapIndividual(state, 'P2', 'P5');
+    expect(swapped.rounds).toBe(state.rounds);
+  });
+
+  it('composes correctly across two sequential removals', () => {
+    const round1 = buildRound({
+      roundNum: 2,
+      isGroupStage: true,
+      rooms: [2],
+      players: 4,
+      matches: [{ group: 'A', pair: ['P1', 'P2'] }],
+      groupByes: [],
+      roomGroups: ['A'],
+    });
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      groups: [{ label: 'A', members: ['P1', 'P2', 'P3', 'P4'] }],
+      cfg: { poolingPhase: 'group-stage' },
+      curRound: 0,
+      rounds: [round0, round1],
+      assignments: [[], []],
+      scores: {},
+    });
+    const afterFirst = removeRosterUnit(state, 'P1');
+    expect(afterFirst.rounds[1]).toMatchObject({ matches: [], groupByes: ['P2'], players: 3 });
+    const afterSecond = removeRosterUnit(afterFirst, 'P2');
+    expect(afterSecond.rounds[1]).toMatchObject({ matches: [], groupByes: [], players: 2 });
+  });
+});
+
 describe('setRoundScore', () => {
   const baseState = () => createDefaultTournamentState({ scores: {} });
 
