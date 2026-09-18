@@ -124,16 +124,49 @@ describe('phase builders — shape-level', () => {
   it('qualificationTablePoolingPhase produces exactly qualRounds rounds, each isQual:true', () => {
     const result = qualificationTablePoolingPhase(
       { n: 10, qualAdv: 24 },
-      { roomSize: FFA_ROOM_SIZE, qualRounds: 3 },
+      { roomSize: FFA_ROOM_SIZE, qualRounds: 3, nonCountingRounds: 0 },
     );
     expect(result.rounds).toHaveLength(3);
     expect(result.rounds.every((round) => round.isQual)).toBe(true);
+    expect(result.rounds.every((round) => !round.excludeFromStandings)).toBe(true);
   });
 
   it('swissPoolingPhase produces exactly the configured number of rounds, each isSwiss:true', () => {
-    const result = swissPoolingPhase({ n: 37, qualAdv: 24 }, { roomSize: FFA_ROOM_SIZE, swissRounds: 6 });
+    const result = swissPoolingPhase(
+      { n: 37, qualAdv: 24 },
+      { roomSize: FFA_ROOM_SIZE, swissRounds: 6, nonCountingRounds: 0 },
+    );
     expect(result.rounds).toHaveLength(6);
     expect(result.rounds.every((round) => round.isSwiss)).toBe(true);
+    expect(result.rounds.every((round) => !round.excludeFromStandings)).toBe(true);
+  });
+
+  it('qualificationTablePoolingPhase flags exactly its own leading nonCountingRounds rounds as excludeFromStandings', () => {
+    const result = qualificationTablePoolingPhase(
+      { n: 10, qualAdv: 24 },
+      { roomSize: FFA_ROOM_SIZE, qualRounds: 3, nonCountingRounds: 2 },
+    );
+    expect(result.rounds.map((round) => Boolean(round.excludeFromStandings))).toEqual([true, true, false]);
+    // Excluded rounds still play (structurally identical to a counted round,
+    // including isNoElim -- every qual-table round is "no-elim" since
+    // nobody is cut mid-phase, only at the cutoff) -- this only marks them
+    // for exclusion from the cumulative standings.
+    expect(result.rounds.every((round) => round.isQual && round.isNoElim)).toBe(true);
+  });
+
+  it('swissPoolingPhase flags exactly its own leading nonCountingRounds rounds as excludeFromStandings', () => {
+    const result = swissPoolingPhase(
+      { n: 37, qualAdv: 24 },
+      { roomSize: FFA_ROOM_SIZE, swissRounds: 6, nonCountingRounds: 1 },
+    );
+    expect(result.rounds.map((round) => Boolean(round.excludeFromStandings))).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 
   it('noEliminationWarmupPoolingPhase always produces exactly 2 rounds', () => {

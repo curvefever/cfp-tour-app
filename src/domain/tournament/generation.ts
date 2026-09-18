@@ -119,6 +119,30 @@ export function generateTournament(
     config.qualAdv = Math.min(Math.max(rawQualAdv, floorMin), config.n);
   }
 
+  // "Non-counting" leading rounds are only meaningful where a cumulative
+  // standings table exists at all -- Qualification Table and Swiss (they
+  // share computeQualificationStandings). Group Stage has its own separate
+  // per-group standings/qualification mechanism and was deliberately left
+  // out of this feature's scope.
+  let nonCountingRounds = 0;
+  if (config.poolingPhase === 'qual-table' || config.poolingPhase === 'swiss') {
+    const rawNonCountingRounds = Number.parseInt(form.nonCountingRounds || '0', 10);
+    if (!Number.isFinite(rawNonCountingRounds) || rawNonCountingRounds < 0) {
+      return generationError(
+        `Non-counting rounds must be a non-negative whole number — got "${form.nonCountingRounds}".`,
+      );
+    }
+    const totalPoolingRounds =
+      config.poolingPhase === 'qual-table' ? QUALIFICATION_ROUNDS : computeSwissRoundCount(config.n);
+    if (rawNonCountingRounds >= totalPoolingRounds) {
+      const phaseName = config.poolingPhase === 'qual-table' ? 'Qualification Table' : 'Swiss';
+      return generationError(
+        `Non-counting rounds (${rawNonCountingRounds}) must leave at least one round that counts — this ${phaseName} phase has ${totalPoolingRounds} round${totalPoolingRounds === 1 ? '' : 's'} total.`,
+      );
+    }
+    nonCountingRounds = rawNonCountingRounds;
+  }
+
   // The number of units that will actually enter the bracket phase.
   // Group Stage derives this independently -- groups × qualifiers per group,
   // ignoring config.qualAdv entirely -- matching groupStagePoolingPhase's
@@ -288,6 +312,7 @@ export function generateTournament(
   const gamemodeConfig: MaterializedGamemodeConfig = {
     qualRounds: QUALIFICATION_ROUNDS,
     swissRounds: computeSwissRoundCount(config.n),
+    nonCountingRounds,
     teamScoringRule: format.teamSize ? form.teamScoringRule || 'sum-members' : 'sum-members',
     ...(oddCountStrategy ? { oddCountStrategy } : {}),
     roomSize,

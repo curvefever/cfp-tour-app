@@ -9,7 +9,7 @@ Nothing in this file is scheduled or authorized to start — it's assessment onl
 ## Recommended build order
 
 1. ~~**Double-elimination bracket layout (WB above LB)**~~ — done (2026-09-17), see "Bracket view: stack WB above LB" in `HANDOFF_LOG.md`. One reservation carried over from the build itself, not yet resolved: independent WB/LB row scrolling was chosen over lockstep scrolling but flagged for a live human check — worth a quick pass in the real app before treating it as settled.
-2. **Non-counting qualification rounds ("first N rounds don't count")** — no dependencies, ship whenever convenient.
+2. ~~**Non-counting qualification rounds ("first N rounds don't count")**~~ — done (2026-09-18), see "Non-counting qualification rounds" in `HANDOFF_LOG.md`. One edge case flagged there, not fixed: the qual-table/Swiss reserve-admission guard still counts *all* rounds played (including non-counting ones) toward its "at most one qualifying round completed" cutoff, so a reserve joining right after a run of non-counting rounds could end up with fewer than two *counted* rounds — worth revisiting only if it bites in practice.
 3. **Anonymous accounts, v1 scope** — no dependency on #4; prioritized ahead of it per the organiser's real-world need and more straightforward manual testing.
 4. **Manual overrides, pre-start only** — no dependency on #3; the two are independent and could equally run in the other order.
 5. **Skip-ahead / early qualification (Option 1: additive)** — last; genuinely new domain-layer routing, with Kings Valley needing its own separate mechanism on top.
@@ -24,17 +24,9 @@ Built 2026-09-17 — see "Bracket view: stack WB above LB" in `HANDOFF_LOG.md` f
 
 ---
 
-## 2. Non-counting qualification rounds ("first N rounds don't count")
+## 2. Non-counting qualification rounds ("first N rounds don't count") — done, see `HANDOFF_LOG.md`
 
-**What**: in qual-table/Swiss, let the organiser mark the first N rounds as played-but-excluded from the cumulative Fair Points standings, while still using each round's own per-room rank to seed the next round fairly (rather than a blind shuffle).
-
-**What already exists**: this is largely built already, just not exposed for an arbitrary N. `computeQualificationStandings`/`computeGroupStandings` (`advancement.ts`) only aggregate rounds flagged `isQual`/`isSwiss`/`isGroupStage` — the "None" pooling phase's 2-round no-elim warm-up already works exactly this way today (no qual/swiss flag, so its scores never enter the cumulative table — confirmed live-tested, see `HANDOFF_LOG.md`'s pooling-phase entries). Separately, `tieredSeed`'s reseeding (`seeding.ts`) already ranks by each round's *own* per-room score via `buildAdvancementTiers`, independent of cumulative standings, for every round type uniformly — so "seed fairly without counting" already exists as a signal for any round, counting or not.
-
-**Gap**: today this only works for the hardcoded 2-round warm-up under the "None" phase, not for an admin-chosen N inside qual-table/Swiss specifically. Smallest fix: a new boolean (e.g. `excludeFromStandings`) on `TournamentRound`, set for the first N rounds of a qual-table/Swiss pooling phase at generation time, plus one guard clause each in `computeQualificationStandings`/`computeGroupStandings` (`advancement.ts:301-302`, `326-327`). No changes needed to `tieredSeed`/`buildAdvancementTiers`.
-
-**Risk**: low. Small, isolated, doesn't touch round wiring/counts.
-
-**Scope decision (organiser, 2026-09-17)**: "first N rounds don't count" is the right shape — no need to support neutralizing an arbitrary round mid-tournament.
+Built 2026-09-18 — see "Non-counting qualification rounds" in `HANDOFF_LOG.md` for the full account (what already existed, what was built, testing, live verification). Kept here only as a pointer, per this file's own convention of moving finished entries out.
 
 ---
 

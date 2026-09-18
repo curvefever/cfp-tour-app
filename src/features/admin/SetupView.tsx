@@ -7,6 +7,7 @@ import {
 } from '../../domain/tournament/formats';
 import { generateTournament } from '../../domain/tournament/generation';
 import { resetRoster } from '../../domain/tournament/mutations';
+import { computeSwissRoundCount, QUALIFICATION_ROUNDS } from '../../domain/tournament/pooling';
 import {
   findDuplicateDisplayNames,
   parseIndividualLines,
@@ -183,6 +184,12 @@ export function SetupView() {
   }
 
   const isGroup = setup.poolingPhase === 'group-stage';
+  const totalPoolingRounds =
+    setup.poolingPhase === 'qual-table'
+      ? QUALIFICATION_ROUNDS
+      : setup.poolingPhase === 'swiss'
+        ? computeSwissRoundCount(state.confirmedCount ?? 0)
+        : 0;
   const isSingle = setup.scheduleLogic === 'single-elimination';
   const isRace = setup.scheduleLogic === 'double-elimination';
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';
@@ -295,15 +302,27 @@ export function SetupView() {
               </Field>
             </>
           ) : setup.poolingPhase !== 'none' ? (
-            <Field label='Advance to bracket'>
-              <Input
-                id='cfg-qual-adv'
-                type='number'
-                min='1'
-                value={setup.qualAdv}
-                onChange={(e) => change('qualAdv', e.target.value)}
-              />
-            </Field>
+            <>
+              <Field label='Advance to bracket'>
+                <Input
+                  id='cfg-qual-adv'
+                  type='number'
+                  min='1'
+                  value={setup.qualAdv}
+                  onChange={(e) => change('qualAdv', e.target.value)}
+                />
+              </Field>
+              <Field label='Non-counting rounds (optional)'>
+                <Input
+                  id='cfg-non-counting-rounds'
+                  type='number'
+                  min='0'
+                  max={Math.max(0, totalPoolingRounds - 1)}
+                  value={setup.nonCountingRounds}
+                  onChange={(e) => change('nonCountingRounds', e.target.value)}
+                />
+              </Field>
+            </>
           ) : null}
           {format?.supportedOddCountStrategies && format.supportedOddCountStrategies.length > 1 ? (
             <Field label='Odd-count strategy'>

@@ -14,6 +14,7 @@ import {
   rankStandings,
   roomBasedComputeAdvancement,
 } from '../advancement';
+import { fairPoints } from '../scoring';
 import type { TournamentStanding } from '../types';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildAssignments, buildRound } from './test-fixtures';
@@ -227,6 +228,40 @@ describe('computeQualificationStandings', () => {
     expect(g?.totalFP).toBeLessThan(h?.totalFP as number);
     expect(standings.findIndex((entry) => entry.name === 'G')).toBeLessThan(
       standings.findIndex((entry) => entry.name === 'H'),
+    );
+  });
+
+  it('excludes a round flagged excludeFromStandings from both the count of rounds played and the averaged fairPoints, even though it was actually played', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2'],
+      cfg: { poolingPhase: 'qual-table' },
+      rounds: [
+        // Round 1 is a non-counting round: P1 finishes last (rank2) here, a
+        // real result -- but it must never enter the average.
+        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2, excludeFromStandings: true }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [2], players: 2 }),
+      ],
+      assignments: [buildAssignments(['P1', 'P2'], [2]), buildAssignments(['P1', 'P2'], [2])],
+      scores: {
+        'r0-rm1-p0': 10, // P1: rank 2 (worst) in the excluded round.
+        'r0-rm1-p1': 100, // P2: rank 1 in the excluded round.
+        'r1-rm1-p0': 100, // P1: rank 1 in the counted round.
+        'r1-rm1-p1': 10, // P2: rank 2 in the counted round.
+      },
+    });
+    const standings = computeQualificationStandings(state);
+    const p1 = standings.find((entry) => entry.name === 'P1');
+    const p2 = standings.find((entry) => entry.name === 'P2');
+    // Each unit only has ONE round counted, not two.
+    expect(p1?.played).toBe(1);
+    expect(p2?.played).toBe(1);
+    // If the excluded round's rank-2 result leaked into the average, P1
+    // would rank behind P2 here instead of ahead.
+    expect(p1?.totalFP).toBe(fairPoints(1, 100));
+    expect(p2?.totalFP).toBe(fairPoints(2, 10));
+    expect(standings.findIndex((entry) => entry.name === 'P1')).toBeLessThan(
+      standings.findIndex((entry) => entry.name === 'P2'),
     );
   });
 });

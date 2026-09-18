@@ -100,6 +100,102 @@ describe('generateTournament -- validation failures', () => {
   });
 });
 
+describe('generateTournament -- non-counting rounds', () => {
+  it('flags exactly the leading N rounds excludeFromStandings for a qual-table tournament (fixed at 3 rounds)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '2' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    // Only the first 3 rounds are the qual-table pooling phase itself --
+    // the rest is the trailing single-elimination bracket phase, which
+    // excludeFromStandings has no bearing on.
+    expect(result.state.rounds.slice(0, 3).map((round) => Boolean(round.excludeFromStandings))).toEqual([
+      true,
+      true,
+      false,
+    ]);
+  });
+
+  it('flags exactly the leading N rounds excludeFromStandings for a Swiss tournament (n=8 -> 3 rounds)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      nonCountingRounds: '1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.slice(0, 3).map((round) => Boolean(round.excludeFromStandings))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it('defaults to 0 non-counting rounds (every round counts) when the field is left blank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.every((round) => !round.excludeFromStandings)).toBe(true);
+  });
+
+  it('rejects a negative value instead of silently clamping to 0', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '-1' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('Non-counting rounds');
+  });
+
+  it('rejects a value that would leave zero counting rounds (qual-table has only 3 rounds total)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '3' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('at least one round that counts');
+      expect(result.message).toContain('Qualification Table');
+    }
+  });
+
+  it('rejects a value that would leave zero counting rounds for Swiss too (n=8 -> 3 rounds)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      nonCountingRounds: '3',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('at least one round that counts');
+      expect(result.message).toContain('Swiss');
+    }
+  });
+
+  it('ignores non-counting-rounds validation entirely for Group Stage -- it has its own separate standings mechanism', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'group-stage',
+      nonCountingRounds: '99',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
+
+  it('ignores non-counting-rounds validation entirely when poolingPhase is "none"', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'none', nonCountingRounds: '99' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
+});
+
 describe('generateTournament -- Group Stage format gating', () => {
   it.each([
     ['ffa-individual', 20, 'FFA — Individual'],

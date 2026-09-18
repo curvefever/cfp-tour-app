@@ -32,6 +32,7 @@ export interface PoolingFormatConfig {
   oddCountStrategy?: OddCountStrategyKey;
   qualRounds: number;
   swissRounds: number;
+  nonCountingRounds: number;
 }
 
 export interface PoolingPhaseResult {
@@ -80,13 +81,14 @@ function createPoolingRound(
 
 export function qualificationTablePoolingPhase(
   config: Pick<PoolingConfig, 'n' | 'qualAdv'>,
-  format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'qualRounds'>,
+  format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'qualRounds' | 'nonCountingRounds'>,
 ): PoolingPhaseResult {
   const rounds = Array.from({ length: format.qualRounds }, (_, index) => {
     const distribution = distributeRoomsWithBye(config.n, format.roomSize, format.oddCountStrategy);
     return {
       ...createPoolingRound(index + 1, config.n, distribution.rooms, distribution.byeCount),
       isQual: true,
+      ...(index < format.nonCountingRounds ? { excludeFromStandings: true } : {}),
     };
   });
   return {
@@ -98,7 +100,7 @@ export function qualificationTablePoolingPhase(
 
 export function swissPoolingPhase(
   config: Pick<PoolingConfig, 'n' | 'qualAdv'>,
-  format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'swissRounds'>,
+  format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'swissRounds' | 'nonCountingRounds'>,
 ): PoolingPhaseResult {
   const rounds = Array.from({ length: format.swissRounds }, (_, index) => {
     const distribution = distributeRoomsWithBye(config.n, format.roomSize, format.oddCountStrategy);
@@ -106,6 +108,7 @@ export function swissPoolingPhase(
       ...createPoolingRound(index + 1, config.n, distribution.rooms, distribution.byeCount),
       isSwiss: true,
       ...(index > 0 ? { pairingTBD: true } : {}),
+      ...(index < format.nonCountingRounds ? { excludeFromStandings: true } : {}),
     };
   });
   return {

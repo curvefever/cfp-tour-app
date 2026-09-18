@@ -299,7 +299,7 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
     rosterKeys(state.players).map((name) => [name, { name, rounds: [] }]),
   );
   for (const [roundIndex, round] of state.rounds.entries()) {
-    if (!(round.isQual || round.isSwiss)) continue;
+    if (!(round.isQual || round.isSwiss) || round.excludeFromStandings) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       for (const [index, entry] of orderRoomByScore(
         scoreRoom(state, roundIndex, room, null),

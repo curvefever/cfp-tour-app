@@ -803,6 +803,18 @@ function tieResolutionListSafe(state: TournamentState, key: string): string[] {
   return Array.isArray(value) ? value : value ? [value] : [];
 }
 
+/**
+ * The width-affecting classes for a round column at a given collapsed
+ * state -- extracted so `BracketRounds`' invisible LB-row spacers can share
+ * this exact computation and stay pixel-aligned with the real columns
+ * they're standing in for, rather than reimplementing the same widths
+ * separately (which could silently drift out of sync with `RoundColumn`'s
+ * own class list).
+ */
+function roundColumnWidthClass(collapsed: boolean) {
+  return cn('w-52.5 min-w-52.5 shrink-0', collapsed && 'w-8.5 min-w-8.5');
+}
+
 function RoundColumn({
   accent,
   children,
@@ -840,8 +852,8 @@ function RoundColumn({
   return (
     <div
       className={cn(
-        'w-52.5 min-w-52.5 shrink-0 overflow-hidden rounded-lg border border-surface-hover bg-surface',
-        collapsed && 'w-8.5 min-w-8.5',
+        roundColumnWidthClass(collapsed),
+        'overflow-hidden rounded-lg border border-surface-hover bg-surface',
         current && 'border-primary shadow-[0_0_0_1px_var(--app-primary-soft)]',
       )}
       data-ri={roundIndex}
@@ -867,13 +879,17 @@ function RoundColumn({
 }
 
 /**
- * Renders a double-elimination tournament's winners/losers rounds as two
- * stacked rows (winners above losers, the terminal Final grouped with
- * winners) instead of one row interleaving them -- see `bracketRowGroups`.
- * Degenerates to a single row, identical to before this split existed, for
- * every other format (single-elimination, Kings Valley, pooling-only).
- * Shared between `BracketView` (editable, has collapse/follow state) and
- * `ArchivedBracket` (read-only, has neither) via optional props.
+ * Renders a double-elimination tournament's rounds as two stacked rows: the
+ * pre-bracket/pooling rounds and the winners bracket (WB, terminal Final
+ * included) share one continuous top row -- WB is simply "what happens
+ * next" after pooling, not a structurally distinct row -- with the losers
+ * bracket (LB) on its own row below, offset by invisible spacers so LB's
+ * first round starts in the same column as WB's first round rather than
+ * flush under the pre-bracket rounds. See `bracketRowGroups`. Degenerates
+ * to a single row, identical to before this split existed, for every other
+ * format (single-elimination, Kings Valley, pooling-only). Shared between
+ * `BracketView` (editable, has collapse/follow state) and `ArchivedBracket`
+ * (read-only, has neither) via optional props.
  */
 function BracketRounds({
   state,
@@ -895,42 +911,64 @@ function BracketRounds({
   followedRounds?: BracketFollowStatus['rounds'];
 }) {
   const groups = bracketRowGroups(state);
-  function renderRow(indices: number[], key: string) {
-    if (!indices.length) return null;
-    return (
-      <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row={key} key={key}>
-        {indices.map((roundIndex) => {
-          const collapsed =
-            collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
-          return (
-            <RoundColumn
-              accent={labels[roundIndex]?.accent}
-              collapsed={collapsed}
-              current={roundIndex === state.curRound}
-              followed={Boolean(followedRounds?.[roundIndex])}
-              key={roundIndex}
-              label={labels[roundIndex]?.label}
-              onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
-              roundIndex={roundIndex}
-            >
-              <RoundBody
-                state={state}
-                roundIndex={roundIndex}
-                editable={editable}
-                followKey={followKey}
-                projected={projectedSlots[roundIndex] ?? null}
-              />
-            </RoundColumn>
-          );
-        })}
-      </div>
-    );
+  function isCollapsed(roundIndex: number) {
+    return collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
   }
+  function renderColumns(indices: number[]) {
+    return indices.map((roundIndex) => {
+      const collapsed = isCollapsed(roundIndex);
+      return (
+        <RoundColumn
+          accent={labels[roundIndex]?.accent}
+          collapsed={collapsed}
+          current={roundIndex === state.curRound}
+          followed={Boolean(followedRounds?.[roundIndex])}
+          key={roundIndex}
+          label={labels[roundIndex]?.label}
+          onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+          roundIndex={roundIndex}
+        >
+          <RoundBody
+            state={state}
+            roundIndex={roundIndex}
+            editable={editable}
+            followKey={followKey}
+            projected={projectedSlots[roundIndex] ?? null}
+          />
+        </RoundColumn>
+      );
+    });
+  }
+  // Invisible, non-interactive placeholders matching each pre-bracket
+  // round's current width exactly (including live collapse state, via the
+  // same roundColumnWidthClass RoundColumn itself uses, so the two can
+  // never drift out of sync) -- so LB's first real column always lines up
+  // under WB's first column above, with no manual pixel math. No data-ri,
+  // so chooseFollow's `[data-ri]` lookup can never match a spacer instead
+  // of the real column.
+  function renderSpacer(indices: number[]) {
+    return indices.map((roundIndex) => (
+      <div
+        aria-hidden='true'
+        className={roundColumnWidthClass(isCollapsed(roundIndex))}
+        key={`spacer-${roundIndex}`}
+      />
+    ));
+  }
+  const topIndices = [...groups.preBracket, ...groups.winners];
   return (
     <div className='flex flex-col gap-3.5' id='br-rounds'>
-      {renderRow(groups.preBracket, 'pre')}
-      {renderRow(groups.winners, 'wb')}
-      {renderRow(groups.losers, 'lb')}
+      {topIndices.length ? (
+        <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row='top'>
+          {renderColumns(topIndices)}
+        </div>
+      ) : null}
+      {groups.losers.length ? (
+        <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row='lb'>
+          {renderSpacer(groups.preBracket)}
+          {renderColumns(groups.losers)}
+        </div>
+      ) : null}
     </div>
   );
 }

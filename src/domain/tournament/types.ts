@@ -65,6 +65,8 @@ export interface TournamentRound {
   luckyCount: number;
   isSwiss?: boolean;
   pairingTBD?: boolean;
+  /** Played and used to seed the next round, but excluded from the cumulative qualification/Swiss standings (materializeStandings, advancement.ts). Set on a pooling phase's own leading rounds at generation time -- never toggled mid-tournament. */
+  excludeFromStandings?: boolean;
   isGroupStage?: boolean;
   roomGroups?: string[];
   matches?: GroupStageMatch[];
@@ -150,6 +152,8 @@ export interface GeneratedTournamentConfig {
 export interface MaterializedGamemodeConfig {
   qualRounds: number;
   swissRounds: number;
+  /** How many of the qual-table/Swiss phase's own leading rounds are played but excluded from the cumulative standings (see TournamentRound.excludeFromStandings). 0 = every round counts. */
+  nonCountingRounds: number;
   teamScoringRule: TeamScoringRuleKey;
   oddCountStrategy?: OddCountStrategyKey;
   roomSize: RoomSize;
@@ -207,6 +211,7 @@ export interface PersistedSetup {
   scoring: ScoringSystemKey;
   poolingPhase: PoolingPhaseKey;
   qualAdv: string;
+  nonCountingRounds: string;
   groupSize: string;
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: string;

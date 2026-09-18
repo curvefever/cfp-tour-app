@@ -43,6 +43,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     scoring: 'fairpoints',
     poolingPhase: 'none',
     qualAdv: '24',
+    nonCountingRounds: '0',
     groupSize: '4',
     roundRobinMode: 'single',
     qualifiersPerGroup: '2',

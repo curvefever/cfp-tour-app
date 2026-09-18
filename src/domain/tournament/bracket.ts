@@ -95,9 +95,13 @@ export interface BracketRowGroups {
  * Splits a tournament's rounds into display groups for Bracket view, so the
  * winners bracket (WB) and losers bracket (LB) -- interleaved in
  * `state.rounds`' own array order (wb1, lb1, wb2, lb2, ..., wbLast, final) --
- * can be rendered as two separate rows instead of one interleaved row. The
- * terminal Final/Grand-Final round is grouped with `winners` (appended
- * last), matching where the organiser wants it displayed.
+ * can be rendered as two separate rows instead of one interleaved row:
+ * `preBracket` and `winners` share one continuous row (WB is "what happens
+ * next" after pooling, not a structurally distinct row), `losers` gets its
+ * own row below. The terminal Final/Grand-Final round is grouped with
+ * `winners` (appended last), matching where the organiser wants it
+ * displayed. See `BracketRounds` (BracketView.tsx) for how the groups
+ * actually map to rows.
  *
  * Degenerates to `{ preBracket: every index in order, winners: [], losers: [] }`
  * whenever there's no `winners`-bracket round at all (single-elimination,
