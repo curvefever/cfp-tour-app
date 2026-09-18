@@ -35,7 +35,7 @@ import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/stor
 import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
-const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
+const compactScoreClass = 'w-13! shrink-0 rounded-sm! px-1.5! py-0.5! text-xs!';
 const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
 
 function FollowBanner({
@@ -730,7 +730,7 @@ function RoundBody({
                 return (
                   <div className={cn(bracketRowBase, resultClasses(result, followed))} key={entry.name}>
                     <div className='flex items-center gap-1.5'>
-                      <span className='min-w-0 flex-1'>
+                      <span className='min-w-0 flex-1 truncate' title={entry.name}>
                         {badges}
                         {entry.name}
                       </span>
@@ -763,7 +763,7 @@ function RoundBody({
                   className={cn(bracketRowBase, 'flex items-center gap-1.5', resultClasses(result, followed))}
                   key={entry.name}
                 >
-                  <span>
+                  <span className='min-w-0 flex-1 truncate' title={entry.name}>
                     {badges}
                     {entry.name}
                   </span>
