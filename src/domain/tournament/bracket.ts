@@ -82,51 +82,54 @@ export function bracketRoundDefaultCollapsed(roundIndex: number, currentRound: n
   return roundIndex < currentRound - 1;
 }
 
-export interface BracketRowGroups {
-  /** Pooling rounds, or -- for a non-double-elimination format -- every round, in original order. */
-  preBracket: number[];
-  /** `bracket === 'winners'` round indices, in order, with the terminal Final/Grand-Final index appended last. */
-  winners: number[];
-  /** `bracket === 'losers'` round indices, in order. */
-  losers: number[];
-}
+export type BracketBox =
+  | { kind: 'single'; roundIndex: number }
+  | { kind: 'wave'; winnersRoundIndex: number; losersRoundIndices: number[] };
 
 /**
- * Splits a tournament's rounds into display groups for Bracket view, so the
- * winners bracket (WB) and losers bracket (LB) -- interleaved in
- * `state.rounds`' own array order (wb1, lb1, wb2, lb2, ..., wbLast, final) --
- * can be rendered as two separate rows instead of one interleaved row:
- * `preBracket` and `winners` share one continuous row (WB is "what happens
- * next" after pooling, not a structurally distinct row), `losers` gets its
- * own row below. The terminal Final/Grand-Final round is grouped with
- * `winners` (appended last), matching where the organiser wants it
- * displayed. See `BracketRounds` (BracketView.tsx) for how the groups
- * actually map to rows.
+ * Splits a tournament's rounds into display boxes for Bracket view: a
+ * winners-bracket (WB) round and every losers-bracket (LB) round
+ * immediately following it in `state.rounds`' own array order (before the
+ * next WB round) share one box -- LB is a section *inside* the same box as
+ * its WB round, not a structurally separate row or column. See
+ * `WaveBoxBody` (BracketView.tsx) for how a `wave` box actually renders.
  *
- * Degenerates to `{ preBracket: every index in order, winners: [], losers: [] }`
+ * A WB round can have 1-2 trailing LB rounds for the head-to-head/race
+ * double-elimination variant (1 for the first/last WB round, 2 for any
+ * round in between -- `double-elimination.ts`'s `raceDoubleEliminationBracketPhase`),
+ * or 0-1 for the FFA/team shared-final variant (`sharedFinalDoubleEliminationBracketPhase`,
+ * where a WB round's drops can be deferred into a *later* WB round's LB
+ * absorption, genuinely producing a wave with an empty `losersRoundIndices`).
+ * This scan needs no format-specific branching to handle either shape.
+ *
+ * Everything not absorbed into a wave -- pre-bracket pooling rounds, and
+ * the terminal Final/Grand-Final (never tagged `winners`/`losers`, so it's
+ * never absorbed) -- becomes its own `single` box, in original order.
+ * Degenerates to "every round is its own `single` box, original order"
  * whenever there's no `winners`-bracket round at all (single-elimination,
  * Kings Valley, pooling-only) -- reconstructing `state.rounds`' exact
  * original order, so every non-double-elimination format is unaffected.
  */
-export function bracketRowGroups(state: Pick<TournamentState, 'rounds'>): BracketRowGroups {
+export function bracketBoxes(state: Pick<TournamentState, 'rounds'>): BracketBox[] {
   const { rounds } = state;
-  const winners: number[] = [];
-  const losers: number[] = [];
-  let final: number | null = null;
-  rounds.forEach((round, index) => {
-    if (round.bracket === 'winners') winners.push(index);
-    else if (round.bracket === 'losers') losers.push(index);
-    else if (round.bracket === 'grand-final') final = index;
-  });
-  if (!winners.length) return { preBracket: rounds.map((_, index) => index), winners: [], losers: [] };
-  if (final === null) {
-    const lastIndex = rounds.length - 1;
-    if (rounds[lastIndex]?.isFinal) final = lastIndex;
+  const boxes: BracketBox[] = [];
+  let i = 0;
+  while (i < rounds.length) {
+    if (rounds[i].bracket === 'winners') {
+      const losersRoundIndices: number[] = [];
+      let j = i + 1;
+      while (j < rounds.length && rounds[j].bracket === 'losers') {
+        losersRoundIndices.push(j);
+        j += 1;
+      }
+      boxes.push({ kind: 'wave', winnersRoundIndex: i, losersRoundIndices });
+      i = j;
+    } else {
+      boxes.push({ kind: 'single', roundIndex: i });
+      i += 1;
+    }
   }
-  if (final !== null) winners.push(final);
-  const bracketIndices = new Set([...winners, ...losers]);
-  const preBracket = rounds.map((_, index) => index).filter((index) => !bracketIndices.has(index));
-  return { preBracket, winners, losers };
+  return boxes;
 }
 
 /** Formats a 1-indexed room number as a letter (1 -> A, 26 -> Z, 27 -> AA, ...). */

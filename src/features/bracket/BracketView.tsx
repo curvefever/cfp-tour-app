@@ -8,13 +8,14 @@ import {
   isTieResolved,
 } from '../../domain/tournament/advancement';
 import {
+  bracketBoxes,
   bracketFollowStatus,
   bracketRoundDefaultCollapsed,
   bracketRoundLabels,
-  bracketRowGroups,
   projectedSlotLabelText,
   projectFutureRoundSlots,
   roomLetter,
+  type BracketBox,
   type BracketFollowStatus,
   type ProjectedSlotLabel,
 } from '../../domain/tournament/bracket';
@@ -803,14 +804,7 @@ function tieResolutionListSafe(state: TournamentState, key: string): string[] {
   return Array.isArray(value) ? value : value ? [value] : [];
 }
 
-/**
- * The width-affecting classes for a round column at a given collapsed
- * state -- extracted so `BracketRounds`' invisible LB-row spacers can share
- * this exact computation and stay pixel-aligned with the real columns
- * they're standing in for, rather than reimplementing the same widths
- * separately (which could silently drift out of sync with `RoundColumn`'s
- * own class list).
- */
+/** The width-affecting classes for a round column at a given collapsed state. */
 function roundColumnWidthClass(collapsed: boolean) {
   return cn('w-52.5 min-w-52.5 shrink-0', collapsed && 'w-8.5 min-w-8.5');
 }
@@ -879,17 +873,91 @@ function RoundColumn({
 }
 
 /**
- * Renders a double-elimination tournament's rounds as two stacked rows: the
- * pre-bracket/pooling rounds and the winners bracket (WB, terminal Final
- * included) share one continuous top row -- WB is simply "what happens
- * next" after pooling, not a structurally distinct row -- with the losers
- * bracket (LB) on its own row below, offset by invisible spacers so LB's
- * first round starts in the same column as WB's first round rather than
- * flush under the pre-bracket rounds. See `bracketRowGroups`. Degenerates
- * to a single row, identical to before this split existed, for every other
- * format (single-elimination, Kings Valley, pooling-only). Shared between
- * `BracketView` (editable, has collapse/follow state) and `ArchivedBracket`
- * (read-only, has neither) via optional props.
+ * A `wave` box's content: the winners-bracket (WB) round's own rooms,
+ * followed -- only when this wave actually has losers-bracket (LB) rounds
+ * trailing it, which isn't guaranteed (the FFA/team shared-final
+ * double-elimination variant can defer a WB round's drops into a *later*
+ * round's LB absorption, leaving `losersRoundIndices` empty) -- by a thin
+ * divider and every LB round's own rooms stacked beneath it. When two LB
+ * rounds land in the same wave (the head-to-head/race variant's middle
+ * rounds), each gets its own small round-identifying sub-label first,
+ * since `roomLetter()` restarts at "Room A" independently per round and
+ * two stacked "Room A" blocks would otherwise be ambiguous about which
+ * round they belong to. Each LB round's own wrapper carries `data-ri` so
+ * `chooseFollow` can still scroll/highlight it individually, not just the
+ * wave's WB anchor.
+ */
+function WaveBoxBody({
+  state,
+  box,
+  editable,
+  followKey,
+  projectedSlots,
+}: {
+  state: TournamentState;
+  box: Extract<BracketBox, { kind: 'wave' }>;
+  editable: boolean;
+  followKey: string | null;
+  projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
+}) {
+  const hasLosers = box.losersRoundIndices.length > 0;
+  return (
+    <>
+      {hasLosers ? (
+        <div className='mb-1.5 text-[0.68rem] font-bold tracking-[0.05em] text-success uppercase'>
+          Winners bracket
+        </div>
+      ) : null}
+      <RoundBody
+        state={state}
+        roundIndex={box.winnersRoundIndex}
+        editable={editable}
+        followKey={followKey}
+        projected={projectedSlots[box.winnersRoundIndex] ?? null}
+      />
+      {hasLosers ? (
+        <>
+          <div className='my-2.5 h-px bg-warning' />
+          <div className='mb-1.5 text-[0.68rem] font-bold tracking-[0.05em] text-warning uppercase'>
+            Losers bracket
+          </div>
+          {box.losersRoundIndices.map((roundIndex, index) => (
+            <div className={index > 0 ? 'mt-2.5' : undefined} data-ri={roundIndex} key={roundIndex}>
+              {box.losersRoundIndices.length > 1 ? (
+                <div className='mb-1 text-[0.65rem] font-semibold text-muted'>
+                  Round {state.rounds[roundIndex]?.roundNum}
+                </div>
+              ) : null}
+              <RoundBody
+                state={state}
+                roundIndex={roundIndex}
+                editable={editable}
+                followKey={followKey}
+                projected={projectedSlots[roundIndex] ?? null}
+              />
+            </div>
+          ))}
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Renders a tournament's rounds as one flowing row of boxes, one per
+ * `bracketBoxes()` entry. A double-elimination winners-bracket (WB) round
+ * and every losers-bracket (LB) round immediately following it share one
+ * box (`WaveBoxBody` above) -- LB is a section *inside* WB's own box, not
+ * a separate row or column, per the organiser's explicit request after
+ * reviewing the previous two-row layout live. Every other round (pre-
+ * bracket rounds, the terminal Final) is its own ordinary box, labeled via
+ * `bracketRoundLabels()` exactly as before. Degenerates to the exact
+ * original single-row rendering for every non-double-elimination format
+ * (single-elimination, Kings Valley, pooling-only), by construction --
+ * `bracketBoxes()` never produces a `wave` box when no round is tagged
+ * `bracket === 'winners'`. Shared between `BracketView` (editable, has
+ * collapse/follow state) and `ArchivedBracket` (read-only, has neither)
+ * via optional props.
  */
 function BracketRounds({
   state,
@@ -910,65 +978,59 @@ function BracketRounds({
   onToggleCollapse?: (roundIndex: number, collapsed: boolean) => void;
   followedRounds?: BracketFollowStatus['rounds'];
 }) {
-  const groups = bracketRowGroups(state);
-  function isCollapsed(roundIndex: number) {
-    return collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
-  }
-  function renderColumns(indices: number[]) {
-    return indices.map((roundIndex) => {
-      const collapsed = isCollapsed(roundIndex);
-      return (
-        <RoundColumn
-          accent={labels[roundIndex]?.accent}
-          collapsed={collapsed}
-          current={roundIndex === state.curRound}
-          followed={Boolean(followedRounds?.[roundIndex])}
-          key={roundIndex}
-          label={labels[roundIndex]?.label}
-          onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+  const boxes = bracketBoxes(state);
+  function renderSingle(roundIndex: number) {
+    const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
+    return (
+      <RoundColumn
+        accent={labels[roundIndex]?.accent}
+        collapsed={collapsed}
+        current={roundIndex === state.curRound}
+        followed={Boolean(followedRounds?.[roundIndex])}
+        key={roundIndex}
+        label={labels[roundIndex]?.label}
+        onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+        roundIndex={roundIndex}
+      >
+        <RoundBody
+          state={state}
           roundIndex={roundIndex}
-        >
-          <RoundBody
-            state={state}
-            roundIndex={roundIndex}
-            editable={editable}
-            followKey={followKey}
-            projected={projectedSlots[roundIndex] ?? null}
-          />
-        </RoundColumn>
-      );
-    });
+          editable={editable}
+          followKey={followKey}
+          projected={projectedSlots[roundIndex] ?? null}
+        />
+      </RoundColumn>
+    );
   }
-  // Invisible, non-interactive placeholders matching each pre-bracket
-  // round's current width exactly (including live collapse state, via the
-  // same roundColumnWidthClass RoundColumn itself uses, so the two can
-  // never drift out of sync) -- so LB's first real column always lines up
-  // under WB's first column above, with no manual pixel math. No data-ri,
-  // so chooseFollow's `[data-ri]` lookup can never match a spacer instead
-  // of the real column.
-  function renderSpacer(indices: number[]) {
-    return indices.map((roundIndex) => (
-      <div
-        aria-hidden='true'
-        className={roundColumnWidthClass(isCollapsed(roundIndex))}
-        key={`spacer-${roundIndex}`}
-      />
-    ));
+  function renderWave(box: Extract<BracketBox, { kind: 'wave' }>) {
+    const constituents = [box.winnersRoundIndex, ...box.losersRoundIndices];
+    const lastIndex = Math.max(...constituents);
+    const collapsed =
+      collapse?.[box.winnersRoundIndex] ?? bracketRoundDefaultCollapsed(lastIndex, state.curRound);
+    return (
+      <RoundColumn
+        accent={labels[box.winnersRoundIndex]?.accent}
+        collapsed={collapsed}
+        current={constituents.includes(state.curRound)}
+        followed={constituents.some((roundIndex) => Boolean(followedRounds?.[roundIndex]))}
+        key={box.winnersRoundIndex}
+        label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
+        onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
+        roundIndex={box.winnersRoundIndex}
+      >
+        <WaveBoxBody
+          state={state}
+          box={box}
+          editable={editable}
+          followKey={followKey}
+          projectedSlots={projectedSlots}
+        />
+      </RoundColumn>
+    );
   }
-  const topIndices = [...groups.preBracket, ...groups.winners];
   return (
-    <div className='flex flex-col gap-3.5' id='br-rounds'>
-      {topIndices.length ? (
-        <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row='top'>
-          {renderColumns(topIndices)}
-        </div>
-      ) : null}
-      {groups.losers.length ? (
-        <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' data-row='lb'>
-          {renderSpacer(groups.preBracket)}
-          {renderColumns(groups.losers)}
-        </div>
-      ) : null}
+    <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds'>
+      {boxes.map((box) => (box.kind === 'single' ? renderSingle(box.roundIndex) : renderWave(box)))}
     </div>
   );
 }
