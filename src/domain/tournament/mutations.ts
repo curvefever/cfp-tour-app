@@ -3,13 +3,14 @@ import {
   computeQualificationStandings,
   invalidateStaleTieResolutions,
 } from './advancement';
-import { progressGrandFinalRace } from './finals';
+import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { getGameFormat } from './formats';
 import { validateRoomCap } from './room-distribution';
 import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import { getFinalUnitScore, getUnitScore, scoreKeysForPosition, tieResolutionList } from './scoring';
 import type {
+  AnonymousFinalist,
   MaterializedGamemodeConfig,
   TournamentRoster,
   TournamentRound,
@@ -17,6 +18,8 @@ import type {
   TournamentTeam,
   WithdrawnUnit,
 } from './types';
+
+const MAX_ANONYMOUS_FINALISTS = 10;
 
 function dirty(state: TournamentState): TournamentState {
   return { ...state, needsSave: true };
@@ -67,6 +70,88 @@ export function setFinalScore(
     finalScores: { ...state.finalScores, [key]: parsed },
   });
   return progressGrandFinalRace(updated).state;
+}
+
+// Anonymous Finals matches (v1, individual formats only -- a team-format
+// alias would need its own fabricated TournamentTeam/member list, since
+// getFinalUnitScore's team branch reads real roster data via buildTeamMap()
+// that an alias never has; out of scope, guarded below rather than half-built).
+
+function findFinalRoundIndex(state: TournamentState): number {
+  return state.rounds.findIndex((round) => round.isFinal);
+}
+
+export function flagFinalGameAnonymous(state: TournamentState, gameNumber: number): TournamentState {
+  if (getGameFormat(state.gameFormat)?.teamSize) return state;
+  const roundIndex = findFinalRoundIndex(state);
+  const round = state.rounds[roundIndex];
+  // Grand-final race progression (progressGrandFinalRace) decides whether to
+  // open the next game by reading the two real finalists' own keys directly
+  // -- an anonymous game's score living under its alias instead would stall
+  // the race forever. Out of scope for v1, not a half-built workaround.
+  if (!round || round.bracket === 'grand-final') return state;
+  const numGames = round.numGames ?? 0;
+  if (!Number.isInteger(gameNumber) || gameNumber < 1 || gameNumber > numGames) return state;
+  if (round.anonymousGames?.includes(gameNumber)) return state;
+  const assignments = state.assignments[roundIndex] ?? [];
+  const alreadyScored = assignments.some(
+    (assignment) => getFinalUnitScore(state, assignment.name, gameNumber, null) !== null,
+  );
+  if (alreadyScored) return state;
+
+  let anonymousFinalists = state.anonymousFinalists;
+  if (anonymousFinalists.length === 0) {
+    if (assignments.length === 0 || assignments.length > MAX_ANONYMOUS_FINALISTS) return state;
+    anonymousFinalists = assignments.map((assignment, index): AnonymousFinalist => ({
+      alias: `Finalist-${index + 1}`,
+      realKey: assignment.name,
+      connected: false,
+    }));
+  }
+
+  const rounds = state.rounds.map((entry, index) =>
+    index === roundIndex
+      ? { ...entry, anonymousGames: [...(entry.anonymousGames ?? []), gameNumber] }
+      : entry,
+  );
+  return dirty({ ...state, rounds, anonymousFinalists });
+}
+
+export function unflagFinalGameAnonymous(state: TournamentState, gameNumber: number): TournamentState {
+  const roundIndex = findFinalRoundIndex(state);
+  const round = state.rounds[roundIndex];
+  if (!round?.anonymousGames?.includes(gameNumber)) return state;
+  const alreadyScored = state.anonymousFinalists.some(
+    (finalist) => getFinalUnitScore(state, finalist.alias, gameNumber, null) !== null,
+  );
+  if (alreadyScored) return state;
+  const rounds = state.rounds.map((entry, index) =>
+    index === roundIndex
+      ? { ...entry, anonymousGames: (entry.anonymousGames ?? []).filter((game) => game !== gameNumber) }
+      : entry,
+  );
+  return dirty({ ...state, rounds });
+}
+
+export function connectAnonymousFinalist(state: TournamentState, alias: string): TournamentState {
+  const roundIndex = findFinalRoundIndex(state);
+  const round = state.rounds[roundIndex];
+  if (!round || !isPlainFinalFullyScored(state, roundIndex, round)) return state;
+  const finalist = state.anonymousFinalists.find((entry) => entry.alias === alias);
+  if (!finalist || finalist.connected) return state;
+  const anonymousGames = round.anonymousGames ?? [];
+  const finalScores = { ...state.finalScores };
+  for (const gameNumber of anonymousGames) {
+    const anonKey = `game${gameNumber}-${alias}`;
+    const realKey = `game${gameNumber}-${finalist.realKey}`;
+    if (finalScores[realKey] == null || finalScores[realKey] === '') {
+      finalScores[realKey] = finalScores[anonKey] ?? null;
+    }
+  }
+  const anonymousFinalists = state.anonymousFinalists.map((entry) =>
+    entry.alias === alias ? { ...entry, connected: true } : entry,
+  );
+  return dirty({ ...state, finalScores, anonymousFinalists });
 }
 
 export function resolveTournamentTie(state: TournamentState, key: string, name: string): TournamentState {

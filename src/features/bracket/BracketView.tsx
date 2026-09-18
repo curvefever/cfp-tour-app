@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   computeLuckyLoserStandings,
   computeStandingsCutoffAdvancing,
@@ -19,9 +19,20 @@ import {
   type BracketFollowStatus,
   type ProjectedSlotLabel,
 } from '../../domain/tournament/bracket';
-import { finalsProgressState } from '../../domain/tournament/finals';
+import {
+  anonymousFinalsProgressState,
+  finalsProgressState,
+  isPlainFinalFullyScored,
+} from '../../domain/tournament/finals';
 import { getGameFormat } from '../../domain/tournament/formats';
-import { resolveTournamentTie, setFinalScore, setRoundScore } from '../../domain/tournament/mutations';
+import {
+  connectAnonymousFinalist,
+  flagFinalGameAnonymous,
+  resolveTournamentTie,
+  setFinalScore,
+  setRoundScore,
+  unflagFinalGameAnonymous,
+} from '../../domain/tournament/mutations';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import {
   getDefenderIndex,
@@ -167,11 +178,15 @@ function FinalColumn({
   roundIndex,
   editable,
   followed,
+  tab,
+  onTabChange,
 }: {
   state: TournamentState;
   roundIndex: number;
   editable: boolean;
   followed: string | null;
+  tab: number;
+  onTabChange: (tab: number) => void;
 }) {
   const app = useTournamentApp();
   const round = state.rounds[roundIndex];
@@ -180,8 +195,17 @@ function FinalColumn({
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
   const games = round.numGames ?? 1;
-  const [tab, setTab] = useState(progress.nextGame ?? 1);
   const activeTab = Math.min(tab, games);
+  const canFlagAnonymous =
+    !teamSize &&
+    round.bracket !== 'grand-final' &&
+    activeTab > 0 &&
+    !(round.anonymousGames ?? []).includes(activeTab) &&
+    assignments.every(
+      (assignment) =>
+        progress.units.find((unit) => unit.name === assignment.name)?.perGame[activeTab - 1] == null,
+    );
+  const isActiveGameAnonymous = (round.anonymousGames ?? []).includes(activeTab);
   const names = progress.complete
     ? progress.order.filter((name): name is string => Boolean(name))
     : assignments.map((entry) => entry.name);
@@ -209,8 +233,9 @@ function FinalColumn({
               className={cn(
                 'px-1.5 py-0.5 text-[0.68rem]',
                 activeTab === index + 1 && tab !== 0 && 'border-primary bg-primary-soft text-primary',
+                (round.anonymousGames ?? []).includes(index + 1) && 'border-warning text-warning',
               )}
-              onClick={() => setTab(index + 1)}
+              onClick={() => onTabChange(index + 1)}
             >
               G{index + 1}
             </Button>
@@ -221,15 +246,35 @@ function FinalColumn({
               'px-1.5 py-0.5 text-[0.68rem]',
               tab === 0 && 'border-primary bg-primary-soft text-primary',
             )}
-            onClick={() => setTab(0)}
+            onClick={() => onTabChange(0)}
           >
             📊 Total
           </Button>
         </div>
       ) : null}
       {editable && tab !== 0 ? (
-        <div className='mb-1 text-[0.68rem] font-semibold tracking-[0.05em] text-primary uppercase'>
-          Game {activeTab} — enter scores
+        <div className='mb-1 flex flex-wrap items-center gap-1.5'>
+          <span className='text-[0.68rem] font-semibold tracking-[0.05em] text-primary uppercase'>
+            Game {activeTab} — enter scores
+          </span>
+          {canFlagAnonymous || isActiveGameAnonymous ? (
+            <Button
+              size='sm'
+              className={cn(
+                'px-1.5 py-0.5 text-[0.65rem]',
+                isActiveGameAnonymous && 'border-warning text-warning',
+              )}
+              onClick={() =>
+                app.updateState((current) =>
+                  isActiveGameAnonymous
+                    ? unflagFinalGameAnonymous(current, activeTab)
+                    : flagFinalGameAnonymous(current, activeTab),
+                )
+              }
+            >
+              {isActiveGameAnonymous ? '🎭 Anonymous — click to undo' : '🎭 Make anonymous'}
+            </Button>
+          ) : null}
         </div>
       ) : null}
       {names.map((name, index) => {
@@ -266,7 +311,10 @@ function FinalColumn({
                 </span>
               ))}
             </div>
-            {editable && tab !== 0 ? (
+            {editable && tab !== 0 && isActiveGameAnonymous ? (
+              <div className='mt-1 text-[0.68rem] text-warning'>Scored anonymously below ↓</div>
+            ) : null}
+            {editable && tab !== 0 && !isActiveGameAnonymous ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>
                 <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
                 {teamSize ? (
@@ -321,6 +369,95 @@ function FinalColumn({
         );
       })}
     </>
+  );
+}
+
+/**
+ * A sibling box to the Final's own RoundColumn, one per Final round that has
+ * ever had a game flagged anonymous -- shows each placeholder alias's score
+ * strip (and, if editable, its live score-entry field for the currently
+ * selected game), plus a "Connect & Reveal" action once every game is
+ * actually filled (real or placeholder). realKey/the real name stays hidden
+ * (anonymousFinalsProgressState's own gate, not just a display choice here)
+ * until that specific alias has been connected.
+ */
+function AnonymousFinalCard({
+  state,
+  roundIndex,
+  round,
+  editable,
+  activeTab,
+}: {
+  state: TournamentState;
+  roundIndex: number;
+  round: TournamentRound;
+  editable: boolean;
+  activeTab: number;
+}) {
+  const app = useTournamentApp();
+  const progress = anonymousFinalsProgressState(state, round);
+  if (progress.length === 0) return null;
+  const readyToConnect = isPlainFinalFullyScored(state, roundIndex, round);
+  const anonymousGames = round.anonymousGames ?? [];
+  return (
+    <div
+      className={cn(
+        roundColumnWidthClass(false),
+        'overflow-hidden rounded-lg border border-warning/40 bg-surface',
+      )}
+    >
+      <div className='flex w-full items-center gap-1 border-b border-surface-hover bg-surface-low px-3 py-2.5 text-left text-xs font-bold tracking-[0.08em] text-warning uppercase'>
+        🎭 Anonymous matches
+      </div>
+      <div className='p-2.5'>
+        {progress.map((entry) => (
+          <div className={bracketRowBase} key={entry.alias}>
+            <div className='flex items-center gap-1.5'>
+              <span className='min-w-0 flex-1 truncate'>
+                {entry.connected && entry.realKey
+                  ? `${entry.alias} → ${unitDisplay(state, entry.realKey).label}`
+                  : entry.alias}
+              </span>
+            </div>
+            <div className='mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[0.68rem] text-muted'>
+              {anonymousGames.map((game) => {
+                const score = entry.perGame[game] ?? null;
+                return (
+                  <span className={score === null ? 'opacity-50' : ''} key={game}>
+                    G{game} {score === null ? '—' : <b className='text-xs text-foreground'>{score}</b>}
+                  </span>
+                );
+              })}
+            </div>
+            {editable && !entry.connected && anonymousGames.includes(activeTab) ? (
+              <div className='mt-1 flex flex-wrap items-center gap-1.5'>
+                <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
+                <ScoreInput
+                  className={compactScoreClass}
+                  min='0'
+                  step={1}
+                  value={state.finalScores[`game${activeTab}-${entry.alias}`] ?? ''}
+                  onChange={(event) =>
+                    app.updateState((current) =>
+                      setFinalScore(current, `game${activeTab}-${entry.alias}`, event.target.value),
+                    )
+                  }
+                />
+              </div>
+            ) : null}
+            {editable && !entry.connected && readyToConnect ? (
+              <Button
+                size='sm'
+                className='mt-1 border-warning px-1.5 py-0.5 text-[0.65rem] text-warning'
+                onClick={() => app.updateState((current) => connectAnonymousFinalist(current, entry.alias))}
+              >
+                🔓 Connect & reveal
+              </Button>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -515,12 +652,16 @@ function RoundBody({
   editable,
   followKey,
   projected,
+  finalTab,
+  onFinalTabChange,
 }: {
   state: TournamentState;
   roundIndex: number;
   editable: boolean;
   followKey: string | null;
   projected: ProjectedSlotLabel[][] | null;
+  finalTab?: number;
+  onFinalTabChange?: (tab: number) => void;
 }) {
   const round = state.rounds[roundIndex];
   const assignments = state.assignments[roundIndex] ?? [];
@@ -532,6 +673,8 @@ function RoundBody({
         roundIndex={roundIndex}
         editable={editable && roundIndex === state.curRound}
         followed={followKey}
+        tab={finalTab ?? 1}
+        onTabChange={onFinalTabChange ?? (() => {})}
       />
     );
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
@@ -979,9 +1122,14 @@ function BracketRounds({
   followedRounds?: BracketFollowStatus['rounds'];
 }) {
   const boxes = bracketBoxes(state);
+  const finalRoundIndex = useMemo(() => state.rounds.findIndex((round) => round.isFinal), [state.rounds]);
+  const finalRound = finalRoundIndex >= 0 ? state.rounds[finalRoundIndex] : null;
+  const finalProgress = finalRound ? finalsProgressState(state, finalRoundIndex, finalRound) : null;
+  const [finalTabOverride, setFinalTabOverride] = useState<number | null>(null);
+  const finalTab = finalTabOverride ?? finalProgress?.nextGame ?? 1;
   function renderSingle(roundIndex: number) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
-    return (
+    const column = (
       <RoundColumn
         accent={labels[roundIndex]?.accent}
         collapsed={collapsed}
@@ -998,8 +1146,23 @@ function BracketRounds({
           editable={editable}
           followKey={followKey}
           projected={projectedSlots[roundIndex] ?? null}
+          finalTab={roundIndex === finalRoundIndex ? finalTab : undefined}
+          onFinalTabChange={roundIndex === finalRoundIndex ? setFinalTabOverride : undefined}
         />
       </RoundColumn>
+    );
+    if (roundIndex !== finalRoundIndex || !finalRound || state.anonymousFinalists.length === 0) return column;
+    return (
+      <Fragment key={roundIndex}>
+        {column}
+        <AnonymousFinalCard
+          state={state}
+          roundIndex={roundIndex}
+          round={finalRound}
+          editable={editable && roundIndex === state.curRound}
+          activeTab={finalTab}
+        />
+      </Fragment>
     );
   }
   function renderWave(box: Extract<BracketBox, { kind: 'wave' }>) {

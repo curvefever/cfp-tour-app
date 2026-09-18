@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   addReserveUnit,
+  connectAnonymousFinalist,
+  flagFinalGameAnonymous,
   removeRosterUnit,
   setFinalScore,
   setRoundScore,
   swapIndividual,
   swapTeam,
+  unflagFinalGameAnonymous,
 } from '../mutations';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
@@ -514,6 +517,199 @@ describe('setFinalScore', () => {
   it('treats non-numeric garbage as unset (regression)', () => {
     const result = setFinalScore(baseState(), 'game1-P1', 'abc');
     expect(result.finalScores['game1-P1']).toBe('');
+  });
+});
+
+function anonFinalState(overrides: Partial<Parameters<typeof createDefaultTournamentState>[0]> = {}) {
+  return createDefaultTournamentState({
+    gameFormat: 'ffa-individual',
+    rounds: [buildRound({ roundNum: 1, isFinal: true, rooms: [2], players: 2, numGames: 3 })],
+    assignments: [
+      [
+        { name: 'P1', room: 1, isLucky: false },
+        { name: 'P2', room: 1, isLucky: false },
+      ],
+    ],
+    finalScores: {},
+    curRound: 0,
+    ...overrides,
+  });
+}
+
+describe('flagFinalGameAnonymous / unflagFinalGameAnonymous', () => {
+  it('generates Finalist-1/Finalist-2 aliases in assignment order on first flag', () => {
+    const result = flagFinalGameAnonymous(anonFinalState(), 3);
+    expect(result.anonymousFinalists).toEqual([
+      { alias: 'Finalist-1', realKey: 'P1', connected: false },
+      { alias: 'Finalist-2', realKey: 'P2', connected: false },
+    ]);
+    expect(result.rounds[0].anonymousGames).toEqual([3]);
+  });
+
+  it('reuses the existing alias list for a second flagged game in the same Final', () => {
+    const first = flagFinalGameAnonymous(anonFinalState(), 3);
+    const second = flagFinalGameAnonymous(first, 2);
+    expect(second.anonymousFinalists).toBe(first.anonymousFinalists);
+    expect(second.rounds[0].anonymousGames).toEqual([3, 2]);
+  });
+
+  it('rejects an out-of-range game number', () => {
+    const state = anonFinalState();
+    expect(flagFinalGameAnonymous(state, 0)).toBe(state);
+    expect(flagFinalGameAnonymous(state, 4)).toBe(state);
+  });
+
+  it('rejects flagging a game that already has a real score', () => {
+    const state = anonFinalState({ finalScores: { 'game1-P1': 10, 'game1-P2': 20 } });
+    expect(flagFinalGameAnonymous(state, 1)).toBe(state);
+  });
+
+  it('no-ops re-flagging an already-flagged game', () => {
+    const flagged = flagFinalGameAnonymous(anonFinalState(), 3);
+    expect(flagFinalGameAnonymous(flagged, 3)).toBe(flagged);
+  });
+
+  it('rejects team-format Finals', () => {
+    const state = anonFinalState({ gameFormat: 'team-3v3' });
+    expect(flagFinalGameAnonymous(state, 3)).toBe(state);
+  });
+
+  it('rejects grand-final rounds (progressGrandFinalRace needs real keys to open the next game)', () => {
+    const state = anonFinalState({
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          isFinal: true,
+          bracket: 'grand-final',
+          rooms: [2],
+          players: 2,
+          numGames: 1,
+          wbFinalistName: 'P1',
+        }),
+      ],
+    });
+    expect(flagFinalGameAnonymous(state, 1)).toBe(state);
+  });
+
+  it('rejects generating aliases for more than 10 finalists', () => {
+    const assignments = Array.from({ length: 11 }, (_, index) => ({
+      name: `P${index + 1}`,
+      room: 1,
+      isLucky: false,
+    }));
+    const state = anonFinalState({
+      rounds: [buildRound({ roundNum: 1, isFinal: true, rooms: [11], players: 11, numGames: 3 })],
+      assignments: [assignments],
+    });
+    expect(flagFinalGameAnonymous(state, 3)).toBe(state);
+  });
+
+  it('unflags a not-yet-scored anonymous game', () => {
+    const flagged = flagFinalGameAnonymous(anonFinalState(), 3);
+    const result = unflagFinalGameAnonymous(flagged, 3);
+    expect(result.rounds[0].anonymousGames).toEqual([]);
+  });
+
+  it('rejects unflagging a game that already has a placeholder score', () => {
+    const flagged = flagFinalGameAnonymous(anonFinalState(), 3);
+    const scored = { ...flagged, finalScores: { 'game3-Finalist-1': 10 } };
+    expect(unflagFinalGameAnonymous(scored, 3)).toBe(scored);
+  });
+
+  it('no-ops unflagging a game that was never flagged', () => {
+    const state = anonFinalState();
+    expect(unflagFinalGameAnonymous(state, 3)).toBe(state);
+  });
+});
+
+describe('connectAnonymousFinalist', () => {
+  it('rejects connecting before every game is filled (real or placeholder)', () => {
+    let state = anonFinalState({ finalScores: { 'game1-P1': 10, 'game1-P2': 20 } });
+    state = flagFinalGameAnonymous(state, 2);
+    state = flagFinalGameAnonymous(state, 3);
+    // game2/game3 scored under placeholders for Finalist-1 only -- Finalist-2 still missing.
+    state = {
+      ...state,
+      finalScores: { ...state.finalScores, 'game2-Finalist-1': 5, 'game3-Finalist-1': 5 },
+    };
+    const result = connectAnonymousFinalist(state, 'Finalist-1');
+    expect(result).toBe(state);
+  });
+
+  it('merges placeholder scores onto the real finalist once every game is filled, and marks connected', () => {
+    let state = anonFinalState({ finalScores: { 'game1-P1': 10, 'game1-P2': 20 } });
+    state = flagFinalGameAnonymous(state, 2);
+    state = flagFinalGameAnonymous(state, 3);
+    state = {
+      ...state,
+      finalScores: {
+        ...state.finalScores,
+        'game2-Finalist-1': 5,
+        'game2-Finalist-2': 7,
+        'game3-Finalist-1': 9,
+        'game3-Finalist-2': 11,
+      },
+    };
+    const result = connectAnonymousFinalist(state, 'Finalist-1');
+    expect(result.finalScores['game2-P1']).toBe(5);
+    expect(result.finalScores['game3-P1']).toBe(9);
+    expect(result.finalScores['game2-P2']).toBeUndefined();
+    expect(result.anonymousFinalists).toEqual([
+      { alias: 'Finalist-1', realKey: 'P1', connected: true },
+      { alias: 'Finalist-2', realKey: 'P2', connected: false },
+    ]);
+  });
+
+  it('does not overwrite a real key that somehow already has a score', () => {
+    let state = anonFinalState({ finalScores: { 'game1-P1': 10, 'game1-P2': 20 } });
+    state = flagFinalGameAnonymous(state, 2);
+    state = flagFinalGameAnonymous(state, 3);
+    state = {
+      ...state,
+      finalScores: {
+        ...state.finalScores,
+        'game2-Finalist-1': 5,
+        'game2-Finalist-2': 7,
+        'game3-Finalist-1': 9,
+        'game3-Finalist-2': 11,
+        'game2-P1': 99, // pre-existing, should be left alone
+      },
+    };
+    const result = connectAnonymousFinalist(state, 'Finalist-1');
+    expect(result.finalScores['game2-P1']).toBe(99);
+    expect(result.finalScores['game3-P1']).toBe(9);
+  });
+
+  it('no-ops for an unknown alias', () => {
+    const state = anonFinalState({
+      finalScores: {
+        'game1-P1': 10,
+        'game1-P2': 20,
+        'game2-P1': 1,
+        'game2-P2': 1,
+        'game3-P1': 1,
+        'game3-P2': 1,
+      },
+    });
+    expect(connectAnonymousFinalist(state, 'Finalist-1')).toBe(state);
+  });
+
+  it('no-ops re-connecting an already-connected alias', () => {
+    let state = anonFinalState({ finalScores: { 'game1-P1': 10, 'game1-P2': 20 } });
+    state = flagFinalGameAnonymous(state, 2);
+    state = flagFinalGameAnonymous(state, 3);
+    state = {
+      ...state,
+      finalScores: {
+        ...state.finalScores,
+        'game2-Finalist-1': 5,
+        'game2-Finalist-2': 7,
+        'game3-Finalist-1': 9,
+        'game3-Finalist-2': 11,
+      },
+    };
+    const connected = connectAnonymousFinalist(state, 'Finalist-1');
+    expect(connectAnonymousFinalist(connected, 'Finalist-1')).toBe(connected);
   });
 });
 

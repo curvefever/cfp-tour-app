@@ -81,12 +81,27 @@ export interface TournamentRound {
   kvPromoteCounts?: number[];
   kvDemoteCounts?: number[];
   kvEliminateCount?: number;
+  /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
+  anonymousGames?: number[];
 }
 
 export interface RoundAssignment {
   name: string;
   room: number | null;
   isLucky?: boolean;
+}
+
+/**
+ * A Final-round game slot scored under a temporary placeholder name instead
+ * of the real finalist's, per TournamentRound.anonymousGames. Generated once
+ * (in finalist order, from that round's own assignments) the first time any
+ * of that Final's games is flagged anonymous, then held stable across every
+ * subsequently-flagged game in the same Final.
+ */
+export interface AnonymousFinalist {
+  alias: string;
+  realKey: string;
+  connected: boolean;
 }
 
 /**
@@ -195,6 +210,8 @@ export interface TournamentState {
   tieResolutions: Record<string, string | string[]>;
   defenderChanges: Record<string, DefenderChange[]>;
   withdrawnUnits: WithdrawnUnit[];
+  /** The Final's placeholder roster, generated once a Final game is first flagged anonymous (see TournamentRound.anonymousGames) and held stable across the rest of that Final. */
+  anonymousFinalists: AnonymousFinalist[];
   reserveOpen: boolean;
   started: boolean;
   needsSave: boolean;

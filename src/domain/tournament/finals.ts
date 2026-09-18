@@ -106,6 +106,35 @@ export function progressGrandFinalRace(state: TournamentState): GrandFinalRaceTr
   };
 }
 
+/**
+ * Whether a plain (non-grand-final) Final round is fully scored, treating an
+ * anonymous-flagged game's slot as filled once its placeholder alias has a
+ * score -- not the real finalist's own key, which stays empty by design
+ * until connectAnonymousFinalist() merges it in. Deliberately NOT the same
+ * check as computeRankings()'s finalComplete (rankings.ts), which reads only
+ * real keys and would therefore never become true while any game is still
+ * anonymous and unconnected -- this is the gate connectAnonymousFinalist()
+ * itself needs to decide whether a placeholder is safe to reveal.
+ */
+export function isPlainFinalFullyScored(
+  state: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): boolean {
+  const assignments = state.assignments[roundIndex] ?? [];
+  const numGames = round.numGames ?? 0;
+  if (assignments.length === 0 || numGames === 0) return false;
+  const aliasByRealKey = new Map(state.anonymousFinalists.map((entry) => [entry.realKey, entry.alias]));
+  return assignments.every((assignment) =>
+    Array.from({ length: numGames }, (_, index) => index + 1).every((game) => {
+      const key = round.anonymousGames?.includes(game)
+        ? (aliasByRealKey.get(assignment.name) ?? assignment.name)
+        : assignment.name;
+      return getFinalUnitScore(state, key, game, null) !== null;
+    }),
+  );
+}
+
 export function finalsProgressState(
   state: TournamentState,
   roundIndex: number,
@@ -162,4 +191,33 @@ export function finalsProgressState(
     order,
     race,
   };
+}
+
+export interface AnonymousFinalistProgress {
+  alias: string;
+  /** Keyed by game number (matches TournamentRound.anonymousGames), not 0-indexed -- only the flagged games ever have a placeholder score. */
+  perGame: Record<number, number | null>;
+  connected: boolean;
+  /** Only populated once connected -- the whole point is this stays unknown to a reader until then. */
+  realKey: string | null;
+}
+
+/** The Bracket UI's anonymous-Final card reads this -- a sibling to finalsProgressState, keyed by placeholder alias instead of real finalist name. */
+export function anonymousFinalsProgressState(
+  state: TournamentState,
+  round: TournamentRound,
+): AnonymousFinalistProgress[] {
+  const anonymousGames = round.anonymousGames ?? [];
+  return state.anonymousFinalists.map((finalist): AnonymousFinalistProgress => {
+    const perGame: Record<number, number | null> = {};
+    for (const game of anonymousGames) {
+      perGame[game] = getFinalUnitScore(state, finalist.alias, game, null);
+    }
+    return {
+      alias: finalist.alias,
+      perGame,
+      connected: finalist.connected,
+      realKey: finalist.connected ? finalist.realKey : null,
+    };
+  });
 }

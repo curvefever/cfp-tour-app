@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { computeGrandFinalRaceState, finalsProgressState, progressGrandFinalRace } from '../finals';
+import {
+  anonymousFinalsProgressState,
+  computeGrandFinalRaceState,
+  finalsProgressState,
+  progressGrandFinalRace,
+} from '../finals';
+import { flagFinalGameAnonymous } from '../mutations';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
 
@@ -179,5 +185,55 @@ describe('finalsProgressState', () => {
     expect(progress.isGrandFinal).toBe(false);
     expect(progress.complete).toBe(true);
     expect(progress.order).toEqual(['P2', 'P1']);
+  });
+});
+
+describe('anonymousFinalsProgressState', () => {
+  function anonFinalState() {
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, isFinal: true, rooms: [2], players: 2, numGames: 3 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      finalScores: {},
+      curRound: 0,
+    });
+  }
+
+  it('returns an empty list before any game is flagged anonymous', () => {
+    const state = anonFinalState();
+    expect(anonymousFinalsProgressState(state, state.rounds[0])).toEqual([]);
+  });
+
+  it('reports per-game scores keyed by game number, only for flagged games', () => {
+    let state = flagFinalGameAnonymous(anonFinalState(), 3);
+    state = { ...state, finalScores: { 'game3-Finalist-1': 10, 'game3-Finalist-2': 20 } };
+    const progress = anonymousFinalsProgressState(state, state.rounds[0]);
+    expect(progress).toEqual([
+      { alias: 'Finalist-1', perGame: { 3: 10 }, connected: false, realKey: null },
+      { alias: 'Finalist-2', perGame: { 3: 20 }, connected: false, realKey: null },
+    ]);
+  });
+
+  it('hides realKey until connected, then reveals it', () => {
+    let state = flagFinalGameAnonymous(anonFinalState(), 3);
+    state = { ...state, finalScores: { 'game1-P1': 1, 'game1-P2': 1, 'game2-P1': 1, 'game2-P2': 1 } };
+    // Not connected yet -- realKey stays hidden even though the mapping is known internally.
+    let progress = anonymousFinalsProgressState(state, state.rounds[0]);
+    expect(progress.find((entry) => entry.alias === 'Finalist-1')?.realKey).toBeNull();
+
+    state = {
+      ...state,
+      anonymousFinalists: state.anonymousFinalists.map((entry) =>
+        entry.alias === 'Finalist-1' ? { ...entry, connected: true } : entry,
+      ),
+    };
+    progress = anonymousFinalsProgressState(state, state.rounds[0]);
+    expect(progress.find((entry) => entry.alias === 'Finalist-1')?.realKey).toBe('P1');
+    expect(progress.find((entry) => entry.alias === 'Finalist-2')?.realKey).toBeNull();
   });
 });
