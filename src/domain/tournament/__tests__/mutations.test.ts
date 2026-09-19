@@ -4,6 +4,7 @@ import {
   connectAnonymousFinalist,
   flagFinalGameAnonymous,
   removeRosterUnit,
+  resetRoster,
   setFinalScore,
   setRoundScore,
   swapIndividual,
@@ -819,5 +820,34 @@ describe('addReserveUnit -- qualifying-round restriction', () => {
     });
     const result = addReserveUnit(state, 'P3');
     expect(result.status).toBe('added');
+  });
+});
+
+describe('resetRoster', () => {
+  it('clears the roster/schedule and every piece of tournament-specific carryover state, so a reused player name starts with a genuinely clean slate', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2'],
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50 },
+      roomHistory: { 'P1|P2': 0 },
+      anonymousFinalists: [{ alias: 'Finalist-1', realKey: 'P1', connected: false }],
+      started: true,
+    });
+    const result = resetRoster(state);
+    expect(result.players).toEqual([]);
+    expect(result.rounds).toEqual([]);
+    expect(result.started).toBe(false);
+    // The two fields this fix adds -- previously left stale across a roster
+    // clear, which could bias rematch-avoidance for a reused player name or
+    // leave a dangling placeholder-alias mapping into a brand new Final.
+    expect(result.roomHistory).toEqual({});
+    expect(result.anonymousFinalists).toEqual([]);
   });
 });

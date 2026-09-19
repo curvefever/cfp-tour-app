@@ -720,6 +720,8 @@ export function resetRoster(state: TournamentState): TournamentState {
     tieResolutions: {},
     defenderChanges: {},
     withdrawnUnits: [],
+    roomHistory: {},
+    anonymousFinalists: [],
     curRound: 0,
     reserveOpen: true,
     started: false,

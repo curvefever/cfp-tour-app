@@ -312,7 +312,7 @@ function FinalColumn({
               ))}
             </div>
             {editable && tab !== 0 && isActiveGameAnonymous ? (
-              <div className='mt-1 text-[0.68rem] text-warning'>Scored anonymously below ↓</div>
+              <div className='mt-1 text-[0.68rem] text-warning'>Scored anonymously — see side panel →</div>
             ) : null}
             {editable && tab !== 0 && !isActiveGameAnonymous ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>

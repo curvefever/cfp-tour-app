@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { resetTournamentState } from '../../domain/tournament/mutations';
+import { resetRoster, resetTournamentState } from '../../domain/tournament/mutations';
 import {
   findLatestArchiveEntryForTournament,
   loadArchiveIndex,
@@ -25,7 +25,9 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
 
 type AdminPrompt =
-  { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary } | { kind: 'reset' };
+  | { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary }
+  | { kind: 'reset' }
+  | { kind: 'start-new' };
 
 export function RunningAdmin() {
   const app = useTournamentApp();
@@ -91,6 +93,12 @@ export function RunningAdmin() {
     app.updateState(resetTournamentState(state));
     setPrompt(null);
   }
+
+  function startNewNow() {
+    saveBracketFollow(window.localStorage, null);
+    app.updateState(resetRoster(state));
+    setPrompt(null);
+  }
   return (
     <div id='panel-running'>
       <Panel className='pb-1.5'>
@@ -140,6 +148,19 @@ export function RunningAdmin() {
         >
           ↺ Reset
         </Button>
+        <Button
+          onClick={() => {
+            if (state.needsSave) setPrompt({ kind: 'start-new' });
+            else if (
+              window.confirm(
+                'Start a new tournament? This clears the current roster and schedule — archived tournaments are unaffected.',
+              )
+            )
+              startNewNow();
+          }}
+        >
+          🏁 Save & Start New Tournament
+        </Button>
       </ButtonRow>
       {prompt?.kind === 'save' ? (
         <Modal
@@ -180,6 +201,29 @@ export function RunningAdmin() {
             </Button>
             <Button variant='danger' onClick={resetNow}>
               Reset without saving
+            </Button>
+            <Button onClick={() => setPrompt(null)}>Cancel</Button>
+          </ModalActions>
+        </Modal>
+      ) : null}
+      {prompt?.kind === 'start-new' ? (
+        <Modal titleId='start-new-title' title='Unsaved tournament'>
+          <p>
+            This tournament has changes that are not in the archive. Save a snapshot before starting a new
+            tournament, discard the changes, or cancel?
+          </p>
+          <ModalActions>
+            <Button
+              variant='success'
+              onClick={() => {
+                saveSilently();
+                startNewNow();
+              }}
+            >
+              Save &amp; start new
+            </Button>
+            <Button variant='danger' onClick={startNewNow}>
+              Start new without saving
             </Button>
             <Button onClick={() => setPrompt(null)}>Cancel</Button>
           </ModalActions>
