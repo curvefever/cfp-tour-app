@@ -6,10 +6,25 @@ import {
   type RaceDoubleEliminationConfig,
   type SharedFinalDoubleEliminationConfig,
 } from '../double-elimination';
-import type { RoomSize } from '../types';
+import type { RoomSize, TournamentRound } from '../types';
 
 const HEAD_TO_HEAD_ROOM_SIZE: RoomSize = { min: 2, max: 2, ideal: 2 };
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
+
+/** Longest run of consecutive WB rounds with no intervening LB round. */
+function maxConsecutiveWbRounds(rounds: TournamentRound[]): number {
+  let max = 0;
+  let current = 0;
+  for (const round of rounds) {
+    if (round.bracket === 'winners') {
+      current += 1;
+      max = Math.max(max, current);
+    } else if (round.bracket === 'losers') {
+      current = 0;
+    }
+  }
+  return max;
+}
 
 describe('nextPowerOf2AndRounds', () => {
   it('rounds up to the next power of 2 for a non-power-of-2 input', () => {
@@ -141,5 +156,35 @@ describe('sharedFinalDoubleEliminationBracketPhase', () => {
       expect(round.losersTo).not.toBeNull();
       expect(round.losersTo).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it('never lets more than 2 consecutive WB rounds pass before an LB round is played, across a range of seed totals', () => {
+    for (let seedTotal = 10; seedTotal <= 100; seedTotal += 1) {
+      const rounds = sharedFinalDoubleEliminationBracketPhase(seedTotal, 1, baseConfig);
+      expect(maxConsecutiveWbRounds(rounds)).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('every losers-bracket round it creates is a genuine cut -- never a no-op that just lets the whole pending pool through', () => {
+    for (let seedTotal = 10; seedTotal <= 100; seedTotal += 1) {
+      const rounds = sharedFinalDoubleEliminationBracketPhase(seedTotal, 1, baseConfig);
+      for (const round of rounds.filter((entry) => entry.bracket === 'losers')) {
+        const players = round.rooms.reduce((sum, size) => sum + size, 0) + round.byeCount;
+        expect(round.advTotal).toBeLessThan(players);
+        expect(round.advTotal).toBeGreaterThanOrEqual(baseConfig.lbQualifiers);
+      }
+    }
+  });
+
+  it('regression: the real 19-player tournament that surfaced this bug now gets its first LB round after WB round 2, not WB round 3', () => {
+    const rounds = sharedFinalDoubleEliminationBracketPhase(19, 1, baseConfig);
+    const winnersRounds = rounds.filter((round) => round.bracket === 'winners');
+    const losersRounds = rounds.filter((round) => round.bracket === 'losers');
+    expect(winnersRounds).toHaveLength(6);
+    expect(maxConsecutiveWbRounds(rounds)).toBe(2);
+    // The forced first LB round lands at exactly 6 players -- matching the
+    // organiser's own stated comfort level ("it is fine to play rooms with
+    // 6 players at that stage"), even though FFA_ROOM_SIZE.min is also 6.
+    expect(losersRounds[0].rooms.reduce((sum, size) => sum + size, 0)).toBe(6);
   });
 });

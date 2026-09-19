@@ -4,21 +4,16 @@ import type { TournamentRound, TournamentState } from './types';
 interface BracketRoundLabel {
   label: string;
   accent: '' | 'wb' | 'lb' | 'gf';
-  /** The round number as shown in `label` (the WB/LB-specific counter for bracket rounds, `roundNum` otherwise). */
   roundNumber: number;
 }
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
-  let winnersRound = 0;
-  let losersRound = 0;
   return state.rounds.map((round) => {
     if (round.bracket === 'winners') {
-      winnersRound += 1;
-      return { label: `WB Round ${winnersRound}`, accent: 'wb', roundNumber: winnersRound };
+      return { label: `WB Round ${round.roundNum}`, accent: 'wb', roundNumber: round.roundNum };
     }
     if (round.bracket === 'losers') {
-      losersRound += 1;
-      return { label: `LB Round ${losersRound}`, accent: 'lb', roundNumber: losersRound };
+      return { label: `LB Round ${round.roundNum}`, accent: 'lb', roundNumber: round.roundNum };
     }
     if (round.bracket === 'grand-final') {
       return { label: '🏆 Grand Final', accent: 'gf', roundNumber: round.roundNum };
@@ -292,11 +287,11 @@ function distributeTierMajorPool(pool: ProjectedSlotLabel[], roomSizes: number[]
  * mismatch, e.g. an unmodeled bye). A null result poisons every downstream round fed
  * (even indirectly) by that round.
  *
- * Each room-rank token also carries the source round's own display number
- * (bracketRoundLabels' WB/LB-specific counter for bracket rounds, roundNum
- * otherwise) so `projectedSlotLabelText` can render e.g. "Room 1A, Rank 2"
- * instead of a bare "Room A, Rank 2" -- once rooms are lettered, "Room A"
- * alone no longer identifies which round it's from.
+ * Each room-rank token also carries the source round's own roundNum (via
+ * bracketRoundLabels, which always mirrors it -- see that function) so
+ * `projectedSlotLabelText` can render e.g. "Room 1A, Rank 2" instead of a
+ * bare "Room A, Rank 2" -- once rooms are lettered, "Room A" alone no
+ * longer identifies which round it's from.
  */
 export function projectFutureRoundSlots(
   state: Pick<TournamentState, 'rounds' | 'curRound'>,

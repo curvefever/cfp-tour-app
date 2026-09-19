@@ -18,6 +18,30 @@ export interface SharedFinalDoubleEliminationConfig extends RaceDoubleEliminatio
   finalsGames: number;
 }
 
+/** A dropped unit must play its first losers-bracket round within this many winners-bracket rounds -- see forcedLosersSurvivorTarget. */
+const MAX_WB_ROUNDS_BEFORE_LB = 2;
+
+/**
+ * The genuine cut a losers-bracket round is forced to make once
+ * MAX_WB_ROUNDS_BEFORE_LB is reached and computeTargets' own room-size-aware
+ * search (snapFriendly) found nothing to cut -- relaxing roomSize.min to 1
+ * for just this one computeTargets call lets the same geometric-decay curve
+ * propose a real intermediate value instead of either no cut at all (the
+ * bug) or collapsing straight to lbQualifiers in one shot (what reusing
+ * computeCleanTargets' own single-round fallback would do here -- too
+ * aggressive for an early forced round).
+ */
+function forcedLosersSurvivorTarget(
+  players: number,
+  lbQualifiers: number,
+  roundsLeft: number,
+  roomSize: RoomSize,
+): number {
+  if (players <= lbQualifiers) return players;
+  const relaxed = computeTargets(players, lbQualifiers, roundsLeft, { ...roomSize, min: 1 });
+  return Math.min(Math.max(relaxed[0], lbQualifiers), players - 1);
+}
+
 export function nextPowerOf2AndRounds(count: number): BracketPowerShape {
   let bracketSize = 1;
   let numRounds = 0;
@@ -260,8 +284,18 @@ export function sharedFinalDoubleEliminationBracketPhase(
     }
     const roundsLeft = winners.length - winnersIndex;
     const rawTargets = computeTargets(players, config.lbQualifiers, roundsLeft, config.roomSize);
-    const survivorTarget = Math.min(rawTargets[0], players);
-    if (survivorTarget === players) continue;
+    let survivorTarget = Math.min(rawTargets[0], players);
+    if (survivorTarget === players) {
+      if (pendingFrom.length < MAX_WB_ROUNDS_BEFORE_LB) continue;
+      const forcedTarget = forcedLosersSurvivorTarget(
+        players,
+        config.lbQualifiers,
+        roundsLeft,
+        config.roomSize,
+      );
+      if (forcedTarget === players) continue;
+      survivorTarget = forcedTarget;
+    }
 
     const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
     const roomAdvanceTarget = survivorTarget - distribution.byeCount;

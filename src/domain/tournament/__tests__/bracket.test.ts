@@ -1,11 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import { bracketBoxes, projectedSlotLabelText, projectFutureRoundSlots } from '../bracket';
+import {
+  bracketBoxes,
+  bracketRoundLabels,
+  projectedSlotLabelText,
+  projectFutureRoundSlots,
+} from '../bracket';
 import type { TournamentRound } from '../types';
 import { buildRound } from './test-fixtures';
 
 function project(rounds: TournamentRound[], curRound: number) {
   return projectFutureRoundSlots({ rounds, curRound });
 }
+
+describe('bracketRoundLabels', () => {
+  it("labels a WB/LB round by its own roundNum, not a separate WB/LB-specific counter -- regression for a box header ('Round N') and its content (this label) citing different numbers", () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 4 }), // pre-bracket, no bracket tag
+      buildRound({ roundNum: 2, rooms: [4], players: 4 }), // pre-bracket, no bracket tag
+      buildRound({ roundNum: 3, rooms: [3], players: 3, bracket: 'winners' }), // 1st WB round, but roundNum 3
+      buildRound({ roundNum: 4, rooms: [2], players: 2, bracket: 'losers' }), // 1st LB round, but roundNum 4
+    ];
+    const labels = bracketRoundLabels({ rounds });
+    expect(labels[2]).toEqual({ label: 'WB Round 3', accent: 'wb', roundNumber: 3 });
+    expect(labels[3]).toEqual({ label: 'LB Round 4', accent: 'lb', roundNumber: 4 });
+  });
+});
 
 describe('projectFutureRoundSlots', () => {
   it('projects a plain single-elimination hop as "Winner of Room N", room-major, chunked sequentially into the target room', () => {
@@ -52,6 +71,28 @@ describe('projectFutureRoundSlots', () => {
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
       'Dropped from WB Round 1',
       'Dropped from WB Round 1',
+    ]);
+  });
+
+  it("uses the source round's own roundNum for a WB losers-edge label, not a WB-specific counter, when a pre-bracket round shifts roundNum out of sync with it", () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 4, advPerRoom: 4, luckyCount: 0 }), // pre-bracket, no bracket tag
+      buildRound({
+        roundNum: 2,
+        rooms: [2, 2],
+        players: 4,
+        advPerRoom: 1,
+        luckyCount: 0,
+        bracket: 'winners',
+        winnersTo: null,
+        losersTo: 2,
+      }),
+      buildRound({ roundNum: 3, rooms: [2], players: 2, advPerRoom: 1, luckyCount: 0, bracket: 'losers' }),
+    ];
+    const result = project(rounds, 0);
+    expect(result[2]?.[0].map(projectedSlotLabelText)).toEqual([
+      'Dropped from WB Round 2',
+      'Dropped from WB Round 2',
     ]);
   });
 
