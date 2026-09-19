@@ -364,9 +364,9 @@ export function generateTournament(
       );
     }
     for (let index = 1; index < values.length; index += 1) {
-      if (values[index] >= values[index - 1]) {
+      if (values[index] > values[index - 1]) {
         return generationError(
-          `Elimination round targets must strictly decrease from round to round — got ${values.join(',')}.`,
+          `Elimination round targets must not increase from round to round — got ${values.join(',')}.`,
         );
       }
     }

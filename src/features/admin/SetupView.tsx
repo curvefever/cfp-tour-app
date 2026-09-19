@@ -467,7 +467,8 @@ export function SetupView() {
                         <>
                           Elimination round targets{' '}
                           <span className='font-normal normal-case tracking-normal text-muted'>
-                            — ordered survivor counts, e.g. "24,12,6"
+                            — ordered survivor counts, can repeat if a round eliminates no one, e.g.
+                            "24,24,12,6"
                           </span>
                         </>
                       }
@@ -475,7 +476,7 @@ export function SetupView() {
                       <Input
                         id='cfg-elimination-round-targets'
                         type='text'
-                        placeholder='e.g. 24,12,6'
+                        placeholder='e.g. 24,24,12,6'
                         value={setup.eliminationRoundTargets}
                         onChange={(e) => change('eliminationRoundTargets', e.target.value)}
                       />
@@ -485,7 +486,7 @@ export function SetupView() {
                         <>
                           Elimination seeding overrides{' '}
                           <span className='font-normal normal-case tracking-normal text-muted'>
-                            — one per target above, e.g. ",diversity,balance"
+                            — one per target above, comma-separated; leave an entry blank for automatic
                           </span>
                         </>
                       }
@@ -502,6 +503,12 @@ export function SetupView() {
                         value={setup.eliminationSeedingOverrides}
                         onChange={(e) => change('eliminationSeedingOverrides', e.target.value)}
                       />
+                      <p className='mt-1 text-xs text-muted'>
+                        Options: <strong>diversity</strong> (spread players who've faced each other into
+                        different rooms), <strong>balance</strong> (balance apparent skill/seed across rooms),{' '}
+                        <strong>random</strong> (shuffle rooms, ignoring both history and skill). Blank keeps
+                        the automatic taper for that round.
+                      </p>
                     </Field>
                   </>
                 ) : null}

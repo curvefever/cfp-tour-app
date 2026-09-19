@@ -6,6 +6,20 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: elimination-target plateau validation + clearer seeding-override copy (done — 2026-09-19)
+
+Two small organiser-reported issues with "Manual overrides, pre-start only" (see below), found during the organiser's own testing pass right after it shipped.
+
+**1. False rejection of valid plateau sequences.** Entering `16,16,16,14,12,10,8` in the elimination round targets field was rejected: "Elimination round targets must strictly decrease from round to round." The organiser was right that some early rounds legitimately eliminate no one — the check (`generation.ts`, `values[index] >= values[index - 1]`) was stricter than needed. Traced the downstream consumers (`single-elimination.ts`, `double-elimination.ts`) before relaxing it: both bypass the only strict-decrease-dependent helper (`computeCleanTargets`) whenever `explicitTargets` is supplied, and a plateau round just produces `dropCount === 0` / a full room advancing — already handled cleanly by existing zero-drop guards in the losers-bracket routing loop. Changed the comparison to `>` (reject only an actual increase) and reworded the error to "must not increase from round to round."
+
+**2. Unclear seeding-override input.** The field's only guidance was "— one per target above, e.g. ',diversity,balance'" — it didn't say the options were exhaustively `diversity`/`balance`/`random` (plus blank = automatic), nor what each does. Reworded both fields' inline hints (plateaus allowed; blank = automatic) and added a short paragraph under the seeding-overrides input in `SetupView.tsx`, condensed from the existing code comments in `seeding.ts`/`double-elimination.ts`: **diversity** (spread players who've faced each other into different rooms), **balance** (balance apparent skill/seed across rooms), **random** (shuffle rooms, ignoring both history and skill).
+
+**Testing:** 475 tests (up from 474) — the old `'rejects a non-strictly-decreasing sequence'` test (which asserted `24,24` was rejected) was replaced with a `'rejects an increasing sequence'` test (`10,24`) and a new `'accepts a plateau'` test (`32,32,24,20`, asserting the generated rounds' `advTotal` sequence matches exactly). `pnpm exec eslint`/`prettier --check` clean on all three changed files; `tsc --noEmit` clean except the same pre-existing unrelated `BracketView.tsx:75` error.
+
+**Not live-verified in-browser** — this app's admin login has no dev-mode bypass (see `HANDOFF.md`'s "Deliberately parked design questions" #7), so driving the real Setup form requires real CFP credentials, which Claude doesn't enter. Verification relied on the domain test suite (which exercises `generateTournament` end-to-end, including the actual rendered `advTotal` sequence) plus lint/format/type-check confirming the JSX change is syntactically sound.
+
+---
+
 ## Fix: stale anonymous-panel wording + missing "save and start a new tournament" action (done — 2026-09-19)
 
 Two small organiser-reported issues, unrelated to each other, fixed in one small pass right after "Manual overrides, pre-start only" shipped.

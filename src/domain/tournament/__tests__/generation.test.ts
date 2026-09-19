@@ -503,16 +503,29 @@ describe('generateTournament -- elimination round-target override', () => {
     if (result.status === 'invalid') expect(result.message).toContain('positive whole numbers');
   });
 
-  it('rejects a non-strictly-decreasing sequence', () => {
+  it('rejects an increasing sequence', () => {
     const state = createDefaultTournamentState({ confirmedCount: 37 });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
-      eliminationRoundTargets: '24,24',
+      eliminationRoundTargets: '10,24',
     });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') expect(result.message).toContain('strictly decrease');
+    if (result.status === 'invalid') expect(result.message).toContain('must not increase');
+  });
+
+  it('accepts a plateau (a round that eliminates no one)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '32,32,24,20',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.slice(2, 6).map((round) => round.advTotal)).toEqual([32, 32, 24, 20]);
   });
 
   it('rejects a first target exceeding the number of units entering the bracket phase', () => {
