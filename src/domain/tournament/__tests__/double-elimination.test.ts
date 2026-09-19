@@ -176,6 +176,21 @@ describe('sharedFinalDoubleEliminationBracketPhase', () => {
     }
   });
 
+  it('explicitTargets bypasses the automatic geometric-decay curve for the WB round count/targets', () => {
+    const rounds = sharedFinalDoubleEliminationBracketPhase(37, 1, {
+      ...baseConfig,
+      explicitTargets: [28, 20],
+    });
+    const winnersRounds = rounds.filter((round) => round.bracket === 'winners');
+    expect(winnersRounds).toHaveLength(2);
+    expect(winnersRounds.map((round) => round.advTotal)).toEqual([28, 20]);
+    // The LB-scheduling loop (unaffected by explicitTargets) still routes every
+    // WB round's drops to a real losers-bracket round or the Final.
+    for (const round of winnersRounds) {
+      expect(round.losersTo).not.toBeNull();
+    }
+  });
+
   it('regression: the real 19-player tournament that surfaced this bug now gets its first LB round after WB round 2, not WB round 3', () => {
     const rounds = sharedFinalDoubleEliminationBracketPhase(19, 1, baseConfig);
     const winnersRounds = rounds.filter((round) => round.bracket === 'winners');

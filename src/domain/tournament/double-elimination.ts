@@ -16,6 +16,10 @@ export interface SharedFinalDoubleEliminationConfig extends RaceDoubleEliminatio
   finalSize: number;
   lbQualifiers: number;
   finalsGames: number;
+  /** Organiser-supplied ordered WB survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
+  explicitTargets?: number[];
+  /** Organiser-supplied fixed reseed mode per WB round, index-aligned with explicitTargets -- only ever applied to a WB round's own continuation into the next WB round (transitions.ts), never an LB-bound drop. */
+  explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
 }
 
 /** A dropped unit must play its first losers-bracket round within this many winners-bracket rounds -- see forcedLosersSurvivorTarget. */
@@ -242,14 +246,18 @@ export function sharedFinalDoubleEliminationBracketPhase(
     );
   }
 
-  const requestedRounds = computeEliminationRoundCount(seedTotal, winnersQualifiers, config.roomSize);
-  if (requestedRounds < 1) {
-    throw new Error(
-      `doubleEliminationSharedFinalBracketPhase requires at least 1 winners-bracket round — got seedTotal ${seedTotal}, wbQualifiers ${winnersQualifiers}.`,
-    );
+  let winnersTargets: number[];
+  if (config.explicitTargets) {
+    winnersTargets = config.explicitTargets;
+  } else {
+    const requestedRounds = computeEliminationRoundCount(seedTotal, winnersQualifiers, config.roomSize);
+    if (requestedRounds < 1) {
+      throw new Error(
+        `doubleEliminationSharedFinalBracketPhase requires at least 1 winners-bracket round — got seedTotal ${seedTotal}, wbQualifiers ${winnersQualifiers}.`,
+      );
+    }
+    winnersTargets = computeCleanTargets(seedTotal, winnersQualifiers, requestedRounds, config.roomSize);
   }
-
-  const winnersTargets = computeCleanTargets(seedTotal, winnersQualifiers, requestedRounds, config.roomSize);
   const winners: Array<SharedBracketProjection & { dropCount: number }> = [];
   for (const [index, target] of winnersTargets.entries()) {
     const players = index === 0 ? seedTotal : winnersTargets[index - 1];
@@ -388,6 +396,9 @@ export function sharedFinalDoubleEliminationBracketPhase(
       bracket: isWinners ? 'winners' : 'losers',
       winnersTo: toRoundIndex(startRoundNum, winnersTo),
       losersTo: toRoundIndex(startRoundNum, losersTo),
+      ...(isWinners && config.explicitSeedingOverrides?.[entry.wbIndex]
+        ? { seedingOverride: config.explicitSeedingOverrides[entry.wbIndex] }
+        : {}),
     };
   });
 }

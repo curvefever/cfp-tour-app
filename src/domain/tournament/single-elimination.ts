@@ -11,6 +11,10 @@ export interface SingleEliminationConfig {
   finalSize: number;
   semisGames: number;
   finalsGames: number;
+  /** Organiser-supplied ordered survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
+  explicitTargets?: number[];
+  /** Organiser-supplied fixed reseed mode per elimination round, index-aligned with explicitTargets. Stamped onto each round's own seedingOverride field (types.ts) -- see transitions.ts/seeding.ts for how it's consumed. */
+  explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
 }
 
 function snapFriendly(count: number, roomSize: RoomSize): number {
@@ -90,8 +94,14 @@ export function singleEliminationBracketPhase(
   startRoundNum: number,
   config: SingleEliminationConfig,
 ): TournamentRound[] {
-  const requestedRounds = computeEliminationRoundCount(seedTotal, config.semisSize, config.roomSize);
-  const targets = computeCleanTargets(seedTotal, config.semisSize, requestedRounds, config.roomSize);
+  const targets =
+    config.explicitTargets ??
+    computeCleanTargets(
+      seedTotal,
+      config.semisSize,
+      computeEliminationRoundCount(seedTotal, config.semisSize, config.roomSize),
+      config.roomSize,
+    );
   const rounds: TournamentRound[] = [];
 
   for (const [index, target] of targets.entries()) {
@@ -110,6 +120,9 @@ export function singleEliminationBracketPhase(
       advPerRoom: Math.floor(roomAdvanceTarget / distribution.rooms.length),
       advTotal: target,
       luckyCount: roomAdvanceTarget % distribution.rooms.length,
+      ...(config.explicitSeedingOverrides?.[index]
+        ? { seedingOverride: config.explicitSeedingOverrides[index] }
+        : {}),
     });
   }
 

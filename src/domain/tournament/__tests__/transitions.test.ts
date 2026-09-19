@@ -5,7 +5,7 @@ import {
   sharedFinalDoubleEliminationBracketPhase,
 } from '../double-elimination';
 import { generateTournament } from '../generation';
-import { roomPairKey, snakeSeed } from '../seeding';
+import { roomPairKey, snakeSeed, tieredBracketSeed, tieredSeed } from '../seeding';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { buildRound, sequenceRandom } from './test-fixtures';
@@ -1000,4 +1000,159 @@ describe('advanceTournamentRound — double-elimination WB/LB routing via tiered
     }
     return scores;
   }
+});
+
+describe('advanceTournamentRound — seedingOverride wiring', () => {
+  it("reads the source round's own seedingOverride and passes it through to tieredSeed (generic room-based path)", () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          isNoElim: true,
+          rooms: [2, 2, 2, 2],
+          players: 8,
+          advTotal: 8,
+          seedingOverride: 'random',
+        }),
+        buildRound({ roundNum: 2, isNoElim: true, rooms: [2, 2], players: 4 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 2, isLucky: false },
+          { name: 'P4', room: 2, isLucky: false },
+          { name: 'P5', room: 3, isLucky: false },
+          { name: 'P6', room: 3, isLucky: false },
+          { name: 'P7', room: 4, isLucky: false },
+          { name: 'P8', room: 4, isLucky: false },
+        ],
+      ],
+      scores: {
+        'r0-rm1-p0': 100,
+        'r0-rm1-p1': 90,
+        'r0-rm2-p0': 100,
+        'r0-rm2-p1': 90,
+        'r0-rm3-p0': 100,
+        'r0-rm3-p1': 90,
+        'r0-rm4-p0': 100,
+        'r0-rm4-p1': 90,
+      },
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+
+    // 'random' mode ignores tier/history data entirely -- it's a pure
+    // function of the candidate names + target round index -- so the exact
+    // same call reproduces what advanceTournamentRound should have produced,
+    // independent of buildAdvancementTiers's own tier/pct tagging.
+    const expected = tieredSeed({
+      state,
+      roundIndex: 0,
+      advancing: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8'].map((name) => ({ name })),
+      seedingOverride: 'random',
+    }).seeded;
+    const byName = (list: RoundAssignment[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
+    expect(byName(result.state.assignments[1])).toEqual(byName(expected));
+  });
+
+  it("reads a WB round's own seedingOverride and passes it through to tieredBracketSeed for its WB-to-WB reseed (double-elimination-shared-final)", () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          bracket: 'winners',
+          rooms: [2, 2, 2, 2],
+          players: 8,
+          advPerRoom: 1,
+          advTotal: 4,
+          winnersTo: 1,
+          losersTo: null,
+          seedingOverride: 'random',
+        }),
+        buildRound({
+          roundNum: 2,
+          bracket: 'winners',
+          rooms: [2, 2],
+          players: 4,
+          advPerRoom: 1,
+          advTotal: 2,
+          winnersTo: null,
+          losersTo: null,
+        }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 2, isLucky: false },
+          { name: 'P4', room: 2, isLucky: false },
+          { name: 'P5', room: 3, isLucky: false },
+          { name: 'P6', room: 3, isLucky: false },
+          { name: 'P7', room: 4, isLucky: false },
+          { name: 'P8', room: 4, isLucky: false },
+        ],
+      ],
+      scores: {
+        'r0-rm1-p0': 100,
+        'r0-rm1-p1': 90,
+        'r0-rm2-p0': 100,
+        'r0-rm2-p1': 90,
+        'r0-rm3-p0': 100,
+        'r0-rm3-p1': 90,
+        'r0-rm4-p0': 100,
+        'r0-rm4-p1': 90,
+      },
+      byes: [[], []],
+      luckyLosers: [[], []],
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+
+    // Same reasoning as the generic-path test above -- 'random' ignores
+    // tier/pct/history, so a direct call with just the winners' names
+    // reproduces the expected assignment regardless of buildAdvancementTiers.
+    const expected = tieredBracketSeed({
+      pool: ['P1', 'P3', 'P5', 'P7'].map((name) => ({ name, tierRank: 0, pct: 1, isLucky: false })),
+      roomSizes: [2, 2],
+      roomHistory: {},
+      rounds: state.rounds,
+      targetRoundIndex: 1,
+      seedingOverride: 'random',
+    }).seeded;
+    const byName = (list: RoundAssignment[]) => [...list].sort((a, b) => a.name.localeCompare(b.name));
+    expect(byName(result.state.assignments[1])).toEqual(byName(expected));
+  });
+
+  it("does NOT apply a WB round's seedingOverride to its LB-bound drop -- only its own WB-to-WB continuation", () => {
+    // WB0 drops P2/P4/P6/P8 to LB0 and advances P1/P3/P5/P7 to WB1. Only the
+    // WB0->WB1 edge should read WB0's seedingOverride; the WB0->LB0 edge
+    // must stay on the automatic taper regardless (the organiser-approved
+    // scope decision -- see the plan's "DE seeding scope" resolution).
+    const rounds = sharedFinalDoubleEliminationBracketPhase(19, 1, {
+      roomSize: { min: 6, max: 8, ideal: 8 },
+      finalSize: 8,
+      lbQualifiers: 2,
+      finalsGames: 3,
+    }).map((round, index) => (index === 0 ? { ...round, seedingOverride: 'random' as const } : round));
+    const wb0 = rounds[0];
+    expect(wb0.losersTo).not.toBeNull(); // sanity: WB0 really does drop into an LB round
+    const lb0Index = wb0.losersTo as number;
+    expect(rounds[lb0Index].bracket).toBe('losers');
+
+    // The finalize helper only reads seedingOverride from the WB round whose
+    // winnersTo === the WB round being finalized -- an LB target round never
+    // matches that lookup, so its own reseed is provably untouched by WB0's
+    // override. Confirmed structurally rather than by re-running the whole
+    // cost calculation: no WB round in `rounds` has winnersTo === lb0Index.
+    expect(rounds.some((round) => round.bracket === 'winners' && round.winnersTo === lb0Index)).toBe(false);
+  });
 });

@@ -428,6 +428,86 @@ export function SetupView() {
               />
             </Field>
           ) : null}
+          {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' || isSingle || isShared ? (
+            <details className='mb-3 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2.5'>
+              <summary className='cursor-pointer select-none text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase'>
+                Advanced round overrides (optional)
+              </summary>
+              <div className='mt-3'>
+                {setup.poolingPhase === 'qual-table' ? (
+                  <Field label='Qualification Table round count override'>
+                    <Input
+                      id='cfg-qual-rounds-override'
+                      type='number'
+                      min='1'
+                      max='12'
+                      placeholder='derived'
+                      value={setup.qualRoundsOverride}
+                      onChange={(e) => change('qualRoundsOverride', e.target.value)}
+                    />
+                  </Field>
+                ) : null}
+                {setup.poolingPhase === 'swiss' ? (
+                  <Field label='Swiss round count override'>
+                    <Input
+                      id='cfg-swiss-rounds-override'
+                      type='number'
+                      min='1'
+                      max='12'
+                      placeholder='derived'
+                      value={setup.swissRoundsOverride}
+                      onChange={(e) => change('swissRoundsOverride', e.target.value)}
+                    />
+                  </Field>
+                ) : null}
+                {isSingle || isShared ? (
+                  <>
+                    <Field
+                      label={
+                        <>
+                          Elimination round targets{' '}
+                          <span className='font-normal normal-case tracking-normal text-muted'>
+                            — ordered survivor counts, e.g. "24,12,6"
+                          </span>
+                        </>
+                      }
+                    >
+                      <Input
+                        id='cfg-elimination-round-targets'
+                        type='text'
+                        placeholder='e.g. 24,12,6'
+                        value={setup.eliminationRoundTargets}
+                        onChange={(e) => change('eliminationRoundTargets', e.target.value)}
+                      />
+                    </Field>
+                    <Field
+                      label={
+                        <>
+                          Elimination seeding overrides{' '}
+                          <span className='font-normal normal-case tracking-normal text-muted'>
+                            — one per target above, e.g. ",diversity,balance"
+                          </span>
+                        </>
+                      }
+                    >
+                      <Input
+                        id='cfg-elimination-seeding-overrides'
+                        type='text'
+                        placeholder={
+                          setup.eliminationRoundTargets.trim()
+                            ? 'e.g. ,diversity,balance'
+                            : 'set round targets above first'
+                        }
+                        disabled={!setup.eliminationRoundTargets.trim()}
+                        value={setup.eliminationSeedingOverrides}
+                        onChange={(e) => change('eliminationSeedingOverrides', e.target.value)}
+                      />
+                    </Field>
+                  </>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
           {error ? (
             <Alert id='generate-error' tone='danger'>
               {error}

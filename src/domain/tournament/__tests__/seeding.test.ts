@@ -474,6 +474,88 @@ describe('tieredSeed', () => {
       [2, 2],
     ]);
   });
+
+  describe('seedingOverride', () => {
+    it('"diversity" still avoids a repeat the automatic taper already avoided, with the override wired through', () => {
+      const state = createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+        rounds: [
+          buildRound({ roundNum: 1, isNoElim: true, rooms: [4, 4], players: 8, advPerRoom: 2 }),
+          buildRound({ roundNum: 2, rooms: [2, 2], players: 4 }),
+        ],
+        assignments: [
+          [
+            { name: 'A', room: 1, isLucky: false },
+            { name: 'B', room: 1, isLucky: false },
+            { name: 'C', room: 1, isLucky: false },
+            { name: 'D', room: 1, isLucky: false },
+            { name: 'E', room: 2, isLucky: false },
+            { name: 'F', room: 2, isLucky: false },
+            { name: 'G', room: 2, isLucky: false },
+            { name: 'H', room: 2, isLucky: false },
+          ],
+        ],
+        scores: {
+          'r0-rm1-p0': 100,
+          'r0-rm1-p1': 90,
+          'r0-rm1-p2': 80,
+          'r0-rm1-p3': 70,
+          'r0-rm2-p0': 60,
+          'r0-rm2-p1': 50,
+          'r0-rm2-p2': 40,
+          'r0-rm2-p3': 30,
+        },
+        roomHistory: { [roomPairKey('A', 'F')]: 0 },
+      });
+      const advancing = [{ name: 'A' }, { name: 'B' }, { name: 'E' }, { name: 'F' }];
+      const { seeded } = tieredSeed({ state, roundIndex: 0, advancing, seedingOverride: 'diversity' });
+      const roomOf = Object.fromEntries(seeded.map((entry) => [entry.name, entry.room]));
+      expect(roomOf.A).not.toBe(roomOf.F);
+    });
+
+    it('"random" produces a full, deterministic room assignment that varies with the target round', () => {
+      const advancing = [
+        { name: 'A' },
+        { name: 'B' },
+        { name: 'C' },
+        { name: 'D' },
+        { name: 'E' },
+        { name: 'F' },
+        { name: 'G' },
+        { name: 'H' },
+      ];
+      const state = createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        gamemodeConfig: { roomSize: { min: 4, max: 4, ideal: 4 } },
+        rounds: [
+          buildRound({ roundNum: 1, isNoElim: true, rooms: [8], players: 8 }),
+          buildRound({ roundNum: 2, isNoElim: true, rooms: [4, 4], players: 8 }),
+          buildRound({ roundNum: 3, isNoElim: true, rooms: [4, 4], players: 8 }),
+        ],
+      });
+
+      const first = tieredSeed({ state, roundIndex: 0, advancing, seedingOverride: 'random' });
+      const again = tieredSeed({ state, roundIndex: 0, advancing, seedingOverride: 'random' });
+      expect(first.seeded).toEqual(again.seeded); // deterministic given identical inputs
+      expect(first.seeded).toHaveLength(8);
+      const sizeByRoom = new Map<number, number>();
+      for (const entry of first.seeded) {
+        if (entry.room === null) continue;
+        sizeByRoom.set(entry.room, (sizeByRoom.get(entry.room) ?? 0) + 1);
+      }
+      expect([...sizeByRoom.entries()].sort()).toEqual([
+        [1, 4],
+        [2, 4],
+      ]);
+
+      // roundIndex=1 targets a different round (index 2) than roundIndex=0
+      // (index 1) -- the seed key incorporates target round identity, so a
+      // fixed advancing list still produces a different shuffle.
+      const differentRound = tieredSeed({ state, roundIndex: 1, advancing, seedingOverride: 'random' });
+      expect(differentRound.seeded).not.toEqual(first.seeded);
+    });
+  });
 });
 
 describe('doubleEliminationApproachProgress', () => {
@@ -592,5 +674,80 @@ describe('tieredBracketSeed', () => {
       targetRoundIndex: 0,
     });
     expect(seeded).toEqual([]);
+  });
+
+  describe('seedingOverride', () => {
+    // Engineered so the two modes are DECISIVE and OPPOSITE, not just
+    // plausible: wave 0 (A tier0, B tier1) deterministically lands
+    // A->room1, B->room2 (tie-broken; balance is symmetric for a first wave
+    // into empty rooms). Wave 1 (C tier2, D tier10) then faces a real
+    // choice: balance alone (existing room1=0, room2=1) strongly prefers
+    // routing the far-heavier D into room1 (cost 7) over room2 (cost 9) --
+    // while diversity alone strictly avoids D joining room1, since D has
+    // real prior history with A, who's already there.
+    const pool = [
+      { name: 'A', tierRank: 0, pct: 1, isLucky: false },
+      { name: 'B', tierRank: 1, pct: 1, isLucky: false },
+      { name: 'C', tierRank: 2, pct: 1, isLucky: false },
+      { name: 'D', tierRank: 10, pct: 1, isLucky: false },
+    ];
+    const rounds = [buildRound({ roundNum: 1, bracket: 'winners', rooms: [2, 2], players: 4 })];
+    const roomHistory = { [roomPairKey('D', 'A')]: -1 }; // D & A shared a room 1 round before targetRoundIndex=0
+
+    it('"diversity" avoids routing D into the same room as A despite balance favoring it', () => {
+      const { seeded } = tieredBracketSeed({
+        pool,
+        roomSizes: [2, 2],
+        roomHistory,
+        rounds,
+        targetRoundIndex: 0,
+        seedingOverride: 'diversity',
+      });
+      const roomOf = Object.fromEntries(seeded.map((entry) => [entry.name, entry.room]));
+      expect(roomOf.A).not.toBe(roomOf.D);
+    });
+
+    it('"balance" routes D into the same room as A -- the opposite outcome, once diversity no longer factors in', () => {
+      const { seeded } = tieredBracketSeed({
+        pool,
+        roomSizes: [2, 2],
+        roomHistory,
+        rounds,
+        targetRoundIndex: 0,
+        seedingOverride: 'balance',
+      });
+      const roomOf = Object.fromEntries(seeded.map((entry) => [entry.name, entry.room]));
+      expect(roomOf.A).toBe(roomOf.D);
+    });
+
+    it('"random" produces a full, deterministic room assignment', () => {
+      const first = tieredBracketSeed({
+        pool,
+        roomSizes: [2, 2],
+        roomHistory,
+        rounds,
+        targetRoundIndex: 0,
+        seedingOverride: 'random',
+      });
+      const again = tieredBracketSeed({
+        pool,
+        roomSizes: [2, 2],
+        roomHistory,
+        rounds,
+        targetRoundIndex: 0,
+        seedingOverride: 'random',
+      });
+      expect(first.seeded).toEqual(again.seeded);
+      expect(first.seeded).toHaveLength(4);
+      const sizeByRoom = new Map<number, number>();
+      for (const entry of first.seeded) {
+        if (entry.room === null) continue;
+        sizeByRoom.set(entry.room, (sizeByRoom.get(entry.room) ?? 0) + 1);
+      }
+      expect([...sizeByRoom.entries()].sort()).toEqual([
+        [1, 2],
+        [2, 2],
+      ]);
+    });
   });
 });

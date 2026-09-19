@@ -317,6 +317,64 @@ function lerp(start: number, end: number, t: number): number {
   return start + (end - start) * t;
 }
 
+export type SeedingOverride = 'diversity' | 'balance' | 'random';
+
+/** Fixed diversity/balance weight pairs for a 'diversity'/'balance' seedingOverride -- bypasses the automatic taper entirely rather than pinning it to either end of the taper's own scale (which still blends in some of the other priority). */
+const SEEDING_OVERRIDE_WEIGHTS: Record<
+  'diversity' | 'balance',
+  { diversityWeight: number; balanceWeight: number }
+> = {
+  diversity: { diversityWeight: 1, balanceWeight: 0 },
+  balance: { diversityWeight: 0, balanceWeight: 1 },
+};
+
+/** Deterministic (seeded) 32-bit hash, so a 'random' seedingOverride still produces a pure function of tournament state -- no RandomSource threads through advanceTournamentRound anywhere else, and this keeps that invariant intact. */
+function hashSeed(input: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** A 'random' seedingOverride's room assignment -- a deterministically-seeded Fisher-Yates shuffle (same algorithm as randomSeed()'s real-RandomSource version), keyed on target round + the exact candidate set so it's still a pure function of state. */
+function seededRandomRoomAssignment(
+  names: string[],
+  rooms: number[],
+  seedKey: string,
+  isLuckyByName: Map<string, boolean>,
+): RoundAssignment[] {
+  const shuffled = [...names];
+  const random = seededRandom(hashSeed(`${seedKey}:${[...names].sort().join(',')}`));
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  const assignments: RoundAssignment[] = [];
+  let cursor = 0;
+  for (const [roomIndex, size] of rooms.entries()) {
+    for (let position = 0; position < size; position += 1) {
+      const name = shuffled[cursor];
+      cursor += 1;
+      if (name === undefined) continue;
+      assignments.push({ name, room: roomIndex + 1, isLucky: isLuckyByName.get(name) ?? false });
+    }
+  }
+  return assignments;
+}
+
 /**
  * 0 throughout the no-elim/pooling phase (nothing is ever cut there, so
  * diversity should stay fully prioritized) and at the very first real
@@ -433,13 +491,26 @@ export function tieredSeed(options: {
   state: TournamentState;
   roundIndex: number;
   advancing: SeedCandidate[];
+  seedingOverride?: SeedingOverride;
 }): { seeded: RoundAssignment[] } {
-  const { state, roundIndex, advancing } = options;
+  const { state, roundIndex, advancing, seedingOverride } = options;
   const nextRound = state.rounds[roundIndex + 1];
   const targetRoundIndex = roundIndex + 1;
   if (!nextRound || nextRound.rooms.length === 0) return { seeded: [] };
 
   const isLuckyByName = new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)]));
+
+  if (seedingOverride === 'random') {
+    return {
+      seeded: seededRandomRoomAssignment(
+        advancing.map((entry) => candidateName(entry)),
+        nextRound.rooms,
+        `${targetRoundIndex}`,
+        isLuckyByName,
+      ),
+    };
+  }
+
   const tiers = buildAdvancementTiers(
     state,
     roundIndex,
@@ -451,13 +522,15 @@ export function tieredSeed(options: {
 
   const allRoomNumbers = nextRound.rooms.map((_, index) => index + 1);
   const maxWave = Math.max(0, ...nextRound.rooms);
-  const progress = semisApproachProgress(state.rounds, roundIndex);
-  const diversityWeight = lerp(
-    DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP,
-    DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS,
-    progress,
-  );
-  const balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
+  let diversityWeight: number;
+  let balanceWeight: number;
+  if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
+    ({ diversityWeight, balanceWeight } = SEEDING_OVERRIDE_WEIGHTS[seedingOverride]);
+  } else {
+    const progress = semisApproachProgress(state.rounds, roundIndex);
+    diversityWeight = lerp(DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP, DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS, progress);
+    balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
+  }
 
   const roomMembersSoFar = new Map<number, string[]>(allRoomNumbers.map((room) => [room, []]));
   const roomBalanceSoFar = new Map<number, number>(allRoomNumbers.map((room) => [room, 0]));
@@ -548,17 +621,33 @@ export function tieredBracketSeed(options: {
   roomHistory: Record<string, number>;
   rounds: TournamentRound[];
   targetRoundIndex: number;
+  seedingOverride?: SeedingOverride;
 }): { seeded: RoundAssignment[] } {
-  const { pool, roomSizes, roomHistory, rounds, targetRoundIndex } = options;
+  const { pool, roomSizes, roomHistory, rounds, targetRoundIndex, seedingOverride } = options;
   if (roomSizes.length === 0) return { seeded: [] };
 
-  const progress = doubleEliminationApproachProgress(rounds, targetRoundIndex);
-  const diversityWeight = lerp(
-    DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP,
-    DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS,
-    progress,
-  );
-  const balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
+  const isLuckyByName = new Map(pool.map((entry) => [entry.name, Boolean(entry.isLucky)]));
+
+  if (seedingOverride === 'random') {
+    return {
+      seeded: seededRandomRoomAssignment(
+        pool.map((entry) => entry.name),
+        roomSizes,
+        `${targetRoundIndex}`,
+        isLuckyByName,
+      ),
+    };
+  }
+
+  let diversityWeight: number;
+  let balanceWeight: number;
+  if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
+    ({ diversityWeight, balanceWeight } = SEEDING_OVERRIDE_WEIGHTS[seedingOverride]);
+  } else {
+    const progress = doubleEliminationApproachProgress(rounds, targetRoundIndex);
+    diversityWeight = lerp(DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP, DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS, progress);
+    balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
+  }
 
   const sorted = [...pool].sort(
     (first, second) =>
@@ -597,7 +686,6 @@ export function tieredBracketSeed(options: {
     }
   }
 
-  const isLuckyByName = new Map(pool.map((entry) => [entry.name, Boolean(entry.isLucky)]));
   const seeded: RoundAssignment[] = result.map(({ name, room }) => ({
     name,
     room,

@@ -196,6 +196,78 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 });
 
+describe('generateTournament -- pooling round-count override', () => {
+  it('overrides the qual-table pooling phase to a non-default round count', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '5' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.filter((round) => round.isQual)).toHaveLength(5);
+  });
+
+  it('overrides the Swiss pooling phase to a non-default round count', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      swissRoundsOverride: '4',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.filter((round) => round.isSwiss)).toHaveLength(4);
+  });
+
+  it('defaults to the normal derived round count when the override field is left blank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.filter((round) => round.isQual)).toHaveLength(3);
+  });
+
+  it.each(['0', '-2', '13', 'abc'])(
+    'rejects an out-of-range or non-numeric qual-table override ("%s")',
+    (value) => {
+      const state = createDefaultTournamentState({ confirmedCount: 20 });
+      const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: value });
+      const result = generateTournament(state, form, createTournamentRuntime());
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') {
+        expect(result.message).toContain('Qualification Table round count override');
+      }
+    },
+  );
+
+  it('is ignored (never even parsed) when poolingPhase is not qual-table/swiss', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'none', qualRoundsOverride: 'garbage' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
+
+  it('feeds the overridden round count into non-counting-rounds validation, not the un-overridden default', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    // Default qual-table is 3 rounds, so nonCountingRounds:'2' would normally
+    // pass -- but overriding down to 2 rounds means 2 non-counting rounds
+    // would leave nothing that counts.
+    const tooMany = generateTournament(
+      state,
+      createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '2', nonCountingRounds: '2' }),
+      createTournamentRuntime(),
+    );
+    expect(tooMany.status).toBe('invalid');
+    const justRight = generateTournament(
+      state,
+      createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '2', nonCountingRounds: '1' }),
+      createTournamentRuntime(),
+    );
+    expect(justRight.status).toBe('generated');
+  });
+});
+
 describe('generateTournament -- Group Stage format gating', () => {
   it.each([
     ['ffa-individual', 20, 'FFA — Individual'],
@@ -370,6 +442,202 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
     expect(result.state.rounds.some((r) => r.bracket === 'winners')).toBe(true);
     expect(result.state.rounds.some((r) => r.bracket === 'losers')).toBe(true);
     expect(result.state.rounds[result.state.rounds.length - 1]).toMatchObject({ isFinal: true, rooms: [3] });
+  });
+});
+
+describe('generateTournament -- elimination round-target override', () => {
+  it('replaces the automatic curve for single-elimination with the exact supplied targets', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '32,24',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    // 2 no-elim warmup rounds (poolingPhase 'none') + 2 explicit elimination
+    // rounds + default Semis (16) + Final (8), not the automatic curve's
+    // usual 4 elimination rounds.
+    expect(result.state.rounds.slice(2, 4).map((round) => round.advTotal)).toEqual([32, 24]);
+    expect(result.state.rounds[4]).toMatchObject({ isSemis: true, players: 16 });
+    expect(result.state.rounds[5]).toMatchObject({ isFinal: true, players: 8 });
+  });
+
+  it('replaces the automatic curve for double-elimination-shared-final, respecting the winners-bracket-qualifiers floor', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 19 });
+    const form = {
+      ...createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'double-elimination-shared-final',
+        finalOverride: '8',
+        eliminationRoundTargets: '16,10,6',
+      }),
+      lbQualifiers: '2',
+    };
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const winnersRounds = result.state.rounds.filter((round) => round.bracket === 'winners');
+    expect(winnersRounds.map((round) => round.advTotal)).toEqual([16, 10, 6]);
+  });
+
+  it('leaves the automatic curve untouched when the field is blank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.rounds.slice(2, 6).map((round) => round.advTotal)).toEqual([30, 24, 20, 16]);
+  });
+
+  it('rejects a non-numeric entry', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '24,abc,10',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('positive whole numbers');
+  });
+
+  it('rejects a non-strictly-decreasing sequence', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '24,24',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('strictly decrease');
+  });
+
+  it('rejects a first target exceeding the number of units entering the bracket phase', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '999,10',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain("can't exceed");
+  });
+
+  it('rejects a last target below the Semis-size floor', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '30,10',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('must be at least');
+      expect(result.message).toContain('Semis size');
+    }
+  });
+
+  it('is ignored for a schedule logic it does not apply to (Kings Valley)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'kings-valley',
+      eliminationRoundTargets: '999,1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
+});
+
+describe('generateTournament -- elimination seeding-weight override', () => {
+  it('stamps the parsed mode onto each WB elimination round, index-aligned with the targets list', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '32,24,20',
+      eliminationSeedingOverrides: 'diversity,,balance',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    // 2 no-elim warmup rounds precede the 3 explicit elimination rounds.
+    expect(result.state.rounds.slice(2, 5).map((round) => round.seedingOverride)).toEqual([
+      'diversity',
+      undefined,
+      'balance',
+    ]);
+  });
+
+  it('rejects being set without elimination round targets also being set', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationSeedingOverrides: 'diversity',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('require elimination round targets');
+    }
+  });
+
+  it('rejects a length mismatch against elimination round targets', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '32,24',
+      eliminationSeedingOverrides: 'diversity,balance,random',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('exactly as many entries');
+    }
+  });
+
+  it('rejects an invalid mode keyword', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      eliminationRoundTargets: '32,24',
+      eliminationSeedingOverrides: 'diversity,chaos',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('must be blank (automatic), "diversity", "balance", or "random"');
+    }
+  });
+
+  it('works for double-elimination-shared-final too, stamping only the WB rounds', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 19 });
+    const form = {
+      ...createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'double-elimination-shared-final',
+        finalOverride: '8',
+        eliminationRoundTargets: '16,10,6',
+        eliminationSeedingOverrides: 'random,,',
+      }),
+      lbQualifiers: '2',
+    };
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const winnersRounds = result.state.rounds.filter((round) => round.bracket === 'winners');
+    expect(winnersRounds.map((round) => round.seedingOverride)).toEqual(['random', undefined, undefined]);
+    expect(result.state.rounds.some((round) => round.bracket === 'losers' && round.seedingOverride)).toBe(
+      false,
+    );
   });
 });
 

@@ -37,6 +37,25 @@ function generationError(message: string): GenerateTournamentResult {
   return { status: 'invalid', message };
 }
 
+/** Sanity ceiling for a manually-overridden pooling-phase round count, matching single-elimination.ts's own MAX_ELIMINATION_ROUNDS-style cap. */
+const MAX_POOLING_ROUNDS_OVERRIDE = 12;
+
+function resolvePoolingRoundsOverride(
+  raw: string,
+  defaultValue: number,
+  label: string,
+): { ok: true; value: number } | { ok: false; error: string } {
+  if (!raw) return { ok: true, value: defaultValue };
+  const parsedValue = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsedValue) || parsedValue < 1 || parsedValue > MAX_POOLING_ROUNDS_OVERRIDE) {
+    return {
+      ok: false,
+      error: `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`,
+    };
+  }
+  return { ok: true, value: parsedValue };
+}
+
 export function generateTournament(
   current: TournamentState,
   form: GenerationForm,
@@ -119,6 +138,22 @@ export function generateTournament(
     config.qualAdv = Math.min(Math.max(rawQualAdv, floorMin), config.n);
   }
 
+  // Total pooling-phase round count for Qualification Table / Swiss --
+  // normally derived (a fixed constant / a function of entrant count), but
+  // each is independently overridable pre-start (ROADMAP.md item 4).
+  let qualRounds = QUALIFICATION_ROUNDS;
+  if (config.poolingPhase === 'qual-table') {
+    const resolved = resolvePoolingRoundsOverride(form.qualRoundsOverride, qualRounds, 'Qualification Table');
+    if (!resolved.ok) return generationError(resolved.error);
+    qualRounds = resolved.value;
+  }
+  let swissRounds = computeSwissRoundCount(config.n);
+  if (config.poolingPhase === 'swiss') {
+    const resolved = resolvePoolingRoundsOverride(form.swissRoundsOverride, swissRounds, 'Swiss');
+    if (!resolved.ok) return generationError(resolved.error);
+    swissRounds = resolved.value;
+  }
+
   // "Non-counting" leading rounds are only meaningful where a cumulative
   // standings table exists at all -- Qualification Table and Swiss (they
   // share computeQualificationStandings). Group Stage has its own separate
@@ -132,8 +167,7 @@ export function generateTournament(
         `Non-counting rounds must be a non-negative whole number — got "${form.nonCountingRounds}".`,
       );
     }
-    const totalPoolingRounds =
-      config.poolingPhase === 'qual-table' ? QUALIFICATION_ROUNDS : computeSwissRoundCount(config.n);
+    const totalPoolingRounds = config.poolingPhase === 'qual-table' ? qualRounds : swissRounds;
     if (rawNonCountingRounds >= totalPoolingRounds) {
       const phaseName = config.poolingPhase === 'qual-table' ? 'Qualification Table' : 'Swiss';
       return generationError(
@@ -289,6 +323,7 @@ export function generateTournament(
   }
   const prospectiveFinalSize = finalOverride || roomSize.ideal;
   let lbQualifiers: number | undefined;
+  let winnersQualifiers: number | undefined;
   if (schedule === 'double-elimination-shared-final') {
     lbQualifiers = parsed(form.lbQualifiers ?? '2', 0);
     if (!(lbQualifiers >= 1) || !(lbQualifiers < prospectiveFinalSize)) {
@@ -301,7 +336,7 @@ export function generateTournament(
     // phase. Previously only caught two calls deep inside
     // sharedFinalDoubleEliminationBracketPhase's own "requestedRounds < 1"
     // throw, via the generic catch-all below.
-    const winnersQualifiers = prospectiveFinalSize - lbQualifiers;
+    winnersQualifiers = prospectiveFinalSize - lbQualifiers;
     if (winnersQualifiers >= bracketEntryCount) {
       return generationError(
         `Final size override (${prospectiveFinalSize}) needs ${winnersQualifiers} winners-bracket qualifiers, but only ${bracketEntryCount} ${unitPlural} would actually enter the bracket phase — there wouldn't be enough winners-bracket rounds to produce them. Lower the Final size override, raise LB qualifiers, or increase how many ${unitPlural} advance into the bracket.`,
@@ -309,9 +344,83 @@ export function generateTournament(
     }
   }
 
+  // Elimination round-target override: an ordered list of exact survivor
+  // counts, replacing the automatic geometric-decay curve entirely for the
+  // WB elimination rounds leading into Semis (single-elimination) / the
+  // shared Final (double-elimination-shared-final). Its own length is the
+  // round-count override for these two formats -- no separate field needed.
+  let explicitTargets: number[] | undefined;
+  if (
+    form.eliminationRoundTargets.trim() &&
+    (schedule === 'single-elimination' || schedule === 'double-elimination-shared-final')
+  ) {
+    const parts = form.eliminationRoundTargets.split(',').map((part) => part.trim());
+    const values = parts.map((part) => Number.parseInt(part, 10));
+    const isValidInteger = (value: number, part: string) =>
+      Number.isFinite(value) && value >= 1 && String(value) === part;
+    if (values.some((value, index) => !isValidInteger(value, parts[index]))) {
+      return generationError(
+        `Elimination round targets must be a comma-separated list of positive whole numbers — got "${form.eliminationRoundTargets}".`,
+      );
+    }
+    for (let index = 1; index < values.length; index += 1) {
+      if (values[index] >= values[index - 1]) {
+        return generationError(
+          `Elimination round targets must strictly decrease from round to round — got ${values.join(',')}.`,
+        );
+      }
+    }
+    if (values[0] > bracketEntryCount) {
+      return generationError(
+        `The first elimination round target (${values[0]}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`} (${bracketEntryCount}).`,
+      );
+    }
+    const floor =
+      schedule === 'single-elimination' ? semisOverride || 2 * roomSize.ideal : (winnersQualifiers as number);
+    const lastTarget = values[values.length - 1];
+    if (lastTarget < floor) {
+      const floorLabel =
+        schedule === 'single-elimination'
+          ? 'the Semis size'
+          : 'the winners-bracket qualifiers into the Final';
+      return generationError(
+        `The last elimination round target (${lastTarget}) must be at least ${floor} (${floorLabel}) — there'd be nothing left to feed the next phase.`,
+      );
+    }
+    explicitTargets = values;
+  }
+
+  // Elimination seeding-weight override: an ordered list of fixed reseed
+  // modes, index-aligned with eliminationRoundTargets -- only meaningful
+  // once that list pins down which round is which, since round identity
+  // doesn't exist before generation otherwise.
+  let explicitSeedingOverrides: Array<'diversity' | 'balance' | 'random' | undefined> | undefined;
+  if (form.eliminationSeedingOverrides.trim()) {
+    if (!explicitTargets) {
+      return generationError(
+        'Elimination seeding overrides require elimination round targets to also be set — seeding-override positions are addressed by that same ordered round list.',
+      );
+    }
+    const parts = form.eliminationSeedingOverrides.split(',').map((part) => part.trim());
+    if (parts.length !== explicitTargets.length) {
+      return generationError(
+        `Elimination seeding overrides (${parts.length} entries) must have exactly as many entries as elimination round targets (${explicitTargets.length}) — leave an entry blank to keep that round's reseed automatic.`,
+      );
+    }
+    const validModes = new Set(['', 'diversity', 'balance', 'random']);
+    if (parts.some((part) => !validModes.has(part))) {
+      return generationError(
+        `Each elimination seeding override must be blank (automatic), "diversity", "balance", or "random" — got "${form.eliminationSeedingOverrides}".`,
+      );
+    }
+    explicitSeedingOverrides = parts.map((part) =>
+      part === '' ? undefined : (part as 'diversity' | 'balance' | 'random'),
+    );
+  }
+
   const gamemodeConfig: MaterializedGamemodeConfig = {
-    qualRounds: QUALIFICATION_ROUNDS,
-    swissRounds: computeSwissRoundCount(config.n),
+    qualRounds,
+    swissRounds,
     nonCountingRounds,
     teamScoringRule: format.teamSize ? form.teamScoringRule || 'sum-members' : 'sum-members',
     ...(oddCountStrategy ? { oddCountStrategy } : {}),
@@ -319,6 +428,8 @@ export function generateTournament(
     semisSize: semisOverride || 2 * roomSize.ideal,
     finalSize: finalOverride || roomSize.ideal,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
+    ...(explicitTargets !== undefined ? { explicitTargets } : {}),
+    ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
     poolingPhase: config.poolingPhase,
     bracketPhase: schedule,
     finalsGames: config.finalsGames,

@@ -116,12 +116,23 @@ function finalizeDoubleEliminationRound(
     const byeSet = new Set(byeNames);
     pool = pool.filter((candidate) => !byeSet.has(candidate.name));
   }
+  // Seeding-weight override only applies to a WB round's own continuation
+  // into the next WB round -- always single-source, unlike an LB-bound
+  // target round, whose pool can also merge players already surviving in
+  // LB (attributing one WB round's override to that merged pool would be
+  // misapplying it to players who never came from the overridden round).
+  const seedingOverride =
+    targetRound.bracket === 'winners'
+      ? state.rounds.find((round) => round.bracket === 'winners' && round.winnersTo === roundIndex)
+          ?.seedingOverride
+      : undefined;
   const assignments = tieredBracketSeed({
     pool,
     roomSizes: targetRound.rooms,
     roomHistory: state.roomHistory,
     rounds: state.rounds,
     targetRoundIndex: roundIndex,
+    seedingOverride,
   }).seeded;
   state.byes[roundIndex] = byeNames;
   for (const name of byeNames) {
@@ -420,7 +431,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
         }
       }
     }
-    seeded = tieredSeed({ state, roundIndex, advancing }).seeded;
+    seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride: round.seedingOverride }).seeded;
     if (round.isGroupStage) {
       seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups);
     }

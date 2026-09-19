@@ -83,6 +83,8 @@ export interface TournamentRound {
   kvEliminateCount?: number;
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
+  /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
+  seedingOverride?: 'diversity' | 'balance' | 'random';
 }
 
 export interface RoundAssignment {
@@ -175,6 +177,10 @@ export interface MaterializedGamemodeConfig {
   semisSize: number;
   finalSize: number;
   lbQualifiers?: number;
+  /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */
+  explicitTargets?: number[];
+  /** Organiser-supplied fixed reseed mode per WB elimination round, index-aligned with explicitTargets. Only valid alongside explicitTargets -- see generation.ts. */
+  explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
   poolingPhase: PoolingPhaseKey;
   bracketPhase: ScheduleLogicKey;
   finalsGames: number;
@@ -238,6 +244,10 @@ export interface PersistedSetup {
   grandFinalLbTarget: string;
   semisOverride: string;
   finalOverride: string;
+  qualRoundsOverride: string;
+  swissRoundsOverride: string;
+  eliminationRoundTargets: string;
+  eliminationSeedingOverrides: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

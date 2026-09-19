@@ -107,6 +107,15 @@ describe('singleEliminationBracketPhase', () => {
     expect(semis.advTotal).toBe(3);
   });
 
+  it('explicitTargets bypasses the automatic geometric-decay curve entirely, including round count', () => {
+    const rounds = singleEliminationBracketPhase(37, 1, { ...ffaConfig, explicitTargets: [32, 24] });
+    // 2 explicit elimination rounds + semis + final, not the automatic 4 + 2.
+    expect(rounds).toHaveLength(4);
+    expect(rounds.slice(0, 2).map((round) => round.advTotal)).toEqual([32, 24]);
+    expect(rounds[2].isSemis).toBe(true);
+    expect(rounds[3].isFinal).toBe(true);
+  });
+
   it('appends exactly one Final round as a single room sized [finalSize]', () => {
     const rounds = singleEliminationBracketPhase(37, 1, ffaConfig);
     const final = rounds[rounds.length - 1];

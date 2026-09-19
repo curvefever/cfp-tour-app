@@ -11,7 +11,7 @@ Nothing in this file is scheduled or authorized to start — it's assessment onl
 1. ~~**Double-elimination bracket layout (WB above LB)**~~ — done (2026-09-17), see "Bracket view: stack WB above LB" in `HANDOFF_LOG.md`. One reservation carried over from the build itself, not yet resolved: independent WB/LB row scrolling was chosen over lockstep scrolling but flagged for a live human check — worth a quick pass in the real app before treating it as settled.
 2. ~~**Non-counting qualification rounds ("first N rounds don't count")**~~ — done (2026-09-18), see "Non-counting qualification rounds" in `HANDOFF_LOG.md`. One edge case flagged there, not fixed: the qual-table/Swiss reserve-admission guard still counts *all* rounds played (including non-counting ones) toward its "at most one qualifying round completed" cutoff, so a reserve joining right after a run of non-counting rounds could end up with fewer than two *counted* rounds — worth revisiting only if it bites in practice.
 3. ~~**Anonymous accounts, v1 scope**~~ — done (2026-09-18), see "Anonymous Finals matches, v1" in `HANDOFF_LOG.md`. Built narrower than originally scoped here: Final only (not Semis), individual formats only (not team), and excluding grand-final/race rounds — see the entry for why.
-4. **Manual overrides, pre-start only** — no dependency on #3; the two are independent and could equally run in the other order.
+4. ~~**Manual overrides, pre-start only**~~ — done (2026-09-19), see "Manual overrides, pre-start only" in `HANDOFF_LOG.md`. Built narrower than the mechanism-only sketch below: seeding-weight override scoped to formats using `tieredSeed`/`tieredBracketSeed` (excludes Swiss/Group Stage/Kings Valley), and for double-elimination-shared-final specifically, further scoped to a WB round's own WB-to-WB continuation only (never its LB-bound drop) — see the entry for why.
 5. **Skip-ahead / early qualification (Option 1: additive)** — last; genuinely new domain-layer routing, with Kings Valley needing its own separate mechanism on top.
 
 Items 1–2 and 3–4 are each independent pairs — nothing here blocks anything else in the same tier. Item 5 is the outlier: it's the only one of the five expected to need real design iteration during implementation itself (per the organiser's own call — see its section below).
@@ -38,15 +38,9 @@ The hardening pass described below as "explicitly deferred" in the original asse
 
 ---
 
-## 4. Manual overrides, pre-start only
+## 4. Manual overrides, pre-start only — done, see `HANDOFF_LOG.md`
 
-**What**: an "advanced"/"manual overrides" section in Setup exposing more of what the app currently auto-computes — e.g. how many advance from a specific round, how a round reseeds the next one, total round count — for tournaments too custom to schedule algorithmically end to end.
-
-**What already exists**: Setup already has several overrides of exactly this kind — `semisOverride`, `finalOverride`, LB-qualifier count, grand-final win targets (`SetupView.tsx`, threaded through `generation.ts`) — but every one of them is pre-start-only, read once when generating the schedule, before `started: true` locks the tournament irreversibly. This project is scoped to extending that same pattern with more fields, not building a new mechanism.
-
-**Why pre-start-only is materially simpler than mid-tournament** (organiser's chosen scope, 2026-09-17): pre-start overrides are just additional input parameters into the one-time generation math that already exists — no different, architecturally, from how `semisOverride` works today. They don't touch the invariant that a live, already-in-progress tournament's future rounds must stay consistent with rounds already played (the issue that makes a *mid-tournament* version of this project genuinely harder — see "Cross-cutting note" below). A per-round advancement-count override, a per-round seeding-method choice, and a total-round-count override can each be added as Setup fields read by `generation.ts`/`schedule-generation.ts`, the same way today's overrides are.
-
-**Risk**: low-medium. Mechanically straightforward extension of an existing, proven pattern; main risk is Setup UI complexity/discoverability (an "advanced" section needs to stay out of the way of the common case) and validating override combinations don't produce an impossible schedule (the same kind of upfront validation `generation.ts` already does for today's overrides).
+Built 2026-09-19 — see "Manual overrides, pre-start only" in `HANDOFF_LOG.md` for the full account (scope decisions settled via `AskUserQuestion`, a real mid-build architectural discovery about double-elimination's reseeding that narrowed the seeding-weight override's scope, testing, live verification). Kept here only as a pointer, per this file's own convention of moving finished entries out.
 
 **Explicitly deferred, not forgotten**: making these overrides available and editable *during* a live tournament, not just pre-start. A real, larger project on its own — see the cross-cutting note below for why.
 
@@ -75,5 +69,5 @@ Two of the deferred follow-on projects noted above — mid-tournament manual ove
 ## Open questions still to settle before implementation begins
 
 - ~~**Anonymous accounts (#3)**~~ — resolved and built (2026-09-18): gated on the Final actually finishing, confirmed by the organiser. See "Anonymous Finals matches, v1" in `HANDOFF_LOG.md`.
-- **Manual overrides (#4)**: exact field list for the "advanced" Setup section — this roadmap doesn't enumerate every override field, just confirms the mechanism. Worth a short scoping pass against real problem tournaments the organiser has in mind.
+- ~~**Manual overrides (#4)**~~ — resolved and built (2026-09-19): field list settled via `AskUserQuestion` against the organiser's three stated needs (per-round advancement count, per-round seeding method, total round count). See "Manual overrides, pre-start only" in `HANDOFF_LOG.md`.
 - **Skip-ahead (#5)**: per the organiser's own call, expected to clarify through implementation rather than being fully specified here.
