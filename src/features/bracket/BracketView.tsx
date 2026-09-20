@@ -35,6 +35,7 @@ import {
 } from '../../domain/tournament/mutations';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import {
+  formatStandingValue,
   getDefenderIndex,
   getUnitScore,
   orderRoomByScore,
@@ -531,12 +532,14 @@ function TieBanners({ state }: { state: TournamentState }) {
     .map(([key, tie]) => {
       const resolved = tieResolutionList(state, key);
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
+      const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
+      const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
       const heading =
         'groupLabel' in tie && tie.groupLabel
-          ? `⚠ Tie-break required — Group ${tie.groupLabel} qualification cutoff (${tie.fp.toFixed(5)} FP)`
+          ? `⚠ Tie-break required — Group ${tie.groupLabel} qualification cutoff (${formatStandingValue(tie.fp, scoring)} ${scoringUnit})`
           : 'score' in tie
             ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
-            : `⚠ Tie-break required — Qualification cutoff (${tie.fp.toFixed(5)} FP)`;
+            : `⚠ Tie-break required — Qualification cutoff (${formatStandingValue(tie.fp, scoring)} ${scoringUnit})`;
       return (
         <div
           className='mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-danger bg-danger-soft px-4.5 py-3.5'
@@ -949,7 +952,7 @@ function tieResolutionListSafe(state: TournamentState, key: string): string[] {
 
 /** The width-affecting classes for a round column at a given collapsed state. */
 function roundColumnWidthClass(collapsed: boolean) {
-  return cn('w-52.5 min-w-52.5 shrink-0', collapsed && 'w-8.5 min-w-8.5');
+  return cn(collapsed ? 'w-8.5 min-w-8.5' : 'w-52.5 min-w-52.5', 'shrink-0');
 }
 
 function RoundColumn({

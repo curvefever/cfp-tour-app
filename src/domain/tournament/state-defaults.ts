@@ -42,6 +42,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     scheduleLogic: 'single-elimination',
     gameFormat: 'ffa-individual',
     scoring: 'fairpoints',
+    positionalPointsTable: '',
     poolingPhase: 'none',
     qualAdv: '24',
     nonCountingRounds: '0',

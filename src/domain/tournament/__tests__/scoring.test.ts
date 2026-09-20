@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   fairPoints,
+  formatStandingValue,
   getDefenderIndex,
   getFinalUnitScore,
   getUnitScore,
   groupByScore,
   orderRoomByScore,
+  positionalPoints,
   scoreKeysForPosition,
+  scoringSystemLabel,
   tieResolutionList,
 } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -138,6 +141,41 @@ describe('fairPoints', () => {
 
   it('is monotonically more favorable (lower) for a higher score at the same rank', () => {
     expect(fairPoints(1, 1306)).toBeLessThan(fairPoints(1, 1200));
+  });
+});
+
+describe('positionalPoints', () => {
+  const table = [10, 8, 6, 5, 4, 3, 2, 1];
+
+  it('looks up the table by 1-indexed rank', () => {
+    expect(positionalPoints(1, table)).toBe(10);
+    expect(positionalPoints(8, table)).toBe(1);
+  });
+
+  it('returns the last table entry correctly at the table-length edge', () => {
+    expect(positionalPoints(table.length, table)).toBe(table[table.length - 1]);
+  });
+
+  it('falls back to 0 for a rank beyond the table length', () => {
+    expect(positionalPoints(9, table)).toBe(0);
+  });
+});
+
+describe('scoringSystemLabel', () => {
+  it('labels each scoring system', () => {
+    expect(scoringSystemLabel('fairpoints')).toBe('Fair Points');
+    expect(scoringSystemLabel('positional-points')).toBe('Positional Points');
+  });
+});
+
+describe('formatStandingValue', () => {
+  it('formats Fair Points to 5 decimals', () => {
+    expect(formatStandingValue(1.23456789, 'fairpoints')).toBe('1.23457');
+  });
+
+  it('formats positional points as a rounded whole number', () => {
+    expect(formatStandingValue(24, 'positional-points')).toBe('24');
+    expect(formatStandingValue(23.999999, 'positional-points')).toBe('24');
   });
 });
 

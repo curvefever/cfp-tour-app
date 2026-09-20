@@ -266,6 +266,73 @@ describe('computeQualificationStandings', () => {
   });
 });
 
+describe('computeQualificationStandings -- positional-points scoring', () => {
+  it('uses the positional-points table instead of fairPoints, sorted descending (highest points first)', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      cfg: { poolingPhase: 'qual-table' },
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: [10, 8, 6, 5] },
+      rounds: [buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 })],
+      assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [4])],
+      // P4=400 (rank1, 10pts), P2=300 (rank2, 8pts), P1=200 (rank3, 6pts), P3=100 (rank4, 5pts).
+      scores: { 'r0-rm1-p0': 200, 'r0-rm1-p1': 300, 'r0-rm1-p2': 100, 'r0-rm1-p3': 400 },
+    });
+    const standings = computeQualificationStandings(state);
+    expect(standings.map((entry) => entry.name)).toEqual(['P4', 'P2', 'P1', 'P3']);
+    expect(standings.map((entry) => entry.totalFP)).toEqual([10, 8, 6, 5]);
+  });
+
+  it('sums positional points across rounds instead of averaging like fairPoints, so more rounds played at equal performance yields more total points', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['G', 'H', 'Y1', 'Y2'],
+      cfg: { poolingPhase: 'qual-table' },
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: [10, 8] },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isQual: true, rooms: [2, 2], players: 4 }),
+      ],
+      assignments: [buildAssignments(['G', 'Y1'], [2]), buildAssignments(['G', 'Y1', 'H', 'Y2'], [2, 2])],
+      scores: {
+        'r0-rm1-p0': 100, // G rank1
+        'r0-rm1-p1': 10, // Y1 rank2
+        'r1-rm1-p0': 100, // G rank1
+        'r1-rm1-p1': 10, // Y1 rank2
+        'r1-rm2-p0': 100, // H rank1
+        'r1-rm2-p1': 10, // Y2 rank2
+      },
+    });
+    const standings = computeQualificationStandings(state);
+    const g = standings.find((entry) => entry.name === 'G');
+    const h = standings.find((entry) => entry.name === 'H');
+    expect(g?.played).toBe(2);
+    expect(h?.played).toBe(1);
+    expect(g?.totalFP).toBe(20);
+    expect(h?.totalFP).toBe(10);
+    expect(standings.findIndex((entry) => entry.name === 'G')).toBeLessThan(
+      standings.findIndex((entry) => entry.name === 'H'),
+    );
+  });
+});
+
+describe('roomBasedComputeAdvancement -- positional-points scoring', () => {
+  it('advances the highest-points units at a qualification cutoff, not the lowest (descending-order regression guard)', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      cfg: { poolingPhase: 'qual-table', qualAdv: 2 },
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: [10, 8, 6, 5] },
+      rounds: [buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 })],
+      assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [4])],
+      // P4=400 (rank1, 10pts), P2=300 (rank2, 8pts), P1=200 (rank3, 6pts), P3=100 (rank4, 5pts).
+      scores: { 'r0-rm1-p0': 200, 'r0-rm1-p1': 300, 'r0-rm1-p2': 100, 'r0-rm1-p3': 400 },
+    });
+    const result = roomBasedComputeAdvancement(state, 0);
+    expect(result.advancing.map((unit) => unit.name)).toEqual(['P4', 'P2']);
+  });
+});
+
 describe('computeGroupStandings', () => {
   it('partitions standings by group, independently of overall performance', () => {
     const state = createDefaultTournamentState({
@@ -326,6 +393,33 @@ describe('computeGroupStandings', () => {
     // G: (fp(1,300) + fp(2,200)) / 2. H: fp(1,300) / 1.
     expect(g?.totalFP).toBeCloseTo((0.997 + 1.998) / 2, 5);
     expect(h?.totalFP).toBeCloseTo(0.997, 5);
+  });
+
+  it('sums positional points (not averaged) within a group, sorted descending', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      groups: [{ label: 'A', members: ['G', 'H', 'Y1'] }],
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: [10, 8, 6] },
+      rounds: [
+        buildRound({ roundNum: 1, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
+        buildRound({ roundNum: 2, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
+      ],
+      assignments: [buildAssignments(['G', 'Y1', 'H'], [3]), buildAssignments(['G', 'H', 'Y1'], [3])],
+      scores: {
+        // Round 1: G rank1 (10), Y1 rank2 (8), H rank3 (6).
+        'r0-rm1-p0': 300,
+        'r0-rm1-p1': 200,
+        'r0-rm1-p2': 100,
+        // Round 2: G rank1 (10), H rank2 (8), Y1 rank3 (6).
+        'r1-rm1-p0': 300,
+        'r1-rm1-p1': 200,
+        'r1-rm1-p2': 100,
+      },
+    });
+    const standings = computeGroupStandings(state).A;
+    // G: 10+10=20. H: 6+8=14. Y1: 8+6=14 -- tied with H, stable order preserved.
+    expect(standings.map((entry) => entry.name)).toEqual(['G', 'H', 'Y1']);
+    expect(standings.map((entry) => entry.totalFP)).toEqual([20, 14, 14]);
   });
 });
 

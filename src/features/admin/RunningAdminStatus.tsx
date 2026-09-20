@@ -74,7 +74,11 @@ export function TournamentSettingsRecap({ state }: { state: TournamentState }) {
           </Field>
         ) : null}
         <Field label='Scoring system'>
-          <FieldDisplay>Fair Points (rank − score ÷ 100000)</FieldDisplay>
+          <FieldDisplay>
+            {config.scoring === 'positional-points'
+              ? 'Positional Points (rank-to-points table)'
+              : 'Fair Points (rank − score ÷ 100000)'}
+          </FieldDisplay>
         </Field>
         {isRace ? (
           <Field label='Grand Final — wins needed'>

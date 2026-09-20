@@ -654,6 +654,88 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 });
 
+describe('generateTournament -- positional-points scoring', () => {
+  it('rejects positional-points scoring with poolingPhase "none"', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      poolingPhase: 'none',
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,6,5,4,3,2,1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('needs a pooling phase');
+  });
+
+  it('rejects a blank points table', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', scoring: 'positional-points' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('rank-to-points table');
+  });
+
+  it('rejects a non-numeric entry', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      poolingPhase: 'qual-table',
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,abc,5,4,3,2,1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('non-negative whole numbers');
+  });
+
+  it('rejects a table that increases from rank to rank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      poolingPhase: 'qual-table',
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,9,5,4,3,2,1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('must not increase');
+  });
+
+  it("rejects a table shorter than the format's largest possible room size", () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      poolingPhase: 'qual-table',
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,6,5,4',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('needs at least 8 entries');
+  });
+
+  it('accepts a valid table and wires it into gamemodeConfig alongside the scoring system', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({
+      poolingPhase: 'qual-table',
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,6,5,4,3,2,1',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.scoring).toBe('positional-points');
+    expect(result.state.gamemodeConfig.positionalPointsTable).toEqual([10, 8, 6, 5, 4, 3, 2, 1]);
+  });
+
+  it('defaults to fairpoints scoring with no positionalPointsTable when the field is left blank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.scoring).toBe('fairpoints');
+    expect(result.state.gamemodeConfig.positionalPointsTable).toBeUndefined();
+  });
+});
+
 describe('generateTournament -- Stage B numeric-input robustness', () => {
   it('refuses a negative Semis size override', () => {
     const state = createDefaultTournamentState({ confirmedCount: 20 });

@@ -1,6 +1,7 @@
 import { roomLetter } from '../../domain/tournament/bracket';
 import { computeRankings, type RankingDisplay } from '../../domain/tournament/rankings';
 import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
+import { formatStandingValue } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { downloadRankingsImage } from './rankings-image';
@@ -129,6 +130,8 @@ export function RankingsContent({
   }
   const data = computeRankings(state);
   if (!data) return <RosterOnly state={state} editable={editable} />;
+  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
+  const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
   return (
     <div id='rk-content'>
       <p className='text-muted'>
@@ -166,7 +169,9 @@ export function RankingsContent({
                   {unit.poolRank ? (
                     <small>
                       #{unit.poolRank.rank}
-                      {unit.poolRank.fp !== null ? ` · ${unit.poolRank.fp.toFixed(3)} FP` : ''}
+                      {unit.poolRank.fp !== null
+                        ? ` · ${formatStandingValue(unit.poolRank.fp, scoring)} ${scoringUnit}`
+                        : ''}
                     </small>
                   ) : null}
                 </span>

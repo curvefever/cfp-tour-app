@@ -1,4 +1,5 @@
 import { rankStandings } from '../../../domain/tournament/advancement';
+import { formatStandingValue, scoringSystemLabel } from '../../../domain/tournament/scoring';
 import type { TournamentStanding, TournamentState } from '../../../domain/tournament/types';
 import { TournamentUnit } from '../../../components/tournament/TournamentUnit';
 import {
@@ -20,6 +21,7 @@ export function TournamentStandings({
   state: TournamentState;
   tables: readonly StandingsTable[];
 }) {
+  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   return (
     <div className='grid grid-cols-[repeat(auto-fit,minmax(310px,1fr))] gap-3.5'>
       {tables.map(([label, entries]) => (
@@ -31,7 +33,7 @@ export function TournamentStandings({
                 <TableRow>
                   <TableHeadCell>Pos</TableHeadCell>
                   <TableHeadCell>Player / Team</TableHeadCell>
-                  <TableHeadCell>Fair Points</TableHeadCell>
+                  <TableHeadCell>{scoringSystemLabel(scoring)}</TableHeadCell>
                   <TableHeadCell>Score</TableHeadCell>
                   <TableHeadCell>Played</TableHeadCell>
                 </TableRow>
@@ -43,7 +45,9 @@ export function TournamentStandings({
                     <TableCell>
                       <TournamentUnit state={state} name={entry.name} />
                     </TableCell>
-                    <TableCell>{entry.totalFP?.toFixed(5) ?? '—'}</TableCell>
+                    <TableCell>
+                      {entry.totalFP !== null ? formatStandingValue(entry.totalFP, scoring) : '—'}
+                    </TableCell>
                     <TableCell>{entry.totalScore}</TableCell>
                     <TableCell>{entry.played}</TableCell>
                   </TableRow>

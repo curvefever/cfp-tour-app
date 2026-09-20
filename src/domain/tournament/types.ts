@@ -10,7 +10,7 @@ export type ScheduleLogicKey =
 
 export type PoolingPhaseKey = 'none' | 'qual-table' | 'swiss' | 'group-stage';
 
-export type ScoringSystemKey = 'fairpoints';
+export type ScoringSystemKey = 'fairpoints' | 'positional-points';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player';
 export type RoundRobinMode = 'single' | 'double';
@@ -176,6 +176,9 @@ export interface MaterializedGamemodeConfig {
   roomSize: RoomSize;
   semisSize: number;
   finalSize: number;
+  scoring: ScoringSystemKey;
+  /** Organiser-supplied rank->points table (highest rank first), only present when scoring === 'positional-points'. See generation.ts for validation. */
+  positionalPointsTable?: number[];
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */
   explicitTargets?: number[];
@@ -232,6 +235,8 @@ export interface PersistedSetup {
   scheduleLogic: ScheduleLogicKey;
   gameFormat: GameFormatKey;
   scoring: ScoringSystemKey;
+  /** Comma-separated rank->points table (highest rank first), e.g. "10,8,6,5,4,3,2,1". Only read when scoring === 'positional-points'. */
+  positionalPointsTable: string;
   poolingPhase: PoolingPhaseKey;
   qualAdv: string;
   nonCountingRounds: string;

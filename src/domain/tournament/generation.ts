@@ -94,7 +94,7 @@ export function generateTournament(
     groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
-    scoring: 'fairpoints',
+    scoring: form.scoring || 'fairpoints',
     finalsGames: parsed(form.finalsGames, 3),
     semisGames: parsed(form.semisGames, 1),
   };
@@ -200,6 +200,46 @@ export function generateTournament(
     ? form.oddCountStrategy || undefined
     : undefined;
   const roomSize = deriveRoomSize(format, oddCountStrategy);
+
+  let positionalPointsTable: number[] | undefined;
+  if (config.scoring === 'positional-points') {
+    // Defense-in-depth: positional points has nothing to accumulate into
+    // without a pooling phase, and a stale Setup selection could otherwise
+    // survive a pooling-phase change made after scoring was picked.
+    if (config.poolingPhase === 'none') {
+      return generationError(
+        'Positional-points scoring needs a pooling phase (Qualification Table, Swiss, or Group Stage) to accumulate into — pick one, or switch back to Fair Points.',
+      );
+    }
+    if (!form.positionalPointsTable.trim()) {
+      return generationError(
+        'Positional-points scoring needs a rank-to-points table — enter one value per rank, highest rank first (e.g. "10,8,6,5,4,3,2,1").',
+      );
+    }
+    const parts = form.positionalPointsTable.split(',').map((part) => part.trim());
+    const values = parts.map((part) => Number.parseInt(part, 10));
+    const isValidInteger = (value: number, part: string) =>
+      Number.isFinite(value) && value >= 0 && String(value) === part;
+    if (values.some((value, index) => !isValidInteger(value, parts[index]))) {
+      return generationError(
+        `Positional-points table must be a comma-separated list of non-negative whole numbers — got "${form.positionalPointsTable}".`,
+      );
+    }
+    for (let index = 1; index < values.length; index += 1) {
+      if (values[index] > values[index - 1]) {
+        return generationError(
+          `Positional-points table must not increase from rank to rank — got ${values.join(',')}.`,
+        );
+      }
+    }
+    if (values.length < roomSize.max) {
+      return generationError(
+        `Positional-points table needs at least ${roomSize.max} entries (the largest possible room size for this format) — got ${values.length}.`,
+      );
+    }
+    positionalPointsTable = values;
+  }
+
   // Defense-in-depth: the Setup UI only ever offers 'double-elimination' as
   // an option when the format/odd-count-strategy combination is compatible,
   // but a stale selection can survive an odd-count-strategy change made
@@ -427,6 +467,8 @@ export function generateTournament(
     roomSize,
     semisSize: semisOverride || 2 * roomSize.ideal,
     finalSize: finalOverride || roomSize.ideal,
+    scoring: config.scoring,
+    ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),
     ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),

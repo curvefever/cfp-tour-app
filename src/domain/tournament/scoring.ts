@@ -1,6 +1,6 @@
 import { getGameFormat } from './formats';
 import { buildTeamMap } from './roster';
-import type { TeamScoringRuleKey, TournamentState } from './types';
+import type { ScoringSystemKey, TeamScoringRuleKey, TournamentState } from './types';
 
 function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
   return raw !== null && raw !== undefined && raw !== '' ? Number.parseInt(String(raw), 10) : fallback;
@@ -149,6 +149,20 @@ export function scoreKeysForPosition(options: {
 
 export function fairPoints(rank: number, score: number): number {
   return rank - score / 100_000;
+}
+
+/** Organiser-supplied rank->points table lookup (1-indexed rank, highest rank first). A rank beyond the table's own length (shouldn't happen given generation.ts's validation) falls back to 0. */
+export function positionalPoints(rank: number, table: readonly number[]): number {
+  return table[rank - 1] ?? 0;
+}
+
+export function scoringSystemLabel(scoring: ScoringSystemKey): string {
+  return scoring === 'positional-points' ? 'Positional Points' : 'Fair Points';
+}
+
+/** Fair Points' fractional value needs 5-decimal precision to disambiguate close ties; positional points is always a whole number, so it's shown without decimals. */
+export function formatStandingValue(value: number, scoring: ScoringSystemKey): string {
+  return scoring === 'positional-points' ? String(Math.round(value)) : value.toFixed(5);
 }
 
 export function groupByScore<T extends { score: number }>(scoredDescending: T[]): T[][] {

@@ -339,11 +339,51 @@ export function SetupView() {
               </Select>
             </Field>
           ) : null}
-          <Field label='Scoring system'>
-            <Select id='cfg-scoring' value='fairpoints' disabled>
-              <option value='fairpoints'>Fair Points (rank − score ÷ 100000)</option>
-            </Select>
-          </Field>
+          {setup.poolingPhase !== 'none' ? (
+            <>
+              <Field label='Scoring system'>
+                <Select
+                  id='cfg-scoring'
+                  value={setup.scoring}
+                  onChange={(e) => change('scoring', e.target.value)}
+                >
+                  <option value='fairpoints'>Fair Points (rank − score ÷ 100000)</option>
+                  <option value='positional-points'>Positional Points (rank-to-points table)</option>
+                </Select>
+              </Field>
+              {setup.scoring === 'positional-points' ? (
+                <Field
+                  label={
+                    <>
+                      Positional points table{' '}
+                      <span className='font-normal normal-case tracking-normal text-muted'>
+                        — one entry per rank, highest rank first, e.g. "10,8,6,5,4,3,2,1"
+                      </span>
+                    </>
+                  }
+                >
+                  <Input
+                    id='cfg-positional-points-table'
+                    type='text'
+                    placeholder='e.g. 10,8,6,5,4,3,2,1'
+                    value={setup.positionalPointsTable}
+                    onChange={(e) => change('positionalPointsTable', e.target.value)}
+                  />
+                  <p className='mt-1 text-xs text-muted'>
+                    Points must not increase from rank to rank, and the table needs at least one entry per
+                    unit in the largest room this format can produce — points are summed across every counted
+                    round.
+                  </p>
+                </Field>
+              ) : null}
+            </>
+          ) : (
+            <Field label='Scoring system'>
+              <Select id='cfg-scoring' value='fairpoints' disabled>
+                <option value='fairpoints'>Fair Points (rank − score ÷ 100000)</option>
+              </Select>
+            </Field>
+          )}
           {!isRace ? (
             <Field label='Finals format'>
               <Select

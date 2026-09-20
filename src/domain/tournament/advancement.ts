@@ -1,6 +1,18 @@
-import { fairPoints, getUnitScore, groupByScore, orderRoomByScore, tieResolutionList } from './scoring';
+import {
+  fairPoints,
+  getUnitScore,
+  groupByScore,
+  orderRoomByScore,
+  positionalPoints,
+  tieResolutionList,
+} from './scoring';
 import { rosterKeys } from './roster';
-import type { TournamentRound, TournamentStanding, TournamentState } from './types';
+import type { ScoringSystemKey, TournamentRound, TournamentStanding, TournamentState } from './types';
+
+/** Fair Points is lower-is-better (rank - score/100000); positional points is higher-is-better (a rank-to-points table). Everything downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table, so this is the one place the direction needs to be decided. */
+function compareStandingValue(first: number, second: number, scoring: ScoringSystemKey): number {
+  return scoring === 'positional-points' ? second - first : first - second;
+}
 
 interface ScoredUnit {
   name: string;
@@ -272,16 +284,25 @@ interface StandingAccumulator {
   rounds: Array<{ fp: number; score: number }>;
 }
 
-// totalFP is an average across rounds played, not a sum -- despite the name
-// (kept for compatibility with the persisted TournamentState shape) -- so a
-// unit with fewer counted rounds (a bye, a late-joining reserve) is ranked by
-// rate of performance, not rewarded simply for having a smaller sample.
-function materializeStandings(entries: StandingAccumulator[]): TournamentStanding[] {
+// For 'fairpoints', totalFP is an average across rounds played, not a sum --
+// despite the name (kept for compatibility with the persisted
+// TournamentState shape) -- so a unit with fewer counted rounds (a bye, a
+// late-joining reserve) is ranked by rate of performance, not rewarded
+// simply for having a smaller sample. For 'positional-points', the
+// organiser's own real-tournament convention is a plain sum -- and summing a
+// per-round value that's already bounded below by 0 naturally penalizes a
+// smaller sample instead of needing the same protection.
+function materializeStandings(
+  entries: StandingAccumulator[],
+  scoring: ScoringSystemKey,
+): TournamentStanding[] {
   return entries
     .map((entry) => ({
       name: entry.name,
       totalFP: entry.rounds.length
-        ? entry.rounds.reduce((total, round) => total + round.fp, 0) / entry.rounds.length
+        ? scoring === 'positional-points'
+          ? entry.rounds.reduce((total, round) => total + round.fp, 0)
+          : entry.rounds.reduce((total, round) => total + round.fp, 0) / entry.rounds.length
         : null,
       totalScore: entry.rounds.reduce((total, round) => total + round.score, 0),
       played: entry.rounds.length,
@@ -290,11 +311,13 @@ function materializeStandings(entries: StandingAccumulator[]): TournamentStandin
       if (first.totalFP === null && second.totalFP === null) return 0;
       if (first.totalFP === null) return 1;
       if (second.totalFP === null) return -1;
-      return first.totalFP - second.totalFP;
+      return compareStandingValue(first.totalFP, second.totalFP, scoring);
     });
 }
 
 export function computeQualificationStandings(state: TournamentState): TournamentStanding[] {
+  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
+  const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const accumulators = new Map<string, StandingAccumulator>(
     rosterKeys(state.players).map((name) => [name, { name, rounds: [] }]),
   );
@@ -308,16 +331,21 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
         state,
       ).entries()) {
         accumulators.get(entry.name)?.rounds.push({
-          fp: fairPoints(index + 1, entry.score),
+          fp:
+            scoring === 'positional-points'
+              ? positionalPoints(index + 1, positionalPointsTable)
+              : fairPoints(index + 1, entry.score),
           score: entry.score,
         });
       }
     }
   }
-  return materializeStandings([...accumulators.values()]);
+  return materializeStandings([...accumulators.values()], scoring);
 }
 
 export function computeGroupStandings(state: TournamentState): Record<string, TournamentStanding[]> {
+  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
+  const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const byGroup = new Map<string, Map<string, StandingAccumulator>>();
   for (const group of state.groups) {
     byGroup.set(group.label, new Map(group.members.map((name) => [name, { name, rounds: [] }])));
@@ -338,7 +366,10 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
           .get(groupLabel)
           ?.get(entry.name)
           ?.rounds.push({
-            fp: fairPoints(index + 1, entry.score),
+            fp:
+              scoring === 'positional-points'
+                ? positionalPoints(index + 1, positionalPointsTable)
+                : fairPoints(index + 1, entry.score),
             score: entry.score,
           });
       }
@@ -346,7 +377,7 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
   }
 
   return Object.fromEntries(
-    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()])]),
+    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()], scoring)]),
   );
 }
 
@@ -358,6 +389,7 @@ function computeGroupStageAdvancement(state: TournamentState): {
   const groupStandings = computeGroupStandings(state);
   const stateWithStandings = { ...state, groupStandings };
   const qualifiersPerGroup = state.cfg.qualifiersPerGroup ?? 0;
+  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const perGroup = state.groups.map((group) =>
     applyGroupCutoffOrder(
       group.label,
@@ -370,7 +402,9 @@ function computeGroupStageAdvancement(state: TournamentState): {
     const finishers = perGroup
       .map((qualifiers) => qualifiers[tier])
       .filter((entry): entry is TournamentStanding => Boolean(entry))
-      .sort((first, second) => (first.totalFP as number) - (second.totalFP as number));
+      .sort((first, second) =>
+        compareStandingValue(first.totalFP as number, second.totalFP as number, scoring),
+      );
     for (const finisher of finishers) {
       advancing.push({ name: finisher.name, isLucky: false });
     }
