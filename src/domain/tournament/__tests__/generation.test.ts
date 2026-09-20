@@ -736,6 +736,88 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 });
 
+describe('generateTournament -- fixed draw publication', () => {
+  it('rejects fixed draw publication with poolingPhase "none"', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'none', drawPublication: 'fixed' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('Qualification Table or Swiss');
+  });
+
+  it('rejects fixed draw publication with poolingPhase "group-stage"', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'group-stage',
+      drawPublication: 'fixed',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('Qualification Table or Swiss');
+  });
+
+  it('qual-table: assigns round 0 from the fixed schedule, leaves round 1 unassigned in state.assignments but pre-computed on the round itself, and folds roomHistory/poolingByeCounts upfront', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table', drawPublication: 'fixed' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const { state: generated } = result;
+
+    expect(generated.gamemodeConfig.drawPublication).toBe('fixed');
+    expect(generated.rounds[0].fixedRoomAssignments).toBeDefined();
+    expect(generated.assignments[0]).toEqual(generated.rounds[0].fixedRoomAssignments);
+
+    // Round 1 has NOT been "reached" (state.assignments) even though its
+    // draw is already fully decided (round.fixedRoomAssignments).
+    expect(generated.assignments[1]).toBeUndefined();
+    expect(generated.rounds[1].fixedRoomAssignments).toBeDefined();
+    expect(generated.rounds[1].fixedRoomAssignments?.length).toBeGreaterThan(0);
+
+    // roomHistory already reflects rounds beyond 0 -- more pairs recorded
+    // than round 0 alone could ever produce.
+    const round0Rooms = new Map<number, string[]>();
+    for (const entry of generated.rounds[0].fixedRoomAssignments ?? []) {
+      if (entry.room === null) continue;
+      round0Rooms.set(entry.room, [...(round0Rooms.get(entry.room) ?? []), entry.name]);
+    }
+    let round0PairCount = 0;
+    for (const members of round0Rooms.values()) {
+      round0PairCount += (members.length * (members.length - 1)) / 2;
+    }
+    expect(Object.keys(generated.roomHistory).length).toBeGreaterThan(round0PairCount);
+  });
+
+  it('swiss: same round-0-only-assignment behavior, and pairingTBD is cleared since pairings are no longer live-determined', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      drawPublication: 'fixed',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const { state: generated } = result;
+
+    expect(generated.assignments[0]).toEqual(generated.rounds[0].fixedRoomAssignments);
+    expect(generated.assignments[1]).toBeUndefined();
+    expect(generated.rounds[1].fixedRoomAssignments).toBeDefined();
+    expect(generated.rounds.filter((round) => round.isSwiss).every((round) => !round.pairingTBD)).toBe(true);
+  });
+
+  it('defaults to adaptive draw publication when the field is left blank', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const form = createDefaultSetup({ poolingPhase: 'qual-table' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
+    expect(result.state.rounds[0].fixedRoomAssignments).toBeUndefined();
+  });
+});
+
 describe('generateTournament -- Stage B numeric-input robustness', () => {
   it('refuses a negative Semis size override', () => {
     const state = createDefaultTournamentState({ confirmedCount: 20 });

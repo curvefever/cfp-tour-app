@@ -95,6 +95,7 @@ export function generateTournament(
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
     scoring: form.scoring || 'fairpoints',
+    drawPublication: form.drawPublication || 'adaptive',
     finalsGames: parsed(form.finalsGames, 3),
     semisGames: parsed(form.semisGames, 1),
   };
@@ -238,6 +239,20 @@ export function generateTournament(
       );
     }
     positionalPointsTable = values;
+  }
+
+  // Defense-in-depth, same reasoning as the positional-points guard above:
+  // fixed draws only make sense for a pooling phase that actually reseeds
+  // round to round -- Group Stage is already published in full upfront via
+  // its own round-robin schedule, and 'none' has no pooling phase at all.
+  if (
+    config.drawPublication === 'fixed' &&
+    config.poolingPhase !== 'qual-table' &&
+    config.poolingPhase !== 'swiss'
+  ) {
+    return generationError(
+      'Fixed draw publication only applies to Qualification Table or Swiss — pick one of those, or switch back to Adaptive reseeding. (Group Stage is already published in full upfront and doesn\'t need this toggle; "None" has no pooling phase to publish.)',
+    );
   }
 
   // Defense-in-depth: the Setup UI only ever offers 'double-elimination' as
@@ -469,6 +484,7 @@ export function generateTournament(
     finalSize: finalOverride || roomSize.ideal,
     scoring: config.scoring,
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
+    drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),
     ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
@@ -543,7 +559,10 @@ export function generateTournament(
     gamemodeConfig,
   };
   const initialPool = rosterKeys(state.players);
-  if (config.poolingPhase === 'group-stage') {
+  if (gamemodeConfig.drawPublication === 'fixed') {
+    state.assignments[0] = state.rounds[0].fixedRoomAssignments ?? [];
+    state.byes[0] = state.assignments[0].filter((entry) => entry.room === null).map((entry) => entry.name);
+  } else if (config.poolingPhase === 'group-stage') {
     state.assignments[0] = seedFromGroupStageRound(state.rounds[0]);
     state.byes[0] = [...(state.rounds[0].groupByes ?? [])];
   } else if (gamemodeConfig.oddCountStrategy === 'bye' && initialPool.length % roomSize.ideal !== 0) {
@@ -560,5 +579,25 @@ export function generateTournament(
     state.assignments[0] = randomSeed(initialPool, state.rounds[0].rooms, runtime.random);
   }
   state.roomHistory = recordRoomHistory(state.roomHistory, state.assignments[0], 0);
+  if (gamemodeConfig.drawPublication === 'fixed') {
+    // The rest of the fixed schedule (rounds 1+) is already fully decided at
+    // this point -- fold it into roomHistory/poolingByeCounts now too, so
+    // the live transition OUT of the pooling phase (into the bracket-phase
+    // cut round) correctly avoids rematches/repeat-byes against pairs who
+    // already played during the fixed rounds. state.assignments itself
+    // stays empty for these rounds until actually reached -- see
+    // TournamentRound.fixedRoomAssignments and transitions.ts.
+    for (const [roundIndex, round] of state.rounds.entries()) {
+      if (!round.fixedRoomAssignments) continue;
+      for (const entry of round.fixedRoomAssignments) {
+        if (entry.room === null) {
+          state.poolingByeCounts[entry.name] = (state.poolingByeCounts[entry.name] ?? 0) + 1;
+        }
+      }
+      if (roundIndex > 0) {
+        state.roomHistory = recordRoomHistory(state.roomHistory, round.fixedRoomAssignments, roundIndex);
+      }
+    }
+  }
   return { status: 'generated', state };
 }

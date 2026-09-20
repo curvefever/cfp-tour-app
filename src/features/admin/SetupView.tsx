@@ -269,6 +269,25 @@ export function SetupView() {
               ))}
             </Select>
           </Field>
+          {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' ? (
+            <Field label='Draw publication'>
+              <Select
+                id='cfg-draw-publication'
+                value={setup.drawPublication}
+                onChange={(e) => change('drawPublication', e.target.value)}
+              >
+                <option value='adaptive'>Adaptive — reseeded live from real results each round</option>
+                <option value='fixed'>Fixed — full schedule published upfront, no live reseeding</option>
+              </Select>
+              {setup.drawPublication === 'fixed' ? (
+                <p className='mt-1 text-xs text-muted'>
+                  Every round's room assignment is fixed at generation time from roster order, with rematch
+                  avoidance where mathematically possible — never adjusted based on live scores. Reserves
+                  can't be added once a tournament starts in this mode.
+                </p>
+              ) : null}
+            </Field>
+          ) : null}
           {isGroup ? (
             <>
               <Field label='Group size'>

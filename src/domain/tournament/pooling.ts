@@ -1,5 +1,6 @@
 import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
 import type {
+  DrawPublicationKey,
   GroupStageMatch,
   OddCountStrategyKey,
   RoomSize,
@@ -33,6 +34,8 @@ export interface PoolingFormatConfig {
   qualRounds: number;
   swissRounds: number;
   nonCountingRounds: number;
+  /** Only meaningful for qual-table/Swiss -- see fixed-draws.ts and schedule-generation.ts's buildPoolingPhase. */
+  drawPublication?: DrawPublicationKey;
 }
 
 export interface PoolingPhaseResult {
@@ -42,7 +45,7 @@ export interface PoolingPhaseResult {
   groups?: TournamentGroup[];
 }
 
-interface CircleMethodSchedule {
+export interface CircleMethodSchedule {
   numRounds: number;
   phantomPosition: number | null;
   rounds: Array<Array<[number, number]>>;
@@ -118,7 +121,7 @@ export function swissPoolingPhase(
   };
 }
 
-function circleMethodSchedule(groupSize: number): CircleMethodSchedule {
+export function circleMethodSchedule(groupSize: number): CircleMethodSchedule {
   const isOdd = groupSize % 2 !== 0;
   const positionCount = isOdd ? groupSize + 1 : groupSize;
   const numRounds = positionCount - 1;

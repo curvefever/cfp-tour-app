@@ -797,6 +797,13 @@ describe('addReserveUnit -- qualifying-round restriction', () => {
     expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'group-stage' });
   });
 
+  it('blocks a reserve for a fixed-draw tournament regardless of round count -- the whole schedule is already published', () => {
+    const state = workingRoundState({
+      gamemodeConfig: { roomSize: ROOM_SIZE, drawPublication: 'fixed' },
+    });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'fixed-draw' });
+  });
+
   it('leaves poolingPhase "none" unaffected regardless of round count (regression)', () => {
     const rounds = Array.from({ length: 6 }, (_, index) =>
       buildRound({ roundNum: index + 1, rooms: [2], players: 2 }),

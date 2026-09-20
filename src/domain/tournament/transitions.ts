@@ -351,7 +351,14 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   advancing = uniqueKeepingLast(advancing);
 
   let seeded: RoundAssignment[];
-  if (nextRound.isGroupStage) {
+  if (nextRound.fixedRoomAssignments) {
+    // The whole schedule for this round was already decided at generation
+    // time (fixed-draws.ts) -- roomHistory/poolingByeCounts for it were
+    // already folded in there too (see generation.ts), so no
+    // recordRoomHistory call here, unlike every branch below.
+    seeded = nextRound.fixedRoomAssignments.map((entry) => ({ ...entry }));
+    state.byes[roundIndex + 1] = seeded.filter((entry) => entry.room === null).map((entry) => entry.name);
+  } else if (nextRound.isGroupStage) {
     seeded = seedFromGroupStageRound(nextRound);
     state.byes[roundIndex + 1] = [...(nextRound.groupByes ?? [])];
   } else if (nextRound.isSwiss) {

@@ -1,3 +1,4 @@
+import { buildFixedRoomSchedule, buildFixedSwissSchedule } from './fixed-draws';
 import {
   groupStagePoolingPhase,
   noEliminationWarmupPoolingPhase,
@@ -54,10 +55,29 @@ function buildPoolingPhase(
   input: CommonGenerationInput & { format: PoolingFormatConfig },
 ): PoolingPhaseResult {
   switch (input.poolingPhase) {
-    case 'qual-table':
-      return qualificationTablePoolingPhase(input.config, input.format);
-    case 'swiss':
-      return swissPoolingPhase(input.config, input.format);
+    case 'qual-table': {
+      const result = qualificationTablePoolingPhase(input.config, input.format);
+      if (input.format.drawPublication === 'fixed') {
+        const fixed = buildFixedRoomSchedule(input.roster, result.rounds);
+        result.rounds = result.rounds.map((round, index) => ({
+          ...round,
+          fixedRoomAssignments: fixed.rounds[index],
+        }));
+      }
+      return result;
+    }
+    case 'swiss': {
+      const result = swissPoolingPhase(input.config, input.format);
+      if (input.format.drawPublication === 'fixed') {
+        const fixed = buildFixedSwissSchedule(input.roster, result.rounds.length);
+        result.rounds = result.rounds.map((round, index) => ({
+          ...round,
+          fixedRoomAssignments: fixed[index],
+          pairingTBD: false,
+        }));
+      }
+      return result;
+    }
     case 'group-stage':
       return groupStagePoolingPhase(input.config, input.roster);
     case 'none':

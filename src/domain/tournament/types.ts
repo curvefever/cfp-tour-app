@@ -11,6 +11,8 @@ export type ScheduleLogicKey =
 export type PoolingPhaseKey = 'none' | 'qual-table' | 'swiss' | 'group-stage';
 
 export type ScoringSystemKey = 'fairpoints' | 'positional-points';
+/** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissFoldPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
+export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player';
 export type RoundRobinMode = 'single' | 'double';
@@ -85,6 +87,8 @@ export interface TournamentRound {
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
   seedingOverride?: 'diversity' | 'balance' | 'random';
+  /** This qual-table/Swiss round's real player-to-room assignment, computed once at generation time (fixed-draws.ts) instead of live via tieredSeed/swissFoldPair -- only set when gamemodeConfig.drawPublication === 'fixed'. Mirrors matches/groupByes' role for group-stage rounds: state.assignments[roundIndex] stays empty until this round is actually reached (see transitions.ts), so this is the source of truth for a not-yet-played fixed round's content. */
+  fixedRoomAssignments?: RoundAssignment[];
 }
 
 export interface RoundAssignment {
@@ -162,6 +166,7 @@ export interface GeneratedTournamentConfig {
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: number;
   scoring: ScoringSystemKey;
+  drawPublication: DrawPublicationKey;
   finalsGames: number;
   semisGames: number;
 }
@@ -179,6 +184,7 @@ export interface MaterializedGamemodeConfig {
   scoring: ScoringSystemKey;
   /** Organiser-supplied rank->points table (highest rank first), only present when scoring === 'positional-points'. See generation.ts for validation. */
   positionalPointsTable?: number[];
+  drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */
   explicitTargets?: number[];
@@ -237,6 +243,8 @@ export interface PersistedSetup {
   scoring: ScoringSystemKey;
   /** Comma-separated rank->points table (highest rank first), e.g. "10,8,6,5,4,3,2,1". Only read when scoring === 'positional-points'. */
   positionalPointsTable: string;
+  /** Only meaningful for poolingPhase 'qual-table'/'swiss' -- see generation.ts. */
+  drawPublication: DrawPublicationKey;
   poolingPhase: PoolingPhaseKey;
   qualAdv: string;
   nonCountingRounds: string;

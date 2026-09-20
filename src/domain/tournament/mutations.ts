@@ -239,6 +239,7 @@ export type ReserveAddResult =
       reason:
         | 'closed'
         | 'group-stage'
+        | 'fixed-draw'
         | 'qualification-in-progress'
         | 'strict-room'
         | 'room-cap'
@@ -254,6 +255,15 @@ export function addReserveUnit(
   if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
   if (state.cfg.poolingPhase === 'group-stage') {
     return { status: 'blocked', reason: 'group-stage' };
+  }
+  // A fixed-draw tournament's whole schedule (this round and every round
+  // after it) was already published at generation time -- there's no
+  // mechanism to fold a newly-joined reserve into an already-decided future
+  // round (unlike adaptive reseeding, which naturally picks up anyone in the
+  // live "advancing" pool each round). Blocking here is far lower risk than
+  // silently rewriting a draw players may have already seen.
+  if (state.gamemodeConfig.drawPublication === 'fixed') {
+    return { status: 'blocked', reason: 'fixed-draw' };
   }
   // A reserve joining a qualification-table/Swiss standings phase must still
   // get to play at least two of the remaining rounds themselves -- otherwise

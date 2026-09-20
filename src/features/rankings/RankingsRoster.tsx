@@ -37,6 +37,8 @@ function handleReserveResult(
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
       "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts.",
+    'fixed-draw':
+      "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
     'qualification-in-progress':
       "Can't add a reserve now — more than one qualifying round has already been played, so a new entrant could never earn a fair standing.",
     'strict-room':

@@ -43,6 +43,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     gameFormat: 'ffa-individual',
     scoring: 'fairpoints',
     positionalPointsTable: '',
+    drawPublication: 'adaptive',
     poolingPhase: 'none',
     qualAdv: '24',
     nonCountingRounds: '0',

@@ -582,6 +582,49 @@ function PlaceholderRound({
   projected: ProjectedSlotLabel[][] | null;
 }) {
   if (!round.rooms.length) return <div className='text-muted'>Not yet seeded</div>;
+  if (round.fixedRoomAssignments) {
+    // A pre-published draw -- the real room assignment is already fully
+    // decided at generation time (see fixed-draws.ts / HANDOFF.md's "Room
+    // reseeding"), so show it directly instead of a projected/TBD
+    // placeholder, matching the whole point of publishing a draw upfront.
+    const byRoom = new Map<number, string[]>();
+    const byes: string[] = [];
+    for (const entry of round.fixedRoomAssignments) {
+      if (entry.room === null) {
+        byes.push(entry.name);
+      } else {
+        byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
+      }
+    }
+    return (
+      <>
+        {round.rooms.map((slots, roomIndex) => (
+          <div className='mb-2' key={roomIndex}>
+            <RoomLabel>
+              Room {roomLetter(roomIndex + 1)} ({slots})
+            </RoomLabel>
+            {(byRoom.get(roomIndex + 1) ?? []).map((name) => (
+              <div
+                className={cn(bracketRowBase, 'border-l-surface-hover border-l-dashed text-muted opacity-65')}
+                key={name}
+              >
+                {unitDisplay(state, name).label}
+              </div>
+            ))}
+          </div>
+        ))}
+        {byes.map((name) => (
+          <div
+            className='mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning'
+            key={name}
+          >
+            <span className='mr-1.5 font-bold tracking-[0.05em]'>BYE</span>
+            {unitDisplay(state, name).label}
+          </div>
+        ))}
+      </>
+    );
+  }
   if (round.isGroupStage) {
     return (
       <>

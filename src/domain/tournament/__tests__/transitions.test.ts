@@ -302,6 +302,52 @@ describe('advanceTournamentRound — next-round seeding dispatch', () => {
     ]);
   });
 
+  it('dispatches straight to a pre-published fixed schedule when nextRound.fixedRoomAssignments is set, bypassing tieredSeed entirely', () => {
+    // A deliberately non-tiered pairing (rank1 x rank4, rank2 x rank3) --
+    // tieredSeed's own room-rank tiering would never independently produce
+    // this exact split, so an exact match proves the fixed schedule (not
+    // tieredSeed) is what actually ran.
+    const fixedRound2: RoundAssignment[] = [
+      { name: 'P1', room: 1, isLucky: false },
+      { name: 'P4', room: 1, isLucky: false },
+      { name: 'P2', room: 2, isLucky: false },
+      { name: 'P3', room: 2, isLucky: false },
+    ];
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 }, drawPublication: 'fixed' },
+      rounds: [
+        buildRound({ roundNum: 1, isNoElim: true, rooms: [4], advTotal: 4, players: 4 }),
+        buildRound({
+          roundNum: 2,
+          isQual: true,
+          rooms: [2, 2],
+          players: 4,
+          fixedRoomAssignments: fixedRound2,
+        }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+      curRound: 0,
+    });
+    const roomHistoryBefore = state.roomHistory;
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    expect(result.state.assignments[1]).toEqual(fixedRound2);
+    expect(result.state.byes[1]).toEqual([]);
+    // roomHistory/poolingByeCounts for this round were already folded in at
+    // generation time -- the transition itself must not record them again.
+    expect(result.state.roomHistory).toEqual(roomHistoryBefore);
+  });
+
   it('applies avoidSameGroupInFirstBracketRound only when the CURRENT round isGroupStage', () => {
     const buildState = (isGroupStage: boolean) =>
       createDefaultTournamentState({
