@@ -18,12 +18,16 @@ import {
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
-import type { RoundAssignment, TournamentRound, TournamentState } from './types';
+import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
 type RoundAdvanceBlockReason =
-  'pending-ties' | 'malformed-final' | 'invalid-room-split' | 'missing-room-size';
+  | 'pending-ties'
+  | 'malformed-final'
+  | 'invalid-room-split'
+  | 'missing-room-size'
+  | 'malformed-waterfall-round';
 
 type RoundAdvanceNoopReason = 'last-round' | 'grand-final';
 
@@ -103,19 +107,51 @@ function reserveWindowAtCurrentRound(state: Pick<TournamentState, 'cfg' | 'round
   return cutRound !== -1 && state.curRound <= cutRound;
 }
 
+/**
+ * Shape-agnostic core shared by every "finalize a round from its
+ * accumulated pendingBracketSeeds pool" path: read the pool, pull out any
+ * pre-chosen byes, seed real rooms via tieredBracketSeed, and record the
+ * result into assignments/roomHistory. Double-elimination's own
+ * seeding-override lookup and grand-final side effect aren't shape-agnostic
+ * (they read `.bracket`/`winnersTo`, which only double-elimination rounds
+ * have) -- those stay in finalizeDoubleEliminationRound, which calls this
+ * for its own common core.
+ */
+function seedRoundFromPendingPool(
+  state: TournamentState,
+  roundIndex: number,
+  options: { chosenByes?: SeedCandidate[]; seedingOverride?: 'diversity' | 'balance' | 'random' } = {},
+): void {
+  const targetRound = state.rounds[roundIndex];
+  let pool = [...(state.pendingBracketSeeds[roundIndex] ?? [])];
+  delete state.pendingBracketSeeds[roundIndex];
+  const byeNames = (options.chosenByes ?? []).map((candidate) => candidate.name);
+  if (byeNames.length) {
+    const byeSet = new Set(byeNames);
+    pool = pool.filter((candidate) => !byeSet.has(candidate.name));
+  }
+  const assignments = tieredBracketSeed({
+    pool,
+    roomSizes: targetRound.rooms,
+    roomHistory: state.roomHistory,
+    rounds: state.rounds,
+    targetRoundIndex: roundIndex,
+    seedingOverride: options.seedingOverride,
+  }).seeded;
+  state.byes[roundIndex] = byeNames;
+  for (const name of byeNames) {
+    assignments.push({ name, room: null, isLucky: false });
+  }
+  state.assignments[roundIndex] = assignments;
+  state.roomHistory = recordRoomHistory(state.roomHistory, assignments, roundIndex);
+}
+
 function finalizeDoubleEliminationRound(
   state: TournamentState,
   roundIndex: number,
   chosenByes: SeedCandidate[],
 ): void {
   const targetRound = state.rounds[roundIndex];
-  let pool = [...(state.pendingBracketSeeds[roundIndex] ?? [])];
-  delete state.pendingBracketSeeds[roundIndex];
-  const byeNames = chosenByes.map((candidate) => candidate.name);
-  if (byeNames.length) {
-    const byeSet = new Set(byeNames);
-    pool = pool.filter((candidate) => !byeSet.has(candidate.name));
-  }
   // Seeding-weight override only applies to a WB round's own continuation
   // into the next WB round -- always single-source, unlike an LB-bound
   // target round, whose pool can also merge players already surviving in
@@ -126,20 +162,7 @@ function finalizeDoubleEliminationRound(
       ? state.rounds.find((round) => round.bracket === 'winners' && round.winnersTo === roundIndex)
           ?.seedingOverride
       : undefined;
-  const assignments = tieredBracketSeed({
-    pool,
-    roomSizes: targetRound.rooms,
-    roomHistory: state.roomHistory,
-    rounds: state.rounds,
-    targetRoundIndex: roundIndex,
-    seedingOverride,
-  }).seeded;
-  state.byes[roundIndex] = byeNames;
-  for (const name of byeNames) {
-    assignments.push({ name, room: null, isLucky: false });
-  }
-  state.assignments[roundIndex] = assignments;
-  state.roomHistory = recordRoomHistory(state.roomHistory, assignments, roundIndex);
+  seedRoundFromPendingPool(state, roundIndex, { chosenByes, seedingOverride });
 
   if (targetRound.bracket === 'grand-final') {
     const sourceIndex = state.rounds.findIndex(
@@ -300,6 +323,75 @@ function advanceKingsValley(input: TournamentState, roundIndex: number): RoundAd
   return { status: 'advanced', state };
 }
 
+function malformedWaterfallRoundMessage(round: TournamentRound, actual: number): string {
+  const label = round.customLabel ?? `Round ${round.roundNum}`;
+  return `Can't advance into "${label}" — ${actual} entrant(s) would arrive instead of the ${round.players} the graph declares for it. A mid-tournament withdrawal has likely thrown off the waterfall graph's exact rank-band counts (no bye/lucky-loser concept applies here); check Manage Teams, or add a replacement, before advancing further.`;
+}
+
+/**
+ * Waterfall's advance step: rank every occupant of the round within their
+ * own room (buildAdvancementTiers, called once over the WHOLE room -- not a
+ * pre-split winners/losers list, since a waterfall room can split into any
+ * number of bands), look up each occupant's own band via
+ * round.waterfallRoutes[room-1][rank] (tier.rank is already 0-indexed, the
+ * same convention waterfallRoutes itself uses for "rank - 1"), and push into
+ * pendingBracketSeeds[destination] -- the same destination-indexed
+ * accumulator advanceDoubleElimination already uses, generalized from 2
+ * named destinations to N. Always finalizes roundIndex + 1 specifically
+ * (mirroring advanceDoubleElimination's own nextIndex finalize) -- NOT
+ * whatever a band's own destination is, which may be several rounds ahead
+ * and stay merely pending until curRound actually reaches it. This is safe
+ * because the graph is a validated DAG played in its own topological order:
+ * every source of round X is guaranteed already played by the time curRound
+ * reaches X - 1, so X's pool is always complete by the time it's X's own
+ * turn to be finalized here.
+ */
+function advanceWaterfallBracket(
+  input: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): RoundAdvanceResult {
+  const state = cloneForTransition(input);
+  const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
+  const tiers = buildAdvancementTiers(state, roundIndex, names);
+  const routes = round.waterfallRoutes ?? [];
+
+  const additionsByDestination = new Map<number, PendingBracketSeed[]>();
+  for (const tier of tiers) {
+    for (const member of tier.members) {
+      const destination = routes[member.sourceRoom - 1]?.[tier.rank];
+      if (destination === undefined || destination === 'eliminated') continue;
+      const additions = additionsByDestination.get(destination) ?? [];
+      additions.push({ name: member.name, isLucky: false, tierRank: tier.rank, pct: member.pct });
+      additionsByDestination.set(destination, additions);
+    }
+  }
+  for (const [destination, additions] of additionsByDestination) {
+    state.pendingBracketSeeds[destination] = [
+      ...(state.pendingBracketSeeds[destination] ?? []),
+      ...additions,
+    ];
+  }
+
+  const nextIndex = roundIndex + 1;
+  const nextRound = state.rounds[nextIndex];
+  const poolAtNext = state.pendingBracketSeeds[nextIndex] ?? [];
+  if (poolAtNext.length !== nextRound.players) {
+    return {
+      status: 'blocked',
+      reason: 'malformed-waterfall-round',
+      message: malformedWaterfallRoundMessage(nextRound, poolAtNext.length),
+      state: input,
+    };
+  }
+
+  state.curRound = nextIndex;
+  seedRoundFromPendingPool(state, nextIndex);
+  state.reserveOpen = reserveWindowAtCurrentRound(state);
+  state.needsSave = true;
+  return { status: 'advanced', state };
+}
+
 /**
  * Pure counterpart of legacy advanceRound(). UI effects (alert, render,
  * persistence and sync) are represented by the returned result/state.
@@ -326,6 +418,9 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   }
   if (round.isKingsValley) {
     return advanceKingsValley(prepared, roundIndex);
+  }
+  if (round.isWaterfall) {
+    return advanceWaterfallBracket(prepared, roundIndex, round);
   }
 
   const state = cloneForTransition(prepared);

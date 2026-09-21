@@ -16,6 +16,7 @@ import {
 } from './double-elimination';
 import { kingsValleyBracketPhase, type KingsValleyConfig } from './kings-valley';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
+import { waterfallBracketPhase, type WaterfallBracketConfig } from './waterfall-bracket';
 import type { PoolingPhaseKey, RoomSize, ScheduleLogicKey, TournamentGroup, TournamentRound } from './types';
 
 interface TournamentProgression {
@@ -45,9 +46,18 @@ export type TournamentProgressionInput =
   | (CommonGenerationInput & {
       bracketPhase: 'kings-valley';
       format: PoolingFormatConfig & KingsValleyConfig;
+    })
+  | (CommonGenerationInput & {
+      bracketPhase: 'waterfall-bracket';
+      format: PoolingFormatConfig & WaterfallBracketConfig;
     });
 
 export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize: RoomSize): number {
+  // Waterfall's real floor is enforced precisely against the organiser's own
+  // graph (validateAndOrderWaterfallGraph's rule 9, checked in generation.ts)
+  // -- this early, generic gate only needs to let any positive count through
+  // so that later, more specific error reaches the organiser instead.
+  if (bracketPhase === 'waterfall-bracket') return 1;
   return bracketPhase === 'double-elimination' ? 4 : 2 * roomSize.ideal;
 }
 
@@ -100,6 +110,9 @@ export function buildTournamentProgression(input: TournamentProgressionInput): T
       break;
     case 'kings-valley':
       bracket = kingsValleyBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
+      break;
+    case 'waterfall-bracket':
+      bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
       break;
   }
   return {

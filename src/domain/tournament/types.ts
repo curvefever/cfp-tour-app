@@ -1,3 +1,5 @@
+import type { OrderedWaterfallGraph } from './waterfall-bracket';
+
 export type ActiveTab = 'admin' | 'scoreboard' | 'bracket' | 'rankings' | 'archive';
 
 export type GameFormatKey =
@@ -6,7 +8,11 @@ export type GameFormatKey =
 export type ImplementedGameFormatKey = Exclude<GameFormatKey, 'last-man-standing'>;
 
 export type ScheduleLogicKey =
-  'single-elimination' | 'double-elimination' | 'double-elimination-shared-final' | 'kings-valley';
+  | 'single-elimination'
+  | 'double-elimination'
+  | 'double-elimination-shared-final'
+  | 'kings-valley'
+  | 'waterfall-bracket';
 
 export type PoolingPhaseKey = 'none' | 'qual-table' | 'swiss' | 'group-stage';
 
@@ -83,6 +89,12 @@ export interface TournamentRound {
   kvPromoteCounts?: number[];
   kvDemoteCounts?: number[];
   kvEliminateCount?: number;
+  /** Organiser-authored waterfall/rank-band bracket round -- see waterfall-bracket.ts. Its own dispatch tag, sibling to isKingsValley, rather than reusing `bracket`/`BracketKey` (a closed WB/LB/grand-final vocabulary this doesn't fit). */
+  isWaterfall?: boolean;
+  /** Index-aligned with `rooms`; within a room, index-aligned with rank (`waterfallRoutes[room][rank - 1]` is that rank's destination). A destination is an absolute index into `state.rounds`, resolved at generation time from the organiser's graph -- or 'eliminated'. Only set when isWaterfall is true. */
+  waterfallRoutes?: Array<Array<number | 'eliminated'>>;
+  /** The organiser's own round label from the waterfall graph (e.g. "SemiA", "6B"), read by bracketRoundLabels() instead of a synthetic "Round N". Only set when isWaterfall is true. */
+  customLabel?: string;
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
@@ -190,6 +202,8 @@ export interface MaterializedGamemodeConfig {
   explicitTargets?: number[];
   /** Organiser-supplied fixed reseed mode per WB elimination round, index-aligned with explicitTargets. Only valid alongside explicitTargets -- see generation.ts. */
   explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
+  /** The organiser's parsed/validated waterfall routing graph (waterfall-bracket.ts), only present when bracketPhase === 'waterfall-bracket'. Consumed once by waterfallBracketPhase() at generation time -- every round's own rank-band routing lives on TournamentRound.waterfallRoutes after that, so nothing downstream reads this back off state. */
+  graph?: OrderedWaterfallGraph;
   poolingPhase: PoolingPhaseKey;
   bracketPhase: ScheduleLogicKey;
   finalsGames: number;
@@ -261,6 +275,8 @@ export interface PersistedSetup {
   swissRoundsOverride: string;
   eliminationRoundTargets: string;
   eliminationSeedingOverrides: string;
+  /** The organiser-authored ROUNDS:/ROUTES: mini-language text (waterfall-bracket.ts). Only read when scheduleLogic === 'waterfall-bracket'. */
+  waterfallGraph: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

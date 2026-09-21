@@ -67,15 +67,27 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     const round = state.rounds[roundIndex];
     if (round.isFinal) continue;
     const byRoom = assignmentsByRoom(state.assignments[roundIndex] ?? []);
-    if (round.bracket) {
-      const winners =
-        round.winnersTo !== null && round.winnersTo !== undefined
-          ? new Set((state.assignments[round.winnersTo] ?? []).map(({ name }) => name))
-          : null;
-      const losers =
-        round.losersTo !== null && round.losersTo !== undefined
-          ? new Set((state.assignments[round.losersTo] ?? []).map(({ name }) => name))
-          : null;
+    if (round.bracket || round.isWaterfall) {
+      // A named 2-destination winners/losers split generalizes to a union
+      // over however many distinct rounds this round's own routing can send
+      // occupants to -- exactly [winnersTo, losersTo] for a double-elimination
+      // round (identical to the previous behavior there), or every distinct
+      // non-'eliminated' index in waterfallRoutes for a waterfall round,
+      // which can be more than 2.
+      const destinations = round.bracket
+        ? [round.winnersTo, round.losersTo].filter(
+            (index): index is number => index !== null && index !== undefined,
+          )
+        : [
+            ...new Set(
+              (round.waterfallRoutes ?? []).flatMap((roomRoutes) =>
+                roomRoutes.filter((destination): destination is number => destination !== 'eliminated'),
+              ),
+            ),
+          ];
+      const survived = new Set(
+        destinations.flatMap((index) => (state.assignments[index] ?? []).map(({ name }) => name)),
+      );
       for (const [roomKey, roomAssignments] of byRoom) {
         const room = Number(roomKey);
         const scored = orderRoomByScore(
@@ -89,7 +101,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
         );
         const total = scored.reduce((sum, entry) => sum + entry.score, 0);
         for (const entry of scored) {
-          if (!winners?.has(entry.name) && !losers?.has(entry.name)) {
+          if (!survived.has(entry.name)) {
             eliminated.set(entry.name, {
               ri: roundIndex,
               round,

@@ -13,6 +13,11 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
+import {
+  parseWaterfallGraph,
+  validateAndOrderWaterfallGraph,
+  type OrderedWaterfallGraph,
+} from './waterfall-bracket';
 import type { TournamentRuntime } from './runtime';
 import type {
   GeneratedTournamentConfig,
@@ -69,6 +74,15 @@ export function generateTournament(
   const format = getGameFormat(form.gameFormat);
   if (!format) return generationError('This game format is not available yet.');
   const schedule = form.scheduleLogic;
+  // Defense-in-depth, same reasoning as the positional-points/fixed-draw
+  // guards below: the Setup UI only shows the waterfall-graph textarea when
+  // 'waterfall-bracket' is selected, but a stale graph can survive a
+  // schedule-logic change made after it was typed in.
+  if (schedule !== 'waterfall-bracket' && form.waterfallGraph.trim()) {
+    return generationError(
+      'A waterfall graph was entered, but "Waterfall bracket" isn\'t the selected schedule logic — clear the graph, or switch schedule logic to use it.',
+    );
+  }
   const floorIdeal = format.defaultRoomSize?.ideal ?? format.idealRoomSize;
   if (!floorIdeal) return generationError('This game format has no room size.');
   const floorMin = getMinimumBracketUnits(schedule, {
@@ -201,6 +215,25 @@ export function generateTournament(
     ? form.oddCountStrategy || undefined
     : undefined;
   const roomSize = deriveRoomSize(format, oddCountStrategy);
+
+  // Waterfall's whole schedule is the organiser's own hand-authored graph --
+  // parsed and validated here (rather than inside the builder) so a bad
+  // graph surfaces through the same generationError -> Setup <Alert>
+  // pipeline every other malformed-input case already uses. Rule 9 checks
+  // the graph's declared entry total against bracketEntryCount, the real
+  // post-pooling entrant count computed just above -- not config.qualAdv,
+  // which is meaningless for Group Stage.
+  let waterfallGraph: OrderedWaterfallGraph | undefined;
+  if (schedule === 'waterfall-bracket') {
+    const parsedGraph = parseWaterfallGraph(form.waterfallGraph);
+    if (!parsedGraph.ok) return generationError(parsedGraph.error);
+    const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, {
+      roomSize,
+      entrantCount: bracketEntryCount,
+    });
+    if (!validatedGraph.ok) return generationError(validatedGraph.error);
+    waterfallGraph = validatedGraph.value;
+  }
 
   let positionalPointsTable: number[] | undefined;
   if (config.scoring === 'positional-points') {
@@ -488,6 +521,7 @@ export function generateTournament(
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),
     ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
+    ...(waterfallGraph !== undefined ? { graph: waterfallGraph } : {}),
     poolingPhase: config.poolingPhase,
     bracketPhase: schedule,
     finalsGames: config.finalsGames,

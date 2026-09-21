@@ -6,10 +6,15 @@ import {
 } from '../double-elimination';
 import { generateTournament } from '../generation';
 import { roomPairKey, snakeSeed, tieredBracketSeed, tieredSeed } from '../seeding';
+import {
+  parseWaterfallGraph,
+  validateAndOrderWaterfallGraph,
+  waterfallBracketPhase,
+} from '../waterfall-bracket';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { buildRound, sequenceRandom } from './test-fixtures';
-import type { RoundAssignment } from '../types';
+import { buildAssignments, buildRound, sequenceRandom } from './test-fixtures';
+import type { RoundAssignment, RoomSize, TournamentState } from '../types';
 
 describe('advanceTournamentRound — missing roomSize backstop', () => {
   it('returns blocked/"missing-room-size" (not a throw) for a bracket round with no gamemodeConfig.roomSize', () => {
@@ -1200,5 +1205,201 @@ describe('advanceTournamentRound — seedingOverride wiring', () => {
     // override. Confirmed structurally rather than by re-running the whole
     // cost calculation: no WB round in `rounds` has winnersTo === lb0Index.
     expect(rounds.some((round) => round.bracket === 'winners' && round.winnersTo === lb0Index)).toBe(false);
+  });
+});
+
+describe('advanceTournamentRound — waterfall bracket', () => {
+  const LOOSE_ROOM_SIZE: RoomSize = { min: 1, max: 10, ideal: 4 };
+
+  // A scaled-down version of the real organiser spreadsheet's own shape:
+  // Room 5.A/5.B each skip a rank band straight to SemiA, bypassing 6B/7A
+  // entirely; all 4 rooms of "5" converge into 6B; SemiB merges
+  // contributions from two different, non-adjacent source rounds (SemiA and
+  // 7A) arriving in two different advancement steps.
+  const GRAPH_TEXT = `
+ROUNDS:
+5 = 4x4
+6B = 8
+7A = 4
+SemiA = 2
+SemiB = 5
+Final = 3 FINAL
+
+ROUTES:
+5.A: 1->SemiA, 2-3->6B, 4->eliminated
+5.B: 1->SemiA, 2-3->6B, 4->eliminated
+5.C: 1-2->6B, 3-4->eliminated
+5.D: 1-2->6B, 3-4->eliminated
+6B: 1-4->7A, 5-8->eliminated
+7A: 1-4->SemiB
+SemiA: 1->Final, 2->SemiB
+SemiB: 1-2->Final, 3-5->eliminated
+`;
+
+  function buildWaterfallRounds(text: string, entrantCount: number, seedTotal: number) {
+    const parsed = parseWaterfallGraph(text);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const validated = validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: LOOSE_ROOM_SIZE,
+      entrantCount,
+    });
+    if (!validated.ok) throw new Error(validated.error);
+    return waterfallBracketPhase(seedTotal, 1, { graph: validated.value });
+  }
+
+  /** Every subsequent round in this fixture has exactly 1 room -- assigns strictly descending scores by assignment position, so rank order == array order regardless of which names tieredBracketSeed actually placed there. */
+  function assignDescendingScores(state: TournamentState, roundIndex: number, count: number): void {
+    for (let position = 0; position < count; position += 1) {
+      state.scores[`r${roundIndex}-rm1-p${position}`] = 1000 - position;
+    }
+  }
+
+  it('threads a genuine skip-ahead contribution and a 4-way room convergence through the whole graph, finalizing only roundIndex + 1 at each step', () => {
+    const rounds = buildWaterfallRounds(GRAPH_TEXT, 16, 16);
+    const indexOf = (label: string) => rounds.findIndex((round) => round.customLabel === label);
+    const semiAIndex = indexOf('SemiA');
+    const sixBIndex = indexOf('6B');
+    const sevenAIndex = indexOf('7A');
+    const semiBIndex = indexOf('SemiB');
+    const finalIndex = indexOf('Final');
+
+    const names16 = Array.from({ length: 16 }, (_, index) => `P${index + 1}`);
+    let state = createDefaultTournamentState({
+      rounds,
+      assignments: [buildAssignments(names16, [4, 4, 4, 4])],
+      scores: {
+        'r0-rm1-p0': 400,
+        'r0-rm1-p1': 300,
+        'r0-rm1-p2': 200,
+        'r0-rm1-p3': 100,
+        'r0-rm2-p0': 400,
+        'r0-rm2-p1': 300,
+        'r0-rm2-p2': 200,
+        'r0-rm2-p3': 100,
+        'r0-rm3-p0': 400,
+        'r0-rm3-p1': 300,
+        'r0-rm3-p2': 200,
+        'r0-rm3-p3': 100,
+        'r0-rm4-p0': 400,
+        'r0-rm4-p1': 300,
+        'r0-rm4-p2': 200,
+        'r0-rm4-p3': 100,
+      },
+      curRound: 0,
+    });
+
+    // The graph's own topological order turns out to be
+    // [5, SemiA, 6B, 7A, SemiB, Final] -- SemiA is rank 1's destination in
+    // every room of "5", so it has no other dependency and is scheduled as
+    // early as the DAG allows (right after "5"), same as the real
+    // spreadsheet's own order. That still exercises the property this
+    // feature exists for: 6B's pool (an equally single-source, already-
+    // complete convergence after step 1) is NOT finalized until curRound
+    // actually reaches it one step later -- proving "finalize only
+    // roundIndex + 1" rather than "finalize whatever's ready".
+    expect(rounds.map((round) => round.customLabel)).toEqual(['5', 'SemiA', '6B', '7A', 'SemiB', 'Final']);
+
+    // Step 1: advance out of "5" (rooms P1-4/P5-8/P9-12/P13-16, rank order ==
+    // position order). SemiA is roundIndex + 1, so it's finalized into real
+    // room assignments this same step; 6B's pool converges contributions
+    // from all 4 rooms but, despite being equally complete, stays merely
+    // pending -- not yet finalized.
+    let result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    state = result.state;
+    expect(state.curRound).toBe(semiAIndex);
+    expect(state.assignments[semiAIndex]?.map((a) => a.name).sort()).toEqual(['P1', 'P5']);
+    expect((state.pendingBracketSeeds[sixBIndex] ?? []).map((c) => c.name).sort()).toEqual([
+      'P10',
+      'P13',
+      'P14',
+      'P2',
+      'P3',
+      'P6',
+      'P7',
+      'P9',
+    ]);
+    expect(state.assignments[sixBIndex]).toBeUndefined();
+
+    // Step 2: advance out of SemiA (rank 1 -> Final, rank 2 -> SemiB).
+    // roundIndex + 1 is 6B -- THIS is where its pool, unchanged since step
+    // 1, finally gets finalized into real room assignments (the delayed
+    // finalize this whole feature exists to support).
+    assignDescendingScores(state, semiAIndex, 2);
+    result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    state = result.state;
+    expect(state.curRound).toBe(sixBIndex);
+    expect(state.assignments[sixBIndex]?.map((a) => a.name).sort()).toEqual([
+      'P10',
+      'P13',
+      'P14',
+      'P2',
+      'P3',
+      'P6',
+      'P7',
+      'P9',
+    ]);
+    expect(state.assignments[sixBIndex]?.every((a) => a.room === 1)).toBe(true);
+    expect(state.pendingBracketSeeds[finalIndex]).toHaveLength(1);
+    expect(state.pendingBracketSeeds[semiBIndex]).toHaveLength(1);
+
+    // Step 3: advance out of 6B into 7A (top 4 by score).
+    assignDescendingScores(state, sixBIndex, 8);
+    result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    state = result.state;
+    expect(state.curRound).toBe(sevenAIndex);
+    expect(state.assignments[sevenAIndex]).toHaveLength(4);
+
+    // Step 4: advance out of 7A -- everybody routes to SemiB, which already
+    // holds 1 (SemiA's rank 2, pushed in step 2). roundIndex + 1 is SemiB
+    // itself, now complete at its declared size of 5 -- two contributions
+    // from two different, non-adjacent advancement steps correctly merged
+    // into one pool.
+    assignDescendingScores(state, sevenAIndex, 4);
+    result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    state = result.state;
+    expect(state.curRound).toBe(semiBIndex);
+    expect(state.assignments[semiBIndex]).toHaveLength(5);
+    expect(state.pendingBracketSeeds[finalIndex]).toHaveLength(1); // still just SemiA's rank-1 contribution
+
+    // Step 5: advance out of SemiB into the Final -- its own top 2 join the
+    // 1 already pending since step 1, completing the Final's declared size.
+    assignDescendingScores(state, semiBIndex, 5);
+    result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    state = result.state;
+    expect(state.curRound).toBe(finalIndex);
+    expect(state.assignments[finalIndex]).toHaveLength(3);
+    expect(state.rounds[finalIndex].isFinal).toBe(true);
+  });
+
+  it('blocks with "malformed-waterfall-round" when a withdrawal leaves fewer entrants than the graph declares', () => {
+    const rounds = buildWaterfallRounds('ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-4->Final', 4, 4);
+
+    // Only 3 real occupants instead of the declared 4 -- simulates a
+    // mid-tournament withdrawal. Waterfall has no bye/remainder concept, so
+    // this can only ever surface as a straight size mismatch.
+    const state = createDefaultTournamentState({
+      rounds,
+      assignments: [buildAssignments(['P1', 'P2', 'P3'], [4])],
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 },
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('blocked');
+    expect(result.status === 'blocked' && result.reason).toBe('malformed-waterfall-round');
+    if (result.status === 'blocked') {
+      expect(result.message).toContain('Final');
+      expect(result.message).toContain('3 entrant');
+      expect(result.message).toContain('Manage Teams');
+    }
   });
 });

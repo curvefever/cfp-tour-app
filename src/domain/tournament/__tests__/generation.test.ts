@@ -23,6 +23,10 @@ describe('getMinimumBracketUnits', () => {
   it('returns 2 * roomSize.ideal for double-elimination-shared-final -- NOT the flat 4 plain double-elimination gets (exact key match, not "any double-elim variant")', () => {
     expect(getMinimumBracketUnits('double-elimination-shared-final', { min: 6, max: 8, ideal: 8 })).toBe(16);
   });
+
+  it("returns 1 for waterfall-bracket -- the real floor is enforced precisely against the organiser's own graph, not this early generic gate", () => {
+    expect(getMinimumBracketUnits('waterfall-bracket', { min: 6, max: 8, ideal: 8 })).toBe(1);
+  });
 });
 
 describe('generateTournament -- validation failures', () => {
@@ -1048,5 +1052,104 @@ describe('generateTournament -- kings-valley', () => {
     const form = createDefaultSetup({ gameFormat: 'individual-1v1', scheduleLogic: 'kings-valley' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
+  });
+});
+
+describe('generateTournament -- waterfall-bracket', () => {
+  // The exact structure traced cell-by-cell from the real organiser
+  // spreadsheet ("Matches 40p" tab) that this whole feature was built
+  // against -- see waterfall-bracket.test.ts for the parser/validator/builder
+  // unit coverage of this same graph; this describe block only checks that
+  // generateTournament threads form.waterfallGraph through correctly.
+  const SPREADSHEET_GRAPH = `
+ROUNDS:
+5 = 4x8
+6B = 8
+6C = 8
+7A = 8
+SemiA = 8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
+5.B: 1-4->SemiA, 6,7->6B, 5,8->6C
+5.C: 1,4->6C, 2,3->6B, 5-8->eliminated
+5.D: 1,4->6B, 2,3->6C, 5-8->eliminated
+SemiA: 1-4->Final, 5-8->SemiB
+6B: 1-4->7A, 5-8->eliminated
+6C: 1-4->7A, 5-8->eliminated
+7A: 1-4->SemiB, 5-8->eliminated
+SemiB: 1-4->Final, 5-8->eliminated
+`;
+
+  it('generates the worked spreadsheet example end-to-end', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 32, players: names(32) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: SPREADSHEET_GRAPH,
+    });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const rounds = result.state.rounds;
+    // Default poolingPhase is 'none' -- a fixed 2-round no-elim warmup
+    // precedes the waterfall phase, matching every other schedule logic.
+    expect(rounds[0].isNoElim).toBe(true);
+    expect(rounds[1].isNoElim).toBe(true);
+    expect(rounds.slice(2).map((round) => round.customLabel)).toEqual([
+      '5',
+      'SemiA',
+      '6B',
+      '6C',
+      '7A',
+      'SemiB',
+      'Final',
+    ]);
+    expect(rounds.slice(2).every((round) => round.isWaterfall)).toBe(true);
+    expect(rounds[2].rooms).toEqual([8, 8, 8, 8]);
+    expect(rounds[rounds.length - 1]).toMatchObject({ isFinal: true, customLabel: 'Final' });
+    // Round 5's rooms route absolutely: 5.A ranks 1-4 skip straight to
+    // SemiA (array index 3, several rounds before 6B/6C/7A finish feeding
+    // SemiB) -- the genuine skip-ahead case this whole feature exists for.
+    expect(rounds[2].waterfallRoutes?.[0]).toEqual([3, 3, 3, 3, 4, 5, 5, 4]);
+    expect(result.state.assignments[0].map((a) => a.name).sort()).toEqual(names(32).sort());
+  });
+
+  it("rejects a malformed graph with the parser's own specific error", () => {
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: 'ROUNDS:\n5 = 8 FINAL\nROUTES:\n5 1-8->eliminated',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('missing ":"');
+  });
+
+  it('rejects a graph whose entry total does not match the real entrant count', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 30, players: names(30) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: SPREADSHEET_GRAPH, // declares 32, but only 30 are confirmed
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain('must match exactly');
+  });
+
+  it('rejects leftover waterfall-graph text when a different schedule logic is selected (defense-in-depth)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      waterfallGraph: SPREADSHEET_GRAPH,
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain("isn't the selected schedule logic");
   });
 });

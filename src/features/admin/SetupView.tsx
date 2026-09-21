@@ -34,6 +34,30 @@ import {
 
 type SetupKey = keyof PersistedSetup;
 
+// The worked example this feature was built against (the real organiser
+// spreadsheet's "Matches 40p" tab, traced round-by-round) -- placeholder
+// text doubles as the grammar reference, matching this Setup form's
+// existing convention of showing a concrete example rather than prose.
+const WATERFALL_GRAPH_PLACEHOLDER = `ROUNDS:
+5 = 4x8
+6B = 8
+6C = 8
+7A = 8
+SemiA = 8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
+5.B: 1-4->SemiA, 6,7->6B, 5,8->6C
+5.C: 1,4->6C, 2,3->6B, 5-8->eliminated
+5.D: 1,4->6B, 2,3->6C, 5-8->eliminated
+SemiA: 1-4->Final, 5-8->SemiB
+6B: 1-4->7A, 5-8->eliminated
+6C: 1-4->7A, 5-8->eliminated
+7A: 1-4->SemiB, 5-8->eliminated
+SemiB: 1-4->Final, 5-8->eliminated`;
+
 export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
   const [error, setError] = useState('');
@@ -193,6 +217,7 @@ export function SetupView() {
   const isSingle = setup.scheduleLogic === 'single-elimination';
   const isRace = setup.scheduleLogic === 'double-elimination';
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';
+  const isWaterfallBracket = setup.scheduleLogic === 'waterfall-bracket';
   return (
     <div id='panel-setup'>
       <Panel>
@@ -239,6 +264,7 @@ export function SetupView() {
                 </option>
               ))}
               <option value='kings-valley'>Kings Valley</option>
+              <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
             </Select>
           </Field>
           {teamSize ? (
@@ -646,6 +672,25 @@ export function SetupView() {
           </ButtonRow>
         </Panel>
       </TwoColumnGrid>
+      {isWaterfallBracket ? (
+        <Panel>
+          <PanelTitle hint='— ROUNDS:/ROUTES: mini-language; the placeholder below shows the full grammar'>
+            Waterfall bracket graph
+          </PanelTitle>
+          <Textarea
+            id='cfg-waterfall-graph'
+            className='min-h-60 font-mono'
+            value={setup.waterfallGraph}
+            onChange={(e) => change('waterfallGraph', e.target.value)}
+            placeholder={WATERFALL_GRAPH_PLACEHOLDER}
+          />
+          <p className='mt-1 text-xs text-muted'>
+            Every round, room count/size, and rank-band routing is decided here, once, before the tournament
+            starts — there's no live reseeding and no automatic bye/lucky-loser handling. Reserves can't be
+            added once a tournament starts on this schedule logic.
+          </p>
+        </Panel>
+      ) : null}
       {state.rounds.length && !state.started ? (
         <Panel id='preview-wrap'>
           <PanelTitle>Schedule Preview</PanelTitle>

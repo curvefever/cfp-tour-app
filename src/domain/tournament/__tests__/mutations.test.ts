@@ -804,6 +804,11 @@ describe('addReserveUnit -- qualifying-round restriction', () => {
     expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'fixed-draw' });
   });
 
+  it('blocks a reserve for a waterfall bracket -- its routing table is validated against the exact entrant count at generation time, with no mechanism to fold in a late arrival', () => {
+    const state = workingRoundState({ scheduleLogic: 'waterfall-bracket' });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'waterfall-bracket' });
+  });
+
   it('leaves poolingPhase "none" unaffected regardless of round count (regression)', () => {
     const rounds = Array.from({ length: 6 }, (_, index) =>
       buildRound({ roundNum: index + 1, rooms: [2], players: 2 }),

@@ -240,6 +240,7 @@ export type ReserveAddResult =
         | 'closed'
         | 'group-stage'
         | 'fixed-draw'
+        | 'waterfall-bracket'
         | 'qualification-in-progress'
         | 'strict-room'
         | 'room-cap'
@@ -264,6 +265,13 @@ export function addReserveUnit(
   // silently rewriting a draw players may have already seen.
   if (state.gamemodeConfig.drawPublication === 'fixed') {
     return { status: 'blocked', reason: 'fixed-draw' };
+  }
+  // A waterfall bracket's whole room-by-room routing table is a hand-authored,
+  // exact-headcount graph (waterfall-bracket.ts) -- every band is validated
+  // against the real entrant count at generation time, with no bye/remainder
+  // concept to fold a late arrival into. Same posture as fixed-draw above.
+  if (state.scheduleLogic === 'waterfall-bracket') {
+    return { status: 'blocked', reason: 'waterfall-bracket' };
   }
   // A reserve joining a qualification-table/Swiss standings phase must still
   // get to play at least two of the remaining rounds themselves -- otherwise

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   bracketBoxes,
+  bracketFollowStatus,
   bracketRoundLabels,
   projectedSlotLabelText,
   projectFutureRoundSlots,
@@ -23,6 +24,23 @@ describe('bracketRoundLabels', () => {
     const labels = bracketRoundLabels({ rounds });
     expect(labels[2]).toEqual({ label: 'WB Round 3', accent: 'wb', roundNumber: 3 });
     expect(labels[3]).toEqual({ label: 'LB Round 4', accent: 'lb', roundNumber: 4 });
+  });
+
+  it('reads a waterfall round\'s own customLabel instead of a synthetic "Round N" label, prefixing the trophy emoji when it\'s also the Final', () => {
+    const rounds = [
+      buildRound({ roundNum: 3, rooms: [8], players: 8, isWaterfall: true, customLabel: 'SemiA' }),
+      buildRound({
+        roundNum: 4,
+        rooms: [8],
+        players: 8,
+        isWaterfall: true,
+        customLabel: 'Final',
+        isFinal: true,
+      }),
+    ];
+    const labels = bracketRoundLabels({ rounds });
+    expect(labels[0]).toEqual({ label: 'SemiA', accent: '', roundNumber: 3 });
+    expect(labels[1]).toEqual({ label: '🏆 Final', accent: '', roundNumber: 4 });
   });
 });
 
@@ -292,6 +310,89 @@ describe('projectFutureRoundSlots', () => {
     const ranksInRoomA = new Set(roomA.map((slot) => (slot.kind === 'room-rank' ? slot.rank : null)));
     expect(ranksInRoomA.size).toBeGreaterThan(1);
   });
+
+  it('projects a waterfall band as rank-precise "Room X, Rank N", never collapsing to "Winner of Room X" even for a single-person band', () => {
+    const rounds = [
+      buildRound({
+        roundNum: 1,
+        rooms: [4],
+        players: 4,
+        isWaterfall: true,
+        customLabel: '5',
+        waterfallRoutes: [[1, 'eliminated', 'eliminated', 'eliminated']], // only rank 1 routes onward
+      }),
+      buildRound({
+        roundNum: 2,
+        rooms: [1],
+        players: 1,
+        isWaterfall: true,
+        customLabel: 'SemiA',
+        isFinal: true,
+      }),
+    ];
+    const result = project(rounds, 0);
+    expect(result[1]?.[0].map((slot) => slot.kind)).toEqual(['waterfall-rank']);
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1']);
+  });
+
+  it('projects an N-way waterfall convergence with non-contiguous rank bands, tier-major across every contributing room', () => {
+    const rounds = [
+      buildRound({
+        roundNum: 1,
+        rooms: [4, 4, 4],
+        players: 12,
+        isWaterfall: true,
+        customLabel: '5',
+        waterfallRoutes: [
+          [1, 'eliminated', 'eliminated', 1], // room A: ranks 1 and 4 -> target
+          [1, 1, 'eliminated', 'eliminated'], // room B: ranks 1 and 2 -> target
+          ['eliminated', 'eliminated', 1, 'eliminated'], // room C: rank 3 -> target
+        ],
+      }),
+      buildRound({ roundNum: 2, rooms: [5], players: 5, isWaterfall: true, customLabel: '6B' }),
+    ];
+    const result = project(rounds, 0);
+    // Tier-major: rank 1 across A and B, then rank 2 (B only), rank 3 (C
+    // only), rank 4 (A only) -- not room-major, and not a contiguous range.
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
+      'Room 1A, Rank 1',
+      'Room 1B, Rank 1',
+      'Room 1B, Rank 2',
+      'Room 1C, Rank 3',
+      'Room 1A, Rank 4',
+    ]);
+  });
+
+  it('resolves a waterfall predecessor even when the source is not the immediately preceding round (a genuine skip-ahead target), and ignores an unrelated intervening waterfall round entirely', () => {
+    const rounds = [
+      buildRound({
+        roundNum: 1,
+        rooms: [4],
+        players: 4,
+        isWaterfall: true,
+        customLabel: '5',
+        waterfallRoutes: [[2, 2, 'eliminated', 'eliminated']], // ranks 1-2 skip straight to index 2
+      }),
+      buildRound({
+        roundNum: 2,
+        rooms: [4],
+        players: 4,
+        isWaterfall: true,
+        customLabel: '6B',
+        waterfallRoutes: [[3, 3, 3, 3]], // routes elsewhere entirely -- not a predecessor of index 2
+      }),
+      buildRound({
+        roundNum: 3,
+        rooms: [2],
+        players: 2,
+        isWaterfall: true,
+        customLabel: 'SemiA',
+        isFinal: true,
+      }),
+    ];
+    const result = project(rounds, 0);
+    expect(result[2]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1A, Rank 2']);
+  });
 });
 
 describe('bracketBoxes', () => {
@@ -405,5 +506,43 @@ describe('bracketBoxes', () => {
       { kind: 'wave', winnersRoundIndex: 2, losersRoundIndices: [3] },
       { kind: 'single', roundIndex: 4 },
     ]);
+  });
+});
+
+// bracketFollowStatus and lastAssignedRound (rankings.ts) are pure functions
+// of state.assignments/state.byes, with no round-type awareness at all -- the
+// plan for this feature called for confirming that directly, against a
+// waterfall-shaped fixture, rather than assuming it from reading the code.
+describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () => {
+  it('follows a name across a round it never appeared in at all (a genuine skip-ahead gap), needing no round-type awareness', () => {
+    const state = {
+      assignments: [
+        [{ name: 'P1', room: 2, isLucky: false }], // round 0 ("5")
+        [{ name: 'P2', room: 1, isLucky: false }], // round 1 ("6B") -- P1 skipped this entirely
+        [{ name: 'P1', room: 1, isLucky: false }], // round 2 ("SemiA") -- the skip-ahead destination
+      ],
+      byes: [[], [], []],
+    };
+    const status = bracketFollowStatus(state, 'P1');
+    expect(status?.rounds).toEqual({ 0: { room: 2, isBye: false }, 2: { room: 1, isBye: false } });
+    expect(status?.lastRi).toBe(2);
+    expect(status?.room).toBe(1);
+    expect(status?.eliminated).toBe(false);
+  });
+
+  it("marks eliminated once a unit's own lastRi falls behind the tournament's overall lastAssignedRound", () => {
+    const state = {
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [{ name: 'P2', room: 1, isLucky: false }], // P1 didn't survive this round
+      ],
+      byes: [[], []],
+    };
+    const status = bracketFollowStatus(state, 'P1');
+    expect(status?.lastRi).toBe(0);
+    expect(status?.eliminated).toBe(true);
   });
 });

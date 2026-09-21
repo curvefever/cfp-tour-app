@@ -49,6 +49,66 @@ describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
   });
 });
 
+describe('computeRankings -- waterfall bracket elimination', () => {
+  // Round 0 ("5") sends rank 1 -> round 1 (which turns out to be the Final)
+  // and rank 2 -> round 2 (a different, still-unplayed destination); rank 3
+  // is routed straight to 'eliminated'. This is the same round.bracket ->
+  // round.bracket || round.isWaterfall generalization double-elimination
+  // already used, now driven by waterfallRoutes' own distinct destinations
+  // instead of a hardcoded winnersTo/losersTo pair.
+  function buildState() {
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2', 'P3'],
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: [3],
+          players: 3,
+          isWaterfall: true,
+          customLabel: '5',
+          waterfallRoutes: [[1, 2, 'eliminated']],
+        }),
+        buildRound({
+          roundNum: 2,
+          rooms: [1],
+          players: 1,
+          isWaterfall: true,
+          customLabel: 'Final',
+          isFinal: true,
+        }),
+        buildRound({ roundNum: 2, rooms: [1], players: 1, isWaterfall: true, customLabel: '6B' }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+        ],
+        [{ name: 'P1', room: 1, isLucky: false }], // round 1 -- rank 1's real destination
+        [], // round 2 -- rank 2's destination, not reached/finalized yet
+      ],
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 },
+    });
+  }
+
+  it('finds a survivor via the union of every distinct waterfallRoutes destination, not just an adjacent round -- P1 (rank 1, routed to the already-finalized Final) is never flagged eliminated', () => {
+    const rankings = computeRankings(buildState());
+    expect(rankings?.finalists.map((entry) => entry.name)).toEqual(['P1']);
+    expect(rankings?.eliminatedList.some((entry) => entry.name === 'P1')).toBe(false);
+  });
+
+  it('routes rank 3 (an explicit "eliminated" band) into eliminatedList', () => {
+    const rankings = computeRankings(buildState());
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).toContain('P3');
+  });
+
+  it('documents a known, pre-existing characteristic shared with double-elimination: a destination round that has not been finalized yet reads as empty, so a unit legitimately routed there (rank 2 -> round 2, never reached) shows as eliminated until curRound actually catches up to it -- not a waterfall-specific regression, the exact same pendingBracketSeeds-finalize-on-a-delay timing double-elimination already has for any deferred LB target', () => {
+    const rankings = computeRankings(buildState());
+    expect(rankings?.eliminatedList.some((entry) => entry.name === 'P2')).toBe(true);
+  });
+});
+
 describe('computeRankings -- DNF/no-show', () => {
   function buildActiveState(withdrawnUnits: TournamentState['withdrawnUnits'] = []) {
     return createDefaultTournamentState({

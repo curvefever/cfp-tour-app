@@ -9,6 +9,10 @@ interface BracketRoundLabel {
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
   return state.rounds.map((round) => {
+    if (round.customLabel) {
+      const label = round.isFinal ? `🏆 ${round.customLabel}` : round.customLabel;
+      return { label, accent: '', roundNumber: round.roundNum };
+    }
     if (round.bracket === 'winners') {
       return { label: `WB Round ${round.roundNum}`, accent: 'wb', roundNumber: round.roundNum };
     }
@@ -141,6 +145,7 @@ export function roomLetter(room: number): string {
 
 export type ProjectedSlotLabel =
   | { kind: 'room-rank'; room: number; rank: number; advPerRoom: number; sourceRound: number }
+  | { kind: 'waterfall-rank'; room: number; rank: number; sourceRound: number }
   | { kind: 'lucky' }
   | { kind: 'qualifier-cutoff' }
   | { kind: 'round-edge'; sourceRoundIndex: number; edge: 'advanced' | 'dropped'; label: string };
@@ -150,6 +155,14 @@ export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
     case 'room-rank': {
       const tag = `${slot.sourceRound}${roomLetter(slot.room)}`;
       return slot.advPerRoom === 1 ? `Winner of Room ${tag}` : `Room ${tag}, Rank ${slot.rank}`;
+    }
+    case 'waterfall-rank': {
+      // Always rank-precise, unlike 'room-rank' -- a waterfall band's own
+      // rank is already known exactly from the organiser's graph (no
+      // top-N-cutoff concept to collapse into a bare "Winner of Room X"),
+      // and collapsing it would misrepresent a band that isn't rank 1.
+      const tag = `${slot.sourceRound}${roomLetter(slot.room)}`;
+      return `Room ${tag}, Rank ${slot.rank}`;
     }
     case 'lucky':
       return '★ Lucky loser (any room)';
@@ -181,11 +194,18 @@ function isLastGroupStageRound(rounds: TournamentRound[], index: number): boolea
   return Boolean(round?.isGroupStage && !next?.isGroupStage);
 }
 
-interface PredecessorEdge {
-  sourceIndex: number;
-  edge: 'winners' | 'losers';
-}
+type PredecessorEdge =
+  | { sourceIndex: number; edge: 'winners' | 'losers' }
+  | { sourceIndex: number; edge: 'waterfall'; room: number; ranks: number[] };
 
+/**
+ * A waterfall round can feed a target from more than one of its own rooms
+ * (an N-way convergence, not just 2 named winners/losers sides), and a
+ * given room's own contribution can be a non-contiguous set of ranks (e.g.
+ * "ranks 5 and 8" -- see waterfall-bracket.ts's own per-rank routes shape),
+ * so this returns one edge per contributing room, each carrying its own
+ * exact (ascending) rank list rather than a single fromRank/toRank range.
+ */
 function predecessorsOf(rounds: TournamentRound[], targetIndex: number): PredecessorEdge[] {
   const predecessors: PredecessorEdge[] = [];
   for (let sourceIndex = 0; sourceIndex < targetIndex; sourceIndex += 1) {
@@ -194,6 +214,15 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
     if (source.bracket) {
       if (source.winnersTo === targetIndex) predecessors.push({ sourceIndex, edge: 'winners' });
       if (source.losersTo === targetIndex) predecessors.push({ sourceIndex, edge: 'losers' });
+    } else if (source.isWaterfall) {
+      (source.waterfallRoutes ?? []).forEach((roomRoutes, roomOffset) => {
+        const ranks = roomRoutes
+          .map((destination, rankOffset) => ({ destination, rank: rankOffset + 1 }))
+          .filter(({ destination }) => destination === targetIndex)
+          .map(({ rank }) => rank);
+        if (ranks.length > 0)
+          predecessors.push({ sourceIndex, edge: 'waterfall', room: roomOffset + 1, ranks });
+      });
     } else if (sourceIndex === targetIndex - 1) {
       predecessors.push({ sourceIndex, edge: 'winners' });
     }
@@ -205,6 +234,8 @@ function tierKeyOf(entry: ProjectedSlotLabel): string {
   switch (entry.kind) {
     case 'room-rank':
       return `rank:${entry.sourceRound}:${entry.rank}`;
+    case 'waterfall-rank':
+      return `waterfall:${entry.sourceRound}:${entry.rank}`;
     case 'round-edge':
       return `edge:${entry.sourceRoundIndex}:${entry.edge}`;
     case 'lucky':
@@ -331,10 +362,34 @@ export function projectFutureRoundSlots(
     }
 
     const pool: ProjectedSlotLabel[] = [];
+    const resolvedWaterfallSources = new Set<number>();
     for (const { sourceIndex, edge } of predecessors) {
       const source = rounds[sourceIndex];
       const sourceLabel = labels[sourceIndex]?.label ?? `Round ${source.roundNum}`;
       const sourceRound = labels[sourceIndex]?.roundNumber ?? source.roundNum;
+      if (edge === 'waterfall') {
+        // Several of this source's own rooms can each contribute their own
+        // (possibly non-contiguous) rank list to this same target -- handled
+        // once per source round (not once per predecessor entry), walking
+        // ranks outer/rooms inner across ALL of that source's contributing
+        // rooms together, so the tier-major convention (every room's own
+        // rank 1, then every room's own rank 2, ...) still holds even though
+        // no single room's contribution spans a uniform 1..advPerRoom range.
+        if (resolvedWaterfallSources.has(sourceIndex)) continue;
+        resolvedWaterfallSources.add(sourceIndex);
+        const edgesForSource = predecessors.filter(
+          (candidate) => candidate.edge === 'waterfall' && candidate.sourceIndex === sourceIndex,
+        ) as Array<{ sourceIndex: number; edge: 'waterfall'; room: number; ranks: number[] }>;
+        const maxRank = Math.max(0, ...edgesForSource.flatMap((candidate) => candidate.ranks));
+        for (let rank = 1; rank <= maxRank; rank += 1) {
+          for (const candidate of edgesForSource) {
+            if (candidate.ranks.includes(rank)) {
+              pool.push({ kind: 'waterfall-rank', room: candidate.room, rank, sourceRound });
+            }
+          }
+        }
+        continue;
+      }
       if (edge === 'losers') {
         for (let i = 0; i < losersSideCount(source); i += 1) {
           pool.push({

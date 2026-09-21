@@ -60,6 +60,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     swissRoundsOverride: '',
     eliminationRoundTargets: '',
     eliminationSeedingOverrides: '',
+    waterfallGraph: '',
     oddCountStrategy: '',
     teamScoringRule: '',
     roster: '',
