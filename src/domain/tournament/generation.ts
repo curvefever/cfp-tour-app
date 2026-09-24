@@ -225,6 +225,11 @@ export function generateTournament(
   // which is meaningless for Group Stage.
   let waterfallGraph: OrderedWaterfallGraph | undefined;
   if (schedule === 'waterfall-bracket') {
+    if (!form.waterfallGraph.trim()) {
+      return generationError(
+        'Waterfall bracket needs its rounds and routing written out in the "Waterfall bracket graph" box below the settings. The grey text there is only an example and isn\'t used — click "Insert example" to start from it, then edit it to match your bracket.',
+      );
+    }
     const parsedGraph = parseWaterfallGraph(form.waterfallGraph);
     if (!parsedGraph.ok) return generationError(parsedGraph.error);
     const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, {

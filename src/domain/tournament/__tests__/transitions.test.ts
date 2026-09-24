@@ -1244,7 +1244,7 @@ SemiB: 1-2->Final, 3-5->eliminated
       entrantCount,
     });
     if (!validated.ok) throw new Error(validated.error);
-    return waterfallBracketPhase(seedTotal, 1, { graph: validated.value });
+    return waterfallBracketPhase(seedTotal, 1, { graph: validated.value, finalsGames: 1 });
   }
 
   /** Every subsequent round in this fixture has exactly 1 room -- assigns strictly descending scores by assignment position, so rank order == array order regardless of which names tieredBracketSeed actually placed there. */

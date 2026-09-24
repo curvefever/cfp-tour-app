@@ -594,6 +594,7 @@ function buildOrderedGraph(
 
 export interface WaterfallBracketConfig {
   graph: OrderedWaterfallGraph;
+  finalsGames: number;
 }
 
 /**
@@ -640,6 +641,7 @@ export function waterfallBracketPhase(
       advPerRoom: null,
       advTotal: roundSpec.isFinal ? 1 : players - eliminatedCount,
       luckyCount: 0,
+      ...(roundSpec.isFinal ? { numGames: config.finalsGames } : {}),
       isWaterfall: true,
       customLabel: roundSpec.label,
       waterfallRoutes: routesForRound.map((roomDestinations) =>

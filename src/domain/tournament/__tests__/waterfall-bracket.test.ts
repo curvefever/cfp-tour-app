@@ -294,7 +294,7 @@ describe('waterfallBracketPhase', () => {
     // startRoundNum = 4 (this phase isn't the tournament's first round) so
     // that a passing test can't be hiding an accidental off-by-one against
     // startRoundNum, or a mixup between roundNum and array index.
-    const rounds = waterfallBracketPhase(32, 4, { graph: parsed.value });
+    const rounds = waterfallBracketPhase(32, 4, { graph: parsed.value, finalsGames: 3 });
 
     expect(rounds.map((round) => round.customLabel)).toEqual([
       '5',
@@ -361,7 +361,7 @@ describe('waterfallBracketPhase', () => {
     const parsed = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(() => waterfallBracketPhase(31, 1, { graph: parsed.value })).toThrow(
+    expect(() => waterfallBracketPhase(31, 1, { graph: parsed.value, finalsGames: 3 })).toThrow(
       /doesn't match the graph's own validated entry-round total/,
     );
   });
@@ -370,7 +370,7 @@ describe('waterfallBracketPhase', () => {
     const parsed = parseAndValidate('ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-4->Final', 4);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    const rounds = waterfallBracketPhase(4, 1, { graph: parsed.value });
+    const rounds = waterfallBracketPhase(4, 1, { graph: parsed.value, finalsGames: 3 });
     expect(rounds).toHaveLength(2);
     expect(rounds[0]).toMatchObject({
       roundNum: 1,
@@ -390,5 +390,14 @@ describe('waterfallBracketPhase', () => {
       advTotal: 1,
       waterfallRoutes: [],
     });
+  });
+
+  it("gives only the Final round the organiser's chosen number of games", () => {
+    const parsed = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const rounds = waterfallBracketPhase(32, 1, { graph: parsed.value, finalsGames: 4 });
+    expect(rounds[rounds.length - 1].numGames).toBe(4);
+    expect(rounds.slice(0, -1).every((round) => round.numGames === undefined)).toBe(true);
   });
 });

@@ -674,7 +674,7 @@ export function SetupView() {
       </TwoColumnGrid>
       {isWaterfallBracket ? (
         <Panel>
-          <PanelTitle hint='— ROUNDS:/ROUTES: mini-language; the placeholder below shows the full grammar'>
+          <PanelTitle hint='— ROUNDS:/ROUTES: mini-language; the grey example below shows the full grammar'>
             Waterfall bracket graph
           </PanelTitle>
           <Textarea
@@ -684,10 +684,22 @@ export function SetupView() {
             onChange={(e) => change('waterfallGraph', e.target.value)}
             placeholder={WATERFALL_GRAPH_PLACEHOLDER}
           />
+          <ButtonRow>
+            <Button
+              size='sm'
+              disabled={setup.waterfallGraph.trim() !== ''}
+              onClick={() => change('waterfallGraph', WATERFALL_GRAPH_PLACEHOLDER)}
+            >
+              Insert example
+            </Button>
+          </ButtonRow>
           <p className='mt-1 text-xs text-muted'>
-            Every round, room count/size, and rank-band routing is decided here, once, before the tournament
-            starts — there's no live reseeding and no automatic bye/lucky-loser handling. Reserves can't be
-            added once a tournament starts on this schedule logic.
+            The grey text is only an example — it isn't used until you insert it (or write your own). The
+            starting round's total must equal the number of players entering the bracket: your "Advance to
+            bracket" number, or the whole roster if there's no pooling phase (the example is for 32). Every
+            round, room count/size, and rank-band routing is decided here, once, before the tournament starts
+            — there's no live reseeding and no automatic bye/lucky-loser handling. Reserves can't be added
+            once a tournament starts on this schedule logic.
           </p>
         </Panel>
       ) : null}

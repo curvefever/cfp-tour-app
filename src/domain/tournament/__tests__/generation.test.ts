@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { finalsProgressState } from '../finals';
 import { generateTournament } from '../generation';
+import { setFinalScore } from '../mutations';
+import { computeRankings } from '../rankings';
 import { getMinimumBracketUnits } from '../schedule-generation';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -1139,6 +1142,102 @@ SemiB: 1-4->Final, 5-8->eliminated
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') expect(result.message).toContain('must match exactly');
+  });
+
+  it('tells the organiser where to write the graph when the box is empty or whitespace-only', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 32, players: names(32) });
+    for (const emptyGraph of ['', '  \n  ']) {
+      const form = createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'waterfall-bracket',
+        waterfallGraph: emptyGraph,
+      });
+      const result = generateTournament(state, form, createTournamentRuntime());
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') {
+        expect(result.message).toContain('Waterfall bracket graph');
+        expect(result.message).toContain('example');
+        expect(result.message).not.toContain('No ROUNDS: section found');
+      }
+    }
+  });
+
+  // The exact configuration an organiser reported failing: 24 FFA players,
+  // fixed-draw qualification table with 1 non-counting round, 16 advancing,
+  // a 3-game Final -- with a 16-entrant repechage graph written for it.
+  const REPECHAGE_GRAPH = `
+ROUNDS:
+R1 = 2x8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
+R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
+SemiB: 1-2->Final, 3-8->eliminated
+`;
+
+  it("applies the Finals format to the waterfall Final, in the organiser's reported configuration", () => {
+    const state = createDefaultTournamentState({ confirmedCount: 24, players: names(24) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      drawPublication: 'fixed',
+      qualAdv: '16',
+      nonCountingRounds: '1',
+      finalsGames: '3',
+      waterfallGraph: REPECHAGE_GRAPH,
+    });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const finalRound = result.state.rounds[result.state.rounds.length - 1];
+    expect(finalRound).toMatchObject({ isFinal: true, customLabel: 'Final', numGames: 3 });
+  });
+
+  it('a generated waterfall Final needs all of its games scored before it counts as complete', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 16, players: names(16) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      finalsGames: '2',
+      waterfallGraph: `
+ROUNDS:
+R1 = 2x8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->Final, 5-8->eliminated
+R1.B: 1-4->Final, 5-8->eliminated
+`,
+    });
+    const generated = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(generated.status).toBe('generated');
+    if (generated.status !== 'generated') return;
+    const finalIndex = generated.state.rounds.length - 1;
+    const finalists = names(16).slice(0, 8);
+    let live = {
+      ...generated.state,
+      curRound: finalIndex,
+      // state.assignments only has entries for rounds already reached, so pad
+      // it out to the Final's own index rather than mapping over what exists.
+      assignments: Array.from({ length: finalIndex + 1 }, (_, index) =>
+        index === finalIndex
+          ? finalists.map((name) => ({ name, room: 1, isLucky: false }))
+          : (generated.state.assignments[index] ?? []),
+      ),
+    };
+    expect(finalsProgressState(live, finalIndex, live.rounds[finalIndex]).complete).toBe(false);
+    expect(computeRankings(live)?.finalComplete).toBe(false);
+
+    for (const name of finalists) live = setFinalScore(live, `game1-${name}`, 10);
+    expect(finalsProgressState(live, finalIndex, live.rounds[finalIndex]).complete).toBe(false);
+    expect(computeRankings(live)?.finalComplete).toBe(false);
+
+    for (const name of finalists) live = setFinalScore(live, `game2-${name}`, 5);
+    expect(finalsProgressState(live, finalIndex, live.rounds[finalIndex]).complete).toBe(true);
+    expect(computeRankings(live)?.finalComplete).toBe(true);
   });
 
   it('rejects leftover waterfall-graph text when a different schedule logic is selected (defense-in-depth)', () => {
