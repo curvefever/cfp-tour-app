@@ -71,7 +71,7 @@ function FollowBanner({
     ? 'not in this bracket'
     : follow.eliminated
       ? `out in ${roundName}`
-      : follow.isBye
+      : follow.isBye || follow.room === null
         ? `${roundName} · BYE, advances automatically`
         : `${roundName} · Room ${roomLetter(follow.room)}`;
   return (

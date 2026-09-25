@@ -6,6 +6,12 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: the standing `tsc` error in `BracketView.tsx` (done — 2026-09-25)
+
+`tsc --noEmit` had reported `BracketView.tsx(76,45)` for several builds: `FollowBanner` passed `follow.room` (`number | null`) to `roomLetter(number)`. Not a runtime bug: `bracketFollowStatus` (`bracket.ts`) sets `isBye = listedBye || room === null`, so a null room always takes the BYE branch first, but TypeScript can't see that link. Changed the branch condition to `follow.isBye || follow.room === null`, which states it explicitly and narrows the type; rendered output is identical. `tsc --noEmit` is now clean for the whole project, so future builds no longer have to ignore a known error. `eslint`/`prettier --check` clean. No browser check: nothing rendered changes.
+
+---
+
 ## Fix: settings in hidden Setup fields blocked generation (done — 2026-09-25)
 
 Planned in a separate session and approved by the organiser, then implemented by another agent. The organiser built a Waterfall graph, switched to another schedule logic, and Generate refused: "A waterfall graph was entered, but 'Waterfall bracket' isn't the selected schedule logic". Clearing the graph didn't help because the editor's "Start blank" writes a non-empty skeleton (an entry round plus a Final), so there was no on-screen way to make the graph "empty".
