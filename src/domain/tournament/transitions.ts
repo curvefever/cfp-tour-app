@@ -8,6 +8,7 @@ import {
 } from './advancement';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { seedFromGroupStageRound } from './pooling';
+import { fitRoundToPool } from './room-distribution';
 import {
   avoidSameGroupInFirstBracketRound,
   recordRoomHistory,
@@ -27,7 +28,8 @@ type RoundAdvanceBlockReason =
   | 'malformed-final'
   | 'invalid-room-split'
   | 'missing-room-size'
-  | 'malformed-waterfall-round';
+  | 'malformed-waterfall-round'
+  | 'too-few-units';
 
 type RoundAdvanceNoopReason = 'last-round' | 'grand-final';
 
@@ -107,6 +109,38 @@ function reserveWindowAtCurrentRound(state: Pick<TournamentState, 'cfg' | 'round
   return cutRound !== -1 && state.curRound <= cutRound;
 }
 
+interface RoundFitFailure {
+  reason: RoundAdvanceBlockReason;
+  message: string;
+}
+
+/**
+ * Reshapes round `roundIndex` (planned at generation for the starting
+ * headcount) to the units that really reach it, writing the fitted round back
+ * into `state.rounds`, so the seeders never see a different number of units
+ * than seats (a mid-tournament removal, or any earlier mismatch). `byeCount`
+ * is the number of byes actually chosen for it. Returns a failure to block
+ * the advance with, or null.
+ */
+function fitNextRound(
+  state: TournamentState,
+  roundIndex: number,
+  poolSize: number,
+  byeCount: number,
+): RoundFitFailure | null {
+  const round = state.rounds[roundIndex];
+  const roomSize = state.gamemodeConfig.roomSize;
+  const withByes = round.byeCount === byeCount ? round : { ...round, byeCount };
+  const seats = withByes.rooms.reduce((total, size) => total + size, 0);
+  if (seats !== poolSize && !roomSize) {
+    return { reason: 'missing-room-size', message: MISSING_ROOM_SIZE_MESSAGE };
+  }
+  const fitted = roomSize ? fitRoundToPool(withByes, poolSize, roomSize) : withByes;
+  if ('error' in fitted) return { reason: 'too-few-units', message: fitted.error };
+  state.rounds[roundIndex] = fitted;
+  return null;
+}
+
 /**
  * Shape-agnostic core shared by every "finalize a round from its
  * accumulated pendingBracketSeeds pool" path: read the pool, pull out any
@@ -121,8 +155,7 @@ function seedRoundFromPendingPool(
   state: TournamentState,
   roundIndex: number,
   options: { chosenByes?: SeedCandidate[]; seedingOverride?: 'diversity' | 'balance' | 'random' } = {},
-): void {
-  const targetRound = state.rounds[roundIndex];
+): RoundFitFailure | null {
   let pool = [...(state.pendingBracketSeeds[roundIndex] ?? [])];
   delete state.pendingBracketSeeds[roundIndex];
   const byeNames = (options.chosenByes ?? []).map((candidate) => candidate.name);
@@ -130,9 +163,13 @@ function seedRoundFromPendingPool(
     const byeSet = new Set(byeNames);
     pool = pool.filter((candidate) => !byeSet.has(candidate.name));
   }
+  // Waterfall reaches this only after its own headcount check, so its fixed
+  // hand-authored rooms always fit and this never reshapes them.
+  const failure = fitNextRound(state, roundIndex, pool.length, byeNames.length);
+  if (failure) return failure;
   const assignments = tieredBracketSeed({
     pool,
-    roomSizes: targetRound.rooms,
+    roomSizes: state.rounds[roundIndex].rooms,
     roomHistory: state.roomHistory,
     rounds: state.rounds,
     targetRoundIndex: roundIndex,
@@ -144,13 +181,14 @@ function seedRoundFromPendingPool(
   }
   state.assignments[roundIndex] = assignments;
   state.roomHistory = recordRoomHistory(state.roomHistory, assignments, roundIndex);
+  return null;
 }
 
 function finalizeDoubleEliminationRound(
   state: TournamentState,
   roundIndex: number,
   chosenByes: SeedCandidate[],
-): void {
+): RoundFitFailure | null {
   const targetRound = state.rounds[roundIndex];
   // Seeding-weight override only applies to a WB round's own continuation
   // into the next WB round -- always single-source, unlike an LB-bound
@@ -162,7 +200,8 @@ function finalizeDoubleEliminationRound(
       ? state.rounds.find((round) => round.bracket === 'winners' && round.winnersTo === roundIndex)
           ?.seedingOverride
       : undefined;
-  seedRoundFromPendingPool(state, roundIndex, { chosenByes, seedingOverride });
+  const failure = seedRoundFromPendingPool(state, roundIndex, { chosenByes, seedingOverride });
+  if (failure) return failure;
 
   if (targetRound.bracket === 'grand-final') {
     const sourceIndex = state.rounds.findIndex(
@@ -173,6 +212,7 @@ function finalizeDoubleEliminationRound(
       if (finalist !== undefined) targetRound.wbFinalistName = finalist;
     }
   }
+  return null;
 }
 
 function doubleEliminationFinalMessage(actual: number, expected: number): string {
@@ -292,7 +332,8 @@ function advanceDoubleElimination(
     state.luckyLosers[winnersTarget] = [...(state.luckyLosers[winnersTarget] ?? []), ...result.luckyNames];
   }
   state.curRound = nextIndex;
-  finalizeDoubleEliminationRound(state, nextIndex, chosenByes);
+  const fitFailure = finalizeDoubleEliminationRound(state, nextIndex, chosenByes);
+  if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   state.needsSave = true;
   return { status: 'advanced', state };
@@ -386,7 +427,8 @@ function advanceWaterfallBracket(
   }
 
   state.curRound = nextIndex;
-  seedRoundFromPendingPool(state, nextIndex);
+  const fitFailure = seedRoundFromPendingPool(state, nextIndex);
+  if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   state.needsSave = true;
   return { status: 'advanced', state };
@@ -533,6 +575,18 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
         }
       }
     }
+    if (nextRound.isWaterfall && advancing.length !== nextRound.players) {
+      // The hand-authored waterfall graph needs its exact headcount, so it
+      // blocks (like waterfall-to-waterfall) instead of being reshaped.
+      return {
+        status: 'blocked',
+        reason: 'malformed-waterfall-round',
+        message: malformedWaterfallRoundMessage(nextRound, advancing.length),
+        state: input,
+      };
+    }
+    const fitFailure = fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
+    if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
     seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride: round.seedingOverride }).seeded;
     if (round.isGroupStage) {
       seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups);

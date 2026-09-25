@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { distributeRooms, distributeRoomsWithBye, validateRoomCap } from '../room-distribution';
+import {
+  distributeRooms,
+  distributeRoomsWithBye,
+  fitRoundToPool,
+  splitAdvancement,
+  validateRoomCap,
+} from '../room-distribution';
 import { GAME_FORMATS } from '../formats';
 import type { RoomSize } from '../types';
+import { buildRound } from './test-fixtures';
 
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
 const HEAD_TO_HEAD_ROOM_SIZE: RoomSize = { min: 2, max: 2, ideal: 2 };
@@ -87,5 +94,98 @@ describe('validateRoomCap', () => {
   it('treats a format with no teamSize as 1 player per unit (ffa-individual)', () => {
     const format = GAME_FORMATS['ffa-individual'];
     expect(validateRoomCap([{ roundNum: 1, rooms: [8] }], format)).toBeNull();
+  });
+});
+
+describe('splitAdvancement', () => {
+  it('spreads the target over the rooms after byes advance on their own, the remainder becoming lucky slots', () => {
+    expect(splitAdvancement(24, 0, 5)).toEqual({ advPerRoom: 4, luckyCount: 4 });
+    expect(splitAdvancement(8, 1, 3)).toEqual({ advPerRoom: 2, luckyCount: 1 });
+  });
+});
+
+describe('fitRoundToPool', () => {
+  const eliminationRound = buildRound({
+    roundNum: 4,
+    players: 37,
+    rooms: [8, 8, 7, 7, 7],
+    advPerRoom: 4,
+    advTotal: 24,
+    luckyCount: 4,
+  });
+
+  it('returns the very same round when its seats already match the pool', () => {
+    expect(fitRoundToPool(eliminationRound, 37, FFA_ROOM_SIZE)).toBe(eliminationRound);
+  });
+
+  it('re-shapes a no-elimination FFA round for one unit fewer (23 to 22)', () => {
+    const round = buildRound({ roundNum: 2, isNoElim: true, players: 23, rooms: [8, 8, 7], advTotal: 23 });
+    const fitted = fitRoundToPool(round, 22, FFA_ROOM_SIZE);
+    expect(fitted).toMatchObject({ rooms: [8, 7, 7], players: 22, advTotal: 22, advPerRoom: null });
+  });
+
+  it('re-shapes a head-to-head round to pairs (14 to 12 units)', () => {
+    const round = buildRound({
+      roundNum: 1,
+      isNoElim: true,
+      players: 14,
+      rooms: Array(7).fill(2),
+      advTotal: 14,
+    });
+    expect(fitRoundToPool(round, 12, HEAD_TO_HEAD_ROOM_SIZE)).toMatchObject({
+      rooms: Array(6).fill(2),
+      players: 12,
+    });
+  });
+
+  it('counts the bye units in players but not in the seats', () => {
+    const round = buildRound({
+      roundNum: 2,
+      isNoElim: true,
+      players: 13,
+      rooms: Array(6).fill(2),
+      byeCount: 1,
+    });
+    const fitted = fitRoundToPool({ ...round, advTotal: 13 }, 10, HEAD_TO_HEAD_ROOM_SIZE);
+    expect(fitted).toMatchObject({ rooms: Array(5).fill(2), players: 11, advTotal: 11 });
+  });
+
+  it('keeps a Final one room, whatever its size', () => {
+    const final = buildRound({
+      roundNum: 9,
+      isFinal: true,
+      players: 8,
+      rooms: [8],
+      advPerRoom: 1,
+      advTotal: 1,
+    });
+    expect(fitRoundToPool(final, 7, FFA_ROOM_SIZE)).toMatchObject({
+      rooms: [7],
+      players: 7,
+      advPerRoom: 1,
+      advTotal: 1,
+    });
+  });
+
+  it("keeps an elimination round's advTotal target and re-splits it over the new rooms", () => {
+    const fitted = fitRoundToPool(eliminationRound, 36, FFA_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.advTotal).toBe(24);
+    expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(36);
+    expect(fitted.advPerRoom).toBe(Math.floor(24 / fitted.rooms.length));
+    expect(fitted.luckyCount).toBe(24 % fitted.rooms.length);
+  });
+
+  it('also fits a pool larger than the seats, never dropping a unit', () => {
+    const round = buildRound({ roundNum: 2, isNoElim: true, players: 16, rooms: [8, 8], advTotal: 16 });
+    const fitted = fitRoundToPool(round, 19, FFA_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(19);
+  });
+
+  it('returns an error when there would be nobody left to eliminate', () => {
+    const fitted = fitRoundToPool(eliminationRound, 24, FFA_ROOM_SIZE);
+    expect(fitted).toHaveProperty('error');
+    expect((fitted as { error: string }).error).toContain('nobody would be eliminated');
   });
 });

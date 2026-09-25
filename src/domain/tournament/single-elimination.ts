@@ -1,4 +1,4 @@
-import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
+import { distributeRooms, distributeRoomsWithBye, splitAdvancement } from './room-distribution';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
 const TARGET_ROUND_SURVIVAL_RATIO = 0.8;
@@ -107,7 +107,7 @@ export function singleEliminationBracketPhase(
   for (const [index, target] of targets.entries()) {
     const players = index === 0 ? seedTotal : targets[index - 1];
     const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
-    const roomAdvanceTarget = target - distribution.byeCount;
+    const split = splitAdvancement(target, distribution.byeCount, distribution.rooms.length);
     rounds.push({
       roundNum: startRoundNum + index,
       players,
@@ -117,9 +117,9 @@ export function singleEliminationBracketPhase(
       isNoElim: false,
       isSemis: false,
       isFinal: false,
-      advPerRoom: Math.floor(roomAdvanceTarget / distribution.rooms.length),
+      advPerRoom: split.advPerRoom,
       advTotal: target,
-      luckyCount: roomAdvanceTarget % distribution.rooms.length,
+      luckyCount: split.luckyCount,
       ...(config.explicitSeedingOverrides?.[index]
         ? { seedingOverride: config.explicitSeedingOverrides[index] }
         : {}),

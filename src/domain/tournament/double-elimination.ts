@@ -1,4 +1,4 @@
-import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
+import { distributeRooms, distributeRoomsWithBye, splitAdvancement } from './room-distribution';
 import { computeCleanTargets, computeEliminationRoundCount, computeTargets } from './single-elimination';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
@@ -262,13 +262,11 @@ export function sharedFinalDoubleEliminationBracketPhase(
   for (const [index, target] of winnersTargets.entries()) {
     const players = index === 0 ? seedTotal : winnersTargets[index - 1];
     const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
-    const roomAdvanceTarget = target - distribution.byeCount;
     winners.push({
       ...distribution,
       players,
       advTotal: target,
-      advPerRoom: Math.floor(roomAdvanceTarget / distribution.rooms.length),
-      luckyCount: roomAdvanceTarget % distribution.rooms.length,
+      ...splitAdvancement(target, distribution.byeCount, distribution.rooms.length),
       dropCount: players - target,
     });
   }
@@ -306,13 +304,11 @@ export function sharedFinalDoubleEliminationBracketPhase(
     }
 
     const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
-    const roomAdvanceTarget = survivorTarget - distribution.byeCount;
     losers.push({
       ...distribution,
       players,
       advTotal: survivorTarget,
-      advPerRoom: Math.floor(roomAdvanceTarget / distribution.rooms.length),
-      luckyCount: roomAdvanceTarget % distribution.rooms.length,
+      ...splitAdvancement(survivorTarget, distribution.byeCount, distribution.rooms.length),
       afterWbIndex: winnersIndex,
     });
     const losersIndex = losers.length - 1;

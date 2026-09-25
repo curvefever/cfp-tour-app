@@ -1068,7 +1068,7 @@ describe('advanceTournamentRound — seedingOverride wiring', () => {
           advTotal: 8,
           seedingOverride: 'random',
         }),
-        buildRound({ roundNum: 2, isNoElim: true, rooms: [2, 2], players: 4 }),
+        buildRound({ roundNum: 2, isNoElim: true, rooms: [2, 2, 2, 2], players: 8, advTotal: 8 }),
       ],
       assignments: [
         [
