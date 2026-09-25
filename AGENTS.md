@@ -43,7 +43,7 @@ Two local docs, two jobs — don't blend them (both are tracked in the repo, ver
 - **`HANDOFF.md`** — current state only: rules, mechanics, what's built, what's not, known issues, immediate priorities. Deliberately small — read it in full at the start of any real work session.
 - **`HANDOFF_LOG.md`** — the dated build history. Append-only, one entry per build. Meant to be searched (`grep` a function name, feature, or date), not read start to end.
 
-Implementation plans handed from a planning session to an implementing agent live in `plans/` (`YYYY-MM-DD-slug.md`, gitignored, local only). Each one starts with instructions for the implementer. `HANDOFF_LOG.md` stays the permanent record of what was built.
+Implementation plans handed from a planning session to an implementing agent live in `plans/` (`YYYY-MM-DD-slug.md`, gitignored, local only). Each one starts with instructions for the implementer. `HANDOFF_LOG.md` stays the permanent record of what was built, so never cite a `plans/` path in a tracked doc: it won't exist for anyone else. Carry whatever reasoning matters into the log entry itself.
 
 ### Before starting work
 

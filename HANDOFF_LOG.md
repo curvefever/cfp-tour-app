@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Fix: removing or swapping a player in a fixed-draw tournament left them in published future rounds (done — 2026-09-25)
 
-Plan: `plans/2026-09-25-fixed-draw-removal-swap.md`. This closes the "accepted v1 limitation" recorded under "Pre-published, fixed multi-round draws". Reading the code showed it was worse than a display problem: the fixed branch of `advanceTournamentRound` copies `nextRound.fixedRoomAssignments` straight into the next round's real assignments, so a **removed player was re-seeded into a real room** (their opponent's room then waited on scores that would never come), and after a **swap** every later round still seeded the old player. Bracket also showed the stale names, and the room-size header from `round.rooms`.
+Planned in a separate session (the organiser settled the bye decision), implemented by another agent. This closes the "accepted v1 limitation" recorded under "Pre-published, fixed multi-round draws". Reading the code showed it was worse than a display problem: the fixed branch of `advanceTournamentRound` copies `nextRound.fixedRoomAssignments` straight into the next round's real assignments, so a **removed player was re-seeded into a real room** (their opponent's room then waited on scores that would never come), and after a **swap** every later round still seeded the old player. Bracket also showed the stale names, and the room-size header from `round.rooms`.
 
 **The rule (organiser's bye decision, 2026-09-25).** For every round after `state.curRound` that has `fixedRoomAssignments` (`patchFutureFixedDrawRounds`, `fixed-draws.ts`):
 - **Swap**: relabel old → new in every entry; room shape unchanged.
