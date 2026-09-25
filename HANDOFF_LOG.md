@@ -6,6 +6,29 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: removing or swapping a player in a fixed-draw tournament left them in published future rounds (done — 2026-09-25)
+
+Plan: `plans/2026-09-25-fixed-draw-removal-swap.md`. This closes the "accepted v1 limitation" recorded under "Pre-published, fixed multi-round draws". Reading the code showed it was worse than a display problem: the fixed branch of `advanceTournamentRound` copies `nextRound.fixedRoomAssignments` straight into the next round's real assignments, so a **removed player was re-seeded into a real room** (their opponent's room then waited on scores that would never come), and after a **swap** every later round still seeded the old player. Bracket also showed the stale names, and the room-size header from `round.rooms`.
+
+**The rule (organiser's bye decision, 2026-09-25).** For every round after `state.curRound` that has `fixedRoomAssignments` (`patchFutureFixedDrawRounds`, `fixed-draws.ts`):
+- **Swap**: relabel old → new in every entry; room shape unchanged.
+- **Removal**: drop the entry; a room left with exactly one unit turns that unit into a bye (one general rule, so it also covers a small-room Qualification Table format such as `team-3v3v3` left with one team); an emptied room disappears; remaining rooms are renumbered `1..k`; `rooms`, `byeCount` and `players` are recomputed from the patched list. Nobody else's published pairing changes. Rounds `<= curRound` are never touched; the current round is handled by the existing mutation code.
+- A no-op (same array back) when nothing changes, and for every non-fixed tournament.
+
+**`roomHistory` / `poolingByeCounts` rebuild.** Generation folds the whole published schedule into both, and they feed the transition *out of* the pooling phase (rematch and repeat-bye avoidance). After a roster change their future part was wrong (old name, missing byes, pairings that no longer happen), so `rebuildFixedDrawHistory` rebuilds both from scratch in one fold: `state.assignments[r]` for reached rounds, the patched `fixedRoomAssignments` for later ones. It only runs when a future fixed round exists. The three mutations call one small helper, `patchPublishedFutureRounds` (`mutations.ts`), which composes the Group Stage patch and the fixed-draw patch (kept as separate functions, since they handle different data shapes).
+
+**Two behaviour notes.**
+- The generated Swiss shape for an odd field is `rooms: [2,2,2,2,2,1]` with `byeCount: 0` (the bye counted as a size-1 "room"), while its entries carry `room: null` for the bye. After a patch the round's shape is recomputed from the list (e.g. `[2,2,2,2]` with 2 byes), so a patched round is more honest than a freshly generated one, and Bracket's empty "Room F (1)" header disappears for it. Generation itself was left alone.
+- For a fixed-draw swap, the rebuild replaces `replaceAssignedUnit`'s carry-over of the old unit's whole `poolingByeCounts` total to the newcomer: the newcomer now only counts byes from the current round onward. Adaptive tournaments are unchanged.
+
+**Display.** `PlaceholderRound` (`BracketView.tsx`) reads `round.rooms` for room headers and groups `fixedRoomAssignments` by room number, with byes listed separately as "BYE <name>" cards. After the patch both agree, so no display change was needed (confirmed by reading it). A bye unit still appears by name in Bracket.
+
+**Testing.** 636 tests (up from 623): 11 new in `mutations.test.ts` (Swiss with 11 players: removal turns every future opponent into a bye, removal of a unit that is on a bye, removal of both units of a pair shifts later rooms down; Qualification Table with 37 players; `team-3v3v3` with 13 teams, a team removed from a 2-team room leaves the other on a bye; individual and team swaps; the rebuild reproduces the generated maps on an unmodified tournament and, after a removal, leaves no future pairing with the removed unit and adds a bye count to each orphaned opponent; an adaptive tournament is untouched) and 2 in `transitions.test.ts` (Swiss with 11 players: score round 0, remove a player, advance: the removed player is absent from round 1 and their opponent is on a bye, all rooms have two units; advance, swap, advance: the newcomer is in round 2, the old name is not). Mutation-checked: dropping the orphan-to-bye step, skipping renumbering, not recomputing `rooms` / `byeCount` / `players`, patching `index >= curRound`, and skipping the history rebuild each fail tests; disabling the patch entirely fails both transition tests. `eslint` and `prettier --check` clean on every changed file. **Not live-verified in a browser**: no roster was loaded or generated on the test site (needs the organiser's login and permission).
+
+**Out of scope** (per the plan): re-pairing orphaned players with each other, rebalancing a Qualification Table room that shrinks below the format's minimum, the current-round behaviour on removal (a Swiss current-round opponent left alone in a room is existing behaviour shared with adaptive mode), reserves in fixed-draw tournaments (still blocked).
+
+---
+
 ## Fix: the standing `tsc` error in `BracketView.tsx` (done — 2026-09-25)
 
 `tsc --noEmit` had reported `BracketView.tsx(76,45)` for several builds: `FollowBanner` passed `follow.room` (`number | null`) to `roomLetter(number)`. Not a runtime bug: `bracketFollowStatus` (`bracket.ts`) sets `isBye = listedBye || room === null`, so a null room always takes the BYE branch first, but TypeScript can't see that link. Changed the branch condition to `follow.isBye || follow.room === null`, which states it explicitly and narrows the type; rendered output is identical. `tsc --noEmit` is now clean for the whole project, so future builds no longer have to ignore a known error. `eslint`/`prettier --check` clean. No browser check: nothing rendered changes.

@@ -5,6 +5,7 @@ import {
   sharedFinalDoubleEliminationBracketPhase,
 } from '../double-elimination';
 import { generateTournament } from '../generation';
+import { removeRosterUnit, swapIndividual } from '../mutations';
 import { roomPairKey, snakeSeed, tieredBracketSeed, tieredSeed } from '../seeding';
 import {
   parseWaterfallGraph,
@@ -1401,5 +1402,78 @@ SemiB: 1-2->Final, 3-5->eliminated
       expect(result.message).toContain('3 entrant');
       expect(result.message).toContain('Manage Teams');
     }
+  });
+});
+
+describe('advanceTournamentRound — fixed-draw Swiss after a roster change', () => {
+  function fixedSwissState(): TournamentState {
+    const players = Array.from({ length: 11 }, (_, index) => `P${index + 1}`);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 11, players }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'swiss',
+        qualAdv: '4',
+        drawPublication: 'fixed',
+      }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error('generation failed');
+    return result.state;
+  }
+
+  /** Every occupied room of the current round gets distinct scores, first listed unit highest. */
+  function scoreCurrentRound(state: TournamentState): TournamentState {
+    const scores = { ...state.scores };
+    const perRoom = new Map<number, number>();
+    for (const entry of state.assignments[state.curRound]) {
+      if (entry.room === null) continue;
+      const position = perRoom.get(entry.room) ?? 0;
+      perRoom.set(entry.room, position + 1);
+      scores[`r${state.curRound}-rm${entry.room}-p${position}`] = 100 - position * 10;
+    }
+    return { ...state, scores };
+  }
+
+  function advance(state: TournamentState): TournamentState {
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    return result.state;
+  }
+
+  it('a removed unit is not re-seeded into the next round, and its published opponent is on a bye', () => {
+    const state = fixedSwissState();
+    const round1 = state.rounds[1].fixedRoomAssignments ?? [];
+    const opponent = round1.find(
+      (entry) => entry.room === round1.find((e) => e.name === 'P3')?.room && entry.name !== 'P3',
+    )?.name as string;
+
+    const advanced = advance(removeRosterUnit(scoreCurrentRound(state), 'P3'));
+
+    expect(advanced.curRound).toBe(1);
+    const assigned = advanced.assignments[1];
+    expect(assigned.some((entry) => entry.name === 'P3')).toBe(false);
+    expect(advanced.byes[1]).toContain(opponent);
+    expect(assigned.find((entry) => entry.name === opponent)?.room).toBeNull();
+    const roomSizes = new Map<number, number>();
+    for (const entry of assigned) {
+      if (entry.room !== null) roomSizes.set(entry.room, (roomSizes.get(entry.room) ?? 0) + 1);
+    }
+    expect([...roomSizes.values()].every((size) => size === 2)).toBe(true);
+    expect(assigned).toHaveLength(10);
+  });
+
+  it("a swapped-in unit takes the old unit's published seat in the next round", () => {
+    let live = advance(scoreCurrentRound(fixedSwissState()));
+    const [oldName] = live.assignments[1].filter((entry) => entry.room !== null).map((entry) => entry.name);
+    expect(live.rounds[2].fixedRoomAssignments?.some((entry) => entry.name === oldName)).toBe(true);
+
+    live = swapIndividual(live, oldName, 'Newcomer');
+    live = advance(scoreCurrentRound(live));
+
+    const names = live.assignments[2].map((entry) => entry.name);
+    expect(names).toContain('Newcomer');
+    expect(names).not.toContain(oldName);
+    expect(live.assignments[2]).toHaveLength(11);
   });
 });
