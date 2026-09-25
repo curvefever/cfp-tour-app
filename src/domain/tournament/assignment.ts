@@ -1,21 +1,4 @@
-/**
- * Exact minimum-cost assignment of `n` rows (members) to `n` columns (rooms),
- * returning the *lexicographically smallest* optimal assignment: row 0 takes
- * the earliest column any optimal assignment gives it, then row 1 the earliest
- * that still leaves an optimal assignment, and so on. That matches what a
- * brute-force search over column permutations in order, keeping the first one
- * with the lowest cost, returns -- ties are common in room seeding.
- *
- * Method: the Hungarian algorithm (O(n^3)) yields optimal dual potentials
- * u/v. Every optimal assignment uses only "tight" cells (reduced cost
- * cost[i][j] - u[i] - v[j] == 0) and every perfect matching in the tight
- * cells is optimal, so the tie-break reduces to finding the lexicographically
- * smallest perfect matching in the tight graph: fix rows one at a time, and
- * for each try the earliest tight column that a single augmenting path can
- * still complete (O(n^4) overall, trivial for the room counts here).
- *
- * Costs are floats, so "tight" is compared with a small relative tolerance.
- */
+/** Relative tolerance for treating a cell's reduced cost as zero (costs are floats). */
 const TIGHT_TOLERANCE = 1e-9;
 
 interface HungarianResult {
@@ -24,6 +7,7 @@ interface HungarianResult {
   columnPotential: number[];
 }
 
+/** The Hungarian algorithm: one optimal assignment plus optimal dual potentials, O(n^3). */
 function hungarian(cost: number[][]): HungarianResult {
   const n = cost.length;
   // 1-indexed potentials and matching, with a dummy row/column 0.
@@ -74,6 +58,24 @@ function hungarian(cost: number[][]): HungarianResult {
   return { rowToColumn, rowPotential: u.slice(1), columnPotential: v.slice(1) };
 }
 
+/**
+ * Exact minimum-cost assignment of `n` rows (members) to `n` columns (rooms),
+ * returning the *lexicographically smallest* optimal assignment: row 0 takes
+ * the earliest column any optimal assignment gives it, then row 1 the earliest
+ * that still leaves an optimal assignment, and so on. That matches what a
+ * brute-force search over column permutations in order, keeping the first one
+ * with the lowest cost, returns -- ties are common in room seeding.
+ *
+ * Method: the Hungarian algorithm (O(n^3)) yields optimal dual potentials
+ * u/v. Every optimal assignment uses only "tight" cells (reduced cost
+ * cost[i][j] - u[i] - v[j] == 0) and every perfect matching in the tight
+ * cells is optimal, so the tie-break reduces to finding the lexicographically
+ * smallest perfect matching in the tight graph: fix rows one at a time, and
+ * for each try the earliest tight column that a single augmenting path can
+ * still complete (O(n^4) overall, trivial for the room counts here).
+ *
+ * Costs are floats, so "tight" is compared with a small relative tolerance.
+ */
 export function lexicographicMinAssignment(cost: number[][]): number[] {
   const n = cost.length;
   if (n === 0) return [];

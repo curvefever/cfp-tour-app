@@ -92,7 +92,8 @@ describe('assignWaveToRooms -- identical to the old exhaustive search', () => {
     let oldPickedNoiseWinner = 0;
     const failures: string[] = [];
     for (let k = 1; k <= 7; k += 1) {
-      const count = k === 7 ? 400 : 900;
+      // k = 6 and 7 cost 720 and 5040 permutations per instance, so they get smaller samples.
+      const count = k <= 5 ? 1000 : k === 6 ? 250 : 20;
       for (let index = 0; index < count; index += 1) {
         const seed = k * 100_003 + index;
         const instance = randomInstance(seed, k);
