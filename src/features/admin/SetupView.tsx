@@ -237,9 +237,6 @@ export function SetupView() {
                   {entry.label}
                 </option>
               ))}
-              <option value='last-man-standing' disabled>
-                Last Man Standing (coming soon)
-              </option>
             </Select>
           </Field>
           <Field label='Schedule logic'>

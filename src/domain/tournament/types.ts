@@ -2,10 +2,7 @@ import type { OrderedWaterfallGraph } from './waterfall-bracket';
 
 export type ActiveTab = 'admin' | 'scoreboard' | 'bracket' | 'rankings' | 'archive';
 
-export type GameFormatKey =
-  'ffa-individual' | 'team-2v2v2v2' | 'team-3v3v3' | 'team-3v3' | 'last-man-standing' | 'individual-1v1';
-
-export type ImplementedGameFormatKey = Exclude<GameFormatKey, 'last-man-standing'>;
+export type GameFormatKey = 'ffa-individual' | 'team-2v2v2v2' | 'team-3v3v3' | 'team-3v3' | 'individual-1v1';
 
 export type ScheduleLogicKey =
   | 'single-elimination'
@@ -44,7 +41,7 @@ export interface RoomSize {
 }
 
 export interface GameFormatDefinition {
-  key: ImplementedGameFormatKey;
+  key: GameFormatKey;
   label: string;
   unitLabel: 'Player' | 'Team';
   unitLabelPlural: 'Players' | 'Teams';

@@ -1,7 +1,6 @@
 import type {
   GameFormatDefinition,
   GameFormatKey,
-  ImplementedGameFormatKey,
   OddCountStrategyKey,
   PoolingPhaseKey,
   RoomSize,
@@ -9,7 +8,7 @@ import type {
 } from "./types";
 
 export const GAME_FORMATS: Readonly<
-  Record<ImplementedGameFormatKey, Readonly<GameFormatDefinition>>
+  Record<GameFormatKey, Readonly<GameFormatDefinition>>
 > = {
   "ffa-individual": {
     key: "ffa-individual",
@@ -82,7 +81,6 @@ export const POOLING_PHASE_LABELS: Record<PoolingPhaseKey, string> = {
 export function getGameFormat(
   key: GameFormatKey,
 ): Readonly<GameFormatDefinition> | undefined {
-  if (key === "last-man-standing") return undefined;
   return GAME_FORMATS[key];
 }
 
