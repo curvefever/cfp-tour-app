@@ -19,3 +19,6 @@ migration-input/
 
 # Local Claude Code tool-permission config (machine-specific)
 .claude/settings.local.json
+
+# Implementation plans handed from the planner session to the implementing agent (local only)
+plans/

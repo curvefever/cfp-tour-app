@@ -43,9 +43,13 @@ Two local docs, two jobs — don't blend them (both are tracked in the repo, ver
 - **`HANDOFF.md`** — current state only: rules, mechanics, what's built, what's not, known issues, immediate priorities. Deliberately small — read it in full at the start of any real work session.
 - **`HANDOFF_LOG.md`** — the dated build history. Append-only, one entry per build. Meant to be searched (`grep` a function name, feature, or date), not read start to end.
 
+Implementation plans handed from a planning session to an implementing agent live in `plans/` (`YYYY-MM-DD-slug.md`, gitignored, local only). Each one starts with instructions for the implementer. `HANDOFF_LOG.md` stays the permanent record of what was built.
+
 ### Before starting work
 
 Read `HANDOFF.md` fresh, every session — don't rely on this conversation's own memory of "what's already done," and don't trust a prior write-up's account without checking. If a specific past decision's reasoning matters, `grep` `HANDOFF_LOG.md` for the section title (the "Immediate next priorities" list in `HANDOFF.md` names every entry) rather than reading the whole log.
+
+Then open the built-in browser at the login page of the environment relevant to the work (`https://tournaments-test.curvefever.pro/` for test, `https://tournaments.curvefever.pro/` for production; the local dev server for local work) and ask the organiser to log in there. The organiser can provide a login to either environment on demand, and it is needed for live testing. Never type credentials yourself, and don't load a roster or generate on production without explicit permission.
 
 ### Design forks
 
