@@ -4,6 +4,7 @@ import {
   invalidateStaleTieResolutions,
 } from './advancement';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
+import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
 import { validateRoomCap } from './room-distribution';
 import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
@@ -482,6 +483,25 @@ function patchFutureGroupStageRounds(
   });
 }
 
+/**
+ * Applies a roster change (removal when newKey is null, else a swap) to every
+ * pre-published future round -- Group Stage's baked-in matches and a
+ * fixed-draw tournament's fixedRoomAssignments. For fixed draws, roomHistory/
+ * poolingByeCounts are then rebuilt, since generation folded the whole
+ * published schedule into both and their future part just changed.
+ */
+function patchPublishedFutureRounds(
+  state: TournamentState,
+  oldKey: string,
+  newKey: string | null,
+): TournamentState {
+  const groupPatched = patchFutureGroupStageRounds(state, oldKey, newKey);
+  const rounds = patchFutureFixedDrawRounds(groupPatched, state.curRound, oldKey, newKey);
+  const hasFixedFuture = rounds.some((round, index) => index > state.curRound && round.fixedRoomAssignments);
+  if (!hasFixedFuture) return { ...state, rounds };
+  return { ...state, rounds, ...rebuildFixedDrawHistory(rounds, state.assignments, state.curRound) };
+}
+
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize ?? 0;
@@ -506,9 +526,8 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     byes: next.byes.map(strip),
     groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),
     tieResolutions,
-    rounds: patchFutureGroupStageRounds(next, key, null),
   };
-  return dirty(next);
+  return dirty(patchPublishedFutureRounds(next, key, null));
 }
 
 /**
@@ -617,17 +636,22 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldName, 'swapped');
 
-  return dirty({
-    ...replaced,
-    withdrawnUnits: withdrawn.withdrawnUnits,
-    players: players.filter((name) => name !== oldName).concat(trimmed),
-    reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
-    groups: state.groups.map((group) => ({
-      ...group,
-      members: group.members.map((name) => (name === oldName ? trimmed : name)),
-    })),
-    rounds: patchFutureGroupStageRounds(replaced, oldName, trimmed),
-  });
+  return dirty(
+    patchPublishedFutureRounds(
+      {
+        ...replaced,
+        withdrawnUnits: withdrawn.withdrawnUnits,
+        players: players.filter((name) => name !== oldName).concat(trimmed),
+        reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
+        groups: state.groups.map((group) => ({
+          ...group,
+          members: group.members.map((name) => (name === oldName ? trimmed : name)),
+        })),
+      },
+      oldName,
+      trimmed,
+    ),
+  );
 }
 
 export function swapTeam(
@@ -647,19 +671,24 @@ export function swapTeam(
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped');
 
-  return dirty({
-    ...replaced,
-    withdrawnUnits: withdrawn.withdrawnUnits,
-    players: (state.players as TournamentTeam[])
-      .filter((team) => team.teamId !== oldTeamId)
-      .concat(replacement),
-    reserves: (state.reserves as TournamentTeam[]).filter((team) => team.teamId !== replacement.teamId),
-    groups: state.groups.map((group) => ({
-      ...group,
-      members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
-    })),
-    rounds: patchFutureGroupStageRounds(replaced, oldTeamId, replacement.teamId),
-  });
+  return dirty(
+    patchPublishedFutureRounds(
+      {
+        ...replaced,
+        withdrawnUnits: withdrawn.withdrawnUnits,
+        players: (state.players as TournamentTeam[])
+          .filter((team) => team.teamId !== oldTeamId)
+          .concat(replacement),
+        reserves: (state.reserves as TournamentTeam[]).filter((team) => team.teamId !== replacement.teamId),
+        groups: state.groups.map((group) => ({
+          ...group,
+          members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
+        })),
+      },
+      oldTeamId,
+      replacement.teamId,
+    ),
+  );
 }
 
 export function fillTeamSlot(

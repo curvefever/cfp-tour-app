@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { rebuildFixedDrawHistory } from '../fixed-draws';
+import { generateTournament } from '../generation';
 import {
   addReserveUnit,
   connectAnonymousFinalist,
@@ -11,7 +13,10 @@ import {
   swapTeam,
   unflagFinalGameAnonymous,
 } from '../mutations';
-import { createDefaultTournamentState } from '../state-defaults';
+import { createTournamentRuntime } from '../runtime';
+import { roomPairKey } from '../seeding';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildRound } from './test-fixtures';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
@@ -861,5 +866,234 @@ describe('resetRoster', () => {
     // leave a dangling placeholder-alias mapping into a brand new Final.
     expect(result.roomHistory).toEqual({});
     expect(result.anonymousFinalists).toEqual([]);
+  });
+});
+
+describe('future fixed-draw rounds -- removeRosterUnit/swapIndividual/swapTeam', () => {
+  type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
+
+  function fixedDrawState(setup: SetupOverrides, players: TournamentState['players']): TournamentState {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: players.length, players }),
+      createDefaultSetup({ ...setup, drawPublication: 'fixed' }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  const individuals = (count: number) => Array.from({ length: count }, (_, index) => `P${index + 1}`);
+  const teams = (count: number): TournamentTeam[] =>
+    Array.from({ length: count }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
+    }));
+  const swiss11 = () =>
+    fixedDrawState({ gameFormat: 'individual-1v1', poolingPhase: 'swiss', qualAdv: '4' }, individuals(11));
+  const qualTable37 = () => fixedDrawState({ poolingPhase: 'qual-table', qualAdv: '24' }, individuals(37));
+  const teams13 = () =>
+    fixedDrawState({ gameFormat: 'team-3v3v3', poolingPhase: 'qual-table', qualAdv: '6' }, teams(13));
+
+  const futureFixedIndexes = (state: TournamentState) =>
+    state.rounds.flatMap((round, index) =>
+      index > state.curRound && round.fixedRoomAssignments ? [index] : [],
+    );
+
+  function opponentsIn(round: TournamentRound, name: string): string[] {
+    const entries = round.fixedRoomAssignments ?? [];
+    const mine = entries.find((entry) => entry.name === name);
+    if (!mine || mine.room === null) return [];
+    return entries
+      .filter((entry) => entry.room === mine.room && entry.name !== name)
+      .map((entry) => entry.name);
+  }
+
+  /** rooms/byeCount/players match the published list and room numbers are contiguous from 1. */
+  function expectConsistent(round: TournamentRound) {
+    const entries = round.fixedRoomAssignments ?? [];
+    const sizes = new Map<number, number>();
+    for (const entry of entries) {
+      if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
+    }
+    const roomNumbers = [...sizes.keys()].sort((a, b) => a - b);
+    expect(roomNumbers).toEqual(roomNumbers.map((_, index) => index + 1));
+    expect(round.rooms).toEqual(roomNumbers.map((room) => sizes.get(room)));
+    expect(round.byeCount).toBe(entries.filter((entry) => entry.room === null).length);
+    expect(round.players).toBe(entries.length);
+  }
+
+  it('swiss (11 players): removing a unit turns each future opponent into a bye and keeps room numbers contiguous', () => {
+    const state = swiss11();
+    const futures = futureFixedIndexes(state);
+    expect(futures.length).toBeGreaterThan(0);
+    const result = removeRosterUnit(state, 'P3');
+
+    expect(result.rounds[0]).toBe(state.rounds[0]);
+    for (const index of futures) {
+      const before = state.rounds[index];
+      const after = result.rounds[index];
+      const entries = after.fixedRoomAssignments ?? [];
+      expect(entries.some((entry) => entry.name === 'P3')).toBe(false);
+      for (const opponent of opponentsIn(before, 'P3')) {
+        expect(entries.find((entry) => entry.name === opponent)?.room).toBeNull();
+      }
+      expect(entries.length).toBe((before.fixedRoomAssignments ?? []).length - 1);
+      expect(
+        entries.every((entry) => entry.room === null || opponentsIn(after, entry.name).length === 1),
+      ).toBe(true);
+      expectConsistent(after);
+    }
+    // Rounds after the pooling phase carry no published draw and stay untouched.
+    state.rounds.forEach((round, index) => {
+      if (!futures.includes(index)) expect(result.rounds[index]).toBe(round);
+    });
+  });
+
+  it('swiss (11 players): removing a unit that is on a bye in a future round just drops that bye', () => {
+    const state = swiss11();
+    const byeRoundIndex = futureFixedIndexes(state).find((index) =>
+      state.rounds[index].fixedRoomAssignments?.some((entry) => entry.room === null),
+    ) as number;
+    const before = state.rounds[byeRoundIndex].fixedRoomAssignments ?? [];
+    const removed = before.find((entry) => entry.room === null)?.name as string;
+
+    const result = removeRosterUnit(state, removed);
+    const after = result.rounds[byeRoundIndex].fixedRoomAssignments ?? [];
+    expect(after).toEqual(before.filter((entry) => entry.name !== removed));
+    expect(result.rounds[byeRoundIndex].byeCount).toBe(0);
+    expectConsistent(result.rounds[byeRoundIndex]);
+  });
+
+  it('swiss (11 players): removing both units of a future pair makes that room disappear and shifts later rooms down', () => {
+    const state = swiss11();
+    const roundIndex = futureFixedIndexes(state)[0];
+    const entries = state.rounds[roundIndex].fixedRoomAssignments ?? [];
+    const [first, second] = entries.filter((entry) => entry.room === 3).map((entry) => entry.name);
+    const laterRoomMembers = entries.filter((entry) => entry.room === 4).map((entry) => entry.name);
+
+    const result = removeRosterUnit(removeRosterUnit(state, first), second);
+    const after = result.rounds[roundIndex].fixedRoomAssignments ?? [];
+    expect(after.some((entry) => entry.name === first || entry.name === second)).toBe(false);
+    expect(after.filter((entry) => laterRoomMembers.includes(entry.name)).map((entry) => entry.room)).toEqual(
+      [3, 3],
+    );
+    expectConsistent(result.rounds[roundIndex]);
+  });
+
+  it('qual-table (37 players): removing a unit shrinks one room per future round by one and creates no byes', () => {
+    const state = qualTable37();
+    const futures = futureFixedIndexes(state);
+    const result = removeRosterUnit(state, 'P1');
+
+    expect(result.rounds[0]).toBe(state.rounds[0]);
+    for (const index of futures) {
+      const before = state.rounds[index];
+      const after = result.rounds[index];
+      expect(after.rooms.reduce((sum, size) => sum + size, 0)).toBe(36);
+      expect(after.rooms.length).toBe(before.rooms.length);
+      expect(after.byeCount).toBe(0);
+      expect((after.fixedRoomAssignments ?? []).some((entry) => entry.name === 'P1')).toBe(false);
+      expectConsistent(after);
+    }
+  });
+
+  it('qual-table team-3v3v3 (13 teams): a team removed from a 2-team future room leaves the other team on a bye', () => {
+    const state = teams13();
+    const roundIndex = futureFixedIndexes(state)[0];
+    const before = state.rounds[roundIndex];
+    const smallRoom = before.rooms.findIndex((size) => size === 2) + 1;
+    const [removed, survivor] = (before.fixedRoomAssignments ?? [])
+      .filter((entry) => entry.room === smallRoom)
+      .map((entry) => entry.name);
+
+    const result = removeRosterUnit(state, removed);
+    const after = result.rounds[roundIndex];
+    expect(after.fixedRoomAssignments?.find((entry) => entry.name === survivor)?.room).toBeNull();
+    expect(after.byeCount).toBe(1);
+    expect(after.players).toBe(12);
+    expectConsistent(after);
+  });
+
+  it('swapIndividual relabels the old unit in every future round without changing room shape', () => {
+    const state = swiss11();
+    const result = swapIndividual(state, 'P3', 'Newcomer');
+
+    expect(result.rounds[0]).toBe(state.rounds[0]);
+    for (const index of futureFixedIndexes(state)) {
+      const before = state.rounds[index];
+      const after = result.rounds[index];
+      expect(after.rooms).toEqual(before.rooms);
+      expect(after.fixedRoomAssignments).toEqual(
+        (before.fixedRoomAssignments ?? []).map((entry) =>
+          entry.name === 'P3' ? { ...entry, name: 'Newcomer' } : entry,
+        ),
+      );
+    }
+  });
+
+  it('swapTeam relabels the old team in every future round without changing room shape', () => {
+    const state = teams13();
+    const [replacement] = teams(14).slice(13);
+    const result = swapTeam(state, 't2', replacement);
+
+    expect(result.rounds[0]).toBe(state.rounds[0]);
+    for (const index of futureFixedIndexes(state)) {
+      const before = state.rounds[index];
+      const after = result.rounds[index];
+      expect(after.rooms).toEqual(before.rooms);
+      expect(after.fixedRoomAssignments).toEqual(
+        (before.fixedRoomAssignments ?? []).map((entry) =>
+          entry.name === 't2' ? { ...entry, name: replacement.teamId } : entry,
+        ),
+      );
+    }
+  });
+
+  it.each([
+    ['qual-table 37', qualTable37],
+    ['swiss 11', swiss11],
+  ])(
+    'rebuilding roomHistory/poolingByeCounts on an unmodified %s tournament reproduces the generated values',
+    (_label, build) => {
+      const state = build();
+      expect(rebuildFixedDrawHistory(state.rounds, state.assignments, state.curRound)).toEqual({
+        roomHistory: state.roomHistory,
+        poolingByeCounts: state.poolingByeCounts,
+      });
+    },
+  );
+
+  it('after a removal, no future pairing with the removed unit remains in roomHistory and each orphaned opponent gains a bye count', () => {
+    const state = swiss11();
+    const orphanedRounds = new Map<string, number>();
+    for (const index of futureFixedIndexes(state)) {
+      for (const opponent of opponentsIn(state.rounds[index], 'P3')) {
+        orphanedRounds.set(opponent, (orphanedRounds.get(opponent) ?? 0) + 1);
+      }
+    }
+    expect(orphanedRounds.size).toBeGreaterThan(0);
+
+    const result = removeRosterUnit(state, 'P3');
+    for (const other of individuals(11).filter((name) => name !== 'P3')) {
+      const played = result.roomHistory[roomPairKey('P3', other)];
+      expect(played === undefined || played <= state.curRound).toBe(true);
+    }
+    for (const [opponent, count] of orphanedRounds) {
+      expect(result.poolingByeCounts[opponent]).toBe((state.poolingByeCounts[opponent] ?? 0) + count);
+    }
+  });
+
+  it('leaves rounds, roomHistory and poolingByeCounts untouched for an adaptive (non-fixed) tournament', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 37, players: individuals(37) }),
+      createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '24' }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error('generation failed');
+    const removed = removeRosterUnit(result.state, 'P1');
+    expect(removed.rounds).toBe(result.state.rounds);
+    expect(removed.roomHistory).toBe(result.state.roomHistory);
+    expect(removed.poolingByeCounts).toBe(result.state.poolingByeCounts);
   });
 });

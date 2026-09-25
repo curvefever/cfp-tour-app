@@ -129,3 +129,95 @@ export function buildFixedRoomSchedule(
 
   return { rounds: result, roomHistory, poolingByeCounts };
 }
+
+function removeFromFixedRound(round: TournamentRound, oldKey: string): TournamentRound {
+  const entries = round.fixedRoomAssignments;
+  if (!entries?.some((entry) => entry.name === oldKey)) return round;
+
+  const remaining = entries.filter((entry) => entry.name !== oldKey);
+  const roomSizes = new Map<number, number>();
+  for (const entry of remaining) {
+    if (entry.room !== null) roomSizes.set(entry.room, (roomSizes.get(entry.room) ?? 0) + 1);
+  }
+  // A room left with a single unit has nobody to play: that unit gets a bye,
+  // like the unit whose published opponent is removed in Group Stage.
+  const orphaned = (entry: RoundAssignment) => entry.room !== null && roomSizes.get(entry.room) === 1;
+  const keptRooms = [...roomSizes.keys()].filter((room) => roomSizes.get(room) !== 1).sort((a, b) => a - b);
+  const renumbered = new Map(keptRooms.map((room, index) => [room, index + 1]));
+
+  const patched = remaining.map((entry) =>
+    orphaned(entry) || entry.room === null
+      ? { ...entry, room: null }
+      : { ...entry, room: renumbered.get(entry.room) as number },
+  );
+  return {
+    ...round,
+    fixedRoomAssignments: patched,
+    rooms: keptRooms.map((room) => roomSizes.get(room) as number),
+    byeCount: patched.filter((entry) => entry.room === null).length,
+    players: patched.length,
+  };
+}
+
+function relabelFixedRound(round: TournamentRound, oldKey: string, newKey: string): TournamentRound {
+  const entries = round.fixedRoomAssignments;
+  if (!entries?.some((entry) => entry.name === oldKey)) return round;
+  return {
+    ...round,
+    fixedRoomAssignments: entries.map((entry) =>
+      entry.name === oldKey ? { ...entry, name: newKey } : entry,
+    ),
+  };
+}
+
+/**
+ * Keeps the already-published future rounds of a fixed-draw tournament in
+ * step with a roster change (the fixed-draw counterpart of
+ * patchFutureGroupStageRounds, mutations.ts). Only rounds after `curRound`
+ * are touched: the current round is handled by the mutation itself and past
+ * rounds are history. Rounds that don't change are returned as-is.
+ *
+ * newKey is a string for "swapped": oldKey is relabeled, room shape is
+ * unchanged. newKey is null for "removed": oldKey's entry is dropped, a room
+ * left with one unit turns that unit into a bye, an emptied room disappears,
+ * the remaining rooms are renumbered 1..k, and rooms/byeCount/players are
+ * recomputed from the patched list.
+ */
+export function patchFutureFixedDrawRounds(
+  rounds: TournamentRound[],
+  curRound: number,
+  oldKey: string,
+  newKey: string | null,
+): TournamentRound[] {
+  const patched = rounds.map((round, index) => {
+    if (index <= curRound || !round.fixedRoomAssignments) return round;
+    return newKey === null ? removeFromFixedRound(round, oldKey) : relabelFixedRound(round, oldKey, newKey);
+  });
+  return patched.every((round, index) => round === rounds[index]) ? rounds : patched;
+}
+
+/**
+ * Rebuilds roomHistory/poolingByeCounts for a fixed-draw tournament from the
+ * rounds as they now stand: assignments for rounds already reached, the
+ * published fixedRoomAssignments for the rest. generation.ts folds the same
+ * two maps in once up front; after a roster change their future part is
+ * stale (names the old unit, misses new byes, counts pairings that no longer
+ * happen).
+ */
+export function rebuildFixedDrawHistory(
+  rounds: TournamentRound[],
+  assignments: RoundAssignment[][],
+  curRound: number,
+): Pick<FixedRoomScheduleResult, 'roomHistory' | 'poolingByeCounts'> {
+  let roomHistory: Record<string, number> = {};
+  const poolingByeCounts: Record<string, number> = {};
+  for (const [roundIndex, round] of rounds.entries()) {
+    const entries = roundIndex <= curRound ? assignments[roundIndex] : round.fixedRoomAssignments;
+    if (!entries) continue;
+    for (const entry of entries) {
+      if (entry.room === null) poolingByeCounts[entry.name] = (poolingByeCounts[entry.name] ?? 0) + 1;
+    }
+    roomHistory = recordRoomHistory(roomHistory, entries, roundIndex);
+  }
+  return { roomHistory, poolingByeCounts };
+}
