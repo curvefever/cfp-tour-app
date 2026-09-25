@@ -313,8 +313,8 @@ function distributeTierMajorPool(pool: ProjectedSlotLabel[], roomSizes: number[]
  * (see the chunking comment below).
  *
  * A round index maps to null when its origin genuinely can't be resolved ahead of
- * time (group-stage -- handled by real names elsewhere; Swiss -- handled by the
- * existing pairingTBD note; a mid-pooling-phase hop; or a structural token-count
+ * time (group-stage and fixed-draw rounds -- handled by real names elsewhere; Swiss --
+ * handled by the existing pairingTBD note; a mid-pooling-phase hop; or a structural token-count
  * mismatch, e.g. an unmodeled bye). A null result poisons every downstream round fed
  * (even indirectly) by that round.
  *
@@ -334,7 +334,13 @@ export function projectFutureRoundSlots(
 
   for (let targetIndex = state.curRound + 1; targetIndex < rounds.length; targetIndex += 1) {
     const round = rounds[targetIndex];
-    if (!round || round.isGroupStage || round.pairingTBD || round.isKingsValley) {
+    if (
+      !round ||
+      round.isGroupStage ||
+      round.pairingTBD ||
+      round.isKingsValley ||
+      round.fixedRoomAssignments
+    ) {
       result[targetIndex] = null;
       continue;
     }

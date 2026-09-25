@@ -6,6 +6,10 @@ import {
   projectedSlotLabelText,
   projectFutureRoundSlots,
 } from '../bracket';
+import { generateTournament } from '../generation';
+import { removeRosterUnit } from '../mutations';
+import { createTournamentRuntime } from '../runtime';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound } from '../types';
 import { buildRound } from './test-fixtures';
 
@@ -544,5 +548,31 @@ describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () =>
     const status = bracketFollowStatus(state, 'P1');
     expect(status?.lastRi).toBe(0);
     expect(status?.eliminated).toBe(true);
+  });
+});
+
+describe('projectFutureRoundSlots -- fixed-draw rounds', () => {
+  it('still projects the rounds after the pooling phase once a removal has patched the published rounds (an odd field gains byes there)', () => {
+    const players = Array.from({ length: 11 }, (_, index) => `P${index + 1}`);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 11, players }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'swiss',
+        qualAdv: '4',
+        oddCountStrategy: 'bye',
+        drawPublication: 'fixed',
+      }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error('generation failed');
+    const removed = removeRosterUnit(result.state, 'P3');
+
+    const projected = project(removed.rounds, removed.curRound);
+    const firstBracketRound = removed.rounds.findIndex((round) => !round.isSwiss);
+    expect(projected[firstBracketRound]?.flat().map((slot) => slot.kind)).toEqual(
+      Array(4).fill('qualifier-cutoff'),
+    );
+    expect(projected[removed.rounds.length - 1]).not.toBeNull();
   });
 });
