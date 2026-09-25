@@ -6,6 +6,27 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: settings in hidden Setup fields blocked generation (done — 2026-09-25)
+
+Plan: `plans/2026-09-25-hidden-setup-fields.md` (approved by the organiser). The organiser built a Waterfall graph, switched to another schedule logic, and Generate refused: "A waterfall graph was entered, but 'Waterfall bracket' isn't the selected schedule logic". Clearing the graph didn't help because the editor's "Start blank" writes a non-empty skeleton (an entry round plus a Final), so there was no on-screen way to make the graph "empty".
+
+**The rule.** A setting whose Setup field is hidden is ignored, and generation uses the default in its place. The form keeps every value it holds, so switching back restores the old input; only what `generateTournament` reads changes. Four places had the same bug (Setup hides the field, generation still read the stale value and returned an error the admin couldn't fix on screen):
+
+- **Waterfall graph** — the "defense-in-depth" guard was deleted. The graph is only read inside `if (schedule === 'waterfall-bracket')`.
+- **Scoring system** — effective value is `'fairpoints'` unless `poolingPhase !== 'none'`; the "needs a pooling phase" guard could no longer fire and was deleted.
+- **Draw publication** — effective value is `'adaptive'` unless the pooling phase is qual-table or swiss; that guard was deleted too. This is more than an error message: `gamemodeConfig.drawPublication` is read after generation (`addReserveUnit` blocks reserves when it is `'fixed'`), so a stale `'fixed'` stored on a Group Stage tournament would have silently blocked reserves. The stored value itself is now `'adaptive'`.
+- **Elimination seeding overrides** — now read only when `usesEliminationTargetOverrides` (single-elimination or double-elimination-shared-final), the same condition that already gated the round targets and that shows the field. The "require elimination round targets" error stays; it is still correct when both fields are shown and the targets box is empty.
+
+All in `src/domain/tournament/generation.ts`; each visibility check uses exactly the condition `SetupView.tsx` uses to show the field. Left as is: the double-elimination checks (that field stays visible and its error names a real choice) and the fields already gated by their own visibility condition.
+
+**Testing.** 623 tests (up from 621): four tests rewritten to expect `generated` (positional points with pooling `none` and an invalid table `'abc'`, 37 players; fixed draw with `none`, 23 players; fixed draw with group-stage 1v1, 30 players; leftover waterfall graph on single-elimination, 37 players, now a valid and an unparseable graph), one new (kings-valley, 23 players, stale seeding overrides `,diversity`, blank targets). Mutation-checked: restoring the waterfall guard fails both waterfall cases; dropping the draw-publication coercion fails both fixed-draw tests; dropping the scoring coercion fails the positional-points test; ungating the seeding overrides fails the new test. Regression tests for the empty-graph message, positional points on qual-table, fixed draws on qual-table/Swiss and SE-with-overrides-but-no-targets pass unchanged. `eslint` and `prettier --check` clean on both changed files. Live: `pnpm dev`, Setup tab loads, no console errors, no Generate click (the dev environment writes to production).
+
+**Known weak assertion.** The Group Stage case also asserts `addReserveUnit` isn't blocked with `reason: 'fixed-draw'`, but Group Stage reserves return `'group-stage'` before the fixed-draw check is reached, so that assertion can't fail by itself; the `drawPublication === 'adaptive'` assertion beside it is what carries the test.
+
+**Out of scope.** Clearing hidden values from persisted setup (the organiser wants them kept); the double-elimination stale-selection check. The organiser repeats the reported steps on `tournaments-test.curvefever.pro`: build a waterfall graph, switch to single-elimination, Generate succeeds.
+
+---
+
 ## Waterfall bracket: click-to-route graph editor (done — 2026-09-25)
 
 The organiser tried the `ROUNDS:`/`ROUTES:` text box for real and found it too inconvenient (see "Fix: waterfall bracket — empty-graph error" below). Four options were put to them as mockups (a private Artifact, not in the repo); they chose option 3, a click-to-route table. Every round is a card, every rank in every room is a slot, and every slot points somewhere, so gaps and overlaps cannot happen. Decisions settled with the organiser through Plan Mode and two `AskUserQuestion` forks: the table replaces the textarea and a collapsed read-only "View as text" stays; a new graph starts blank (an entry round plus a Final, every rank unset), with buttons to load the 16-player second-chance and 32-player spreadsheet examples; reusable saved templates are wanted later.

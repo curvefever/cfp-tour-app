@@ -75,15 +75,6 @@ export function generateTournament(
   const format = getGameFormat(form.gameFormat);
   if (!format) return generationError('This game format is not available yet.');
   const schedule = form.scheduleLogic;
-  // Defense-in-depth, same reasoning as the positional-points/fixed-draw
-  // guards below: the Setup UI only shows the waterfall-graph textarea when
-  // 'waterfall-bracket' is selected, but a stale graph can survive a
-  // schedule-logic change made after it was typed in.
-  if (schedule !== 'waterfall-bracket' && form.waterfallGraph.trim()) {
-    return generationError(
-      'A waterfall graph was entered, but "Waterfall bracket" isn\'t the selected schedule logic — clear the graph, or switch schedule logic to use it.',
-    );
-  }
   const floorIdeal = format.defaultRoomSize?.ideal ?? format.idealRoomSize;
   if (!floorIdeal) return generationError('This game format has no room size.');
   const floorMin = getMinimumBracketUnits(schedule, {
@@ -102,6 +93,10 @@ export function generateTournament(
     );
   }
 
+  // A setting whose Setup field is hidden is ignored: the form keeps its stale
+  // value (so switching back restores it) but generation uses the default.
+  const scoringVisible = form.poolingPhase !== 'none';
+  const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
   const config: GeneratedTournamentConfig = {
     n: current.confirmedCount,
     poolingPhase: form.poolingPhase,
@@ -109,8 +104,8 @@ export function generateTournament(
     groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
-    scoring: form.scoring || 'fairpoints',
-    drawPublication: form.drawPublication || 'adaptive',
+    scoring: scoringVisible ? form.scoring || 'fairpoints' : 'fairpoints',
+    drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
     finalsGames: parsed(form.finalsGames, 3),
     semisGames: parsed(form.semisGames, 1),
   };
@@ -239,14 +234,6 @@ export function generateTournament(
 
   let positionalPointsTable: number[] | undefined;
   if (config.scoring === 'positional-points') {
-    // Defense-in-depth: positional points has nothing to accumulate into
-    // without a pooling phase, and a stale Setup selection could otherwise
-    // survive a pooling-phase change made after scoring was picked.
-    if (config.poolingPhase === 'none') {
-      return generationError(
-        'Positional-points scoring needs a pooling phase (Qualification Table, Swiss, or Group Stage) to accumulate into — pick one, or switch back to Fair Points.',
-      );
-    }
     if (!form.positionalPointsTable.trim()) {
       return generationError(
         'Positional-points scoring needs a rank-to-points table — enter one value per rank, highest rank first (e.g. "10,8,6,5,4,3,2,1").',
@@ -274,20 +261,6 @@ export function generateTournament(
       );
     }
     positionalPointsTable = values;
-  }
-
-  // Defense-in-depth, same reasoning as the positional-points guard above:
-  // fixed draws only make sense for a pooling phase that actually reseeds
-  // round to round -- Group Stage is already published in full upfront via
-  // its own round-robin schedule, and 'none' has no pooling phase at all.
-  if (
-    config.drawPublication === 'fixed' &&
-    config.poolingPhase !== 'qual-table' &&
-    config.poolingPhase !== 'swiss'
-  ) {
-    return generationError(
-      'Fixed draw publication only applies to Qualification Table or Swiss — pick one of those, or switch back to Adaptive reseeding. (Group Stage is already published in full upfront and doesn\'t need this toggle; "None" has no pooling phase to publish.)',
-    );
   }
 
   // Defense-in-depth: the Setup UI only ever offers 'double-elimination' as
@@ -439,11 +412,10 @@ export function generateTournament(
   // WB elimination rounds leading into Semis (single-elimination) / the
   // shared Final (double-elimination-shared-final). Its own length is the
   // round-count override for these two formats -- no separate field needed.
+  const usesEliminationTargetOverrides =
+    schedule === 'single-elimination' || schedule === 'double-elimination-shared-final';
   let explicitTargets: number[] | undefined;
-  if (
-    form.eliminationRoundTargets.trim() &&
-    (schedule === 'single-elimination' || schedule === 'double-elimination-shared-final')
-  ) {
+  if (form.eliminationRoundTargets.trim() && usesEliminationTargetOverrides) {
     const parts = form.eliminationRoundTargets.split(',').map((part) => part.trim());
     const values = parts.map((part) => Number.parseInt(part, 10));
     const isValidInteger = (value: number, part: string) =>
@@ -485,7 +457,7 @@ export function generateTournament(
   // once that list pins down which round is which, since round identity
   // doesn't exist before generation otherwise.
   let explicitSeedingOverrides: Array<'diversity' | 'balance' | 'random' | undefined> | undefined;
-  if (form.eliminationSeedingOverrides.trim()) {
+  if (form.eliminationSeedingOverrides.trim() && usesEliminationTargetOverrides) {
     if (!explicitTargets) {
       return generationError(
         'Elimination seeding overrides require elimination round targets to also be set — seeding-override positions are addressed by that same ordered round list.',

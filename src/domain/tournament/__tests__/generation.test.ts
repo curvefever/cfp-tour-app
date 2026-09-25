@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { finalsProgressState } from '../finals';
 import { generateTournament } from '../generation';
-import { setFinalScore } from '../mutations';
+import { addReserveUnit, setFinalScore } from '../mutations';
 import { computeRankings } from '../rankings';
 import { getMinimumBracketUnits } from '../schedule-generation';
 import { roomPairKey } from '../seeding';
@@ -608,6 +608,17 @@ describe('generateTournament -- elimination seeding-weight override', () => {
     }
   });
 
+  it('ignores stale seeding overrides when the schedule logic does not show the field (kings-valley, blank targets)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 23 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'kings-valley',
+      eliminationSeedingOverrides: ',diversity',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+  });
+
   it('rejects a length mismatch against elimination round targets', () => {
     const state = createDefaultTournamentState({ confirmedCount: 37 });
     const form = createDefaultSetup({
@@ -662,16 +673,18 @@ describe('generateTournament -- elimination seeding-weight override', () => {
 });
 
 describe('generateTournament -- positional-points scoring', () => {
-  it('rejects positional-points scoring with poolingPhase "none"', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+  it('ignores a stale positional-points selection when poolingPhase is "none" (its Setup field is hidden)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
     const form = createDefaultSetup({
       poolingPhase: 'none',
       scoring: 'positional-points',
-      positionalPointsTable: '10,8,6,5,4,3,2,1',
+      positionalPointsTable: 'abc',
     });
     const result = generateTournament(state, form, createTournamentRuntime());
-    expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') expect(result.message).toContain('needs a pooling phase');
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.scoring).toBe('fairpoints');
+    expect(result.state.gamemodeConfig.positionalPointsTable).toBeUndefined();
   });
 
   it('rejects a blank points table', () => {
@@ -744,24 +757,30 @@ describe('generateTournament -- positional-points scoring', () => {
 });
 
 describe('generateTournament -- fixed draw publication', () => {
-  it('rejects fixed draw publication with poolingPhase "none"', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+  it('ignores a stale fixed draw publication when poolingPhase is "none" (its Setup field is hidden)', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 23 });
     const form = createDefaultSetup({ poolingPhase: 'none', drawPublication: 'fixed' });
     const result = generateTournament(state, form, createTournamentRuntime());
-    expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') expect(result.message).toContain('Qualification Table or Swiss');
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
   });
 
-  it('rejects fixed draw publication with poolingPhase "group-stage"', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+  it('ignores a stale fixed draw publication when poolingPhase is "group-stage", storing "adaptive" so reserves are not blocked by it', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 30, players: names(30) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
       drawPublication: 'fixed',
     });
     const result = generateTournament(state, form, createTournamentRuntime());
-    expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') expect(result.message).toContain('Qualification Table or Swiss');
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
+    expect(addReserveUnit(result.state, 'Reserve 1')).not.toMatchObject({
+      status: 'blocked',
+      reason: 'fixed-draw',
+    });
   });
 
   it('qual-table: assigns round 0 from the fixed schedule, leaves round 1 unassigned in state.assignments but pre-computed on the round itself, and folds roomHistory/poolingByeCounts upfront', () => {
@@ -1255,15 +1274,23 @@ R1.B: 1-4->Final, 5-8->eliminated
     expect(computeRankings(live)?.finalComplete).toBe(true);
   });
 
-  it('rejects leftover waterfall-graph text when a different schedule logic is selected (defense-in-depth)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
-    const form = createDefaultSetup({
-      gameFormat: 'ffa-individual',
-      scheduleLogic: 'single-elimination',
-      waterfallGraph: SPREADSHEET_GRAPH,
-    });
-    const result = generateTournament(state, form, createTournamentRuntime());
-    expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') expect(result.message).toContain("isn't the selected schedule logic");
-  });
+  it.each([
+    ['a valid graph', SPREADSHEET_GRAPH],
+    ['a graph that does not parse', 'ROUNDS:\nnonsense'],
+  ])(
+    'ignores leftover waterfall-graph text (%s) when a different schedule logic is selected',
+    (_label, graph) => {
+      const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+      const form = createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        waterfallGraph: graph,
+      });
+      const result = generateTournament(state, form, createTournamentRuntime());
+      expect(result.status).toBe('generated');
+      if (result.status !== 'generated') return;
+      expect(result.state.gamemodeConfig.graph).toBeUndefined();
+      expect(result.state.gamemodeConfig).not.toHaveProperty('waterfallGraph');
+    },
+  );
 });
