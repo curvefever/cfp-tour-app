@@ -573,7 +573,7 @@ export function generateTournament(
   } else if (config.poolingPhase === 'group-stage') {
     state.assignments[0] = seedFromGroupStageRound(state.rounds[0]);
     state.byes[0] = [...(state.rounds[0].groupByes ?? [])];
-  } else if (gamemodeConfig.oddCountStrategy === 'bye' && initialPool.length % roomSize.ideal !== 0) {
+  } else if (state.rounds[0].byeCount > 0) {
     const firstBye = initialPool[0];
     state.byes[0] = [firstBye];
     state.poolingByeCounts[firstBye] = 1;

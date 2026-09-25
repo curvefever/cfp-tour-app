@@ -1295,3 +1295,88 @@ R1.B: 1-4->Final, 5-8->eliminated
     },
   );
 });
+
+describe('generateTournament -- Swiss round shape for an odd field', () => {
+  function teams(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
+    }));
+  }
+
+  function generateSwiss(
+    gameFormat: 'individual-1v1' | 'team-3v3',
+    count: number,
+    overrides: Parameters<typeof createDefaultSetup>[0] = {},
+  ) {
+    const players = gameFormat === 'individual-1v1' ? names(count) : teams(count);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players }),
+      createDefaultSetup({ gameFormat, poolingPhase: 'swiss', qualAdv: '4', ...overrides }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  function roomSizesOf(entries: Array<{ room: number | null }>): number[] {
+    const sizes = new Map<number, number>();
+    for (const entry of entries) {
+      if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
+    }
+    return [...sizes.values()];
+  }
+
+  it.each([
+    ['individual-1v1', 11, { oddCountStrategy: '' as const }],
+    ['individual-1v1', 13, { oddCountStrategy: 'bye' as const }],
+    ['team-3v3', 11, { oddCountStrategy: '' as const }],
+    ['team-3v3', 13, { oddCountStrategy: 'flex' as const }],
+  ] as const)(
+    '%s, %i units, strategy %j: every Swiss round declares floor(n/2) rooms of 2 plus one bye, and round 0 seats exactly that',
+    (gameFormat, count, overrides) => {
+      const state = generateSwiss(gameFormat, count, overrides);
+      const swissRounds = state.rounds.filter((round) => round.isSwiss);
+      expect(swissRounds.length).toBeGreaterThan(0);
+      for (const round of swissRounds) {
+        expect(round.rooms).toEqual(Array(Math.floor(count / 2)).fill(2));
+        expect(round.byeCount).toBe(1);
+      }
+      expect(state.assignments[0].filter((entry) => entry.room === null)).toHaveLength(1);
+      expect(roomSizesOf(state.assignments[0])).toEqual(Array(Math.floor(count / 2)).fill(2));
+    },
+  );
+
+  it('fixed draws: every Swiss round declares exactly the rooms and byes its published draw holds', () => {
+    const state = generateSwiss('individual-1v1', 11, { oddCountStrategy: '', drawPublication: 'fixed' });
+    for (const round of state.rounds.filter((entry) => entry.isSwiss)) {
+      const entries = round.fixedRoomAssignments ?? [];
+      expect(round.rooms).toEqual(roomSizesOf(entries));
+      expect(round.byeCount).toBe(entries.filter((entry) => entry.room === null).length);
+    }
+  });
+
+  it('an even field is unchanged: 12 units, no bye', () => {
+    const state = generateSwiss('individual-1v1', 12, { oddCountStrategy: 'bye' });
+    for (const round of state.rounds.filter((entry) => entry.isSwiss)) {
+      expect(round.rooms).toEqual(Array(6).fill(2));
+      expect(round.byeCount).toBe(0);
+    }
+    expect(state.assignments[0].some((entry) => entry.room === null)).toBe(false);
+  });
+
+  it('"None" is still refused for an odd Swiss field (so its phantom room can only come from an unset or Flex strategy)', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 11, players: names(11) }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'swiss',
+        qualAdv: '4',
+        oddCountStrategy: 'none',
+      }),
+      createTournamentRuntime(),
+    );
+    expect(result.status).toBe('invalid');
+  });
+});

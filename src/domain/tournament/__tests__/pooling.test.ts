@@ -169,6 +169,33 @@ describe('phase builders — shape-level', () => {
     ]);
   });
 
+  it('noEliminationWarmupPoolingPhase keeps its own odd-field shape with strategy "none" (a one-unit room, no bye) -- not touched by the Swiss shape fix', () => {
+    const headToHead = { min: 2, max: 2, ideal: 2 };
+    const result = noEliminationWarmupPoolingPhase(
+      { n: 11 },
+      { roomSize: headToHead, oddCountStrategy: 'none' },
+    );
+    for (const round of result.rounds) {
+      expect(round.rooms).toEqual([2, 2, 2, 2, 2, 1]);
+      expect(round.byeCount).toBe(0);
+    }
+  });
+
+  it('swissPoolingPhase declares a head-to-head bye shape whatever the odd-count strategy, including "flex" (a 2-3 room size)', () => {
+    for (const oddCountStrategy of ['none', 'bye', 'flex'] as const) {
+      const roomSize =
+        oddCountStrategy === 'flex' ? { min: 2, max: 3, ideal: 2 } : { min: 2, max: 2, ideal: 2 };
+      const result = swissPoolingPhase(
+        { n: 11, qualAdv: 4 },
+        { roomSize, oddCountStrategy, swissRounds: 3, nonCountingRounds: 0 },
+      );
+      for (const round of result.rounds) {
+        expect(round.rooms).toEqual([2, 2, 2, 2, 2]);
+        expect(round.byeCount).toBe(1);
+      }
+    }
+  });
+
   it('noEliminationWarmupPoolingPhase always produces exactly 2 rounds', () => {
     const result = noEliminationWarmupPoolingPhase({ n: 10 }, { roomSize: FFA_ROOM_SIZE });
     expect(result.rounds).toHaveLength(2);
