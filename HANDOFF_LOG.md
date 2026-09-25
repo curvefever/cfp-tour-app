@@ -22,6 +22,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Found, present before this work, not fixed.** With an odd head-to-head field, the "Bye" strategy and a Qualification Table (e.g. 1v1 with 33 players, 16 advancing, or any removal that leaves the field odd), the last qualification round's bye unit advances *on top of* the qualifiers: the first elimination round is planned for 16 but receives 17, a bye unit is carried through each later round (9, then 5), and the Final refuses cleanly ("odd number of teams (3) would be heading into it"). Swiss into single elimination and double elimination with the same 33 players are not affected. `real-size.test.ts` pins the current clean block for that case (33 players, Qualification Table) so it flips when fixed; the removal sweep tolerates the same `malformed-final` block. Recorded as a known gap in `HANDOFF.md`.
 
+**Live-verified on the test site** (organiser logged in, both stages deployed, 2026-09-25): 1v1, 37 players, Qualification Table (16 advancing), single elimination, "Bye" strategy, adaptive draw ("Wave freeze check (delete me)", id `1790365616246`, safe to delete). Generate was instant. With all 36 seated units scored (18 rooms of 2 plus one bye), Next Round advanced in about 54 ms with no frozen tab and no error; round 2 seated 18 rooms of 2 and one bye. (That wave has 18 rooms; before this fix a wave of 11 rooms already ran out of memory.)
+
 **Out of scope.** Any change to the cost function, weights or diversity/balance taper; the Swiss and Group Stage seeders.
 
 ---
