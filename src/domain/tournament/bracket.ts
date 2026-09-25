@@ -324,8 +324,23 @@ function distributeTierMajorPool(pool: ProjectedSlotLabel[], roomSizes: number[]
  * bare "Room A, Rank 2" -- once rooms are lettered, "Room A" alone no
  * longer identifies which round it's from.
  */
+/**
+ * The room sizes a round's units actually sit in, for a round already reached
+ * (its planned sizes can be a unit or two more than it seated after a
+ * removal); the planned sizes otherwise.
+ */
+function seatedRoomSizes(
+  state: Pick<TournamentState, 'rounds' | 'curRound'> & Partial<Pick<TournamentState, 'assignments'>>,
+  roundIndex: number,
+): number[] {
+  const planned = state.rounds[roundIndex].rooms;
+  const seated = roundIndex <= state.curRound ? (state.assignments?.[roundIndex] ?? []) : [];
+  if (seated.length === 0) return planned;
+  return planned.map((_, index) => seated.filter((entry) => entry.room === index + 1).length);
+}
+
 export function projectFutureRoundSlots(
-  state: Pick<TournamentState, 'rounds' | 'curRound'>,
+  state: Pick<TournamentState, 'rounds' | 'curRound'> & Partial<Pick<TournamentState, 'assignments'>>,
 ): Record<number, ProjectedSlotLabel[][] | null> {
   const { rounds } = state;
   const labels = bracketRoundLabels({ rounds });
@@ -428,10 +443,11 @@ export function projectFutureRoundSlots(
         // from a single round-wide advPerRoom the way every other room-based
         // round already is. Tier-major (rank outer, room inner) -- see the
         // function doc comment above for why.
-        const maxRoomSize = Math.max(0, ...source.rooms);
+        const sourceRoomSizes = seatedRoomSizes(state, sourceIndex);
+        const maxRoomSize = Math.max(0, ...sourceRoomSizes);
         for (let rank = 1; rank <= maxRoomSize; rank += 1) {
-          for (let room = 1; room <= source.rooms.length; room += 1) {
-            const roomSize = source.rooms[room - 1];
+          for (let room = 1; room <= sourceRoomSizes.length; room += 1) {
+            const roomSize = sourceRoomSizes[room - 1];
             if (rank > roomSize) continue;
             pool.push({ kind: 'room-rank', room, rank, advPerRoom: roomSize, sourceRound });
           }

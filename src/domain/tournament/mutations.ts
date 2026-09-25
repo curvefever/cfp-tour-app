@@ -233,6 +233,26 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
   };
 }
 
+/**
+ * Re-plans the not-yet-reached rounds for the new headcount after a removal,
+ * the way a reserve join does. Skipped for fixed draws (their published rounds
+ * were already patched) and waterfall brackets (an exact-headcount graph). A
+ * rebuild that fails, or that would leave an elimination round meant to keep
+ * more units than reach it (e.g. explicit targets above the new headcount),
+ * is dropped: the rounds stay as planned and advancing fits each one when it
+ * is reached. A removal is never blocked by it.
+ */
+function replanFutureRounds(state: TournamentState): TournamentState {
+  if (state.gamemodeConfig.drawPublication === 'fixed') return state;
+  if (state.gamemodeConfig.bracketPhase === 'waterfall-bracket') return state;
+  const rebuilt = rebuildFutureRounds(state);
+  if (!rebuilt) return state;
+  const coherent = rebuilt.rounds.every(
+    (round) => round.advPerRoom === null || round.advTotal <= round.players,
+  );
+  return coherent ? rebuilt : state;
+}
+
 export type ReserveAddResult =
   | { status: 'added'; state: TournamentState }
   | {
@@ -527,7 +547,7 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),
     tieResolutions,
   };
-  return dirty(patchPublishedFutureRounds(next, key, null));
+  return dirty(replanFutureRounds(patchPublishedFutureRounds(next, key, null)));
 }
 
 /**

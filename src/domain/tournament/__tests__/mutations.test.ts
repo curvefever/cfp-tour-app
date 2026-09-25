@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { projectFutureRoundSlots } from '../bracket';
 import { rebuildFixedDrawHistory } from '../fixed-draws';
 import { generateTournament } from '../generation';
 import {
@@ -1084,7 +1085,7 @@ describe('future fixed-draw rounds -- removeRosterUnit/swapIndividual/swapTeam',
     }
   });
 
-  it('leaves rounds, roomHistory and poolingByeCounts untouched for an adaptive (non-fixed) tournament', () => {
+  it('leaves roomHistory and poolingByeCounts untouched for an adaptive (non-fixed) tournament', () => {
     const result = generateTournament(
       createDefaultTournamentState({ confirmedCount: 37, players: individuals(37) }),
       createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '24' }),
@@ -1092,8 +1093,109 @@ describe('future fixed-draw rounds -- removeRosterUnit/swapIndividual/swapTeam',
     );
     if (result.status !== 'generated') throw new Error('generation failed');
     const removed = removeRosterUnit(result.state, 'P1');
-    expect(removed.rounds).toBe(result.state.rounds);
     expect(removed.roomHistory).toBe(result.state.roomHistory);
     expect(removed.poolingByeCounts).toBe(result.state.poolingByeCounts);
+  });
+});
+
+describe('removeRosterUnit -- re-plans the future rounds for the new headcount', () => {
+  type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
+
+  function generate(count: number, setup: SetupOverrides): TournamentState {
+    const result = generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup(setup),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  const seats = (round: TournamentRound) => round.rooms.reduce((total, size) => total + size, 0);
+  const nullProjections = (state: TournamentState) =>
+    Object.entries(projectFutureRoundSlots(state))
+      .filter(([, value]) => value === null)
+      .map(([key]) => key);
+
+  it('FFA 37 with a qualification table: the later qualification rounds are planned for 36, the bracket rounds still start from qualAdv', () => {
+    const state = generate(37, { poolingPhase: 'qual-table', qualAdv: '24' });
+    const removed = removeRosterUnit(state, 'P1');
+    const qualRounds = removed.rounds.filter((round) => round.isQual);
+    expect(qualRounds.map(seats)).toEqual([37, 36, 36]);
+    const firstBracket = removed.rounds.findIndex((round) => !round.isQual);
+    expect(removed.rounds[firstBracket]).toEqual(state.rounds[firstBracket]);
+  });
+
+  it('FFA 23 single elimination with no pooling: warm-up and elimination rounds are re-planned for 22, and the Bracket preview keeps every entry it had', () => {
+    const state = generate(23, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    const removed = removeRosterUnit(state, 'P1');
+    expect(seats(removed.rounds[1])).toBe(22);
+    expect(removed.rounds[2].players).toBe(22);
+    expect(nullProjections(removed).every((key) => nullProjections(state).includes(key))).toBe(true);
+  });
+
+  it('keeps the explicit elimination targets and Final size override', () => {
+    const setup = {
+      scheduleLogic: 'single-elimination' as const,
+      poolingPhase: 'none' as const,
+      eliminationRoundTargets: '32,24,16',
+      finalOverride: '4',
+    };
+    const state = generate(37, setup);
+    const removed = removeRosterUnit(state, 'P1');
+    const targets = (rounds: TournamentRound[]) =>
+      rounds
+        .filter((round) => !round.isNoElim && !round.isSemis && !round.isFinal)
+        .map((round) => round.advTotal);
+    expect(targets(removed.rounds)).toEqual([32, 24, 16]);
+    expect(removed.rounds[removed.rounds.length - 1].players).toBe(4);
+    expect(seats(removed.rounds[1])).toBe(36);
+  });
+
+  it('leaves the rounds alone when the rebuild would be incoherent (an explicit first target above the new headcount)', () => {
+    const state = generate(37, {
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'none',
+      eliminationRoundTargets: '37,24,16',
+    });
+    expect(removeRosterUnit(state, 'P1').rounds).toBe(state.rounds);
+  });
+
+  it('does not rebuild a fixed-draw tournament: its bracket rounds stay the very same objects', () => {
+    const state = generate(37, { poolingPhase: 'qual-table', qualAdv: '24', drawPublication: 'fixed' });
+    const removed = removeRosterUnit(state, 'P1');
+    const firstBracket = state.rounds.findIndex((round) => !round.isQual);
+    expect(removed.rounds[firstBracket]).toBe(state.rounds[firstBracket]);
+  });
+
+  it('does not rebuild a waterfall bracket', () => {
+    const state = generate(16, {
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      qualAdv: '16',
+      waterfallGraph:
+        'ROUNDS:\nR1 = 2x8\nSemiB = 8\nFinal = 8 FINAL\n\nROUTES:\nR1.A: 1-3->Final, 4-7->SemiB, 8->eliminated\nR1.B: 1-3->Final, 4-7->SemiB, 8->eliminated\nSemiB: 1-2->Final, 3-8->eliminated',
+    });
+    expect(removeRosterUnit(state, 'P1').rounds).toBe(state.rounds);
+  });
+
+  it('still removes the unit, and leaves the rounds untouched, when the rebuild returns null', () => {
+    const state = generate(23, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    const broken = { ...state, gamemodeConfig: { ...state.gamemodeConfig, roomSize: undefined } };
+    const removed = removeRosterUnit(broken, 'P1');
+    expect(removed.players).not.toContain('P1');
+    expect(removed.rounds).toBe(broken.rounds);
+  });
+
+  it('Swiss: the round count cannot change because of the new headcount', () => {
+    const state = generate(12, { gameFormat: 'individual-1v1', poolingPhase: 'swiss', qualAdv: '4' });
+    const removed = removeRosterUnit(state, 'P1');
+    expect(removed.rounds.filter((round) => round.isSwiss)).toHaveLength(
+      state.rounds.filter((round) => round.isSwiss).length,
+    );
+    expect(removed.rounds).toHaveLength(state.rounds.length);
   });
 });
