@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   computeLuckyLoserStandings,
   computeStandingsCutoffAdvancing,
+  isUncontestedRoom,
   detectTieBreaks,
   getAllTies,
   hasPendingTies,
@@ -157,6 +158,18 @@ function TeamScoreFields({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
+}
+
+/**
+ * Whether a lone unit's room reads as "treated as a bye": true for rounds
+ * whose results feed standings or plain per-room advancement (pooling,
+ * no-elim warm-up, single elimination, Semis). Not for Kings Valley (its
+ * promote/demote bands are counted per room, so a lone unit isn't a bye
+ * there), waterfall rounds (fixed rank bands per room), or double-
+ * elimination rounds (winners/losers routing).
+ */
+function isByeLikeRound(round: TournamentRound): boolean {
+  return !round.isKingsValley && !round.isWaterfall && !round.bracket && !round.isFinal;
 }
 
 function resultClasses(
@@ -752,6 +765,24 @@ function RoundBody({
       {round.rooms.map((_, roomIndex) => {
         const room = roomIndex + 1;
         const units = assignments.filter((entry) => entry.room === room);
+        if (isByeLikeRound(round) && isUncontestedRoom(state, roundIndex, room)) {
+          return (
+            <div className='mb-2' key={room}>
+              <RoomLabel>
+                {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {roomLetter(room)}{' '}
+                (1)
+              </RoomLabel>
+              <div className={cn(bracketRowBase, resultClasses('', followKey === units[0].name))}>
+                <span className='block truncate' title={unitDisplay(state, units[0].name).label}>
+                  {unitDisplay(state, units[0].name).label}
+                </span>
+                <span className='block text-xs text-muted'>
+                  No opponent — treated as a bye, no score needed
+                </span>
+              </div>
+            </div>
+          );
+        }
         const direct = round.isNoElim ? units.length : (round.advPerRoom ?? 0);
         const isBottomRoom = round.isKingsValley && roomIndex === round.rooms.length - 1;
         const promoteCount = round.kvPromoteCounts?.[roomIndex] ?? 0;

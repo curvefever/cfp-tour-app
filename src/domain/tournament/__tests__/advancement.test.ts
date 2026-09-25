@@ -9,14 +9,19 @@ import {
   doubleEliminationComputeAdvancement,
   hasPendingTies,
   invalidateStaleTieResolutions,
+  isUncontestedRoom,
   isTieResolved,
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
 } from '../advancement';
+import { generateTournament } from '../generation';
+import { removeRosterUnit } from '../mutations';
+import { createTournamentRuntime } from '../runtime';
 import { fairPoints } from '../scoring';
-import type { TournamentStanding } from '../types';
-import { createDefaultTournamentState } from '../state-defaults';
+import { advanceTournamentRound } from '../transitions';
+import type { TournamentStanding, TournamentState } from '../types';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
@@ -1142,5 +1147,191 @@ describe('rankStandings', () => {
   it('gives an entry with no rounds played (totalFP null) a null rank instead of a sequential number', () => {
     const entries = [standing('P1', 1), standing('P2', null), standing('P3', null)];
     expect(rankStandings(entries).map((entry) => entry.rank)).toEqual([1, null, null]);
+  });
+});
+
+describe('uncontested rooms (a room with exactly one assigned unit is not a match)', () => {
+  type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
+
+  function generate(count: number, setup: SetupOverrides, teams = false): TournamentState {
+    const players = teams
+      ? Array.from({ length: count }, (_, index) => ({
+          teamId: `t${index + 1}`,
+          teamName: `Team ${index + 1}`,
+          members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
+        }))
+      : Array.from({ length: count }, (_, index) => `P${index + 1}`);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players }),
+      createDefaultSetup(setup),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  /** Scores every occupied room of `roundIndex`: first listed unit highest. */
+  function scoreRound(state: TournamentState, roundIndex: number): TournamentState {
+    const scores = { ...state.scores };
+    const seen = new Map<number, number>();
+    for (const entry of state.assignments[roundIndex]) {
+      if (entry.room === null) continue;
+      const position = seen.get(entry.room) ?? 0;
+      seen.set(entry.room, position + 1);
+      const value = 1000 - position * 100;
+      if (state.gameFormat.startsWith('team')) {
+        for (let member = 0; member < 3; member += 1) {
+          scores[`r${roundIndex}-rm${entry.room}-p${position}-m${member}`] = value;
+        }
+      } else {
+        scores[`r${roundIndex}-rm${entry.room}-p${position}`] = value;
+      }
+    }
+    return { ...state, scores };
+  }
+
+  function advance(state: TournamentState): TournamentState {
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    return result.state;
+  }
+
+  /** The first room of a round with two units, and the unit that is left alone once one is removed. */
+  function pairRoom(state: TournamentState, roundIndex: number) {
+    const room = state.assignments[roundIndex].find(
+      (entry) =>
+        entry.room !== null &&
+        state.assignments[roundIndex].filter((other) => other.room === entry.room).length === 2,
+    )?.room as number;
+    const [removed, lone] = state.assignments[roundIndex]
+      .filter((entry) => entry.room === room)
+      .map((entry) => entry.name);
+    return { room, removed, lone };
+  }
+
+  const standingOf = (state: TournamentState, name: string) =>
+    computeQualificationStandings(state).find((entry) => entry.name === name);
+
+  it('isUncontestedRoom counts assigned units, not scored ones', () => {
+    const state = createDefaultTournamentState({
+      rounds: [buildRound({ roundNum: 1, rooms: [1, 2], players: 3 })],
+      assignments: [buildAssignments(['A', 'B', 'C'], [1, 2])],
+      scores: { 'r0-rm2-p0': 5 },
+    });
+    expect(isUncontestedRoom(state, 0, 1)).toBe(true);
+    expect(isUncontestedRoom(state, 0, 2)).toBe(false);
+    expect(isUncontestedRoom(state, 0, 3)).toBe(false);
+  });
+
+  it('adaptive Swiss (11 players): a unit left alone by a removal keeps its earlier standing, gains no round from a typed score, and still advances', () => {
+    let live = advance(
+      scoreRound(
+        generate(11, {
+          gameFormat: 'individual-1v1',
+          poolingPhase: 'swiss',
+          qualAdv: '4',
+          oddCountStrategy: 'bye',
+        }),
+        0,
+      ),
+    );
+    const { room, removed, lone } = pairRoom(live, 1);
+    const before = standingOf(live, lone);
+    expect(before?.played).toBe(1);
+
+    live = removeRosterUnit(live, removed);
+    expect(live.assignments[1].filter((entry) => entry.room === room)).toHaveLength(1);
+    live = scoreRound(live, 1);
+    const after = standingOf(live, lone);
+    expect(after?.played).toBe(1);
+    expect(after?.totalFP).toBe(before?.totalFP);
+
+    live = advance(live);
+    expect(live.assignments[2].map((entry) => entry.name)).toContain(lone);
+  });
+
+  it('group stage (9 players): a lone unit is left out of the group standings for that round', () => {
+    let live = generate(9, {
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'group-stage',
+      qualAdv: '4',
+      groupSize: '4',
+      oddCountStrategy: 'bye',
+    });
+    const { removed, lone } = pairRoom(live, 0);
+    live = removeRosterUnit(live, removed);
+    live = scoreRound(live, 0);
+    const entry = Object.values(computeGroupStandings(live))
+      .flat()
+      .find((standing) => standing.name === lone);
+    expect(entry?.played).toBe(0);
+    expect(entry?.totalFP).toBeNull();
+  });
+
+  it('team-3v3v3 qualification table (13 teams): a 2-team room reduced to one team is excluded from standings', () => {
+    let live = generate(13, { gameFormat: 'team-3v3v3', poolingPhase: 'qual-table', qualAdv: '6' }, true);
+    const { removed, lone } = pairRoom(live, 0);
+    live = scoreRound(removeRosterUnit(live, removed), 0);
+    expect(standingOf(live, lone)?.played).toBe(0);
+    expect(standingOf(live, lone)?.totalFP).toBeNull();
+  });
+
+  it.each([
+    ['fairpoints', {}],
+    ['positional-points', { scoring: 'positional-points' as const, positionalPointsTable: '10,8' }],
+  ])(
+    'qualification table 1v1 (11 players, odd-count strategy unset, so one unit starts alone) with %s: the lone unit gets no result for that round',
+    (_label, scoringSetup) => {
+      let live = generate(11, {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'qual-table',
+        qualAdv: '4',
+        ...scoringSetup,
+      });
+      const alone = live.assignments[0].filter(
+        (entry) =>
+          entry.room !== null &&
+          live.assignments[0].filter((other) => other.room === entry.room).length === 1,
+      );
+      expect(alone).toHaveLength(1);
+      live = scoreRound(live, 0);
+      const standing = standingOf(live, alone[0].name);
+      expect(standing?.played).toBe(0);
+      expect(standing?.totalFP).toBeNull();
+      expect(computeQualificationStandings(live).filter((entry) => entry.played === 1)).toHaveLength(10);
+    },
+  );
+
+  it('a two-unit room with one score missing is still a normal match: the scored unit still ranks (regression)', () => {
+    let live = generate(11, {
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      qualAdv: '4',
+      oddCountStrategy: 'bye',
+    });
+    const { room, removed, lone } = pairRoom(live, 0);
+    live = scoreRound(live, 0);
+    const position = live.assignments[0]
+      .filter((entry) => entry.room === room)
+      .findIndex((entry) => entry.name === removed);
+    live = { ...live, scores: { ...live.scores, [`r0-rm${room}-p${position}`]: null } };
+    expect(standingOf(live, lone)?.played).toBe(1);
+    expect(standingOf(live, removed)?.played).toBe(0);
+  });
+
+  it('an elimination round (one advancing per room): a unit left alone by a removal still advances', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['A', 'B', 'C', 'D'],
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [2, 2], players: 4, advPerRoom: 1, advTotal: 2 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+      ],
+      assignments: [buildAssignments(['A', 'B', 'C', 'D'], [2, 2])],
+      scores: { 'r0-rm1-p0': 9, 'r0-rm1-p1': 5, 'r0-rm2-p0': 8, 'r0-rm2-p1': 4 },
+    });
+    const live = removeRosterUnit(state, 'B');
+    expect(isUncontestedRoom(live, 0, 1)).toBe(true);
+    expect(roomBasedComputeAdvancement(live, 0).advancing.map((entry) => entry.name)).toEqual(['A', 'C']);
   });
 });

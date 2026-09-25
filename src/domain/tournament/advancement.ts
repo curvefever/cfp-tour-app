@@ -315,6 +315,17 @@ function materializeStandings(
     });
 }
 
+/**
+ * A room with exactly one assigned unit is not a match (its opponent was
+ * removed, or the seeder left an odd unit alone): standings skip it, like a
+ * bye, so the unit doesn't collect a free rank-1 result. Counts assigned
+ * units, not scored ones -- a two-unit room with a missing score is still a
+ * normal match. Advancement is unaffected: a lone unit already advances.
+ */
+export function isUncontestedRoom(state: TournamentState, roundIndex: number, room: number): boolean {
+  return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length === 1;
+}
+
 export function computeQualificationStandings(state: TournamentState): TournamentStanding[] {
   const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
@@ -324,6 +335,7 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
   for (const [roundIndex, round] of state.rounds.entries()) {
     if (!(round.isQual || round.isSwiss) || round.excludeFromStandings) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
+      if (isUncontestedRoom(state, roundIndex, room)) continue;
       for (const [index, entry] of orderRoomByScore(
         scoreRoom(state, roundIndex, room, null),
         roundIndex,
@@ -355,7 +367,7 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
     if (!round.isGroupStage) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       const groupLabel = round.roomGroups?.[room - 1];
-      if (!groupLabel) continue;
+      if (!groupLabel || isUncontestedRoom(state, roundIndex, room)) continue;
       for (const [index, entry] of orderRoomByScore(
         scoreRoom(state, roundIndex, room, null),
         roundIndex,
