@@ -757,16 +757,21 @@ describe('generateTournament -- positional-points scoring', () => {
 });
 
 describe('generateTournament -- fixed draw publication', () => {
-  it('ignores a stale fixed draw publication when poolingPhase is "none" (its Setup field is hidden)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 23 });
+  it('ignores a stale fixed draw publication when poolingPhase is "none", storing "adaptive" so reserves are not blocked by it', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 23, players: names(23) });
     const form = createDefaultSetup({ poolingPhase: 'none', drawPublication: 'fixed' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
     if (result.status !== 'generated') return;
     expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
+    // reserveOpen forced on so addReserveUnit reaches its fixed-draw check.
+    expect(addReserveUnit({ ...result.state, reserveOpen: true }, 'Reserve 1')).not.toMatchObject({
+      status: 'blocked',
+      reason: 'fixed-draw',
+    });
   });
 
-  it('ignores a stale fixed draw publication when poolingPhase is "group-stage", storing "adaptive" so reserves are not blocked by it', () => {
+  it('ignores a stale fixed draw publication when poolingPhase is "group-stage" (its Setup field is hidden)', () => {
     const state = createDefaultTournamentState({ confirmedCount: 30, players: names(30) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
@@ -777,10 +782,6 @@ describe('generateTournament -- fixed draw publication', () => {
     expect(result.status).toBe('generated');
     if (result.status !== 'generated') return;
     expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
-    expect(addReserveUnit(result.state, 'Reserve 1')).not.toMatchObject({
-      status: 'blocked',
-      reason: 'fixed-draw',
-    });
   });
 
   it('qual-table: assigns round 0 from the fixed schedule, leaves round 1 unassigned in state.assignments but pre-computed on the round itself, and folds roomHistory/poolingByeCounts upfront', () => {
