@@ -203,13 +203,15 @@ function finalizeDoubleEliminationRound(
   const failure = seedRoundFromPendingPool(state, roundIndex, { chosenByes, seedingOverride });
   if (failure) return failure;
 
-  if (targetRound.bracket === 'grand-final') {
+  // Re-read the round: seeding may have replaced it with a fitted copy.
+  const seededRound = state.rounds[roundIndex];
+  if (seededRound.bracket === 'grand-final') {
     const sourceIndex = state.rounds.findIndex(
       (round) => round.bracket === 'winners' && round.winnersTo === roundIndex,
     );
     if (sourceIndex !== -1) {
       const finalist = doubleEliminationComputeAdvancement(state, sourceIndex).winners[0]?.name;
-      if (finalist !== undefined) targetRound.wbFinalistName = finalist;
+      if (finalist !== undefined) seededRound.wbFinalistName = finalist;
     }
   }
   return null;
