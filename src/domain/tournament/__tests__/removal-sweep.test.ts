@@ -83,11 +83,7 @@ describe('removing one unit never makes Next Round throw', () => {
         if (outcome.kind === 'blocked' && process.env.SWEEP_LOG)
           console.log(`BLOCKED ${config.label} @${removeAt}: ${outcome.message}`);
         // Double elimination may still block cleanly (losers-bracket counts), never throw.
-        // A removal from an odd field with the "Bye" strategy can leave the bye
-        // unit advancing on top of the qualifiers (a separately recorded gap),
-        // which the Final refuses cleanly.
-        const cleanBlock = outcome.kind === 'blocked' && outcome.reason === 'malformed-final';
-        if (!isDoubleElimination && !cleanBlock) expect(outcome.kind).toBe('ok');
+        if (!isDoubleElimination) expect(outcome.kind).toBe('ok');
       }
     },
     60_000,

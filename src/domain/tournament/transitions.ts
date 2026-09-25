@@ -2,6 +2,7 @@ import {
   buildAdvancementTiers,
   doubleEliminationComputeAdvancement,
   hasPendingTies,
+  isStandingsCutoffRound,
   kingsValleyComputeAdvancement,
   refreshRoundStandings,
   roomBasedComputeAdvancement,
@@ -478,7 +479,10 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   let advancing: SeedCandidate[] = result.advancing.map((entry) => ({
     ...entry,
   }));
-  if (state.byes[roundIndex]?.length) {
+  // At a standings cut-off the cumulative standings decide who advances, and a
+  // bye unit is already ranked in them: prepending it would let it qualify
+  // whatever its standing.
+  if (state.byes[roundIndex]?.length && !isStandingsCutoffRound(state, roundIndex)) {
     advancing = [
       ...state.byes[roundIndex].map((name) => ({
         name,

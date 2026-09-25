@@ -63,6 +63,18 @@ export function isLastStandingsRound(state: TournamentState, roundIndex: number)
   );
 }
 
+/**
+ * True for a round whose advancement is decided by cumulative standings, not
+ * per room: the last Qualification Table/Swiss round or the last Group Stage
+ * round. Shared by the display (computeStandingsCutoffAdvancing) and the
+ * transition, so the two can never disagree about which round is a cut-off.
+ */
+export function isStandingsCutoffRound(state: TournamentState, roundIndex: number): boolean {
+  const round = state.rounds[roundIndex];
+  const nextRound = state.rounds[roundIndex + 1];
+  return isLastStandingsRound(state, roundIndex) || Boolean(round?.isGroupStage && !nextRound?.isGroupStage);
+}
+
 function luckyLoserCandidate(scored: ScoredUnit[], advPerRoom: number): LuckyLoserCandidate | null {
   const candidate = scored[advPerRoom];
   if (!candidate) return null;
@@ -484,11 +496,8 @@ export function computeStandingsCutoffAdvancing(
   state: TournamentState,
   roundIndex: number,
 ): Set<string> | null {
-  const round = state.rounds[roundIndex];
-  const nextRound = state.rounds[roundIndex + 1];
-  if (!round) return null;
-  const isLastGroupRound = Boolean(round.isGroupStage && !nextRound?.isGroupStage);
-  if (!isLastStandingsRound(state, roundIndex) && !isLastGroupRound) return null;
+  if (!state.rounds[roundIndex]) return null;
+  if (!isStandingsCutoffRound(state, roundIndex)) return null;
   return new Set(roomBasedComputeAdvancement(state, roundIndex).advancing.map((entry) => entry.name));
 }
 

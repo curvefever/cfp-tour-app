@@ -45,22 +45,13 @@ describe('head-to-head tournaments of 33 and 40 players play through to the Fina
     [33, 40].flatMap((count) => configs(count).map((config) => [count, config.label, config] as const)),
   )(
     '%i players: %s',
-    (count, _label, config) => {
+    (_count, _label, config) => {
       const state = buildState(config);
       expect(state).not.toBeNull();
       const started = performance.now();
       const outcome = playThrough(state as NonNullable<typeof state>, 0, null);
       const elapsed = performance.now() - started;
-      // Known gap (present before this work, recorded in HANDOFF.md): with an odd
-      // field, the "Bye" strategy and a qualification table, the last qualification
-      // round's bye unit advances on top of the qualifiers, so the bracket is one
-      // unit over and the Final refuses cleanly. Update this when that is fixed.
-      const knownGap = count === 33 && config.label.includes('qualification table');
-      if (knownGap) {
-        expect(outcome.kind === 'blocked' && outcome.reason).toBe('malformed-final');
-      } else {
-        expect(outcome.kind === 'ok' ? 'ok' : JSON.stringify(outcome)).toBe('ok');
-      }
+      expect(outcome.kind === 'ok' ? 'ok' : JSON.stringify(outcome)).toBe('ok');
       expect(elapsed).toBeLessThan(5000);
     },
     30_000,

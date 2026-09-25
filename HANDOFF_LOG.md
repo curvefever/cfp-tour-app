@@ -6,6 +6,30 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: a unit on a bye in the last qualifying round skipped the qualification cut (done — 2026-09-25)
+
+Found during the wave-assignment build (a 1v1 Qualification Table with 33 players stopped at the Final) and then probed by the planner with deterministic scores where the lower-numbered player always wins:
+
+| Setup | Should enter the bracket | Actually entered |
+|---|---|---|
+| 1v1 Group Stage, 9 players, 3 groups of 3, 1 qualifier per group | 3 | 6 (P7, P8 and P9, each last in their group and on a bye in the last group round, all went through) |
+| 1v1 Group Stage, 15 players, groups of 5, 2 qualifiers | 6 | 9 |
+| 1v1 Qualification Table, 33 players, 16 advancing | 16 | 17 (the last round's bye unit went through) |
+
+**Cause.** In the generic branch of `advanceTournamentRound` (`transitions.ts`) the units on a bye in the round just finished were always prepended to `advancing`. That is right for an ordinary round (a bye means "advance automatically") but wrong for a standings cut-off round (the last Qualification Table/Swiss round, or the last Group Stage round): `roomBasedComputeAdvancement` there already returns exactly the qualifiers from the cumulative standings, and the bye unit is in those standings like everyone else, so prepending it added it a second time and a bye unit qualified whatever its standing.
+
+**Consequences.** The wrong players reached the bracket; since the removal-crash fit the first bracket round silently grew to take them (before it, `tieredSeed` silently dropped whoever came last in the reseed order, which may have been a real qualifier); an odd count could ripple down to the Final, which refuses it ("odd number ... heading into it"). `main` has the same code, so production is affected: any Group Stage with odd-sized groups, or an odd head-to-head field with "Bye" and a Qualification Table (or Swiss: see below). The screen was right all along: Bracket's green/red cut-off colouring and Rankings use `computeStandingsCutoffAdvancing`, which doesn't add byes, so the display said "eliminated" while the transition sent the unit through.
+
+**Fix.** `advancement.ts` gains `isStandingsCutoffRound(state, roundIndex)` (the last Qualification Table/Swiss round, or the last Group Stage round), and `computeStandingsCutoffAdvancing` now uses it too, so the display and the transition can never disagree about which round is a cut-off. `transitions.ts` prepends a round's byes only when it is not a standings cut-off, with a comment saying why. Double elimination's own bye prepend (bracket rounds only, never a cut-off), the bye logic for the next round, and the Swiss, fixed-draw and Group Stage seeders are untouched.
+
+**Swiss was affected too.** An earlier note said Swiss wasn't: that was only where the bye happened to land in the standings. With the last round's bye unit forced to rank last, Swiss (33 players, 16 advancing) failed without the guard exactly like the Qualification Table, and the fixed-draw Qualification Table too (it also records `state.byes` for the round).
+
+**Testing.** 820 tests (up from 810). New `bye-cutoff.test.ts`: for Qualification Table, Swiss and fixed-draw Qualification Table, 1v1 with 33 players and 16 advancing, the last round's bye unit ranked outside the qualifiers (exactly 16 enter, not the bye unit, and the set equals `computeStandingsCutoffAdvancing`) and inside them (enters exactly once, still 16); Group Stage 9 players in groups of 3 with 1 qualifier (exactly the 3 group winners, no bye unit) and 15 in groups of 5 with 2 (exactly 6), each equal to `computeStandingsCutoffAdvancing`; regression tests that an ordinary no-elimination round and an elimination round still advance their bye unit automatically. Scores are rewritten after the fact so that the last round's bye unit sits where each case needs it. The pinned `malformed-final` expectation in `real-size.test.ts` (33 players, Qualification Table) is flipped, so it now plays to the Final, and the removal sweep's `malformed-final` tolerance was removed (this was its only cause: it passes at 13, 33 and 40 units, so the 40-player Qualification Table cases were the same bug). Mutation-checked: dropping the guard fails the Qualification Table, Swiss, fixed-draw and both Group Stage tests plus the two play-throughs that had been pinned or tolerated; making the predicate forget Group Stage fails both Group Stage tests and the existing `computeStandingsCutoffAdvancing` group-stage test. `eslint`, `prettier` and `tsc` clean on the changed files. Not run in a browser on the test site (nothing pushed).
+
+**Out of scope.** Whether a bye should count as a played round in the standings (it doesn't today; unchanged); double elimination's own bye handling.
+
+---
+
 ## Fix: "Next Round" froze head-to-head tournaments of 20+ players (done — 2026-09-25)
 
 **What was at risk.** `assignWaveToRooms` (`seeding.ts`) chose each wave's room assignment by trying every permutation of the wave's rooms, and built them all in memory first, so a wave of `k` rooms cost `k!`. One Next Round of a 1v1 single-elimination tournament measured: 8 rooms (16 players) 0.2 s, 9 rooms 2 s, 10 rooms (20 players) 21 s, 11+ rooms (22+ players) out of memory. A wave has one candidate per room, so head-to-head fields (1v1, 3v3) hit it at 20+ units, and most real events are 30-40 players (15-20 rooms per wave): the browser tab froze. FFA (rooms of 6-8) and the team formats with 3-4 per room stay at 4-6 rooms per wave, so they only hit it in much larger events (FFA with 80 players has 10 rooms). All three callers were affected: `tieredSeed` (every ordinary reseed: warm-up, Qualification Table, single elimination), `tieredBracketSeed` (double elimination and its shared-Final variant), and `buildFixedRoomSchedule` (a fixed-draw 1v1 Qualification Table froze at Generate). Swiss and Group Stage use their own seeders; a Swiss field sent into single elimination was affected from its first elimination round.
