@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
+import { bracketEntryCountFromSetup } from '../../domain/tournament/bracket-entry';
 import {
   GAME_FORMATS,
   ODD_COUNT_STRATEGY_LABELS,
   TEAM_SCORING_RULE_LABELS,
+  deriveRoomSize,
   getGameFormat,
 } from '../../domain/tournament/formats';
 import { generateTournament } from '../../domain/tournament/generation';
@@ -14,8 +16,10 @@ import {
   parseMemberLine,
   parseTeamLines,
 } from '../../domain/tournament/roster';
+import { getMinimumBracketUnits } from '../../domain/tournament/schedule-generation';
 import type { PersistedSetup } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
 import {
   Alert,
   Button,
@@ -33,30 +37,6 @@ import {
 } from '../../components/ui';
 
 type SetupKey = keyof PersistedSetup;
-
-// The worked example this feature was built against (the real organiser
-// spreadsheet's "Matches 40p" tab, traced round-by-round) -- placeholder
-// text doubles as the grammar reference, matching this Setup form's
-// existing convention of showing a concrete example rather than prose.
-const WATERFALL_GRAPH_PLACEHOLDER = `ROUNDS:
-5 = 4x8
-6B = 8
-6C = 8
-7A = 8
-SemiA = 8
-SemiB = 8
-Final = 8 FINAL
-
-ROUTES:
-5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
-5.B: 1-4->SemiA, 6,7->6B, 5,8->6C
-5.C: 1,4->6C, 2,3->6B, 5-8->eliminated
-5.D: 1,4->6B, 2,3->6C, 5-8->eliminated
-SemiA: 1-4->Final, 5-8->SemiB
-6B: 1-4->7A, 5-8->eliminated
-6C: 1-4->7A, 5-8->eliminated
-7A: 1-4->SemiB, 5-8->eliminated
-SemiB: 1-4->Final, 5-8->eliminated`;
 
 export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
@@ -218,6 +198,17 @@ export function SetupView() {
   const isRace = setup.scheduleLogic === 'double-elimination';
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';
   const isWaterfallBracket = setup.scheduleLogic === 'waterfall-bracket';
+  const waterfallRoomSize = format
+    ? deriveRoomSize(
+        format,
+        format.supportedOddCountStrategies?.length ? setup.oddCountStrategy || undefined : undefined,
+      )
+    : { min: 1, max: 1, ideal: 1 };
+  const waterfallEntrantCount = bracketEntryCountFromSetup(
+    setup,
+    state.confirmedCount,
+    getMinimumBracketUnits('waterfall-bracket', waterfallRoomSize),
+  );
   return (
     <div id='panel-setup'>
       <Panel>
@@ -672,34 +663,21 @@ export function SetupView() {
           </ButtonRow>
         </Panel>
       </TwoColumnGrid>
-      {isWaterfallBracket ? (
+      {isWaterfallBracket && format ? (
         <Panel>
-          <PanelTitle hint='— ROUNDS:/ROUTES: mini-language; the grey example below shows the full grammar'>
+          <PanelTitle hint='— route every rank of every room to where those players go next'>
             Waterfall bracket graph
           </PanelTitle>
-          <Textarea
-            id='cfg-waterfall-graph'
-            className='min-h-60 font-mono'
-            value={setup.waterfallGraph}
-            onChange={(e) => change('waterfallGraph', e.target.value)}
-            placeholder={WATERFALL_GRAPH_PLACEHOLDER}
+          <WaterfallGraphEditor
+            entrantCount={waterfallEntrantCount}
+            onChange={(text) => change('waterfallGraph', text)}
+            roomSize={waterfallRoomSize}
+            text={setup.waterfallGraph}
           />
-          <ButtonRow>
-            <Button
-              size='sm'
-              disabled={setup.waterfallGraph.trim() !== ''}
-              onClick={() => change('waterfallGraph', WATERFALL_GRAPH_PLACEHOLDER)}
-            >
-              Insert example
-            </Button>
-          </ButtonRow>
-          <p className='mt-1 text-xs text-muted'>
-            The grey text is only an example — it isn't used until you insert it (or write your own). The
-            starting round's total must equal the number of players entering the bracket: your "Advance to
-            bracket" number, or the whole roster if there's no pooling phase (the example is for 32). Every
-            round, room count/size, and rank-band routing is decided here, once, before the tournament starts
-            — there's no live reseeding and no automatic bye/lucky-loser handling. Reserves can't be added
-            once a tournament starts on this schedule logic.
+          <p className='mt-3 text-xs text-muted'>
+            Every round, room count/size, and rank routing is decided here, once, before the tournament
+            starts. There's no live reseeding and no automatic bye/lucky-loser handling, and reserves can't be
+            added once a tournament starts on this schedule logic.
           </p>
         </Panel>
       ) : null}

@@ -1,3 +1,4 @@
+import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
 import { getGameFormat, deriveRoomSize } from './formats';
 import {
   GROUP_SIZE_BOUNDS,
@@ -5,7 +6,7 @@ import {
   computeSwissRoundCount,
   seedFromGroupStageRound,
 } from './pooling';
-import { distributeRooms, validateRoomCap } from './room-distribution';
+import { validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
 import {
@@ -146,11 +147,11 @@ export function generateTournament(
     }
   }
   if (config.poolingPhase !== 'none') {
-    const rawQualAdv = Number.parseInt(form.qualAdv, 10);
-    if (!Number.isFinite(rawQualAdv) || rawQualAdv < 1) {
+    const requestedQualAdv = parseAdvanceToBracket(form.qualAdv);
+    if (requestedQualAdv === null) {
       return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
     }
-    config.qualAdv = Math.min(Math.max(rawQualAdv, floorMin), config.n);
+    config.qualAdv = clampAdvanceToBracket(requestedQualAdv, floorMin, config.n);
   }
 
   // Total pooling-phase round count for Qualification Table / Swiss --
@@ -192,24 +193,18 @@ export function generateTournament(
     nonCountingRounds = rawNonCountingRounds;
   }
 
-  // The number of units that will actually enter the bracket phase.
-  // Group Stage derives this independently -- groups × qualifiers per group,
-  // ignoring config.qualAdv entirely -- matching groupStagePoolingPhase's
-  // own seedTotal formula exactly; every other pooling phase uses
-  // config.qualAdv (already clamped above) or the raw confirmed count for
-  // 'none'. Every validation below that needs the real entrant count (not
-  // just the raw registration count) should use this, not config.qualAdv
-  // directly -- config.qualAdv is meaningless for Group Stage.
-  const bracketEntryCount =
-    config.poolingPhase === 'group-stage'
-      ? distributeRooms(config.n, {
-          min: GROUP_SIZE_BOUNDS.min,
-          max: GROUP_SIZE_BOUNDS.max,
-          ideal: config.groupSize,
-        }).length * config.qualifiersPerGroup
-      : config.poolingPhase !== 'none'
-        ? config.qualAdv
-        : config.n;
+  // The number of units that will actually enter the bracket phase (see
+  // bracket-entry.ts; Group Stage derives it independently of config.qualAdv,
+  // matching groupStagePoolingPhase's own seedTotal formula). Every validation
+  // below that needs the real entrant count should use this, not
+  // config.qualAdv, which is meaningless for Group Stage.
+  const bracketEntryCount = resolveBracketEntryCount({
+    poolingPhase: config.poolingPhase,
+    confirmedCount: config.n,
+    qualAdv: config.qualAdv,
+    groupSize: config.groupSize,
+    qualifiersPerGroup: config.qualifiersPerGroup,
+  });
 
   const oddCountStrategy = format.supportedOddCountStrategies?.length
     ? form.oddCountStrategy || undefined
@@ -227,10 +222,12 @@ export function generateTournament(
   if (schedule === 'waterfall-bracket') {
     if (!form.waterfallGraph.trim()) {
       return generationError(
-        'Waterfall bracket needs its rounds and routing written out in the "Waterfall bracket graph" box below the settings. The grey text there is only an example and isn\'t used — click "Insert example" to start from it, then edit it to match your bracket.',
+        'Waterfall bracket needs its rounds and routing set up in the "Waterfall bracket graph" section below the settings. Start a blank graph there, or load one of the examples, then route every rank.',
       );
     }
-    const parsedGraph = parseWaterfallGraph(form.waterfallGraph);
+    // Lenient parse so a graph that is still being built (rounds but no
+    // routes yet) reaches the validator, whose messages say what is missing.
+    const parsedGraph = parseWaterfallGraph(form.waterfallGraph, { allowIncomplete: true });
     if (!parsedGraph.ok) return generationError(parsedGraph.error);
     const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, {
       roomSize,

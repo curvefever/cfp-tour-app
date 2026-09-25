@@ -1162,6 +1162,21 @@ SemiB: 1-4->Final, 5-8->eliminated
     }
   });
 
+  it('says which rooms still have no routing when the graph has rounds but no routes yet', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 16, players: names(16) });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: 'ROUNDS:\nR1 = 2x8\nFinal = 8 FINAL\n\nROUTES:',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('has no ROUTES line');
+      expect(result.message).not.toContain('No ROUTES: section found');
+    }
+  });
+
   // The exact configuration an organiser reported failing: 24 FFA players,
   // fixed-draw qualification table with 1 non-counting round, 16 advancing,
   // a 3-game Final -- with a 16-entrant repechage graph written for it.

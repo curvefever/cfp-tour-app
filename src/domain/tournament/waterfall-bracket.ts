@@ -84,8 +84,10 @@ export interface RawWaterfallGraph {
   routeLines: RawRouteLine[];
 }
 
-const LABEL_PATTERN = /^[A-Za-z0-9]+$/;
-const ELIMINATED = 'eliminated';
+export const LABEL_PATTERN = /^[A-Za-z0-9]+$/;
+export const ELIMINATED = 'eliminated';
+/** Rooms are addressed by a single letter in ROUTES, so a round can have at most 26. */
+export const MAX_ROOMS_PER_ROUND = 26;
 
 function ok<T>(value: T): WaterfallParseResult<T> {
   return { ok: true, value };
@@ -99,11 +101,19 @@ function letterToRoomIndex(letter: string): number | null {
   return letter.toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0) + 1;
 }
 
-function roomIndexToLetter(room: number): string {
+export function roomIndexToLetter(room: number): string {
   return String.fromCharCode('A'.charCodeAt(0) + room - 1);
 }
 
-function splitSections(text: string): WaterfallParseResult<{ roundsLines: string[]; routesLines: string[] }> {
+export interface WaterfallParseOptions {
+  /** Accept a graph that has no rounds or no route lines yet (the editor's in-progress draft), instead of rejecting it. */
+  allowIncomplete?: boolean;
+}
+
+function splitSections(
+  text: string,
+  options: WaterfallParseOptions,
+): WaterfallParseResult<{ roundsLines: string[]; routesLines: string[] }> {
   const lines = text.split(/\r?\n/);
   let section: 'none' | 'rounds' | 'routes' = 'none';
   const roundsLines: string[] = [];
@@ -124,11 +134,13 @@ function splitSections(text: string): WaterfallParseResult<{ roundsLines: string
     else if (section === 'routes') routesLines.push(line);
     else return err(`Line "${line}" appears before a ROUNDS: or ROUTES: section header.`);
   }
-  if (roundsLines.length === 0) {
-    return err('No ROUNDS: section found, or it has no round declarations.');
-  }
-  if (routesLines.length === 0) {
-    return err('No ROUTES: section found, or it has no routing rules.');
+  if (!options.allowIncomplete) {
+    if (roundsLines.length === 0) {
+      return err('No ROUNDS: section found, or it has no round declarations.');
+    }
+    if (routesLines.length === 0) {
+      return err('No ROUTES: section found, or it has no routing rules.');
+    }
   }
   return ok({ roundsLines, routesLines });
 }
@@ -259,8 +271,11 @@ function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
   return ok({ label, room, bands });
 }
 
-export function parseWaterfallGraph(text: string): WaterfallParseResult<RawWaterfallGraph> {
-  const sections = splitSections(text);
+export function parseWaterfallGraph(
+  text: string,
+  options: WaterfallParseOptions = {},
+): WaterfallParseResult<RawWaterfallGraph> {
+  const sections = splitSections(text, options);
   if (!sections.ok) return sections;
   const { roundsLines, routesLines } = sections.value;
 
@@ -287,7 +302,7 @@ export function parseWaterfallGraph(text: string): WaterfallParseResult<RawWater
   return ok({ roundLines, routeLines });
 }
 
-function expandRankTokens(tokens: string[]): WaterfallParseResult<number[]> {
+export function expandRankTokens(tokens: string[]): WaterfallParseResult<number[]> {
   const ranks: number[] = [];
   for (const token of tokens) {
     const rangeMatch = token.match(/^(\d+)-(\d+)$/);
@@ -343,7 +358,8 @@ function buildRoomDestinations(
 
 export function validateAndOrderWaterfallGraph(
   graph: RawWaterfallGraph,
-  options: { roomSize: RoomSize; entrantCount: number },
+  /** `entrantCount` is left out while it isn't known yet (no roster loaded); rule 9 is then skipped. */
+  options: { roomSize: RoomSize; entrantCount?: number },
 ): WaterfallParseResult<OrderedWaterfallGraph> {
   const { roundLines, routeLines } = graph;
   const { roomSize, entrantCount } = options;
@@ -559,7 +575,7 @@ export function validateAndOrderWaterfallGraph(
 
   // Rule 9: the entry round's declared total must match the real entrant count.
   const entryTotal = totalByLabel.get(entryRound.label.toLowerCase()) as number;
-  if (entryTotal !== entrantCount) {
+  if (entrantCount !== undefined && entryTotal !== entrantCount) {
     return err(
       `The starting round "${entryRound.label}" declares ${entryTotal} player(s), but ${entrantCount} are actually entering this bracket phase -- these must match exactly.`,
     );
