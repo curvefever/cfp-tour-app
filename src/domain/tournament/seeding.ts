@@ -1,4 +1,5 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
+import { lexicographicMinAssignment } from './assignment';
 import type { RandomSource } from './runtime';
 import type {
   PendingBracketSeed,
@@ -406,16 +407,23 @@ export interface WaveMember {
 }
 
 /**
- * Tries every way (roomNumbers.length! permutations -- trivially small,
- * roomCount is never large enough in this app for this to matter) to assign
- * `members` (one candidate per room this wave) to `roomNumbers`, and picks
- * whichever minimizes a weighted blend of (a) new repeat-pairs against
- * `roomHistory`, recency-weighted, and (b) how far this choice pushes each
- * target room's running tierRank total from the mean across every room in
- * the next round (not just this wave's subset -- rooms untouched this wave
- * keep their prior total). `diversityWeight`/`balanceWeight` set the blend;
- * see semisApproachProgress for how callers derive them. Deterministic:
- * exact ties are broken by permutation-generation order.
+ * Assigns `members` (one candidate per room this wave) to `roomNumbers`,
+ * picking whichever assignment minimizes a weighted blend of (a) new
+ * repeat-pairs against `roomHistory`, recency-weighted, and (b) how far this
+ * choice pushes each target room's running tierRank total from the mean
+ * across every room in the next round (not just this wave's subset -- rooms
+ * untouched this wave keep their prior total). `diversityWeight`/
+ * `balanceWeight` set the blend; see semisApproachProgress for how callers
+ * derive them.
+ *
+ * Both terms split into independent (member, room) costs -- a room's repeat
+ * score depends only on the member joining it, and its balance term only on
+ * `|soFar + tierRank - mean|`, where `mean` is the same whatever the
+ * assignment -- so this is a linear assignment problem, solved exactly and in
+ * O(k^3) by lexicographicMinAssignment instead of trying every permutation
+ * (which froze for waves of ~10+ rooms). Deterministic: exact ties go to the
+ * lexicographically smallest room sequence (member 0's earliest room, then
+ * member 1's, ...), the same assignment the old exhaustive search kept.
  */
 export function assignWaveToRooms(
   members: WaveMember[],
@@ -435,43 +443,27 @@ export function assignWaveToRooms(
       `assignWaveToRooms: members.length (${members.length}) must equal roomNumbers.length (${roomNumbers.length}).`,
     );
   }
-  let best: { assignment: Array<{ name: string; room: number }>; cost: number } | null = null;
-  for (const perm of permutationsOf(roomNumbers)) {
-    let repeatScore = 0;
-    let balanceCost = 0;
-    const wouldBeTotals = new Map(
-      options.allRoomNumbers.map((room) => [room, roomBalanceSoFar.get(room) ?? 0]),
-    );
-    for (const [index, member] of members.entries()) {
-      const room = perm[index];
+  const totalRooms = new Set([...options.allRoomNumbers, ...roomNumbers]);
+  let totalBalance = members.reduce((sum, member) => sum + member.tierRank, 0);
+  for (const room of totalRooms) totalBalance += roomBalanceSoFar.get(room) ?? 0;
+  const mean = totalBalance / (totalRooms.size || 1);
+
+  const cost = members.map((member) =>
+    roomNumbers.map((room) => {
+      let repeatScore = 0;
       for (const existing of roomMembersSoFar.get(room) ?? []) {
-        const key = roomPairKey(member.name, existing);
-        const lastRound = options.roomHistory[key];
+        const lastRound = options.roomHistory[roomPairKey(member.name, existing)];
         if (lastRound === undefined) continue;
         repeatScore += recencyWeight(options.targetRoundIndex - lastRound);
       }
-      wouldBeTotals.set(room, (wouldBeTotals.get(room) ?? 0) + member.tierRank);
-    }
-    const totals = [...wouldBeTotals.values()];
-    const mean = totals.reduce((sum, value) => sum + value, 0) / (totals.length || 1);
-    for (const total of totals) balanceCost += Math.abs(total - mean);
-
-    const cost = options.diversityWeight * repeatScore + options.balanceWeight * balanceCost;
-    if (!best || cost < best.cost) {
-      best = { assignment: members.map((member, index) => ({ name: member.name, room: perm[index] })), cost };
-    }
-  }
-  return best?.assignment ?? [];
-}
-
-function permutationsOf<T>(values: T[]): T[][] {
-  if (values.length <= 1) return [values];
-  const result: T[][] = [];
-  for (let index = 0; index < values.length; index += 1) {
-    const rest = [...values.slice(0, index), ...values.slice(index + 1)];
-    for (const permutation of permutationsOf(rest)) result.push([values[index], ...permutation]);
-  }
-  return result;
+      const balanceCost = Math.abs((roomBalanceSoFar.get(room) ?? 0) + member.tierRank - mean);
+      return options.diversityWeight * repeatScore + options.balanceWeight * balanceCost;
+    }),
+  );
+  return lexicographicMinAssignment(cost).map((column, index) => ({
+    name: members[index].name,
+    room: roomNumbers[column],
+  }));
 }
 
 /**
