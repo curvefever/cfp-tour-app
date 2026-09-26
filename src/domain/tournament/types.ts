@@ -49,6 +49,8 @@ export interface GameFormatDefinition {
   defaultRoomSize?: RoomSize;
   idealRoomSize?: number;
   supportedOddCountStrategies?: OddCountStrategyKey[];
+  /** What an unset odd-count strategy means for this format (only set where the format has options). */
+  defaultOddCountStrategy?: OddCountStrategyKey;
 }
 
 export interface GroupStageMatch {

@@ -51,7 +51,7 @@ function raceConfigs(): SweepConfig[] {
     const counts = gameFormat === 'team-3v3' ? [12, 13, 16, 19, 24, 33] : [12, 13, 16, 19, 24, 33, 40];
     for (const count of counts) {
       for (const poolingPhase of [...poolings, 'swiss'] as const) {
-        for (const oddCountStrategy of ['bye', 'none', ''] as const) {
+        for (const oddCountStrategy of ['bye', 'none'] as const) {
           list.push({
             label: `${gameFormat} ${count} race ${poolingPhase} strategy '${oddCountStrategy}'`,
             count,

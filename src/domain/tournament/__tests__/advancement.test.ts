@@ -1280,22 +1280,18 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     ['fairpoints', {}],
     ['positional-points', { scoring: 'positional-points' as const, positionalPointsTable: '10,8' }],
   ])(
-    'qualification table 1v1 (11 players, odd-count strategy unset, so one unit starts alone) with %s: the lone unit gets no result for that round',
+    'qualification table 1v1 (12 players, one removed so its opponent is left alone) with %s: the lone unit gets no result for that round',
     (_label, scoringSetup) => {
-      let live = generate(11, {
+      let live = generate(12, {
         gameFormat: 'individual-1v1',
         poolingPhase: 'qual-table',
         qualAdv: '4',
         ...scoringSetup,
       });
-      const alone = live.assignments[0].filter(
-        (entry) =>
-          entry.room !== null &&
-          live.assignments[0].filter((other) => other.room === entry.room).length === 1,
-      );
-      expect(alone).toHaveLength(1);
+      const { removed, lone } = pairRoom(live, 0);
+      live = removeRosterUnit(live, removed);
       live = scoreRound(live, 0);
-      const standing = standingOf(live, alone[0].name);
+      const standing = standingOf(live, lone);
       expect(standing?.played).toBe(0);
       expect(standing?.totalFP).toBeNull();
       expect(computeQualificationStandings(live).filter((entry) => entry.played === 1)).toHaveLength(10);

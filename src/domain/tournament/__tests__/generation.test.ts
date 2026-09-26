@@ -1386,9 +1386,9 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
   }
 
   it.each([
-    ['individual-1v1', 11, { oddCountStrategy: '' as const }],
+    ['individual-1v1', 11, { oddCountStrategy: 'bye' as const }],
     ['individual-1v1', 13, { oddCountStrategy: 'bye' as const }],
-    ['team-3v3', 11, { oddCountStrategy: '' as const }],
+    ['team-3v3', 11, { oddCountStrategy: 'bye' as const }],
     ['team-3v3', 13, { oddCountStrategy: 'flex' as const }],
   ] as const)(
     '%s, %i units, strategy %j: every Swiss round declares floor(n/2) rooms of 2 plus one bye, and round 0 seats exactly that',
@@ -1406,7 +1406,7 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
   );
 
   it('fixed draws: every Swiss round declares exactly the rooms and byes its published draw holds', () => {
-    const state = generateSwiss('individual-1v1', 11, { oddCountStrategy: '', drawPublication: 'fixed' });
+    const state = generateSwiss('individual-1v1', 11, { oddCountStrategy: 'bye', drawPublication: 'fixed' });
     for (const round of state.rounds.filter((entry) => entry.isSwiss)) {
       const entries = round.fixedRoomAssignments ?? [];
       expect(round.rooms).toEqual(roomSizesOf(entries));
@@ -1423,7 +1423,7 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
     expect(state.assignments[0].some((entry) => entry.room === null)).toBe(false);
   });
 
-  it('"None" is still refused for an odd Swiss field (so its phantom room can only come from an unset or Flex strategy)', () => {
+  it('"None" is still refused for an odd Swiss field (so its phantom room can only come from a Flex strategy)', () => {
     const result = generateTournament(
       createDefaultTournamentState({ confirmedCount: 11, players: names(11) }),
       createDefaultSetup({

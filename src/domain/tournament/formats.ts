@@ -41,6 +41,7 @@ export const GAME_FORMATS: Readonly<
     teamSize: 3,
     idealRoomSize: 2,
     supportedOddCountStrategies: ["none", "bye", "flex"],
+    defaultOddCountStrategy: "bye",
   },
   "individual-1v1": {
     key: "individual-1v1",
@@ -49,6 +50,7 @@ export const GAME_FORMATS: Readonly<
     unitLabelPlural: "Players",
     idealRoomSize: 2,
     supportedOddCountStrategies: ["none", "bye"],
+    defaultOddCountStrategy: "bye",
   },
 };
 
@@ -82,6 +84,20 @@ export function getGameFormat(
   key: GameFormatKey,
 ): Readonly<GameFormatDefinition> | undefined {
   return GAME_FORMATS[key];
+}
+
+/**
+ * The odd-count strategy a format actually applies: the chosen one, or the
+ * format's default when unset (""), or undefined for formats without odd-count
+ * options. Setup's display and generation both go through this, so what is
+ * shown is what is applied.
+ */
+export function resolveOddCountStrategy(
+  format: Readonly<GameFormatDefinition>,
+  value: OddCountStrategyKey | "" | undefined,
+): OddCountStrategyKey | undefined {
+  if (!format.supportedOddCountStrategies?.length) return undefined;
+  return value || format.defaultOddCountStrategy;
 }
 
 export function deriveRoomSize(

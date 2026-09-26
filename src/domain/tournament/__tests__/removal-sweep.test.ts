@@ -32,14 +32,13 @@ function configs(): SweepConfig[] {
     for (const count of [13, 33, 40]) {
       for (const scheduleLogic of [...SCHEDULES_ANY, 'double-elimination'] as const) {
         for (const poolingPhase of poolings) {
-          for (const oddCountStrategy of ['', 'bye'] as const) {
-            list.push({
-              label: `${gameFormat} ${count} ${scheduleLogic} ${poolingPhase} strategy '${oddCountStrategy}'`,
-              count,
-              teams: gameFormat === 'team-3v3',
-              setup: { gameFormat, scheduleLogic, poolingPhase, oddCountStrategy },
-            });
-          }
+          list.push({
+            label: `${gameFormat} ${count} ${scheduleLogic} ${poolingPhase}`,
+            count,
+            teams: gameFormat === 'team-3v3',
+            // Unset means the format's default ("Bye"), so no separate run.
+            setup: { gameFormat, scheduleLogic, poolingPhase, oddCountStrategy: 'bye' },
+          });
         }
       }
     }

@@ -1,5 +1,5 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
-import { getGameFormat, deriveRoomSize } from './formats';
+import { getGameFormat, deriveRoomSize, resolveOddCountStrategy } from './formats';
 import {
   GROUP_SIZE_BOUNDS,
   QUALIFICATION_ROUNDS,
@@ -201,9 +201,7 @@ export function generateTournament(
     qualifiersPerGroup: config.qualifiersPerGroup,
   });
 
-  const oddCountStrategy = format.supportedOddCountStrategies?.length
-    ? form.oddCountStrategy || undefined
-    : undefined;
+  const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
   const roomSize = deriveRoomSize(format, oddCountStrategy);
 
   // Waterfall's whole schedule is the organiser's own hand-authored graph --

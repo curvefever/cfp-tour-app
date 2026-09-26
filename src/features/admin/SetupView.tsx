@@ -6,6 +6,7 @@ import {
   TEAM_SCORING_RULE_LABELS,
   deriveRoomSize,
   getGameFormat,
+  resolveOddCountStrategy,
 } from '../../domain/tournament/formats';
 import { generateTournament } from '../../domain/tournament/generation';
 import { resetRoster } from '../../domain/tournament/mutations';
@@ -95,7 +96,7 @@ export function SetupView() {
 
   function changeFormat(value: string) {
     const nextFormat = getGameFormat(value as PersistedSetup['gameFormat']);
-    const defaultOdd = nextFormat?.supportedOddCountStrategies?.[0] ?? '';
+    const defaultOdd = (nextFormat && resolveOddCountStrategy(nextFormat, '')) ?? '';
     const compatible = nextFormat?.idealRoomSize === 2 && defaultOdd !== 'flex';
     updateSetup((current) => ({
       ...current,
@@ -199,10 +200,7 @@ export function SetupView() {
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';
   const isWaterfallBracket = setup.scheduleLogic === 'waterfall-bracket';
   const derivedRoomSize = format
-    ? deriveRoomSize(
-        format,
-        format.supportedOddCountStrategies?.length ? setup.oddCountStrategy || undefined : undefined,
-      )
+    ? deriveRoomSize(format, resolveOddCountStrategy(format, setup.oddCountStrategy))
     : { min: 1, max: 1, ideal: 1 };
   // A shared Final's winners-bracket share: what the last elimination round target must be.
   const sharedFinalShare =
@@ -365,7 +363,7 @@ export function SetupView() {
             <Field label='Odd-count strategy'>
               <Select
                 id='cfg-odd-count-strategy'
-                value={setup.oddCountStrategy || format.supportedOddCountStrategies[0]}
+                value={resolveOddCountStrategy(format, setup.oddCountStrategy)}
                 onChange={(e) => changeOddCountStrategy(e.target.value)}
               >
                 {format.supportedOddCountStrategies.map((key) => (

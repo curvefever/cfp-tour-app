@@ -508,14 +508,14 @@ describe('real tournament states survive the Firebase round trip', () => {
   }
 
   /** Snapshots the state after every round; the round-tripped copy must equal the original and advance identically. */
-  function checkEveryRound(config: SweepConfig, removal?: Removal): TournamentState {
+  function checkEveryRound(config: SweepConfig, removals: Removal[] = []): TournamentState {
     let state = buildState(config) as TournamentState;
     const teamSize = config.teams ? 3 : 0;
-    let removed = !removal;
+    const pending = [...removals];
     for (let guard = 0; guard < 40; guard += 1) {
-      if (!removed && removal && state.curRound === removal.at) {
+      for (const removal of pending.filter((entry) => entry.at === state.curRound)) {
+        pending.splice(pending.indexOf(removal), 1);
         state = removeRosterUnit(state, removal.victim(state));
-        removed = true;
       }
       const roundTripped = throughFirebase(clone(state)) as TournamentState;
       expect(roundTripped, `${config.label}: state at round index ${state.curRound}`).toEqual(clone(state));
@@ -572,19 +572,18 @@ describe('real tournament states survive the Firebase round trip', () => {
   });
 
   it('1v1 12 "Bye" with a removal in the WB final (the walkover)', () => {
-    const state = checkEveryRound(oneVsOne(12, 'double-elimination', 'bye', { poolingPhase: 'none' }), {
-      at: 10,
-      victim: firstSeated,
-    });
+    const state = checkEveryRound(oneVsOne(12, 'double-elimination', 'bye', { poolingPhase: 'none' }), [
+      { at: 10, victim: firstSeated },
+    ]);
     expect(state.rounds[state.curRound].bracket).toBe('grand-final');
     expect(state.rounds.some((round) => round.rooms.length === 0)).toBe(true);
   });
 
-  it('1v1 33, strategy unset, with a removal in the first WB round (the empty walkover)', () => {
-    const state = checkEveryRound(oneVsOne(33, 'double-elimination', '', { poolingPhase: 'none' }), {
-      at: 2,
-      victim: firstSeated,
-    });
+  it('1v1 10 "Bye" with two removals in the first WB round (the empty walkover)', () => {
+    const state = checkEveryRound(oneVsOne(10, 'double-elimination', 'bye', { poolingPhase: 'none' }), [
+      { at: 2, victim: firstSeated },
+      { at: 2, victim: firstSeated },
+    ]);
     expect(state.rounds[state.curRound].bracket).toBe('grand-final');
     expect(state.rounds.some((round) => round.players === 0)).toBe(true);
   });
