@@ -57,23 +57,26 @@ function describeRound(round: TournamentRound): string {
 function tooFewUnitsError(round: TournamentRound, poolSize: number): { error: string } {
   const label = describeRound(round);
   const advice = 'Add a replacement or reserve before advancing.';
-  if (poolSize <= 0) return { error: `Nobody would reach ${label}. ${advice}` };
   if (round.isFinal) {
-    return { error: `Only ${poolSize} unit would reach ${label}, which needs at least 2 to play. ${advice}` };
+    const reaching = poolSize <= 0 ? 'Nobody' : `Only ${poolSize} unit`;
+    return { error: `${reaching} would reach ${label}, which needs at least 2 to play. ${advice}` };
   }
   return {
     error: `Only ${poolSize} unit would reach ${label}, which is meant to cut the field down to ${round.advTotal}; a unit playing alone can't be eliminated. ${advice}`,
   };
 }
 
-/** A round whose only occupants are units on a bye: no rooms, the byes simply advance. */
+/**
+ * A round with nobody to play: no rooms, and only the units on a bye (possibly
+ * none) advance. A no-elimination round keeps its null advPerRoom.
+ */
 function walkoverRound(round: TournamentRound): TournamentRound {
   return {
     ...round,
     rooms: [],
     players: round.byeCount,
     advTotal: round.byeCount,
-    advPerRoom: 0,
+    advPerRoom: round.advPerRoom === null ? null : 0,
     luckyCount: 0,
   };
 }
@@ -101,9 +104,9 @@ function fittedAdvTotal(round: TournamentRound, poolSize: number): number | null
  * are re-derived the way generation shaped them (a Final is always one
  * room); a no-elimination round advances everyone, an elimination round
  * keeps its advTotal target and re-splits it (see fittedAdvTotal for a pool
- * too small to keep it). A round left with only units on a bye is a
- * walkover. Returns an error when nobody reaches the round, one unit reaches
- * a non-Final elimination round, or at most one unit reaches the Final.
+ * too small to keep it). A round nobody reaches, or only units on a bye,
+ * is a walkover with no rooms (never the Final). Returns an error when one
+ * unit reaches a non-Final elimination round, or at most one reaches the Final.
  */
 export function fitRoundToPool(
   round: TournamentRound,
@@ -111,8 +114,7 @@ export function fitRoundToPool(
   roomSize: RoomSize,
 ): TournamentRound | { error: string } {
   if (round.rooms.reduce((total, size) => total + size, 0) === poolSize) return round;
-  if (poolSize <= 0)
-    return round.byeCount > 0 && !round.isFinal ? walkoverRound(round) : tooFewUnitsError(round, poolSize);
+  if (poolSize <= 0) return round.isFinal ? tooFewUnitsError(round, poolSize) : walkoverRound(round);
   const rooms = round.isFinal ? [poolSize] : distributeRooms(poolSize, roomSize);
   const players = poolSize + round.byeCount;
   if (round.advPerRoom === null) return { ...round, rooms, players, advTotal: players };

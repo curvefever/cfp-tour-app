@@ -173,4 +173,18 @@ describe('race double elimination: an odd pool gets a bye whatever the odd-count
     expect(played.outcome).toEqual({ kind: 'ok' });
     expect(played.state.rounds[played.state.curRound].bracket).toBe('grand-final');
   });
+
+  it('1v1 33, strategy unset: a removal that leaves the first losers round nobody to play skips it', () => {
+    const start = buildState(raceOf(33, 'none', '')) as TournamentState;
+    const firstWinners = start.rounds.findIndex((round) => round.bracket === 'winners');
+    const emptied = start.rounds[firstWinners].losersTo as number;
+    // Planned as a lone-unit room fed by the one drop of the first winners round.
+    expect(start.rounds[emptied].players).toBe(1);
+
+    const played = playWithRemovals(start, 0, [firstWinners]);
+    expect(played.outcome).toEqual({ kind: 'ok' });
+    expect(played.state.rounds[played.state.curRound].bracket).toBe('grand-final');
+    expect(played.state.rounds[emptied]).toMatchObject({ rooms: [], players: 0, advTotal: 0 });
+    expect(played.state.assignments[emptied] ?? []).toEqual([]);
+  });
 });

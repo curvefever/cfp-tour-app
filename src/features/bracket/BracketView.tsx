@@ -724,7 +724,11 @@ function RoundBody({
 }) {
   const round = state.rounds[roundIndex];
   const assignments = state.assignments[roundIndex] ?? [];
-  if (!assignments.length) return <PlaceholderRound round={round} state={state} projected={projected} />;
+  if (!assignments.length) {
+    // A round already reached with nobody in it (a removal left it no units).
+    if (roundIndex <= state.curRound) return <div className='text-muted'>Nobody reached this round.</div>;
+    return <PlaceholderRound round={round} state={state} projected={projected} />;
+  }
   if (round.isFinal)
     return (
       <FinalColumn

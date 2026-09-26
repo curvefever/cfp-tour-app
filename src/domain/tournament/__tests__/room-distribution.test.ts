@@ -270,9 +270,37 @@ describe('fitRoundToPool', () => {
     });
   });
 
-  it('still errors when nobody reaches a round with no bye to advance', () => {
-    const fitted = fitRoundToPool(eliminationRound, 0, FFA_ROOM_SIZE);
-    expect((fitted as { error: string }).error).toContain('Nobody would reach Round 4');
+  it('a round nobody reaches (no bye either) is an empty walkover: no rooms, nobody advances', () => {
+    expect(fitRoundToPool(eliminationRound, 0, FFA_ROOM_SIZE)).toMatchObject({
+      rooms: [],
+      players: 0,
+      advTotal: 0,
+      advPerRoom: 0,
+      luckyCount: 0,
+    });
+  });
+
+  it('a no-elimination round nobody reaches keeps a null advPerRoom', () => {
+    const round = buildRound({ roundNum: 2, isNoElim: true, players: 4, rooms: [2, 2], advTotal: 4 });
+    expect(fitRoundToPool(round, 0, HEAD_TO_HEAD_ROOM_SIZE)).toMatchObject({
+      rooms: [],
+      players: 0,
+      advTotal: 0,
+      advPerRoom: null,
+    });
+  });
+
+  it('still errors when nobody reaches the Final', () => {
+    const final = buildRound({
+      roundNum: 9,
+      isFinal: true,
+      players: 8,
+      rooms: [8],
+      advPerRoom: 1,
+      advTotal: 1,
+    });
+    const fitted = fitRoundToPool(final, 0, FFA_ROOM_SIZE);
+    expect((fitted as { error: string }).error).toContain('Nobody would reach the Final');
   });
 
   it('still errors when nobody but a bye reaches the Final', () => {

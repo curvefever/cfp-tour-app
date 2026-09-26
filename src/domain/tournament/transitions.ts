@@ -224,10 +224,9 @@ function isMalformedDoubleEliminationFinal(finalRound: TournamentRound, arriving
 }
 
 function doubleEliminationFinalMessage(finalRound: TournamentRound, actual: number): string {
+  const sharedFinalSeats = actual < 2 ? 'at least 2' : `at most ${finalRound.players}`;
   const required =
-    finalRound.bracket === 'grand-final'
-      ? `the required ${finalRound.players}`
-      : `at most ${finalRound.players}`;
+    finalRound.bracket === 'grand-final' ? `the required ${finalRound.players}` : sharedFinalSeats;
   return `Can't advance into the Final — ${actual} entrants would arrive instead of ${required}. A mid-tournament withdrawal has likely thrown off the losers bracket's balance too deeply for the usual single-bye recovery to fix automatically; check Manage Teams, or add a replacement, before advancing further.`;
 }
 
