@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: shared-Final double elimination with explicit targets couldn't reach the Final (done — 2026-09-26)
+
+**Context.** Known issue found in the review of the double-elimination removal fix. With "Advanced round overrides" → **Elimination round targets** set, shared-Final double elimination never reached its Final, even with no removal: for FFA 37 with no pooling (Final 8, LB qualifiers 2) the targets `16,16,12`, `24,24,16,16` and `30,20,20,10` sent 14, 18 and 12 entrants to a Final of 8, and Next Round blocked with `malformed-final` ("... would arrive instead of at most 8").
+
+**Cause.** For the shared-Final variant the list *replaces the whole winners-bracket curve* (`sharedFinalDoubleEliminationBracketPhase`: `winnersTargets = config.explicitTargets`). The last winners-bracket round's `winnersTo` is the Final itself, so the last target is exactly how many WB units enter the Final, and it must equal `finalSize - lbQualifiers` (the automatic curve always ends there). `generateTournament` only checked `lastTarget < floor`, where the floor is `winnersQualifiers` for this variant, so any larger last value passed. Single elimination is not affected: after its list it always appends a Semis and a Final, its floor (the Semis size) is a true minimum, and since #48 a Semis that receives more units simply grows.
+
+**Decision (organiser, 2026-09-26).** The last target must equal the Final's winners-bracket share, with a clear error naming the number. The list stays exactly the WB rounds the organiser typed; nothing is added automatically (rejected: appending automatic WB rounds after the list).
+
+**Change.**
+- `generation.ts`, the elimination-target block: for `double-elimination-shared-final`, `lastTarget !== winnersQualifiers` is refused with "The last elimination round target (16) must be exactly 6 for a shared Final: the 8-seat Final takes 6 from the winners bracket and 2 from the losers bracket (LB qualifiers). End the list at 6, or change the Final size override / LB qualifiers." (the real Final size and LB qualifiers). The single-elimination branch keeps the existing `lastTarget < floor` check, unchanged. `sharedFinalDoubleEliminationBracketPhase` is untouched (its targets remain "pre-validated by the caller"; the direct builder test `explicitTargets: [28, 20]` bypasses generation and stays valid).
+- `SetupView.tsx`: with the shared-Final variant selected, the "Elimination round targets" field gains one line saying the list must end at the Final's winners-bracket share (Final size − LB qualifiers), with the current number when it can be computed from the Final size override (or the format's room size) and the LB qualifiers. The single-elimination hint is unchanged. The `waterfallRoomSize` was renamed `derivedRoomSize` so the hint can reuse it (a rename only).
+
+**Testing.** 1010 tests (up from 999). `generation.test.ts`: refuses `24,24,16,16` (FFA 37, Final 8, LB qualifiers 2) with the error naming 6; refuses a list ending one above the share (`16,10,7`) and one below (`16,10,5`); with a different share (Final override 6, LB qualifiers 3) `16,8,3` generates and `16,8,4` is refused; single elimination with a last target above its Semis size (`24,20`, FFA 37) still generates; the existing "respecting the winners-bracket-qualifiers floor" test (ending at 6) still passes. Play-through in `double-elimination-removal.test.ts`: lists that end at the share (FFA 37, no pooling: `24,24,16,16,6`, `30,20,20,10,6`, `16,16,12,6`, `24,6`; FFA 23 with a Qualification Table and `qualAdv` 16: `12,6`; 2v2v2v2 with 13 teams, a Final of 4 with 2 LB qualifiers so the share is 2: `8,4,2`) generate a winners bracket equal to the list and play to a **full** Final with no removal and with one removal at every round index before the Final; none failed for any other reason (no LB-routing throw and no plateau problem came up). Mutation checks: restoring `lastTarget < floor` for the shared variant fails 3 generation tests; comparing against `prospectiveFinalSize` instead of the share fails 9 (the six play-throughs, the existing floor test and two of the new ones). `eslint`, `prettier` and `tsc` clean on the changed files (the first pass had a use-before-declaration of `derivedRoomSize` and two lint errors in the new test, all fixed).
+
+**Live check on the test site.** Not yet run (nothing pushed).
+
+**Out of scope.** An automatic tail after the list; any single-elimination change; any LB-routing issue found by the play-through (none was).
+
+---
+
 ## Fix: Firebase drops empty arrays and objects, so synced state came back malformed (done — 2026-09-26)
 
 **Found** during the live check of the double-elimination removal fix (see that entry): after a sync, `byes` came back as an object (`{"2": [...]}`) and `cloneForTransition` threw "e.byes.map is not a function", so Next Round never advanced. It needed no removal: 1v1 with 12 players, double elimination, "Bye" stopped at Round 2, and FFA with 17 players and a shared Final stopped at Round 4 (`luckyLosers`). `main` has the same code.
