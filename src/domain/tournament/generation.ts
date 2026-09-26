@@ -437,17 +437,23 @@ export function generateTournament(
         `The first elimination round target (${values[0]}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`} (${bracketEntryCount}).`,
       );
     }
-    const floor =
-      schedule === 'single-elimination' ? semisOverride || 2 * roomSize.ideal : (winnersQualifiers as number);
     const lastTarget = values[values.length - 1];
-    if (lastTarget < floor) {
-      const floorLabel =
-        schedule === 'single-elimination'
-          ? 'the Semis size'
-          : 'the winners-bracket qualifiers into the Final';
-      return generationError(
-        `The last elimination round target (${lastTarget}) must be at least ${floor} (${floorLabel}) — there'd be nothing left to feed the next phase.`,
-      );
+    if (schedule === 'double-elimination-shared-final') {
+      // The list is the whole winners-bracket curve and its last round feeds
+      // the Final directly, so its last value is exactly the Final's
+      // winners-bracket share, not a minimum.
+      if (lastTarget !== winnersQualifiers) {
+        return generationError(
+          `The last elimination round target (${lastTarget}) must be exactly ${winnersQualifiers} for a shared Final: the ${prospectiveFinalSize}-seat Final takes ${winnersQualifiers} from the winners bracket and ${lbQualifiers} from the losers bracket (LB qualifiers). End the list at ${winnersQualifiers}, or change the Final size override / LB qualifiers.`,
+        );
+      }
+    } else {
+      const floor = semisOverride || 2 * roomSize.ideal;
+      if (lastTarget < floor) {
+        return generationError(
+          `The last elimination round target (${lastTarget}) must be at least ${floor} (the Semis size) — there'd be nothing left to feed the next phase.`,
+        );
+      }
     }
     explicitTargets = values;
   }

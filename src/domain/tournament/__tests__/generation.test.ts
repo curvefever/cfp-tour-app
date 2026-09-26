@@ -489,6 +489,63 @@ describe('generateTournament -- elimination round-target override', () => {
     expect(winnersRounds.map((round) => round.advTotal)).toEqual([16, 10, 6]);
   });
 
+  describe('a shared Final: the last target must be exactly the winners-bracket share', () => {
+    const generateShared = (targets: string, finalOverride: string, lbQualifiers: string, count = 37) =>
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: count }),
+        {
+          ...createDefaultSetup({
+            gameFormat: 'ffa-individual',
+            scheduleLogic: 'double-elimination-shared-final',
+            finalOverride,
+            eliminationRoundTargets: targets,
+          }),
+          lbQualifiers,
+        },
+        createTournamentRuntime(),
+      );
+
+    it('refuses 24,24,16,16 for a Final of 8 with 2 LB qualifiers, naming the share 6', () => {
+      const result = generateShared('24,24,16,16', '8', '2');
+      expect(result.status).toBe('invalid');
+      if (result.status !== 'invalid') return;
+      expect(result.message).toContain('(16) must be exactly 6');
+      expect(result.message).toContain('8-seat Final takes 6 from the winners bracket and 2 from the losers');
+    });
+
+    it('refuses a list ending one above the share (16,10,7)', () => {
+      const result = generateShared('16,10,7', '8', '2', 19);
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') expect(result.message).toContain('(7) must be exactly 6');
+    });
+
+    it('still refuses a list ending below the share', () => {
+      const result = generateShared('16,10,5', '8', '2', 19);
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') expect(result.message).toContain('(5) must be exactly 6');
+    });
+
+    it('follows a different share: Final 6 with 3 LB qualifiers ends at 3', () => {
+      expect(generateShared('16,8,3', '6', '3').status).toBe('generated');
+      const refused = generateShared('16,8,4', '6', '3');
+      expect(refused.status).toBe('invalid');
+      if (refused.status === 'invalid') expect(refused.message).toContain('must be exactly 3');
+    });
+
+    it('leaves single elimination alone: a last target above the Semis size still generates', () => {
+      const result = generateTournament(
+        createDefaultTournamentState({ confirmedCount: 37 }),
+        createDefaultSetup({
+          gameFormat: 'ffa-individual',
+          scheduleLogic: 'single-elimination',
+          eliminationRoundTargets: '24,20',
+        }),
+        createTournamentRuntime(),
+      );
+      expect(result.status).toBe('generated');
+    });
+  });
+
   it('leaves the automatic curve untouched when the field is blank', () => {
     const state = createDefaultTournamentState({ confirmedCount: 37 });
     const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });

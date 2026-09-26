@@ -198,16 +198,20 @@ export function SetupView() {
   const isRace = setup.scheduleLogic === 'double-elimination';
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';
   const isWaterfallBracket = setup.scheduleLogic === 'waterfall-bracket';
-  const waterfallRoomSize = format
+  const derivedRoomSize = format
     ? deriveRoomSize(
         format,
         format.supportedOddCountStrategies?.length ? setup.oddCountStrategy || undefined : undefined,
       )
     : { min: 1, max: 1, ideal: 1 };
+  // A shared Final's winners-bracket share: what the last elimination round target must be.
+  const sharedFinalShare =
+    (Number.parseInt(setup.finalOverride, 10) || derivedRoomSize.ideal) -
+    (Number.parseInt(lbQualifiers, 10) || 0);
   const waterfallEntrantCount = bracketEntryCountFromSetup(
     setup,
     state.confirmedCount,
-    getMinimumBracketUnits('waterfall-bracket', waterfallRoomSize),
+    getMinimumBracketUnits('waterfall-bracket', derivedRoomSize),
   );
   return (
     <div id='panel-setup'>
@@ -553,6 +557,13 @@ export function SetupView() {
                         value={setup.eliminationRoundTargets}
                         onChange={(e) => change('eliminationRoundTargets', e.target.value)}
                       />
+                      {isShared ? (
+                        <p className='mt-1 text-xs text-muted'>
+                          The list is the whole winners bracket and must end at the Final's winners-bracket
+                          share (Final size − LB qualifiers
+                          {sharedFinalShare >= 1 ? `, currently ${sharedFinalShare}` : ''}).
+                        </p>
+                      ) : null}
                     </Field>
                     <Field
                       label={
@@ -668,7 +679,7 @@ export function SetupView() {
           <WaterfallGraphEditor
             entrantCount={waterfallEntrantCount}
             onChange={(text) => change('waterfallGraph', text)}
-            roomSize={waterfallRoomSize}
+            roomSize={derivedRoomSize}
             text={setup.waterfallGraph}
           />
           <p className='mt-3 text-xs text-muted'>

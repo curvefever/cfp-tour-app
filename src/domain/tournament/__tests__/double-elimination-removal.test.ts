@@ -188,3 +188,67 @@ describe('race double elimination: an odd pool gets a bye whatever the odd-count
     expect(played.state.assignments[emptied] ?? []).toEqual([]);
   });
 });
+
+describe('shared Final with explicit elimination targets ending at the Final share plays to a full Final', () => {
+  const ffa = (
+    count: number,
+    targets: string,
+    poolingPhase: 'none' | 'qual-table',
+    extra: Record<string, unknown> = {},
+  ): SweepConfig => ({
+    label: `FFA ${count} ${poolingPhase} targets ${targets}`,
+    count,
+    teams: false,
+    setup: {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'double-elimination-shared-final',
+      poolingPhase,
+      eliminationRoundTargets: targets,
+      ...extra,
+    },
+  });
+
+  const configs: SweepConfig[] = [
+    ffa(37, '24,24,16,16,6', 'none'),
+    ffa(37, '30,20,20,10,6', 'none'),
+    ffa(37, '16,16,12,6', 'none'),
+    ffa(37, '24,6', 'none'),
+    ffa(23, '12,6', 'qual-table', { qualAdv: '16' }),
+    {
+      // Final of 4 (room size ideal) with 2 LB qualifiers: the share is 2.
+      label: '2v2v2v2 13 teams targets 8,4,2',
+      count: 13,
+      teams: true,
+      setup: {
+        gameFormat: 'team-2v2v2v2',
+        scheduleLogic: 'double-elimination-shared-final',
+        poolingPhase: 'none',
+        eliminationRoundTargets: '8,4,2',
+      },
+    },
+  ];
+
+  it.each(configs.map((config) => [config.label, config] as const))('%s', (_label, config) => {
+    const start = buildState(config) as TournamentState;
+    expect(start).not.toBeNull();
+    // The list really is the winners-bracket curve.
+    expect(
+      start.rounds.filter((round) => round.bracket === 'winners').map((round) => round.advTotal),
+    ).toEqual(String(config.setup?.eliminationRoundTargets).split(',').map(Number));
+    const teamSize = config.teams ? 3 : 0;
+    const finalIndex = start.rounds.length - 1;
+    const finalSeats = start.rounds[finalIndex].players;
+    // No removal, then one removal at every round index before the Final.
+    for (const removalRounds of [[], ...Array.from({ length: finalIndex }, (_, index) => [index])]) {
+      const played = playWithRemovals(start, teamSize, removalRounds);
+      expect(
+        played.outcome.kind === 'ok' ? 'ok' : JSON.stringify(played.outcome),
+        `removal at ${removalRounds.join(',') || 'none'}`,
+      ).toBe('ok');
+      expect(
+        played.state.assignments[played.state.curRound],
+        `Final after a removal at ${removalRounds.join(',') || 'none'}`,
+      ).toHaveLength(finalSeats);
+    }
+  });
+});
