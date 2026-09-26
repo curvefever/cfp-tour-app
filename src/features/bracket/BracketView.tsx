@@ -44,6 +44,7 @@ import {
 } from '../../domain/tournament/scoring';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
+import { waterfallDestination } from '../../domain/tournament/waterfall-bracket';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
 import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -817,7 +818,9 @@ function RoundBody({
             {display.map((entry, index) => {
               const advances = cutoffAdvancing
                 ? cutoffAdvancing.has(entry.name)
-                : round.isNoElim || index < direct;
+                : round.isWaterfall
+                  ? waterfallDestination(round, room, index) !== null
+                  : round.isNoElim || index < direct;
               const lucky = luckyNames.includes(entry.name);
               const pending = showResults && pendingTieNames.has(entry.name);
               const result = pending

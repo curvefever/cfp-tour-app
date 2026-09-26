@@ -608,6 +608,17 @@ function buildOrderedGraph(
   return { rounds, routes };
 }
 
+/**
+ * The absolute round index a waterfall room's rank routes to, or null when
+ * that rank is eliminated or has no route at all (which
+ * advanceWaterfallBracket already treats as eliminated). `room` is 1-indexed,
+ * `rankIndex` 0-indexed -- the waterfallRoutes convention.
+ */
+export function waterfallDestination(round: TournamentRound, room: number, rankIndex: number): number | null {
+  const destination = round.waterfallRoutes?.[room - 1]?.[rankIndex];
+  return typeof destination === 'number' ? destination : null;
+}
+
 export interface WaterfallBracketConfig {
   graph: OrderedWaterfallGraph;
   finalsGames: number;

@@ -21,6 +21,7 @@ import {
   type SeedCandidate,
 } from './seeding';
 import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
+import { waterfallDestination } from './waterfall-bracket';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
@@ -395,13 +396,12 @@ function advanceWaterfallBracket(
   const state = cloneForTransition(input);
   const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
   const tiers = buildAdvancementTiers(state, roundIndex, names);
-  const routes = round.waterfallRoutes ?? [];
 
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const tier of tiers) {
     for (const member of tier.members) {
-      const destination = routes[member.sourceRoom - 1]?.[tier.rank];
-      if (destination === undefined || destination === 'eliminated') continue;
+      const destination = waterfallDestination(round, member.sourceRoom, tier.rank);
+      if (destination === null) continue;
       const additions = additionsByDestination.get(destination) ?? [];
       additions.push({ name: member.name, isLucky: false, tierRank: tier.rank, pct: member.pct });
       additionsByDestination.set(destination, additions);

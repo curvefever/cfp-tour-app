@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { orderRoomByScore } from '../scoring';
+import { createDefaultTournamentState } from '../state-defaults';
+import { advanceTournamentRound } from '../transitions';
 import {
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
+  waterfallDestination,
+  type OrderedWaterfallGraph,
 } from '../waterfall-bracket';
+import { buildAssignments, buildRound } from './test-fixtures';
 import type { RoomSize } from '../types';
 
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
@@ -399,5 +405,113 @@ describe('waterfallBracketPhase', () => {
     const rounds = waterfallBracketPhase(32, 1, { graph: parsed.value, finalsGames: 4 });
     expect(rounds[rounds.length - 1].numGames).toBe(4);
     expect(rounds.slice(0, -1).every((round) => round.numGames === undefined)).toBe(true);
+  });
+});
+
+describe('waterfallDestination', () => {
+  // Uneven [7,6] R1 whose two rooms split differently -- deliberately not
+  // authorable through the ROUNDS/ROUTES text (a round's rooms are all the
+  // same size there), so the graph is written out directly; the routing
+  // logic is room-size-agnostic and a removal can leave rooms uneven anyway.
+  const UNEVEN_GRAPH: OrderedWaterfallGraph = {
+    rounds: [
+      { label: 'R1', roomSizes: [7, 6], isFinal: false },
+      { label: 'R2', roomSizes: [7], isFinal: false },
+      { label: 'R3', roomSizes: [2], isFinal: false },
+      { label: 'Final', roomSizes: [6], isFinal: true },
+    ],
+    routes: [
+      [
+        // Room A: ranks 1-5 -> R2, 6-7 eliminated.
+        [1, 1, 1, 1, 1, 'eliminated', 'eliminated'],
+        // Room B: ranks 1-2 -> R3 (skips R2), 3-4 -> R2, 5-6 eliminated.
+        [2, 2, 1, 1, 'eliminated', 'eliminated'],
+      ],
+      [[3, 3, 3, 3, 'eliminated', 'eliminated', 'eliminated']],
+      [[3, 3]],
+      [],
+    ],
+  };
+  const START_ROUND_NUM = 1;
+  const rounds = waterfallBracketPhase(13, START_ROUND_NUM, { graph: UNEVEN_GRAPH, finalsGames: 1 });
+
+  it('returns the absolute round index for a routed rank, including a non-adjacent skip', () => {
+    expect(waterfallDestination(rounds[0], 1, 0)).toBe(1);
+    expect(waterfallDestination(rounds[0], 1, 4)).toBe(1);
+    expect(waterfallDestination(rounds[0], 2, 0)).toBe(2);
+    expect(waterfallDestination(rounds[0], 2, 2)).toBe(1);
+  });
+
+  it('returns null for an eliminated rank, per room', () => {
+    expect(waterfallDestination(rounds[0], 1, 5)).toBeNull();
+    expect(waterfallDestination(rounds[0], 1, 6)).toBeNull();
+    expect(waterfallDestination(rounds[0], 2, 4)).toBeNull();
+    expect(waterfallDestination(rounds[0], 2, 5)).toBeNull();
+  });
+
+  it('returns null for a rank index or room beyond the routes', () => {
+    expect(waterfallDestination(rounds[0], 2, 6)).toBeNull();
+    expect(waterfallDestination(rounds[0], 3, 0)).toBeNull();
+    expect(waterfallDestination(rounds[0], 0, 0)).toBeNull();
+  });
+
+  it('returns null for a round with no waterfall routes', () => {
+    expect(waterfallDestination(buildRound({ roundNum: 1, rooms: [4], players: 4 }), 1, 0)).toBeNull();
+    expect(waterfallDestination(rounds[3], 1, 0)).toBeNull();
+  });
+
+  it('agrees with what advanceTournamentRound actually routes, using each room’s resolved rank order', () => {
+    const roomA = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7'];
+    const roomB = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6'];
+    const scores: Record<string, number> = {};
+    // Room A: A5 and A6 tie on 200 straddling the 5th/6th (advance/eliminated)
+    // boundary; the tie is resolved in A6's favour, so A6 advances, A5 doesn't.
+    [700, 600, 500, 400, 200, 200, 100].forEach((score, position) => {
+      scores[`r0-rm1-p${position}`] = score;
+    });
+    // Room B: scored out of seating order so rank != position.
+    [100, 600, 300, 500, 200, 400].forEach((score, position) => {
+      scores[`r0-rm2-p${position}`] = score;
+    });
+    const state = createDefaultTournamentState({
+      rounds,
+      assignments: [buildAssignments([...roomA, ...roomB], [7, 6])],
+      scores,
+      tieResolutions: { 'r0-rm1-s200': ['A6', 'A5'] },
+      curRound: 0,
+    });
+
+    const expectedByDestination = new Map<number, string[]>();
+    const rooms = [roomA, roomB];
+    rooms.forEach((names, roomIndex) => {
+      const room = roomIndex + 1;
+      const scored = names.map((name, position) => ({
+        name,
+        position,
+        score: scores[`r0-rm${room}-p${position}`],
+      }));
+      orderRoomByScore(scored, 0, room, state).forEach((entry, rankIndex) => {
+        const destination = waterfallDestination(rounds[0], room, rankIndex);
+        if (destination === null) return;
+        expectedByDestination.set(destination, [
+          ...(expectedByDestination.get(destination) ?? []),
+          entry.name,
+        ]);
+      });
+    });
+    // The resolved tie decides the boundary: A6 advances, A5 is out.
+    expect(expectedByDestination.get(1)).toContain('A6');
+    expect(expectedByDestination.get(1)).not.toContain('A5');
+
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+
+    const actualR2 = (result.state.assignments[1] ?? []).map((entry) => entry.name).sort();
+    const pendingR3 = (result.state.pendingBracketSeeds[2] ?? []).map((seed) => seed.name).sort();
+    expect(actualR2).toEqual([...(expectedByDestination.get(1) ?? [])].sort());
+    expect(pendingR3).toEqual([...(expectedByDestination.get(2) ?? [])].sort());
+    expect(actualR2).toHaveLength(7);
+    expect(pendingR3).toEqual(['B2', 'B4']);
   });
 });
