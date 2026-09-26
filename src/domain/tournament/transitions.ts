@@ -25,12 +25,7 @@ import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentSt
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
 type RoundAdvanceBlockReason =
-  | 'pending-ties'
-  | 'malformed-final'
-  | 'invalid-room-split'
-  | 'missing-room-size'
-  | 'malformed-waterfall-round'
-  | 'too-few-units';
+  'pending-ties' | 'malformed-final' | 'missing-room-size' | 'malformed-waterfall-round' | 'too-few-units';
 
 type RoundAdvanceNoopReason = 'last-round' | 'grand-final';
 
@@ -236,10 +231,6 @@ function doubleEliminationFinalMessage(finalRound: TournamentRound, actual: numb
   return `Can't advance into the Final — ${actual} entrants would arrive instead of ${required}. A mid-tournament withdrawal has likely thrown off the losers bracket's balance too deeply for the usual single-bye recovery to fix automatically; check Manage Teams, or add a replacement, before advancing further.`;
 }
 
-function invalidRoomSplitMessage(actual: number, ideal: number): string {
-  return `Can't advance — ${actual} units would be heading into the next round, which can't form a clean room split (needs a multiple of ${ideal}). This usually means a team was removed mid-tournament; check Manage Teams before advancing.`;
-}
-
 const MISSING_ROOM_SIZE_MESSAGE =
   "Can't advance — this tournament's gamemode configuration is missing a room size. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
 
@@ -326,17 +317,10 @@ function advanceDoubleElimination(
   let chosenByes: SeedCandidate[] = [];
   if (roomSize.min === roomSize.max) {
     const needed = poolAtNext.length % roomSize.ideal;
-    if (needed > 0) {
-      if (state.gamemodeConfig.oddCountStrategy !== 'bye') {
-        return {
-          status: 'blocked',
-          reason: 'invalid-room-split',
-          message: invalidRoomSplitMessage(poolAtNext.length, roomSize.ideal),
-          state: input,
-        };
-      }
-      chosenByes = poolAtNext.slice(0, needed);
-    }
+    // Whatever the odd-count strategy: a removal can leave an odd pool even
+    // where the field started even, and a bye is the only way on. Single
+    // elimination already does the equivalent through a lone-unit room.
+    chosenByes = poolAtNext.slice(0, needed);
   }
 
   if (winnersTarget != null) {

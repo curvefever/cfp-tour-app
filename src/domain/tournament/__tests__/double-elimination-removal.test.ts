@@ -132,3 +132,45 @@ describe('race Grand Final: removing a winners-bracket finalist makes the losers
     expect(state.rounds[grandFinal].wbFinalistName).toBe(otherFinalist);
   });
 });
+
+describe('race double elimination: an odd pool gets a bye whatever the odd-count strategy', () => {
+  const raceOf = (
+    count: number,
+    poolingPhase: 'none' | 'qual-table',
+    oddCountStrategy: string,
+  ): SweepConfig => ({
+    label: `1v1 ${count} race ${poolingPhase} ${JSON.stringify(oddCountStrategy)}`,
+    count,
+    teams: false,
+    setup: {
+      gameFormat: 'individual-1v1',
+      scheduleLogic: 'double-elimination',
+      poolingPhase,
+      oddCountStrategy: oddCountStrategy as 'none',
+    },
+  });
+
+  it.each([
+    ['no pooling', 'none'],
+    ['a Qualification Table (8 advancing)', 'qual-table'],
+  ] as const)(
+    '1v1 16, strategy "None", %s: a removal in the first winners round plays to the Grand Final',
+    (_label, pooling) => {
+      const start = buildState(raceOf(16, pooling, 'none')) as TournamentState;
+      const firstWinners = start.rounds.findIndex((round) => round.bracket === 'winners');
+      const played = playWithRemovals(start, 0, [firstWinners]);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      expect(played.state.rounds[played.state.curRound].bracket).toBe('grand-final');
+      // The losers round the removed unit's missing drop feeds holds the bye.
+      const fed = start.rounds[firstWinners].losersTo as number;
+      expect(played.state.byes[fed]).toHaveLength(1);
+    },
+  );
+
+  it('1v1 13 with the strategy unset and no removal: an odd field now plays to the Grand Final', () => {
+    const start = buildState(raceOf(13, 'none', '')) as TournamentState;
+    const played = playWithRemovals(start, 0, []);
+    expect(played.outcome).toEqual({ kind: 'ok' });
+    expect(played.state.rounds[played.state.curRound].bracket).toBe('grand-final');
+  });
+});
