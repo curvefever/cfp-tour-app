@@ -54,15 +54,56 @@ function describeRound(round: TournamentRound): string {
   return `Round ${round.roundNum}`;
 }
 
+function tooFewUnitsError(round: TournamentRound, poolSize: number): { error: string } {
+  const label = describeRound(round);
+  const advice = 'Add a replacement or reserve before advancing.';
+  if (poolSize <= 0) return { error: `Nobody would reach ${label}. ${advice}` };
+  if (round.isFinal) {
+    return { error: `Only ${poolSize} unit would reach ${label}, which needs at least 2 to play. ${advice}` };
+  }
+  return {
+    error: `Only ${poolSize} unit would reach ${label}, which is meant to cut the field down to ${round.advTotal}; a unit playing alone can't be eliminated. ${advice}`,
+  };
+}
+
+/** A round whose only occupants are units on a bye: no rooms, the byes simply advance. */
+function walkoverRound(round: TournamentRound): TournamentRound {
+  return {
+    ...round,
+    rooms: [],
+    players: round.byeCount,
+    advTotal: round.byeCount,
+    advPerRoom: 0,
+    luckyCount: 0,
+  };
+}
+
+/**
+ * The advTotal an elimination round keeps or falls back to when `poolSize`
+ * units reach it, or null when it can't be played. A pool above the round's
+ * own advancement target keeps advTotal. A smaller one would leave nobody to
+ * eliminate, so the round keeps its meaning instead: a round planned to
+ * eliminate nobody (an explicit plateau) advances everyone, any other still
+ * eliminates exactly one. A pool of one (or the Final's) can't be played.
+ */
+function fittedAdvTotal(round: TournamentRound, poolSize: number): number | null {
+  if (poolSize > round.advTotal - round.byeCount) return round.advTotal;
+  if (round.isFinal || poolSize < 2) return null;
+  if (round.advTotal >= round.players) return poolSize + round.byeCount;
+  return round.byeCount + poolSize - 1;
+}
+
 /**
  * Reshapes a round planned at generation (round.rooms, sized for the starting
  * headcount) to the units that actually reach it (`poolSize`, byes excluded),
  * so a mid-tournament removal can't leave the seeders with a different number
  * of units than seats. Returns the round itself when it already fits. Rooms
  * are re-derived the way generation shaped them (a Final is always one
- * room); an elimination round keeps its advTotal target and re-splits it, a
- * no-elimination round advances everyone. Returns an error when there would
- * be nothing left to eliminate.
+ * room); a no-elimination round advances everyone, an elimination round
+ * keeps its advTotal target and re-splits it (see fittedAdvTotal for a pool
+ * too small to keep it). A round left with only units on a bye is a
+ * walkover. Returns an error when nobody reaches the round, one unit reaches
+ * a non-Final elimination round, or at most one unit reaches the Final.
  */
 export function fitRoundToPool(
   round: TournamentRound,
@@ -70,17 +111,14 @@ export function fitRoundToPool(
   roomSize: RoomSize,
 ): TournamentRound | { error: string } {
   if (round.rooms.reduce((total, size) => total + size, 0) === poolSize) return round;
-  const isElimination = round.advPerRoom !== null;
-  const roomAdvanceTarget = round.advTotal - round.byeCount;
-  if (poolSize <= 0 || (isElimination && poolSize <= roomAdvanceTarget)) {
-    return {
-      error: `${poolSize} unit${poolSize === 1 ? '' : 's'} would reach ${describeRound(round)}, which is meant to cut the field down to ${round.advTotal}, so nobody would be eliminated. Add a replacement or reserve before advancing.`,
-    };
-  }
+  if (poolSize <= 0)
+    return round.byeCount > 0 && !round.isFinal ? walkoverRound(round) : tooFewUnitsError(round, poolSize);
   const rooms = round.isFinal ? [poolSize] : distributeRooms(poolSize, roomSize);
   const players = poolSize + round.byeCount;
-  if (!isElimination) return { ...round, rooms, players, advTotal: players };
-  return { ...round, rooms, players, ...splitAdvancement(round.advTotal, round.byeCount, rooms.length) };
+  if (round.advPerRoom === null) return { ...round, rooms, players, advTotal: players };
+  const advTotal = fittedAdvTotal(round, poolSize);
+  if (advTotal === null) return tooFewUnitsError(round, poolSize);
+  return { ...round, rooms, players, advTotal, ...splitAdvancement(advTotal, round.byeCount, rooms.length) };
 }
 
 export function validateRoomCap(

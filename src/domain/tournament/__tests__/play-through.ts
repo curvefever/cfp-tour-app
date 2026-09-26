@@ -99,3 +99,51 @@ export function playThrough(
     return { kind: 'threw', message: error instanceof Error ? error.message : String(error) };
   }
 }
+
+export interface RemovalPlay {
+  outcome: Outcome;
+  /** The state when play stopped: on the Final if it got there, else the round that blocked. */
+  state: TournamentState;
+}
+
+/**
+ * Plays to the Final (or the end of what can be advanced), removing one unit
+ * on arrival at each round index listed in `removalRounds` (a repeated index
+ * removes that many units from the same round). `victimFor` picks the unit,
+ * by default the first one seated in a room.
+ */
+export function playWithRemovals(
+  start: TournamentState,
+  teamSize: number,
+  removalRounds: number[],
+  victimFor: (state: TournamentState) => string | undefined = firstSeatedUnit,
+): RemovalPlay {
+  let state = start;
+  const pending = [...removalRounds];
+  try {
+    for (let guard = 0; guard < 40; guard += 1) {
+      while (pending.includes(state.curRound)) {
+        pending.splice(pending.indexOf(state.curRound), 1);
+        const victim = victimFor(state);
+        if (victim !== undefined) state = removeRosterUnit(state, victim);
+      }
+      if (state.rounds[state.curRound].isFinal) return { outcome: { kind: 'ok' }, state };
+      const result = advanceTournamentRound(scoreCurrentRound(state, teamSize));
+      if (result.status === 'blocked') {
+        return { outcome: { kind: 'blocked', reason: result.reason, message: result.message }, state };
+      }
+      if (result.status === 'noop') return { outcome: { kind: 'ok' }, state };
+      state = result.state;
+    }
+    return { outcome: { kind: 'threw', message: 'did not finish within 40 rounds' }, state };
+  } catch (error) {
+    return {
+      outcome: { kind: 'threw', message: error instanceof Error ? error.message : String(error) },
+      state,
+    };
+  }
+}
+
+export function firstSeatedUnit(state: TournamentState): string | undefined {
+  return (state.assignments[state.curRound] ?? []).find((entry) => entry.room !== null)?.name;
+}

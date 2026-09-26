@@ -183,9 +183,126 @@ describe('fitRoundToPool', () => {
     expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(19);
   });
 
-  it('returns an error when there would be nobody left to eliminate', () => {
+  it('still eliminates one unit when the pool equals the advTotal (36 seats, cut to 24, 24 arrive)', () => {
     const fitted = fitRoundToPool(eliminationRound, 24, FFA_ROOM_SIZE);
-    expect(fitted).toHaveProperty('error');
-    expect((fitted as { error: string }).error).toContain('nobody would be eliminated');
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.advTotal).toBe(23);
+    expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(24);
+    expect(fitted.players).toBe(24);
+    expect(fitted.advPerRoom).toBe(Math.floor(23 / fitted.rooms.length));
+    expect(fitted.luckyCount).toBe(23 % fitted.rooms.length);
+  });
+
+  it('a cut-by-one round (planned 8 to 7) that receives 7 eliminates one: advTotal 6', () => {
+    const round = buildRound({
+      roundNum: 5,
+      players: 8,
+      rooms: [4, 4],
+      advPerRoom: 3,
+      advTotal: 7,
+      luckyCount: 1,
+    });
+    const fitted = fitRoundToPool(round, 7, FFA_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.advTotal).toBe(6);
+    expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(7);
+    expect(fitted.advPerRoom).toBe(Math.floor(6 / fitted.rooms.length));
+    expect(fitted.luckyCount).toBe(6 % fitted.rooms.length);
+  });
+
+  it('a round planned to eliminate nobody (plateau 16 to 16) advances everyone when one unit is missing', () => {
+    const plateau = buildRound({
+      roundNum: 3,
+      players: 16,
+      rooms: Array(8).fill(2),
+      advPerRoom: 2,
+      advTotal: 16,
+    });
+    const fitted = fitRoundToPool(plateau, 15, HEAD_TO_HEAD_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.advTotal).toBe(15);
+    expect(fitted.players).toBe(15);
+    expect(fitted.rooms.reduce((total, size) => total + size, 0)).toBe(15);
+  });
+
+  it('a plateau round that receives more units than planned keeps its target (it still cuts one)', () => {
+    const plateau = buildRound({
+      roundNum: 3,
+      players: 16,
+      rooms: Array(8).fill(2),
+      advPerRoom: 2,
+      advTotal: 16,
+    });
+    const fitted = fitRoundToPool(plateau, 17, HEAD_TO_HEAD_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted.advTotal).toBe(16);
+  });
+
+  it('keeps counting the bye units when it eliminates one (2 byes, pool exactly the room target)', () => {
+    const round = buildRound({
+      roundNum: 4,
+      players: 14,
+      rooms: [4, 4, 4],
+      byeCount: 2,
+      advPerRoom: 2,
+      advTotal: 8,
+    });
+    const fitted = fitRoundToPool(round, 6, FFA_ROOM_SIZE);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted).toMatchObject({ players: 8, advTotal: 7 });
+  });
+
+  it('a round left with only units on a bye is a walkover: no rooms, the byes advance', () => {
+    const lbFinal = buildRound({
+      roundNum: 12,
+      players: 2,
+      rooms: [2],
+      advPerRoom: 1,
+      advTotal: 1,
+      byeCount: 1,
+    });
+    expect(fitRoundToPool(lbFinal, 0, HEAD_TO_HEAD_ROOM_SIZE)).toMatchObject({
+      rooms: [],
+      players: 1,
+      advTotal: 1,
+      advPerRoom: 0,
+      luckyCount: 0,
+    });
+  });
+
+  it('still errors when nobody reaches a round with no bye to advance', () => {
+    const fitted = fitRoundToPool(eliminationRound, 0, FFA_ROOM_SIZE);
+    expect((fitted as { error: string }).error).toContain('Nobody would reach Round 4');
+  });
+
+  it('still errors when nobody but a bye reaches the Final', () => {
+    const final = buildRound({
+      roundNum: 9,
+      isFinal: true,
+      players: 2,
+      rooms: [2],
+      advPerRoom: 1,
+      advTotal: 1,
+      byeCount: 1,
+    });
+    expect(fitRoundToPool(final, 0, HEAD_TO_HEAD_ROOM_SIZE)).toHaveProperty('error');
+  });
+
+  it('still errors when one unit reaches a non-Final elimination round', () => {
+    const fitted = fitRoundToPool(eliminationRound, 1, FFA_ROOM_SIZE);
+    expect((fitted as { error: string }).error).toContain('a unit playing alone');
+  });
+
+  it('still errors when one unit reaches the Final', () => {
+    const final = buildRound({
+      roundNum: 9,
+      isFinal: true,
+      players: 8,
+      rooms: [8],
+      advPerRoom: 1,
+      advTotal: 1,
+    });
+    const fitted = fitRoundToPool(final, 1, FFA_ROOM_SIZE);
+    expect((fitted as { error: string }).error).toContain('at least 2');
   });
 });

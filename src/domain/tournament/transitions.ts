@@ -218,8 +218,22 @@ function finalizeDoubleEliminationRound(
   return null;
 }
 
-function doubleEliminationFinalMessage(actual: number, expected: number): string {
-  return `Can't advance into the Final — ${actual} entrants would arrive instead of the required ${expected}. A mid-tournament withdrawal has likely thrown off the losers bracket's balance too deeply for the usual single-bye recovery to fix automatically; check Manage Teams, or add a replacement, before advancing further.`;
+/**
+ * The race Grand Final always seats exactly 2. The shared Final may seat fewer
+ * than planned (a removal that the losers bracket couldn't absorb) but never
+ * fewer than 2, and never more than its seats.
+ */
+function isMalformedDoubleEliminationFinal(finalRound: TournamentRound, arriving: number): boolean {
+  if (finalRound.bracket === 'grand-final') return arriving !== finalRound.players;
+  return arriving > finalRound.players || arriving < 2;
+}
+
+function doubleEliminationFinalMessage(finalRound: TournamentRound, actual: number): string {
+  const required =
+    finalRound.bracket === 'grand-final'
+      ? `the required ${finalRound.players}`
+      : `at most ${finalRound.players}`;
+  return `Can't advance into the Final — ${actual} entrants would arrive instead of ${required}. A mid-tournament withdrawal has likely thrown off the losers bracket's balance too deeply for the usual single-bye recovery to fix automatically; check Manage Teams, or add a replacement, before advancing further.`;
 }
 
 function invalidRoomSplitMessage(actual: number, ideal: number): string {
@@ -300,11 +314,11 @@ function advanceDoubleElimination(
   if (winnersTarget === nextIndex) poolAtNext = pendingWinners ?? [];
   if (losersTarget === nextIndex) poolAtNext = pendingLosers ?? [];
   const nextRound = state.rounds[nextIndex];
-  if (nextRound.isFinal && poolAtNext.length !== nextRound.players) {
+  if (nextRound.isFinal && isMalformedDoubleEliminationFinal(nextRound, poolAtNext.length)) {
     return {
       status: 'blocked',
       reason: 'malformed-final',
-      message: doubleEliminationFinalMessage(poolAtNext.length, nextRound.players),
+      message: doubleEliminationFinalMessage(nextRound, poolAtNext.length),
       state: input,
     };
   }
