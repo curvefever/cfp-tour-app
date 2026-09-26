@@ -1,41 +1,52 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { removeRosterUnit } from '../../domain/tournament/mutations';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import { advanceTournamentRound } from '../../domain/tournament/transitions';
+import type { TournamentState } from '../../domain/tournament/types';
 import {
+  buildState,
+  scoreCurrentRound,
+  type SweepConfig,
+} from '../../domain/tournament/__tests__/play-through';
+import { simulateFirebaseStorage } from './firebase-storage-simulation';
+import {
+  FIREBASE_EMPTY_ARRAY_SENTINEL_KEY,
+  FIREBASE_EMPTY_OBJECT_SENTINEL_KEY,
   FIREBASE_NULL_SENTINEL_KEY,
   SyncCoordinator,
-  marshalNullsForFirebase,
+  marshalForFirebase,
   mergeRemoteWriterState,
-  unmarshalNullsFromFirebase,
+  unmarshalFromFirebase,
   type SyncStatus,
   type SyncTransport,
 } from './live-sync';
 
-describe('marshalNullsForFirebase / unmarshalNullsFromFirebase', () => {
+describe('marshalForFirebase / unmarshalFromFirebase', () => {
   it('round-trips null through nested objects and arrays', () => {
     const original = { a: null, b: [1, null, { c: null }], d: { e: [null] } };
-    const marshaled = marshalNullsForFirebase(original);
+    const marshaled = marshalForFirebase(original);
     expect(marshaled).toEqual({
       a: { [FIREBASE_NULL_SENTINEL_KEY]: true },
       b: [1, { [FIREBASE_NULL_SENTINEL_KEY]: true }, { c: { [FIREBASE_NULL_SENTINEL_KEY]: true } }],
       d: { e: [{ [FIREBASE_NULL_SENTINEL_KEY]: true }] },
     });
-    expect(unmarshalNullsFromFirebase(marshaled)).toEqual(original);
+    expect(unmarshalFromFirebase(marshaled)).toEqual(original);
   });
 
   it('leaves non-null primitives and plain objects untouched', () => {
-    expect(marshalNullsForFirebase(0)).toBe(0);
-    expect(marshalNullsForFirebase('x')).toBe('x');
-    expect(marshalNullsForFirebase(undefined)).toBe(undefined);
-    expect(unmarshalNullsFromFirebase({ a: 1 })).toEqual({ a: 1 });
+    expect(marshalForFirebase(0)).toBe(0);
+    expect(marshalForFirebase('x')).toBe('x');
+    expect(marshalForFirebase(undefined)).toBe(undefined);
+    expect(unmarshalFromFirebase({ a: 1 })).toEqual({ a: 1 });
   });
 
   it('treats the sentinel key as a truthiness check, not a strict === true check', () => {
     // A falsy sentinel value must NOT be unmarshaled back to null.
-    expect(unmarshalNullsFromFirebase({ [FIREBASE_NULL_SENTINEL_KEY]: false })).toEqual({
+    expect(unmarshalFromFirebase({ [FIREBASE_NULL_SENTINEL_KEY]: false })).toEqual({
       [FIREBASE_NULL_SENTINEL_KEY]: false,
     });
     // Any other truthy sentinel value still counts.
-    expect(unmarshalNullsFromFirebase({ [FIREBASE_NULL_SENTINEL_KEY]: 1 })).toBe(null);
+    expect(unmarshalFromFirebase({ [FIREBASE_NULL_SENTINEL_KEY]: 1 })).toBe(null);
   });
 });
 
@@ -430,5 +441,161 @@ describe('SyncCoordinator', () => {
       expect(write).not.toHaveBeenCalled();
       expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+/** What a subscriber reads after `value` was pushed through the real marshalling and Firebase's storage rules. */
+const throughFirebase = (value: unknown) =>
+  unmarshalFromFirebase(simulateFirebaseStorage(marshalForFirebase(value)));
+
+describe('lossless Firebase encoding of empty values', () => {
+  it('marks empty arrays and objects, at any depth', () => {
+    expect(marshalForFirebase({ a: [], b: {}, c: [[], [1]], d: { e: [] } })).toEqual({
+      a: { [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true },
+      b: { [FIREBASE_EMPTY_OBJECT_SENTINEL_KEY]: true },
+      c: [{ [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true }, [1]],
+      d: { e: { [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true } },
+    });
+  });
+
+  it('unmarshals each marker back, checked before the generic object branch', () => {
+    expect(unmarshalFromFirebase({ [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true })).toEqual([]);
+    expect(unmarshalFromFirebase({ [FIREBASE_EMPTY_OBJECT_SENTINEL_KEY]: true })).toEqual({});
+    expect(unmarshalFromFirebase({ a: { [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true } })).toEqual({ a: [] });
+  });
+
+  it.each([
+    ['nested empty arrays and objects', { a: { b: [], c: {} }, d: [[]], e: { f: { g: [] } } }],
+    ['empty arrays inside arrays', { rooms: [[], [1, 2], [], []] }],
+    ['a leading empty per-round entry', { byes: [[], ['P1'], []] }],
+    ['all-empty arrays', { byes: [[], [], []], luckyLosers: [[], []] }],
+    ['null among values', { a: [1, null, 3], b: { c: null }, d: [null, []] }],
+    [
+      'the exact live shape',
+      { byes: [[], [], ['P6', 'P9', 'P4', 'P12']], luckyLosers: [[], [], [], ['a', 'b']] },
+    ],
+    ['a whole state made only of empty containers', { a: [], b: {} }],
+  ])('round-trips %s', (_label, value) => {
+    expect(throughFirebase(value)).toEqual(value);
+  });
+
+  it('simulator sanity check: a nulls-only marshal loses the empty arrays as it did live', () => {
+    const nullsOnly = (value: unknown): unknown => {
+      if (value === null) return { [FIREBASE_NULL_SENTINEL_KEY]: true };
+      if (Array.isArray(value)) return value.map(nullsOnly);
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, nullsOnly(child)]));
+      }
+      return value;
+    };
+    const byes = [[], [], ['P6', 'P9', 'P4', 'P12']];
+    expect(simulateFirebaseStorage(nullsOnly({ byes }))).toEqual({
+      byes: { '2': ['P6', 'P9', 'P4', 'P12'] },
+    });
+    expect(simulateFirebaseStorage(nullsOnly({ byes: [['x'], [], ['y']] }))).toEqual({
+      byes: [['x'], null, ['y']],
+    });
+    expect(simulateFirebaseStorage(nullsOnly({ rooms: [] }))).toBeUndefined();
+  });
+});
+
+describe('real tournament states survive the Firebase round trip', () => {
+  const clone = (state: TournamentState) => JSON.parse(JSON.stringify(state)) as TournamentState;
+
+  interface Removal {
+    at: number;
+    victim: (state: TournamentState) => string;
+  }
+
+  /** Snapshots the state after every round; the round-tripped copy must equal the original and advance identically. */
+  function checkEveryRound(config: SweepConfig, removal?: Removal): TournamentState {
+    let state = buildState(config) as TournamentState;
+    const teamSize = config.teams ? 3 : 0;
+    let removed = !removal;
+    for (let guard = 0; guard < 40; guard += 1) {
+      if (!removed && removal && state.curRound === removal.at) {
+        state = removeRosterUnit(state, removal.victim(state));
+        removed = true;
+      }
+      const roundTripped = throughFirebase(clone(state)) as TournamentState;
+      expect(roundTripped, `${config.label}: state at round index ${state.curRound}`).toEqual(clone(state));
+      if (state.rounds[state.curRound].isFinal) break;
+      const original = advanceTournamentRound(scoreCurrentRound(state, teamSize));
+      const viaFirebase = advanceTournamentRound(scoreCurrentRound(roundTripped, teamSize));
+      expect(viaFirebase.status, `${config.label}: advancing from round index ${state.curRound}`).toBe(
+        original.status,
+      );
+      if (original.status !== 'advanced' || viaFirebase.status !== 'advanced') break;
+      expect(clone(viaFirebase.state)).toEqual(clone(original.state));
+      state = original.state;
+    }
+    return state;
+  }
+
+  const oneVsOne = (
+    count: number,
+    scheduleLogic: string,
+    oddCountStrategy: string,
+    extra: Record<string, unknown> = {},
+  ): SweepConfig => ({
+    label: `1v1 ${count} ${scheduleLogic} '${oddCountStrategy}'`,
+    count,
+    teams: false,
+    setup: {
+      gameFormat: 'individual-1v1',
+      scheduleLogic,
+      oddCountStrategy,
+      ...extra,
+    } as SweepConfig['setup'],
+  });
+
+  const firstSeated = (state: TournamentState) =>
+    state.assignments[state.curRound].find((entry) => entry.room !== null)!.name;
+
+  it('1v1 12, double elimination, "Bye"', () => {
+    const state = checkEveryRound(oneVsOne(12, 'double-elimination', 'bye', { poolingPhase: 'none' }));
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+  });
+
+  it('FFA 17, shared Final', () => {
+    const state = checkEveryRound({
+      label: 'FFA 17 shared Final',
+      count: 17,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'double-elimination-shared-final',
+        poolingPhase: 'none',
+      },
+    });
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+  });
+
+  it('1v1 12 "Bye" with a removal in the WB final (the walkover)', () => {
+    const state = checkEveryRound(oneVsOne(12, 'double-elimination', 'bye', { poolingPhase: 'none' }), {
+      at: 10,
+      victim: firstSeated,
+    });
+    expect(state.rounds[state.curRound].bracket).toBe('grand-final');
+    expect(state.rounds.some((round) => round.rooms.length === 0)).toBe(true);
+  });
+
+  it('1v1 33, strategy unset, with a removal in the first WB round (the empty walkover)', () => {
+    const state = checkEveryRound(oneVsOne(33, 'double-elimination', '', { poolingPhase: 'none' }), {
+      at: 2,
+      victim: firstSeated,
+    });
+    expect(state.rounds[state.curRound].bracket).toBe('grand-final');
+    expect(state.rounds.some((round) => round.players === 0)).toBe(true);
+  });
+
+  it('a 1v1 9-player Group Stage', () => {
+    checkEveryRound(
+      oneVsOne(9, 'single-elimination', 'bye', {
+        poolingPhase: 'group-stage',
+        groupSize: '3',
+        qualifiersPerGroup: '1',
+      }),
+    );
   });
 });
