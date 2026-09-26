@@ -76,14 +76,12 @@ describe('removing one unit never makes Next Round throw', () => {
           console.log(`SKIP(baseline ${baseline.kind}) ${config.label}: ${baseline.message}`);
         return;
       }
-      const isDoubleElimination = String(config.setup?.scheduleLogic).startsWith('double-elimination');
       for (const removeAt of ['first', 'elimination'] as const) {
         const outcome = playThrough(state, teamSize, removeAt);
         expect(outcome.kind === 'threw' ? `threw: ${outcome.message}` : 'no throw').toBe('no throw');
         if (outcome.kind === 'blocked' && process.env.SWEEP_LOG)
           console.log(`BLOCKED ${config.label} @${removeAt}: ${outcome.message}`);
-        // Double elimination may still block cleanly (losers-bracket counts), never throw.
-        if (!isDoubleElimination) expect(outcome.kind).toBe('ok');
+        expect(outcome.kind).toBe('ok');
       }
     },
     60_000,
