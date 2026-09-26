@@ -6,6 +6,30 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Fix: Bracket showed every player in a waterfall round as eliminated (done — 2026-09-26)
+
+**Context.** Reported by the organiser on test tournament `1790453281604` ("Double elim test"): FFA, 16 players, no pooling phase, Waterfall bracket graph `R1 [8,8] → R2 [6,6] → Final [8]`, R1 routing ranks 1–6 of each room to R2 and 7–8 to `eliminated`. After scoring R1, Bracket struck through all 16 players.
+
+**Root cause (display only).** Waterfall rounds are generated with `advPerRoom: null` (advancement is per room and per rank, `round.waterfallRoutes[room-1][rank-1]`, not a round-wide count). `RoundBody` (`BracketView.tsx`) computed `direct = round.isNoElim ? units.length : (round.advPerRoom ?? 0)`, so `0` for a waterfall round; `computeStandingsCutoffAdvancing` returns `null` for a non-standings round, so every row's `advances` was `false` and it rendered "eliminate". The real transition (`advanceWaterfallBracket`) routed correctly by `waterfallRoutes` and Rankings (`computeRankings`) already handled waterfall rounds via their routes, so nothing was actually eliminated; but the wrong colouring applied to every scored waterfall round, past ones included. Rank alignment is safe: `RoundBody` (display order) and `buildAdvancementTiers` (the transition's rank) both order a room with `orderRoomByScore`, including resolved tie-breaks, so display index `i` is the rank the transition routes.
+
+**Change.**
+- `waterfall-bracket.ts`: new exported pure `waterfallDestination(round, room, rankIndex)`: the absolute round index that rank routes to, or `null` for `'eliminated'`, a missing rank/room entry, or a round with no `waterfallRoutes`. `room` is 1-indexed, `rankIndex` 0-indexed (the `waterfallRoutes` convention).
+- `transitions.ts`: `advanceWaterfallBracket` uses the helper instead of its inline `routes[room-1]?.[rank]` lookup plus `undefined`/`'eliminated'` check (identical behaviour; the existing waterfall transition tests pass unchanged).
+- `BracketView.tsx`: `RoundBody`'s `advances` gets a waterfall branch (`waterfallDestination(round, room, index) !== null`) between the standings-cutoff case and the `isNoElim || index < direct` case. Green/struck-through styling unchanged. `luckyCount` is 0 for waterfall rounds and the Final is rendered by `FinalColumn`, so nothing else needed to change.
+
+**Testing.** 975 tests (up from 970), all green; new tests in `waterfall-bracket.test.ts`, on an awkward uneven `[7,6]` first round (13 entrants) whose two rooms split differently: room A ranks 1–5 → R2, 6–7 eliminated; room B ranks 1–2 → R3 (skipping R2), 3–4 → R2, 5–6 eliminated. (The ROUNDS text can't declare uneven rooms within one round, so the graph is written as an `OrderedWaterfallGraph` literal; the routing is room-size-agnostic.)
+- The helper returns the absolute index for routed ranks (including the non-adjacent skip), `null` for eliminated ranks per room, `null` past the room's routes or for a missing room, and `null` for a round with no routes (a plain round, and the Final).
+- Consistency check: after scoring, walking each room in `orderRoomByScore` order and asking the helper who advances matches exactly what `advanceTournamentRound` produced (R2's assignments and R3's pending seeds), with room A's 5th/6th tie (A5 and A6 both on 200) straddling the eliminated boundary and resolved in A6's favour, so the resolved order decides it (A6 advances, A5 does not); room B is scored out of seating order so rank ≠ position.
+
+**Live check on the test site (2026-09-26, pushed `edd1053`, deploy confirmed by the changed bundle).** Anonymous viewer on the reported tournament `1790453281604`: R1 now shows 6 advancing (green) and 2 struck through per room (ranks 7–8), the Round 2/Final columns unchanged; before the deploy the same page struck through all 16. No app console errors (only two 502s from the deploy restart). **Not done:** a fresh awkward-count tournament (FFA 13) scored by hand and advanced with Next Round, and past-round colouring after Next Round: it needs the organiser logged in to create and score a tournament; the same paths are covered by the unit tests against the real `advanceTournamentRound`.
+
+**Out of scope.**
+- Labelling each waterfall row with its destination ("→ R2", "→ Final"): a possible follow-up for the organiser to decide.
+- The known Rankings "transiently eliminated" timing characteristic for waterfall (documented in `HANDOFF.md`, not a bug).
+- A React component test for `RoundBody` (Testing Library is still unconfigured).
+
+---
+
 ## Head-to-head formats default to the "Bye" odd-count strategy; an unset value means the default (done — 2026-09-26)
 
 **Context.** Known issue: an unset odd-count strategy seated a lone unit in round 1 outside Swiss (Qualification Table 1v1 with 11 players; single or double elimination 1v1 with 11 players). `PersistedSetup.oddCountStrategy` defaults to `''`. Choosing a head-to-head format in Setup (`changeFormat`) set it to `supportedOddCountStrategies[0]`, i.e. `'none'`, and the dropdown displayed `setup.oddCountStrategy || supportedOddCountStrategies[0]`, so it showed `''` as "None". `generateTournament` turned `''` into `undefined`, and every "None" check is keyed on `=== 'none'`, so an unset value skipped them: no refusal of an odd count, no bye, a lone unit in a room. Through the real Setup UI `''` with a head-to-head format was practically unreachable (choosing the format sets `'none'`); it came from the test sweeps, which pass `''` directly, and could come from a stale saved setup. The defect was the inconsistency: what was displayed ("None") wasn't what was applied (nothing).
