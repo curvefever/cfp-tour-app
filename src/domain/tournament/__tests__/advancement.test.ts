@@ -17,6 +17,7 @@ import {
 } from '../advancement';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
+import { roundExitRule } from '../room-exits';
 import { createTournamentRuntime } from '../runtime';
 import { fairPoints } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
@@ -1045,6 +1046,148 @@ describe('kingsValleyComputeAdvancement', () => {
     // feeding room2, then room2's own stay band, with no room-3 inflow.
     expect(nextRoomOrder).toEqual(['A', 'B', 'C', 'E', 'D', 'F']);
     expect(eliminatedNames).toEqual(['G', 'H']);
+  });
+
+  it('FFA 37 with 3 removed from the bottom room: recomputes from the real (smaller) size instead of overlapping the stale planned bands', () => {
+    // Planned room sizes at generation were [8,8,7,7,7] (kvPromoteCounts
+    // [2,2,2,2,2] / kvDemoteCounts [2,2,2,2,0] / kvEliminateCount 4) -- if
+    // read literally against a bottom room shrunk to 4 real occupants,
+    // promote(2)+cut(4)=6 would overlap a room of only 4. The real size
+    // recompute (kingsValleyRoomBandCounts) instead gives room 5
+    // promote 1/cut 2, which fits.
+    const roomSizes = [8, 8, 7, 7, 4];
+    const roomNames = roomSizes.map((size, roomIndex) =>
+      Array.from({ length: size }, (_, position) => `R${roomIndex + 1}-${position + 1}`),
+    );
+    const names = roomNames.flat();
+    const scores: Record<string, number> = {};
+    for (const [roomIndex, room] of roomNames.entries()) {
+      room.forEach((_, position) => {
+        scores[`r0-rm${roomIndex + 1}-p${position}`] = room.length - position;
+      });
+    }
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: [8, 8, 7, 7, 7],
+          players: 37,
+          isKingsValley: true,
+          kvPromoteCounts: [2, 2, 2, 2, 2],
+          kvDemoteCounts: [2, 2, 2, 2, 0],
+          kvEliminateCount: 4,
+        }),
+      ],
+      assignments: [buildAssignments(names, roomSizes)],
+      scores,
+    });
+    const { nextRoomOrder, eliminatedNames } = kingsValleyComputeAdvancement(state, 0);
+    expect(new Set(nextRoomOrder).size).toBe(nextRoomOrder.length);
+    expect(nextRoomOrder.length + eliminatedNames.length).toBe(names.length);
+    for (const name of eliminatedNames) {
+      expect(nextRoomOrder).not.toContain(name);
+    }
+    // The real effective bottom (room 5, still a real 4-unit match) cuts 2 -- not the stale plan's 4.
+    expect(eliminatedNames).toHaveLength(2);
+
+    const rule = roundExitRule(state, 0);
+    expect(rule.kind).toBe('per-room');
+    if (rule.kind !== 'per-room') return;
+    const eliminateBand = rule.rooms[4].find((band) => band.kind === 'eliminate');
+    expect(eliminateBand).toMatchObject({ fromRank: 3, toRank: 4 });
+  });
+
+  it('team-2v2v2v2 13 with a middle room reduced to 1: the lone unit holds its place instead of being cut', () => {
+    // Planned rooms [4,3,3,3]; room 2 (a middle room) is reduced to 1 real
+    // occupant by a removal. The lone unit must survive into nextRoomOrder
+    // (holding, not promoted/demoted), and the real elimination still comes
+    // from the effective bottom (room 4, unaffected by the lone room above it).
+    const roomSizes = [4, 1, 3, 3];
+    const roomNames = roomSizes.map((size, roomIndex) =>
+      Array.from({ length: size }, (_, position) => `R${roomIndex + 1}-${position + 1}`),
+    );
+    const names = roomNames.flat();
+    const scores: Record<string, number> = {};
+    for (const [roomIndex, room] of roomNames.entries()) {
+      room.forEach((_, position) => {
+        scores[`r0-rm${roomIndex + 1}-p${position}`] = room.length - position;
+      });
+    }
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: [4, 3, 3, 3],
+          players: 13,
+          isKingsValley: true,
+          kvPromoteCounts: [1, 1, 1, 1],
+          kvDemoteCounts: [1, 1, 1, 0],
+          kvEliminateCount: 2,
+        }),
+      ],
+      assignments: [buildAssignments(names, roomSizes)],
+      scores,
+    });
+    const { nextRoomOrder, eliminatedNames } = kingsValleyComputeAdvancement(state, 0);
+    expect(new Set(nextRoomOrder).size).toBe(nextRoomOrder.length);
+    expect(nextRoomOrder.length + eliminatedNames.length).toBe(names.length);
+    // The lone room's sole occupant holds its place -- present, not eliminated.
+    expect(nextRoomOrder).toContain('R2-1');
+    expect(eliminatedNames).not.toContain('R2-1');
+    // The effective bottom (room 4) still eliminates 2, same as planned.
+    expect(eliminatedNames).toHaveLength(2);
+
+    const rule = roundExitRule(state, 0);
+    expect(rule.kind).toBe('per-room');
+    if (rule.kind !== 'per-room') return;
+    // The lone room shows a single stay band covering its one occupant.
+    expect(rule.rooms[1]).toEqual([{ kind: 'stay', fromRank: 1, toRank: 1 }]);
+    const eliminateBand = rule.rooms[3].find((band) => band.kind === 'eliminate');
+    expect(eliminateBand).toBeDefined();
+  });
+
+  it("individual-1v1, 11 units (rooms [2,2,2,2,2,1]): a lone BOTTOM room holds last, and the effective bottom (room 5)'s cut is eliminated, not also carried into the lone room", () => {
+    // This is the exact odd head-to-head case the fix exists for: without the
+    // "don't feed an eliminating room's own cut band downward" guard in
+    // kingsValleyComputeAdvancement, room 5's loser would be both eliminated
+    // AND carried into room 6's (the lone room's) slot, appearing in both lists.
+    const roomSizes = [2, 2, 2, 2, 2, 1];
+    const roomNames = roomSizes.map((size, roomIndex) =>
+      Array.from({ length: size }, (_, position) => `R${roomIndex + 1}-${position + 1}`),
+    );
+    const names = roomNames.flat();
+    const scores: Record<string, number> = {};
+    for (const [roomIndex, room] of roomNames.entries()) {
+      room.forEach((_, position) => {
+        scores[`r0-rm${roomIndex + 1}-p${position}`] = room.length - position;
+      });
+    }
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: roomSizes,
+          players: 11,
+          isKingsValley: true,
+          kvPromoteCounts: [1, 1, 1, 1, 1, 0],
+          kvDemoteCounts: [1, 1, 1, 1, 0, 0],
+          kvEliminateCount: 1,
+        }),
+      ],
+      assignments: [buildAssignments(names, roomSizes)],
+      scores,
+    });
+    const { nextRoomOrder, eliminatedNames } = kingsValleyComputeAdvancement(state, 0);
+    expect(new Set(nextRoomOrder).size).toBe(nextRoomOrder.length);
+    expect(nextRoomOrder.length + eliminatedNames.length).toBe(names.length);
+    // Exactly one unit -- room 5's own loser (the real effective bottom) -- is eliminated.
+    expect(eliminatedNames).toEqual(['R5-2']);
+    expect(nextRoomOrder).not.toContain('R5-2');
+    // The lone room's sole occupant holds its place, last in the merged order.
+    expect(nextRoomOrder.at(-1)).toBe('R6-1');
   });
 });
 

@@ -558,6 +558,35 @@ describe('advanceTournamentRound — Kings Valley dispatch', () => {
     expect(result.state.assignments[1].map((entry) => entry.name)).toEqual(['A', 'B', 'C', 'E', 'D', 'F']);
     expect(result.state.assignments[1].every((entry) => entry.room === 1)).toBe(true);
   });
+
+  it('blocks with "malformed-final" instead of silently seeding a real survivor count below 2 into a degenerate Final', () => {
+    // A single-room KV round whose own eliminate band leaves only 1 real
+    // survivor (A promotes, B is cut) -- fitKingsValleyTail must catch this
+    // before re-planning a tail whose Final would have fewer than 2 players,
+    // the same way the ordinary/double-elimination paths already do.
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 }, finalsGames: 1 },
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [2], players: 2, isKingsValley: true }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2, isKingsValley: true }), // stale plan; the real cut differs
+      ],
+      assignments: [
+        [
+          { name: 'A', room: 1, isLucky: false },
+          { name: 'B', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50 },
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('blocked');
+    expect(result.status === 'blocked' && result.reason).toBe('malformed-final');
+    if (result.status === 'blocked') {
+      expect(result.message).toContain('at least 2');
+    }
+  });
 });
 
 describe('advanceTournamentRound — tieredSeed reduces round-to-round staleness vs. plain snakeSeed', () => {
@@ -1475,5 +1504,219 @@ describe('advanceTournamentRound — fixed-draw Swiss after a roster change', ()
     expect(names).toContain('Newcomer');
     expect(names).not.toContain(oldName);
     expect(live.assignments[2]).toHaveLength(11);
+  });
+});
+
+describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => {
+  function generateKingsValley(count: number): TournamentState {
+    const players = Array.from({ length: count }, (_, index) => `P${index + 1}`);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players }),
+      createDefaultSetup({ gameFormat: 'individual-1v1', scheduleLogic: 'kings-valley' }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  /** Every occupied room of the current round gets distinct scores, first listed unit highest. */
+  function scoreCurrentRound(state: TournamentState): TournamentState {
+    const scores = { ...state.scores };
+    const perRoom = new Map<number, number>();
+    for (const entry of state.assignments[state.curRound]) {
+      if (entry.room === null) continue;
+      const position = perRoom.get(entry.room) ?? 0;
+      perRoom.set(entry.room, position + 1);
+      scores[`r${state.curRound}-rm${entry.room}-p${position}`] = 100 - position * 10;
+    }
+    return { ...state, scores };
+  }
+
+  function advance(state: TournamentState): TournamentState {
+    const result = advanceTournamentRound(scoreCurrentRound(state));
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') throw new Error('not advanced');
+    return result.state;
+  }
+
+  /** Every round's real (room-seated, excluding byes) count matches its declared rooms exactly, and nobody is seated twice. */
+  function expectCurrentRoundIsWellFormed(state: TournamentState) {
+    const names = state.assignments[state.curRound]
+      .filter((entry) => entry.room !== null)
+      .map((entry) => entry.name);
+    expect(new Set(names).size).toBe(names.length);
+    const seatsDeclared = state.rounds[state.curRound].rooms.reduce((total, size) => total + size, 0);
+    expect(names.length).toBe(seatsDeclared);
+  }
+
+  it('individual-1v1, 13 units: plays every Kings Valley round through to a 2-unit Final, seats always matching real survivors', () => {
+    let state = generateKingsValley(13);
+    let guard = 0;
+    while (!state.rounds[state.curRound].isFinal) {
+      state = advance(state);
+      expectCurrentRoundIsWellFormed(state);
+      guard += 1;
+      expect(guard).toBeLessThan(20); // safety valve, in case a regression re-introduces the stuck-field bug
+    }
+    expect(state.rounds[state.curRound].rooms).toEqual([2]);
+  });
+
+  it('individual-1v1, 12 units with a removal mid-Kings-Valley: the tail is re-planned from the real survivor count, no drops or duplicates', () => {
+    let state = generateKingsValley(12);
+    while (!state.rounds[state.curRound].isKingsValley) {
+      state = advance(state);
+    }
+    // Shrinks this round's real occupancy below what the already-generated
+    // tail downstream was planned for -- exercising fitKingsValleyTail's
+    // KV-to-KV re-fit (advanceKingsValley), not just this round's own bands.
+    const victim = state.assignments[state.curRound].find((entry) => entry.room !== null)?.name as string;
+    state = removeRosterUnit(state, victim);
+
+    let guard = 0;
+    while (!state.rounds[state.curRound].isFinal) {
+      state = advance(state);
+      expectCurrentRoundIsWellFormed(state);
+      guard += 1;
+      expect(guard).toBeLessThan(20);
+    }
+    expect(state.rounds[state.curRound].rooms).toEqual([2]);
+  });
+
+  it('individual-1v1, a removal during the last qualification round is folded into the first-hop seed into Kings Valley', () => {
+    // Qual-table rounds ARE isNoElim, so mutations.ts's own
+    // rebuildFutureRounds does fire here (via removeRosterUnit) and does
+    // re-plan this round's shape -- but it re-plans using the still-stale
+    // state.cfg.qualAdv (12, never updated by the removal), not the real
+    // number of survivors reaching the cutoff, since
+    // qualificationTablePoolingPhase seeds the bracket off config.qualAdv,
+    // not config.n (pooling.ts). So the re-planned Kings Valley round 1 still
+    // comes out sized for 12, mismatched against the real 11 -- this
+    // genuinely exercises the NEW first-hop fitKingsValleyTail call in
+    // advanceTournamentRound, not just advanceKingsValley's later KV-to-KV
+    // one. qualAdv is set to the full roster so the qualification cutoff
+    // itself never trims anyone; only the removal changes the real headcount
+    // reaching Kings Valley round 1.
+    const players = Array.from({ length: 12 }, (_, index) => `P${index + 1}`);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 12, players }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'qual-table',
+        qualAdv: '12',
+        scheduleLogic: 'kings-valley',
+      }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    let state = result.state;
+
+    while (!state.rounds[state.curRound + 1]?.isKingsValley) {
+      state = advance(state);
+    }
+    expect(state.rounds[state.curRound].isKingsValley).toBeFalsy();
+    const plannedKvSeats = state.rounds[state.curRound + 1].rooms.reduce((total, size) => total + size, 0);
+    expect(plannedKvSeats).toBe(12); // still the original plan -- nothing has diverged yet
+
+    state = removeRosterUnit(state, 'P1');
+    state = advance(state);
+
+    expect(state.rounds[state.curRound].isKingsValley).toBe(true);
+    expectCurrentRoundIsWellFormed(state);
+    const names = state.assignments[state.curRound].map((entry) => entry.name);
+    expect(names).not.toContain('P1');
+    expect(names).toHaveLength(11); // the tail was re-planned for the real 11 survivors, not the stale plan of 12
+  });
+
+  it("carries the old Final's numGames and anonymousGames onto the re-fitted Final", () => {
+    // FFA room size (6-8, ideal 8) so the real 6 survivors collapse straight
+    // to a single-room Final -- isolates the numGames/anonymousGames carry
+    // from the multi-round cap-anchor behaviour (covered separately below).
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 6, max: 8, ideal: 8 }, finalsGames: 1 },
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [4, 4], players: 8, isKingsValley: true }),
+        buildRound({
+          roundNum: 2,
+          isFinal: true,
+          rooms: [5], // stale planned seats -- the real cut leaves 6, not 5
+          players: 5,
+          advPerRoom: 1,
+          advTotal: 1,
+          numGames: 3, // non-default: kingsValleyBracketPhase's own finalRound() would use finalsGames (1)
+          anonymousGames: [1],
+        }),
+      ],
+      assignments: [
+        [
+          { name: 'A', room: 1, isLucky: false },
+          { name: 'B', room: 1, isLucky: false },
+          { name: 'C', room: 1, isLucky: false },
+          { name: 'D', room: 1, isLucky: false },
+          { name: 'E', room: 2, isLucky: false },
+          { name: 'F', room: 2, isLucky: false },
+          { name: 'G', room: 2, isLucky: false },
+          { name: 'H', room: 2, isLucky: false },
+        ],
+      ],
+      scores: {
+        'r0-rm1-p0': 100,
+        'r0-rm1-p1': 90,
+        'r0-rm1-p2': 80,
+        'r0-rm1-p3': 70,
+        'r0-rm2-p0': 100,
+        'r0-rm2-p1': 90,
+        'r0-rm2-p2': 80,
+        'r0-rm2-p3': 70,
+      },
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    const finalRound = result.state.rounds[1];
+    expect(finalRound.isFinal).toBe(true);
+    expect(finalRound.players).toBe(6); // re-fitted to the real 6 survivors, not the stale plan of 5
+    expect(finalRound.numGames).toBe(3); // carried from the old Final, not kingsValleyBracketPhase's own default (1)
+    expect(finalRound.anonymousGames).toEqual([1]); // carried, not dropped
+  });
+
+  it("anchors the round cap to the FIRST Kings Valley round, not the re-fit's own nextRound, when a stuck plan is re-fitted mid-ladder", () => {
+    // Mimics an already-generated stuck head-to-head plan (pre-2026-09-27):
+    // round 1 marks the true first Kings Valley round; round 11 is several
+    // rounds further in, with round 12 still planned for the stale 0-cut
+    // headcount (20). The real cut leaves 19 -- a mismatch that forces a
+    // re-fit anchored several rounds after round 1.
+    const names = Array.from({ length: 20 }, (_, index) => `P${index + 1}`);
+    const scores: Record<string, number> = {};
+    for (let room = 1; room <= 10; room += 1) {
+      scores[`r1-rm${room}-p0`] = 100;
+      scores[`r1-rm${room}-p1`] = 50;
+    }
+    const state = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 }, finalsGames: 1 },
+      rounds: [
+        buildRound({ roundNum: 1, isKingsValley: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 11, isKingsValley: true, rooms: Array(10).fill(2), players: 20 }),
+        buildRound({ roundNum: 12, isKingsValley: true, rooms: Array(10).fill(2), players: 20 }),
+      ],
+      assignments: [[], buildAssignments(names, Array(10).fill(2))],
+      scores,
+      curRound: 1,
+    });
+    const result = advanceTournamentRound(state);
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    const lastRound = result.state.rounds[result.state.rounds.length - 1];
+    // Correctly anchored to round 1 (the first Kings Valley round): the cap
+    // fires once roundNum - 1 >= 14, i.e. at round 15, forcing a Final at 16
+    // real survivors -- nowhere near naturally converged to 2. Anchored to
+    // the re-fit's own nextRound.roundNum (12) instead, the cap wouldn't
+    // fire until round 26, and the tail would keep cutting for many more
+    // rounds first.
+    expect(lastRound.isFinal).toBe(true);
+    expect(lastRound.roundNum).toBe(15);
+    expect(lastRound.players).toBe(16);
   });
 });

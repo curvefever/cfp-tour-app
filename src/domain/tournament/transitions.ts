@@ -8,6 +8,7 @@ import {
   roomBasedComputeAdvancement,
 } from './advancement';
 import { nextPowerOf2AndRounds } from './double-elimination';
+import { kingsValleyBracketPhase } from './kings-valley';
 import { seedFromGroupStageRound } from './pooling';
 import { fitRoundToPool } from './room-distribution';
 import {
@@ -135,6 +136,78 @@ function fitNextRound(
   const fitted = roomSize ? fitRoundToPool(withByes, poolSize, roomSize) : withByes;
   if ('error' in fitted) return { reason: 'too-few-units', message: fitted.error };
   state.rounds[roundIndex] = fitted;
+  return null;
+}
+
+function malformedKingsValleyFinalMessage(actual: number): string {
+  const reaching = actual <= 0 ? 'Nobody' : `Only ${actual} unit`;
+  return `Can't advance -- ${reaching} would reach the Final, which needs at least 2 to play. This usually means enough units were removed mid-tournament; check Manage Teams before advancing.`;
+}
+
+/**
+ * Re-plans the rest of Kings Valley (from `nextIndex` on, including the
+ * Final) whenever the real survivor count reaching it differs from what was
+ * planned at generation time -- a removal shrinking a room, or a reserve
+ * added in the first Kings Valley round's still-open window, can otherwise
+ * leave `sequentialSeed` seating too few (a new lone room, or an empty room)
+ * or silently dropping the extra as if eliminated. Also self-heals an
+ * already-generated stuck head-to-head field (planned 0 cuts per round,
+ * pre-2026-09-27): its real per-round cut now differs from the stale plan,
+ * so the next advance re-plans the tail through the fixed formula instead.
+ * A no-op (returns null, leaves `state` untouched) when the pool already
+ * matches the plan.
+ */
+function fitKingsValleyTail(
+  state: TournamentState,
+  nextIndex: number,
+  poolSize: number,
+): RoundFitFailure | null {
+  const nextRound = state.rounds[nextIndex];
+  const plannedSeats = nextRound.rooms.reduce((total, size) => total + size, 0);
+  if (plannedSeats === poolSize) return null;
+
+  const roomSize = state.gamemodeConfig.roomSize;
+  const finalsGames = state.gamemodeConfig.finalsGames;
+  if (!roomSize || finalsGames === undefined) {
+    return { reason: 'missing-room-size', message: MISSING_ROOM_SIZE_MESSAGE };
+  }
+  // kingsValleyBracketPhase always converges to a Final at >= 2 once it
+  // starts at >= 2 (the roomSizes.length <= 1 collapse only ever fires once
+  // total has shrunk to at most roomSize.max, never below its own starting
+  // point) -- so this is the one place a too-small pool needs to be caught,
+  // matching the ordinary/double-elimination paths' own malformed-Final guards.
+  if (poolSize < 2) {
+    return { reason: 'malformed-final', message: malformedKingsValleyFinalMessage(poolSize) };
+  }
+
+  // Anchored to the FIRST Kings Valley round's own roundNum, not this
+  // re-fit's nextRound, so a stuck field re-planned mid-ladder doesn't get a
+  // fresh MAX_KINGS_VALLEY_ROUNDS budget it already partly spent. Always
+  // found by construction at both call sites (advanceKingsValley and the
+  // first-hop branch only run once a Kings Valley round already exists at or
+  // before nextIndex); the fallback is a last-resort defensive default.
+  const firstKvIndex = state.rounds.findIndex((round) => round.isKingsValley);
+  const capStartRoundNum = state.rounds[firstKvIndex]?.roundNum ?? nextRound.roundNum;
+  const oldFinal = state.rounds[state.rounds.length - 1];
+
+  const newTail = kingsValleyBracketPhase(
+    poolSize,
+    nextRound.roundNum,
+    { roomSize, finalsGames },
+    capStartRoundNum,
+  );
+  const newFinal = newTail[newTail.length - 1];
+  if (newFinal?.isFinal && oldFinal?.isFinal) {
+    newTail[newTail.length - 1] = {
+      ...newFinal,
+      numGames: oldFinal.numGames,
+      anonymousGames: oldFinal.anonymousGames,
+    };
+  }
+
+  state.rounds = [...state.rounds.slice(0, nextIndex), ...newTail];
+  state.byes = [...state.byes.slice(0, nextIndex), ...newTail.map(() => [])];
+  state.luckyLosers = [...state.luckyLosers.slice(0, nextIndex), ...newTail.map(() => [])];
   return null;
 }
 
@@ -347,16 +420,19 @@ function malformedOrdinaryFinalMessage(actual: number): string {
 /**
  * Kings Valley's advance step: merge each room's promote/stay/demote bands
  * into one flat best-to-worst survivor order (kingsValleyComputeAdvancement),
- * then slice that order into the next round's already-precomputed room
- * sizes (sequentialSeed). Eliminated names need no bookkeeping of their own
- * -- they're simply absent from the next round's assignments, which is
- * already computeRankings()'s existing elimination signal for any round
- * that doesn't set round.bracket.
+ * re-fit the rest of the ladder to that real count if it differs from the
+ * plan (fitKingsValleyTail), then slice the order into the next round's
+ * (possibly just-refitted) room sizes (sequentialSeed). Eliminated names need
+ * no bookkeeping of their own -- they're simply absent from the next round's
+ * assignments, which is already computeRankings()'s existing elimination
+ * signal for any round that doesn't set round.bracket.
  */
 function advanceKingsValley(input: TournamentState, roundIndex: number): RoundAdvanceResult {
   const state = cloneForTransition(input);
   const { nextRoomOrder } = kingsValleyComputeAdvancement(state, roundIndex);
   const nextIndex = roundIndex + 1;
+  const fitFailure = fitKingsValleyTail(state, nextIndex, nextRoomOrder.length);
+  if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   const nextRound = state.rounds[nextIndex];
   state.assignments[nextIndex] = sequentialSeed(nextRoomOrder, nextRound.rooms);
   state.curRound = nextIndex;
@@ -469,9 +545,6 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   const result = roomBasedComputeAdvancement(state, roundIndex);
   if (result.qualTable) state.qualTable = result.qualTable;
   if (result.groupStandings) state.groupStandings = result.groupStandings;
-  if (result.luckyNames !== null) {
-    state.luckyLosers[roundIndex + 1] = result.luckyNames;
-  }
 
   let advancing: SeedCandidate[] = result.advancing.map((entry) => ({
     ...entry,
@@ -531,9 +604,22 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
     // advanceKingsValley()'s sequentialSeed() call above and doesn't have
     // this gap -- this is only reached for the one hop into the very first
     // Kings Valley round, from whatever pooling/no-elim round precedes it.)
+    // A removal during a preceding pooling phase (or a reserve added while
+    // this round's window is still open) can leave a real survivor count
+    // that differs from what this round was planned for. mutations.ts's own
+    // rebuildFutureRounds does fire on a qual-table/Swiss removal (those
+    // rounds are isNoElim too) and does re-plan this round's shape -- but it
+    // re-plans using the still-stale state.cfg.qualAdv, not the real number
+    // of survivors reaching the cutoff, so the two can still disagree.
+    // fitKingsValleyTail re-plans the whole ladder (Final included) to the
+    // real count first, same as advanceKingsValley does for every later
+    // KV-to-KV hop.
+    const fitFailure = fitKingsValleyTail(state, roundIndex + 1, advancing.length);
+    if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
+    const fittedNextRound = state.rounds[roundIndex + 1];
     seeded = sequentialSeed(
       advancing.map((entry) => entry.name),
-      nextRound.rooms,
+      fittedNextRound.rooms,
     );
     if (round.isGroupStage) {
       seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups);
@@ -607,6 +693,12 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
     }
   }
 
+  // Set after every branch above, including the Kings Valley one -- its own
+  // fitKingsValleyTail can rebuild state.luckyLosers wholesale when it
+  // re-fits the tail, which would otherwise clobber an earlier write here.
+  if (result.luckyNames !== null) {
+    state.luckyLosers[roundIndex + 1] = result.luckyNames;
+  }
   state.curRound += 1;
   state.assignments[state.curRound] = seeded;
   state.reserveOpen = reserveWindowAtCurrentRound(state);

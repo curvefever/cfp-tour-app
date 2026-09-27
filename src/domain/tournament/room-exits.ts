@@ -1,4 +1,5 @@
 import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
+import { kingsValleyRoomBandCounts, type KingsValleyRoomBandCounts } from './kings-valley';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 import { waterfallDestination } from './waterfall-bracket';
 
@@ -97,22 +98,25 @@ function cutRoomBands(
 /**
  * Kings Valley's promote/stay/demote-or-eliminate split for one room, in
  * rank order -- mirrors kingsValleyComputeAdvancement's own band maths
- * exactly (advancement.ts), including its two edge cases: the top room's own
- * promote band has nowhere to go and folds into its stay band (there's no
- * room above room 1), and the bottom room's demote band is an elimination,
- * not a move (there's no room below the last room).
+ * exactly (advancement.ts). `band` is this room's own entry from
+ * kingsValleyRoomBandCounts, computed once for the whole round from every
+ * room's real size (see the roundExitRule call site) so a lone room and the
+ * real effective bottom always agree with the real advance. Two edge cases:
+ * the top room's own promote band has nowhere to go and folds into its stay
+ * band (there's no room above room 1), and a room with `band.eliminates` cuts
+ * via elimination, not a move to the room below -- not necessarily the
+ * literal last room, since a lone (holding) room can sit below it.
  */
-function kingsValleyRoomBands(round: TournamentRound, roomIndex: number, actualSize: number): RoomExitBand[] {
+function kingsValleyRoomBands(
+  band: KingsValleyRoomBandCounts,
+  roomIndex: number,
+  actualSize: number,
+): RoomExitBand[] {
   const room = roomIndex + 1;
-  const roomCount = round.rooms.length;
   const isTop = room === 1;
-  const isBottom = room === roomCount;
 
-  const promoteCount = Math.min(round.kvPromoteCounts?.[roomIndex] ?? 0, actualSize);
-  const cutCount = Math.min(
-    isBottom ? (round.kvEliminateCount ?? 0) : (round.kvDemoteCounts?.[roomIndex] ?? 0),
-    actualSize - promoteCount,
-  );
+  const promoteCount = band.promote;
+  const cutCount = band.cut;
   const stayCount = actualSize - promoteCount - cutCount;
 
   const bands: RoomExitBand[] = [];
@@ -132,7 +136,7 @@ function kingsValleyRoomBands(round: TournamentRound, roomIndex: number, actualS
 
   if (cutCount > 0) {
     bands.push(
-      isBottom
+      band.eliminates
         ? { kind: 'eliminate', fromRank: rank, toRank: rank + cutCount - 1 }
         : { kind: 'demote', fromRank: rank, toRank: rank + cutCount - 1, targetRoom: room + 1 },
     );
@@ -213,9 +217,18 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
   const assignments = state.assignments[roundIndex];
 
   if (round.isKingsValley) {
-    return perRoomRule(round, assignments, (roomIndex, actualSize) =>
-      kingsValleyRoomBands(round, roomIndex, actualSize),
-    );
+    // Bypasses perRoomRule -- kingsValleyRoomBandCounts needs every room's
+    // real size up front to find the effective bottom, so actualSize is
+    // already computed here; reusing it (instead of perRoomRule's own
+    // per-room actualRoomSize call) avoids computing it twice per room.
+    const actualSizes = round.rooms.map((size, index) => actualRoomSize(assignments, index, size));
+    const bands = kingsValleyRoomBandCounts(actualSizes);
+    return {
+      kind: 'per-room',
+      rooms: round.rooms.map((_, roomIndex) =>
+        kingsValleyRoomBands(bands[roomIndex], roomIndex, actualSizes[roomIndex]),
+      ),
+    };
   }
 
   if (round.isWaterfall) {

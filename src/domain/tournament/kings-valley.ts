@@ -14,6 +14,43 @@ function bandCount(roomSize: number, fraction: number): number {
   return Math.max(1, Math.round(roomSize * fraction));
 }
 
+export interface KingsValleyRoomBandCounts {
+  promote: number;
+  /** This room's own demote band, or its eliminate band when `eliminates` is true -- never both. */
+  cut: number;
+  eliminates: boolean;
+}
+
+/**
+ * One room's promote/cut counts, computed from its REAL size, for every room
+ * in the ladder -- shared by generation (kingsValleyBracketPhase), the real
+ * advance (kingsValleyComputeAdvancement, advancement.ts) and the exit chips
+ * (kingsValleyRoomBands, room-exits.ts), so a lone room can never disagree
+ * between the three. A room with fewer than 2 units has no real match to
+ * play, so it holds (promote 0, cut 0) instead of being cut by the band
+ * maths -- the organiser's 2026-09-27 decision. The elimination cut always
+ * comes from the *effective bottom*: the last room (by ladder position) that
+ * still has a real match, not necessarily the literal last room -- a lone
+ * room can sit anywhere in the ladder, including below the effective bottom.
+ */
+export function kingsValleyRoomBandCounts(roomSizes: number[]): KingsValleyRoomBandCounts[] {
+  let eliminateIndex = -1;
+  for (let index = roomSizes.length - 1; index >= 0; index -= 1) {
+    if (roomSizes[index] >= 2) {
+      eliminateIndex = index;
+      break;
+    }
+  }
+  return roomSizes.map((size, index) => {
+    if (size < 2) return { promote: 0, cut: 0, eliminates: false };
+    const eliminates = index === eliminateIndex;
+    const promote = bandCount(size, KINGS_VALLEY_MOVE_FRACTION);
+    const cutFraction = eliminates ? KINGS_VALLEY_ELIMINATION_FRACTION : KINGS_VALLEY_MOVE_FRACTION;
+    const cut = Math.min(bandCount(size, cutFraction), size - promote);
+    return { promote, cut, eliminates };
+  });
+}
+
 function finalRound(roundNum: number, players: number, finalsGames: number): TournamentRound {
   return {
     roundNum,
@@ -34,19 +71,30 @@ function finalRound(roundNum: number, players: number, finalsGames: number): Tou
 /**
  * Rooms are ranked 1 (top) .. R (bottom). Each round, a room's top band
  * promotes to the room above (room 1's promote band has nowhere to go and
- * stays instead), a bottom band demotes to the room below (room R's demote
- * band has nowhere to go and is eliminated instead), and the rest stay.
- * Room sizes are recomputed from the shrinking survivor count via
- * distributeRooms() each round -- the same pure room-sizing function every
- * other bracket phase already uses -- so room count naturally shrinks as
- * bottom-room eliminations reduce the population, with no explicit merge
- * step needed. Once the population fits in one room, that becomes the
- * dedicated Final round and the simulation stops.
+ * stays instead), a bottom band demotes to the room below, and the rest
+ * stay. Only the *effective bottom* -- the last room (by ladder position)
+ * that still has a real match, not necessarily the literal last room -- is
+ * actually eliminated; any literal-last room left with fewer than 2 units
+ * (an odd head-to-head field, or a removal) holds instead, per
+ * kingsValleyRoomBandCounts above. Room sizes are recomputed from the
+ * shrinking survivor count via distributeRooms() each round -- the same pure
+ * room-sizing function every other bracket phase already uses -- so room
+ * count naturally shrinks as the effective bottom's eliminations reduce the
+ * population, with no explicit merge step needed. Once the population fits
+ * in one room, that becomes the dedicated Final round and the simulation
+ * stops.
+ *
+ * `capStartRoundNum` anchors the MAX_KINGS_VALLEY_ROUNDS cap -- defaults to
+ * `startRoundNum`, but a mid-tournament re-fit (fitKingsValleyTail,
+ * transitions.ts) passes the FIRST Kings Valley round's own roundNum instead,
+ * so re-planning the tail from a later round doesn't hand a stuck field a
+ * fresh 14-round budget it already partly spent.
  */
 export function kingsValleyBracketPhase(
   seedTotal: number,
   startRoundNum: number,
   config: KingsValleyConfig,
+  capStartRoundNum: number = startRoundNum,
 ): TournamentRound[] {
   const rounds: TournamentRound[] = [];
   let total = seedTotal;
@@ -59,21 +107,10 @@ export function kingsValleyBracketPhase(
       break;
     }
 
-    const bottomIndex = roomSizes.length - 1;
-    const kvPromoteCounts: number[] = [];
-    const kvDemoteCounts: number[] = [];
-    let kvEliminateCount = 0;
-
-    for (const [index, size] of roomSizes.entries()) {
-      const promoteCount = bandCount(size, KINGS_VALLEY_MOVE_FRACTION);
-      kvPromoteCounts.push(promoteCount);
-      if (index === bottomIndex) {
-        kvDemoteCounts.push(0);
-        kvEliminateCount = Math.min(bandCount(size, KINGS_VALLEY_ELIMINATION_FRACTION), size - promoteCount);
-      } else {
-        kvDemoteCounts.push(Math.min(bandCount(size, KINGS_VALLEY_MOVE_FRACTION), size - promoteCount));
-      }
-    }
+    const bands = kingsValleyRoomBandCounts(roomSizes);
+    const kvPromoteCounts = bands.map((band) => band.promote);
+    const kvDemoteCounts = bands.map((band) => (band.eliminates ? 0 : band.cut));
+    const kvEliminateCount = bands.find((band) => band.eliminates)?.cut ?? 0;
 
     rounds.push({
       roundNum,
@@ -95,7 +132,7 @@ export function kingsValleyBracketPhase(
 
     total -= kvEliminateCount;
     roundNum += 1;
-    if (roundNum - startRoundNum >= MAX_KINGS_VALLEY_ROUNDS) {
+    if (roundNum - capStartRoundNum >= MAX_KINGS_VALLEY_ROUNDS) {
       rounds.push(finalRound(roundNum, total, config.finalsGames));
       break;
     }

@@ -169,13 +169,14 @@ function TeamScoreFields({ children }: { children: ReactNode }) {
 /**
  * Whether a lone unit's room reads as "treated as a bye": true for rounds
  * whose results feed standings or plain per-room advancement (pooling,
- * no-elim warm-up, single elimination, Semis). Not for Kings Valley (its
- * promote/demote bands are counted per room, so a lone unit isn't a bye
- * there), waterfall rounds (fixed rank bands per room), or double-
- * elimination rounds (winners/losers routing).
+ * no-elim warm-up, single elimination, Semis) and for Kings Valley (a lone
+ * room holds its place -- neither promoted nor cut, per
+ * kingsValleyRoomBandCounts, kings-valley.ts -- so it plays next round same
+ * as an ordinary bye). Not for waterfall rounds (fixed rank bands per room)
+ * or double-elimination rounds (winners/losers routing).
  */
 function isByeLikeRound(round: TournamentRound): boolean {
-  return !round.isKingsValley && !round.isWaterfall && !round.bracket && !round.isFinal;
+  return !round.isWaterfall && !round.bracket && !round.isFinal;
 }
 
 type RowResult = 'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '';
