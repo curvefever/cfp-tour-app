@@ -596,10 +596,13 @@ function RoomExitChips({
         <Badge
           // cn() doesn't deduplicate conflicting Tailwind utilities (a
           // documented gap -- see HANDOFF.md's "Known, accepted
-          // limitations"): Badge's own `uppercase`/`tracking-[0.08em]` would
-          // otherwise win the cascade over these regardless of class order,
-          // same fix compactScoreClass already uses for the same reason.
-          className='px-1.5! py-px! text-[0.62rem]! normal-case! tracking-normal!'
+          // limitations"): Badge's own `uppercase`/`tracking-[0.08em]`/
+          // `whitespace-nowrap` would otherwise win the cascade over these
+          // regardless of class order, same fix compactScoreClass already
+          // uses for the same reason. whitespace-normal! lets a long chip
+          // ("1 → WB Round 5") wrap onto a second line inside the narrow
+          // round column instead of overflowing it uncut.
+          className='rounded-md! px-1.5! py-px! text-[0.62rem]! leading-snug! normal-case! tracking-normal! whitespace-normal!'
           key={index}
           title={
             band.kind === 'lucky-chance'
@@ -634,7 +637,7 @@ function RoundExitSummary({
         : `Top ${rule.advancing} ${rule.perGroup ? 'per group' : 'in standings'} → ${destinationLabel(rule.destination, labels)}`;
   return (
     <Badge
-      className='mb-2 px-2! py-0.5! text-[0.65rem]! normal-case! tracking-normal!'
+      className='mb-2 px-2! py-0.5! text-[0.65rem]! leading-snug! normal-case! tracking-normal! whitespace-normal!'
       tone={rule.kind === 'standings' && !rule.counted ? 'neutral' : 'primary'}
     >
       {text}
