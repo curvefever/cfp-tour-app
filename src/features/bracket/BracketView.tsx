@@ -34,6 +34,7 @@ import {
   setRoundScore,
   unflagFinalGameAnonymous,
 } from '../../domain/tournament/mutations';
+import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import {
   formatStandingValue,
@@ -512,29 +513,127 @@ function LuckyLoserStandingsPanel({ state, roundIndex }: { state: TournamentStat
   );
 }
 
-function KingsValleyDisclaimer({ round }: { round: TournamentRound }) {
+function KingsValleyDisclaimer() {
   return (
     <div className='mb-2 rounded-md border border-accent/30 bg-accent/5 px-2.5 py-1.5 text-[0.68rem] text-muted'>
       <span className='font-semibold text-accent'>⛰ Kings Valley: </span>
       Top finishers promote to the room above, bottom finishers demote to the room below (the bottom room's
-      demoted are eliminated instead), the rest stay.
-      <div className='mt-1 grid gap-0.5'>
-        {round.rooms.map((size, roomIndex) => {
-          const isBottom = roomIndex === round.rooms.length - 1;
-          const promote = round.kvPromoteCounts?.[roomIndex] ?? 0;
-          const cut = isBottom ? (round.kvEliminateCount ?? 0) : (round.kvDemoteCounts?.[roomIndex] ?? 0);
-          const stay = size - promote - cut;
-          const cutText = isBottom
-            ? `bottom ${cut} are eliminated`
-            : `bottom ${cut} demote to Room ${roomLetter(roomIndex + 2)}`;
-          return (
-            <div key={roomIndex}>
-              Room {roomLetter(roomIndex + 1)} ({size}): top {promote} promote, {cutText}, {stay} stay.
-            </div>
-          );
-        })}
-      </div>
+      demoted are eliminated instead), the rest stay — see each room's own chips above for the exact counts.
     </div>
+  );
+}
+
+function ordinal(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+function destinationLabel(roundIndex: number, labels: ReturnType<typeof bracketRoundLabels>): string {
+  return labels[roundIndex]?.label ?? `Round ${roundIndex + 1}`;
+}
+
+function rankRangeText(fromRank: number, toRank: number): string {
+  return fromRank === toRank ? `${fromRank}` : `${fromRank}–${toRank}`;
+}
+
+function exitBandTone(kind: RoomExitBand['kind']): 'success' | 'danger' | 'accent' | 'warning' | 'neutral' {
+  switch (kind) {
+    case 'advance':
+    case 'promote':
+      return 'success';
+    case 'drop':
+    case 'demote':
+      return 'warning';
+    case 'lucky-chance':
+      return 'accent';
+    case 'eliminate':
+      return 'danger';
+    case 'stay':
+      return 'neutral';
+  }
+}
+
+function roomExitChipText(band: RoomExitBand, labels: ReturnType<typeof bracketRoundLabels>): string {
+  switch (band.kind) {
+    case 'advance':
+    case 'drop':
+      return `${rankRangeText(band.fromRank, band.toRank)} → ${destinationLabel(band.destination, labels)}`;
+    case 'eliminate':
+      return `${rankRangeText(band.fromRank, band.toRank)} out`;
+    case 'lucky-chance':
+      return `${band.rank} ★ lucky loser?`;
+    case 'promote':
+      return `${rankRangeText(band.fromRank, band.toRank)} ↑ Room ${roomLetter(band.targetRoom)}`;
+    case 'stay':
+      return `${rankRangeText(band.fromRank, band.toRank)} stay`;
+    case 'demote':
+      return `${rankRangeText(band.fromRank, band.toRank)} ↓ Room ${roomLetter(band.targetRoom)}`;
+  }
+}
+
+/** The small colour-coded chips under a room's own label describing exactly how it exits -- the same rule the row colours and destination tags (Stage 3) read from, so all three always agree. Renders in every state (future/current/past) since roundExitRule itself is score-independent. */
+function RoomExitChips({
+  bands,
+  labels,
+}: {
+  bands: RoomExitBand[];
+  labels: ReturnType<typeof bracketRoundLabels>;
+}) {
+  if (!bands.length) return null;
+  return (
+    <div className='mb-1 flex flex-wrap gap-1'>
+      {bands.map((band, index) => (
+        <Badge
+          className='px-1.5 py-px text-[0.62rem] normal-case tracking-normal'
+          key={index}
+          title={
+            band.kind === 'lucky-chance'
+              ? `The best ${ordinal(band.rank)} place across all rooms, by share of its room's total, also advances (${band.spots} spot${band.spots === 1 ? '' : 's'})`
+              : undefined
+          }
+          tone={exitBandTone(band.kind)}
+        >
+          {roomExitChipText(band, labels)}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+/** The one round-level exit line for a round whose exit isn't per-room (a no-elim warm-up, a qual/Swiss/group-stage round, or the standings cut-off into the bracket) -- null for 'per-room' (room chips cover it) and 'none' (Final/grand-final, nothing to say). */
+function RoundExitSummary({
+  rule,
+  labels,
+}: {
+  rule: RoundExitRule;
+  labels: ReturnType<typeof bracketRoundLabels>;
+}) {
+  if (rule.kind === 'per-room' || rule.kind === 'none') return null;
+  const text =
+    rule.kind === 'all-advance'
+      ? 'Everyone advances'
+      : rule.kind === 'standings'
+        ? rule.counted
+          ? 'Counts toward standings'
+          : 'Seeding only, not counted'
+        : `Top ${rule.advancing} ${rule.perGroup ? 'per group' : 'in standings'} → ${destinationLabel(rule.destination, labels)}`;
+  return (
+    <Badge
+      className='mb-2 px-2 py-0.5 text-[0.65rem] normal-case tracking-normal'
+      tone={rule.kind === 'standings' && !rule.counted ? 'neutral' : 'primary'}
+    >
+      {text}
+    </Badge>
   );
 }
 
@@ -588,14 +687,20 @@ function TieBanners({ state }: { state: TournamentState }) {
 
 function PlaceholderRound({
   round,
+  roundIndex,
   state,
   projected,
+  labels,
 }: {
   round: TournamentRound;
+  roundIndex: number;
   state: TournamentState;
   projected: ProjectedSlotLabel[][] | null;
+  labels: ReturnType<typeof bracketRoundLabels>;
 }) {
   if (!round.rooms.length) return <div className='text-muted'>Not yet seeded</div>;
+  const rule = roundExitRule(state, roundIndex);
+  const summary = <RoundExitSummary rule={rule} labels={labels} />;
   if (round.fixedRoomAssignments) {
     // A pre-published draw -- the real room assignment is already fully
     // decided at generation time (see fixed-draws.ts / HANDOFF.md's "Room
@@ -612,6 +717,7 @@ function PlaceholderRound({
     }
     return (
       <>
+        {summary}
         {round.rooms.map((slots, roomIndex) => (
           <div className='mb-2' key={roomIndex}>
             <RoomLabel>
@@ -642,6 +748,7 @@ function PlaceholderRound({
   if (round.isGroupStage) {
     return (
       <>
+        {summary}
         {(round.matches ?? []).map((match, roomIndex) => (
           <div className='mb-2' key={roomIndex}>
             <RoomLabel>
@@ -671,13 +778,16 @@ function PlaceholderRound({
   }
   return (
     <>
+      {summary}
       {round.rooms.map((slots, roomIndex) => {
         const roomLabels = projected?.[roomIndex] ?? null;
+        const bands = rule.kind === 'per-room' ? rule.rooms[roomIndex] : [];
         return (
           <div className='mb-2' key={roomIndex}>
             <RoomLabel>
               Room {roomLetter(roomIndex + 1)} ({slots})
             </RoomLabel>
+            <RoomExitChips bands={bands} labels={labels} />
             {Array.from({ length: slots }, (_, slot) => (
               <div
                 className={cn(bracketRowBase, 'border-l-surface-hover border-l-dashed text-muted opacity-65')}
@@ -690,7 +800,7 @@ function PlaceholderRound({
         );
       })}
       {round.luckyCount > 0 && !round.isNoElim ? <LuckyLoserDisclaimer round={round} /> : null}
-      {round.isKingsValley ? <KingsValleyDisclaimer round={round} /> : null}
+      {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
       {round.pairingTBD ? (
         <div className='mt-1.5 text-[0.68rem] text-warning'>Pairings determined live</div>
       ) : null}
@@ -712,6 +822,7 @@ function RoundBody({
   editable,
   followKey,
   projected,
+  labels,
   finalTab,
   onFinalTabChange,
 }: {
@@ -720,6 +831,7 @@ function RoundBody({
   editable: boolean;
   followKey: string | null;
   projected: ProjectedSlotLabel[][] | null;
+  labels: ReturnType<typeof bracketRoundLabels>;
   finalTab?: number;
   onFinalTabChange?: (tab: number) => void;
 }) {
@@ -728,7 +840,15 @@ function RoundBody({
   if (!assignments.length) {
     // A round already reached with nobody in it (a removal left it no units).
     if (roundIndex <= state.curRound) return <div className='text-muted'>Nobody reached this round.</div>;
-    return <PlaceholderRound round={round} state={state} projected={projected} />;
+    return (
+      <PlaceholderRound
+        round={round}
+        roundIndex={roundIndex}
+        state={state}
+        projected={projected}
+        labels={labels}
+      />
+    );
   }
   if (round.isFinal)
     return (
@@ -741,6 +861,7 @@ function RoundBody({
         onTabChange={onFinalTabChange ?? (() => {})}
       />
     );
+  const exitRule = roundExitRule(state, roundIndex);
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
@@ -767,6 +888,7 @@ function RoundBody({
   );
   return (
     <>
+      <RoundExitSummary rule={exitRule} labels={labels} />
       {round.rooms.map((_, roomIndex) => {
         const room = roomIndex + 1;
         const units = assignments.filter((entry) => entry.room === room);
@@ -788,6 +910,7 @@ function RoundBody({
             </div>
           );
         }
+        const bands = exitRule.kind === 'per-room' ? exitRule.rooms[roomIndex] : [];
         const direct = round.isNoElim ? units.length : (round.advPerRoom ?? 0);
         const isBottomRoom = round.isKingsValley && roomIndex === round.rooms.length - 1;
         const promoteCount = round.kvPromoteCounts?.[roomIndex] ?? 0;
@@ -815,6 +938,7 @@ function RoundBody({
               {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {roomLetter(room)} (
               {units.length})
             </RoomLabel>
+            <RoomExitChips bands={bands} labels={labels} />
             {display.map((entry, index) => {
               const advances = cutoffAdvancing
                 ? cutoffAdvancing.has(entry.name)
@@ -1009,7 +1133,7 @@ function RoundBody({
       {round.luckyCount > 0 && !round.isNoElim && roundIndex === state.curRound ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}
-      {round.isKingsValley ? <KingsValleyDisclaimer round={round} /> : null}
+      {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
       {(state.byes[roundIndex] ?? []).map((name) => (
         <div
           className={cn(
@@ -1120,12 +1244,14 @@ function WaveBoxBody({
   editable,
   followKey,
   projectedSlots,
+  labels,
 }: {
   state: TournamentState;
   box: Extract<BracketBox, { kind: 'wave' }>;
   editable: boolean;
   followKey: string | null;
   projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
+  labels: ReturnType<typeof bracketRoundLabels>;
 }) {
   const hasLosers = box.losersRoundIndices.length > 0;
   return (
@@ -1141,6 +1267,7 @@ function WaveBoxBody({
         editable={editable}
         followKey={followKey}
         projected={projectedSlots[box.winnersRoundIndex] ?? null}
+        labels={labels}
       />
       {hasLosers ? (
         <>
@@ -1161,6 +1288,7 @@ function WaveBoxBody({
                 editable={editable}
                 followKey={followKey}
                 projected={projectedSlots[roundIndex] ?? null}
+                labels={labels}
               />
             </div>
           ))}
@@ -1230,6 +1358,7 @@ function BracketRounds({
           editable={editable}
           followKey={followKey}
           projected={projectedSlots[roundIndex] ?? null}
+          labels={labels}
           finalTab={roundIndex === finalRoundIndex ? finalTab : undefined}
           onFinalTabChange={roundIndex === finalRoundIndex ? setFinalTabOverride : undefined}
         />
@@ -1271,6 +1400,7 @@ function BracketRounds({
           editable={editable}
           followKey={followKey}
           projectedSlots={projectedSlots}
+          labels={labels}
         />
       </RoundColumn>
     );
