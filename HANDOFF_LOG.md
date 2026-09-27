@@ -27,8 +27,8 @@ Live-verified on the test site throughout, organiser logged in: the reported tou
 **Out of scope.**
 - Tagging future-round placeholders with their destination (the projected slot order isn't rank order) — plan's own explicit exclusion.
 - Any change to advancement rules or projections.
-- `1790506978304`'s Round 3 (`advPerRoom` 8 in rooms of 8, nobody eliminated) reads `1–8 → Semis` with the chips, which is at least honest about the underlying shape; not changed here, flagged for the organiser to decide per the plan.
-- A destination tag for the one narrow case of an in-progress multi-game team round being actively edited (no plain score span exists there to attach a tag to) — the tag shows correctly once that round is no longer being edited.
+- `1790506978304`'s Round 3 (`advPerRoom` 8 in rooms of 8, nobody eliminated) reads `1–8 → Semis` with the chips, which is honest about the underlying shape. The organiser reviewed it and decided (2026-09-27) to keep it as is.
+- No destination tag on rows the admin is currently scoring: in the admin's editable current round, a single-game individual row renders its score input where the score span (which carries the tag) would be, and an in-progress multi-game row has no plain score span either. Viewers, non-admins and past rounds see the tag, the room's chips above already state the rule, and the tag appears once the round is no longer being edited. Accepted as is.
 - Component-level tests for the new chip/row-colour rendering (Testing Library still unconfigured).
 
 ---
