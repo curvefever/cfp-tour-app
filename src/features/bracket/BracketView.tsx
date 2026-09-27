@@ -34,7 +34,12 @@ import {
   setRoundScore,
   unflagFinalGameAnonymous,
 } from '../../domain/tournament/mutations';
-import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
+import {
+  exitBandAtRank,
+  roundExitRule,
+  type RoomExitBand,
+  type RoundExitRule,
+} from '../../domain/tournament/room-exits';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import {
   formatStandingValue,
@@ -45,7 +50,6 @@ import {
 } from '../../domain/tournament/scoring';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
-import { waterfallDestination } from '../../domain/tournament/waterfall-bracket';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
 import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -174,12 +178,15 @@ function isByeLikeRound(round: TournamentRound): boolean {
   return !round.isKingsValley && !round.isWaterfall && !round.bracket && !round.isFinal;
 }
 
-function resultClasses(
-  result: 'advance' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '',
-  followed: boolean,
-) {
+type RowResult = 'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '';
+
+function resultClasses(result: RowResult, followed: boolean) {
   return cn(
     result === 'advance' && 'border-l-success text-success',
+    // A drop (double-elim: to the losers bracket) is a real, ongoing result,
+    // not an elimination -- amber like a Kings Valley demote, but never
+    // struck through.
+    result === 'drop' && 'border-l-warning text-warning',
     result === 'eliminate' && 'border-l-surface-hover text-muted line-through opacity-50',
     result === 'lucky' && 'border-l-accent text-accent',
     result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
@@ -581,6 +588,29 @@ function roomExitChipText(band: RoomExitBand, labels: ReturnType<typeof bracketR
   }
 }
 
+/**
+ * The round a scored row's own destination tag should name -- waterfall and
+ * double-elimination rounds only (see the call site), null everywhere else
+ * (an eliminated row, or a Kings Valley promote/stay/demote row, which never
+ * gets a tag at all). A lucky-chance rank that actually won the spot reports
+ * the room's own `advance` destination (the same place a direct advancer
+ * from this room goes); one that didn't reports wherever `otherwise` sends
+ * it -- a drop's real destination, or null when eliminated outright.
+ */
+function exitBandDestination(
+  band: RoomExitBand | null,
+  isLucky: boolean,
+  advanceDestination: number | undefined,
+): number | null {
+  if (!band) return null;
+  if (band.kind === 'advance' || band.kind === 'drop') return band.destination;
+  if (band.kind === 'lucky-chance') {
+    if (isLucky) return advanceDestination ?? null;
+    return band.otherwise === 'eliminate' ? null : band.otherwise.drop;
+  }
+  return null;
+}
+
 /** The small colour-coded chips under a room's own label describing exactly how it exits -- the same rule the row colours and destination tags (Stage 3) read from, so all three always agree. Renders in every state (future/current/past) since roundExitRule itself is score-independent. */
 function RoomExitChips({
   bands,
@@ -816,6 +846,22 @@ function PlaceholderRound({
   );
 }
 
+/** A scored row's own small muted "→ SemiB" / "→ LB Round 4" -- see exitBandDestination for which rows get one. */
+function DestinationTag({
+  destination,
+  labels,
+}: {
+  destination: number | null;
+  labels: ReturnType<typeof bracketRoundLabels>;
+}) {
+  if (destination === null) return null;
+  return (
+    <span className='ml-1 text-[0.62rem] whitespace-nowrap text-muted'>
+      → {destinationLabel(destination, labels)}
+    </span>
+  );
+}
+
 function RoomLabel({ children }: { children: ReactNode }) {
   return (
     <div className='mb-1 pl-0.5 text-[0.68rem] font-bold tracking-[0.05em] text-muted uppercase'>
@@ -919,12 +965,12 @@ function RoundBody({
           );
         }
         const bands = exitRule.kind === 'per-room' ? exitRule.rooms[roomIndex] : [];
-        const direct = round.isNoElim ? units.length : (round.advPerRoom ?? 0);
-        const isBottomRoom = round.isKingsValley && roomIndex === round.rooms.length - 1;
-        const promoteCount = round.kvPromoteCounts?.[roomIndex] ?? 0;
-        const cutCount = isBottomRoom
-          ? (round.kvEliminateCount ?? 0)
-          : (round.kvDemoteCounts?.[roomIndex] ?? 0);
+        const advanceDestination = bands.find((band) => band.kind === 'advance')?.destination;
+        // A destination tag is only meaningful where "which round" isn't
+        // already obvious from a single fixed next round -- waterfall (a
+        // band can point several rounds ahead) and double-elimination (WB
+        // vs LB). Single elimination and Kings Valley never get one.
+        const showDestinationTags = round.isWaterfall || Boolean(round.bracket);
         const scored = units.map((entry, position) => ({
           name: entry.name,
           position,
@@ -948,30 +994,38 @@ function RoundBody({
             </RoomLabel>
             <RoomExitChips bands={bands} labels={labels} />
             {display.map((entry, index) => {
-              const advances = cutoffAdvancing
-                ? cutoffAdvancing.has(entry.name)
-                : round.isWaterfall
-                  ? waterfallDestination(round, room, index) !== null
-                  : round.isNoElim || index < direct;
               const lucky = luckyNames.includes(entry.name);
               const pending = showResults && pendingTieNames.has(entry.name);
-              const result = pending
+              // The room's own band for this rank -- the single source both
+              // the row colour and its destination tag read from, so they
+              // can never disagree. Only meaningful once bands exist (a
+              // 'per-room' exit rule); standings-cutoff and no-elim rounds
+              // keep their own existing paths below, unchanged.
+              const band = exitBandAtRank(bands, index + 1);
+              const perRoomResult: RowResult = !band
+                ? 'eliminate'
+                : band.kind === 'lucky-chance'
+                  ? lucky
+                    ? 'lucky'
+                    : band.otherwise === 'eliminate'
+                      ? 'eliminate'
+                      : 'drop'
+                  : band.kind;
+              const result: RowResult = pending
                 ? 'pending'
                 : !showResults
                   ? ''
-                  : round.isKingsValley
-                    ? index < promoteCount
-                      ? 'promote'
-                      : index >= display.length - cutCount
-                        ? isBottomRoom
-                          ? 'eliminate'
-                          : 'demote'
-                        : 'stay'
-                    : lucky
-                      ? 'lucky'
-                      : advances
-                        ? 'advance'
-                        : 'eliminate';
+                  : cutoffAdvancing
+                    ? cutoffAdvancing.has(entry.name)
+                      ? 'advance'
+                      : 'eliminate'
+                    : round.isNoElim
+                      ? 'advance'
+                      : perRoomResult;
+              const destination =
+                showDestinationTags && showResults
+                  ? exitBandDestination(band, lucky, advanceDestination)
+                  : null;
               const followed = followKey === entry.name;
               const kvLabel =
                 round.isKingsValley && showResults
@@ -1025,7 +1079,10 @@ function RoundBody({
                         <TeamMembers state={state} name={entry.name} roundIndex={roundIndex} />
                       </span>
                       {showResults ? (
-                        <span className='ml-auto text-xs font-bold text-muted'>{entry.score}</span>
+                        <span className='ml-auto flex items-center text-xs font-bold text-muted'>
+                          {entry.score}
+                          <DestinationTag destination={destination} labels={labels} />
+                        </span>
                       ) : null}
                     </div>
                     {rowsEditable ? (
@@ -1129,7 +1186,10 @@ function RoundBody({
                   {rowsEditable ? (
                     <BracketScoreInput state={state} scoreKey={key} roundIndex={roundIndex} room={room} />
                   ) : showResults ? (
-                    <span className='ml-auto text-xs font-bold text-muted'>{entry.score}</span>
+                    <span className='ml-auto flex items-center text-xs font-bold text-muted'>
+                      {entry.score}
+                      <DestinationTag destination={destination} labels={labels} />
+                    </span>
                   ) : null}
                 </div>
               );
