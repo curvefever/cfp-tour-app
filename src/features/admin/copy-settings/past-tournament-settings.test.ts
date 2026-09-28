@@ -79,11 +79,20 @@ describe('archiveEntriesWithSettings', () => {
       settings: settingsFromForm(createDefaultSetup()),
     });
     const withoutSettings = createDefaultTournamentState({ title: 'Without Settings' });
+    // Written oldest-first, so the saved (index) order is the reverse of
+    // the expected date order -- catches a missing/wrong sort, which a
+    // coincidentally already-sorted write order would let pass silently.
+    writeArchiveSnapshot({
+      storage,
+      state: { ...withSettings, title: 'Older With Settings' },
+      id: 'older',
+      dateSaved: '2026-01-01T00:00:00.000Z',
+    });
     writeArchiveSnapshot({
       storage,
       state: withoutSettings,
-      id: 'older',
-      dateSaved: '2026-01-01T00:00:00.000Z',
+      id: 'newer-no-settings',
+      dateSaved: '2026-01-15T00:00:00.000Z',
     });
     writeArchiveSnapshot({
       storage,
@@ -94,6 +103,7 @@ describe('archiveEntriesWithSettings', () => {
 
     expect(archiveEntriesWithSettings(storage)).toEqual([
       { id: 'newer', title: 'With Settings', dateSaved: '2026-02-01T00:00:00.000Z' },
+      { id: 'older', title: 'Older With Settings', dateSaved: '2026-01-01T00:00:00.000Z' },
     ]);
   });
 });
