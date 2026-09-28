@@ -31,6 +31,8 @@ interface EditorProps {
   /** Players entering the bracket, or null while it can't be known yet. */
   entrantCount: number | null;
   roomSize: RoomSize;
+  /** No control that changes the graph is rendered; the round list, room tables and side panel still show. */
+  readOnly?: boolean;
 }
 
 function roundHasRoutedSlots(draft: WaterfallDraft, label: string): boolean {
@@ -65,6 +67,7 @@ function DraftEditor({
   onChange,
   entrantCount,
   roomSize,
+  readOnly,
 }: EditorProps & { draft: WaterfallDraft; status: GraphStatus }) {
   const [selectedLabel, setSelectedLabel] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -181,9 +184,13 @@ function DraftEditor({
             <span className='text-xs text-muted'> (load a roster and set "Advance to bracket")</span>
           ) : null}
         </span>
-        <span className='flex-1' />
-        <span className='text-xs text-muted'>Start over from:</span>
-        <StartButtons onBlank={startBlank} onExample={loadExample} />
+        {readOnly ? null : (
+          <>
+            <span className='flex-1' />
+            <span className='text-xs text-muted'>Start over from:</span>
+            <StartButtons onBlank={startBlank} onExample={loadExample} />
+          </>
+        )}
       </div>
       <div className='grid gap-4 min-[901px]:grid-cols-[11rem_minmax(0,1fr)_18rem]'>
         <div>
@@ -197,12 +204,14 @@ function DraftEditor({
             onSelect={select}
             selected={round.label}
           />
-          <Button className='mt-2 w-full' onClick={addRound} size='sm'>
-            + Add round
-          </Button>
+          {readOnly ? null : (
+            <Button className='mt-2 w-full' onClick={addRound} size='sm'>
+              + Add round
+            </Button>
+          )}
         </div>
         <WaterfallRoundEditor
-          actions={actions}
+          actions={readOnly ? undefined : actions}
           draft={draft}
           incomingPlayers={intake.incoming[round.label] ?? 0}
           mirror={mirror}
@@ -215,7 +224,7 @@ function DraftEditor({
   );
 }
 
-export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize }: EditorProps) {
+export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize, readOnly }: EditorProps) {
   const parsed = useMemo(() => parseWaterfallDraft(text), [text]);
   const { min, max, ideal } = roomSize;
   const status = useMemo<GraphStatus>(() => {
@@ -235,16 +244,18 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize }:
         <pre className='mt-3 overflow-x-auto rounded-[5px] bg-background p-3 font-mono text-xs whitespace-pre-wrap'>
           {text}
         </pre>
-        <ButtonRow>
-          <Button
-            onClick={() => {
-              if (window.confirm('Discard this text and start a new graph?')) onChange('');
-            }}
-            variant='danger'
-          >
-            Discard and start over
-          </Button>
-        </ButtonRow>
+        {readOnly ? null : (
+          <ButtonRow>
+            <Button
+              onClick={() => {
+                if (window.confirm('Discard this text and start a new graph?')) onChange('');
+              }}
+              variant='danger'
+            >
+              Discard and start over
+            </Button>
+          </ButtonRow>
+        )}
       </div>
     );
   }
@@ -256,17 +267,19 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize }:
           No rounds yet. Start with an entry round and a Final and route every rank, or load an example to
           edit.
         </p>
-        <ButtonRow>
-          <Button
-            onClick={() =>
-              onChange(serializeWaterfallDraft(blankWaterfallDraft(entrantCount, { min, max, ideal })))
-            }
-            variant='primary'
-          >
-            Blank start
-          </Button>
-          <StartButtons onExample={onChange} />
-        </ButtonRow>
+        {readOnly ? null : (
+          <ButtonRow>
+            <Button
+              onClick={() =>
+                onChange(serializeWaterfallDraft(blankWaterfallDraft(entrantCount, { min, max, ideal })))
+              }
+              variant='primary'
+            >
+              Blank start
+            </Button>
+            <StartButtons onExample={onChange} />
+          </ButtonRow>
+        )}
       </div>
     );
   }
@@ -276,6 +289,7 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize }:
       draft={parsed.value}
       entrantCount={entrantCount}
       onChange={onChange}
+      readOnly={readOnly}
       roomSize={roomSize}
       status={status}
       text={text}

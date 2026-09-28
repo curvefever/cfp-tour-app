@@ -23,6 +23,7 @@ import {
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
+import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
 type AdminPrompt =
   | { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary }
@@ -116,6 +117,7 @@ export function RunningAdmin() {
         </Field>
       </Panel>
       <TournamentSettingsRecap state={state} />
+      {state.rounds.some((entry) => entry.isWaterfall) ? <RunningWaterfallPanel state={state} /> : null}
       {archiveStatus ? (
         <Alert tone='success' id='archive-save-status'>
           {archiveStatus}

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { RoomSize } from '../types';
-import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import {
+  parseWaterfallGraph,
+  validateAndOrderWaterfallGraph,
+  waterfallBracketPhase,
+} from '../waterfall-bracket';
 import {
   addWaterfallRound,
   assignWaterfallSlots,
@@ -13,6 +17,7 @@ import {
   resizeWaterfallRound,
   serializeWaterfallDraft,
   setWaterfallFinal,
+  waterfallDraftFromRounds,
   waterfallFlowEdges,
   waterfallRoundIntake,
   type WaterfallDraft,
@@ -51,6 +56,18 @@ ROUTES:
 R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
 R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
 SemiB: 1-2->Final, 3-8->eliminated`;
+
+/** 43 players, 24 advancing (3x8 entry). */
+const THREE_ROOM_ENTRY_GRAPH = `ROUNDS:
+R1 = 3x8
+SemiA = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->SemiA, 5-8->eliminated
+R1.B: 1-4->SemiA, 5-8->eliminated
+R1.C: 1-8->eliminated
+SemiA: 1-8->Final`;
 
 function draftOf(text: string): WaterfallDraft {
   const result = parseWaterfallDraft(text);
@@ -342,5 +359,19 @@ describe('waterfall draft edits', () => {
       draft = assignWaterfallSlots(draft, 'R1', slots, 'eliminated');
       expect(validated(serializeWaterfallDraft(draft), 16).ok).toBe(true);
     });
+  });
+});
+
+describe('waterfallDraftFromRounds', () => {
+  it.each([
+    ['the spreadsheet example', SPREADSHEET_GRAPH, 32],
+    ['a 3-room entry graph', THREE_ROOM_ENTRY_GRAPH, 24],
+  ])('rebuilds a materialized graph as the same validated graph (%s)', (_name, text, entrants) => {
+    const original = validated(text, entrants);
+    expect(original.ok).toBe(true);
+    if (!original.ok) return;
+    const rounds = waterfallBracketPhase(entrants, 1, { graph: original.value, finalsGames: 1 });
+    const rebuiltText = serializeWaterfallDraft(waterfallDraftFromRounds(rounds));
+    expect(validated(rebuiltText, entrants)).toEqual(original);
   });
 });

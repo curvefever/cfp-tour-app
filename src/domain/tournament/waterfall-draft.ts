@@ -1,4 +1,4 @@
-import type { RoomSize } from './types';
+import type { RoomSize, TournamentRound } from './types';
 import {
   ELIMINATED,
   LABEL_PATTERN,
@@ -189,6 +189,36 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
     }),
   );
   return `ROUNDS:\n${roundLines.join('\n')}\n\nROUTES:\n${routeLines.join('\n')}`.trimEnd();
+}
+
+/**
+ * Rebuilds a draft from a running tournament's own `state.rounds`, the live
+ * source of truth for a materialized waterfall graph -- not the
+ * `settings.waterfallGraph` snapshot, which may be stale or absent
+ * (tournaments generated before it existed). `waterfallRoutes`' absolute
+ * `state.rounds` indices are resolved back to round labels via each
+ * destination round's own `customLabel`.
+ */
+export function waterfallDraftFromRounds(rounds: TournamentRound[]): WaterfallDraft {
+  const labelByIndex = new Map(rounds.map((round, index) => [index, round.customLabel]));
+  const waterfallRounds = rounds.filter((round) => round.isWaterfall);
+  const draftRounds: WaterfallDraftRound[] = waterfallRounds.map((round) => ({
+    label: round.customLabel as string,
+    roomCount: round.rooms.length,
+    roomSize: round.rooms[0],
+    isFinal: round.isFinal,
+  }));
+  const routes: Record<string, WaterfallSlotDestination[][]> = {};
+  for (const round of waterfallRounds) {
+    routes[round.customLabel as string] = round.isFinal
+      ? []
+      : (round.waterfallRoutes ?? []).map((room) =>
+          room.map((destination) =>
+            destination === ELIMINATED ? ELIMINATED : (labelByIndex.get(destination) ?? null),
+          ),
+        );
+  }
+  return { rounds: draftRounds, routes };
 }
 
 export interface WaterfallFlowEdge {

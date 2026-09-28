@@ -190,7 +190,7 @@ function RoomSlots({
   round: WaterfallDraftRound;
   room: number;
   picked: ReadonlySet<string>;
-  onPickSlot: RoundEditorActions['onPickSlot'];
+  onPickSlot?: RoundEditorActions['onPickSlot'];
 }) {
   const slots = draft.routes[round.label]?.[room] ?? [];
   const roomName = round.roomCount > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room';
@@ -213,12 +213,13 @@ function RoomSlots({
               aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
               aria-pressed={isPicked}
               className={cn(
-                'flex min-h-13 w-14 cursor-pointer flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
+                'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
+                onPickSlot ? 'cursor-pointer' : 'cursor-default',
                 destination === null && 'border-dashed',
                 isPicked && 'ring-2 ring-foreground',
               )}
               key={rank}
-              onClick={(event) => onPickSlot(room, rank, event.shiftKey)}
+              onClick={onPickSlot ? (event) => onPickSlot(room, rank, event.shiftKey) : undefined}
               style={{ borderColor: color, backgroundColor: `${color}22` }}
               type='button'
             >
@@ -237,6 +238,18 @@ function RoomSlots({
   );
 }
 
+function RoundSummary({ round }: { round: WaterfallDraftRound }) {
+  return (
+    <div className='flex flex-wrap items-center gap-3'>
+      <b>{round.label}</b>
+      <span className='text-sm text-muted'>
+        {round.roomCount > 1 ? `${round.roomCount} rooms × ${round.roomSize}` : `${round.roomSize} players`}
+        {round.isFinal ? ' · Final' : ''}
+      </span>
+    </div>
+  );
+}
+
 export function WaterfallRoundEditor({
   draft,
   round,
@@ -250,15 +263,20 @@ export function WaterfallRoundEditor({
   incomingPlayers: number;
   picked: ReadonlySet<string>;
   mirror: boolean;
-  actions: RoundEditorActions;
+  /** Omitted for a read-only editor: no control that changes anything is rendered. */
+  actions?: RoundEditorActions;
 }) {
   return (
     <div>
-      <RoundSettings
-        actions={actions}
-        key={`${round.label}-${round.roomCount}-${round.roomSize}`}
-        round={round}
-      />
+      {actions ? (
+        <RoundSettings
+          actions={actions}
+          key={`${round.label}-${round.roomCount}-${round.roomSize}`}
+          round={round}
+        />
+      ) : (
+        <RoundSummary round={round} />
+      )}
       {round.isFinal ? (
         <div className='mt-3 rounded-lg bg-surface-low p-4'>
           <b>Final</b>
@@ -269,18 +287,20 @@ export function WaterfallRoundEditor({
         </div>
       ) : (
         <>
-          <SelectionToolbar
-            actions={actions}
-            draft={draft}
-            mirror={mirror}
-            pickedCount={picked.size}
-            round={round}
-          />
+          {actions ? (
+            <SelectionToolbar
+              actions={actions}
+              draft={draft}
+              mirror={mirror}
+              pickedCount={picked.size}
+              round={round}
+            />
+          ) : null}
           {Array.from({ length: round.roomCount }, (_, room) => (
             <RoomSlots
               draft={draft}
               key={room}
-              onPickSlot={actions.onPickSlot}
+              onPickSlot={actions?.onPickSlot}
               picked={picked}
               room={room}
               round={round}
