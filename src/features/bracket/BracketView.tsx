@@ -525,8 +525,9 @@ function KingsValleyDisclaimer() {
   return (
     <div className='mb-2 rounded-md border border-accent/30 bg-accent/5 px-2.5 py-1.5 text-[0.68rem] text-muted'>
       <span className='font-semibold text-accent'>⛰ Kings Valley: </span>
-      Top finishers promote to the room above, bottom finishers demote to the room below (the bottom room's
-      demoted are eliminated instead), the rest stay — see each room's own chips above for the exact counts.
+      Top finishers promote to the room above, bottom finishers demote to the room below, the rest stay. The
+      lowest room with a real match eliminates its bottom finishers instead, and anyone alone in a room keeps
+      their place — see each room's own chips above for the exact counts.
     </div>
   );
 }
@@ -947,13 +948,17 @@ function RoundBody({
       {round.rooms.map((_, roomIndex) => {
         const room = roomIndex + 1;
         const units = assignments.filter((entry) => entry.room === room);
+        const bands = exitRule.kind === 'per-room' ? exitRule.rooms[roomIndex] : [];
         if (isByeLikeRound(round) && isUncontestedRoom(state, roundIndex, room)) {
+          // Only Kings Valley has a band for a lone room ("1 stay");
+          // roundExitRule gives every other bye-like round none here.
           return (
             <div className='mb-2' key={room}>
               <RoomLabel>
                 {round.isGroupStage ? `Group ${round.roomGroups?.[roomIndex]} · ` : ''}Room {roomLetter(room)}{' '}
                 (1)
               </RoomLabel>
+              <RoomExitChips bands={bands} labels={labels} />
               <div className={cn(bracketRowBase, resultClasses('', followKey === units[0].name))}>
                 <span className='block truncate' title={unitDisplay(state, units[0].name).label}>
                   {unitDisplay(state, units[0].name).label}
@@ -965,7 +970,6 @@ function RoundBody({
             </div>
           );
         }
-        const bands = exitRule.kind === 'per-room' ? exitRule.rooms[roomIndex] : [];
         const advanceDestination = bands.find((band) => band.kind === 'advance')?.destination;
         // A destination tag is only meaningful where "which round" isn't
         // already obvious from a single fixed next round -- waterfall (a
