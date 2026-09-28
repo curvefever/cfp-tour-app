@@ -1,0 +1,30 @@
+# Platform: auth, sync, persistence, deployment
+
+Read when a task touches login, permissions, Firebase, persistence, or deployment.
+
+## Admin access
+Per-user login against real Curve Fever Pro accounts.
+- **Login**: `CfpLoginModal` collects email and password; `AuthProvider.login()` calls the CFP API's `/auth/login` (`src/lib/api.ts`).
+- **Authorization**: `auth.shared.ts` allowlists roles `TOUR_ADMIN_ROLE_IDS = [ADMIN, MOD, LEAD_MOD, DEVELOPER, TOUR_HOST, LEAD_TOUR_HOST]`; `canAdminTour(roles)` checks them.
+- **Session**: access token in a cookie and `localStorage` (30-day max age). Each SSR request re-validates it against the CFP API (`getInitialAuth`, `server/auth.server-fns.ts`, 60 s in-memory cache).
+- **Server-side enforcement**: every privileged write calls `requireTourAdminPermission()` (`tour-permissions.server.ts`), which re-derives the role from the session cookie on the server each time.
+- **Reads are public**: `database.rules.json` allows `.read` on `tournaments/$id` to anyone. A shareable link is the access boundary for viewers, so a guessed or leaked tournament id can be read without login.
+- There's no dev-mode bypass: the local dev server needs a real login too.
+- Legacy admin flags (`curveFFA_admin_unlocked`, `curveFFA_admin_proof_hash`) are deleted on hydrate, and `writeTournament()` strips any legacy `adminProof` field.
+
+## Sync and persistence
+- **Writes**: the browser calls `writeTournament()` (`tournament-write.server-fns.ts`), which validates the id, calls `requireTourAdminPermission()`, then writes with the Firebase **Admin** SDK. `database.rules.json` denies all direct client writes.
+- **Reads**: direct client-side Firebase reads (`firebase-client.ts`, `onValue`), no login needed.
+- **`SyncCoordinator`** (`live-sync.ts`): writer/viewer modes, debounced push (400 ms), dirty-key tracking so a remote update can't overwrite a field being typed. `marshalForFirebase`/`unmarshalFromFirebase` protect data Firebase would otherwise lose: nulls in arrays, empty arrays and objects (`{__ffaEmptyArray: true}`, `{__ffaEmptyObject: true}`), and sparse arrays returned as objects.
+- **Fallback**: if Firebase is unreachable, `getFirebaseSyncTransport()` returns `null`, the UI shows "Live sync unavailable", and the app keeps working from `localStorage` (key `curveFFA_state_v1`).
+- The Firebase client config in `firebase-client.ts` is hardcoded and not a secret. Test, production and local dev all use the same Firebase project.
+- **Local dev caution**: opening a real tournament id on the local dev server while its browser holds an admin session makes the app try to write it back; it only fails because no Firebase Admin credentials are configured locally.
+
+## Deployment
+Hosted on Curve Fever Pro's own infrastructure. `.github/workflows/release-tour.yml` builds a Docker image on every push to `main` or `test` (GHCR tags `latest`/`test-latest`) and deploys it over SSH via Tailscale. The server bundle runs `node .output/server/index.mjs` and needs `FIREBASE_SERVICE_ACCOUNT_JSON` (or Application Default Credentials) plus the CFP API.
+- **Production** (`main`): https://tournaments.curvefever.pro/
+- **Test** (`test`): https://tournaments-test.curvefever.pro/
+
+Push and login rules: `AGENTS.md`, "Branches and deploys" and "Live checks and login".
+
+**Unconfirmed** (not blocking): how `FIREBASE_SERVICE_ACCOUNT_JSON`/ADC reaches the deploy target, and whether `VITE_API_ENDPOINT` must be set there. Ask the CFP developer who set up the pipeline if a Firebase-write or login problem appears only when deployed.

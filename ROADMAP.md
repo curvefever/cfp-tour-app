@@ -1,6 +1,6 @@
 # Curve Fever Pro Tour Hub — Future Projects Roadmap
 
-This file contains future projects and architectural questions not yet scoped or built. Entries here move to `HANDOFF_LOG.md` (and updates to `HANDOFF.md`'s "Open items" section if relevant) once actually built, then are removed from this file. Smaller, shorter-horizon gaps and decisions are in `HANDOFF.md`'s "Open items" section instead.
+This file contains future projects and architectural questions not yet scoped or built. An entry moves to `HANDOFF_LOG.md` once built (with the current-state docs updated), then is removed from this file. Smaller, shorter-horizon gaps and decisions are in `docs/open-items.md` instead.
 
 ---
 

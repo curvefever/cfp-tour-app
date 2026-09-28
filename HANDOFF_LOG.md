@@ -6,6 +6,24 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Docs: HANDOFF.md trimmed to a current-state index, reference split into docs/ (done — 2026-09-28)
+
+**Context.** `HANDOFF.md` had grown to about 51 KB, and every session was told to read it in full. About half was dated history ("as of", "replacing", "fixed on"), all already recorded in this log; the rest mixed always-needed orientation with area-specific reference. A token audit of a long review session showed the two full reads of it among the largest single items. Organiser's decisions: keep only current state, split the reference into topic docs, and move Open items out of the always-read file too.
+
+**Result.**
+- `HANDOFF.md` (about 4.5 KB, always read): what the app is, the core value, a doc table ("read X when the task touches Y"), the code map, and a one-screen rules summary.
+- `docs/rules.md` (formats, pooling and bracket phases incl. Kings Valley and waterfall, Semis/Final, lucky losers, scoring, roster changes), `docs/seeding.md` (every seeding mechanism and where it runs, the Bracket projection), `docs/views.md` (the viewer design principles, then each tab), `docs/platform.md` (auth, sync, persistence, deployment), `docs/open-items.md` (the former Open items).
+- History was dropped rather than moved: every dated fact removed already lives in its own entry below (the entry titles the old text cited). A few current-state facts that only lived inside long history sentences were kept in the new docs (lucky-loser candidate ranking, the stale-selection rule in Setup, the shared Firebase project, the local-dev write caution).
+- The "Views / tabs" and "Design intent for viewer-facing tabs" sections moved together to `docs/views.md`: they are product reference for UI work, not session hand-off state.
+- `AGENTS.md`: the reading rule now says read `HANDOFF.md` plus the `docs/` files the task touches (open items when planning, diagnosing or closing out); close-out updates the relevant `docs/` file in present tense, without dates. New sections: "The implementer's report" (a map of what changed: per-file functions and reasons, tests by name, checks run, deviations), "Reviewing a stage" (read every changed production hunk with function context rather than whole files, targeted test reading, output reduced to counts and failures, mutation checks kept), and "Working economically" (no re-reads, partial reads of large files, text over screenshots in the browser). Date history ("since 2026-09-18/25") removed from process rules; the line saying sessions never talk directly now allows the organiser to ask one session to message the other. The Testing section was tightened.
+- `ROADMAP.md`'s header points at `docs/open-items.md`.
+
+**Review-quality reasoning.** The review guidelines only cut what a review doesn't use: unchanged code, whole files around a small change, passing-test chatter. They keep what catches bugs: every changed production line is still read, the reviewer runs the tests itself, and mutation checks stay mandatory. The implementer's report is explicitly a map, not evidence.
+
+**Not changed.** Code comments that cite old `HANDOFF.md` section names (`BracketView.tsx` around the `cn()` workaround and the fixed-draw projection, `room-exits.ts` near `roundExitRule`, a comment in `room-exits.test.ts`) were left for the implementer of the concurrent `cn()` pass, which is editing those files. `HANDOFF_LOG.md` entries keep their old references to `HANDOFF.md` sections: they describe the file as it was.
+
+---
+
 ## Kings Valley: gate out head-to-head formats (done — 2026-09-28)
 
 **Context.** Even after the 2026-09-27 lone-unit fix (see "Kings Valley lone units" below), a head-to-head Kings Valley field (`individual-1v1`/`team-3v3`, room size fixed at 2) only ever cuts 1 unit per round — the effective bottom room's own eliminate band is `bandCount(2, 0.5) = 1` — so a field above 16 units hits `MAX_KINGS_VALLEY_ROUNDS` (14) before reaching a 2-unit Final and gets an oversized Final instead, recorded as `HANDOFF.md`'s open item "Head-to-head Kings Valley pace". Organiser's decision (2026-09-28): rather than speed up the pace, make Kings Valley unavailable for head-to-head formats entirely. `team-3v3`'s Flex odd-count strategy was included in the gate too — its rooms are still mostly pairs (the ladder barely speeds up) — the organiser framed the decision by format, not by exact room shape.
