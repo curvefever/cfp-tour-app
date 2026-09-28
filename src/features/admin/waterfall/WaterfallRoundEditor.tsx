@@ -208,21 +208,14 @@ function RoomSlots({
           const rank = index + 1;
           const isPicked = picked.has(slotKey(room, rank));
           const color = destinationColor(draft, destination);
-          return (
-            <button
-              aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
-              aria-pressed={isPicked}
-              className={cn(
-                'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
-                onPickSlot ? 'cursor-pointer' : 'cursor-default',
-                destination === null && 'border-dashed',
-                isPicked && 'ring-2 ring-foreground',
-              )}
-              key={rank}
-              onClick={onPickSlot ? (event) => onPickSlot(room, rank, event.shiftKey) : undefined}
-              style={{ borderColor: color, backgroundColor: `${color}22` }}
-              type='button'
-            >
+          const className = cn(
+            'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
+            destination === null && 'border-dashed',
+            isPicked && 'ring-2 ring-foreground',
+          );
+          const style = { borderColor: color, backgroundColor: `${color}22` };
+          const content = (
+            <>
               <span className='text-base font-semibold tabular-nums'>{rank}</span>
               <span
                 className='max-w-13 truncate text-[0.65rem]'
@@ -230,7 +223,32 @@ function RoomSlots({
               >
                 {destination === null ? 'unset' : destinationName(destination)}
               </span>
+            </>
+          );
+          // No onPickSlot (a read-only editor): a plain div, not a button --
+          // out of the tab order and with no click/hover affordance at all,
+          // rather than a button that merely does nothing when pressed.
+          return onPickSlot ? (
+            <button
+              aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
+              aria-pressed={isPicked}
+              className={cn(className, 'cursor-pointer')}
+              key={rank}
+              onClick={(event) => onPickSlot(room, rank, event.shiftKey)}
+              style={style}
+              type='button'
+            >
+              {content}
             </button>
+          ) : (
+            <div
+              aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
+              className={className}
+              key={rank}
+              style={style}
+            >
+              {content}
+            </div>
           );
         })}
       </div>

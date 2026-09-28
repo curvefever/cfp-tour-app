@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { generateTournament } from '../generation';
+import { createTournamentRuntime } from '../runtime';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { RoomSize } from '../types';
-import {
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-  waterfallBracketPhase,
-} from '../waterfall-bracket';
+import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 import {
   addWaterfallRound,
   assignWaterfallSlots,
@@ -22,6 +21,11 @@ import {
   waterfallRoundIntake,
   type WaterfallDraft,
 } from '../waterfall-draft';
+import { fixedIdSource } from './test-fixtures';
+
+function names(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `P${index + 1}`);
+}
 
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
 
@@ -364,14 +368,35 @@ describe('waterfall draft edits', () => {
 
 describe('waterfallDraftFromRounds', () => {
   it.each([
-    ['the spreadsheet example', SPREADSHEET_GRAPH, 32],
-    ['a 3-room entry graph', THREE_ROOM_ENTRY_GRAPH, 24],
-  ])('rebuilds a materialized graph as the same validated graph (%s)', (_name, text, entrants) => {
-    const original = validated(text, entrants);
-    expect(original.ok).toBe(true);
-    if (!original.ok) return;
-    const rounds = waterfallBracketPhase(entrants, 1, { graph: original.value, finalsGames: 1 });
-    const rebuiltText = serializeWaterfallDraft(waterfallDraftFromRounds(rounds));
-    expect(validated(rebuiltText, entrants)).toEqual(original);
-  });
+    ['37 players, qual-table, 32 advancing', 37, 32, SPREADSHEET_GRAPH],
+    ['43 players, qual-table, 24 advancing', 43, 24, THREE_ROOM_ENTRY_GRAPH],
+  ])(
+    'rebuilds a generated tournament -- with pooling rounds ahead of the bracket, so an absolute round index and a position among the waterfall rounds diverge -- as the same graph generation used (%s)',
+    (_name, confirmedCount, qualAdv, graph) => {
+      const state = createDefaultTournamentState({ confirmedCount, players: names(confirmedCount) });
+      const form = createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'waterfall-bracket',
+        poolingPhase: 'qual-table',
+        qualAdv: String(qualAdv),
+        waterfallGraph: graph,
+      });
+      const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+      expect(result.status).toBe('generated');
+      if (result.status !== 'generated') return;
+      // Sanity check that this fixture actually exercises the divergence the
+      // test name promises: the waterfall entry round isn't at index 0.
+      expect(result.state.rounds.findIndex((round) => round.isWaterfall)).toBeGreaterThan(0);
+
+      const rebuiltText = serializeWaterfallDraft(waterfallDraftFromRounds(result.state.rounds));
+      const rebuiltParsed = parseWaterfallGraph(rebuiltText);
+      expect(rebuiltParsed.ok).toBe(true);
+      if (!rebuiltParsed.ok) return;
+      const rebuiltGraph = validateAndOrderWaterfallGraph(rebuiltParsed.value, {
+        roomSize: result.state.gamemodeConfig.roomSize as RoomSize,
+        entrantCount: qualAdv,
+      });
+      expect(rebuiltGraph).toEqual({ ok: true, value: result.state.gamemodeConfig.graph });
+    },
+  );
 });
