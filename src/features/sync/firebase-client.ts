@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getDatabase, onValue, ref, type Database } from 'firebase/database';
-import type { SyncTransport } from './live-sync';
+import { get, getDatabase, onValue, ref, type Database } from 'firebase/database';
+import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
 import { writeTournament } from './tournament-write.server-fns';
 import { getTournamentRootPath } from './firebase-paths';
 
@@ -29,6 +29,18 @@ export function getFirebaseDatabase(): Database | null {
     database = null;
   }
   return database;
+}
+
+/** A one-shot public read (no subscription, no login) of a tournament's raw state -- `null` when Firebase is unavailable or nothing is stored under that id. */
+export async function fetchTournamentOnce(tournamentId: string): Promise<unknown> {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  const rootPath = getTournamentRootPath(
+    typeof window === 'undefined' ? undefined : window.location.hostname,
+  );
+  const snapshot = await get(ref(db, `${rootPath}/${tournamentId}`));
+  const value = snapshot.val();
+  return value === null ? null : unmarshalFromFirebase(value);
 }
 
 export function getFirebaseSyncTransport(): SyncTransport | null {
