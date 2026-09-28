@@ -207,7 +207,7 @@ export function SetupView() {
     updateState(result.state);
   }
 
-  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string) {
+  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string): string {
     const previousGameFormat = setup.gameFormat;
     updateSetup((current) => applyTournamentSettings(current, settings));
     setLbQualifiers(settings.lbQualifiers);
@@ -218,7 +218,7 @@ export function SetupView() {
     if (state.confirmedCount !== null && settings.gameFormat !== previousGameFormat) {
       message += ' The game format changed: load the roster again.';
     }
-    setStatus(message);
+    return message;
   }
 
   const isGroup = setup.poolingPhase === 'group-stage';

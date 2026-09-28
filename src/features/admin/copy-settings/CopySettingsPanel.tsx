@@ -14,7 +14,8 @@ import {
 } from './past-tournament-settings';
 
 export interface CopySettingsPanelProps {
-  onApply(settings: TournamentSettings, sourceTitle: string): void;
+  /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
+  onApply(settings: TournamentSettings, sourceTitle: string): string;
 }
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
@@ -26,6 +27,7 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
   const [linkInput, setLinkInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
+  const [confirmation, setConfirmation] = useState('');
 
   function expand() {
     setArchiveEntries(archiveEntriesWithSettings(window.localStorage));
@@ -39,12 +41,13 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
     // so a failure here would mean the entry disappeared underneath us.
     if (!result || !result.ok) return;
     setError('');
-    onApply(result.settings, result.title);
+    setConfirmation(onApply(result.settings, result.title));
   }
 
   async function copyFromLink() {
     const tournamentId = parseTournamentReference(linkInput);
     if (!tournamentId) {
+      setConfirmation('');
       setError(TOURNAMENT_REFERENCE_INVALID_MESSAGE);
       return;
     }
@@ -54,13 +57,15 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
       const raw = await fetchTournamentOnce(tournamentId);
       const result = settingsFromSnapshot(raw);
       if (!result.ok) {
+        setConfirmation('');
         setError(
           result.reason === 'not-found' ? TOURNAMENT_NOT_FOUND_MESSAGE : TOURNAMENT_NO_SETTINGS_MESSAGE,
         );
         return;
       }
-      onApply(result.settings, result.title);
+      setConfirmation(onApply(result.settings, result.title));
     } catch {
+      setConfirmation('');
       setError(NETWORK_ERROR_MESSAGE);
     } finally {
       setFetching(false);
@@ -76,7 +81,7 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
         </ButtonRow>
       ) : (
         <>
-          <Field label='From the archive'>
+          <Field label='From the archive' htmlFor='copy-settings-archive'>
             {archiveEntries.length ? (
               <>
                 <Select
@@ -120,6 +125,11 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
           {error ? (
             <Alert id='copy-settings-error' tone='danger'>
               {error}
+            </Alert>
+          ) : null}
+          {confirmation ? (
+            <Alert id='copy-settings-confirmation' tone='success'>
+              {confirmation}
             </Alert>
           ) : null}
         </>
