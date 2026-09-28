@@ -191,8 +191,8 @@ function perRoomRule(
  * The one structural description of how a round's occupants exit it --
  * never re-decides advancement, only describes what the real transition
  * (transitions.ts) and advancement (advancement.ts) already compute. See the
- * module doc comment above for why this exists, and HANDOFF.md's "Views /
- * tabs" (Bracket) for how it's consumed.
+ * module doc comment above for why this exists, and docs/views.md (Bracket)
+ * for how it's consumed.
  */
 export function roundExitRule(state: TournamentState, roundIndex: number): RoundExitRule {
   const round = state.rounds[roundIndex];

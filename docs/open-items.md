@@ -3,11 +3,10 @@
 Known gaps, accepted limitations and undecided questions. Read when planning a feature, diagnosing a bug, or closing out a build (update it when a build closes or changes an item). Larger future projects are in `ROADMAP.md`.
 
 ## Known gaps
-- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1007 tests.
+- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1017 tests.
 
 ## Accepted limitations (not building without an organiser request)
 - **Anonymous Finals exclude grand-final (race) Finals and team formats.** Race progression (`progressGrandFinalRace`, `finals.ts`) reads the two real finalists' score keys, so a placeholder-scored game would stall it; team Finals read a real `TournamentTeam` via `buildTeamMap()`, which a placeholder never has. See "Anonymous Finals matches, v1" in the log.
-- **`cn()` doesn't merge conflicting Tailwind classes.** `src/components/ui/cn.ts` is a plain join, so when a component and its caller set the same property (e.g. `w-full` vs `w-13`, `uppercase` vs `normal-case`) the stylesheet order, not the class order, decides. Worked around with Tailwind's `!` suffix in three places in `BracketView.tsx` (`compactScoreClass`, `RoomExitChips`, `RoundExitSummary`). **Fix planned**: `cn()` via `tailwind-merge`, then drop the `!` workarounds.
 
 ## Awaiting organiser feedback
 - **Rankings' rank badge vs Scoreboard's standings table** — two levels of detail for "where do I stand" (Rankings: one line `#rank · X.XXX FP`; Scoreboard: full table). Both judged fine; open only if the organiser finds them inconsistent or wants one view.

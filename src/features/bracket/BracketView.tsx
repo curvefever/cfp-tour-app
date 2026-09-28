@@ -54,7 +54,7 @@ import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/stor
 import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
-const compactScoreClass = 'w-13! shrink-0 rounded-sm! px-1.5! py-0.5! text-xs!';
+const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
 const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
 
 function FollowBanner({
@@ -626,15 +626,7 @@ function RoomExitChips({
     <div className='mb-1 flex flex-wrap gap-1'>
       {bands.map((band, index) => (
         <Badge
-          // cn() doesn't deduplicate conflicting Tailwind utilities (a
-          // documented gap -- see HANDOFF.md's "Known, accepted
-          // limitations"): Badge's own `uppercase`/`tracking-[0.08em]`/
-          // `whitespace-nowrap` would otherwise win the cascade over these
-          // regardless of class order, same fix compactScoreClass already
-          // uses for the same reason. whitespace-normal! lets a long chip
-          // ("1 → WB Round 5") wrap onto a second line inside the narrow
-          // round column instead of overflowing it uncut.
-          className='rounded-md! px-1.5! py-px! text-[0.62rem]! leading-snug! normal-case! tracking-normal! whitespace-normal!'
+          className='rounded-md px-1.5 py-px text-[0.62rem] leading-snug normal-case tracking-normal whitespace-normal'
           key={index}
           title={
             band.kind === 'lucky-chance'
@@ -669,7 +661,7 @@ function RoundExitSummary({
         : `Top ${rule.advancing} ${rule.perGroup ? 'per group' : 'in standings'} → ${destinationLabel(rule.destination, labels)}`;
   return (
     <Badge
-      className='mb-2 px-2! py-0.5! text-[0.65rem]! leading-snug! normal-case! tracking-normal! whitespace-normal!'
+      className='mb-2 px-2 py-0.5 text-[0.65rem] leading-snug normal-case tracking-normal whitespace-normal'
       tone={rule.kind === 'standings' && !rule.counted ? 'neutral' : 'primary'}
     >
       {text}
@@ -743,9 +735,9 @@ function PlaceholderRound({
   const summary = <RoundExitSummary rule={rule} labels={labels} />;
   if (round.fixedRoomAssignments) {
     // A pre-published draw -- the real room assignment is already fully
-    // decided at generation time (see fixed-draws.ts / HANDOFF.md's "Room
-    // reseeding"), so show it directly instead of a projected/TBD
-    // placeholder, matching the whole point of publishing a draw upfront.
+    // decided at generation time (see fixed-draws.ts / docs/seeding.md), so
+    // show it directly instead of a projected/TBD placeholder, matching the
+    // whole point of publishing a draw upfront.
     const byRoom = new Map<number, string[]>();
     const byes: string[] = [];
     for (const entry of round.fixedRoomAssignments) {

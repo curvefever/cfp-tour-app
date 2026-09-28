@@ -127,7 +127,7 @@ function expectedOutcomes(
 }
 
 describe('roundExitRule -- single elimination (with lucky losers)', () => {
-  // FFA 37: awkward, non-round count, per HANDOFF.md's testing strategy.
+  // FFA 37: awkward, non-round count, per AGENTS.md's "Scoping work".
   const state = generate(37, { gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
   const luckyRoundIndex = state.rounds.findIndex(
     (round) => !round.isFinal && !round.isNoElim && round.luckyCount > 0,
