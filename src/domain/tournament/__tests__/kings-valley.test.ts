@@ -7,7 +7,12 @@ const FIXED_ROOM_SIZE: RoomSize = { min: 4, max: 4, ideal: 4 };
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
 const TEAM_2V2V2V2_ROOM_SIZE: RoomSize = { min: 3, max: 4, ideal: 4 };
 const TEAM_3V3V3_ROOM_SIZE: RoomSize = { min: 2, max: 3, ideal: 3 };
-const HEAD_TO_HEAD_ROOM_SIZE: RoomSize = { min: 2, max: 2, ideal: 2 };
+// individual-1v1/team-3v3 (idealRoomSize 2) are gated out of Kings Valley
+// generation as of 2026-09-28 (see "Kings Valley: gate out head-to-head
+// formats" in HANDOFF_LOG.md) -- kingsValleyBracketPhase itself is still a
+// pure function that would happily run at { min: 2, max: 2 }, but no real
+// generation reaches that shape anymore, so the tests that pinned its
+// specific behaviour there were removed rather than kept as dead coverage.
 
 describe('kingsValleyBracketPhase', () => {
   it('matches the hand-traced band counts for a 3-room, 12-player round', () => {
@@ -32,17 +37,6 @@ describe('kingsValleyBracketPhase', () => {
       advPerRoom: 1,
       advTotal: 1,
     });
-  });
-
-  it('degenerates to a clean win-climbs/lose-drops ladder for head-to-head rooms (zero stay band)', () => {
-    const rounds = kingsValleyBracketPhase(8, 1, { roomSize: HEAD_TO_HEAD_ROOM_SIZE, finalsGames: 3 });
-    const round = rounds[0];
-    expect(round.rooms).toEqual([2, 2, 2, 2]);
-    expect(round.kvPromoteCounts).toEqual([1, 1, 1, 1]);
-    // Non-bottom rooms demote 1 (the placeholder 0 belongs to the bottom room only).
-    expect(round.kvDemoteCounts).toEqual([1, 1, 1, 0]);
-    expect(round.kvEliminateCount).toBe(1);
-    // promote(1) + demote-or-eliminate(1) === room size 2 -- no stay band.
   });
 
   it('conserves population across rounds (advTotal shrinks by exactly kvEliminateCount each round) and ends in a Final', () => {
@@ -96,29 +90,6 @@ describe('kingsValleyBracketPhase', () => {
     expect(round.kvDemoteCounts).toEqual([1, 1, 1, 1, 0]);
     expect(round.kvEliminateCount).toBe(1);
     expect(round.advTotal).toBe(12);
-  });
-
-  describe('head-to-head lone-unit convergence (2026-09-27 fix)', () => {
-    it.each([11, 12, 13, 16])(
-      'a head-to-head field of %i cuts exactly 1 per round and converges to a 2-unit Final within the round cap',
-      (n) => {
-        const rounds = kingsValleyBracketPhase(n, 1, { roomSize: HEAD_TO_HEAD_ROOM_SIZE, finalsGames: 3 });
-        const kvRounds = rounds.filter((round) => round.isKingsValley);
-        expect(kvRounds.length).toBeGreaterThan(0);
-        for (const round of kvRounds) {
-          expect(round.kvEliminateCount).toBe(1);
-          // No stored room ever promotes+cuts more than it holds.
-          const bands = kingsValleyRoomBandCounts(round.rooms);
-          bands.forEach((band, index) => {
-            expect(band.promote + band.cut).toBeLessThanOrEqual(round.rooms[index]);
-          });
-        }
-        const final = rounds[rounds.length - 1];
-        expect(final.isFinal).toBe(true);
-        expect(final.rooms).toEqual([2]);
-        expect(rounds.length).toBeLessThanOrEqual(MAX_KINGS_VALLEY_ROUNDS + 1);
-      },
-    );
   });
 });
 
@@ -175,6 +146,5 @@ describe('kingsValleyRoomBandCounts', () => {
 describe('getMinimumBracketUnits -- kings-valley', () => {
   it('returns 2 * roomSize.ideal, same floor as single-elimination', () => {
     expect(getMinimumBracketUnits('kings-valley', { min: 6, max: 8, ideal: 8 })).toBe(16);
-    expect(getMinimumBracketUnits('kings-valley', { min: 2, max: 2, ideal: 2 })).toBe(4);
   });
 });

@@ -12,6 +12,12 @@ import type { TournamentState } from '../types';
  */
 
 const SCHEDULES_ANY = ['single-elimination', 'double-elimination-shared-final', 'kings-valley'] as const;
+// Kings Valley is gated out of generation for head-to-head formats as of
+// 2026-09-28 (see "Kings Valley: gate out head-to-head formats" in
+// HANDOFF_LOG.md) -- buildState() would return null for every 'kings-valley'
+// case in the individual-1v1/team-3v3 loop below, silently skipping it
+// ("SKIP(generation)") rather than testing anything.
+const SCHEDULES_HEAD_TO_HEAD = ['single-elimination', 'double-elimination-shared-final'] as const;
 
 function configs(): SweepConfig[] {
   const list: SweepConfig[] = [];
@@ -30,7 +36,7 @@ function configs(): SweepConfig[] {
   }
   for (const gameFormat of ['individual-1v1', 'team-3v3'] as const) {
     for (const count of [13, 33, 40]) {
-      for (const scheduleLogic of [...SCHEDULES_ANY, 'double-elimination'] as const) {
+      for (const scheduleLogic of [...SCHEDULES_HEAD_TO_HEAD, 'double-elimination'] as const) {
         for (const poolingPhase of poolings) {
           list.push({
             label: `${gameFormat} ${count} ${scheduleLogic} ${poolingPhase}`,

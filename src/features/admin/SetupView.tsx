@@ -40,10 +40,12 @@ import {
 type SetupKey = keyof PersistedSetup;
 
 /**
- * A format change can make the currently-selected schedule logic
- * unavailable (its own `<option>` disappears from the dropdown) without
- * resetting the already-selected value -- reconcile it here the same way
- * `changeOddCountStrategy` reconciles the narrower double-elimination case.
+ * A format or odd-count-strategy change can make the currently-selected
+ * schedule logic unavailable (its own `<option>` disappears from the
+ * dropdown) without resetting the already-selected value -- shared by
+ * `changeFormat` and `changeOddCountStrategy` so the two callers can't drift
+ * apart. `headToHeadOnly` alone decides the Kings Valley branch since an
+ * odd-count-strategy change never flips it (the gate is by format only).
  */
 function reconcileScheduleLogicForFormat(
   current: PersistedSetup['scheduleLogic'],
@@ -102,12 +104,11 @@ export function SetupView() {
     updateSetup((current) => ({
       ...current,
       oddCountStrategy: value as PersistedSetup['oddCountStrategy'],
-      scheduleLogic:
-        current.scheduleLogic === 'double-elimination' && !compatible
-          ? 'single-elimination'
-          : current.scheduleLogic === 'double-elimination-shared-final' && compatible
-            ? 'single-elimination'
-            : current.scheduleLogic,
+      scheduleLogic: reconcileScheduleLogicForFormat(
+        current.scheduleLogic,
+        compatible,
+        format?.idealRoomSize === 2,
+      ),
     }));
   }
 
