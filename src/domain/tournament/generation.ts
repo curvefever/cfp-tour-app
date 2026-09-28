@@ -14,6 +14,7 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
+import { settingsFromForm } from './tournament-settings';
 import {
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
@@ -581,6 +582,7 @@ export function generateTournament(
     scheduleLogic: schedule,
     gameFormat: form.gameFormat,
     gamemodeConfig,
+    settings: settingsFromForm(form),
   };
   const initialPool = rosterKeys(state.players);
   if (gamemodeConfig.drawPublication === 'fixed') {

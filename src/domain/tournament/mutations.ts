@@ -766,8 +766,9 @@ export function setTeamDefender(state: TournamentState, teamId: string, memberId
  * below, which preserves the roster but clears live progress.
  */
 export function resetRoster(state: TournamentState): TournamentState {
+  const { settings: _settings, ...rest } = state;
   return {
-    ...state,
+    ...rest,
     players: [],
     reserves: [],
     reserveIndividuals: [],

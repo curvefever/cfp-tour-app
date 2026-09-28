@@ -248,6 +248,8 @@ export interface TournamentState {
   scheduleLogic: ScheduleLogicKey;
   gameFormat: GameFormatKey;
   gamemodeConfig: Partial<MaterializedGamemodeConfig>;
+  /** The Setup form as typed when this schedule was generated (roster excluded), for copying onto a later tournament -- see tournament-settings.ts. Absent on tournaments generated before this field existed. */
+  settings?: TournamentSettings;
 }
 
 export interface PersistedSetup {
@@ -284,6 +286,20 @@ export interface PersistedSetup {
   /** Compatibility field used by saves from before poolingPhase existed. */
   qual?: 'yes' | 'no';
 }
+
+/**
+ * The Setup form's settings, snapshotted onto a generated TournamentState --
+ * everything in PersistedSetup except the roster fields and the legacy
+ * `qual` key, plus `lbQualifiers` (a setting too, but kept out of
+ * PersistedSetup for legacy-compatibility reasons -- see generation.ts's
+ * GenerationForm). See tournament-settings.ts.
+ */
+export type TournamentSettings = Omit<
+  PersistedSetup,
+  'roster' | 'reserves' | 'reserveIndividuals' | 'qual'
+> & {
+  lbQualifiers: string;
+};
 
 export interface PersistedTournamentEnvelope {
   T: TournamentState;

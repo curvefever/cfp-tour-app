@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { removeRosterUnit } from '../../domain/tournament/mutations';
-import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import { settingsFromForm } from '../../domain/tournament/tournament-settings';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import {
@@ -496,6 +497,11 @@ describe('lossless Firebase encoding of empty values', () => {
       byes: [['x'], null, ['y']],
     });
     expect(simulateFirebaseStorage(nullsOnly({ rooms: [] }))).toBeUndefined();
+  });
+
+  it('round-trips a settings snapshot, including empty-string fields', () => {
+    const settings = settingsFromForm(createDefaultSetup());
+    expect(throughFirebase({ settings })).toEqual({ settings });
   });
 });
 

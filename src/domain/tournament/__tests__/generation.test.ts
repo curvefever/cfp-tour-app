@@ -7,6 +7,7 @@ import { getMinimumBracketUnits } from '../schedule-generation';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
+import { applyTournamentSettings, settingsFromForm } from '../tournament-settings';
 import { fixedIdSource, sequenceRandom } from './test-fixtures';
 
 function names(count: number): string[] {
@@ -1461,5 +1462,110 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
       createTournamentRuntime(),
     );
     expect(result.status).toBe('invalid');
+  });
+});
+
+describe('generateTournament -- settings snapshot', () => {
+  it('carries the form minus roster keys as `settings`', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'qual-table',
+      qualAdv: '32',
+      semisOverride: '12',
+      eliminationRoundTargets: '24',
+      roster: 'ignored roster text',
+      reserves: 'ignored reserves text',
+      reserveIndividuals: 'ignored reserve individuals text',
+    });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.settings).toEqual(settingsFromForm(form));
+    expect(result.state.settings).not.toHaveProperty('roster');
+  });
+
+  it('keeps the waterfall graph text verbatim, with a qualification phase feeding a smaller bracket than the confirmed count', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
+R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
+SemiB: 1-2->Final, 3-8->eliminated
+`;
+    const state = createDefaultTournamentState({ confirmedCount: 43 });
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      drawPublication: 'fixed',
+      qualAdv: '16',
+      nonCountingRounds: '1',
+      waterfallGraph: graph,
+    });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.settings?.waterfallGraph).toBe(graph);
+  });
+
+  it("reuses a 43-unit tournament's settings at 31: generation succeeds and Semis/Final sizes come from a fresh computation, not a copied number", () => {
+    const at43 = createDefaultTournamentState({ confirmedCount: 43 });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
+    const result43 = generateTournament(at43, form, createTournamentRuntime());
+    expect(result43.status).toBe('generated');
+    if (result43.status !== 'generated') return;
+    const copied = applyTournamentSettings(createDefaultSetup(), result43.state.settings!);
+
+    const at31 = createDefaultTournamentState({ confirmedCount: 31 });
+    const result31 = generateTournament(at31, copied, createTournamentRuntime());
+    expect(result31.status).toBe('generated');
+    if (result31.status !== 'generated') return;
+    expect(result31.state.gamemodeConfig.semisSize).toBe(result43.state.gamemodeConfig.semisSize);
+    expect(result31.state.gamemodeConfig.finalSize).toBe(result43.state.gamemodeConfig.finalSize);
+
+    // Same recipe, directly at 31 with no copy involved -- proves the
+    // copied-settings run above didn't pin any stale absolute number.
+    const directAt31 = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 31 }),
+      form,
+      createTournamentRuntime(),
+    );
+    expect(directAt31.status).toBe('generated');
+    if (directAt31.status !== 'generated') return;
+    expect(result31.state.gamemodeConfig.semisSize).toBe(directAt31.state.gamemodeConfig.semisSize);
+    expect(result31.state.gamemodeConfig.finalSize).toBe(directAt31.state.gamemodeConfig.finalSize);
+  });
+
+  it("reuses a 53-unit tournament's settings at 37 the same way", () => {
+    const at53 = createDefaultTournamentState({ confirmedCount: 53 });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
+    const result53 = generateTournament(at53, form, createTournamentRuntime());
+    expect(result53.status).toBe('generated');
+    if (result53.status !== 'generated') return;
+    const copied = applyTournamentSettings(createDefaultSetup(), result53.state.settings!);
+
+    const result37 = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 37 }),
+      copied,
+      createTournamentRuntime(),
+    );
+    expect(result37.status).toBe('generated');
+    if (result37.status !== 'generated') return;
+
+    const directAt37 = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 37 }),
+      form,
+      createTournamentRuntime(),
+    );
+    expect(directAt37.status).toBe('generated');
+    if (directAt37.status !== 'generated') return;
+    expect(result37.state.gamemodeConfig.semisSize).toBe(directAt37.state.gamemodeConfig.semisSize);
+    expect(result37.state.gamemodeConfig.finalSize).toBe(directAt37.state.gamemodeConfig.finalSize);
   });
 });

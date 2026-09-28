@@ -8,6 +8,7 @@ import {
   flagFinalGameAnonymous,
   removeRosterUnit,
   resetRoster,
+  resetTournamentState,
   setFinalScore,
   setRoundScore,
   swapIndividual,
@@ -17,6 +18,7 @@ import {
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { settingsFromForm } from '../tournament-settings';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildRound } from './test-fixtures';
 
@@ -867,6 +869,21 @@ describe('resetRoster', () => {
     // leave a dangling placeholder-alias mapping into a brand new Final.
     expect(result.roomHistory).toEqual({});
     expect(result.anonymousFinalists).toEqual([]);
+  });
+
+  it('removes the settings snapshot, since it describes the schedule that resetRoster just cleared', () => {
+    const state = createDefaultTournamentState({
+      settings: settingsFromForm(createDefaultSetup()),
+    });
+    expect(resetRoster(state)).not.toHaveProperty('settings');
+  });
+});
+
+describe('resetTournamentState', () => {
+  it('keeps the settings snapshot, since it keeps the schedule (rounds) the snapshot describes', () => {
+    const settings = settingsFromForm(createDefaultSetup());
+    const state = createDefaultTournamentState({ settings });
+    expect(resetTournamentState(state).settings).toEqual(settings);
   });
 });
 
