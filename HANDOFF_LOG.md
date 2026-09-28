@@ -20,7 +20,16 @@ One planned test case was wrong and corrected against the real package before be
 
 **Testing.** 1017 tests (up from 1007), `tsc --noEmit` clean, focused `eslint`/`prettier --check` clean on every changed file. Mutation-checked: reverting `cn()` to the plain join fails 6 of `cn.test.ts`'s 10 tests. Reviewer's own regression scan (about 20 `cn()` calls with a later conditional class overriding a base one, across `BracketView.tsx` and other files — Timeline states, active tabs, followed/highlighted rows, `RoundColumn`'s collapsed header, `bracketRowBase`'s own border default, `AppShell` tab states, etc.) found none where a general class coming after a side-specific one would now drop an intended style — the merge only makes these overrides deterministic instead of relying on stylesheet order.
 
-**Out of scope.** Restyling anything, or refactoring components beyond className ordering (none needed). Replacing `cn()` with `clsx`/object syntax. Live check on `tournaments-test.curvefever.pro`, alongside the Kings Valley head-to-head gate — pending the organiser's single combined push.
+**Live check (Tour App Planning Part 2, `tournaments-test.curvefever.pro`, commit `3e4f5f7`, organiser Conchord logged in).** Deploy confirmed: the site served `routes-B4tmcGzp.js`, containing the new Kings Valley gate message. Checked on the old "KV lone-unit check (delete me)" tournament (`1790528003459`) before replacing it, via `getComputedStyle`:
+- Exit chips ("1 stay", "2 out"): `text-transform: none`, `letter-spacing: normal`, `white-space: normal` (they wrap), font-size 9.92px (`0.62rem`), padding `1px 6px`, radius 6px — `Badge`'s own `uppercase`/tracking/`nowrap`/pill shape no longer win.
+- Round summary chip ("Everyone advances", Round 2): not uppercase, `white-space: normal`, 10.4px (`0.65rem`), padding `2px 8px`, margin-bottom 8px.
+- Ordinary `Badge`s (legend "Advanced", "Eliminated"): still uppercase, 0.87px tracking, `nowrap`, pill-shaped — their own defaults are intact where nothing overrides them.
+- Final score inputs: 52px wide (`w-13`).
+- Round columns: collapsed 34px (`w-8.5`), open 210px.
+
+No console errors. Test method: styles read via `getComputedStyle` in the page.
+
+**Out of scope.** Restyling anything, or refactoring components beyond className ordering (none needed). Replacing `cn()` with `clsx`/object syntax.
 
 ---
 
@@ -58,14 +67,20 @@ One planned test case was wrong and corrected against the real package before be
 
 **Review round.** Approved after Stage 1 with one DRY follow-up, folded into the Stage 2 commit: `changeOddCountStrategy` had its own copy of the double-elimination fallback ternary, which `reconcileScheduleLogicForFormat`'s own doc comment claimed to replace but didn't — now both callers share the one helper. Reviewer also caught the `removal-sweep.test.ts` silent-skip issue above before it shipped.
 
-**Known behaviour, not a bug (recorded, not changed).** A tournament whose saved Setup already combines a head-to-head format with `'kings-valley'` (from before this gate) shows "Single elimination" in the Schedule logic dropdown, because the option isn't rendered for that format, while the stored value is still `'kings-valley'` — Generate then refuses with the new message until the organiser reselects a schedule logic. Only affects setups saved before this change; the refusal message says what to do.
+**Known behaviour, not a bug (recorded, not changed).** A tournament whose saved Setup already combines a head-to-head format with `'kings-valley'` (from before this gate) shows "Single elimination" in the Schedule logic dropdown, because the option isn't rendered for that format, while the stored value is still `'kings-valley'` — Generate then refuses with the new message until the organiser reselects a schedule logic. Only affects setups saved before this change; the refusal message says what to do. Live-check follow-up: because the dropdown already *displays* "Single elimination" in this state, picking "Single elimination" again fires no change event (the `<select>`'s value doesn't change), so the stale stored `'kings-valley'` survives that specific click — only switching the game format (which runs the fallback) or picking a genuinely different schedule logic clears it. Minor, not fixed; the organiser decides whether it's worth a fix.
+
+**Live check (Tour App Planning Part 2, `tournaments-test.curvefever.pro`, commit `3e4f5f7`, organiser Conchord logged in).** Deploy confirmed: the site served `routes-B4tmcGzp.js`, containing the new refusal message. No console errors.
+- `1v1`: Schedule logic options are single elimination, double elimination, waterfall bracket — no Kings Valley.
+- `3v3` with odd-count Flex: options are single elimination, shared-Final double elimination, waterfall bracket — no Kings Valley.
+- FFA: Kings Valley is offered; selected it (stored `'kings-valley'`). Switching format to `1v1` fell back the schedule logic to single elimination, both shown and stored.
+- The known-behaviour case above reproduced live: the leftover "KV lone-unit check (delete me)" tournament (`1790528003459`) still had `1v1` + `'kings-valley'` saved from before the gate. Dropdown showed "Single elimination"; with 11 players loaded, Generate refused with the new message exactly as logged. Replaced that tournament afterwards (organiser pre-approved as safe to delete). Test method: the Setup checks set the `<select>`s directly.
 
 **Testing.** 1007 tests (down from 1024: −17 — kings-valley.test.ts dropped 5, removal-sweep.test.ts dropped 12 now-meaningless skip cases, transitions.test.ts's 3 moved tests are a net-zero swap), `tsc --noEmit` clean, focused `eslint`/`prettier --check` clean on every changed file.
 - Stage 1 gate: `individual-1v1` 11 and `team-3v3` 13 (default strategy and Flex) refused with the new message; `ffa-individual` 37, `team-2v2v2v2` 13, `team-3v3v3` 13 still generate. Mutation-checked: neutralising the guard fails all three refusal cases.
 - Stage 2 moved tests: FFA 37 plays every Kings Valley round to a real 7-unit Final; `team-3v3v3` 13 with a mid-round removal re-fits correctly to a 3-unit Final, no drops/duplicates; `team-3v3v3` 17 with a qualification-round removal exercises the first-hop re-fit exactly as the original 12-unit head-to-head version did.
 - `removal-sweep.test.ts`: confirmed via `SWEEP_LOG=1` that no `individual-1v1`/`team-3v3` × `kings-valley` case remains (the only remaining `SKIP(generation)` entries are the pre-existing, correct `double-elimination-shared-final` head-to-head skips, unrelated to this change).
 
-**Out of scope.** Speeding up Kings Valley for any format, or changing `MAX_KINGS_VALLEY_ROUNDS`. Migrating or blocking head-to-head Kings Valley tournaments that already exist. Removing the lone-room handling in the Kings Valley domain code (still needed for removals in multi-unit formats). Live check on `tournaments-test.curvefever.pro` (1v1 → no option; FFA → option present, picking it then switching to 1v1 falls back to Single elimination; 3v3 with Flex → no option) — Setup has no automated coverage, so this is the review's job once the branch is pushed.
+**Out of scope.** Speeding up Kings Valley for any format, or changing `MAX_KINGS_VALLEY_ROUNDS`. Migrating or blocking head-to-head Kings Valley tournaments that already exist. Removing the lone-room handling in the Kings Valley domain code (still needed for removals in multi-unit formats). Fixing the known-behaviour Setup finding above.
 
 ---
 
