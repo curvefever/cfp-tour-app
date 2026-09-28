@@ -3,7 +3,7 @@
 Known gaps, accepted limitations and undecided questions. Read when planning a feature, diagnosing a bug, or closing out a build (update it when a build closes or changes an item). Larger future projects are in `ROADMAP.md`.
 
 ## Known gaps
-- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1017 tests as of the last full-suite run (2026-09-28, `cn()` work) — grown since by the copy-settings tests, exact count not yet re-run (implementer runs only `vitest related` per stage; the reviewer's final review re-counts against the full suite).
+- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1050 tests.
 
 ## Accepted limitations (not building without an organiser request)
 - **Anonymous Finals exclude grand-final (race) Finals and team formats.** Race progression (`progressGrandFinalRace`, `finals.ts`) reads the two real finalists' score keys, so a placeholder-scored game would stall it; team Finals read a real `TournamentTeam` via `buildTeamMap()`, which a placeholder never has. See "Anonymous Finals matches, v1" in the log.
