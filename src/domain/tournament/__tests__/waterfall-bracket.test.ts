@@ -43,10 +43,10 @@ SemiA: 1-4->Final, 5-8->SemiB
 SemiB: 1-4->Final, 5-8->eliminated
 `;
 
-function parseAndValidate(text: string, entrantCount = 32, roomSize = ANY_ROOM_SIZE) {
+function parseAndValidate(text: string, entrantCount = 32, roomSize = ANY_ROOM_SIZE, fixedPrefix?: string[]) {
   const parsed = parseWaterfallGraph(text);
   if (!parsed.ok) return parsed;
-  return validateAndOrderWaterfallGraph(parsed.value, { roomSize, entrantCount });
+  return validateAndOrderWaterfallGraph(parsed.value, { roomSize, entrantCount, fixedPrefix });
 }
 
 describe('parseWaterfallGraph + validateAndOrderWaterfallGraph -- the worked spreadsheet example', () => {
@@ -513,5 +513,54 @@ describe('waterfallDestination', () => {
     expect(pendingR3).toEqual([...(expectedByDestination.get(2) ?? [])].sort());
     expect(actualR2).toHaveLength(7);
     expect(pendingR3).toEqual(['B2', 'B4']);
+  });
+});
+
+describe('validateAndOrderWaterfallGraph -- fixedPrefix', () => {
+  it('starts the returned order with exactly the given prefix, in that order, then the rest via Kahn as normal', () => {
+    const result = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, ['5', 'SemiA']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.rounds.map((round) => round.label)).toEqual([
+      '5',
+      'SemiA',
+      '6B',
+      '6C',
+      '7A',
+      'SemiB',
+      'Final',
+    ]);
+  });
+
+  it('leaves the order and every other rule unaffected when the prefix is empty', () => {
+    expect(parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, [])).toEqual(
+      parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE),
+    );
+  });
+
+  it('refuses a prefix round fed by a round outside the prefix', () => {
+    // 7A is fed by 6B and 6C, neither of which is in this prefix.
+    const result = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, ['5', '7A']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('"7A"');
+    expect(result.error).toContain("hasn't been played yet");
+  });
+
+  it('refuses a prefix that names a round the graph no longer declares', () => {
+    const result = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, ['5', 'Nonexistent']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('"Nonexistent"');
+    expect(result.error).toContain('no longer declares');
+  });
+
+  it('refuses a prefix round fed by a prefix round that comes after it', () => {
+    // SemiA is fed by "5", but this prefix claims SemiA was played before "5".
+    const result = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, ['SemiA', '5']);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('"SemiA"');
+    expect(result.error).toContain('played after it');
   });
 });

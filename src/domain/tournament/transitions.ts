@@ -221,7 +221,7 @@ function fitKingsValleyTail(
  * have) -- those stay in finalizeDoubleEliminationRound, which calls this
  * for its own common core.
  */
-function seedRoundFromPendingPool(
+export function seedRoundFromPendingPool(
   state: TournamentState,
   roundIndex: number,
   options: { chosenByes?: SeedCandidate[]; seedingOverride?: 'diversity' | 'balance' | 'random' } = {},
@@ -447,29 +447,23 @@ function malformedWaterfallRoundMessage(round: TournamentRound, actual: number):
 }
 
 /**
- * Waterfall's advance step: rank every occupant of the round within their
- * own room (buildAdvancementTiers, called once over the WHOLE room -- not a
- * pre-split winners/losers list, since a waterfall room can split into any
- * number of bands), look up each occupant's own band via
- * round.waterfallRoutes[room-1][rank] (tier.rank is already 0-indexed, the
- * same convention waterfallRoutes itself uses for "rank - 1"), and push into
- * pendingBracketSeeds[destination] -- the same destination-indexed
- * accumulator advanceDoubleElimination already uses, generalized from 2
- * named destinations to N. Always finalizes roundIndex + 1 specifically
- * (mirroring advanceDoubleElimination's own nextIndex finalize) -- NOT
- * whatever a band's own destination is, which may be several rounds ahead
- * and stay merely pending until curRound actually reaches it. This is safe
- * because the graph is a validated DAG played in its own topological order:
- * every source of round X is guaranteed already played by the time curRound
- * reaches X - 1, so X's pool is always complete by the time it's X's own
- * turn to be finalized here.
+ * Ranks every occupant of a waterfall round within their own room
+ * (buildAdvancementTiers, called once over the WHOLE room, not a pre-split
+ * winners/losers list) and looks up each occupant's own band via
+ * `round.waterfallRoutes[room-1][rank]` (tier.rank is already 0-indexed, the
+ * same convention waterfallRoutes itself uses for "rank - 1"). Returns the
+ * additions grouped by destination round index -- NOT yet folded into
+ * `state.pendingBracketSeeds`, so a replay (waterfall-live-edit.ts) can
+ * inspect a round's outcome against a hypothetical routing without mutating
+ * any pool. `round` is passed separately from `state.rounds[roundIndex]` so
+ * a caller can rank against the live scores while routing through an edited
+ * (not-yet-committed) round object.
  */
-function advanceWaterfallBracket(
-  input: TournamentState,
+export function routeWaterfallRound(
+  state: TournamentState,
   roundIndex: number,
   round: TournamentRound,
-): RoundAdvanceResult {
-  const state = cloneForTransition(input);
+): Map<number, PendingBracketSeed[]> {
   const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
   const tiers = buildAdvancementTiers(state, roundIndex, names);
 
@@ -483,6 +477,29 @@ function advanceWaterfallBracket(
       additionsByDestination.set(destination, additions);
     }
   }
+  return additionsByDestination;
+}
+
+/**
+ * Waterfall's advance step: push routeWaterfallRound's per-destination
+ * additions into pendingBracketSeeds[destination] -- the same
+ * destination-indexed accumulator advanceDoubleElimination already uses,
+ * generalized from 2 named destinations to N. Always finalizes roundIndex +
+ * 1 specifically (mirroring advanceDoubleElimination's own nextIndex
+ * finalize) -- NOT whatever a band's own destination is, which may be
+ * several rounds ahead and stay merely pending until curRound actually
+ * reaches it. This is safe because the graph is a validated DAG played in
+ * its own topological order: every source of round X is guaranteed already
+ * played by the time curRound reaches X - 1, so X's pool is always complete
+ * by the time it's X's own turn to be finalized here.
+ */
+function advanceWaterfallBracket(
+  input: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): RoundAdvanceResult {
+  const state = cloneForTransition(input);
+  const additionsByDestination = routeWaterfallRound(state, roundIndex, round);
   for (const [destination, additions] of additionsByDestination) {
     state.pendingBracketSeeds[destination] = [
       ...(state.pendingBracketSeeds[destination] ?? []),

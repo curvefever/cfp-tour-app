@@ -358,11 +358,21 @@ function buildRoomDestinations(
 
 export function validateAndOrderWaterfallGraph(
   graph: RawWaterfallGraph,
-  /** `entrantCount` is left out while it isn't known yet (no roster loaded); rule 9 is then skipped. */
-  options: { roomSize: RoomSize; entrantCount?: number },
+  options: {
+    roomSize: RoomSize;
+    /** Left out while it isn't known yet (no roster loaded); rule 9 is then skipped. */
+    entrantCount?: number;
+    /**
+     * Round labels, in play order, that the returned order must start with
+     * exactly (a live edit's already-reached rounds, which can't be
+     * reordered). Without it, the play order is derived purely from the
+     * routing, as normal.
+     */
+    fixedPrefix?: string[];
+  },
 ): WaterfallParseResult<OrderedWaterfallGraph> {
   const { roundLines, routeLines } = graph;
-  const { roomSize, entrantCount } = options;
+  const { roomSize, entrantCount, fixedPrefix } = options;
 
   // Rule 1: every declared room size must fit the format's own bounds.
   for (const round of roundLines) {
@@ -509,25 +519,80 @@ export function validateAndOrderWaterfallGraph(
       inDegree.set(destination, (inDegree.get(destination) ?? 0) + 1);
     }
   }
-  const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
-  if (entryCandidates.length === 0) {
-    return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
-  }
-  if (entryCandidates.length > 1) {
-    return err(
-      `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
+  const fixedPrefixLower = (fixedPrefix ?? []).map((label) => label.toLowerCase());
+  let topoOrder: string[];
+  if (fixedPrefixLower.length > 0) {
+    for (const [index, label] of fixedPrefixLower.entries()) {
+      if (!roundByLabel.has(label)) {
+        return err(
+          `Round "${(fixedPrefix as string[])[index]}" has already been played, but this graph no longer declares it -- a played round's label can't change.`,
+        );
+      }
+    }
+    // A prefix round must depend only on earlier prefix rounds -- never on a
+    // round outside the prefix (not yet played) or a prefix round that comes
+    // later (also not yet played, from the prefix's own point of view).
+    const prefixPosition = new Map(fixedPrefixLower.map((label, index) => [label, index]));
+    for (const [source, destinations] of destinationsByLabel) {
+      for (const destination of destinations) {
+        const destPos = prefixPosition.get(destination);
+        if (destPos === undefined) continue;
+        const sourceLabel = roundByLabel.get(source)!.label;
+        const destLabel = roundByLabel.get(destination)!.label;
+        const sourcePos = prefixPosition.get(source);
+        if (sourcePos === undefined) {
+          return err(
+            `Round "${destLabel}" has already been played, but round "${sourceLabel}", which hasn't been played yet, routes into it -- a played round's line-up can't depend on a round that hasn't happened.`,
+          );
+        }
+        if (sourcePos >= destPos) {
+          return err(
+            `Round "${destLabel}" has already been played, but round "${sourceLabel}" is played after it -- a played round's line-up can't depend on a round played later.`,
+          );
+        }
+      }
+    }
+    const remainingInDegree = new Map(inDegree);
+    topoOrder = [...fixedPrefixLower];
+    for (const label of fixedPrefixLower) {
+      for (const destination of destinationsByLabel.get(label) ?? []) {
+        remainingInDegree.set(destination, (remainingInDegree.get(destination) ?? 0) - 1);
+      }
+    }
+    const prefixSet = new Set(fixedPrefixLower);
+    const queue = labels.filter(
+      (label) => !prefixSet.has(label) && (remainingInDegree.get(label) ?? 0) === 0,
     );
-  }
-  const topoOrder: string[] = [];
-  const remainingInDegree = new Map(inDegree);
-  const queue = [...entryCandidates];
-  while (queue.length > 0) {
-    const current = queue.shift() as string;
-    topoOrder.push(current);
-    for (const destination of destinationsByLabel.get(current) ?? []) {
-      const next = (remainingInDegree.get(destination) ?? 0) - 1;
-      remainingInDegree.set(destination, next);
-      if (next === 0) queue.push(destination);
+    while (queue.length > 0) {
+      const current = queue.shift() as string;
+      topoOrder.push(current);
+      for (const destination of destinationsByLabel.get(current) ?? []) {
+        const next = (remainingInDegree.get(destination) ?? 0) - 1;
+        remainingInDegree.set(destination, next);
+        if (next === 0) queue.push(destination);
+      }
+    }
+  } else {
+    const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
+    if (entryCandidates.length === 0) {
+      return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
+    }
+    if (entryCandidates.length > 1) {
+      return err(
+        `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
+      );
+    }
+    topoOrder = [];
+    const remainingInDegree = new Map(inDegree);
+    const queue = [...entryCandidates];
+    while (queue.length > 0) {
+      const current = queue.shift() as string;
+      topoOrder.push(current);
+      for (const destination of destinationsByLabel.get(current) ?? []) {
+        const next = (remainingInDegree.get(destination) ?? 0) - 1;
+        remainingInDegree.set(destination, next);
+        if (next === 0) queue.push(destination);
+      }
     }
   }
   if (topoOrder.length !== labels.length) {
