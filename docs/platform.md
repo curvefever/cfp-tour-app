@@ -14,11 +14,12 @@ Per-user login against real Curve Fever Pro accounts.
 
 ## Sync and persistence
 - **Writes**: the browser calls `writeTournament()` (`tournament-write.server-fns.ts`), which validates the id, calls `requireTourAdminPermission()`, then writes with the Firebase **Admin** SDK. `database.rules.json` denies all direct client writes.
-- **Reads**: direct client-side Firebase reads (`firebase-client.ts`, `onValue`), no login needed.
+- **Reads**: direct client-side Firebase reads (`firebase-client.ts`, `onValue` for a live subscription, `fetchTournamentOnce` for a one-shot read of another tournament's stored state), no login needed.
 - **`SyncCoordinator`** (`live-sync.ts`): writer/viewer modes, debounced push (400 ms), dirty-key tracking so a remote update can't overwrite a field being typed. `marshalForFirebase`/`unmarshalFromFirebase` protect data Firebase would otherwise lose: nulls in arrays, empty arrays and objects (`{__ffaEmptyArray: true}`, `{__ffaEmptyObject: true}`), and sparse arrays returned as objects.
 - **Fallback**: if Firebase is unreachable, `getFirebaseSyncTransport()` returns `null`, the UI shows "Live sync unavailable", and the app keeps working from `localStorage` (key `curveFFA_state_v1`).
 - The Firebase client config in `firebase-client.ts` is hardcoded and not a secret. Test, production and local dev all use the same Firebase project.
 - **Local dev caution**: opening a real tournament id on the local dev server while its browser holds an admin session makes the app try to write it back; it only fails because no Firebase Admin credentials are configured locally.
+- `TournamentState.settings` (optional): the Setup form as typed when a tournament was generated, snapshotted by `generateTournament` (`tournament-settings.ts`) — roster fields excluded, absent on tournaments generated before this field existed. Lets a later tournament copy a past one's settings (`CopySettingsPanel.tsx`) without pinning the materialized `gamemodeConfig`/`cfg` numbers to the old headcount.
 
 ## Deployment
 Hosted on Curve Fever Pro's own infrastructure. `.github/workflows/release-tour.yml` builds a Docker image on every push to `main` or `test` (GHCR tags `latest`/`test-latest`) and deploys it over SSH via Tailscale. The server bundle runs `node .output/server/index.mjs` and needs `FIREBASE_SERVICE_ACCOUNT_JSON` (or Application Default Credentials) plus the CFP API.
