@@ -133,7 +133,10 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         currentRoundLabel={currentRoundLabel}
         entrantCount={entryRound?.players ?? null}
         lockedRounds={lockedRounds}
-        onChange={setDraftText}
+        onChange={(next) => {
+          setDraftText(next);
+          setRedrawPrompt(null);
+        }}
         roomSize={roomSize}
         text={draftText}
       />
