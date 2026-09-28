@@ -14,12 +14,16 @@ export function WaterfallRoundList({
   entrantCount,
   selected,
   onSelect,
+  lockedRounds,
+  currentRoundLabel,
 }: {
   draft: WaterfallDraft;
   intake: WaterfallIntake;
   entrantCount: number | null;
   selected: string;
   onSelect: (label: string) => void;
+  lockedRounds?: ReadonlySet<string>;
+  currentRoundLabel?: string;
 }) {
   return (
     <div className='flex flex-row flex-wrap gap-1.5 min-[901px]:flex-col'>
@@ -27,6 +31,8 @@ export function WaterfallRoundList({
         const round = draft.rounds.find((candidate) => candidate.label === label);
         if (!round) return null;
         const badge = roundIntakeBadge(round, intake, entrantCount);
+        const isCurrent = label === currentRoundLabel;
+        const isLocked = lockedRounds?.has(label) && !isCurrent;
         return (
           <button
             aria-pressed={label === selected}
@@ -48,6 +54,11 @@ export function WaterfallRoundList({
               {round.roomCount} × {round.roomSize}
               {round.isFinal ? ' · Final' : ''}
             </span>
+            {isCurrent || isLocked ? (
+              <span className='text-[0.68rem] font-semibold tracking-wide text-muted uppercase'>
+                {isCurrent ? 'current' : 'played'}
+              </span>
+            ) : null}
           </button>
         );
       })}

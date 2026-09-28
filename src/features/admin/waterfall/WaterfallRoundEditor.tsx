@@ -275,6 +275,7 @@ export function WaterfallRoundEditor({
   picked,
   mirror,
   actions,
+  locked,
 }: {
   draft: WaterfallDraft;
   round: WaterfallDraftRound;
@@ -283,10 +284,12 @@ export function WaterfallRoundEditor({
   mirror: boolean;
   /** Omitted for a read-only editor: no control that changes anything is rendered. */
   actions?: RoundEditorActions;
+  /** This round already started: its own routing is still editable, but rename/resize/remove/Final-toggle aren't. */
+  locked?: boolean;
 }) {
   return (
     <div>
-      {actions ? (
+      {actions && !locked ? (
         <RoundSettings
           actions={actions}
           key={`${round.label}-${round.roomCount}-${round.roomSize}`}

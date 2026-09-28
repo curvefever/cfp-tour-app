@@ -33,6 +33,12 @@ interface EditorProps {
   roomSize: RoomSize;
   /** No control that changes the graph is rendered; the round list, room tables and side panel still show. */
   readOnly?: boolean;
+  /** Labels of rounds that have already started: rename/resize/remove/Final-toggle are hidden for them, but their own routing stays editable. */
+  lockedRounds?: ReadonlySet<string>;
+  /** The round currently being played, shown with its own badge in the round list (a "played" badge covers every other locked round). */
+  currentRoundLabel?: string;
+  /** false hides "Blank start" and the examples, which would replace locked rounds too. Ignored when readOnly. Default true. */
+  allowReplace?: boolean;
 }
 
 function roundHasRoutedSlots(draft: WaterfallDraft, label: string): boolean {
@@ -68,6 +74,9 @@ function DraftEditor({
   entrantCount,
   roomSize,
   readOnly,
+  lockedRounds,
+  currentRoundLabel,
+  allowReplace = true,
 }: EditorProps & { draft: WaterfallDraft; status: GraphStatus }) {
   const [selectedLabel, setSelectedLabel] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
@@ -184,7 +193,7 @@ function DraftEditor({
             <span className='text-xs text-muted'> (load a roster and set "Advance to bracket")</span>
           ) : null}
         </span>
-        {readOnly ? null : (
+        {readOnly || !allowReplace ? null : (
           <>
             <span className='flex-1' />
             <span className='text-xs text-muted'>Start over from:</span>
@@ -198,9 +207,11 @@ function DraftEditor({
             Rounds
           </div>
           <WaterfallRoundList
+            currentRoundLabel={currentRoundLabel}
             draft={draft}
             entrantCount={entrantCount}
             intake={intake}
+            lockedRounds={lockedRounds}
             onSelect={select}
             selected={round.label}
           />
@@ -214,6 +225,7 @@ function DraftEditor({
           actions={readOnly ? undefined : actions}
           draft={draft}
           incomingPlayers={intake.incoming[round.label] ?? 0}
+          locked={lockedRounds?.has(round.label)}
           mirror={mirror}
           picked={picked}
           round={round}
@@ -224,7 +236,16 @@ function DraftEditor({
   );
 }
 
-export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize, readOnly }: EditorProps) {
+export function WaterfallGraphEditor({
+  text,
+  onChange,
+  entrantCount,
+  roomSize,
+  readOnly,
+  lockedRounds,
+  currentRoundLabel,
+  allowReplace = true,
+}: EditorProps) {
   const parsed = useMemo(() => parseWaterfallDraft(text), [text]);
   const { min, max, ideal } = roomSize;
   const status = useMemo<GraphStatus>(() => {
@@ -244,7 +265,7 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize, r
         <pre className='mt-3 overflow-x-auto rounded-[5px] bg-background p-3 font-mono text-xs whitespace-pre-wrap'>
           {text}
         </pre>
-        {readOnly ? null : (
+        {readOnly || !allowReplace ? null : (
           <ButtonRow>
             <Button
               onClick={() => {
@@ -267,7 +288,7 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize, r
           No rounds yet. Start with an entry round and a Final and route every rank, or load an example to
           edit.
         </p>
-        {readOnly ? null : (
+        {readOnly || !allowReplace ? null : (
           <ButtonRow>
             <Button
               onClick={() =>
@@ -286,8 +307,11 @@ export function WaterfallGraphEditor({ text, onChange, entrantCount, roomSize, r
 
   return (
     <DraftEditor
+      allowReplace={allowReplace}
+      currentRoundLabel={currentRoundLabel}
       draft={parsed.value}
       entrantCount={entrantCount}
+      lockedRounds={lockedRounds}
       onChange={onChange}
       readOnly={readOnly}
       roomSize={roomSize}

@@ -715,9 +715,10 @@ export function SetupView() {
             text={setup.waterfallGraph}
           />
           <p className='mt-3 text-xs text-muted'>
-            Every round, room count/size, and rank routing is decided here, once, before the tournament
-            starts. There's no live reseeding and no automatic bye/lucky-loser handling, and reserves can't be
-            added once a tournament starts on this schedule logic.
+            Every round, room count/size, and rank routing is set up here, and can still be corrected from the
+            Admin tab while the tournament is running. There's no automatic reseeding beyond that, no
+            automatic bye/lucky-loser handling, and reserves can't be added once a tournament starts on this
+            schedule logic.
           </p>
         </Panel>
       ) : null}
