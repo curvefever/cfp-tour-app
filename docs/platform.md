@@ -28,3 +28,9 @@ Hosted on Curve Fever Pro's own infrastructure. `.github/workflows/release-tour.
 Push and login rules: `AGENTS.md`, "Branches and deploys" and "Live checks and login".
 
 **Unconfirmed** (not blocking): how `FIREBASE_SERVICE_ACCOUNT_JSON`/ADC reaches the deploy target, and whether `VITE_API_ENDPOINT` must be set there. Ask the CFP developer who set up the pipeline if a Firebase-write or login problem appears only when deployed.
+
+## Tests
+Which checks to run, when and by whom: `AGENTS.md`, "Checks and tests".
+- **Vitest** (`pnpm test`): the tournament domain layer (`src/domain/tournament/`) has the deepest coverage, one `*.test.ts` per source file in `src/domain/tournament/__tests__/` plus a shared `test-fixtures.ts`. Elsewhere, unit tests are co-located `*.test.ts` files covering pure or near-pure logic: `src/lib/persistence/`, `src/features/sync/live-sync.ts`, `src/features/auth/auth.shared.ts`, `src/features/sync/tournament-write.shared.ts`, `src/components/ui/`. Domain files import each other widely, so `vitest related` on a domain file usually runs most of the suite.
+- **Not covered**: React components, hooks and server functions (`*.server.ts`, `*.server-fns.ts`). `@testing-library/react`/`jsdom` are installed but not configured.
+- **Playwright smoke** (`e2e/smoke.spec.ts`, `pnpm run test:e2e`): the signed-out viewer shell, and that the admin login wall exists. Admin actions are tested by hand, with the organiser signed in. It runs against a local `pnpm dev`, or against a deployed site when `PLAYWRIGHT_BASE_URL` is set (then no local server starts). `vite.config.ts`'s `test.exclude` keeps Vitest away from `e2e/**`.

@@ -6,6 +6,25 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Docs: AGENTS.md trimmed, role files split out, one check matrix (done — 2026-09-28)
+
+**Context.** `AGENTS.md` had grown to 153 lines, read in full by every session, and its testing rules left room for duplicated work: "run the full `pnpm test` once, just before reporting the build done" applied to whichever session wrote the code, so in split sessions both the implementer and the reviewer ran the full suite, and the implementer sometimes after every small fix. Sessions use Opus for planning and review, Sonnet for implementing; Sonnet does best with explicit commands rather than judgment calls.
+
+**What changed.**
+- `AGENTS.md` (77 lines) keeps only what every session needs. The rules on test commands, the "Validating changes" section and "Before calling a build done" are replaced by one "Checks and tests" table: check, exact command, who runs it and when. Key decisions:
+  - Per stage, the implementer runs lint/format/types and `vitest related --run` on the stage's files before committing, never the full suite. A broken stage reaching review costs a whole round trip, far more than a filtered test run.
+  - The reviewer runs related tests with its mutation checks each stage, and the full suite, e2e (if planned) and lint/format/types over all changed files once, at the final review.
+  - e2e and live checks run only when the plan's per-stage **Checks** line lists them (default neither). The implementer does the live check; the reviewer repeats only a point the code leaves in doubt.
+  - Test output is always filtered (`grep -aE "Test Files|Tests |FAIL"`). Doc-only changes need no checks.
+- `.agents/roles/planner.md` and `.agents/roles/implementer.md` hold the role-specific process (plan contents, reviewing a stage, the report, pushing). `AGENTS.md` points to them; a session reads only its own. Plain files rather than skills: Claude Code doesn't discover `.agents/skills/` on its own, so a pointer on a stated role is more reliable.
+- The description of what the tests cover moved to a new "Tests" section in `docs/platform.md` (current state, not process); `HANDOFF.md`'s doc table points there.
+
+**Testing.** Doc-only. Timed for the decision: `vitest related` on `seeding.ts` ran 19 files / 722 tests in 23s, against 76s for the full suite: domain files import each other widely, so related tests on a domain file already cover most of the suite. `prettier --check` on `AGENTS.md` and the role files.
+
+**Out of scope.** Moving the role files to `.claude/skills/` for slash-command invocation. The harmless "something prevents Vite server from exiting" warning after test runs.
+
+---
+
 ## cn(): merge conflicting Tailwind classes via tailwind-merge (done — 2026-09-28)
 
 **Context.** `cn()` (`src/components/ui/cn.ts`) was a plain join: `values.filter(Boolean).join(' ')`. When a shared component and its caller set the same CSS property (e.g. `Input`'s `w-full` vs `ScoreInput`'s `w-22.5` vs a caller's `w-13`), every class landed in the DOM and the stylesheet's own source order — not the intended override — decided the winner. Worked around three times with Tailwind v4's `!` (important) suffix, all in `BracketView.tsx` (`compactScoreClass`, `RoomExitChips`'s `Badge`, `RoundExitSummary`'s `Badge`). Organiser asked for the real fix.
