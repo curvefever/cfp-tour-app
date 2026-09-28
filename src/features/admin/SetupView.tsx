@@ -18,8 +18,10 @@ import {
   parseTeamLines,
 } from '../../domain/tournament/roster';
 import { getMinimumBracketUnits } from '../../domain/tournament/schedule-generation';
-import type { PersistedSetup } from '../../domain/tournament/types';
+import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
+import type { PersistedSetup, TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
 import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
 import {
   Alert,
@@ -205,6 +207,20 @@ export function SetupView() {
     updateState(result.state);
   }
 
+  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string) {
+    const previousGameFormat = setup.gameFormat;
+    updateSetup((current) => applyTournamentSettings(current, settings));
+    setLbQualifiers(settings.lbQualifiers);
+    let message = `Copied settings from "${sourceTitle}".`;
+    if (state.rounds.length && !state.started) {
+      message += ' Generate the schedule again: the preview below still uses the previous settings.';
+    }
+    if (state.confirmedCount !== null && settings.gameFormat !== previousGameFormat) {
+      message += ' The game format changed: load the roster again.';
+    }
+    setStatus(message);
+  }
+
   const isGroup = setup.poolingPhase === 'group-stage';
   const totalPoolingRounds =
     setup.poolingPhase === 'qual-table'
@@ -242,6 +258,7 @@ export function SetupView() {
           />
         </Field>
       </Panel>
+      <CopySettingsPanel onApply={applyCopiedSettings} />
       <TwoColumnGrid>
         <Panel>
           <PanelTitle>Tournament Settings</PanelTitle>
