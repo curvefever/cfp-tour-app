@@ -2,13 +2,12 @@ import { createDefaultSetup } from './state-defaults';
 import type { PersistedSetup, TournamentSettings } from './types';
 
 /**
- * Every TournamentSettings key except `lbQualifiers`, which lives outside
- * PersistedSetup (see GenerationForm in generation.ts). Written out
- * explicitly -- not spread-and-delete from PersistedSetup -- so the
- * key-partition invariant below (tested) catches a new Setup field that
- * isn't added to either this list or ROSTER_KEYS.
+ * Every TournamentSettings key except `lbQualifiers` (outside PersistedSetup
+ * -- see GenerationForm in generation.ts). Written out explicitly, not
+ * spread-and-delete, so the key-partition invariant test below (against
+ * ROSTER_KEYS) catches a new Setup field left out of both lists.
  */
-const SETTING_KEYS = [
+export const SETTING_KEYS = [
   'scheduleLogic',
   'gameFormat',
   'scoring',
@@ -43,9 +42,6 @@ export const ROSTER_KEYS = [
 ] as const satisfies readonly (keyof PersistedSetup)[];
 
 const DEFAULT_LB_QUALIFIERS = '2';
-
-/** Same key-partition invariant `readTournamentSettings`/`applyTournamentSettings`/`settingsFromForm` all rely on -- exported for the test that checks it against `createDefaultSetup()`. */
-export const TOURNAMENT_SETTING_KEYS = SETTING_KEYS;
 
 export function settingsFromForm(form: PersistedSetup & { lbQualifiers?: string }): TournamentSettings {
   const settings: Record<string, string> = { lbQualifiers: form.lbQualifiers ?? DEFAULT_LB_QUALIFIERS };

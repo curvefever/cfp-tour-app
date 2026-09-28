@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { finalsProgressState } from '../finals';
 import { generateTournament } from '../generation';
 import { addReserveUnit, setFinalScore } from '../mutations';
+import { computeSwissRoundCount } from '../pooling';
 import { computeRankings } from '../rankings';
 import { getMinimumBracketUnits } from '../schedule-generation';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
-import { applyTournamentSettings, settingsFromForm } from '../tournament-settings';
+import { applyTournamentSettings } from '../tournament-settings';
 import { fixedIdSource, sequenceRandom } from './test-fixtures';
 
 function names(count: number): string[] {
@@ -1482,7 +1483,8 @@ describe('generateTournament -- settings snapshot', () => {
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
     if (result.status !== 'generated') return;
-    expect(result.state.settings).toEqual(settingsFromForm(form));
+    const { roster: _roster, reserves: _reserves, reserveIndividuals: _reserveIndividuals, ...rest } = form;
+    expect(result.state.settings).toEqual({ ...rest, lbQualifiers: '2' });
     expect(result.state.settings).not.toHaveProperty('roster');
   });
 
@@ -1514,58 +1516,52 @@ SemiB: 1-2->Final, 3-8->eliminated
     expect(result.state.settings?.waterfallGraph).toBe(graph);
   });
 
-  it("reuses a 43-unit tournament's settings at 31: generation succeeds and Semis/Final sizes come from a fresh computation, not a copied number", () => {
-    const at43 = createDefaultTournamentState({ confirmedCount: 43 });
-    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
-    const result43 = generateTournament(at43, form, createTournamentRuntime());
-    expect(result43.status).toBe('generated');
-    if (result43.status !== 'generated') return;
-    const copied = applyTournamentSettings(createDefaultSetup(), result43.state.settings!);
-
-    const at31 = createDefaultTournamentState({ confirmedCount: 31 });
-    const result31 = generateTournament(at31, copied, createTournamentRuntime());
-    expect(result31.status).toBe('generated');
-    if (result31.status !== 'generated') return;
-    expect(result31.state.gamemodeConfig.semisSize).toBe(result43.state.gamemodeConfig.semisSize);
-    expect(result31.state.gamemodeConfig.finalSize).toBe(result43.state.gamemodeConfig.finalSize);
-
-    // Same recipe, directly at 31 with no copy involved -- proves the
-    // copied-settings run above didn't pin any stale absolute number.
-    const directAt31 = generateTournament(
-      createDefaultTournamentState({ confirmedCount: 31 }),
+  // Single-elimination FFA's default Semis/Final sizes (2*ideal, ideal) are
+  // constant regardless of headcount, so they can't tell a genuinely
+  // re-derived number apart from one that was copied as a stale override.
+  // Swiss's round count (computeSwissRoundCount, pooling.ts) does depend on
+  // the headcount, so it can.
+  function reuseSwissSettingsAt(sourceCount: number, targetCount: number) {
+    const form = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      qualAdv: '4',
+      oddCountStrategy: 'bye',
+    });
+    const source = generateTournament(
+      createDefaultTournamentState({ confirmedCount: sourceCount, players: names(sourceCount) }),
       form,
       createTournamentRuntime(),
     );
-    expect(directAt31.status).toBe('generated');
-    if (directAt31.status !== 'generated') return;
-    expect(result31.state.gamemodeConfig.semisSize).toBe(directAt31.state.gamemodeConfig.semisSize);
-    expect(result31.state.gamemodeConfig.finalSize).toBe(directAt31.state.gamemodeConfig.finalSize);
-  });
+    expect(source.status).toBe('generated');
+    if (source.status !== 'generated') throw new Error('unreachable');
+    expect(source.state.gamemodeConfig.swissRounds).toBe(computeSwissRoundCount(sourceCount));
 
-  it("reuses a 53-unit tournament's settings at 37 the same way", () => {
-    const at53 = createDefaultTournamentState({ confirmedCount: 53 });
-    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
-    const result53 = generateTournament(at53, form, createTournamentRuntime());
-    expect(result53.status).toBe('generated');
-    if (result53.status !== 'generated') return;
-    const copied = applyTournamentSettings(createDefaultSetup(), result53.state.settings!);
+    const copied = applyTournamentSettings(createDefaultSetup(), source.state.settings!);
+    // The automatic fields the organiser left blank must still be blank --
+    // reusing settings must not have baked the source count's materialized
+    // numbers into them.
+    expect(copied.swissRoundsOverride).toBe('');
+    expect(copied.semisOverride).toBe('');
+    expect(copied.finalOverride).toBe('');
+    expect(copied.qualRoundsOverride).toBe('');
 
-    const result37 = generateTournament(
-      createDefaultTournamentState({ confirmedCount: 37 }),
+    const target = generateTournament(
+      createDefaultTournamentState({ confirmedCount: targetCount, players: names(targetCount) }),
       copied,
       createTournamentRuntime(),
     );
-    expect(result37.status).toBe('generated');
-    if (result37.status !== 'generated') return;
+    expect(target.status).toBe('generated');
+    if (target.status !== 'generated') throw new Error('unreachable');
+    expect(target.state.gamemodeConfig.swissRounds).toBe(computeSwissRoundCount(targetCount));
+    expect(target.state.gamemodeConfig.swissRounds).not.toBe(source.state.gamemodeConfig.swissRounds);
+  }
 
-    const directAt37 = generateTournament(
-      createDefaultTournamentState({ confirmedCount: 37 }),
-      form,
-      createTournamentRuntime(),
-    );
-    expect(directAt37.status).toBe('generated');
-    if (directAt37.status !== 'generated') return;
-    expect(result37.state.gamemodeConfig.semisSize).toBe(directAt37.state.gamemodeConfig.semisSize);
-    expect(result37.state.gamemodeConfig.finalSize).toBe(directAt37.state.gamemodeConfig.finalSize);
+  it("reuses a 43-unit tournament's settings at 31: Swiss round count is re-derived for 31, not copied from 43", () => {
+    reuseSwissSettingsAt(43, 31);
+  });
+
+  it("reuses a 65-unit tournament's settings at 53 the same way", () => {
+    reuseSwissSettingsAt(65, 53);
   });
 });
