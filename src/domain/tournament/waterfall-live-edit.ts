@@ -8,13 +8,12 @@ import {
 } from './waterfall-bracket';
 
 /**
- * Applying an edited waterfall graph to a running tournament (see
- * plans/2026-09-28-waterfall-live-edit.md, "organiser's option 2"): any
- * round's routing can change, including already-played rounds, as long as a
- * played round's own recorded line-up comes out identical after the edited
- * routing is replayed -- only the current round may be re-drawn, and only
- * before it has any score. `state.rounds` is the source of truth for what's
- * actually running, not the `settings.waterfallGraph` snapshot.
+ * Applying an edited waterfall graph to a running tournament: any round's
+ * routing can change, including already-played rounds, as long as a played
+ * round's own recorded line-up comes out identical after the edited routing
+ * is replayed -- only the current round may be re-drawn, and only before it
+ * has any score. `state.rounds` is the source of truth for what's actually
+ * running, not the `settings.waterfallGraph` snapshot.
  */
 export type WaterfallGraphEditResult =
   { ok: true; state: TournamentState; redrawnRound: string | null } | { ok: false; error: string };
@@ -173,9 +172,22 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
       ),
       pendingBracketSeeds: { ...working.pendingBracketSeeds, [curRound]: replayPools.get(curRound) ?? [] },
     };
-    let roomHistory: Record<string, number> = {};
+    // A pair's roomHistory entry is the round index it MOST RECENTLY shared a
+    // room in -- only entries pointing at curRound came from the draw being
+    // discarded, so only those need fixing: a scratch replay over the
+    // unchanged rounds 0..curRound-1 finds each such pair's next-most-recent
+    // meeting, if it has one. Every other entry (any round's, including one
+    // built under drawPublication: 'fixed', which never called
+    // recordRoomHistory in the first place) is left exactly as it was.
+    let scratch: Record<string, number> = {};
     for (let index = 0; index < curRound; index += 1) {
-      roomHistory = recordRoomHistory(roomHistory, working.assignments[index] ?? [], index);
+      scratch = recordRoomHistory(scratch, working.assignments[index] ?? [], index);
+    }
+    const roomHistory = { ...working.roomHistory };
+    for (const [key, roundIndex] of Object.entries(working.roomHistory)) {
+      if (roundIndex !== curRound) continue;
+      if (key in scratch) roomHistory[key] = scratch[key];
+      else delete roomHistory[key];
     }
     working = { ...working, roomHistory };
     const failure = seedRoundFromPendingPool(working, curRound);

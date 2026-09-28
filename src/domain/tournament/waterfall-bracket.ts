@@ -519,8 +519,21 @@ export function validateAndOrderWaterfallGraph(
       inDegree.set(destination, (inDegree.get(destination) ?? 0) + 1);
     }
   }
+  // Exactly one round may have zero incoming routes -- the entry round --
+  // whether or not a fixedPrefix is given (checked unconditionally so a
+  // fixedPrefix can't paper over a graph that's genuinely broken).
+  const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
+  if (entryCandidates.length === 0) {
+    return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
+  }
+  if (entryCandidates.length > 1) {
+    return err(
+      `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
+    );
+  }
+  const entryLabel = entryCandidates[0];
+
   const fixedPrefixLower = (fixedPrefix ?? []).map((label) => label.toLowerCase());
-  let topoOrder: string[];
   if (fixedPrefixLower.length > 0) {
     for (const [index, label] of fixedPrefixLower.entries()) {
       if (!roundByLabel.has(label)) {
@@ -528,6 +541,11 @@ export function validateAndOrderWaterfallGraph(
           `Round "${(fixedPrefix as string[])[index]}" has already been played, but this graph no longer declares it -- a played round's label can't change.`,
         );
       }
+    }
+    if (fixedPrefixLower[0] !== entryLabel) {
+      return err(
+        `Round "${(fixedPrefix as string[])[0]}" is supposed to be the entry round (it's played first), but "${roundByLabel.get(entryLabel)!.label}" is the round nothing routes into now -- the entry round can't change.`,
+      );
     }
     // A prefix round must depend only on earlier prefix rounds -- never on a
     // round outside the prefix (not yet played) or a prefix round that comes
@@ -552,47 +570,26 @@ export function validateAndOrderWaterfallGraph(
         }
       }
     }
-    const remainingInDegree = new Map(inDegree);
-    topoOrder = [...fixedPrefixLower];
-    for (const label of fixedPrefixLower) {
-      for (const destination of destinationsByLabel.get(label) ?? []) {
-        remainingInDegree.set(destination, (remainingInDegree.get(destination) ?? 0) - 1);
-      }
-    }
-    const prefixSet = new Set(fixedPrefixLower);
-    const queue = labels.filter(
-      (label) => !prefixSet.has(label) && (remainingInDegree.get(label) ?? 0) === 0,
-    );
-    while (queue.length > 0) {
-      const current = queue.shift() as string;
-      topoOrder.push(current);
-      for (const destination of destinationsByLabel.get(current) ?? []) {
-        const next = (remainingInDegree.get(destination) ?? 0) - 1;
-        remainingInDegree.set(destination, next);
-        if (next === 0) queue.push(destination);
-      }
-    }
-  } else {
-    const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
-    if (entryCandidates.length === 0) {
-      return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
-    }
-    if (entryCandidates.length > 1) {
-      return err(
-        `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
-      );
-    }
-    topoOrder = [];
-    const remainingInDegree = new Map(inDegree);
-    const queue = [...entryCandidates];
-    while (queue.length > 0) {
-      const current = queue.shift() as string;
-      topoOrder.push(current);
-      for (const destination of destinationsByLabel.get(current) ?? []) {
-        const next = (remainingInDegree.get(destination) ?? 0) - 1;
-        remainingInDegree.set(destination, next);
-        if (next === 0) queue.push(destination);
-      }
+  }
+
+  // Standard Kahn, seeded with the fixedPrefix (in that exact order) or just
+  // the entry round -- a seed label is dequeued, hence its own out-edges
+  // decremented, before anything discovered ready afterward (newly-ready
+  // labels are only ever appended to the back of the queue), so every
+  // fixedPrefix label is guaranteed genuinely ready by the time it's its
+  // turn, given the inbound-source checks above.
+  const seed = fixedPrefixLower.length > 0 ? fixedPrefixLower : [entryLabel];
+  const seedSet = new Set(seed);
+  const topoOrder: string[] = [];
+  const remainingInDegree = new Map(inDegree);
+  const queue = [...seed];
+  while (queue.length > 0) {
+    const current = queue.shift() as string;
+    topoOrder.push(current);
+    for (const destination of destinationsByLabel.get(current) ?? []) {
+      const next = (remainingInDegree.get(destination) ?? 0) - 1;
+      remainingInDegree.set(destination, next);
+      if (next === 0 && !seedSet.has(destination)) queue.push(destination);
     }
   }
   if (topoOrder.length !== labels.length) {

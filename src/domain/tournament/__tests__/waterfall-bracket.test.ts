@@ -555,12 +555,40 @@ describe('validateAndOrderWaterfallGraph -- fixedPrefix', () => {
     expect(result.error).toContain('no longer declares');
   });
 
-  it('refuses a prefix round fed by a prefix round that comes after it', () => {
+  it("refuses a prefix whose first round isn't the graph's actual entry round", () => {
     // SemiA is fed by "5", but this prefix claims SemiA was played before "5".
     const result = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE, ['SemiA', '5']);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).toContain('"SemiA"');
+    expect(result.error).toContain('entry round');
+  });
+
+  it('refuses a prefix round fed by a prefix round that comes after it, with a correct entry round in position 0', () => {
+    const chain = `
+ROUNDS:
+E = 8
+B = 8
+C = 8
+F = 8 FINAL
+
+ROUTES:
+E: 1-8->B
+B: 1-8->C
+C: 1-8->F
+`;
+    const parsed = parseWaterfallGraph(chain);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    // Correct order is E, B, C -- this prefix has C played before B.
+    const result = validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: FFA_ROOM_SIZE,
+      entrantCount: 8,
+      fixedPrefix: ['E', 'C', 'B'],
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('"C"');
     expect(result.error).toContain('played after it');
   });
 });
