@@ -280,6 +280,18 @@ export function generateTournament(
       );
     }
   }
+  // Defense-in-depth, same shape as the double-elimination gate above: the
+  // Setup UI only ever offers 'kings-valley' when the format isn't
+  // head-to-head, but a stale selection can survive a format change made
+  // after schedule logic was picked (the option disappears from the
+  // dropdown without resetting an already-selected value). Head-to-head
+  // Kings Valley tournaments generated before this gate keep working --
+  // this only blocks new generation.
+  if (schedule === 'kings-valley' && format.idealRoomSize === 2) {
+    return generationError(
+      `Kings Valley isn't available for ${format.label} — a head-to-head room shape (exactly 2 units per room) cuts only one unit per round, too slow to reach a Final. Pick another schedule logic.`,
+    );
+  }
   if (format.supportedOddCountStrategies && oddCountStrategy === 'none') {
     const ideal = format.idealRoomSize as number;
     if (config.poolingPhase !== 'none' && config.poolingPhase !== 'group-stage' && config.n % ideal !== 0) {

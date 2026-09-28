@@ -1127,9 +1127,35 @@ describe('generateTournament -- kings-valley', () => {
     expect(result.state.assignments[0].map((a) => a.name).sort()).toEqual(names(37).sort());
   });
 
-  it('generates for a head-to-head format too (no compatibility gate)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
-    const form = createDefaultSetup({ gameFormat: 'individual-1v1', scheduleLogic: 'kings-valley' });
+  it.each([
+    ['individual-1v1', 11, ''],
+    ['team-3v3', 13, ''],
+    ['team-3v3', 13, 'flex'],
+  ] as const)(
+    'refuses Kings Valley for %s (%i units, odd-count %s) -- a head-to-head room shape cuts too slowly',
+    (gameFormat, confirmedCount, oddCountStrategy) => {
+      const state = createDefaultTournamentState({ confirmedCount, players: names(confirmedCount) });
+      const form = createDefaultSetup({
+        gameFormat,
+        scheduleLogic: 'kings-valley',
+        ...(oddCountStrategy ? { oddCountStrategy } : {}),
+      });
+      const result = generateTournament(state, form, createTournamentRuntime());
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') {
+        expect(result.message).toContain('Kings Valley');
+        expect(result.message).toContain('head-to-head room shape');
+      }
+    },
+  );
+
+  it.each([
+    ['ffa-individual', 37],
+    ['team-2v2v2v2', 13],
+    ['team-3v3v3', 13],
+  ] as const)('still generates Kings Valley for %s (%i units)', (gameFormat, confirmedCount) => {
+    const state = createDefaultTournamentState({ confirmedCount, players: names(confirmedCount) });
+    const form = createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
   });

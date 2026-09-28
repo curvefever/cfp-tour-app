@@ -39,6 +39,23 @@ import {
 
 type SetupKey = keyof PersistedSetup;
 
+/**
+ * A format change can make the currently-selected schedule logic
+ * unavailable (its own `<option>` disappears from the dropdown) without
+ * resetting the already-selected value -- reconcile it here the same way
+ * `changeOddCountStrategy` reconciles the narrower double-elimination case.
+ */
+function reconcileScheduleLogicForFormat(
+  current: PersistedSetup['scheduleLogic'],
+  raceCompatible: boolean,
+  headToHeadOnly: boolean,
+): PersistedSetup['scheduleLogic'] {
+  if (current === 'double-elimination' && !raceCompatible) return 'single-elimination';
+  if (current === 'double-elimination-shared-final' && raceCompatible) return 'single-elimination';
+  if (current === 'kings-valley' && headToHeadOnly) return 'single-elimination';
+  return current;
+}
+
 export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
   const [error, setError] = useState('');
@@ -103,12 +120,11 @@ export function SetupView() {
       gameFormat: value as PersistedSetup['gameFormat'],
       oddCountStrategy: defaultOdd,
       teamScoringRule: nextFormat?.teamSize ? 'sum-members' : '',
-      scheduleLogic:
-        current.scheduleLogic === 'double-elimination' && !compatible
-          ? 'single-elimination'
-          : current.scheduleLogic === 'double-elimination-shared-final' && compatible
-            ? 'single-elimination'
-            : current.scheduleLogic,
+      scheduleLogic: reconcileScheduleLogicForFormat(
+        current.scheduleLogic,
+        compatible,
+        nextFormat?.idealRoomSize === 2,
+      ),
       poolingPhase:
         (current.poolingPhase === 'group-stage' || current.poolingPhase === 'swiss') &&
         nextFormat?.idealRoomSize !== 2
@@ -253,7 +269,7 @@ export function SetupView() {
                   {option.label}
                 </option>
               ))}
-              <option value='kings-valley'>Kings Valley</option>
+              {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
               <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
             </Select>
           </Field>
