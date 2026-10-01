@@ -6,6 +6,7 @@ import {
   computeSwissRoundCount,
   seedFromGroupStageRound,
 } from './pooling';
+import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -42,6 +43,19 @@ function parsed(value: string, fallback: number): number {
 
 function generationError(message: string): GenerateTournamentResult {
   return { status: 'invalid', message };
+}
+
+function kingsValleyTooLargeMessage(input: {
+  limit: number;
+  entrants: number;
+  unitPlural: string;
+  formatLabel: string;
+  hasQualification: boolean;
+}): string {
+  const fix = input.hasQualification
+    ? 'Lower "Advance to bracket", or add a qualification phase.'
+    : 'Add a qualification phase to cut the field first, or pick another schedule logic.';
+  return `Kings Valley can take at most ${input.limit} ${input.unitPlural} into the ladder in ${input.formatLabel}: it has to reach the Final within ${MAX_KINGS_VALLEY_ROUNDS} rounds, and ${input.entrants} would enter. ${fix}`;
 }
 
 /** Sanity ceiling for a manually-overridden pooling-phase round count, matching single-elimination.ts's own MAX_ELIMINATION_ROUNDS-style cap. */
@@ -292,6 +306,20 @@ export function generateTournament(
     return generationError(
       `Kings Valley isn't available for ${format.label} — a head-to-head room shape (exactly 2 units per room) cuts only one unit per round, too slow to reach a Final. Pick another schedule logic.`,
     );
+  }
+  if (schedule === 'kings-valley') {
+    const limit = kingsValleyMaxEntrants(roomSize);
+    if (bracketEntryCount > limit) {
+      return generationError(
+        kingsValleyTooLargeMessage({
+          limit,
+          entrants: bracketEntryCount,
+          unitPlural,
+          formatLabel: format.label,
+          hasQualification: config.poolingPhase !== 'none',
+        }),
+      );
+    }
   }
   if (format.supportedOddCountStrategies && oddCountStrategy === 'none') {
     const ideal = format.idealRoomSize as number;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_KINGS_VALLEY_ROUNDS,
   kingsValleyBracketPhase,
+  kingsValleyMaxEntrants,
   kingsValleyRoundMoves,
   type KingsValleyRoomBandCounts,
 } from '../kings-valley';
@@ -271,5 +272,15 @@ describe('kingsValleyBracketPhase -- every seatable entry count', () => {
         }
       }
     }
+  });
+});
+
+describe('kingsValleyMaxEntrants', () => {
+  it.each([
+    ['2v2v2v2', TEAM_2V2V2V2_ROOM_SIZE, 32],
+    ['3v3v3', TEAM_3V3V3_ROOM_SIZE, 24],
+    ['FFA', FFA_ROOM_SIZE, 60],
+  ])('is %s: %i entrants', (_label, roomSize, expected) => {
+    expect(kingsValleyMaxEntrants(roomSize)).toBe(expected);
   });
 });

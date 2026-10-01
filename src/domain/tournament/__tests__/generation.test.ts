@@ -1161,6 +1161,37 @@ describe('generateTournament -- kings-valley', () => {
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
   });
+
+  it.each([
+    ['team-2v2v2v2', 32, 33],
+    ['team-3v3v3', 24, 25],
+  ] as const)(
+    '%s: %i entrants generate, %i are refused with the size-limit message',
+    (gameFormat, ok, over) => {
+      const generate = (count: number, overrides = {}) =>
+        generateTournament(
+          createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
+          createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley', ...overrides }),
+          createTournamentRuntime({ ids: fixedIdSource() }),
+        );
+      expect(generate(ok).status).toBe('generated');
+      const refused = generate(over);
+      expect(refused.status).toBe('invalid');
+      if (refused.status === 'invalid') {
+        expect(refused.message).toContain(`at most ${ok}`);
+        expect(refused.message).toContain('qualification phase');
+        expect(refused.message).not.toContain('Lower "Advance to bracket"');
+        expect(refused.message).not.toContain('hard cap');
+      }
+      const viaQualification = generate(over + 10, { poolingPhase: 'qual-table', qualAdv: String(over) });
+      expect(viaQualification.status).toBe('invalid');
+      if (viaQualification.status === 'invalid') {
+        expect(viaQualification.message).toContain(`at most ${ok}`);
+        expect(viaQualification.message).toContain('Lower "Advance to bracket"');
+      }
+      expect(generate(ok + 10, { poolingPhase: 'qual-table', qualAdv: String(ok) }).status).toBe('generated');
+    },
+  );
 });
 
 describe('generateTournament -- waterfall-bracket', () => {

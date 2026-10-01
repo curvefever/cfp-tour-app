@@ -128,6 +128,22 @@ export function kingsValleyRoundMoves(
   return { bands, nextRooms };
 }
 
+/**
+ * The largest entry count whose ladder reaches a Final that fits one room
+ * within MAX_KINGS_VALLEY_ROUNDS; above it the force-ended Final would be
+ * bigger than the room maximum. Counts are monotonic, so the first failure
+ * ends the search.
+ */
+export function kingsValleyMaxEntrants(roomSize: RoomSize): number {
+  const config: KingsValleyConfig = { roomSize, finalsGames: 1 };
+  let count = roomSize.max;
+  while (true) {
+    const rounds = kingsValleyBracketPhase(count + 1, 1, config);
+    if (rounds[rounds.length - 1].rooms[0] > roomSize.max) return count;
+    count += 1;
+  }
+}
+
 function finalRound(roundNum: number, players: number, finalsGames: number): TournamentRound {
   return {
     roundNum,
