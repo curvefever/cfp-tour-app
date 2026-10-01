@@ -6,6 +6,7 @@ import {
   type RaceDoubleEliminationConfig,
   type SharedFinalDoubleEliminationConfig,
 } from '../double-elimination';
+import { isSeatable } from '../room-distribution';
 import type { RoomSize, TournamentRound } from '../types';
 
 const HEAD_TO_HEAD_ROOM_SIZE: RoomSize = { min: 2, max: 2, ideal: 2 };
@@ -201,5 +202,113 @@ describe('sharedFinalDoubleEliminationBracketPhase', () => {
     // organiser's own stated comfort level ("it is fine to play rooms with
     // 6 players at that stage"), even though FFA_ROOM_SIZE.min is also 6.
     expect(losersRounds[0].rooms.reduce((sum, size) => sum + size, 0)).toBe(6);
+  });
+});
+
+describe('sharedFinalDoubleEliminationBracketPhase -- seatable losers-bracket rounds', () => {
+  const TEAM_2V2V2V2: RoomSize = { min: 3, max: 4, ideal: 4 };
+  const TEAM_3V3V3: RoomSize = { min: 2, max: 3, ideal: 3 };
+  const config = (lbQualifiers: number, extra: Partial<SharedFinalDoubleEliminationConfig> = {}) => ({
+    roomSize: TEAM_2V2V2V2,
+    finalSize: 4,
+    lbQualifiers,
+    finalsGames: 1,
+    ...extra,
+  });
+  const phase = (teams: number, lbQualifiers: number, extra?: Partial<SharedFinalDoubleEliminationConfig>) =>
+    sharedFinalDoubleEliminationBracketPhase(teams, 1, config(lbQualifiers, extra));
+  const losers = (rounds: TournamentRound[]) => rounds.filter((round) => round.bracket === 'losers');
+  const players = (rounds: TournamentRound[]) => rounds.map((round) => round.players);
+
+  it('12 teams, default settings: no losers round of 5, exact round list', () => {
+    // Winners targets 9, 7, 6, 4, 3. The drop of 3 after round 1 can't be cut, so it waits.
+    // After the second winners round 3 + 2 = 5 would be a losers round of 5 (not seatable),
+    // there is no earlier losers round, and the deferral limit is reached, so the second
+    // winners target moves 7 -> 8 (nearest value that seats 3 + 1 = 4 and the next round 8).
+    // Then 6, 4, 3 follow the old curve and each losers round (4, 4, 4, 4) is a full room.
+    const rounds = phase(12, 2);
+    expect(losers(rounds).some((round) => round.players === 5)).toBe(false);
+    expect(players(rounds)).toEqual([12, 9, 4, 8, 4, 6, 4, 4, 4, 3, 4, 4]);
+    expect(rounds[1].advTotal).toBe(8);
+  });
+
+  it('23 teams, default settings: the last losers round of 5 becomes 6', () => {
+    const rounds = phase(23, 2);
+    expect(losers(rounds).every((round) => isSeatable(round.players, TEAM_2V2V2V2))).toBe(true);
+    expect(losers(rounds).at(-1)?.players).toBe(6);
+  });
+
+  it('lever 1: changes the previous losers round survivor target (10 teams, 1 LB qualifier)', () => {
+    // The first losers round (round 3) had 4 players cutting to 3; with the next winners drop of 2
+    // that left 5. It now cuts to 2, so the next round seats 2 + 2 = 4.
+    const rounds = phase(10, 1);
+    expect(players(rounds)).toEqual([10, 7, 4, 6, 4, 4, 4, 4]);
+    expect(rounds[2]).toMatchObject({ bracket: 'losers', advTotal: 2 });
+  });
+
+  it('lever 2: defers the first losers round to the next winners round (18 teams, 1 LB qualifier)', () => {
+    // The drop of 5 after round 1 used to become a losers round of 5; it now waits and joins
+    // the next drop: 5 + 3 = 8 players in round 3.
+    const rounds = phase(18, 1);
+    expect(rounds[1].bracket).toBe('winners');
+    expect(losers(rounds)[0]).toMatchObject({ roundNum: 3, players: 8 });
+    expect(losers(rounds).some((round) => round.players === 5)).toBe(false);
+  });
+
+  it('lever 3: moves the latest winners target for the first losers round (12 teams, 1 LB qualifier)', () => {
+    // Winners targets 9, 7, 6, 4 (lb 1): first losers round would hold 3 + 2 = 5, so 7 -> 8.
+    const rounds = phase(12, 1);
+    expect(rounds.filter((round) => round.bracket === 'winners').map((round) => round.advTotal)).toEqual([
+      9, 8, 6, 4, 3,
+    ]);
+    expect(players(rounds)).toEqual([12, 9, 4, 8, 4, 6, 4, 4, 4, 4]);
+  });
+
+  it('keeps organiser-supplied winners targets unchanged', () => {
+    const rounds = phase(12, 1, { explicitTargets: [9, 7, 6, 4, 3] });
+    expect(rounds.filter((round) => round.bracket === 'winners').map((round) => round.advTotal)).toEqual([
+      9, 7, 6, 4, 3,
+    ]);
+  });
+
+  describe('property: every planned count can be seated', () => {
+    // Entry counts from two rooms up to 60 (so 31, 37, 43 and 53 are all covered), every
+    // LB-qualifier count the Final allows, default and overridden Final size.
+    const cases: Array<[string, RoomSize, number[]]> = [
+      ['team-2v2v2v2', TEAM_2V2V2V2, [4, 3]],
+      ['team-3v3v3', TEAM_3V3V3, [3, 2]],
+      ['ffa-individual', FFA_ROOM_SIZE, [8, 6]],
+    ];
+    // No lever seats these two FFA plans (a Final of 6 with 3 LB qualifiers: the
+    // first losers round holds 5 + 5 = 10, and 7/8 are the only seatable targets
+    // for the winners round before it). They keep today's [5,5] split; reported to the planner.
+    const KNOWN_UNSEATABLE_FFA = new Set(['final 6, lb 3: 17', 'final 6, lb 3: 18']);
+    it.each(cases)('%s', (_name, roomSize, finalSizes) => {
+      for (const finalSize of finalSizes) {
+        for (let lbQualifiers = 1; lbQualifiers <= 3 && lbQualifiers < finalSize; lbQualifiers += 1) {
+          for (let teams = 2 * roomSize.ideal; teams <= 60; teams += 1) {
+            const label = `${teams} entrants, final ${finalSize}, lb ${lbQualifiers}`;
+            let rounds: TournamentRound[];
+            try {
+              rounds = sharedFinalDoubleEliminationBracketPhase(teams, 1, {
+                roomSize,
+                finalSize,
+                lbQualifiers,
+                finalsGames: 1,
+              });
+            } catch (error) {
+              // Only the existing "can't route every drop" refusal is allowed to remain.
+              expect(String(error), label).toContain('could not route');
+              continue;
+            }
+            expect(rounds.at(-1)?.isFinal, label).toBe(true);
+            const unseatable = rounds.slice(1, -1).filter((round) => !isSeatable(round.players, roomSize));
+            if (!KNOWN_UNSEATABLE_FFA.has(`final ${finalSize}, lb ${lbQualifiers}: ${teams}`)) {
+              expect(unseatable, label).toEqual([]);
+            }
+          }
+        }
+      }
+    });
   });
 });

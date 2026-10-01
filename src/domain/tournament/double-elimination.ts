@@ -1,4 +1,4 @@
-import { distributeRooms, distributeRoomsWithBye, splitAdvancement } from './room-distribution';
+import { distributeRooms, distributeRoomsWithBye, isSeatable, splitAdvancement } from './room-distribution';
 import { computeCleanTargets, computeEliminationRoundCount, computeTargets } from './single-elimination';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
@@ -230,6 +230,80 @@ interface SharedBracketProjection {
   luckyCount: number;
 }
 
+type SharedWinnersRound = SharedBracketProjection & { dropCount: number };
+type SharedLosersRound = SharedBracketProjection & { afterWbIndex: number };
+
+function buildSharedWinnersRound(
+  players: number,
+  target: number,
+  config: SharedFinalDoubleEliminationConfig,
+): SharedWinnersRound {
+  const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
+  return {
+    ...distribution,
+    players,
+    advTotal: target,
+    ...splitAdvancement(target, distribution.byeCount, distribution.rooms.length),
+    dropCount: players - target,
+  };
+}
+
+/** The candidate nearest `original`; on a tie the higher one (the smaller cut, more units survive). */
+function nearestCandidate(original: number, candidates: number[]): number | undefined {
+  let best: number | undefined;
+  for (const candidate of candidates) {
+    if (best === undefined) {
+      best = candidate;
+      continue;
+    }
+    const distance = Math.abs(candidate - original);
+    const bestDistance = Math.abs(best - original);
+    if (distance < bestDistance || (distance === bestDistance && candidate > best)) best = candidate;
+  }
+  return best;
+}
+
+function integersBetween(low: number, high: number): number[] {
+  return Array.from({ length: Math.max(0, high - low + 1) }, (_, offset) => low + offset);
+}
+
+/** Lever 1: a new survivor target for the previous losers round so that, with the pending drops, this round can be seated. */
+function seatableEarlierLosersTarget(
+  previous: SharedLosersRound,
+  pendingDrop: number,
+  config: SharedFinalDoubleEliminationConfig,
+): number | undefined {
+  const candidates = integersBetween(config.lbQualifiers, previous.players - 1).filter((target) =>
+    isSeatable(target + pendingDrop, config.roomSize),
+  );
+  return nearestCandidate(previous.advTotal, candidates);
+}
+
+function retargetLosersRound(round: SharedLosersRound, target: number): void {
+  round.advTotal = target;
+  Object.assign(round, splitAdvancement(target, round.byeCount, round.rooms.length));
+}
+
+/**
+ * Lever 3: a new survivor target for winners round `index` such that the
+ * round after it is seatable, the curve stays strictly decreasing, and the
+ * losers round it feeds (with `otherPlayers` already waiting) is seatable.
+ */
+function seatableWinnersTarget(
+  winners: SharedWinnersRound[],
+  index: number,
+  otherPlayers: number,
+  config: SharedFinalDoubleEliminationConfig,
+): number | undefined {
+  const current = winners[index];
+  const candidates = integersBetween(winners[index + 1].advTotal + 1, current.players - 1).filter(
+    (target) =>
+      isSeatable(target, config.roomSize) &&
+      isSeatable(otherPlayers + current.players - target, config.roomSize),
+  );
+  return nearestCandidate(current.advTotal, candidates);
+}
+
 type SharedSequenceEntry =
   { type: 'wb'; wbIndex: number } | { type: 'lb'; lbIndex: number } | { type: 'final' };
 
@@ -258,20 +332,11 @@ export function sharedFinalDoubleEliminationBracketPhase(
     }
     winnersTargets = computeCleanTargets(seedTotal, winnersQualifiers, requestedRounds, config.roomSize);
   }
-  const winners: Array<SharedBracketProjection & { dropCount: number }> = [];
-  for (const [index, target] of winnersTargets.entries()) {
-    const players = index === 0 ? seedTotal : winnersTargets[index - 1];
-    const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
-    winners.push({
-      ...distribution,
-      players,
-      advTotal: target,
-      ...splitAdvancement(target, distribution.byeCount, distribution.rooms.length),
-      dropCount: players - target,
-    });
-  }
+  const winners: SharedWinnersRound[] = winnersTargets.map((target, index) =>
+    buildSharedWinnersRound(index === 0 ? seedTotal : winnersTargets[index - 1], target, config),
+  );
 
-  const losers: Array<SharedBracketProjection & { afterWbIndex: number }> = [];
+  const losers: SharedLosersRound[] = [];
   const losersDestinationByWinnersRound: Array<number | null> = Array.from(
     { length: winners.length },
     () => null,
@@ -283,10 +348,39 @@ export function sharedFinalDoubleEliminationBracketPhase(
   for (let winnersIndex = 0; winnersIndex < winners.length; winnersIndex += 1) {
     pendingDrop += winners[winnersIndex].dropCount;
     pendingFrom.push(winnersIndex);
-    const players = losersSurvivors + pendingDrop;
+    let players = losersSurvivors + pendingDrop;
     if (players === 0) {
       pendingFrom = [];
       continue;
+    }
+    if (!isSeatable(players, config.roomSize)) {
+      const previous = losers[losers.length - 1];
+      const earlierTarget = previous && seatableEarlierLosersTarget(previous, pendingDrop, config);
+      const canDefer = pendingFrom.length < MAX_WB_ROUNDS_BEFORE_LB && winnersIndex < winners.length - 1;
+      if (earlierTarget !== undefined) {
+        retargetLosersRound(previous, earlierTarget);
+        losersSurvivors = earlierTarget;
+      } else if (canDefer) {
+        continue;
+      } else if (!config.explicitTargets && winnersIndex < winners.length - 1) {
+        const target = seatableWinnersTarget(
+          winners,
+          winnersIndex,
+          players - winners[winnersIndex].dropCount,
+          config,
+        );
+        if (target !== undefined) {
+          const round = winners[winnersIndex];
+          winners[winnersIndex] = buildSharedWinnersRound(round.players, target, config);
+          winners[winnersIndex + 1] = buildSharedWinnersRound(
+            target,
+            winners[winnersIndex + 1].advTotal,
+            config,
+          );
+          pendingDrop += winners[winnersIndex].dropCount - round.dropCount;
+        }
+      }
+      players = losersSurvivors + pendingDrop;
     }
     const roundsLeft = winners.length - winnersIndex;
     const rawTargets = computeTargets(players, config.lbQualifiers, roundsLeft, config.roomSize);
