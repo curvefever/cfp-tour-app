@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
+import { removeRosterUnit } from '../mutations';
 import { exitBandAtRank, roundExitRule, type RoomExitBand } from '../room-exits';
 import { getUnitScore, orderRoomByScore } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -7,6 +8,7 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { waterfallBracketPhase, type OrderedWaterfallGraph } from '../waterfall-bracket';
+import { scoreCurrentRound } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 function names(count: number, prefix = 'P'): string[] {
@@ -543,5 +545,103 @@ describe('exitBandAtRank', () => {
 
   it('returns null past every band', () => {
     expect(exitBandAtRank([{ kind: 'eliminate', fromRank: 1, toRank: 2 }], 3)).toBeNull();
+  });
+});
+
+describe('roundExitRule -- Kings Valley chips agree with the real advance', () => {
+  function pairTeams(count: number) {
+    return Array.from({ length: count }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index}` }, { name: `b${index}` }],
+    }));
+  }
+
+  /** A 2v2v2v2 Kings Valley tournament, played (qualification included) up to its first Kings Valley round. */
+  function reachKingsValley(count: number): TournamentState {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: pairTeams(count) }),
+      createDefaultSetup({
+        gameFormat: 'team-2v2v2v2',
+        scheduleLogic: 'kings-valley',
+        qualAdv: String(count),
+      }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    let state = result.state;
+    while (!state.rounds[state.curRound].isKingsValley) {
+      const next = advanceTournamentRound(scoreCurrentRound(state, 2));
+      if (next.status !== 'advanced') throw new Error(`stuck before Kings Valley: ${next.status}`);
+      state = next.state;
+    }
+    return state;
+  }
+
+  /** Where each unit's chip says it goes: a room number, or null for eliminated. */
+  function chipDestinations(state: TournamentState): Map<string, number | null> {
+    const roundIndex = state.curRound;
+    const rule = roundExitRule(state, roundIndex);
+    if (rule.kind !== 'per-room') throw new Error('expected per-room exits');
+    const destinations = new Map<string, number | null>();
+    const rank = new Map<number, number>();
+    for (const entry of state.assignments[roundIndex]) {
+      if (entry.room === null) continue;
+      const position = (rank.get(entry.room) ?? 0) + 1;
+      rank.set(entry.room, position);
+      const band = exitBandAtRank(rule.rooms[entry.room - 1], position);
+      if (!band) throw new Error(`no chip for ${entry.name}`);
+      if (band.kind === 'promote' || band.kind === 'demote') destinations.set(entry.name, band.targetRoom);
+      else destinations.set(entry.name, band.kind === 'eliminate' ? null : entry.room);
+    }
+    return destinations;
+  }
+
+  function expectChipsMatchEveryAdvance(startCount: number) {
+    let state = reachKingsValley(startCount);
+    const visited: number[][] = [];
+    while (!state.rounds[state.curRound].isFinal) {
+      const scored = scoreCurrentRound(state, 2);
+      const expected = chipDestinations(scored);
+      visited.push(state.rounds[state.curRound].rooms);
+      const result = advanceTournamentRound(scored);
+      if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
+      const landed = new Map(
+        result.state.assignments[result.state.curRound].map((entry) => [entry.name, entry.room]),
+      );
+      for (const [name, room] of expected) {
+        expect(landed.get(name) ?? null, `${name} in ${JSON.stringify(visited.at(-1))}`).toBe(room);
+      }
+      state = result.state;
+    }
+    return visited;
+  }
+
+  it('16 teams: 16 -> 14 -> 12 -> 10 -> 8 -> 6, every unit lands where its chip said (includes the merge round 14 [4,4,3,3])', () => {
+    const visited = expectChipsMatchEveryAdvance(16);
+    expect(visited).toContainEqual([4, 4, 3, 3]);
+  });
+
+  it('9 teams: 9 -> 7 [4,3] -> 6 [3,3], every unit lands where its chip said', () => {
+    const visited = expectChipsMatchEveryAdvance(9);
+    expect(visited).toContainEqual([4, 3]);
+  });
+
+  it('16 teams with one removed from room 2 (real [4,3,4,4]): advances unblocked, no room below 3, tail re-planned', () => {
+    let state = reachKingsValley(16);
+    const victim = state.assignments[state.curRound].find((entry) => entry.room === 2)?.name as string;
+    state = removeRosterUnit(state, victim);
+    const result = advanceTournamentRound(scoreCurrentRound(state, 2));
+    expect(result.status).toBe('advanced');
+    if (result.status !== 'advanced') return;
+    const next = result.state.rounds[result.state.curRound];
+    const seated = new Map<number, number>();
+    for (const entry of result.state.assignments[result.state.curRound]) {
+      if (entry.room !== null) seated.set(entry.room, (seated.get(entry.room) ?? 0) + 1);
+    }
+    expect([...seated.values()].sort()).toEqual([...next.rooms].sort());
+    for (const size of next.rooms) expect(size).toBeGreaterThanOrEqual(3);
+    // 15 units, the bottom room cuts 2: 13 survive, re-planned from the real count.
+    expect(next.rooms.reduce((total, size) => total + size, 0)).toBe(13);
   });
 });

@@ -171,7 +171,7 @@ function TeamScoreFields({ children }: { children: ReactNode }) {
  * whose results feed standings or plain per-room advancement (pooling,
  * no-elim warm-up, single elimination, Semis) and for Kings Valley (a lone
  * room holds its place -- neither promoted nor cut, per
- * kingsValleyRoomBandCounts, kings-valley.ts -- so it plays next round same
+ * kingsValleyRoundMoves, kings-valley.ts -- so it plays next round same
  * as an ordinary bye). Not for waterfall rounds (fixed rank bands per room)
  * or double-elimination rounds (winners/losers routing).
  */

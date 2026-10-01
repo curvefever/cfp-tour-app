@@ -19,6 +19,13 @@ export function distributeRooms(count: number, roomSize: RoomSize): number[] {
   return Array.from({ length: roomCount }, (_, index) => base + (index < extra ? 1 : 0));
 }
 
+/** Whether `count` units can be split into rooms that all lie within [roomSize.min, roomSize.max]. */
+export function isSeatable(count: number, roomSize: RoomSize): boolean {
+  if (count < 2) return false;
+  if (count <= roomSize.max) return true;
+  return Math.ceil(count / roomSize.max) <= Math.floor(count / roomSize.min);
+}
+
 export function distributeRoomsWithBye(
   count: number,
   roomSize: RoomSize,

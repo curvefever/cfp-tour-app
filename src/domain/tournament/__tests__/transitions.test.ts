@@ -1586,7 +1586,7 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
       guard += 1;
       expect(guard).toBeLessThan(20); // safety valve, in case a regression re-introduces the stuck-field bug
     }
-    expect(state.rounds[state.curRound].rooms).toEqual([7]); // hand-traced: 37 converges to a 7-unit Final
+    expect(state.rounds[state.curRound].rooms).toEqual([8]); // 37 converges to an 8-unit Final (was 7 before the seatable-cut rule)
   });
 
   it('team-3v3v3, 13 teams with a removal mid-Kings-Valley: the tail is re-planned from the real survivor count, no drops or duplicates', () => {

@@ -1,4 +1,4 @@
-import { kingsValleyRoomBandCounts } from './kings-valley';
+import { kingsValleyRoundMoves } from './kings-valley';
 import {
   fairPoints,
   getUnitScore,
@@ -653,7 +653,7 @@ export function computeLuckyLoserStandings(
 /**
  * Kings Valley's per-room promote/stay/demote-or-eliminate split, merged into
  * one flat best-to-worst survivor order. Band counts are computed from each
- * room's REAL occupancy (kingsValleyRoomBandCounts, kings-valley.ts), not the
+ * room's REAL occupancy (kingsValleyRoundMoves, kings-valley.ts), not the
  * stored kv* fields planned at generation time -- a removal can shrink a room
  * below its planned size, and the stored counts would then overlap. A room
  * with fewer than 2 real occupants holds: its own single stay band keeps its
@@ -682,7 +682,10 @@ export function kingsValleyComputeAdvancement(
       ),
     );
   }
-  const bands = kingsValleyRoomBandCounts(roomNames.map((names) => names.length));
+  const { bands } = kingsValleyRoundMoves(
+    roomNames.map((names) => names.length),
+    state.gamemodeConfig.roomSize,
+  );
 
   const promoteBands: string[][] = [];
   const cutBands: string[][] = []; // this room's own demote band, or its eliminate band when bands[index].eliminates

@@ -1,5 +1,5 @@
 import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
-import { kingsValleyRoomBandCounts, type KingsValleyRoomBandCounts } from './kings-valley';
+import { kingsValleyRoundMoves, type KingsValleyRoomBandCounts } from './kings-valley';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 import { waterfallDestination } from './waterfall-bracket';
 
@@ -99,7 +99,7 @@ function cutRoomBands(
  * Kings Valley's promote/stay/demote-or-eliminate split for one room, in
  * rank order -- mirrors kingsValleyComputeAdvancement's own band maths
  * exactly (advancement.ts). `band` is this room's own entry from
- * kingsValleyRoomBandCounts, computed once for the whole round from every
+ * kingsValleyRoundMoves, computed once for the whole round from every
  * room's real size (see the roundExitRule call site) so a lone room and the
  * real effective bottom always agree with the real advance. Two edge cases:
  * the top room's own promote band has nowhere to go and folds into its stay
@@ -217,12 +217,12 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
   const assignments = state.assignments[roundIndex];
 
   if (round.isKingsValley) {
-    // Bypasses perRoomRule -- kingsValleyRoomBandCounts needs every room's
+    // Bypasses perRoomRule -- kingsValleyRoundMoves needs every room's
     // real size up front to find the effective bottom, so actualSize is
     // already computed here; reusing it (instead of perRoomRule's own
     // per-room actualRoomSize call) avoids computing it twice per room.
     const actualSizes = round.rooms.map((size, index) => actualRoomSize(assignments, index, size));
-    const bands = kingsValleyRoomBandCounts(actualSizes);
+    const { bands } = kingsValleyRoundMoves(actualSizes, state.gamemodeConfig.roomSize);
     return {
       kind: 'per-room',
       rooms: round.rooms.map((_, roomIndex) =>
