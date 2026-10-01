@@ -164,8 +164,8 @@ describe('getMinimumBracketUnits -- kings-valley', () => {
 });
 
 describe('kingsValleyRoundMoves -- solver', () => {
-  // [rooms, cut, nextRooms, promote, demote for rooms 1..bottom-1]
-  const table: [number[], number, number[], number[], number[]][] = [
+  // [rooms, cut, nextRooms, promote, demote for rooms 1..bottom-1, room size (default 2v2v2v2)]
+  const table: [number[], number, number[], number[], number[], RoomSize?][] = [
     [[4, 4, 4, 4], 2, [4, 4, 3, 3], [1, 1, 1, 1], [1, 1, 2]],
     [[4, 4, 3, 3], 2, [4, 4, 4], [1, 1, 1, 1], [1, 1, 0]],
     [[4, 4, 4], 2, [4, 3, 3], [1, 1, 1], [1, 2]],
@@ -174,15 +174,20 @@ describe('kingsValleyRoundMoves -- solver', () => {
     [[3, 3], 2, [4], [1, 1], [0]],
     [[3, 3, 3], 2, [4, 3], [1, 1, 1], [0, 0]],
     [[4, 3], 1, [3, 3], [1, 1], [2]],
+    // FFA: the default half (4) would leave 17, which can't be seated; 3 and 5 tie, the smaller wins.
+    [[7, 7, 7], 3, [6, 6, 6], [2, 2, 2], [3, 4], FFA_ROOM_SIZE],
   ];
 
-  it.each(table)('%j: cut %i -> %j', (rooms, cut, nextRooms, promote, demote) => {
-    const moves = kingsValleyRoundMoves(rooms, TEAM_2V2V2V2_ROOM_SIZE);
-    expect(moves.nextRooms).toEqual(nextRooms);
-    expect(moves.bands.map((band) => band.promote)).toEqual(promote);
-    expect(moves.bands.slice(0, -1).map((band) => band.cut)).toEqual(demote);
-    expect(moves.bands[moves.bands.length - 1]).toMatchObject({ cut, eliminates: true });
-  });
+  it.each(table)(
+    '%j: cut %i -> %j',
+    (rooms, cut, nextRooms, promote, demote, roomSize = TEAM_2V2V2V2_ROOM_SIZE) => {
+      const moves = kingsValleyRoundMoves(rooms, roomSize);
+      expect(moves.nextRooms).toEqual(nextRooms);
+      expect(moves.bands.map((band) => band.promote)).toEqual(promote);
+      expect(moves.bands.slice(0, -1).map((band) => band.cut)).toEqual(demote);
+      expect(moves.bands[moves.bands.length - 1]).toMatchObject({ cut, eliminates: true });
+    },
+  );
 
   it('plans 9 teams as 9 -> 7 -> 6 -> Final 4, never a room of 2', () => {
     const rounds = kingsValleyBracketPhase(9, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE, finalsGames: 3 });

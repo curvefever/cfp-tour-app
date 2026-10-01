@@ -6,6 +6,39 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Kings Valley: seatable cuts and moves that land exactly on the next round's rooms (done — 2026-10-01)
+
+**Context.** Reported on tournament `1790869920091` (test, 23 teams, 2v2v2v2, qual-table + Kings Valley): rooms of 2 appeared, and the exit chips disagreed with the next round's placeholder sizes. Reproduced from the code, not the stored data (the tournament has since been regenerated).
+
+**Two root causes.**
+1. `kingsValleyBracketPhase` cut `bandCount(bottom, 0.5)` every round and re-split the total with `distributeRooms` without checking the total could be seated. 9 entering: 9 [3,3,3] → 7 [4,3] → 5 → `distributeRooms(5)` gives [3,2] (minRooms > maxRooms, so it falls back to even splitting). The same gap exists in FFA (9, 10, 11 and 17 can't be seated).
+2. `kingsValleyRoomBandCounts` set each room's moves from its own size only (promote 25%, demote 25%, bottom cuts 50%), ignoring the next round's layout. 16 [4,4,4,4] → 14: the moves produce [4,4,4,2], the plan said [4,4,3,3]. `sequentialSeed` then sliced the flat order into the planned sizes, so some units landed away from their chip, and room-count drops showed demote chips to a room that no longer exists.
+
+**Organiser's decisions (settled).** Pace stays as today: only the bottom room eliminates, about half of it. Rejected: two bottom rooms both eliminating (the second-lowest becomes as dangerous as the lowest, breaking the hierarchy) and movement-only rounds in between (a team's fate would depend on when it fell, not how it played). Rooms of 3 go at the bottom of the ladder (`distributeRooms` already puts larger rooms first); rooms of 3 recurring every other round is accepted arithmetic. A room below the format's minimum is never planned (only a mid-tournament removal may produce one). Chips and placeholders must agree exactly. Early qualification to the Final stays a separate project (`ROADMAP.md`).
+
+**Planner's decisions (open to correction).** When the default cut can't be seated, take the nearest cut that can, the smaller on a tie (7 [4,3] cuts 1 → 6 [3,3], not 2 → 5 [3,2]). When the room layout changes, promote counts stay at the default 25% and demote counts absorb the difference; promotions are only lowered when a room couldn't otherwise supply its demotions. One function drives generation, the real advance, the chips and the planned sizes, so it applies to every format: FFA plans change too (37 now ends in an 8-unit Final instead of 7; 12 [6,6] goes straight to an 8-player Final).
+
+**What was built.** `isSeatable` (`room-distribution.ts`). `kingsValleyRoundMoves(roomSizes, roomSize)` (`kings-valley.ts`) returns `{ bands, nextRooms }`: promotions at the default, the seatable bottom cut nearest half, then demotions solved top-down so every room's inflow (demote band above or room 1's own promote, stay, promote band below) equals the next round's size exactly. A room with fewer than 2 units (removal) or a missing room size falls back to the old per-room maths (`holdingRoundMoves`). Generation, `kingsValleyComputeAdvancement` and the exit chips all call it. Hand-checked outputs (2v2v2v2):
+
+| This round | Cut | Next rooms | Promote | Demote |
+|---|---|---|---|---|
+| 16 [4,4,4,4] | 2 | [4,4,3,3] | 1,1,1,1 | 1,1,2 |
+| 14 [4,4,3,3] | 2 | [4,4,4] | 1,1,1,1 | 1,1,0 |
+| 12 [4,4,4] | 2 | [4,3,3] | 1,1,1 | 1,2 |
+| 10 [4,3,3] | 2 | [4,4] | 1,1,1 | 1,0 |
+| 8 [4,4] | 2 | [3,3] | 1,1 | 2 |
+| 6 [3,3] | 2 | [4] Final | 1,1 | 0 |
+| 9 [3,3,3] | 2 | [4,3] | 1,1,1 | 0,0 |
+| 7 [4,3] | 1 | [3,3] | 1,1 | 2 |
+
+Plus an FFA row: [7,7,7] cuts 3 → [6,6,6] (the default 4 would leave 17, unseatable; 3 and 5 tie, the smaller wins). The reported case is now 9 → 7 → 6 → Final 4; the 16-qualifier setup plays 16 → 14 → 12 → 10 → 8 → 6 → Final 4 with matching chips.
+
+**Testing.** Table rows above as `kingsValleyRoundMoves` cases; full 9 and 16 plans; a property test over every seatable entry count from the minimum to 80 for 2v2v2v2, 3v3v3 and FFA (31, 37, 43, 53 included; 2v2v2v2 hits the 14-round cap there, the forced Final is not asserted): rooms within [min, max], bands applied to a round produce exactly the next round's rooms (independent helper), no negative bands. Chips-vs-advance in `room-exits.test.ts`: 16 and 9 teams played through every round, each unit lands where its chip said (covers the 14 [4,4,3,3] merge and 7 [4,3]). Removal case: 16 with one unit removed from room 2 (real [4,3,4,4]) advances unblocked, no room below 3, tail re-planned to 13. Changed expectations: 12 [4,4,4] demotions [1,1,0] → [1,2,0]; 13 teams 2v2v2v2 [1,1,1,0] → [1,0,0,0]; 13 teams 3v3v3 [1,1,1,1,0] → [1,1,1,0,0]; FFA 37 Final 7 → 8.
+
+**Out of scope.** Early qualification to the Final (`ROADMAP.md`). `distributeRooms` for unseatable counts in other schedules, the 14-round cap's forced Final size, and a removal-induced room below the minimum (holding fallback kept): all in `docs/open-items.md`. Per-unit projected origins in future Kings Valley rounds (room sizes only).
+
+---
+
 ## Waterfall bracket: view and edit the graph during the tournament (done — 2026-09-28)
 
 **Context.** The organiser wanted to correct a waterfall graph after a tournament had already started — a routing mistake spotted mid-event previously meant living with it or starting over.
