@@ -3,7 +3,7 @@
 Known gaps, accepted limitations and undecided questions. Read when planning a feature, diagnosing a bug, or closing out a build (update it when a build closes or changes an item). Larger future projects are in `ROADMAP.md`.
 
 ## Known gaps
-- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1074 tests.
+- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1091 tests.
 - **A roster loaded under one format can be generated under another.** `SetupView`'s `changeFormat()` never touches `state.players`; `rosterKeys()`/`generateTournament` accept whatever shape the roster already has (string or `TournamentTeam`) regardless of the selected format, so switching game format after loading a roster — by hand, or via "Copy settings from a past tournament" changing the format — and generating without reloading produces a schedule of the wrong unit type. The Setup panel already warns "load the roster again" when a copy changes the format; nothing currently blocks generating anyway. Noticed during the copy-settings live check (see the log entry).
 - **`distributeRooms` plans a room below the format's minimum when a count can't be seated** (FFA 17 → [6,6,5], and similar), for every schedule other than Kings Valley, which now avoids unseatable totals itself.
 - **Kings Valley's 14-round cap can force a Final above the room maximum** for large 2v2v2v2/3v3v3 entries (e.g. 31+ qualifiers).
