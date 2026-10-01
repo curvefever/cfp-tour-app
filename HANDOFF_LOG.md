@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Seatable room counts: Kings Valley size limit, Shared-Final losers bracket, open-item close-out (done — 2026-10-01)
+
+**Context.** "Kings Valley: seatable cuts …" (below) closed with three open items. A scan of real generation (every format × schedule × pooling phase, 6–60 entrants) located where each one bites. (a) `distributeRooms` plans rooms below the minimum: Kings Valley and single elimination were already clean; the hits were FFA entry counts of 17 (kept by design) and **Shared-Final double-elimination losers-bracket (LB) rounds**, which plan 5 → [3,2] in 2v2v2v2 (168 scanned configurations, default settings included: 12 and 23 teams; 26 of them the *first* LB round) and 9, 10, 11, 17 in FFA. (b) Kings Valley's 14-round cap force-ends the ladder with a Final above the room maximum once the field is too large (limits: 2v2v2v2 32, 3v3v3 24, FFA 60), then `validateRoomCap` refused with a misleading message. (c) A removal leaving a short Kings Valley room.
+
+**Organiser's decisions (settled).** FFA keeps smaller rooms for counts that can't fill rooms of 6–8 (9 → [5,4], 17 → [6,6,5]); no change to `distributeRooms`. In 2v2v2v2 a planned round of 5 is replaced by changing that round's advancement numbers. Kings Valley above its limit is refused with a clear message (no harsher cut, no higher cap). A room below the minimum is never *planned*; only a removal may produce one.
+
+**Planner's decisions (open to correction).** Planned advancement counts are always seatable in every format; counts the organiser enters are seated as they come (one general rule, no format special-casing; consequence: FFA LB plans also stop planning 9, 10, 11, 17). The nearest seatable count wins, the smaller cut on a tie. (c) becomes an accepted limitation, not a fix.
+
+**Stage 1 — Kings Valley size limit.** `kingsValleyMaxEntrants(roomSize)` (`kings-valley.ts`) finds the largest count whose plan ends in a Final within one room, by search (counts are monotonic). `generateTournament` refuses a larger `bracketEntryCount` with "Kings Valley can take at most N teams into the ladder in <format>: it has to reach the Final within 14 rounds, and M would enter", then one of two hints (with a qualification phase: lower "Advance to bracket"; without: add a qualification phase). `fitKingsValleyTail`'s forced Final after a reserve is unchanged. Commit 5f839c1.
+
+**Stage 2 — Shared-Final LB seatable counts.** In `sharedFinalDoubleEliminationBracketPhase`, when an LB round's `losersSurvivors + pendingDrop` isn't seatable, three levers in order: (1) the previous LB round's survivor target moves to the nearest value that seats this round; (2) the round is deferred (up to the existing two-WB-round limit, not past the last WB round); (3) the latest feeding WB round's target moves, keeping the curve strictly decreasing and the next WB round seatable. Lever 3 never touches organiser-supplied `explicitTargets`. If nothing works the count is seated as it comes. Commit 6816b52.
+
+**Testing.** Stage 1: limits 32 / 24 / 60; 2v2v2v2 32 generates and 33 is refused, 3v3v3 24 / 25, both message variants (no pooling; qual-table with `qualAdv` over the limit). Stage 2: 12 teams (default settings, exact player list `[12,9,4,8,4,6,4,4,4,3,4,4]`) and 23 teams; one case per lever (10 teams lb 1, 18 teams lb 1, 12 teams lb 1); explicit targets unchanged; a property test over 2v2v2v2, 3v3v3 and FFA, 2×ideal to 60 entrants (31, 37, 43, 53 included), lb 1–3, default and overridden Final size: every planned round is seatable and the plan still ends in the Final, with the only throws being the existing "could not route" refusal. Reviewer: mutations (no lever 1, no defer, no lever 3, tie to the larger cut, lever 3 on explicit targets) were all caught; old vs new planner across all three formats, entry 2×ideal..80, oversized Final sizes, lb 1–4: no new throws, unseatable plans 864 → 7, 174 fewer rounds in total (deferral merges LB rounds).
+
+**What stays unseatable (7 plans).** Three 2v2v2v2 cases with a Final of 6 teams (8–9 entrants, lb 3–4): generation refuses them anyway under the 10-player room cap (6 × 2 = 12), so they cannot occur; this rule is not what blocks them. Four FFA cases no lever can fix, which fall back to smaller rooms by the organiser's FFA decision: 17 entrants (Final 8 / lb 4, Final 6 / lb 3), 18 (Final 6 / lb 3), 19 (Final 10 / lb 4). A generation-level scan finds no 2v2v2v2 room below 3.
+
+**Out of scope.** Changing `distributeRooms`. Seating a removal-induced count of 5 in 2v2v2v2 differently. `fitKingsValleyTail`'s forced Final after a reserve add. The head-to-head race double elimination (rooms of 2 by design). Showing the Kings Valley limit in Setup before generating (the message is the feature).
+
+---
+
 ## Kings Valley: seatable cuts and moves that land exactly on the next round's rooms (done — 2026-10-01)
 
 **Context.** Reported on tournament `1790869920091` (test, 23 teams, 2v2v2v2, qual-table + Kings Valley): rooms of 2 appeared, and the exit chips disagreed with the next round's placeholder sizes. Reproduced from the code, not the stored data (the tournament has since been regenerated).

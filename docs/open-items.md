@@ -3,13 +3,12 @@
 Known gaps, accepted limitations and undecided questions. Read when planning a feature, diagnosing a bug, or closing out a build (update it when a build closes or changes an item). Larger future projects are in `ROADMAP.md`.
 
 ## Known gaps
-- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1091 tests.
+- **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1105 tests.
 - **A roster loaded under one format can be generated under another.** `SetupView`'s `changeFormat()` never touches `state.players`; `rosterKeys()`/`generateTournament` accept whatever shape the roster already has (string or `TournamentTeam`) regardless of the selected format, so switching game format after loading a roster — by hand, or via "Copy settings from a past tournament" changing the format — and generating without reloading produces a schedule of the wrong unit type. The Setup panel already warns "load the roster again" when a copy changes the format; nothing currently blocks generating anyway. Noticed during the copy-settings live check (see the log entry).
-- **`distributeRooms` plans a room below the format's minimum when a count can't be seated** (FFA 17 → [6,6,5], and similar), for every schedule other than Kings Valley, which now avoids unseatable totals itself.
-- **Kings Valley's 14-round cap can force a Final above the room maximum** for large 2v2v2v2/3v3v3 entries (e.g. 31+ qualifiers).
-- **A removal can still leave a Kings Valley room below the minimum** (the holding fallback keeps today's behaviour; the solver doesn't handle it).
 
 ## Accepted limitations (not building without an organiser request)
+- **FFA counts that can't fill rooms of 6–8 are seated in smaller rooms** (9 → [5,4], 17 → [6,6,5]), by the organiser's decision; planned counts avoid this, organiser-entered counts can't. A few Shared-Final FFA configurations (17–19 entrants with 3–4 LB qualifiers) also fall back to it.
+- **A removal can leave the current Kings Valley round, and rarely the next, below the minimum** (holding fallback; e.g. 7 [4,3] with a removal from room 2 has no seatable cut). The organiser can fill the room with a reserve.
 - **Anonymous Finals exclude grand-final (race) Finals and team formats.** Race progression (`progressGrandFinalRace`, `finals.ts`) reads the two real finalists' score keys, so a placeholder-scored game would stall it; team Finals read a real `TournamentTeam` via `buildTeamMap()`, which a placeholder never has. See "Anonymous Finals matches, v1" in the log.
 
 ## Awaiting organiser feedback

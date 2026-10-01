@@ -13,6 +13,8 @@ Current rules of the app's tournament engine (`src/domain/tournament/`). Read wh
 | `team-3v3` | team of 3 | 2 (head-to-head) | `none`/`bye`/`flex` (`bye`) |
 | `individual-1v1` | player | 2 (head-to-head) | `none`/`bye` (`bye`) |
 
+FFA counts that can't fill rooms of 6–8 are seated in smaller rooms by design (9 → [5,4], 17 → [6,6,5]). Planned advancement counts (what a schedule chooses itself) are always seatable; counts the organiser enters are seated as they come.
+
 An unset odd-count strategy means the format's default. "Flex" lets `team-3v3` seat a 3-team room (room size 2–3). "None" refuses to generate on a count that can't be split evenly.
 
 Room counts and sizes for any headcount come from `distributeRooms()` (`room-distribution.ts`); a round's advancement target splits into `advPerRoom` per room plus `luckyCount` lucky-loser slots (`splitAdvancement`). When removals leave a round with a different headcount than planned, `fitRoundToPool` reshapes it at advance time.
@@ -34,6 +36,7 @@ Rules:
 - Single elimination and the shared-Final variant below accept optional explicit round targets and per-round seeding overrides (Setup → "Advanced round overrides"), read only at generation.
 - **`double-elimination`** — head-to-head race bracket (winners bracket, losers bracket, grand final). Not available with Flex.
 - **`double-elimination-shared-final`** — multi-unit double elimination feeding one shared Final. A unit dropped from the winners bracket reaches a losers-bracket round within at most 2 winners-bracket rounds (`MAX_WB_ROUNDS_BEFORE_LB`, `double-elimination.ts`).
+  - **Losers-bracket round sizes are always seatable.** When a losers round's count (previous survivors plus pending drops) can't be seated, three levers are tried in order: (1) the previous losers round's survivor target moves; (2) the round is deferred, up to the 2-round limit above; (3) the feeding winners round's target moves, keeping the curve strictly decreasing and the next winners round seatable. Each takes the nearest value that works, the smaller cut on a tie; organiser-set targets (`eliminationRoundTargets`) are never changed. A few small FFA configurations (17–19 entrants with 3–4 LB qualifiers) can't be fixed by any lever and fall back to smaller rooms by design.
 - **`kings-valley`** — see below.
 - **`waterfall-bracket`** — see below.
 
@@ -42,6 +45,8 @@ A room ladder: rooms are ranked top to bottom. Each round, a room's top finisher
 - Promotions are `max(1, round(size × 0.25))` per room (`KINGS_VALLEY_MOVE_FRACTION`). The bottom room's cut is the one nearest half of it (`KINGS_VALLEY_ELIMINATION_FRACTION = 0.5`) that leaves a **seatable** total (every room within the format's minimum and maximum), the smaller cut on a tie. Demotions are then sized top-down so the moves land exactly on the next round's rooms (promotions are only lowered when a room couldn't supply its demotions). One function, `kingsValleyRoundMoves` (bands plus next room sizes), drives generation, the real advance and the Bracket exit chips, so chips, placeholders and the real seating agree. Room sizes are the `distributeRooms()` layout of the survivors; a room below the format's minimum is never planned.
 - A room with fewer than 2 units (only after a removal) **holds**: nobody in it moves or is cut, and the cut comes from the lowest room that still has a real match (the plain per-room maths, no seatable-cut solving).
 - The ladder ends in a single-room Final, capped at `MAX_KINGS_VALLEY_ROUNDS = 14` rounds.
+- **Size limit.** Past the cap the forced Final would exceed the room maximum, so generation refuses a field above `kingsValleyMaxEntrants(roomSize)`: 32 teams in 2v2v2v2, 24 in 3v3v3, 60 players in FFA. The message names the limit and the 14 rounds, and suggests lowering "Advance to bracket" or adding a qualification phase. The re-plan after a reserve (`fitKingsValleyTail`) is not refused: it may still force a larger Final.
+- **Accepted:** a removal can leave the current round (and rarely the next) with a room below the minimum; the organiser can fill it with a reserve.
 - If a removal or reserve makes the survivor count differ from the plan, the rest of the ladder (Final included) is re-planned at the next advance (`fitKingsValleyTail`, `transitions.ts`); room movement uses `sequentialSeed`.
 - **Unavailable for head-to-head formats** (`individual-1v1`, `team-3v3` including Flex): with rooms of 2 it cuts one unit per round and can't reach a Final within the cap above 16 units. Hidden in Setup and refused by generation; head-to-head Kings Valley tournaments generated earlier still play out.
 - No Setup fields: the organiser tunes nothing.
