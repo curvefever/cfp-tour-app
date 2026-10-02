@@ -1,7 +1,6 @@
 import type { TournamentSettings } from '../../../domain/tournament/types';
 import { readTournamentSettings } from '../../../domain/tournament/tournament-settings';
-import { loadArchiveEntry, loadArchiveIndex, type ArchiveEntry } from '../../../lib/persistence/archive';
-import type { BrowserStorage } from '../../../lib/persistence/storage';
+import { sortArchiveIndex, type SharedArchiveSummary } from '../../archive/shared-archive';
 import { TOURNAMENT_ID_PATTERN } from '../../sync/tournament-write.shared';
 
 export const TOURNAMENT_NOT_FOUND_MESSAGE =
@@ -43,20 +42,7 @@ export function settingsFromSnapshot(raw: unknown): SettingsSnapshotResult {
   return { ok: true, settings, title };
 }
 
-export interface ArchiveEntryWithSettings {
-  id: string;
-  title: string;
-  dateSaved: string;
-}
-
-/** The archive index filtered to entries whose snapshot has readable settings, newest first. Parses every entry, so call it only when the panel is actually opened. */
-export function archiveEntriesWithSettings(storage: BrowserStorage): ArchiveEntryWithSettings[] {
-  return loadArchiveIndex(storage)
-    .map((summary) => loadArchiveEntry(storage, summary.id))
-    .filter(
-      (entry): entry is ArchiveEntry =>
-        entry !== null && readTournamentSettings(entry.snapshot.settings) !== null,
-    )
-    .sort((a, b) => new Date(b.dateSaved).getTime() - new Date(a.dateSaved).getTime())
-    .map((entry) => ({ id: entry.id, title: entry.title, dateSaved: entry.dateSaved }));
+/** The shared archive index filtered to entries whose snapshot has saved settings, newest first. */
+export function archiveEntriesWithSettings(entries: SharedArchiveSummary[]): SharedArchiveSummary[] {
+  return sortArchiveIndex(entries.filter((entry) => entry.hasSettings));
 }

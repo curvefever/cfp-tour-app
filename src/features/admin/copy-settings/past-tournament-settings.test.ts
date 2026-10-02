@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
+import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import { settingsFromForm } from '../../../domain/tournament/tournament-settings';
-import { createMemoryStorage } from '../../../lib/persistence/test-fixtures';
-import { writeArchiveSnapshot } from '../../../lib/persistence/archive';
+import type { SharedArchiveSummary } from '../../archive/shared-archive';
 import {
   archiveEntriesWithSettings,
   parseTournamentReference,
@@ -72,38 +71,29 @@ describe('settingsFromSnapshot', () => {
 });
 
 describe('archiveEntriesWithSettings', () => {
-  it('keeps only entries with readable settings, newest first', () => {
-    const storage = createMemoryStorage();
-    const withSettings = createDefaultTournamentState({
-      title: 'With Settings',
-      settings: settingsFromForm(createDefaultSetup()),
-    });
-    const withoutSettings = createDefaultTournamentState({ title: 'Without Settings' });
-    // Written oldest-first, so the saved (index) order is the reverse of
-    // the expected date order -- catches a missing/wrong sort, which a
-    // coincidentally already-sorted write order would let pass silently.
-    writeArchiveSnapshot({
-      storage,
-      state: { ...withSettings, title: 'Older With Settings' },
-      id: 'older',
-      dateSaved: '2026-01-01T00:00:00.000Z',
-    });
-    writeArchiveSnapshot({
-      storage,
-      state: withoutSettings,
-      id: 'newer-no-settings',
-      dateSaved: '2026-01-15T00:00:00.000Z',
-    });
-    writeArchiveSnapshot({
-      storage,
-      state: withSettings,
-      id: 'newer',
-      dateSaved: '2026-02-01T00:00:00.000Z',
-    });
+  const summary = (tournamentId: string, dateSaved: string, hasSettings: boolean): SharedArchiveSummary => ({
+    tournamentId,
+    title: tournamentId,
+    dateSaved,
+    playerCount: 31,
+    roundsPlayed: 3,
+    hasSettings,
+  });
 
-    expect(archiveEntriesWithSettings(storage)).toEqual([
-      { id: 'newer', title: 'With Settings', dateSaved: '2026-02-01T00:00:00.000Z' },
-      { id: 'older', title: 'Older With Settings', dateSaved: '2026-01-01T00:00:00.000Z' },
+  it('keeps only entries with saved settings, newest first', () => {
+    // Given oldest-first, so a missing or wrong sort can't pass by coincidence.
+    const entries = [
+      summary('older', '2026-01-01T00:00:00.000Z', true),
+      summary('newer-no-settings', '2026-01-15T00:00:00.000Z', false),
+      summary('newer', '2026-02-01T00:00:00.000Z', true),
+    ];
+    expect(archiveEntriesWithSettings(entries).map((entry) => entry.tournamentId)).toEqual([
+      'newer',
+      'older',
     ]);
+  });
+
+  it('returns an empty list when no entry has settings', () => {
+    expect(archiveEntriesWithSettings([summary('a', '2026-01-01', false)])).toEqual([]);
   });
 });

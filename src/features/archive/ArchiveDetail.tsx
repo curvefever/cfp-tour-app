@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
 import { ArchivedBracket } from '../bracket/BracketView';
@@ -8,6 +8,7 @@ import { fetchArchiveEntryOnce } from '../sync/firebase-client';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { Alert, Button, ButtonRow, Panel, PanelTitle, StatStrip, Textarea } from '../../components/ui';
 import { deleteArchiveEntry, setArchiveAnnotations } from './archive-write.server-fns';
+import { ARCHIVE_MAX_ANNOTATION_CHARS } from './archive-write.shared';
 import type { ArchiveAnnotation, SharedArchiveEntry } from './shared-archive';
 
 type LoadedEntry =
@@ -47,6 +48,12 @@ export function ArchiveDetail({
     };
   }, [tournamentId]);
 
+  const snapshot = loaded.status === 'ready' ? loaded.entry.snapshot : null;
+  const state = useMemo(
+    () => (snapshot ? normalizeLiveTournamentState(snapshot, app.runtime.ids) : null),
+    [snapshot, app.runtime.ids],
+  );
+
   const backButton = (
     <ButtonRow className='mt-0 mb-3.5'>
       <Button onClick={onBack}>← Back to Archive</Button>
@@ -60,19 +67,18 @@ export function ArchiveDetail({
       </div>
     );
   }
-  if (loaded.status !== 'ready') {
+  if (loaded.status !== 'ready' || !state) {
     return (
       <div id='ar-detail-view'>
         {backButton}
         <Alert tone='danger'>
-          {loaded.status === 'missing' ? 'This tournament is no longer in the archive.' : loaded.message}
+          {loaded.status === 'error' ? loaded.message : 'This tournament is no longer in the archive.'}
         </Alert>
       </div>
     );
   }
 
   const { entry } = loaded;
-  const state = normalizeLiveTournamentState(entry.snapshot, app.runtime.ids);
   const format = getGameFormat(state.gameFormat);
 
   async function saveAnnotations(annotations: ArchiveAnnotation[]): Promise<boolean> {
@@ -164,6 +170,7 @@ export function ArchiveDetail({
             <Textarea
               className='min-h-19 flex-1 max-[700px]:w-full'
               id='ar-note-input'
+              maxLength={ARCHIVE_MAX_ANNOTATION_CHARS}
               value={note}
               placeholder='Add a note about this tournament…'
               onChange={(event) => setNote(event.target.value)}

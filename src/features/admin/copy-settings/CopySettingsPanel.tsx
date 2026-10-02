@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { TournamentSettings } from '../../../domain/tournament/types';
-import { loadArchiveEntry } from '../../../lib/persistence/archive';
-import { fetchTournamentOnce } from '../../sync/firebase-client';
+import { useSharedArchiveIndex } from '../../archive/useSharedArchiveIndex';
+import { fetchArchiveEntryOnce, fetchTournamentOnce } from '../../sync/firebase-client';
 import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle, Select } from '../../../components/ui';
 import {
   archiveEntriesWithSettings,
@@ -10,7 +10,6 @@ import {
   TOURNAMENT_NOT_FOUND_MESSAGE,
   TOURNAMENT_NO_SETTINGS_MESSAGE,
   TOURNAMENT_REFERENCE_INVALID_MESSAGE,
-  type ArchiveEntryWithSettings,
 } from './past-tournament-settings';
 
 export interface CopySettingsPanelProps {
@@ -20,42 +19,53 @@ export interface CopySettingsPanelProps {
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
 
+function archiveEmptyText(status: ReturnType<typeof useSharedArchiveIndex>['status']): string {
+  if (status === 'loading') return 'Loading the archive…';
+  if (status === 'ready') return 'No archived tournament has saved settings yet.';
+  return 'The archive is unavailable right now.';
+}
+
+function ArchivePicker({ disabled, onCopy }: { disabled: boolean; onCopy(tournamentId: string): void }) {
+  const archive = useSharedArchiveIndex();
+  const [selectedId, setSelectedId] = useState('');
+  const entries = archiveEntriesWithSettings(archive.entries);
+  if (!entries.length) return <p className='text-xs text-muted'>{archiveEmptyText(archive.status)}</p>;
+  return (
+    <>
+      <Select
+        id='copy-settings-archive'
+        value={selectedId}
+        onChange={(event) => setSelectedId(event.target.value)}
+      >
+        <option value=''>Select a tournament…</option>
+        {entries.map((entry) => (
+          <option key={entry.tournamentId} value={entry.tournamentId}>
+            {entry.title} — {new Date(entry.dateSaved).toLocaleString()}
+          </option>
+        ))}
+      </Select>
+      <ButtonRow>
+        <Button disabled={!selectedId || disabled} onClick={() => onCopy(selectedId)}>
+          Copy settings
+        </Button>
+      </ButtonRow>
+    </>
+  );
+}
+
 export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
   const [expanded, setExpanded] = useState(false);
-  const [archiveEntries, setArchiveEntries] = useState<ArchiveEntryWithSettings[]>([]);
-  const [selectedArchiveId, setSelectedArchiveId] = useState('');
   const [linkInput, setLinkInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState('');
 
-  function expand() {
-    setArchiveEntries(archiveEntriesWithSettings(window.localStorage));
-    setExpanded(true);
-  }
-
-  function copyFromArchive() {
-    const entry = selectedArchiveId ? loadArchiveEntry(window.localStorage, selectedArchiveId) : null;
-    const result = entry ? settingsFromSnapshot(entry.snapshot) : null;
-    // The archive list is already filtered to entries with readable settings,
-    // so a failure here would mean the entry disappeared underneath us.
-    if (!result || !result.ok) return;
-    setError('');
-    setConfirmation(onApply(result.settings, result.title));
-  }
-
-  async function copyFromLink() {
-    const tournamentId = parseTournamentReference(linkInput);
-    if (!tournamentId) {
-      setConfirmation('');
-      setError(TOURNAMENT_REFERENCE_INVALID_MESSAGE);
-      return;
-    }
+  /** Loads a stored tournament (or archive snapshot) and applies its settings, or shows why it can't be. */
+  async function copyFrom(load: () => Promise<unknown>) {
     setError('');
     setFetching(true);
     try {
-      const raw = await fetchTournamentOnce(tournamentId);
-      const result = settingsFromSnapshot(raw);
+      const result = settingsFromSnapshot(await load());
       if (!result.ok) {
         setConfirmation('');
         setError(
@@ -72,41 +82,31 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
     }
   }
 
+  function copyFromArchive(tournamentId: string) {
+    return copyFrom(async () => (await fetchArchiveEntryOnce(tournamentId))?.snapshot ?? null);
+  }
+
+  function copyFromLink() {
+    const tournamentId = parseTournamentReference(linkInput);
+    if (!tournamentId) {
+      setConfirmation('');
+      setError(TOURNAMENT_REFERENCE_INVALID_MESSAGE);
+      return Promise.resolve();
+    }
+    return copyFrom(() => fetchTournamentOnce(tournamentId));
+  }
+
   return (
     <Panel>
       <PanelTitle>Copy settings from a past tournament</PanelTitle>
       {!expanded ? (
         <ButtonRow>
-          <Button onClick={expand}>Choose…</Button>
+          <Button onClick={() => setExpanded(true)}>Choose…</Button>
         </ButtonRow>
       ) : (
         <>
           <Field label='From the archive' htmlFor='copy-settings-archive'>
-            {archiveEntries.length ? (
-              <>
-                <Select
-                  id='copy-settings-archive'
-                  value={selectedArchiveId}
-                  onChange={(e) => setSelectedArchiveId(e.target.value)}
-                >
-                  <option value=''>Select a tournament…</option>
-                  {archiveEntries.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.title} — {new Date(entry.dateSaved).toLocaleString()}
-                    </option>
-                  ))}
-                </Select>
-                <ButtonRow>
-                  <Button disabled={!selectedArchiveId} onClick={copyFromArchive}>
-                    Copy settings
-                  </Button>
-                </ButtonRow>
-              </>
-            ) : (
-              <p className='text-xs text-muted'>
-                No archived tournament on this browser has saved settings yet.
-              </p>
-            )}
+            <ArchivePicker disabled={fetching} onCopy={(id) => void copyFromArchive(id)} />
           </Field>
           <Field label='Tournament link or id' htmlFor='copy-settings-link'>
             <Input
