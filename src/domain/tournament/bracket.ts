@@ -1,3 +1,4 @@
+import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -5,6 +6,32 @@ interface BracketRoundLabel {
   label: string;
   accent: '' | 'wb' | 'lb' | 'gf';
   roundNumber: number;
+}
+
+export interface RoundGameCount {
+  games: number;
+  /** True for the race Grand Final: `games` is the most it can take, not a fixed count. */
+  upTo: boolean;
+}
+
+/**
+ * How many games a round is played over, when that's more than one; null otherwise. Separate from
+ * bracketRoundLabels, whose label also feeds destination tags that must not gain a game count.
+ * The race Grand Final's `numGames` grows as games are opened, so it reports its maximum instead:
+ * one side one win short of its target while the other reaches its own (drawn games ignored).
+ */
+export function roundGameCount(
+  state: Pick<TournamentState, 'rounds' | 'gamemodeConfig'>,
+  roundIndex: number,
+): RoundGameCount | null {
+  const round = state.rounds[roundIndex];
+  if (!round) return null;
+  if (round.bracket === 'grand-final') {
+    const { wbTarget, lbTarget } = grandFinalTargets(state);
+    const games = wbTarget + lbTarget - 1;
+    return games > 1 ? { games, upTo: true } : null;
+  }
+  return round.numGames !== undefined && round.numGames > 1 ? { games: round.numGames, upTo: false } : null;
 }
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {

@@ -5,13 +5,14 @@ import {
   bracketRoundLabels,
   projectedSlotLabelText,
   projectFutureRoundSlots,
+  roundGameCount,
 } from '../bracket';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import type { TournamentRound } from '../types';
-import { buildRound } from './test-fixtures';
+import type { TournamentRound, TournamentState } from '../types';
+import { buildRound, fixedIdSource } from './test-fixtures';
 
 function project(rounds: TournamentRound[], curRound: number) {
   return projectFutureRoundSlots({ rounds, curRound });
@@ -574,5 +575,83 @@ describe('projectFutureRoundSlots -- fixed-draw rounds', () => {
       Array(4).fill('qualifier-cutoff'),
     );
     expect(projected[removed.rounds.length - 1]).not.toBeNull();
+  });
+});
+
+describe('roundGameCount', () => {
+  const countOf = (round: TournamentRound, gamemodeConfig: TournamentState['gamemodeConfig'] = {}) =>
+    roundGameCount({ rounds: [round], gamemodeConfig }, 0);
+  const plain = (numGames?: number) => buildRound({ roundNum: 1, numGames });
+  const grandFinal = (numGames: number) => buildRound({ roundNum: 1, bracket: 'grand-final', numGames });
+
+  it.each([
+    [undefined, null],
+    [1, null],
+    [2, { games: 2, upTo: false }],
+    [4, { games: 4, upTo: false }],
+  ])('numGames %s', (numGames, expected) => {
+    expect(countOf(plain(numGames))).toEqual(expected);
+  });
+
+  it('returns null for a round that does not exist', () => {
+    expect(roundGameCount({ rounds: [], gamemodeConfig: {} }, 3)).toBeNull();
+  });
+
+  it.each([1, 3])(
+    'reports the race Grand Final maximum with default targets, whatever numGames is (%i)',
+    (n) => {
+      expect(countOf(grandFinal(n))).toEqual({ games: 4, upTo: true });
+    },
+  );
+
+  it('follows custom race targets, and shows nothing when both are 1', () => {
+    expect(countOf(grandFinal(1), { grandFinalWbTarget: 3, grandFinalLbTarget: 4 })).toEqual({
+      games: 6,
+      upTo: true,
+    });
+    expect(countOf(grandFinal(1), { grandFinalWbTarget: 1, grandFinalLbTarget: 1 })).toBeNull();
+  });
+
+  const counts = (state: TournamentState) => state.rounds.map((_, index) => roundGameCount(state, index));
+
+  it('tags exactly the Semis and the Final in a 37-player single-elimination tournament', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: 37,
+        players: Array.from({ length: 37 }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({ scheduleLogic: 'single-elimination', semisGames: '2', finalsGames: '3' }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+    if (result.status !== 'generated') throw new Error('fixture failed');
+    const { rounds } = result.state;
+    const expected = rounds.map((round) =>
+      round.isFinal ? { games: 3, upTo: false } : round.isSemis ? { games: 2, upTo: false } : null,
+    );
+    expect(counts(result.state)).toEqual(expected);
+    expect(expected.filter(Boolean)).toHaveLength(2);
+  });
+
+  it('tags only the Grand Final in a 31-unit head-to-head double-elimination tournament', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: 31,
+        gameFormat: 'individual-1v1',
+        players: Array.from({ length: 31 }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'double-elimination',
+        poolingPhase: 'none',
+        oddCountStrategy: 'bye',
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+    if (result.status !== 'generated') throw new Error('fixture failed');
+    const expected = result.state.rounds.map((round) =>
+      round.bracket === 'grand-final' ? { games: 4, upTo: true } : null,
+    );
+    expect(counts(result.state)).toEqual(expected);
+    expect(expected.filter(Boolean)).toHaveLength(1);
   });
 });

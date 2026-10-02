@@ -31,6 +31,14 @@ interface FinalsProgressState {
   race: GrandFinalRaceState | null;
 }
 
+/** Wins the winners-side and losers-side finalists each need in the race Grand Final. */
+export function grandFinalTargets(state: Pick<TournamentState, 'gamemodeConfig'>) {
+  return {
+    wbTarget: state.gamemodeConfig.grandFinalWbTarget || 2,
+    lbTarget: state.gamemodeConfig.grandFinalLbTarget || 3,
+  };
+}
+
 export function computeGrandFinalRaceState(
   state: TournamentState,
   roundIndex: number,
@@ -40,8 +48,7 @@ export function computeGrandFinalRaceState(
   if (assignments.length !== 2 || round.wbFinalistName == null) return null;
   const wbName = round.wbFinalistName;
   const lbName = assignments[0].name === wbName ? assignments[1].name : assignments[0].name;
-  const wbTarget = state.gamemodeConfig.grandFinalWbTarget || 2;
-  const lbTarget = state.gamemodeConfig.grandFinalLbTarget || 3;
+  const { wbTarget, lbTarget } = grandFinalTargets(state);
   let wbWins = 0;
   let lbWins = 0;
   let gamesPlayed = 0;

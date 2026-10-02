@@ -16,9 +16,11 @@ import {
   projectedSlotLabelText,
   projectFutureRoundSlots,
   roomLetter,
+  roundGameCount,
   type BracketBox,
   type BracketFollowStatus,
   type ProjectedSlotLabel,
+  type RoundGameCount,
 } from '../../domain/tournament/bracket';
 import {
   anonymousFinalsProgressState,
@@ -1310,6 +1312,7 @@ function RoundColumn({
   collapsed = false,
   current = false,
   followed = false,
+  gameCount,
   label,
   onToggle,
   roundIndex,
@@ -1319,6 +1322,7 @@ function RoundColumn({
   collapsed?: boolean;
   current?: boolean;
   followed?: boolean;
+  gameCount?: RoundGameCount | null;
   label: ReactNode;
   onToggle?: () => void;
   roundIndex: number;
@@ -1337,6 +1341,17 @@ function RoundColumn({
     (current || followed) && 'text-primary',
     accentClass,
     collapsed && 'h-45 border-b-0 py-2 pr-0 pl-0.5 whitespace-nowrap [writing-mode:vertical-rl]',
+  );
+  const labelWithGameCount = (
+    <>
+      {label}
+      {gameCount ? (
+        <span className='ml-auto font-normal tracking-normal text-muted normal-case'>
+          {gameCount.upTo ? 'up to ' : ''}
+          {gameCount.games} games
+        </span>
+      ) : null}
+    </>
   );
   return (
     <div
@@ -1357,10 +1372,10 @@ function RoundColumn({
           >
             ▸
           </span>
-          {label}
+          {labelWithGameCount}
         </button>
       ) : (
-        <div className={headerClass}>{label}</div>
+        <div className={headerClass}>{labelWithGameCount}</div>
       )}
       {!collapsed ? <div className='p-2.5'>{children}</div> : null}
     </div>
@@ -1491,6 +1506,7 @@ function BracketRounds({
         collapsed={collapsed}
         current={roundIndex === state.curRound}
         followed={Boolean(followedRounds?.[roundIndex])}
+        gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
         label={labels[roundIndex]?.label}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
@@ -1533,6 +1549,7 @@ function BracketRounds({
         collapsed={collapsed}
         current={constituents.includes(state.curRound)}
         followed={constituents.some((roundIndex) => Boolean(followedRounds?.[roundIndex]))}
+        gameCount={roundGameCount(state, box.winnersRoundIndex)}
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
