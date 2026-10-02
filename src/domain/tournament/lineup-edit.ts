@@ -34,11 +34,14 @@ const isPoolingRound = (round: TournamentRound) => round.isQual || !!round.isSwi
 
 function scopeRefusal(state: TournamentState): string | null {
   if (!state.started) return 'The tournament has not started.';
-  if (state.scheduleLogic !== 'single-elimination' || state.cfg.poolingPhase === 'group-stage') {
-    return "Line-up corrections aren't available for this format.";
-  }
+  if (state.cfg.poolingPhase === 'group-stage')
+    return "Line-up corrections aren't available for group stage.";
   const round = state.rounds[state.curRound];
   if (!round || !(state.assignments[state.curRound] ?? []).length) return 'This round has no line-up yet.';
+  // Pooling rounds feed any bracket the same way; bracket rounds only exist in this form for single elimination.
+  if (!isPoolingRound(round) && state.scheduleLogic !== 'single-elimination') {
+    return "Line-up corrections aren't available for this bracket format.";
+  }
   if (
     isPoolingRound(round) &&
     (round.fixedRoomAssignments || state.gamemodeConfig.drawPublication === 'fixed')
@@ -56,7 +59,7 @@ function reinstatableUnits(state: TournamentState): string[] {
   const current = new Set((state.assignments[state.curRound] ?? []).map((entry) => entry.name));
   const roster = new Set(rosterKeys(state.players));
   return previous
-    .filter((entry) => entry.room !== null && !current.has(entry.name) && roster.has(entry.name))
+    .filter((entry) => !current.has(entry.name) && roster.has(entry.name))
     .map((entry) => entry.name);
 }
 
@@ -75,7 +78,7 @@ export function lineupEditScope(state: TournamentState): LineupScope {
     rooms,
     byes: assignments.filter((entry) => entry.room === null).map((entry) => entry.name),
     units: assignments.map((entry) => entry.name),
-    reinstatable: state.curRound > 0 ? reinstatableUnits(state) : [],
+    reinstatable: state.curRound > 0 && !isPoolingRound(round) ? reinstatableUnits(state) : [],
     canEliminate: !round.isNoElim,
   };
 }
@@ -120,10 +123,12 @@ function draftProblem(
   const advPerRoom = round.advPerRoom ?? 0;
   for (const [index, size] of after.entries()) {
     if (size === 0) return `Room ${index + 1} would be empty.`;
-    if (size < 2) return `Room ${index + 1} would have only ${size} unit — a room needs at least 2.`;
+    const shrunk = size < sizesBefore[index];
+    if (size < 2 && shrunk)
+      return `Room ${index + 1} would have only ${size} unit — a room needs at least 2.`;
     if (size > max && size > sizesBefore[index])
       return `Room ${index + 1} would have ${size} units; the limit is ${max}.`;
-    if (!round.isNoElim && size <= advPerRoom) {
+    if (!round.isNoElim && size <= advPerRoom && shrunk) {
       return `Room ${index + 1} would have ${size} units but ${advPerRoom} advance — someone must be cut.`;
     }
   }
