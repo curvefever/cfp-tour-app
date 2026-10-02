@@ -61,7 +61,7 @@ export function AppShell() {
         aria-label='Tournament sections'
         className='sticky top-14 z-40 flex flex-wrap gap-0.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
       >
-        {TABS.filter((tab) => !(app.isViewer && tab.key === 'archive')).map((tab) => (
+        {TABS.map((tab) => (
           <button
             key={tab.key}
             className={cn(
