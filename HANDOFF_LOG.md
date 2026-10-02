@@ -9,7 +9,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 ## Admin/teams polish (done — 2026-10-02)
 
 ### Context
-Four small UI fixes, no domain logic or state shape changes, planned in `plans/2026-10-02-admin-teams-polish.md`. Commits `d81b2ed` (1), `1b6188e` (2), `c31fd29` (3), `08fc8ed` (4).
+Four small UI fixes, no domain logic or state shape changes. Commits `d81b2ed` (1), `1b6188e` (2), `c31fd29` (3), `08fc8ed` (4).
 
 ### What changed
 1. **Roster labels follow the format.** Setup's "Registered players" is now "Registered teams" for team formats (`SetupView.tsx`); the `(+ N reserves)` suffix is unchanged. The sweep found one more: the Rankings empty-roster alert ("No players registered yet…"). Left on purpose: waterfall copy about individual people ("Players entering the bracket", "Players per room", per-room player counts), `Manage Players` (individual-roster only; teams get `Manage Teams`), and the `Player1…` placeholders.
@@ -22,6 +22,7 @@ Four small UI fixes, no domain logic or state shape changes, planned in `plans/2
 - `shared-archive.test.ts`: summary carries `gameFormat`; index parsing keeps it when present and parses an older record (or a non-string value) without it.
 - Components have no tests; stages 1–3 were checked live on the test site (reset tournament, 2v2v2v2, 13 teams + 1 reserve): labels per format, reserves suffix, member line vs labelled inputs under the sum rule (current row, past round, Final G1 vs Total tab, read-only Archive detail), 🛡 on all 13 defenders under Save your Buddy, member line kept with one input under Survival Teams, and the button row moving with the scroll.
 - Stage 4 live: the team entry lists "13 teams", older entries still "N players".
+- Final review: full suite 41 files / 1151 tests passing; eslint and typecheck clean on all changed files; prettier clean except the pre-existing `formats.ts`. Mutation checks (summary dropping `gameFormat`, parser keeping the wrong type) were both caught. Viewer-side member lines were checked through the read-only Archive Bracket rather than a signed-out share link; both render without score inputs.
 
 ### Notes
 - `prettier --write` on `formats.ts` reformats the whole file (double-quote style); it was restored and only the helper added.
