@@ -29,6 +29,14 @@ export function getDefenderIndex(
   return bestIndex;
 }
 
+/** Per-member score keys a unit has: the team size, or `undefined` when a unit takes one score (individual format, Survival Teams). */
+export function scoredTeamSize(
+  state: Pick<TournamentState, 'gameFormat' | 'gamemodeConfig'>,
+): number | undefined {
+  if (state.gamemodeConfig.teamScoringRule === 'survival-teams') return undefined;
+  return getGameFormat(state.gameFormat)?.teamSize;
+}
+
 function getUnitScoreForGame(
   state: TournamentState,
   roundIndex: number,
@@ -37,8 +45,7 @@ function getUnitScoreForGame(
   game: number | null,
   fallback: number | null,
 ): number | null {
-  const format = getGameFormat(state.gameFormat);
-  const teamSize = format?.teamSize;
+  const teamSize = scoredTeamSize(state);
   const gamePart = game === null ? '' : `-g${game}`;
   if (!teamSize) {
     return scoreOrDefault(state.scores[`r${roundIndex}-rm${room}-p${position}${gamePart}`], fallback);
@@ -101,8 +108,7 @@ export function getFinalUnitScore(
   game: number,
   fallback: number | null,
 ): number | null {
-  const format = getGameFormat(state.gameFormat);
-  const teamSize = format?.teamSize;
+  const teamSize = scoredTeamSize(state);
   const gamePart = `game${game}`;
   if (!teamSize) {
     return scoreOrDefault(state.finalScores[`${gamePart}-${key}`], fallback);

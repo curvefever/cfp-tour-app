@@ -125,6 +125,38 @@ describe('removeRosterUnit', () => {
   });
 });
 
+describe('Survival Teams score keys', () => {
+  function survivalRoom() {
+    const teamIds = ['t0', 't1', 't2', 't3'];
+    return createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      gamemodeConfig: { teamScoringRule: 'survival-teams' },
+      players: teamIds.map((teamId) => ({
+        teamId,
+        teamName: teamId,
+        members: [{ name: `${teamId}a` }, { name: `${teamId}b` }],
+      })),
+      rounds: [buildRound({ roundNum: 1, rooms: [4], players: 4 })],
+      assignments: [teamIds.map((name) => ({ name, room: 1, isLucky: false }))],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+    });
+  }
+
+  it('removing the team at position 1 shifts the plain keys of later positions down and drops the last', () => {
+    const result = removeRosterUnit(survivalRoom(), 't1');
+    expect(result.scores).toEqual({ 'r0-rm1-p0': 400, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 });
+  });
+
+  it("replacing a team deletes only that position's plain key", () => {
+    const result = swapTeam(survivalRoom(), 't1', {
+      teamId: 't9',
+      teamName: 't9',
+      members: [{ name: 'x' }, { name: 'y' }],
+    });
+    expect(result.scores).toEqual({ 'r0-rm1-p0': 400, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 });
+  });
+});
+
 describe('swapIndividual', () => {
   it('records a withdrawal with reason "swapped" for the outgoing name', () => {
     const state = createDefaultTournamentState({

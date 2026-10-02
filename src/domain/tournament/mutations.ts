@@ -9,7 +9,13 @@ import { getGameFormat } from './formats';
 import { validateRoomCap } from './room-distribution';
 import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
-import { getFinalUnitScore, getUnitScore, scoreKeysForPosition, tieResolutionList } from './scoring';
+import {
+  getFinalUnitScore,
+  getUnitScore,
+  scoredTeamSize,
+  scoreKeysForPosition,
+  tieResolutionList,
+} from './scoring';
 import type {
   AnonymousFinalist,
   MaterializedGamemodeConfig,
@@ -374,7 +380,7 @@ export function removeReserveUnit(state: TournamentState, key: string): Tourname
   });
 }
 
-function removeUnitFromCurrentRoom(state: TournamentState, key: string, teamSize: number): TournamentState {
+function removeUnitFromCurrentRoom(state: TournamentState, key: string): TournamentState {
   const roundIndex = state.curRound;
   const assignments = state.assignments[roundIndex] ?? [];
   const found = assignments.find((entry) => entry.name === key);
@@ -397,7 +403,7 @@ function removeUnitFromCurrentRoom(state: TournamentState, key: string, teamSize
       room,
       position: positionIndex,
       numGames: Math.max(round.numGames ?? 1, 1),
-      teamSize: teamSize || undefined,
+      teamSize: scoredTeamSize(state),
     });
 
   for (let index = position + 1; index < roomUnits.length; index += 1) {
@@ -525,7 +531,7 @@ function patchPublishedFutureRounds(
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize ?? 0;
-  let next = removeUnitFromCurrentRoom(recordWithdrawal(state, key, 'removed'), key, teamSize);
+  let next = removeUnitFromCurrentRoom(recordWithdrawal(state, key, 'removed'), key);
   const strip = (values: string[]) => values.filter((name) => name !== key);
   const tieResolutions = Object.fromEntries(
     Object.entries(next.tieResolutions).map(([tieKey, value]) => {
@@ -600,12 +606,7 @@ function recordWithdrawal(
   return { ...state, withdrawnUnits: [...state.withdrawnUnits, entry] };
 }
 
-function replaceAssignedUnit(
-  state: TournamentState,
-  oldKey: string,
-  newKey: string,
-  teamSize?: number,
-): TournamentState | null {
+function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
   const assignments = state.assignments.map((entries) => entries.map((entry) => ({ ...entry })));
   const current = assignments[state.curRound] ?? [];
   const assignmentIndex = current.findIndex((entry) => entry.name === oldKey);
@@ -622,7 +623,7 @@ function replaceAssignedUnit(
       room,
       position,
       numGames: Math.max(state.rounds[state.curRound].numGames ?? 1, 1),
-      teamSize,
+      teamSize: scoredTeamSize(state),
     }))
       delete scores[key];
   }
@@ -687,7 +688,7 @@ export function swapTeam(
   // The outgoing team (oldTeamId) is excluded -- it's being removed by this
   // same swap, so a replacement sharing its exact name is not a collision.
   if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
-  const replaced = replaceAssignedUnit(state, oldTeamId, replacement.teamId, teamSize);
+  const replaced = replaceAssignedUnit(state, oldTeamId, replacement.teamId);
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped');
 

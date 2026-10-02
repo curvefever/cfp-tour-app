@@ -1596,3 +1596,23 @@ SemiB: 1-2->Final, 3-8->eliminated
     reuseSwissSettingsAt(65, 53);
   });
 });
+
+describe('generateTournament -- team scoring rule', () => {
+  it('carries Survival Teams into gamemodeConfig for a team format', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    const form = createDefaultSetup({ gameFormat: 'team-2v2v2v2', teamScoringRule: 'survival-teams' });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated')
+      expect(result.state.gamemodeConfig.teamScoringRule).toBe('survival-teams');
+  });
+
+  it('keeps sum-members for an individual format even if a stale rule is selected', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', teamScoringRule: 'survival-teams' });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated')
+      expect(result.state.gamemodeConfig.teamScoringRule).toBe('sum-members');
+  });
+});

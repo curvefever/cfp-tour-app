@@ -8,6 +8,7 @@ import {
   groupByScore,
   orderRoomByScore,
   positionalPoints,
+  scoredTeamSize,
   scoreKeysForPosition,
   scoringSystemLabel,
   tieResolutionList,
@@ -112,6 +113,70 @@ describe('getFinalUnitScore', () => {
       finalScores: { 'game1-P1': 555 },
     });
     expect(getFinalUnitScore(state, 'P1', 1, null)).toBe(555);
+  });
+});
+
+describe('Survival Teams scoring', () => {
+  const team = { teamId: 't1', teamName: 'Team One', members: [{ name: 'A' }, { name: 'B' }] };
+  const survival = { teamScoringRule: 'survival-teams' as const };
+
+  it('reads the plain position key and ignores -m{n} keys', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [team],
+      assignments: [[{ name: 't1', room: 1, isLucky: false }]],
+      rounds: [buildRound({ roundNum: 1, players: 1, rooms: [1] })],
+      scores: { 'r0-rm1-p0': 700, 'r0-rm1-p0-m0': 300, 'r0-rm1-p0-m1': 200 },
+      gamemodeConfig: survival,
+    });
+    expect(getUnitScore(state, 0, 1, 0, null)).toBe(700);
+  });
+
+  it('sums plain -g{n} keys over multiple games, null when a game is missing', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [team],
+      assignments: [[{ name: 't1', room: 1, isLucky: false }]],
+      rounds: [buildRound({ roundNum: 1, players: 1, rooms: [1], numGames: 3 })],
+      scores: { 'r0-rm1-p0-g1': 100, 'r0-rm1-p0-g2': 200, 'r0-rm1-p0-g3': 300 },
+      gamemodeConfig: survival,
+    });
+    expect(getUnitScore(state, 0, 1, 0, null)).toBe(600);
+    const partial = { ...state, scores: { 'r0-rm1-p0-g1': 100, 'r0-rm1-p0-g2': 200 } };
+    expect(getUnitScore(partial, 0, 1, 0, null)).toBeNull();
+  });
+
+  it('reads game{n}-{teamName} final scores, null when missing', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [team],
+      rounds: [buildRound({ roundNum: 1, isFinal: true, players: 1, rooms: [1] })],
+      finalScores: { 'game1-t1': 450, 'game1-t1-m0': 10 },
+      gamemodeConfig: survival,
+    });
+    expect(getFinalUnitScore(state, 't1', 1, null)).toBe(450);
+    expect(getFinalUnitScore(state, 't1', 2, null)).toBeNull();
+  });
+});
+
+describe('scoredTeamSize', () => {
+  it('is undefined for an individual format', () => {
+    expect(
+      scoredTeamSize({ gameFormat: 'ffa-individual', gamemodeConfig: { teamScoringRule: 'sum-members' } }),
+    ).toBeUndefined();
+  });
+
+  it('is the team size under sum-members and designated-player', () => {
+    for (const teamScoringRule of ['sum-members', 'designated-player'] as const) {
+      expect(scoredTeamSize({ gameFormat: 'team-2v2v2v2', gamemodeConfig: { teamScoringRule } })).toBe(2);
+      expect(scoredTeamSize({ gameFormat: 'team-3v3v3', gamemodeConfig: { teamScoringRule } })).toBe(3);
+    }
+  });
+
+  it('is undefined for a team format under survival-teams', () => {
+    expect(
+      scoredTeamSize({ gameFormat: 'team-2v2v2v2', gamemodeConfig: { teamScoringRule: 'survival-teams' } }),
+    ).toBeUndefined();
   });
 });
 

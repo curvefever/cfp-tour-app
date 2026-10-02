@@ -17,7 +17,7 @@ export type ScoringSystemKey = 'fairpoints' | 'positional-points';
 /** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissFoldPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
 export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
-export type TeamScoringRuleKey = 'sum-members' | 'designated-player';
+export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | 'survival-teams';
 export type RoundRobinMode = 'single' | 'double';
 export type BracketKey = 'winners' | 'losers' | 'grand-final';
 
