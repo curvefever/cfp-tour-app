@@ -643,7 +643,7 @@ export function SetupView() {
           </ButtonRow>
         </Panel>
         <Panel>
-          <Field label='Registered players'>
+          <Field label={`Registered ${(format?.unitLabelPlural ?? 'Players').toLowerCase()}`}>
             <FieldDisplay id='cfg-n-display'>
               {state.confirmedCount ?? '—'}
               {state.reserves.length ? ` (+ ${state.reserves.length} reserves)` : ''}

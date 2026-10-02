@@ -1,3 +1,4 @@
+import { getGameFormat } from '../../domain/tournament/formats';
 import { roomLetter } from '../../domain/tournament/bracket';
 import { computeRankings, type RankingDisplay } from '../../domain/tournament/rankings';
 import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
@@ -126,7 +127,10 @@ export function RankingsContent({
   editable?: boolean;
 }) {
   if (!state.players.length && !state.reserves.length) {
-    return <Alert>No players registered yet — check back once the organiser loads a roster in Admin.</Alert>;
+    const unitLabel = (getGameFormat(state.gameFormat)?.unitLabelPlural ?? 'Players').toLowerCase();
+    return (
+      <Alert>No {unitLabel} registered yet — check back once the organiser loads a roster in Admin.</Alert>
+    );
   }
   const data = computeRankings(state);
   if (!data) return <RosterOnly state={state} editable={editable} />;
