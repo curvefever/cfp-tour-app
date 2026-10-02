@@ -39,7 +39,14 @@ Root `environments/{test|prod}/archive` (`getArchiveRootPath`).
 4. Copy settings reads the shared index (`hasSettings`) and fetches the entry on copy.
 
 ### Testing performed
-(Left open until the live check on the test site is done.)
+- Live check on the test site (rules deployed, signed in as an admin, throwaway tournament "Archive live check 31 (delete me)", FFA individual, single elimination, 31 players, 7 rounds scored to the Final):
+  - Completing the Final auto-archived it: the index node appeared within seconds (31 players, 7 rounds, `hasSettings` true) and the Archive tab listed it.
+  - The entry opened, and an annotation added by the admin was stored. A re-save from Admin showed the overwrite confirmation; afterwards the annotation was still there and `dateSaved` had changed.
+  - After Reset, Copy settings listed the shared entry and copied its settings.
+  - Anonymous `curl`: `environments/test/archive/index.json` and `entries/{id}` readable, `environments/prod/archive/index.json` returns `null`, `environments/test/archive` itself and anonymous writes return "Permission denied".
+  - Deleting the entry from the detail view (confirm) emptied both `index` and `entries` for it; the tournament was reset.
+  - Not exercised: a signed-out viewer opening the entry in a real browser (the browser pane only had the admin session); admin-only controls are gated on `useAuth().canAdmin` in code, and the e2e smoke covers the anonymous Archive tab. The "archived automatically" status message is only shown while the Admin tab is mounted, and wasn't (the Final was scored from the Bracket tab); the archiving itself was confirmed in Firebase.
+- Awkward counts: 31 players live; 37 and 43 in the `buildSharedArchiveSummary` unit tests.
 - Unit tests (`src/features/archive/shared-archive.test.ts`): validators, `buildSharedArchiveSummary` at 37 and 43 players, marshal → Firebase-storage simulation → parse round trip including null holes and empty arrays, index parsing (malformed record skipped, `hasSettings` false when missing), annotation parsing, the save and delete update maps. `archive.test.ts` trimmed; `past-tournament-settings.test.ts` rewritten for summaries.
 - e2e smoke: 3/3 after the Archive tab became visible to everyone.
 
