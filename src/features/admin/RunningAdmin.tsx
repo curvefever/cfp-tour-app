@@ -128,7 +128,7 @@ export function RunningAdmin() {
           ))}
         </Timeline>
       </Panel>
-      <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
+      <ButtonRow className='rounded-lg border border-surface-hover p-2.5'>
         <Button
           variant='accent'
           disabled={!state.tournamentId || saving}
