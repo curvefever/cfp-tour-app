@@ -12,14 +12,9 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime, type TournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import {
-  findLatestArchiveEntryForTournament,
-  loadArchiveIndex,
-  writeArchiveSnapshot,
-} from '../../lib/persistence/archive';
 import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
 import { loadLiveEnvelope, saveLiveEnvelope } from '../../lib/persistence/storage';
-import { archiveEntryStorageKey } from '../../lib/persistence/storage-keys';
+import { saveArchiveEntry } from '../archive/archive-write.server-fns';
 import { getFirebaseSyncTransport } from '../sync/firebase-client';
 import { SyncCoordinator, type SyncStatus, type SyncTransport } from '../sync/live-sync';
 import { useAuth } from '../auth/AuthProvider';
@@ -64,6 +59,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const setupRef = useRef(setup);
   const activeTabRef = useRef(activeTab);
   const isViewerRef = useRef(isViewer);
+  const autoArchiveAttempted = useRef<string | null>(null);
   stateRef.current = state;
   setupRef.current = setup;
   activeTabRef.current = activeTab;
@@ -173,40 +169,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     window.history.replaceState(null, '', url);
   }, [hydrated, isViewer, state.started, state.tournamentId]);
 
-  useEffect(() => {
-    if (!hydrated || isViewer || state.autoSaved) return;
-    const round = state.rounds[state.curRound];
-    if (!round?.isFinal || !computeRankings(state)?.finalComplete) return;
-    try {
-      const index = loadArchiveIndex(window.localStorage);
-      const existing = findLatestArchiveEntryForTournament(index, state.tournamentId);
-      let id = existing?.id ?? String(runtime.clock.now());
-      while (
-        !existing &&
-        (index.some((entry) => String(entry.id) === id) ||
-          window.localStorage.getItem(archiveEntryStorageKey(id)) !== null)
-      ) {
-        id = String(Number(id) + 1);
-      }
-      writeArchiveSnapshot({
-        storage: window.localStorage,
-        state,
-        id,
-        dateSaved: new Date(runtime.clock.now()).toISOString(),
-        keepAnnotations: Boolean(existing),
-      });
-      const next = { ...state, autoSaved: true, needsSave: false };
-      setState(next);
-      persist(next, setup, activeTab);
-      sync.current?.updateLocal(state, next);
-      window.dispatchEvent(
-        new CustomEvent('curve-tour:archive-status', { detail: 'Tournament archived automatically.' }),
-      );
-    } catch (error) {
-      console.warn('Could not automatically archive completed tournament', error);
-    }
-  }, [activeTab, hydrated, isViewer, persist, runtime, setup, state]);
-
   const setActiveTab = useCallback(
     (tab: ActiveTab) => {
       setActiveTabState(tab);
@@ -237,6 +199,30 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     },
     [activeTab, persist, state],
   );
+  useEffect(() => {
+    const tournamentId = state.tournamentId;
+    if (!hydrated || isViewer || !auth.canAdmin || state.autoSaved || !tournamentId) return;
+    const round = state.rounds[state.curRound];
+    if (!round?.isFinal || !computeRankings(state)?.finalComplete) return;
+    if (autoArchiveAttempted.current === tournamentId) return;
+    autoArchiveAttempted.current = tournamentId;
+    const announce = (detail: { message: string; failed?: boolean }) =>
+      window.dispatchEvent(new CustomEvent('curve-tour:archive-status', { detail }));
+    saveArchiveEntry({ data: { tournamentId, snapshot: state } }).then(
+      () => {
+        updateState((current) => ({ ...current, autoSaved: true, needsSave: false }));
+        announce({ message: 'Tournament archived automatically.' });
+      },
+      (error: unknown) => {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        announce({
+          message: `Could not archive automatically: ${message}. Use Save to Archive in Admin.`,
+          failed: true,
+        });
+      },
+    );
+  }, [auth.canAdmin, hydrated, isViewer, state, updateState]);
+
   const unlockAdmin = useCallback(() => {
     if (isViewer) {
       setIsViewer(false);

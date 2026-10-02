@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react';
 import { resetRoster, resetTournamentState } from '../../domain/tournament/mutations';
-import {
-  findLatestArchiveEntryForTournament,
-  loadArchiveIndex,
-  writeArchiveSnapshot,
-  type ArchiveSummary,
-} from '../../lib/persistence/archive';
 import { saveBracketFollow } from '../../lib/persistence/storage';
-import { archiveEntryStorageKey } from '../../lib/persistence/storage-keys';
 import {
   Alert,
   Button,
@@ -21,73 +14,66 @@ import {
   Timeline,
   TimelineItem,
 } from '../../components/ui';
+import { saveArchiveEntry } from '../archive/archive-write.server-fns';
+import { useSharedArchiveIndex } from '../archive/useSharedArchiveIndex';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
 import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
-type AdminPrompt =
-  | { kind: 'save'; sameTournament?: ArchiveSummary; titleCollision?: ArchiveSummary }
-  | { kind: 'reset' }
-  | { kind: 'start-new' };
+type AdminPrompt = { kind: 'overwrite'; savedAt: string } | { kind: 'reset' } | { kind: 'start-new' };
 
 export function RunningAdmin() {
   const app = useTournamentApp();
   const state = app.state;
   const round = state.rounds[state.curRound];
   const [archiveStatus, setArchiveStatus] = useState('');
+  const [archiveError, setArchiveError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [prompt, setPrompt] = useState<AdminPrompt | null>(null);
+  const archiveIndex = useSharedArchiveIndex();
   useEffect(() => {
-    const showStatus = (event: Event) => setArchiveStatus((event as CustomEvent<string>).detail);
+    const showStatus = (event: Event) => {
+      const { message, failed } = (event as CustomEvent<{ message: string; failed?: boolean }>).detail;
+      if (failed) setArchiveError(message);
+      else setArchiveStatus(message);
+    };
     window.addEventListener('curve-tour:archive-status', showStatus);
     return () => window.removeEventListener('curve-tour:archive-status', showStatus);
   }, []);
   if (!round) return <Alert tone='danger'>The saved tournament has no current round.</Alert>;
 
-  function mintArchiveId(index = loadArchiveIndex(window.localStorage)) {
-    let id = String(app.runtime.clock.now());
-    while (
-      index.some((entry) => String(entry.id) === id) ||
-      window.localStorage.getItem(archiveEntryStorageKey(id)) !== null
-    ) {
-      id = String(Number(id) + 1);
+  /** Publishes the current tournament to the shared archive; resolves true on success. */
+  async function saveArchive(): Promise<boolean> {
+    if (!state.tournamentId) return false;
+    setArchiveError('');
+    setSaving(true);
+    try {
+      await saveArchiveEntry({ data: { tournamentId: state.tournamentId, snapshot: state } });
+      app.updateState((current) => ({ ...current, needsSave: false }));
+      setArchiveStatus('Tournament saved to archive.');
+      return true;
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : 'Could not save to the archive.');
+      return false;
+    } finally {
+      setSaving(false);
     }
-    return id;
   }
 
-  function saveArchive(id: string, keepAnnotations: boolean, status = 'Tournament saved to archive.') {
-    writeArchiveSnapshot({
-      storage: window.localStorage,
-      state,
-      id,
-      dateSaved: new Date(app.runtime.clock.now()).toISOString(),
-      keepAnnotations,
-    });
-    app.updateState((current) => ({ ...current, needsSave: false }));
-    setArchiveStatus(status);
+  async function confirmedSave() {
     setPrompt(null);
-  }
-
-  function saveSilently() {
-    const index = loadArchiveIndex(window.localStorage);
-    const existing = findLatestArchiveEntryForTournament(index, state.tournamentId);
-    saveArchive(existing?.id ?? mintArchiveId(index), Boolean(existing));
+    await saveArchive();
   }
 
   function requestArchiveSave() {
-    const index = loadArchiveIndex(window.localStorage);
-    const title = state.title.trim() || 'Unnamed Tournament';
-    const sameTournament = findLatestArchiveEntryForTournament(index, state.tournamentId);
-    if (sameTournament) {
-      setPrompt({ kind: 'save', sameTournament });
-      return;
-    }
-    const titleCollision = index.find((entry) => entry.title === title);
-    if (titleCollision) {
-      setPrompt({ kind: 'save', titleCollision });
-      return;
-    }
-    saveArchive(mintArchiveId(index), false);
+    const existing = archiveIndex.entries.find((entry) => entry.tournamentId === state.tournamentId);
+    if (existing) setPrompt({ kind: 'overwrite', savedAt: existing.dateSaved });
+    else void saveArchive();
+  }
+
+  async function saveThen(next: () => void) {
+    if (await saveArchive()) next();
   }
 
   function resetNow() {
@@ -119,6 +105,7 @@ export function RunningAdmin() {
       </Panel>
       <TournamentSettingsRecap state={state} />
       {state.rounds.some((entry) => entry.isWaterfall) ? <RunningWaterfallPanel state={state} /> : null}
+      {archiveError && !prompt ? <Alert tone='danger'>{archiveError}</Alert> : null}
       {archiveStatus ? (
         <Alert tone='success' id='archive-save-status'>
           {archiveStatus}
@@ -141,8 +128,15 @@ export function RunningAdmin() {
         </Timeline>
       </Panel>
       <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
-        <Button variant='accent' onClick={requestArchiveSave}>
-          💾 Save to Archive
+        <Button
+          variant='accent'
+          disabled={!state.tournamentId || saving}
+          title={
+            state.tournamentId ? undefined : 'Generate the tournament first: it has no ID to archive under.'
+          }
+          onClick={requestArchiveSave}
+        >
+          {saving ? 'Saving…' : '💾 Save to Archive'}
         </Button>
         <Button
           onClick={() => {
@@ -166,23 +160,13 @@ export function RunningAdmin() {
           🏁 Save & Start New Tournament
         </Button>
       </ButtonRow>
-      {prompt?.kind === 'save' ? (
-        <Modal
-          titleId='archive-save-title'
-          title={prompt.sameTournament ? 'Tournament already archived' : 'Title already used'}
-        >
-          <p>
-            {prompt.sameTournament
-              ? `A tournament named "${state.title.trim() || 'Unnamed Tournament'}" already exists. Overwrite, save as a new entry, or cancel?`
-              : `A different archived tournament is also named "${state.title.trim() || 'Unnamed Tournament'}". Save this as a new entry, or cancel to rename it first?`}
-          </p>
+      {prompt?.kind === 'overwrite' ? (
+        <Modal titleId='archive-save-title' title='Tournament already archived'>
+          <p>Overwrite the archived copy saved {new Date(prompt.savedAt).toLocaleString()}?</p>
           <ModalActions>
-            {prompt.sameTournament ? (
-              <Button variant='danger' onClick={() => saveArchive(prompt.sameTournament!.id, true)}>
-                Overwrite existing
-              </Button>
-            ) : null}
-            <Button onClick={() => saveArchive(mintArchiveId(), false)}>Save as new entry</Button>
+            <Button variant='danger' onClick={() => void confirmedSave()}>
+              Overwrite
+            </Button>
             <Button onClick={() => setPrompt(null)}>Cancel</Button>
           </ModalActions>
         </Modal>
@@ -193,14 +177,9 @@ export function RunningAdmin() {
             This tournament has changes that are not in the archive. Save a snapshot before resetting, discard
             the changes, or cancel?
           </p>
+          {archiveError ? <Alert tone='danger'>{archiveError}</Alert> : null}
           <ModalActions>
-            <Button
-              variant='success'
-              onClick={() => {
-                saveSilently();
-                resetNow();
-              }}
-            >
+            <Button variant='success' disabled={saving} onClick={() => void saveThen(resetNow)}>
               Save &amp; reset
             </Button>
             <Button variant='danger' onClick={resetNow}>
@@ -216,14 +195,9 @@ export function RunningAdmin() {
             This tournament has changes that are not in the archive. Save a snapshot before starting a new
             tournament, discard the changes, or cancel?
           </p>
+          {archiveError ? <Alert tone='danger'>{archiveError}</Alert> : null}
           <ModalActions>
-            <Button
-              variant='success'
-              onClick={() => {
-                saveSilently();
-                startNewNow();
-              }}
-            >
+            <Button variant='success' disabled={saving} onClick={() => void saveThen(startNewNow)}>
               Save &amp; start new
             </Button>
             <Button variant='danger' onClick={startNewNow}>
