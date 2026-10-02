@@ -6,6 +6,10 @@ export function getTourEnvironment(hostname?: string): TourEnvironment {
   return hostname?.trim().toLowerCase() === PRODUCTION_TOUR_HOSTNAME ? 'prod' : 'test';
 }
 
+export function getArchiveRootPath(hostname?: string): string {
+  return `environments/${getTourEnvironment(hostname)}/archive`;
+}
+
 export function getTournamentRootPath(hostname?: string): string {
   return `environments/${getTourEnvironment(hostname)}/tournaments`;
 }

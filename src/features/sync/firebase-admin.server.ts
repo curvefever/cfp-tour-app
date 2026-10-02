@@ -42,6 +42,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   });
 }
 
+/** Atomic multi-path write: keys are database paths, a `null` value deletes that path. */
+export async function updateFirebase(updates: Record<string, unknown>): Promise<void> {
+  await withTimeout(
+    getDatabase(getFirebaseAdminApp()).ref().update(updates),
+    WRITE_TIMEOUT_MS,
+    `Firebase write timed out after ${WRITE_TIMEOUT_MS}ms — check FIREBASE_SERVICE_ACCOUNT_JSON / Application Default Credentials.`,
+  );
+}
+
+export async function readFirebaseOnce(path: string): Promise<unknown> {
+  const snapshot = await withTimeout(
+    getDatabase(getFirebaseAdminApp()).ref(path).get(),
+    WRITE_TIMEOUT_MS,
+    `Firebase read timed out after ${WRITE_TIMEOUT_MS}ms.`,
+  );
+  return snapshot.val();
+}
+
 export async function writeTournamentToFirebase(
   tournamentId: string,
   payload: unknown,

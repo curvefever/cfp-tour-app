@@ -13,6 +13,18 @@
             ".read": true,
             ".write": false
           }
+        },
+        "archive": {
+          "index": {
+            ".read": true,
+            ".write": false
+          },
+          "entries": {
+            "$tournamentId": {
+              ".read": true,
+              ".write": false
+            }
+          }
         }
       },
       "prod": {
@@ -20,6 +32,18 @@
           "$tournamentId": {
             ".read": true,
             ".write": false
+          }
+        },
+        "archive": {
+          "index": {
+            ".read": true,
+            ".write": false
+          },
+          "entries": {
+            "$tournamentId": {
+              ".read": true,
+              ".write": false
+            }
           }
         }
       }
