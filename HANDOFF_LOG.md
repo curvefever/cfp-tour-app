@@ -6,6 +6,35 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Admin/teams polish (done — 2026-10-02)
+
+### Context
+Four small UI fixes, no domain logic or state shape changes, planned in `plans/2026-10-02-admin-teams-polish.md`. Commits `d81b2ed` (1), `1b6188e` (2), `c31fd29` (3), `08fc8ed` (4).
+
+### What changed
+1. **Roster labels follow the format.** Setup's "Registered players" is now "Registered teams" for team formats (`SetupView.tsx`); the `(+ N reserves)` suffix is unchanged. The sweep found one more: the Rankings empty-roster alert ("No players registered yet…"). Left on purpose: waterfall copy about individual people ("Players entering the bracket", "Players per room", per-room player counts), `Manage Players` (individual-roster only; teams get `Manage Teams`), and the `Player1…` placeholders.
+2. **Bracket stops repeating member names.** While a row shows per-member score inputs, the small `TeamMembers` line under the team name is hidden, because the input labels already carry the names. The rule is **hide only while that row shows per-member inputs**: the line stays for read-only viewers, rows not being edited (past or future rounds), Survival Teams (one input per team, so the line is the only place names appear), the Final's Total tab and the anonymous-game state. One value (`inputsPerTeam`, the member-input count or `undefined`) gates both the inputs and the line, in `FinalColumn` and `RoundBody`, so the two can't drift. Under Save your Buddy the line was the only place showing the defender, so the 🛡 moved onto the input label; `memberLabel` (one helper) builds `Name 🛡` for both `TeamMembers` and the input labels.
+3. **Running Admin button row no longer floats.** `RunningAdmin.tsx`: removed `sticky bottom-2.5 z-20 bg-background/90 backdrop-blur-md`; the row keeps its border and padding. (The Bracket tab's own sticky Advance-round row stays sticky, decided by the organiser.)
+4. **Archive list counts "teams".** `SharedArchiveSummary` gained an optional `gameFormat`, set by `buildSharedArchiveSummary` and kept by `parseSummary` only when it is a string. `ArchiveView` renders `{playerCount} {unit}`. The lowercased-unit expression then appeared in three places (Setup, Rankings, Archive), so it became `unitLabelPluralLower(key)` in `formats.ts`. `playerCount` keeps its name (stored data). Entries saved before the field show "players" by design: pre-change archives are expendable test data, no backfill.
+
+### Testing performed
+- Awkward-count cases (31/37/43/53) don't apply: nothing touches distribution or advancement. Live checks used 13 teams.
+- `shared-archive.test.ts`: summary carries `gameFormat`; index parsing keeps it when present and parses an older record (or a non-string value) without it.
+- Components have no tests; stages 1–3 were checked live on the test site (reset tournament, 2v2v2v2, 13 teams + 1 reserve): labels per format, reserves suffix, member line vs labelled inputs under the sum rule (current row, past round, Final G1 vs Total tab, read-only Archive detail), 🛡 on all 13 defenders under Save your Buddy, member line kept with one input under Survival Teams, and the button row moving with the scroll.
+- Stage 4 live: the team entry lists "13 teams", older entries still "N players".
+
+### Notes
+- `prettier --write` on `formats.ts` reformats the whole file (double-quote style); it was restored and only the helper added.
+- The Reset button's confirm and the Archive overwrite dialog behave differently in the automated browser (the overwrite dialog closes on tab switch).
+
+### Out of scope
+- Showing multi-game rounds (Semis/Final game counts) to viewers in advance: its own plan.
+- The Bracket tab's sticky admin row.
+- Restyling `ButtonRow` beyond removing the float.
+- `AdvancementSection` "N enter, advance" (counts units, could read as people): left unchanged.
+
+---
+
 ## Survival Teams team scoring (done — 2026-10-02)
 
 ### Context
