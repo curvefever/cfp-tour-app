@@ -9,7 +9,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 ## Bracket: game count on multi-game rounds (done — 2026-10-02)
 
 ### Context
-Viewers couldn't tell before a round started that it was played over several games: the game tabs and per-game columns appear only once units are assigned to it. The Bracket now shows a small tag on the column header, from generation onwards, for everyone (signed-out viewers and the Archive's read-only Bracket included). Planned in `plans/2026-10-02-bracket-game-count.md`; one commit, `cdabed3`.
+Viewers couldn't tell before a round started that it was played over several games: the game tabs and per-game columns appear only once units are assigned to it. The Bracket now shows a small tag on the column header, from generation onwards, for everyone (signed-out viewers and the Archive's read-only Bracket included). One commit, `cdabed3`.
 
 ### What changed
 - **General rule, not Semis/Final special-casing.** `roundGameCount(state, roundIndex)` (`bracket.ts`) returns `{ games, upTo: false }` for any round whose `numGames` is greater than 1, else `null`. Today that is Semis and Final (single elimination), the Kings Valley Final, the waterfall Final and the shared-Final double-elimination Final; a future multi-game round gets the tag with no further change. The tag text lives in the component (`N games`, prefixed `up to ` when `upTo`), not in the domain.
