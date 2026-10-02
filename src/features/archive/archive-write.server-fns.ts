@@ -5,11 +5,13 @@ import { readFirebaseOnce, updateFirebase } from '../sync/firebase-admin.server'
 import { getArchiveRootPath } from '../sync/firebase-paths';
 import { marshalForFirebase } from '../sync/live-sync';
 import {
+  buildArchiveDeleteUpdates,
+  buildArchiveSaveUpdates,
   validateArchiveAnnotationsInput,
   validateArchiveDeleteInput,
   validateArchiveSaveInput,
 } from './archive-write.shared';
-import { archiveTitle, buildSharedArchiveSummary, type SharedArchiveSummary } from './shared-archive';
+import { buildSharedArchiveSummary, type SharedArchiveSummary } from './shared-archive';
 
 function archiveRoot(): string {
   return getArchiveRootPath(new URL(getRequest().url).hostname);
@@ -22,17 +24,8 @@ export const saveArchiveEntry = createServerFn({ method: 'POST' })
     const root = archiveRoot();
     const { tournamentId, snapshot } = data;
     const dateSaved = new Date().toISOString();
-    const summary = buildSharedArchiveSummary(tournamentId, snapshot, dateSaved);
-    const entry = `${root}/entries/${tournamentId}`;
-    // Entry fields are written individually so a re-save keeps the annotations.
-    await updateFirebase({
-      [`${root}/index/${tournamentId}`]: summary,
-      [`${entry}/tournamentId`]: tournamentId,
-      [`${entry}/title`]: archiveTitle(snapshot),
-      [`${entry}/dateSaved`]: dateSaved,
-      [`${entry}/snapshot`]: marshalForFirebase(snapshot),
-    });
-    return summary;
+    await updateFirebase(buildArchiveSaveUpdates(root, tournamentId, snapshot, dateSaved));
+    return buildSharedArchiveSummary(tournamentId, snapshot, dateSaved);
   });
 
 export const deleteArchiveEntry = createServerFn({ method: 'POST' })
@@ -40,10 +33,7 @@ export const deleteArchiveEntry = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<void> => {
     await requireTourAdminPermission();
     const root = archiveRoot();
-    await updateFirebase({
-      [`${root}/index/${data.tournamentId}`]: null,
-      [`${root}/entries/${data.tournamentId}`]: null,
-    });
+    await updateFirebase(buildArchiveDeleteUpdates(root, data.tournamentId));
   });
 
 export const setArchiveAnnotations = createServerFn({ method: 'POST' })

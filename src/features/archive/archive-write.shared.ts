@@ -1,6 +1,7 @@
 import type { TournamentState } from '../../domain/tournament/types';
 import { TOURNAMENT_ID_PATTERN } from '../sync/tournament-write.shared';
-import type { ArchiveAnnotation } from './shared-archive';
+import { marshalForFirebase } from '../sync/live-sync';
+import { archiveTitle, buildSharedArchiveSummary, type ArchiveAnnotation } from './shared-archive';
 
 export const ARCHIVE_MAX_ANNOTATIONS = 200;
 export const ARCHIVE_MAX_ANNOTATION_CHARS = 1000;
@@ -37,7 +38,9 @@ export function validateArchiveDeleteInput(input: ArchiveDeleteInput): ArchiveDe
 function validateAnnotation(raw: unknown): ArchiveAnnotation {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid annotation.');
   const { text, timestamp } = raw as Record<string, unknown>;
-  if (typeof text !== 'string' || typeof timestamp !== 'string') throw new Error('Invalid annotation.');
+  if (typeof text !== 'string' || typeof timestamp !== 'string' || timestamp.length > 40) {
+    throw new Error('Invalid annotation.');
+  }
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > ARCHIVE_MAX_ANNOTATION_CHARS) {
     throw new Error(`Annotations must be 1-${ARCHIVE_MAX_ANNOTATION_CHARS} characters.`);
@@ -52,4 +55,28 @@ export function validateArchiveAnnotationsInput(input: ArchiveAnnotationsInput):
     throw new Error(`An entry can hold at most ${ARCHIVE_MAX_ANNOTATIONS} annotations.`);
   }
   return { tournamentId, annotations: input.annotations.map(validateAnnotation) };
+}
+
+/** The atomic multi-path update for a save. Entry fields go in one by one (never `entries/{id}` whole) so a re-save keeps the annotations. */
+export function buildArchiveSaveUpdates(
+  root: string,
+  tournamentId: string,
+  snapshot: TournamentState,
+  dateSaved: string,
+): Record<string, unknown> {
+  const entry = `${root}/entries/${tournamentId}`;
+  return {
+    [`${root}/index/${tournamentId}`]: buildSharedArchiveSummary(tournamentId, snapshot, dateSaved),
+    [`${entry}/tournamentId`]: tournamentId,
+    [`${entry}/title`]: archiveTitle(snapshot),
+    [`${entry}/dateSaved`]: dateSaved,
+    [`${entry}/snapshot`]: marshalForFirebase(snapshot),
+  };
+}
+
+export function buildArchiveDeleteUpdates(root: string, tournamentId: string): Record<string, null> {
+  return {
+    [`${root}/index/${tournamentId}`]: null,
+    [`${root}/entries/${tournamentId}`]: null,
+  };
 }

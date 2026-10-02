@@ -8,6 +8,8 @@ import { simulateFirebaseStorage } from '../sync/firebase-storage-simulation';
 import { marshalForFirebase } from '../sync/live-sync';
 import {
   ARCHIVE_MAX_ANNOTATIONS,
+  buildArchiveDeleteUpdates,
+  buildArchiveSaveUpdates,
   validateArchiveAnnotationsInput,
   validateArchiveDeleteInput,
   validateArchiveSaveInput,
@@ -151,6 +153,22 @@ describe('shared archive parsing', () => {
     expect(parsed?.annotations).toEqual(annotations);
   });
 
+  it('drops a malformed annotation', () => {
+    const parsed = parseArchiveEntry(
+      simulateFirebaseStorage({
+        tournamentId: 't1',
+        title: 'T',
+        dateSaved: 'd',
+        snapshot: marshalForFirebase(generated(37)),
+        annotations: [
+          { text: 5, timestamp: 'x' },
+          { text: 'ok', timestamp: 'y' },
+        ],
+      }),
+    );
+    expect(parsed?.annotations).toEqual([{ text: 'ok', timestamp: 'y' }]);
+  });
+
   it('returns null for a missing or malformed entry', () => {
     expect(parseArchiveEntry(null)).toBeNull();
     expect(parseArchiveEntry({ tournamentId: 't1', title: 'x' })).toBeNull();
@@ -171,7 +189,51 @@ describe('shared archive parsing', () => {
       b: good('b', '2026-03-01'),
     });
     expect(parsed.map((entry) => entry.tournamentId)).toEqual(['b', 'a']);
-    expect(parseArchiveIndex(null)).toEqual([]);
     expect(sortArchiveIndex([good('x', '1'), good('y', '2')])[0].tournamentId).toBe('y');
+    expect(parseArchiveIndex(null)).toEqual([]);
+  });
+
+  it('reads hasSettings false when the flag is false or missing', () => {
+    const base = { title: 't', dateSaved: 'd', playerCount: 31, roundsPlayed: 1 };
+    const parsed = parseArchiveIndex({
+      a: { ...base, tournamentId: 'a', hasSettings: false },
+      b: { ...base, tournamentId: 'b' },
+      c: { ...base, tournamentId: 'c', hasSettings: true },
+    });
+    expect(Object.fromEntries(parsed.map((e) => [e.tournamentId, e.hasSettings]))).toEqual({
+      a: false,
+      b: false,
+      c: true,
+    });
+  });
+});
+
+describe('archive update maps', () => {
+  const root = 'environments/test/archive';
+
+  it('a save writes exactly the five fields, never the whole entry or its annotations', () => {
+    const snapshot = { ...generated(37), assignments: [] } as TournamentState;
+    const updates = buildArchiveSaveUpdates(root, 't1', snapshot, 'd');
+    expect(Object.keys(updates).sort()).toEqual(
+      [
+        `${root}/index/t1`,
+        `${root}/entries/t1/tournamentId`,
+        `${root}/entries/t1/title`,
+        `${root}/entries/t1/dateSaved`,
+        `${root}/entries/t1/snapshot`,
+      ].sort(),
+    );
+    expect(
+      Object.keys(updates).some((key) => key === `${root}/entries/t1` || key.endsWith('/annotations')),
+    ).toBe(false);
+    const stored = updates[`${root}/entries/t1/snapshot`] as { assignments: unknown };
+    expect(stored.assignments).toEqual({ __ffaEmptyArray: true });
+  });
+
+  it('a delete nulls exactly the index record and the entry', () => {
+    expect(buildArchiveDeleteUpdates(root, 't1')).toEqual({
+      [`${root}/index/t1`]: null,
+      [`${root}/entries/t1`]: null,
+    });
   });
 });
