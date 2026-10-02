@@ -204,6 +204,11 @@ function applyPoolingEdit(
   if (!rounds.every((round) => round.advPerRoom === null || round.advTotal <= round.players)) {
     return { ok: false, error: 'Those numbers leave an elimination round keeping more units than reach it.' };
   }
+  // The standings-cutoff tie is keyed plainly and judged by count only, so a
+  // resolution made for the old cut line would wrongly satisfy a new one.
+  const { 'qual-cutoff': staleCutoff, ...keptTies } = state.tieResolutions;
+  const tieResolutions =
+    qualAdv === scope.qualAdv || staleCutoff === undefined ? state.tieResolutions : keptTies;
   const emptyTail = () => Array.from({ length: rounds.length - bracketStart }, (): string[] => []);
   return {
     ok: true,
@@ -212,6 +217,7 @@ function applyPoolingEdit(
       ...synced,
       cfg,
       rounds,
+      tieResolutions,
       assignments: state.assignments.slice(0, state.curRound + 1),
       byes: [...state.byes.slice(0, bracketStart), ...emptyTail()],
       luckyLosers: [...state.luckyLosers.slice(0, bracketStart), ...emptyTail()],
@@ -277,18 +283,12 @@ function applyBracketEdit(
   if ('error' in fitted) return { ok: false, error: fitted.error };
   rounds[semisIndex] = fitted;
 
-  const cutMoved = targets[0] !== current.advTotal;
-  const prefix = `r${state.curRound}-`;
-  const tieResolutions = cutMoved
-    ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !key.startsWith(prefix)))
-    : state.tieResolutions;
   return {
     ok: true,
     state: {
       ...state,
       ...syncSettings(state, eliminationTargetList(rounds), undefined),
       rounds,
-      tieResolutions,
       needsSave: true,
     },
   };

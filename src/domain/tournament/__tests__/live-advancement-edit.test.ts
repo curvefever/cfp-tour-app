@@ -114,6 +114,37 @@ describe('advancement edit: pooling', () => {
     );
   });
 
+  it('drops a stale qual-cutoff tie resolution only when qualAdv changes', () => {
+    const state = { ...start(), tieResolutions: { 'qual-cutoff': ['P1', 'P2'], 'r0-room1-x': ['P3'] } };
+    const moved = unwrap(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '20', targetsText: '' }));
+    expect(moved.tieResolutions).toEqual({ 'r0-room1-x': ['P3'] });
+    const same = unwrap(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '24', targetsText: '' }));
+    expect(same.tieResolutions).toEqual(state.tieResolutions);
+  });
+
+  it('keeps the future pooling rounds exactly as published', () => {
+    const fixed = build(37, {
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'qual-table',
+      qualAdv: '24',
+      drawPublication: 'fixed',
+    });
+    const advanced = advance(fixed);
+    // A published (possibly patched) draw: reverse a future round's seating so a rebuild would visibly differ.
+    const poolingCount = advanced.rounds.findIndex((round) => !round.isQual);
+    const state = {
+      ...advanced,
+      rounds: advanced.rounds.map((round, index) =>
+        index === poolingCount - 1
+          ? { ...round, fixedRoomAssignments: [...(round.fixedRoomAssignments ?? [])].reverse() }
+          : round,
+      ),
+    };
+    const edited = unwrap(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '20', targetsText: '' }));
+    expect(state.rounds[poolingCount - 1].fixedRoomAssignments?.length).toBeGreaterThan(0);
+    expect(edited.rounds.slice(0, poolingCount)).toEqual(state.rounds.slice(0, poolingCount));
+  });
+
   it('reports the scope for the pooling phase', () => {
     expect(advancementEditScope(start())).toMatchObject({
       kind: 'pooling',
@@ -157,7 +188,7 @@ describe('advancement edit: single-elimination bracket', () => {
     expect(scope.rounds.map((entry) => entry.advTotal)).toEqual(eliminationAdvTotals(state));
   });
 
-  it('edits the current round after scores are entered, reshaping the next round and dropping its tie resolutions', () => {
+  it('edits the current round after scores are entered, reshaping the next round and keeping its tie resolutions', () => {
     const base = inBracket();
     const scope = bracketScope(base);
     const state = {
@@ -171,7 +202,7 @@ describe('advancement edit: single-elimination bracket', () => {
     expect(edited.rounds[state.curRound].advTotal).toBe(first - 1);
     expect(edited.rounds[state.curRound].players).toBe(31);
     expect(edited.rounds[state.curRound + 1].players).toBe(first - 1);
-    expect(edited.tieResolutions).toEqual({ 'r0-room1-x': ['P2'] });
+    expect(edited.tieResolutions).toEqual(state.tieResolutions);
     expect(edited.settings?.eliminationRoundTargets).toBe(eliminationAdvTotals(edited).join(','));
     expect(edited.gamemodeConfig.explicitTargets).toEqual(eliminationAdvTotals(edited));
   });
@@ -190,6 +221,34 @@ describe('advancement edit: single-elimination bracket', () => {
     expect(state.rounds[state.curRound].isSemis).toBe(true);
     state = advance(state);
     expect(state.rounds[state.curRound].isFinal).toBe(true);
+  });
+
+  it('fits Semis to a last value above the Semis size', () => {
+    const base = inBracket();
+    const scope = bracketScope(base);
+    const values = scope.rounds.map((entry) => entry.advTotal);
+    values[values.length - 1] = 18;
+    const edited = unwrap(applyAdvancementEdit(base, { kind: 'bracket', targets: values }));
+    const semis = edited.rounds.find((round) => round.isSemis);
+    expect(semis?.players).toBe(18);
+    expect(semis?.rooms.reduce((total, size) => total + size, 0)).toBe(18);
+    expect(semis?.advTotal).toBe(edited.gamemodeConfig.finalSize);
+  });
+
+  it('keeps each later round seeding override', () => {
+    const base = playToFirstElimination(
+      build(31, {
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'none',
+        eliminationRoundTargets: '24,20,16',
+        eliminationSeedingOverrides: 'balance,random,diversity',
+      }),
+    );
+    const edited = unwrap(applyAdvancementEdit(base, { kind: 'bracket', targets: [23, 20, 16] }));
+    const overrides = edited.rounds
+      .slice(base.curRound, base.curRound + 3)
+      .map((round) => round.seedingOverride);
+    expect(overrides).toEqual(['balance', 'random', 'diversity']);
   });
 
   it('accepts a plateau value', () => {
