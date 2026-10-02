@@ -57,12 +57,7 @@ function PoolingFields({ scope }: { scope: PoolingScope }) {
         </Field>
       ) : null}
       <Field htmlFor='live-targets' label='Advancement targets (blank = automatic)'>
-        <Input
-          id='live-targets'
-          placeholder='e.g. 16,12'
-          value={targets}
-          onChange={(event) => setTargets(event.target.value)}
-        />
+        <Input id='live-targets' value={targets} onChange={(event) => setTargets(event.target.value)} />
       </Field>
       <SaveRow error={error} onSave={() => save({ kind: 'pooling', qualAdv, targetsText: targets })} />
     </div>
@@ -90,7 +85,9 @@ function BracketFields({ scope }: { scope: BracketScope }) {
           />
         </Field>
       ))}
-      <p className='text-sm text-muted'>Then Semis with {scope.semisSize}.</p>
+      <p className='text-sm text-muted'>
+        Then Semis with {values.at(-1)} (minimum {scope.semisSize}).
+      </p>
       <SaveRow error={error} onSave={() => save({ kind: 'bracket', targets: values.map(Number) })} />
     </div>
   );
