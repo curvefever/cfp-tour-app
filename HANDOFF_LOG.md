@@ -6,6 +6,37 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Survival Teams team scoring (done — 2026-10-02)
+
+### Context
+Team formats had two Team scoring rules, both fed by one score per member: "Sum of all members" and "Save your Buddy (defender only)". Survival Teams is a third rule where the organiser enters **one score per team** per game; member names stay visible on the row but have no inputs. Room ranking, standings, ties, advancement, Semis/Final totals and rankings already work off a unit score, so only the place that score is read from changed.
+
+### Settled decisions
+1. **Storage key**: a Survival Teams team score uses the individual-format key with no `-m{n}` suffix: `r{ri}-rm{room}-p{pos}` (`-g{n}` for multi-game rounds) in `scores`, `game{n}-{teamName}` in `finalScores`. This reuses the individual code paths (single input, G1..Gn + Total, removal shifting, Final rename) instead of inventing a fake member.
+2. **One root helper**: `scoredTeamSize(state)` in `scoring.ts` returns the format's `teamSize`, or `undefined` for an individual format or the `survival-teams` rule. Everything that builds or reads score keys uses it; everything about who is in the team (member names, roster, reserves, line-up edits) keeps `format.teamSize`. No scattered `rule === 'survival-teams'` checks.
+3. **Available for every team format** (`team-2v2v2v2`, `team-3v3v3`, `team-3v3`), because the Setup dropdown already shows for any format with a `teamSize`. Default stays "Sum of all members".
+4. **Label**: "Survival Teams (one score per team)".
+5. The rule is fixed at generation (Running admin only displays it), so there is no key migration for a mid-tournament rule change.
+
+### What was built
+- Stage 1 (domain, `be06c94`): `TeamScoringRuleKey` gains `'survival-teams'`; label in `TEAM_SCORING_RULE_LABELS`; `scoredTeamSize`; `getUnitScoreForGame` and `getFinalUnitScore` use it; `removeUnitFromCurrentRoom` and `replaceAssignedUnit` compute score keys with it (their `teamSize` parameters were dropped).
+- Stage 2 (`ee018ee`): `BracketView.tsx` extracts `UnitScoreFields` (single input, or G1..Gn + Total) and `FinalUnitScoreInput` from the individual rows; individual rows and Survival Teams team rows share them with unchanged keys and classes. Name display, `TeamMembers` and `canFlagAnonymous` stay on `teamSize`, so anonymous Finals stay off for every team format.
+
+### Testing
+- Unit tests: `scoring.test.ts` (plain key read and `-m` keys ignored; 3-game sum and null on a missing game; Final reads `game{n}-{team}`; `scoredTeamSize` for individual, `sum-members`, `designated-player`, `survival-teams`), `mutations.test.ts` (removing the team at position 1 of a 4-team room shifts the plain keys of positions 2 and 3 down and drops the last; replacing a team deletes only that position's plain key), `generation.test.ts` (37 teams carry `survival-teams` into `gamemodeConfig`; an individual format with a stale selection stays `sum-members`). Related tests: 29 files, 982 passing. The reviewer's mutation checks (helper ignoring the rule, removal and replacement using `format.teamSize`) were all caught.
+- Live check on the test site, 37 teams (awkward count), `team-2v2v2v2`, qualification table, Semis and Final of 2 games: one input per team, all on plain keys (no `-m`); a tie in Room A raised the tie prompt and resolving it kept the order; pooling advanced 37 → 37 → 37 → 9 on the entered team scores; Semis G1/G2 inputs with Totals matched g1+g2 for all 8 teams; the Final gave one input per team per game with the right cumulative total and winner; removing the team at position 0 of a Semis room shifted the later teams up with their scores intact (the unit tests cover position 1); a fresh "Sum of all members" tournament still showed per-member inputs.
+- The live check was driven through the DOM (input keys and counts, text, totals); no screenshots were taken.
+
+### Out of scope
+- Anonymous Finals for any team format, Survival Teams included.
+- Changing the team scoring rule after generation, or converting existing member scores.
+- Per-player statistics (none exist) and any "who scored" breakdown inside a team.
+- Making Survival Teams the default rule.
+- `formats.ts` already used double quotes and fails `prettier --check`; left alone deliberately, no reformat pass in this feature.
+- `BracketView.tsx` has no component test; the score-entry UI is covered only by the live check.
+
+---
+
 ## Shared archive: Firebase-backed, public read, admin write (done — 2026-10-02)
 
 ### Context
