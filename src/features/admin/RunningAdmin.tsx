@@ -47,6 +47,7 @@ export function RunningAdmin() {
   async function saveArchive(): Promise<boolean> {
     if (!state.tournamentId) return false;
     setArchiveError('');
+    setArchiveStatus('');
     setSaving(true);
     try {
       await saveArchiveEntry({ data: { tournamentId: state.tournamentId, snapshot: state } });
@@ -78,13 +79,13 @@ export function RunningAdmin() {
 
   function resetNow() {
     saveBracketFollow(window.localStorage, null);
-    app.updateState(resetTournamentState(state));
+    app.updateState(resetTournamentState);
     setPrompt(null);
   }
 
   function startNewNow() {
     saveBracketFollow(window.localStorage, null);
-    app.updateState(resetRoster(state));
+    app.updateState(resetRoster);
     setPrompt(null);
   }
   return (
@@ -182,10 +183,12 @@ export function RunningAdmin() {
             <Button variant='success' disabled={saving} onClick={() => void saveThen(resetNow)}>
               Save &amp; reset
             </Button>
-            <Button variant='danger' onClick={resetNow}>
+            <Button variant='danger' disabled={saving} onClick={resetNow}>
               Reset without saving
             </Button>
-            <Button onClick={() => setPrompt(null)}>Cancel</Button>
+            <Button disabled={saving} onClick={() => setPrompt(null)}>
+              Cancel
+            </Button>
           </ModalActions>
         </Modal>
       ) : null}
@@ -200,10 +203,12 @@ export function RunningAdmin() {
             <Button variant='success' disabled={saving} onClick={() => void saveThen(startNewNow)}>
               Save &amp; start new
             </Button>
-            <Button variant='danger' onClick={startNewNow}>
+            <Button variant='danger' disabled={saving} onClick={startNewNow}>
               Start new without saving
             </Button>
-            <Button onClick={() => setPrompt(null)}>Cancel</Button>
+            <Button disabled={saving} onClick={() => setPrompt(null)}>
+              Cancel
+            </Button>
           </ModalActions>
         </Modal>
       ) : null}
