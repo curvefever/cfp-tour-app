@@ -278,6 +278,34 @@ export function recordRoomHistory(
 }
 
 /**
+ * Undoes `roundIndex`'s contribution to `roomHistory` after that round's
+ * line-up is discarded or changed. A pair's entry is the round index it MOST
+ * RECENTLY shared a room in, so only entries pointing at `roundIndex` came
+ * from the discarded draw: a scratch replay over rounds 0..roundIndex-1 finds
+ * each such pair's next-most-recent meeting, if it has one, else the entry is
+ * dropped. Every other entry (any round's, including one built under
+ * drawPublication: 'fixed', which never called `recordRoomHistory`) is left
+ * exactly as it was. Pure -- returns a fresh object.
+ */
+export function rewindRoomHistory(
+  roomHistory: Record<string, number>,
+  assignments: RoundAssignment[][],
+  roundIndex: number,
+): Record<string, number> {
+  let scratch: Record<string, number> = {};
+  for (let index = 0; index < roundIndex; index += 1) {
+    scratch = recordRoomHistory(scratch, assignments[index] ?? [], index);
+  }
+  const rewound = { ...roomHistory };
+  for (const [key, recorded] of Object.entries(roomHistory)) {
+    if (recorded !== roundIndex) continue;
+    if (key in scratch) rewound[key] = scratch[key];
+    else delete rewound[key];
+  }
+  return rewound;
+}
+
+/**
  * Small premium on avoiding a MORE RECENT repeat over an older one, never a
  * large one: 1.1x at roundsAgo=1 (played together last round), decaying
  * toward 1x as roundsAgo grows. Bound: for a candidate joining a room with up

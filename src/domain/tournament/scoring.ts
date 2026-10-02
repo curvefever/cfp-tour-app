@@ -1,6 +1,6 @@
 import { getGameFormat } from './formats';
 import { buildTeamMap } from './roster';
-import type { ScoringSystemKey, TeamScoringRuleKey, TournamentState } from './types';
+import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
 function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
   return raw !== null && raw !== undefined && raw !== '' ? Number.parseInt(String(raw), 10) : fallback;
@@ -211,4 +211,17 @@ export function orderRoomByScore<T extends { name: string; score: number }>(
     }
   }
   return ordered;
+}
+
+/** The Final scores under `finalScores` (game{n}-{name} keys, no round index); every other round under `scores` (r{roundIndex}-... keys). */
+export function roundHasAnyScore(
+  state: Pick<TournamentState, 'scores' | 'finalScores'>,
+  roundIndex: number,
+  round: TournamentRound,
+): boolean {
+  if (round.isFinal) {
+    return Object.values(state.finalScores).some((value) => value !== null && value !== '');
+  }
+  const prefix = `r${roundIndex}-`;
+  return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
 }

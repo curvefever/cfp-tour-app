@@ -1,4 +1,5 @@
-import { recordRoomHistory } from './seeding';
+import { rewindRoomHistory } from './seeding';
+import { roundHasAnyScore } from './scoring';
 import { routeWaterfallRound, seedRoundFromPendingPool } from './transitions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
@@ -20,15 +21,6 @@ export type WaterfallGraphEditResult =
 
 const MISSING_CONFIG_MESSAGE =
   "Can't save — this tournament's gamemode configuration is missing a room size or Finals format. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
-
-/** The Final scores under `finalScores` (game{n}-{name} keys, no round index); every other round under `scores` (r{roundIndex}-... keys). */
-function roundHasAnyScore(state: TournamentState, roundIndex: number, round: TournamentRound): boolean {
-  if (round.isFinal) {
-    return Object.values(state.finalScores).some((value) => value !== null && value !== '');
-  }
-  const prefix = `r${roundIndex}-`;
-  return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
-}
 
 function sameNameSet(assignments: { name: string }[], seeds: PendingBracketSeed[]): boolean {
   const existing = new Set(assignments.map((entry) => entry.name));
@@ -172,24 +164,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
       ),
       pendingBracketSeeds: { ...working.pendingBracketSeeds, [curRound]: replayPools.get(curRound) ?? [] },
     };
-    // A pair's roomHistory entry is the round index it MOST RECENTLY shared a
-    // room in -- only entries pointing at curRound came from the draw being
-    // discarded, so only those need fixing: a scratch replay over the
-    // unchanged rounds 0..curRound-1 finds each such pair's next-most-recent
-    // meeting, if it has one. Every other entry (any round's, including one
-    // built under drawPublication: 'fixed', which never called
-    // recordRoomHistory in the first place) is left exactly as it was.
-    let scratch: Record<string, number> = {};
-    for (let index = 0; index < curRound; index += 1) {
-      scratch = recordRoomHistory(scratch, working.assignments[index] ?? [], index);
-    }
-    const roomHistory = { ...working.roomHistory };
-    for (const [key, roundIndex] of Object.entries(working.roomHistory)) {
-      if (roundIndex !== curRound) continue;
-      if (key in scratch) roomHistory[key] = scratch[key];
-      else delete roomHistory[key];
-    }
-    working = { ...working, roomHistory };
+    working = {
+      ...working,
+      roomHistory: rewindRoomHistory(working.roomHistory, working.assignments, curRound),
+    };
     const failure = seedRoundFromPendingPool(working, curRound);
     // Waterfall's headcount always fits exactly (validated against the
     // graph's own declared totals above); this is a defensive fallback.

@@ -89,6 +89,32 @@ export function computeCleanTargets(
   return computeTargets(total, floor, 1, roomSize);
 }
 
+/** One plain-cut elimination round: `players` enter, `target` survive. */
+export function eliminationRound(
+  players: number,
+  target: number,
+  roundNum: number,
+  config: SingleEliminationConfig,
+  seedingOverride?: TournamentRound['seedingOverride'],
+): TournamentRound {
+  const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
+  const split = splitAdvancement(target, distribution.byeCount, distribution.rooms.length);
+  return {
+    roundNum,
+    players,
+    rooms: distribution.rooms,
+    byeCount: distribution.byeCount,
+    isQual: false,
+    isNoElim: false,
+    isSemis: false,
+    isFinal: false,
+    advPerRoom: split.advPerRoom,
+    advTotal: target,
+    luckyCount: split.luckyCount,
+    ...(seedingOverride ? { seedingOverride } : {}),
+  };
+}
+
 export function singleEliminationBracketPhase(
   seedTotal: number,
   startRoundNum: number,
@@ -102,29 +128,15 @@ export function singleEliminationBracketPhase(
       computeEliminationRoundCount(seedTotal, config.semisSize, config.roomSize),
       config.roomSize,
     );
-  const rounds: TournamentRound[] = [];
-
-  for (const [index, target] of targets.entries()) {
-    const players = index === 0 ? seedTotal : targets[index - 1];
-    const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
-    const split = splitAdvancement(target, distribution.byeCount, distribution.rooms.length);
-    rounds.push({
-      roundNum: startRoundNum + index,
-      players,
-      rooms: distribution.rooms,
-      byeCount: distribution.byeCount,
-      isQual: false,
-      isNoElim: false,
-      isSemis: false,
-      isFinal: false,
-      advPerRoom: split.advPerRoom,
-      advTotal: target,
-      luckyCount: split.luckyCount,
-      ...(config.explicitSeedingOverrides?.[index]
-        ? { seedingOverride: config.explicitSeedingOverrides[index] }
-        : {}),
-    });
-  }
+  const rounds: TournamentRound[] = targets.map((target, index) =>
+    eliminationRound(
+      index === 0 ? seedTotal : targets[index - 1],
+      target,
+      startRoundNum + index,
+      config,
+      config.explicitSeedingOverrides?.[index],
+    ),
+  );
 
   const semisRoundNum = startRoundNum + targets.length;
   const semisRooms = distributeRooms(config.semisSize, config.roomSize);

@@ -1,4 +1,5 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
+import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat, deriveRoomSize, resolveOddCountStrategy } from './formats';
 import {
   GROUP_SIZE_BOUNDS,
@@ -453,49 +454,18 @@ export function generateTournament(
   // round-count override for these two formats -- no separate field needed.
   const usesEliminationTargetOverrides =
     schedule === 'single-elimination' || schedule === 'double-elimination-shared-final';
-  let explicitTargets: number[] | undefined;
-  if (form.eliminationRoundTargets.trim() && usesEliminationTargetOverrides) {
-    const parts = form.eliminationRoundTargets.split(',').map((part) => part.trim());
-    const values = parts.map((part) => Number.parseInt(part, 10));
-    const isValidInteger = (value: number, part: string) =>
-      Number.isFinite(value) && value >= 1 && String(value) === part;
-    if (values.some((value, index) => !isValidInteger(value, parts[index]))) {
-      return generationError(
-        `Elimination round targets must be a comma-separated list of positive whole numbers — got "${form.eliminationRoundTargets}".`,
-      );
-    }
-    for (let index = 1; index < values.length; index += 1) {
-      if (values[index] > values[index - 1]) {
-        return generationError(
-          `Elimination round targets must not increase from round to round — got ${values.join(',')}.`,
-        );
-      }
-    }
-    if (values[0] > bracketEntryCount) {
-      return generationError(
-        `The first elimination round target (${values[0]}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`} (${bracketEntryCount}).`,
-      );
-    }
-    const lastTarget = values[values.length - 1];
-    if (schedule === 'double-elimination-shared-final') {
-      // The list is the whole winners-bracket curve and its last round feeds
-      // the Final directly, so its last value is exactly the Final's
-      // winners-bracket share, not a minimum.
-      if (lastTarget !== winnersQualifiers) {
-        return generationError(
-          `The last elimination round target (${lastTarget}) must be exactly ${winnersQualifiers} for a shared Final: the ${prospectiveFinalSize}-seat Final takes ${winnersQualifiers} from the winners bracket and ${lbQualifiers} from the losers bracket (LB qualifiers). End the list at ${winnersQualifiers}, or change the Final size override / LB qualifiers.`,
-        );
-      }
-    } else {
-      const floor = semisOverride || 2 * roomSize.ideal;
-      if (lastTarget < floor) {
-        return generationError(
-          `The last elimination round target (${lastTarget}) must be at least ${floor} (the Semis size) — there'd be nothing left to feed the next phase.`,
-        );
-      }
-    }
-    explicitTargets = values;
-  }
+  const parsedTargets = parseEliminationTargets(form.eliminationRoundTargets, {
+    schedule,
+    bracketEntryCount,
+    entryLabel:
+      config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`,
+    semisSize: semisOverride || 2 * roomSize.ideal,
+    winnersQualifiers: winnersQualifiers ?? 0,
+    finalSize: prospectiveFinalSize,
+    lbQualifiers: lbQualifiers ?? 0,
+  });
+  if (!parsedTargets.ok) return generationError(parsedTargets.error);
+  const explicitTargets = parsedTargets.values;
 
   // Elimination seeding-weight override: an ordered list of fixed reseed
   // modes, index-aligned with eliminationRoundTargets -- only meaningful

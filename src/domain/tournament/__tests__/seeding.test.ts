@@ -5,6 +5,8 @@ import {
   doubleEliminationApproachProgress,
   randomSeed,
   recencyWeight,
+  recordRoomHistory,
+  rewindRoomHistory,
   RECENCY_REPEAT_WEIGHT_K,
   roomPairKey,
   selectPoolingBye,
@@ -749,5 +751,24 @@ describe('tieredBracketSeed', () => {
         [2, 2],
       ]);
     });
+  });
+});
+
+describe('rewindRoomHistory', () => {
+  const room = (names: string[]): RoundAssignment[] =>
+    names.map((name) => ({ name, room: 1, isLucky: false }));
+
+  it('rewinds a pair to its next-most-recent meeting and drops a pair that only met in the rewound round', () => {
+    const assignments = [room(['A', 'B']), room(['C', 'D']), room(['A', 'C']), room(['A', 'B', 'C'])];
+    let history: Record<string, number> = {};
+    assignments.forEach((entry, index) => {
+      history = recordRoomHistory(history, entry, index);
+    });
+    // Rewind round 3: A-B met in round 0 before, A-C in round 2, B-C only in round 3.
+    const rewound = rewindRoomHistory(history, assignments, 3);
+    expect(rewound[roomPairKey('A', 'B')]).toBe(0);
+    expect(rewound[roomPairKey('A', 'C')]).toBe(2);
+    expect(roomPairKey('B', 'C') in rewound).toBe(false);
+    expect(rewound[roomPairKey('C', 'D')]).toBe(1);
   });
 });
