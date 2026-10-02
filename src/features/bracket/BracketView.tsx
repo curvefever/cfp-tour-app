@@ -197,6 +197,15 @@ function resultClasses(result: RowResult, followed: boolean) {
   );
 }
 
+/** Shown on a unit the organiser placed, moved or reinstated through a line-up correction. */
+function ManualMarker() {
+  return (
+    <Badge className='ml-0.5 px-1.5 py-px text-[0.6rem]' title='Set by organiser' tone='accent'>
+      ✋
+    </Badge>
+  );
+}
+
 function FinalColumn({
   state,
   roundIndex,
@@ -319,6 +328,7 @@ function FinalColumn({
               <span className='min-w-0 flex-1'>
                 {winner ? '🏆 ' : ''}
                 {unitDisplay(state, name).label}
+                {assignments.find((entry) => entry.name === name)?.manual ? <ManualMarker /> : null}
               </span>
               <span
                 className={cn('text-xs font-bold text-muted', winner && 'text-primary')}
@@ -1037,6 +1047,7 @@ function RoundBody({
               const badges = (
                 <>
                   {showResults && lucky ? '★ ' : ''}
+                  {units.find((unit) => unit.name === entry.name)?.manual ? <ManualMarker /> : null}
                   {kvLabel ? (
                     <Badge
                       className='ml-0.5 px-1.5 py-px text-[0.6rem]'

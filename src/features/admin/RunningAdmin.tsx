@@ -22,6 +22,7 @@ import {
   TimelineItem,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
 import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
@@ -124,6 +125,7 @@ export function RunningAdmin() {
         </Alert>
       ) : null}
       <LiveSyncCard />
+      <CorrectCurrentRoundPanel state={state} />
       <Panel>
         <PanelTitle>Tournament progress</PanelTitle>
         <Timeline>
