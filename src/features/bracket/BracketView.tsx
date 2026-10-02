@@ -104,6 +104,19 @@ function FollowBanner({
   );
 }
 
+function memberLabel(
+  state: TournamentState,
+  name: string,
+  roundIndex: number,
+  rawIndex: number,
+  memberName: string,
+) {
+  const defender =
+    state.gamemodeConfig.teamScoringRule === 'designated-player' &&
+    getDefenderIndex(state, name, roundIndex) === rawIndex;
+  return `${memberName}${defender ? ' 🛡' : ''}`;
+}
+
 function TeamMembers({
   state,
   name,
@@ -121,10 +134,7 @@ function TeamMembers({
       {info.members
         .map((member, index) => {
           const rawIndex = team?.members.findIndex((entry) => entry?.name === member) ?? index;
-          const defender =
-            state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-            getDefenderIndex(state, name, roundIndex) === rawIndex;
-          return `${member}${defender ? ' 🛡' : ''}`;
+          return memberLabel(state, name, roundIndex, rawIndex, member);
         })
         .join(', ')}
     </span>
@@ -296,6 +306,7 @@ function FinalColumn({
         progress.units.find((unit) => unit.name === assignment.name)?.perGame[activeTab - 1] == null,
     );
   const isActiveGameAnonymous = (round.anonymousGames ?? []).includes(activeTab);
+  const inputsPerTeam = editable && tab !== 0 && !isActiveGameAnonymous ? memberInputs : undefined;
   const names = progress.complete
     ? progress.order.filter((name): name is string => Boolean(name))
     : assignments.map((entry) => entry.name);
@@ -394,7 +405,9 @@ function FinalColumn({
                 {progress.isGrandFinal ? unit.wins : unit.total}
               </span>
             </div>
-            {teamSize ? <TeamMembers state={state} name={name} roundIndex={roundIndex} /> : null}
+            {teamSize && !inputsPerTeam ? (
+              <TeamMembers state={state} name={name} roundIndex={roundIndex} />
+            ) : null}
             <div className='mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[0.68rem] text-muted'>
               {unit.perGame.map((score, game) => (
                 <span className={score === null ? 'opacity-50' : ''} key={game}>
@@ -408,9 +421,9 @@ function FinalColumn({
             {editable && tab !== 0 && !isActiveGameAnonymous ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>
                 <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
-                {memberInputs ? (
+                {inputsPerTeam ? (
                   <TeamScoreFields>
-                    {Array.from({ length: memberInputs }, (_, memberIndex) => {
+                    {Array.from({ length: inputsPerTeam }, (_, memberIndex) => {
                       const member = team?.members?.[memberIndex];
                       if (!member)
                         return (
@@ -424,7 +437,7 @@ function FinalColumn({
                       const key = `game${activeTab}-${name}-m${memberIndex}`;
                       return (
                         <label key={key}>
-                          <span>{member.name}</span>
+                          <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>
                           <ScoreInput
                             className={compactScoreClass}
                             min='0'
@@ -968,6 +981,7 @@ function RoundBody({
   const memberInputs = scoredTeamSize(state);
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
+  const inputsPerTeam = rowsEditable ? memberInputs : undefined;
   const games = round.numGames ?? 1;
   const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
   let cutoffAdvancing: Set<string> | null = null;
@@ -1129,7 +1143,9 @@ function RoundBody({
                       <span className='min-w-0 flex-1'>
                         {badges}
                         <span>{unitDisplay(state, entry.name).label}</span>
-                        <TeamMembers state={state} name={entry.name} roundIndex={roundIndex} />
+                        {inputsPerTeam ? null : (
+                          <TeamMembers state={state} name={entry.name} roundIndex={roundIndex} />
+                        )}
                       </span>
                       {showResults ? (
                         <span className='ml-auto flex items-center text-xs font-bold text-muted'>
@@ -1138,9 +1154,9 @@ function RoundBody({
                         </span>
                       ) : null}
                     </div>
-                    {rowsEditable && memberInputs ? (
+                    {inputsPerTeam ? (
                       <TeamScoreFields>
-                        {Array.from({ length: memberInputs }, (_, memberIndex) => {
+                        {Array.from({ length: inputsPerTeam }, (_, memberIndex) => {
                           const member = team?.members?.[memberIndex];
                           if (!member)
                             return (
@@ -1155,7 +1171,9 @@ function RoundBody({
                             const key = `r${roundIndex}-rm${room}-p${entry.position}-m${memberIndex}`;
                             return (
                               <label key={key}>
-                                <span>{member.name}</span>
+                                <span>
+                                  {memberLabel(state, entry.name, roundIndex, memberIndex, member.name)}
+                                </span>
                                 <BracketScoreInput
                                   state={state}
                                   scoreKey={key}
@@ -1167,7 +1185,9 @@ function RoundBody({
                           }
                           return (
                             <label key={memberIndex}>
-                              <span>{member.name}</span>
+                              <span>
+                                {memberLabel(state, entry.name, roundIndex, memberIndex, member.name)}
+                              </span>
                               {Array.from({ length: games }, (_, gameIndex) => {
                                 const key = `r${roundIndex}-rm${room}-p${entry.position}-g${gameIndex + 1}-m${memberIndex}`;
                                 return (
