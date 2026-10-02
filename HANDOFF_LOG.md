@@ -6,6 +6,34 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket: game count on multi-game rounds (done — 2026-10-02)
+
+### Context
+Viewers couldn't tell before a round started that it was played over several games: the game tabs and per-game columns appear only once units are assigned to it. The Bracket now shows a small tag on the column header, from generation onwards, for everyone (signed-out viewers and the Archive's read-only Bracket included). Planned in `plans/2026-10-02-bracket-game-count.md`; one commit, `cdabed3`.
+
+### What changed
+- **General rule, not Semis/Final special-casing.** `roundGameCount(state, roundIndex)` (`bracket.ts`) returns `{ games, upTo: false }` for any round whose `numGames` is greater than 1, else `null`. Today that is Semis and Final (single elimination), the Kings Valley Final, the waterfall Final and the shared-Final double-elimination Final; a future multi-game round gets the tag with no further change. The tag text lives in the component (`N games`, prefixed `up to ` when `upTo`), not in the domain.
+- **Race Grand Final shows "up to N games".** Its `numGames` isn't a fixed count: it starts at 1 and grows by one each time a game is opened (`progressGrandFinalRace`), until one side reaches its win target. So the helper ignores `numGames` for a `grand-final` round and reports the maximum, `wbTarget + lbTarget − 1`: one side can be one win short of its target while the other reaches its own (default targets 2/3 give 4). Both targets 1 means a maximum of 1, so no tag. **Accepted simplification:** a drawn game counts for neither side (`computeGrandFinalRaceState`), so the maximum assumes decisive games and a drawn game could in theory push a Grand Final past the stated maximum.
+- **`grandFinalTargets(state)` (`finals.ts`).** The two `|| 2` / `|| 3` fallbacks now live in one place, used by both `computeGrandFinalRaceState` and `roundGameCount`.
+- **Separate helper, not part of the label.** `bracketRoundLabels` also feeds destination tags ("→ Semis", `destinationLabel`), which must not gain "· 3 games".
+- **`BracketView.tsx`.** `RoundColumn` takes an optional `gameCount`; the tag is built once and rendered in both the `<button>` and `<div>` header branches (`ml-auto`, `normal-case`, `tracking-normal`, `font-normal`, muted). `renderSingle` and `renderWave` pass `roundGameCount`; Archive brackets get it through the shared `BracketRounds`. The tag reads only `state.rounds` and `state.gamemodeConfig`, which are synced to every viewer: no viewer-side computation, no editable-only gating.
+- `docs/views.md` (Bracket) gained one sentence about the tag.
+
+### Testing performed
+- `roundGameCount` unit cases: `numGames` undefined / 1 → null; 2 and 4 → `{ games, upTo: false }`; missing round → null; Grand Final with default targets at `numGames` 1 and 3 → `{ games: 4, upTo: true }`; targets 3/4 → 6; targets 1/1 → null.
+- Generation cases at awkward counts: FFA single elimination with **37** players, Semis 2 / Final 3: the count is 2 exactly on the Semis round, 3 exactly on the Final, `null` elsewhere. Head-to-head double elimination with **31** units and default targets: only the Grand Final returns a value (`{ games: 4, upTo: true }`); every WB/LB round is `null`. The existing race tests stayed green after the `finals.ts` extraction.
+- Live (test site): the 37-player tournament (nothing scored) shows "2 games" on Semis and "3 games" on Final and no other tag; collapsing and expanding the Final keeps the text with no header overflow; the Archive's read-only Bracket shows the same tags. The 31-unit 1v1 double-elimination tournament shows "up to 4 games" on the Grand Final and no tag on any WB/LB round. A real signed-out session was not opened; the Archive's read-only Bracket stood in for it.
+
+### Known visual issue (parked)
+In the live check the Grand Final header ("🏆 Grand Final" plus "up to 4 games") wraps onto two lines in a column of this width. The organiser isn't satisfied with how the tag looks and decided it is **not** fixed now: it will be reviewed after the planned design rework, in a later session. The implementation itself was judged good.
+
+### Out of scope
+- Game counts anywhere except the Bracket: Scoreboard, Rankings, Setup's schedule preview.
+- Game counts on the losers-bracket sub-labels inside a wave box.
+- Any restyle of the round header beyond adding the tag.
+
+---
+
 ## Admin/teams polish (done — 2026-10-02)
 
 ### Context
