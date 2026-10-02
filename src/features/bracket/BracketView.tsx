@@ -46,6 +46,7 @@ import {
   getDefenderIndex,
   getUnitScore,
   orderRoomByScore,
+  scoredTeamSize,
   tieResolutionList,
 } from '../../domain/tournament/scoring';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -166,6 +167,61 @@ function TeamScoreFields({ children }: { children: ReactNode }) {
   );
 }
 
+/** The score inputs of one unit that takes a single score per game: one input, or G1..Gn plus a total. */
+function UnitScoreFields({
+  state,
+  roundIndex,
+  room,
+  position,
+  games,
+}: {
+  state: TournamentState;
+  roundIndex: number;
+  room: number;
+  position: number;
+  games: number;
+}) {
+  const key = `r${roundIndex}-rm${room}-p${position}`;
+  if (games <= 1)
+    return <BracketScoreInput state={state} scoreKey={key} roundIndex={roundIndex} room={room} />;
+  return (
+    <TeamScoreFields>
+      {Array.from({ length: games }, (_, gameIndex) => {
+        const gameKey = `${key}-g${gameIndex + 1}`;
+        return (
+          <label key={gameKey}>
+            <span>G{gameIndex + 1}</span>
+            <BracketScoreInput
+              state={state}
+              scoreKey={gameKey}
+              roundIndex={roundIndex}
+              room={room}
+              className={compactScoreClass}
+            />
+          </label>
+        );
+      })}
+      <span className='text-[0.68rem] font-bold text-foreground'>
+        Total {getUnitScore(state, roundIndex, room, position, 0)}
+      </span>
+    </TeamScoreFields>
+  );
+}
+
+/** The Final's score input for one unit that takes a single score per game. */
+function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scoreKey: string }) {
+  const app = useTournamentApp();
+  return (
+    <ScoreInput
+      className={compactScoreClass}
+      min='0'
+      step={1}
+      value={state.finalScores[scoreKey] ?? ''}
+      onChange={(event) => app.updateState((current) => setFinalScore(current, scoreKey, event.target.value))}
+    />
+  );
+}
+
 /**
  * Whether a lone unit's room reads as "treated as a bye": true for rounds
  * whose results feed standings or plain per-room advancement (pooling,
@@ -226,6 +282,7 @@ function FinalColumn({
   const assignments = state.assignments[roundIndex] ?? [];
   const progress = finalsProgressState(state, roundIndex, round);
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
+  const memberInputs = scoredTeamSize(state);
   const teamMap = buildTeamMap(state);
   const games = round.numGames ?? 1;
   const activeTab = Math.min(tab, games);
@@ -351,9 +408,9 @@ function FinalColumn({
             {editable && tab !== 0 && !isActiveGameAnonymous ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>
                 <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
-                {teamSize ? (
+                {memberInputs ? (
                   <TeamScoreFields>
-                    {Array.from({ length: teamSize }, (_, memberIndex) => {
+                    {Array.from({ length: memberInputs }, (_, memberIndex) => {
                       const member = team?.members?.[memberIndex];
                       if (!member)
                         return (
@@ -382,20 +439,7 @@ function FinalColumn({
                     })}
                   </TeamScoreFields>
                 ) : (
-                  (() => {
-                    const key = `game${activeTab}-${name}`;
-                    return (
-                      <ScoreInput
-                        className={compactScoreClass}
-                        min='0'
-                        step={1}
-                        value={state.finalScores[key] ?? ''}
-                        onChange={(event) =>
-                          app.updateState((current) => setFinalScore(current, key, event.target.value))
-                        }
-                      />
-                    );
-                  })()
+                  <FinalUnitScoreInput state={state} scoreKey={`game${activeTab}-${name}`} />
                 )}
               </div>
             ) : null}
@@ -921,6 +965,7 @@ function RoundBody({
     );
   const exitRule = roundExitRule(state, roundIndex);
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
+  const memberInputs = scoredTeamSize(state);
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
   const games = round.numGames ?? 1;
@@ -1093,9 +1138,9 @@ function RoundBody({
                         </span>
                       ) : null}
                     </div>
-                    {rowsEditable ? (
+                    {rowsEditable && memberInputs ? (
                       <TeamScoreFields>
-                        {Array.from({ length: teamSize }, (_, memberIndex) => {
+                        {Array.from({ length: memberInputs }, (_, memberIndex) => {
                           const member = team?.members?.[memberIndex];
                           if (!member)
                             return (
@@ -1146,10 +1191,20 @@ function RoundBody({
                         ) : null}
                       </TeamScoreFields>
                     ) : null}
+                    {rowsEditable && !memberInputs ? (
+                      <div className='mt-1 flex'>
+                        <UnitScoreFields
+                          state={state}
+                          roundIndex={roundIndex}
+                          room={room}
+                          position={entry.position}
+                          games={games}
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 );
               }
-              const key = `r${roundIndex}-rm${room}-p${entry.position}`;
               if (rowsEditable && games > 1) {
                 return (
                   <div className={cn(bracketRowBase, resultClasses(result, followed))} key={entry.name}>
@@ -1159,26 +1214,13 @@ function RoundBody({
                         {entry.name}
                       </span>
                     </div>
-                    <TeamScoreFields>
-                      {Array.from({ length: games }, (_, gameIndex) => {
-                        const gameKey = `${key}-g${gameIndex + 1}`;
-                        return (
-                          <label key={gameKey}>
-                            <span>G{gameIndex + 1}</span>
-                            <BracketScoreInput
-                              state={state}
-                              scoreKey={gameKey}
-                              roundIndex={roundIndex}
-                              room={room}
-                              className={compactScoreClass}
-                            />
-                          </label>
-                        );
-                      })}
-                      <span className='text-[0.68rem] font-bold text-foreground'>
-                        Total {getUnitScore(state, roundIndex, room, entry.position, 0)}
-                      </span>
-                    </TeamScoreFields>
+                    <UnitScoreFields
+                      state={state}
+                      roundIndex={roundIndex}
+                      room={room}
+                      position={entry.position}
+                      games={games}
+                    />
                   </div>
                 );
               }
@@ -1192,7 +1234,13 @@ function RoundBody({
                     {entry.name}
                   </span>
                   {rowsEditable ? (
-                    <BracketScoreInput state={state} scoreKey={key} roundIndex={roundIndex} room={room} />
+                    <UnitScoreFields
+                      state={state}
+                      roundIndex={roundIndex}
+                      room={room}
+                      position={entry.position}
+                      games={1}
+                    />
                   ) : showResults ? (
                     <span className='ml-auto flex items-center text-xs font-bold text-muted'>
                       {entry.score}
