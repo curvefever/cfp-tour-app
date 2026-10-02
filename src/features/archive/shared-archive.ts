@@ -1,4 +1,4 @@
-import type { TournamentState } from '../../domain/tournament/types';
+import type { GameFormatKey, TournamentState } from '../../domain/tournament/types';
 import { unmarshalFromFirebase } from '../sync/live-sync';
 
 export interface ArchiveAnnotation {
@@ -11,6 +11,8 @@ export interface SharedArchiveSummary {
   title: string;
   dateSaved: string;
   playerCount: number;
+  /** Absent on entries saved before the field existed. */
+  gameFormat?: GameFormatKey;
   roundsPlayed: number;
   hasSettings: boolean;
 }
@@ -37,6 +39,7 @@ export function buildSharedArchiveSummary(
     title: archiveTitle(snapshot),
     dateSaved,
     playerCount: snapshot.players.length,
+    gameFormat: snapshot.gameFormat,
     roundsPlayed: snapshot.rounds[snapshot.curRound]?.roundNum ?? 0,
     hasSettings: Boolean(snapshot.settings),
   };
@@ -57,12 +60,20 @@ function isAnnotation(value: unknown): value is ArchiveAnnotation {
 
 function parseSummary(raw: unknown): SharedArchiveSummary | null {
   if (!isRecord(raw)) return null;
-  const { tournamentId, title, dateSaved, playerCount, roundsPlayed, hasSettings } = raw;
+  const { tournamentId, title, dateSaved, playerCount, roundsPlayed, hasSettings, gameFormat } = raw;
   if (typeof tournamentId !== 'string' || typeof title !== 'string' || typeof dateSaved !== 'string') {
     return null;
   }
   if (typeof playerCount !== 'number' || typeof roundsPlayed !== 'number') return null;
-  return { tournamentId, title, dateSaved, playerCount, roundsPlayed, hasSettings: hasSettings === true };
+  return {
+    tournamentId,
+    title,
+    dateSaved,
+    playerCount,
+    ...(typeof gameFormat === 'string' ? { gameFormat: gameFormat as GameFormatKey } : {}),
+    roundsPlayed,
+    hasSettings: hasSettings === true,
+  };
 }
 
 /** Parses the raw `archive/index` node (an object keyed by tournament id), dropping malformed records. */

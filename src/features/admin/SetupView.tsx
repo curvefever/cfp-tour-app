@@ -7,6 +7,7 @@ import {
   deriveRoomSize,
   getGameFormat,
   resolveOddCountStrategy,
+  unitLabelPluralLower,
 } from '../../domain/tournament/formats';
 import { generateTournament } from '../../domain/tournament/generation';
 import { resetRoster } from '../../domain/tournament/mutations';
@@ -643,7 +644,7 @@ export function SetupView() {
           </ButtonRow>
         </Panel>
         <Panel>
-          <Field label={`Registered ${(format?.unitLabelPlural ?? 'Players').toLowerCase()}`}>
+          <Field label={`Registered ${unitLabelPluralLower(setup.gameFormat)}`}>
             <FieldDisplay id='cfg-n-display'>
               {state.confirmedCount ?? '—'}
               {state.reserves.length ? ` (+ ${state.reserves.length} reserves)` : ''}

@@ -87,6 +87,11 @@ export function getGameFormat(
   return GAME_FORMATS[key];
 }
 
+/** The format's plural unit ("teams", "players") for running text; "players" when the format is unknown. */
+export function unitLabelPluralLower(key: GameFormatKey | undefined): string {
+  return (key ? getGameFormat(key)?.unitLabelPlural : undefined)?.toLowerCase() ?? "players";
+}
+
 /**
  * The odd-count strategy a format actually applies: the chosen one, or the
  * format's default when unset (""), or undefined for formats without odd-count

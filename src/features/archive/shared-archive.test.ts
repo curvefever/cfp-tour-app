@@ -113,6 +113,13 @@ describe('buildSharedArchiveSummary', () => {
     expect(summary.roundsPlayed).toBeGreaterThan(0);
   });
 
+  it('carries the game format, so a team tournament is not counted as players', () => {
+    const state = { ...generated(37), gameFormat: 'team-2v2v2v2' } as TournamentState;
+    const summary = buildSharedArchiveSummary('t1', state, 'd');
+    expect(summary.gameFormat).toBe('team-2v2v2v2');
+    expect(summary.playerCount).toBe(37);
+  });
+
   it('reports hasSettings false without settings, and names an untitled tournament', () => {
     const state = { ...generated(37), title: ' ', settings: undefined };
     const summary = buildSharedArchiveSummary('t1', state, 'd');
@@ -191,6 +198,20 @@ describe('shared archive parsing', () => {
     expect(parsed.map((entry) => entry.tournamentId)).toEqual(['b', 'a']);
     expect(sortArchiveIndex([good('x', '1'), good('y', '2')])[0].tournamentId).toBe('y');
     expect(parseArchiveIndex(null)).toEqual([]);
+  });
+
+  it('keeps gameFormat when present and parses an older record without it', () => {
+    const base = { title: 't', dateSaved: 'd', playerCount: 13, roundsPlayed: 1, hasSettings: false };
+    const parsed = parseArchiveIndex({
+      a: { ...base, tournamentId: 'a', gameFormat: 'team-3v3v3' },
+      b: { ...base, tournamentId: 'b' },
+      c: { ...base, tournamentId: 'c', gameFormat: 5 },
+    });
+    expect(Object.fromEntries(parsed.map((e) => [e.tournamentId, e.gameFormat]))).toEqual({
+      a: 'team-3v3v3',
+      b: undefined,
+      c: undefined,
+    });
   });
 
   it('reads hasSettings false when the flag is false or missing', () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { archiveBundle, loadArchiveIndex } from '../../lib/persistence/archive';
+import { unitLabelPluralLower } from '../../domain/tournament/formats';
 import { downloadJson } from '../../lib/browser-download';
 import { Alert, Button } from '../../components/ui';
 import { useAuth } from '../auth/AuthProvider';
@@ -77,8 +78,9 @@ export function ArchiveView() {
             >
               <span className='text-lg font-bold'>{summary.title}</span>
               <span className='text-xs text-muted'>
-                {new Date(summary.dateSaved).toLocaleString()} · {summary.playerCount} players ·{' '}
-                {summary.roundsPlayed} round{summary.roundsPlayed === 1 ? '' : 's'} played
+                {new Date(summary.dateSaved).toLocaleString()} · {summary.playerCount}{' '}
+                {unitLabelPluralLower(summary.gameFormat)} · {summary.roundsPlayed} round
+                {summary.roundsPlayed === 1 ? '' : 's'} played
               </span>
             </button>
           ))}
