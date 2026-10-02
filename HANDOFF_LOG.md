@@ -6,6 +6,54 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Shared archive: Firebase-backed, public read, admin write (done — 2026-10-02)
+
+### Context
+The Archive was a per-browser `localStorage` list with JSON import/export, so only the organiser who saved a tournament could see it, and a cleared browser lost it. It is now one shared archive per environment (test and prod separate, like tournaments) that anyone can read and only Tour Admins write. Plan: `plans/2026-10-02-shared-archive.md`.
+
+### Settled with the organiser
+- The Archive tab is visible to viewers and anonymous visitors; only Tour Admins write, through server functions calling `requireTourAdminPermission()`.
+- Start fresh: nothing migrated. The local list, JSON import and JSON export are removed and there is no import into the shared archive. The only trace of the old archive is an admin-only "Download this browser's old archive (JSON)" notice when this browser's `localStorage` still holds entries; the old keys are never deleted.
+- Auto-archive of a completed Final stays; so does the manual "Save to Archive".
+- Annotations are public; only admins add or delete them.
+- Admins can save, re-save (overwrite) and delete, delete behind a confirmation.
+
+### Planner decisions (open to correction)
+- One entry per tournament, keyed by `tournamentId`. A re-save overwrites title, `dateSaved` and snapshot and keeps annotations; no "save as a new copy" or title-collision prompts. Reset / Save & Start New set `tournamentId: null` and generation mints a new id, so keying by id never merges two tournaments.
+- The server builds the summary and stamps `dateSaved` from the snapshot it receives, so the index can't disagree with the entry and the client can't forge dates.
+- Annotations are written as the whole array: last write wins between two admins annotating at the same moment.
+- No per-entry JSON export (no import exists to consume it; the Firebase console is the backup).
+- Accepted: `hasSettings` is `Boolean(snapshot.settings)`, weaker than the old `readTournamentSettings(...) !== null`. An entry with malformed settings is listed in Copy settings but copying it fails cleanly with the existing "no settings" message. Kept so `shared-archive.ts` doesn't import from `admin/copy-settings`.
+- Implementation choices: the update maps for save and delete are pure helpers (`buildArchiveSaveUpdates`, `buildArchiveDeleteUpdates`) so the "a re-save never writes `entries/{id}` whole or `/annotations`" invariant is tested; annotation timestamps are capped at 40 characters; the `curve-tour:archive-status` event detail became `{ message, failed? }` so a failed auto-archive shows in the danger tone; the auto-archive success path uses a functional `updateState` so edits made during the save aren't overwritten.
+
+### Firebase layout
+Root `environments/{test|prod}/archive` (`getArchiveRootPath`).
+- `index/{tournamentId}` → `SharedArchiveSummary` (`tournamentId`, `title`, `dateSaved`, `playerCount`, `roundsPlayed`, `hasSettings`). The Archive list subscribes to this node only.
+- `entries/{tournamentId}` → `{ tournamentId, title, dateSaved, snapshot, annotations }`, snapshot and annotations through `marshalForFirebase`. Fetched once when an entry is opened.
+- `database.rules.json`: `.read: true` on `archive/index` and on `archive/entries/$tournamentId`, `.write: false`, under both `test` and `prod`. Rules are not deployed by CI; the organiser deploys them. Admin SDK writes ignore rules.
+
+### Independently testable parts
+1. Storage layer and server write path (`shared-archive.ts`, `archive-write.shared.ts`, `archive-write.server-fns.ts`, `firebase-admin.server.ts` `updateFirebase`/`readFirebaseOnce`, `firebase-client.ts` `subscribeArchiveIndex`/`fetchArchiveEntryOnce`).
+2. Saving: Admin "Save to Archive" (overwrite confirmation, pending and error states), Reset / Save & Start New only reset after a successful save, auto-archive in `TournamentProvider` (admin only, guarded by a ref of the attempted id).
+3. The Archive tab for everyone (`ArchiveView`, `ArchiveDetail`, `useSharedArchiveIndex`); `lib/persistence/archive.ts` trimmed to the old-archive download.
+4. Copy settings reads the shared index (`hasSettings`) and fetches the entry on copy.
+
+### Testing performed
+(Left open until the live check on the test site is done.)
+- Unit tests (`src/features/archive/shared-archive.test.ts`): validators, `buildSharedArchiveSummary` at 37 and 43 players, marshal → Firebase-storage simulation → parse round trip including null holes and empty arrays, index parsing (malformed record skipped, `hasSettings` false when missing), annotation parsing, the save and delete update maps. `archive.test.ts` trimmed; `past-tournament-settings.test.ts` rewritten for summaries.
+- e2e smoke: 3/3 after the Archive tab became visible to everyone.
+
+### Out of scope
+- Migrating or importing old local entries (organiser chose start fresh).
+- Search, filters, pagination of the list.
+- Linking an archive entry to the live tournament view; archiving in-progress tournaments differently.
+- Per-annotation authorship and concurrent-annotation merging.
+- Firebase emulator or e2e coverage of authenticated writes.
+- Cleaning up stale `tournaments/{id}` nodes.
+- The list shows "players" for every format, where the detail view uses the format's unit label, so a team tournament shows "12 players" for 12 teams. Fixing it needs the format in the summary.
+
+---
+
 ## Mid-tournament corrections: advancement counts and line-up edits (done — 2026-10-02)
 
 ### Context

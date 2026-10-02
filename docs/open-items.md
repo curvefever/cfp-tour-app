@@ -17,7 +17,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 
 ## UX ideas, organiser-interested but not requested
 - **Waterfall graph editor** (current editor: click-to-route table):
-  - reusable saved templates (a named copy of the graph text plus a storage place) — partly served now: "Copy settings from a past tournament" (Setup panel) copies a past tournament's whole graph text (and every other setting) onto a new one, from the local Archive or a pasted link/id; still no named-template list independent of a past tournament;
+  - reusable saved templates (a named copy of the graph text plus a storage place) — partly served now: "Copy settings from a past tournament" (Setup panel) copies a past tournament's whole graph text (and every other setting) onto a new one, from the shared Archive or a pasted link/id; still no named-template list independent of a past tournament;
   - starter-template wizard (pick a shape and a player count, get a graph that adds up);
   - drag-and-drop canvas (largest option, not discarded);
   - showing every validation problem at once (`validateAndOrderWaterfallGraph` reports only the first);
