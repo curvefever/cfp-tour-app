@@ -6,6 +6,64 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Mid-tournament corrections: advancement counts and line-up edits (done — 2026-10-02)
+
+### Context
+Roadmap item 9 ("mid-tournament manual overrides") asked for the pre-start overrides to become live. The roadmap's premise was partly outdated: round shapes already change after generation in four places (`fitNextRound`/`fitRoundToPool` on advance, `rebuildFutureRounds`/`replanFutureRounds` after a roster change, `fitKingsValleyTail`, `applyWaterfallGraphEdit`), and this build reuses those instead of relaxing the round-graph invariant in a new form. Item 9 needed neither relaxation: every edited format makes plain cuts, so the partial-population-routing half of the invariant is not involved.
+
+### Settled with the organiser
+1. Two features, one Admin panel ("Correct current round"): (a) advancement counts (the elimination targets and the pooling cut `qualAdv`), (b) line-up correction of the round about to be played (move a unit, eliminate a unit by hand, reinstate a unit eliminated in the previous round).
+2. Advancement counts: single elimination editable until its bracket ends (current round included, until advanced, scores allowed); shared-Final double elimination only until its bracket starts; race double elimination, Kings Valley, waterfall and group stage not editable. Mid-bracket edits are values only. `qualAdv` editable while pooling runs (qual-table/Swiss), locked once the bracket starts.
+3. Line-up correction acts only on the current round while it has no score. "Pooling + single elim": pooling rounds of any bracket format, bracket rounds single elimination only.
+4. Viewers see a small marker on any unit placed, moved or reinstated by hand.
+5. One Admin-tab panel, not inline on Scoreboard.
+
+### Decided by the planner (open to correction)
+- Line-up edits are a draft saved in one step and validated as a whole (`applyLineupEdit`): head-to-head rooms of 2 can only be corrected by "eliminate X + reinstate Y" together.
+- A line-up edit never changes the round's `advTotal` or its room count; byes can be eliminated but nobody moves into or out of one.
+- Reinstate only units eliminated in the immediately preceding round (`computeRankings` derives elimination from "not in the next round's assignments", so rankings need no change).
+- No elimination in pooling rounds (use Remove); fixed-draw pooling rounds are not line-up-editable.
+- During pooling the targets list is fully editable (length included, blank = automatic) and the bracket is rebuilt from scratch; with seeding overrides the length must stay the same (index-aligned).
+- The settings snapshot is kept in sync after an advancement edit (`settings.qualAdv`, `settings.eliminationRoundTargets`, `gamemodeConfig.explicitTargets`), so "Copy settings" copies what was played. A mid-bracket edit turns an automatic curve into an explicit list; a pooling edit with blank targets goes back to automatic (stores '' and removes `explicitTargets`).
+- Out-of-range `qualAdv` is refused, not clamped. No edit history / undo.
+
+### Plan corrections made during review (record)
+- The plan said a bracket advancement edit drops the current round's `r{cur}-` tie resolutions. Corrected: those keys order units with equal scores and stay true wherever the cut moves, so they are kept. (The line-up edit still clears them, defensively; its round has no scores.)
+- A `qual-cutoff` tie resolution is keyed plainly and judged by count only, so it is dropped when `qualAdv` changes (kept when unchanged).
+- The plan's example targets "16,12" are below the FFA Semis floor (16); tests and the live check use e.g. 18,16 and 20,16.
+
+### Interpretations (decided by the implementer, confirmed in review)
+- Rooms: a room is refused only if the edit made it smaller than 2 / no larger than `advPerRoom`, or larger than `roomSize.max`, so existing odd states (a lone room after a removal, an over-cap reserve) don't block unrelated edits. Plateau rounds: moves allowed, hand elimination refused (nobody would be cut).
+- Scoreboard has no room cards (standings only), so the marker lives in Bracket only (room cards and the Final).
+
+### What was built (stages, commits on `test`)
+1. Shared extractions, no behaviour change (`29e793e`): `parseEliminationTargets` (`elimination-targets.ts`), `eliminationRound` (`single-elimination.ts`), `rewindRoomHistory` (`seeding.ts`), `roundHasAnyScore` (`scoring.ts`).
+2. Domain, advancement edits (`1daac4c`, fix `1163cb5`): `live-advancement-edit.ts` — `advancementEditScope`, `applyAdvancementEdit` (pooling: own splice of the rebuilt progression from the first bracket round on, pooling rounds untouched; bracket: current round keeps its shape, later rounds rebuilt with `eliminationRound`, Semis refitted).
+3. Domain, line-up correction (`e5abc1c`, fix `721bc6c`): `lineup-edit.ts` — `lineupEditScope`, `applyLineupEdit`; `RoundAssignment.manual?: true`.
+4. UI (`6556921`, fix `34d834c`): `features/admin/live-corrections/` (panel, line-up section with a local draft, advancement section) mounted in `RunningAdmin.tsx`; ✋ badge in Bracket.
+5. Live check (local dev, below) and these docs.
+
+### Testing
+- Awkward counts: 37 FFA qual-table (pooling edit 24→20 with 18,16; the pooling→bracket boundary reinstatement of one of 13 cut units; lucky losers at the second elimination round; moves in rooms of 8/8/7/7/7), 31 FFA single elimination (mid-bracket edit after scores, then played through Semis to the Final; last value above the Semis size refits Semis; plateau), 43 FFA shared-Final no-pooling warm-up (last target exactly the winners share), 53 `individual-1v1` (bye unit eliminated, atomic replace in a room of 2, room of 1 and room of 3 refused, a room of 1 after a removal does not block other edits, Swiss bye-cut reinstatement).
+- Mutations checked by reviewer and implementer: splicing from `curRound+1`, dropped Semis refit, dropped `seedingOverride`, kept `qual-cutoff`, shrink-only room rules, the max rule, `advPerRoom` rule, "nobody would be cut", `luckyLosers` filter, `manual` carry-over, the room filter in `reinstatableUnits`.
+- Tests: `elimination-targets.test.ts`, `live-advancement-edit.test.ts` (19), `lineup-edit.test.ts` (22), `rewindRoomHistory` in `seeding.test.ts`; existing `generation`, `single-elimination`, `waterfall-live-edit`, `mutations`, `rankings`, `transitions` suites pass unchanged.
+
+### Live check (local dev, fresh local tournaments only, signed in as a Tour Host)
+- 37 FFA qual-table SE: in round 1, `qualAdv` 24→20 and targets 18,16 saved → settings recap showed 20, Bracket showed "Top 20 in standings → Round 4", R4 (7/7/6, "1–6 → Round 5"), R5 (6/6/6, "1–5 → Semis", one lucky loser), Semis 16. Moving P34 Room A→C saved → rooms 7/8/8/7/7 and ✋ on P34 in Bracket. After scores were entered the panel showed "Round 1 has scores — line-up locked."
+- Played to round 4 (20 players, no scores): eliminated P9, reinstated P19 (cut at the pooling boundary) into Room A → ✋ on P19 in Bracket; Rankings listed P9 among the qual round 3 eliminations and P19 "still in tournament, Round 4 — Room A". With scores entered, advancement edited to 17,17: the hint read "Then Semis with 17 (minimum 16)" before and after saving; advancing seated 17 units in round 5.
+- 53 `individual-1v1` SE: at round 4, replaced P12 with reinstated P53 in a room of 2 → saved without error, ✋ on P53.
+- Notes: the locally generated tournaments could not sync (expected: no Firebase Admin credentials). Gotcha: `localStorage.clear()` on a loaded page is undone by the app re-persisting state before reload, which reopened an older local tournament id (read only, nothing written); clearing worked after stubbing `Storage.prototype.setItem` first. Local state cleared afterwards, dev server stopped.
+
+### Out of scope
+- Live edits of seeding method, pooling round count (qual/Swiss), Semis/Final sizes, LB qualifiers.
+- Adding or removing elimination rounds once the bracket has started.
+- Mid-bracket advancement edits for shared-Final double elimination; any edits for race double elimination, Kings Valley (beyond its existing auto re-plan), group stage; waterfall keeps its own graph editor.
+- Line-up edits of scored rounds, rewriting past rounds, reinstating units eliminated before the previous round, moving into or out of byes, adding/removing rooms.
+- Line-up edits for fixed-draw pooling rounds.
+- Edit history / undo; notifying players beyond the marker; a marker on Scoreboard (it has no room cards).
+
+---
+
 ## Seatable room counts: Kings Valley size limit, Shared-Final losers bracket, open-item close-out (done — 2026-10-01)
 
 **Context.** "Kings Valley: seatable cuts …" (below) closed with three open items. A scan of real generation (every format × schedule × pooling phase, 6–60 entrants) located where each one bites. (a) `distributeRooms` plans rooms below the minimum: Kings Valley and single elimination were already clean; the hits were FFA entry counts of 17 (kept by design) and **Shared-Final double-elimination losers-bracket (LB) rounds**, which plan 5 → [3,2] in 2v2v2v2 (168 scanned configurations, default settings included: 12 and 23 teams; 26 of them the *first* LB round) and 9, 10, 11, 17 in FFA. (b) Kings Valley's 14-round cap force-ends the ladder with a Final above the room maximum once the field is too large (limits: 2v2v2v2 32, 3v3v3 24, FFA 60), then `validateRoomCap` refused with a misleading message. (c) A removal leaving a short Kings Valley room.
