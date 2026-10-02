@@ -16,7 +16,7 @@ Each has one job; don't blend them.
 - **`HANDOFF.md`**: short current-state index (what the app is, core value, code map, rules summary, which doc covers what). Read it fresh at the start of every real work session; don't trust this conversation's memory, or an earlier write-up, about what's done.
 - **`docs/*.md`**: current-state reference, one file per area. Read the ones your task touches, and `docs/open-items.md` when planning, diagnosing or closing out.
 - **`HANDOFF_LOG.md`**: dated, append-only build history and the reasoning behind decisions. `grep` it (entry title, function, date); never read it whole.
-- **`ROADMAP.md`**: projects raised but not started. An entry moves to the log once built.
+- **`docs/roadmap.md`**: projects raised but not started. An entry moves to the log once built.
 
 `HANDOFF.md` and `docs/` describe the app as it is now: dates, "was replaced", "fixed on" belong in the log. These files are hand-formatted: never run `prettier --write` on `HANDOFF.md`, `HANDOFF_LOG.md` or `docs/*.md`.
 
