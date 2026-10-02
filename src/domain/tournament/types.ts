@@ -106,6 +106,8 @@ export interface RoundAssignment {
   name: string;
   room: number | null;
   isLucky?: boolean;
+  /** Placed, moved or reinstated by the organiser via a line-up correction (lineup-edit.ts). Only ever written as `true`. */
+  manual?: true;
 }
 
 /**
