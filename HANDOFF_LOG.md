@@ -9,7 +9,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 ## Shared archive: Firebase-backed, public read, admin write (done — 2026-10-02)
 
 ### Context
-The Archive was a per-browser `localStorage` list with JSON import/export, so only the organiser who saved a tournament could see it, and a cleared browser lost it. It is now one shared archive per environment (test and prod separate, like tournaments) that anyone can read and only Tour Admins write. Plan: `plans/2026-10-02-shared-archive.md`.
+The Archive was a per-browser `localStorage` list with JSON import/export, so only the organiser who saved a tournament could see it, and a cleared browser lost it. It is now one shared archive per environment (test and prod separate, like tournaments) that anyone can read and only Tour Admins write.
 
 ### Settled with the organiser
 - The Archive tab is visible to viewers and anonymous visitors; only Tour Admins write, through server functions calling `requireTourAdminPermission()`.
