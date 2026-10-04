@@ -42,6 +42,7 @@ type CommitScoreInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "value"
 export function CommitScoreInput({ value, onCommit, onFocus, onKeyDown, ...props }: CommitScoreInputProps) {
   const [draft, setDraft] = useState(value);
   const focused = useRef(false);
+  const dirty = useRef(false);
 
   useEffect(() => {
     if (!focused.current) setDraft(value);
@@ -51,14 +52,18 @@ export function CommitScoreInput({ value, onCommit, onFocus, onKeyDown, ...props
     <ScoreInput
       {...props}
       value={draft}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        dirty.current = true;
+        setDraft(event.target.value);
+      }}
       onFocus={(event) => {
         focused.current = true;
         onFocus?.(event);
       }}
       onBlur={() => {
         focused.current = false;
-        if (draft !== value) onCommit(draft);
+        if (dirty.current && draft !== value) onCommit(draft);
+        dirty.current = false;
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur();
