@@ -63,6 +63,7 @@ export function CommitScoreInput({ value, onCommit, onFocus, onKeyDown, ...props
       onBlur={() => {
         focused.current = false;
         if (dirty.current && draft !== value) onCommit(draft);
+        else setDraft(value);
         dirty.current = false;
       }}
       onKeyDown={(event) => {

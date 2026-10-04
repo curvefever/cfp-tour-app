@@ -15,7 +15,7 @@ Every score box wrote to state on every keystroke. Once a room's last score had 
 Each score box holds what is typed locally and commits only on leaving the box (Tab, Enter or a click elsewhere). Accepted cost: a half-typed value never committed is lost if the page closes mid-entry.
 
 ### What changed
-- `CommitScoreInput` (`ui/Form.tsx`): wraps `ScoreInput` with a local `draft`. `onBlur` calls `onCommit(draft)` only if it differs from `value`; Enter blurs. A box commits only if it was typed in (`dirty` ref), so clicking in and tabbing out never overwrites a score another admin synced meanwhile; if both typed, the last writer wins. While the box is not focused the draft resyncs to `value` (another admin's edit, lineup change, reset); while focused it is left alone. No timers.
+- `CommitScoreInput` (`ui/Form.tsx`): wraps `ScoreInput` with a local `draft`. `onBlur` calls `onCommit(draft)` only if it differs from `value`; Enter blurs. A box commits only if it was typed in (`dirty` ref), so clicking in and tabbing out never overwrites a score another admin synced meanwhile; a box left without saving resets to the stored score; if both typed, the last writer wins. While the box is not focused the draft resyncs to `value` (another admin's edit, lineup change, reset); while focused it is left alone. No timers.
 - `BracketView.tsx`: the four editable inputs (`BracketScoreInput`, `FinalUnitScoreInput`, Final team-member input, Final anonymous-alias input) use it. Commit logic (`setRoundScore` / `setFinalScore`) unchanged; state values are wrapped in `String()` because scores are stored as numbers.
 - `docs/views.md`: one sentence in the Bracket "Score entry" bullet.
 
