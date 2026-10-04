@@ -6,6 +6,28 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket: scores save when the box is left (done — 2026-10-04)
+
+### Context
+Every score box wrote to state on every keystroke. Once a room's last score had a value the room counted as complete and re-sorted, so typing "1234" re-sorted it four times, the focused row jumped (rows are keyed by name) and every viewer saw the same digit-by-digit flicker, since each digit was a Firebase write.
+
+### Decision (organiser)
+Each score box holds what is typed locally and commits only on leaving the box (Tab, Enter or a click elsewhere). Accepted cost: a half-typed value never committed is lost if the page closes mid-entry.
+
+### What changed
+- `CommitScoreInput` (`ui/Form.tsx`): wraps `ScoreInput` with a local `draft`. `onBlur` calls `onCommit(draft)` only if it differs from `value`; Enter blurs. While the box is not focused the draft resyncs to `value` (another admin's edit, lineup change, reset); while focused it is left alone. No timers.
+- `BracketView.tsx`: the four editable inputs (`BracketScoreInput`, `FinalUnitScoreInput`, Final team-member input, Final anonymous-alias input) use it. Commit logic (`setRoundScore` / `setFinalScore`) unchanged; state values are wrapped in `String()` because scores are stored as numbers.
+- `docs/views.md`: one sentence in the Bracket "Score entry" bullet.
+
+### Testing performed
+Lint, types and related tests on the changed files. No component tests exist (`docs/platform.md`, "Tests"). Live check on the test site: see the note below once done.
+
+### Out of scope
+- Enter moving focus to the next box; Escape to revert a draft; saving drafts across a page close.
+- Any change to sorting, tie detection or the Scoreboard tab.
+
+---
+
 ## Bracket: game count on multi-game rounds (done — 2026-10-02)
 
 ### Context

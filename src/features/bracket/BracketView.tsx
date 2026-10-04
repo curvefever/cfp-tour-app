@@ -54,7 +54,16 @@ import {
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
-import { Alert, Badge, Button, ButtonRow, Input, ScoreInput, cn } from '../../components/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonRow,
+  CommitScoreInput,
+  Input,
+  ScoreInput,
+  cn,
+} from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
@@ -158,14 +167,14 @@ function BracketScoreInput({
 }) {
   const app = useTournamentApp();
   return (
-    <ScoreInput
+    <CommitScoreInput
       className={className}
       min='0'
       step={1}
-      value={state.scores[scoreKey] ?? ''}
+      value={String(state.scores[scoreKey] ?? '')}
       data-key={scoreKey}
-      onChange={(event) =>
-        app.updateState((current) => setRoundScore(current, scoreKey, event.target.value, roundIndex, room))
+      onCommit={(value) =>
+        app.updateState((current) => setRoundScore(current, scoreKey, value, roundIndex, room))
       }
     />
   );
@@ -224,12 +233,12 @@ function UnitScoreFields({
 function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scoreKey: string }) {
   const app = useTournamentApp();
   return (
-    <ScoreInput
+    <CommitScoreInput
       className={compactScoreClass}
       min='0'
       step={1}
-      value={state.finalScores[scoreKey] ?? ''}
-      onChange={(event) => app.updateState((current) => setFinalScore(current, scoreKey, event.target.value))}
+      value={String(state.finalScores[scoreKey] ?? '')}
+      onCommit={(value) => app.updateState((current) => setFinalScore(current, scoreKey, value))}
     />
   );
 }
@@ -440,13 +449,13 @@ function FinalColumn({
                       return (
                         <label key={key}>
                           <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>
-                          <ScoreInput
+                          <CommitScoreInput
                             className={compactScoreClass}
                             min='0'
                             step={1}
-                            value={state.finalScores[key] ?? ''}
-                            onChange={(event) =>
-                              app.updateState((current) => setFinalScore(current, key, event.target.value))
+                            value={String(state.finalScores[key] ?? '')}
+                            onCommit={(value) =>
+                              app.updateState((current) => setFinalScore(current, key, value))
                             }
                           />
                         </label>
@@ -525,14 +534,14 @@ function AnonymousFinalCard({
             {editable && !entry.connected && anonymousGames.includes(activeTab) ? (
               <div className='mt-1 flex flex-wrap items-center gap-1.5'>
                 <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
-                <ScoreInput
+                <CommitScoreInput
                   className={compactScoreClass}
                   min='0'
                   step={1}
-                  value={state.finalScores[`game${activeTab}-${entry.alias}`] ?? ''}
-                  onChange={(event) =>
+                  value={String(state.finalScores[`game${activeTab}-${entry.alias}`] ?? '')}
+                  onCommit={(value) =>
                     app.updateState((current) =>
-                      setFinalScore(current, `game${activeTab}-${entry.alias}`, event.target.value),
+                      setFinalScore(current, `game${activeTab}-${entry.alias}`, value),
                     )
                   }
                 />
