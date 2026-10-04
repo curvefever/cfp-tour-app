@@ -20,7 +20,7 @@ Each score box holds what is typed locally and commits only on leaving the box (
 - `docs/views.md`: one sentence in the Bracket "Score entry" bullet.
 
 ### Testing performed
-Lint, types and related tests on the changed files. No component tests exist (`docs/platform.md`, "Tests"). Live check on the test site: see the note below once done.
+Lint, types and related tests on the changed files. No component tests exist (`docs/platform.md`, "Tests"). Live check on the test site (31-player FFA, single elimination, rooms of 8): typed 4-digit last score with real keystrokes. The room did not re-sort until Enter (once) or until the box was left by clicking another tab (saved, re-sorted once); a chain of Tab-ed scores each committed. An edited score (1500 to 1650) and a cleared one persisted after a reload. A second tab watching the same box saw a single "" to "5678" update, no partial digits. Not exercised: multi-game round / Final game tab (optional). Note for future live checks: scripted `focus()`/`blur()` fire no React events when the browser pane lacks window focus, so use real clicks, typing and Tab.
 
 ### Out of scope
 - Enter moving focus to the next box; Escape to revert a draft; saving drafts across a page close.
