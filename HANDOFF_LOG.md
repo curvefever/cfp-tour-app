@@ -6,6 +6,49 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Standings: viewer tab, Bracket column, room-share tie-breaker (done — 2026-10-05)
+
+### Context
+`docs/views.md` called the Scoreboard "admin tooling, not a viewer destination". That verdict (log entry "Round 2: Bracket/Scoreboard/Players mockups", 2026-09-04) was made about the legacy Scoreboard, which showed the current round's rooms. Since "Scoreboard audit: trim to standings-only" (2026-09-15) the tab shows only the pooling standings, the thing players need most during qualification ("am I going through?"), and the verdict was never revisited. "Where do I stand" was split three ways and none was complete: the Scoreboard had the full table but no cut line, qualifying count or follow highlight; Bracket showed the cut only on the last pooling round; Rankings showed a small `#rank · FP` badge. Plan: `plans/2026-10-05-standings-rethink.md`.
+
+### Decisions (organiser, 2026-10-05)
+- **Tie-breaker: average room share.** Equal standing points are separated by the higher average of score ÷ own room's total over counted rounds, the measure lucky losers already use. Raw score totals were rejected: they favour bigger rooms and more rounds played. A rank is shared, and a cut-off tie card appears, only when points **and** share are equal. This is a rules change (it changes who qualifies and Swiss/qual reseeding order). **Deviation from the legacy app**, which had no such tie-breaker.
+- **Displays count a current-round room only once it's fully scored**; real advancement is unchanged (accepted limitation in `docs/open-items.md`).
+- Tab renamed **Scoreboard → Standings**, third after Bracket, hidden without a standings phase; it holds the full detail (every column, cut line, explanation, tie marks).
+- Bracket gets a compact **standings column** after the last pooling round (rank, name, points, cut, colours, follow highlight, "Full table →", foldable, one block per group); no tie marks in it.
+- The follow banner shows the standings rank during pooling. Cut-off tie cards stay in Bracket in the warning tone, distinct from the red in-room cards. Both the last-pooling-round "Top N" badge and Rankings' pool-rank badge are kept for now.
+- Lower-stakes calls made while building: tie marks come from the domain (`cutTieMarks()`) so ⚖ survives past pooling and covers the unpicked member of a resolved cluster, while a pending cluster shows only "⚠ TB?"; rows below the cut share one `'below-cut'` row style; the column gets a primary border when the followed unit is in it; Rankings reads the live display standings, not the saved `qualTable`/`groupStandings` snapshots (so the badge matches the column; Bracket already recomputes archives the same way).
+
+### Independently testable parts
+1. **Room-share tie-breaker** (`advancement.ts`, `types.ts`): `roomShare` on `TournamentStanding`, `compareStandings`, `sameStanding` (share tolerance 1e-9, points strict), cut-off clusters by `sameStanding`, `rankStandings(entries, resolvedNames)`.
+2. **Display standings** (`standings-display.ts`): `describeStandings`, `hasStandingsPhase`, `standingFor`, `cutTieMarks`; the `liveRound` option on the compute functions; Rankings badge built from it.
+3. **Standings tab** (`features/standings/`), tab shell, `'scoreboard'` → `'standings'` (a stored legacy tab is mapped), shared `result-row.ts`.
+4. **Bracket column** (`StandingsColumn.tsx`).
+5. **Follow banner rank and cut-tie card colour.**
+
+### Testing
+- Unit: `advancement.test.ts` +13 (room-share describe: share order, room-size fairness, shared rank, all-zero room, qual and group cut-off ties with and without equal share, resolved reorder, legacy snapshot without `roomShare`, `rankStandings` with resolved names, cross-group advancing order); `standings-display.test.ts` 18 (partly scored current/past/group rooms, `roundsDone` skipping non-counting rounds, phase, `cut`, cut ties qual and group, availability, `standingFor`, `cutTieMarks` incl. three-way pending); `rankings.test.ts` +1; `standings-text.test.ts` 3; `live-state.test.ts` +1. No existing test changed. Mutation checks by the reviewer caught each rule; two gaps found were closed (group cross-sort, group cut-tie coverage).
+- Awkward counts: A 43 FFA, B 53 FFA positional with a non-counting round, C 37 Swiss and D 31 group stage are used in the unit tests (generated tournaments). **Scenario C was covered by unit tests only.**
+- E2E smoke: Standings absent for a signed-out visitor without a tournament; tab switching without it.
+- **Live check** on the test site (signed in as an admin; no console errors captured):
+  - A (43 FFA, Fair Points, qualAdv 24): column between Round 3 and Round 4; with one room one score short, column, tab and Rankings badge all left that room's 8 units unranked ("After 0 of 3 rounds", 35 badges) and moved together once its last score landed ("After 1 of 3"); cut after 24, colours, follow highlight, banner "· #29 in standings", fold/unfold and "Full table →" all correct. After pooling: "Final standings · top 24 qualified", 24 advance rows, 19 struck, banner without a rank; a second tab on the viewer link showed the same.
+  - B (53 FFA, positional points, round 1 non-counting, qualAdv 31): "Standings start after Round 2." in round 1, "After 1 of 2 rounds" after round 2; on equal points the higher room share ranked first (P51, 19.0% / raw 2726, above P19, 18.6% / raw 2824). Round 3 produced a natural six-way cut tie (8 pts, 11.9%, cut at 31): amber "⚖ Qualification tie at the cut-off (8 pts)" card, "⚠ TB?" on all six in the tab and a shared rank in the column; after one pick all six still "⚠ TB?"; after five picks distinct ranks 29–34 in the column and ⚖ on all six in the tab. A forced in-room tie still gave the red "⚠ Tie-break required — Room A" card.
+  - D (31 1v1 group stage, qualifiersPerGroup 2): upcoming shows only the context line; after round 1, eight group blocks (seven of 4, one of 3) each with a cut line, "top 2 per group go through".
+  - Single elimination with no pooling: no Standings tab, no column.
+  - 375 px: no page-level horizontal overflow on Bracket or Standings.
+
+### Out of scope
+- The "what do I need to stay safe" line in the follow banner (parked in `docs/roadmap.md`).
+- Removing either the last-pooling-round badge or Rankings' pool-rank badge.
+- Making real advancement require fully scored rooms.
+- Projected bracket slots naming a standings position ("Standings #4").
+- Any tie-breaker for in-room, Semis/Final or Kings Valley ties; Swiss-specific tie-breakers (e.g. Buchholz).
+- A tolerance for `totalFP` equality (still strict `===`; only the share comparison has one).
+- Moving cut-off tie cards out of Bracket.
+- A standings column or tab for warm-up-only (`poolingPhase: 'none'`) tournaments.
+
+---
+
 ## Bracket: scores save when the box is left (done — 2026-10-04)
 
 ### Context
