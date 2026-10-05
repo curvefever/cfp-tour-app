@@ -213,3 +213,35 @@ describe('computeRankings -- DNF/no-show', () => {
     expect(rankings?.stillActive.map((entry) => entry.name)).toEqual(['P3']);
   });
 });
+
+describe('computeRankings -- pool rank badge', () => {
+  it('ignores a partly scored room of the current round', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      started: true,
+      players: ['P1', 'P2', 'P3', 'P4'],
+      cfg: { poolingPhase: 'qual-table', qualAdv: 2 },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, rooms: [2, 2], players: 4 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 2, isLucky: false },
+          { name: 'P4', room: 2, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 100, 'r0-rm2-p0': 200 },
+    });
+    const byName = new Map(computeRankings(state)?.stillActive.map((unit) => [unit.name, unit.poolRank]));
+    expect(byName.get('P1')?.rank).toBe(1);
+    expect(byName.get('P2')?.rank).toBe(2);
+    expect(byName.get('P3')).toBeNull();
+    expect(byName.get('P4')).toBeNull();
+    const complete = { ...state, scores: { ...state.scores, 'r0-rm2-p1': 50 } };
+    const after = new Map(computeRankings(complete)?.stillActive.map((unit) => [unit.name, unit.poolRank]));
+    expect(after.get('P3')?.rank).toBeDefined();
+  });
+});

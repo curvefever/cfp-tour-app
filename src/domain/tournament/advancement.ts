@@ -385,7 +385,30 @@ export function isUncontestedRoom(state: TournamentState, roundIndex: number, ro
   return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length === 1;
 }
 
-export function computeQualificationStandings(state: TournamentState): TournamentStanding[] {
+/** Display option: `liveRound` is the round still being played; its partly scored rooms are left out of the standings until their last score lands. Advancement and mutations omit it. */
+export interface StandingsOptions {
+  liveRound?: number;
+}
+
+/** True once every unit assigned to the room has a score. */
+export function isRoomFullyScored(state: TournamentState, roundIndex: number, room: number): boolean {
+  const assigned = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length;
+  return scoreRoom(state, roundIndex, room, null).length === assigned;
+}
+
+function isHeldBackLiveRoom(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  options: StandingsOptions | undefined,
+): boolean {
+  return options?.liveRound === roundIndex && !isRoomFullyScored(state, roundIndex, room);
+}
+
+export function computeQualificationStandings(
+  state: TournamentState,
+  options?: StandingsOptions,
+): TournamentStanding[] {
   const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const accumulators = new Map<string, StandingAccumulator>(
@@ -394,7 +417,8 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
   for (const [roundIndex, round] of state.rounds.entries()) {
     if (!(round.isQual || round.isSwiss) || round.excludeFromStandings) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
-      if (isUncontestedRoom(state, roundIndex, room)) continue;
+      if (isUncontestedRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
+        continue;
       const scored = scoreRoom(state, roundIndex, room, null);
       for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
         accumulators.get(entry.name)?.rounds.push({
@@ -411,7 +435,10 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
   return materializeStandings([...accumulators.values()], scoring);
 }
 
-export function computeGroupStandings(state: TournamentState): Record<string, TournamentStanding[]> {
+export function computeGroupStandings(
+  state: TournamentState,
+  options?: StandingsOptions,
+): Record<string, TournamentStanding[]> {
   const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const byGroup = new Map<string, Map<string, StandingAccumulator>>();
@@ -423,7 +450,12 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
     if (!round.isGroupStage) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       const groupLabel = round.roomGroups?.[room - 1];
-      if (!groupLabel || isUncontestedRoom(state, roundIndex, room)) continue;
+      if (
+        !groupLabel ||
+        isUncontestedRoom(state, roundIndex, room) ||
+        isHeldBackLiveRoom(state, roundIndex, room, options)
+      )
+        continue;
       const scored = scoreRoom(state, roundIndex, room, null);
       for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
         byGroup
