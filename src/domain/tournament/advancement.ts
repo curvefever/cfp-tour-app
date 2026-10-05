@@ -281,6 +281,7 @@ function applyCutoffOrder(
   const byName = new Map(tie.players.map((entry) => [entry.name, entry]));
   const output = [...table];
   const start = output.findIndex((entry) => sameStanding(entry, tie.players[0]));
+  if (start < 0) return table;
   for (const [offset, name] of [...resolved, ...remaining].entries()) {
     const entry = byName.get(name);
     if (entry && output[start + offset] !== undefined) {
@@ -338,6 +339,12 @@ interface StandingAccumulator {
   rounds: Array<{ fp: number; score: number; share: number }>;
 }
 
+/** One round's share of its room: score ÷ the room's total; an all-zero room splits equally. */
+function roomShareOf(score: number, scoredRoom: readonly ScoredUnit[]): number {
+  const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
+  return roomTotal > 0 ? score / roomTotal : 1 / scoredRoom.length;
+}
+
 // For 'fairpoints', totalFP is an average across rounds played, not a sum --
 // despite the name (kept for compatibility with the persisted
 // TournamentState shape) -- so a unit with fewer counted rounds (a bye, a
@@ -346,12 +353,6 @@ interface StandingAccumulator {
 // organiser's own real-tournament convention is a plain sum -- and summing a
 // per-round value that's already bounded below by 0 naturally penalizes a
 // smaller sample instead of needing the same protection.
-/** One round's share of its room: score ÷ the room's total; an all-zero room splits equally. */
-function roomShareOf(score: number, scoredRoom: readonly ScoredUnit[]): number {
-  const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
-  return roomTotal > 0 ? score / roomTotal : 1 / scoredRoom.length;
-}
-
 function materializeStandings(
   entries: StandingAccumulator[],
   scoring: ScoringSystemKey,

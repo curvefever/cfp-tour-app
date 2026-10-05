@@ -1629,6 +1629,26 @@ describe('room-share tie-breaker', () => {
     ).toEqual(['P3', 'P1']);
   });
 
+  it('orders group winners with equal points by room share in the advancing order', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      cfg: { qualifiersPerGroup: 1 },
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: POINTS_TABLE },
+      groups: [
+        { label: 'A', members: ['P1', 'P2'] },
+        { label: 'B', members: ['P3', 'P4'] },
+      ],
+      rounds: [
+        buildRound({ roundNum: 1, isGroupStage: true, rooms: [2, 2], roomGroups: ['A', 'B'], players: 4 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+      ],
+      assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [2, 2])],
+      // Both winners get 10 pts: P1 holds a .75 share, P3 a .833 share.
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 100, 'r0-rm2-p0': 500, 'r0-rm2-p1': 100 },
+    });
+    expect(roomBasedComputeAdvancement(state, 0).advancing.map((unit) => unit.name)).toEqual(['P3', 'P1']);
+  });
+
   it('reorders a resolved cut-off cluster among entries with the same points but other shares', () => {
     // Winners: R3P1 .9, then R1P1 and R2P1 both .75; qualAdv 2 puts the cut inside that equal pair.
     const state = withTable({
