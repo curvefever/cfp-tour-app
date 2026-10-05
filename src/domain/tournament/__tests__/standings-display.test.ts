@@ -154,6 +154,71 @@ describe('rounds done and phase', () => {
   });
 });
 
+describe('group stage (scenario D)', () => {
+  it('leaves a partly scored current-round room out of its group table until its last score lands', () => {
+    const { state, lastKey } = scoreAllButOne(scenarioD());
+    const group = state.rounds[0].roomGroups?.[0] as string;
+    const room1 = (state.assignments[0] ?? []).filter((entry) => entry.room === 1).map((e) => e.name);
+    const table = (display: ReturnType<typeof describeStandings>) =>
+      display?.tables.find((entry) => entry.groupLabel === group)?.entries ?? [];
+    expect(table(describeStandings(state)).filter((e) => room1.includes(e.name) && e.played > 0)).toEqual([]);
+    const after = table(describeStandings(restore(state, lastKey)));
+    expect(after.filter((e) => room1.includes(e.name)).every((e) => e.played === 1)).toBe(true);
+  });
+
+  describe('cut-off tie', () => {
+    function tiedGroup() {
+      const base = buildState({
+        label: 'D tie',
+        count: 31,
+        teams: false,
+        setup: {
+          ...H2H,
+          poolingPhase: 'group-stage',
+          groupSize: '4',
+          qualifiersPerGroup: '1',
+          qualAdv: '4',
+          scoring: 'positional-points',
+          positionalPointsTable: '3,1',
+        },
+      }) as TournamentState;
+      const scores: Record<string, number> = {};
+      for (const entry of base.assignments[0] ?? []) {
+        if (entry.room === null) continue;
+        const position = (base.assignments[0] ?? [])
+          .filter((other) => other.room === entry.room)
+          .findIndex((other) => other.name === entry.name);
+        scores[`r0-rm${entry.room}-p${position}`] = position === 0 ? 300 : 100;
+      }
+      const state = { ...base, started: true, scores };
+      const group = state.rounds[0].roomGroups?.[0] as string;
+      return { state, group };
+    }
+
+    function groupEntries(state: TournamentState, group: string) {
+      return describeStandings(state)?.tables.find((table) => table.groupLabel === group)?.entries ?? [];
+    }
+
+    it('shares a rank while unresolved', () => {
+      const { state, group } = tiedGroup();
+      const top = groupEntries(state, group).filter((entry) => entry.totalFP === 3);
+      expect(top.length).toBeGreaterThan(1);
+      expect(top.map((entry) => entry.rank)).toEqual(top.map(() => 1));
+    });
+
+    it('gets distinct ranks in the picked order once resolved', () => {
+      const { state, group } = tiedGroup();
+      const [first, second] = groupEntries(state, group).filter((entry) => entry.totalFP === 3);
+      const resolved = { ...state, tieResolutions: { [`group-cutoff-${group}`]: [second.name, first.name] } };
+      const entries = groupEntries(resolved, group);
+      expect(entries.slice(0, 2).map((entry) => [entry.name, entry.rank])).toEqual([
+        [second.name, 1],
+        [first.name, 2],
+      ]);
+    });
+  });
+});
+
 describe('cut', () => {
   it('is qualAdv, or null when qualAdv is at least the entrants', () => {
     expect(describeStandings(scenarioA())?.tables[0].cut).toBe(24);
