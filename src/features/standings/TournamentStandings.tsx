@@ -1,5 +1,9 @@
 import { formatStandingValue, scoringSystemLabel } from '../../domain/tournament/scoring';
-import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
+import type {
+  CutTieMarks,
+  StandingsDisplay,
+  StandingsDisplayTable,
+} from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import {
@@ -102,16 +106,12 @@ export function TournamentStandings({
   state,
   display,
   followKey,
-  placedNames,
-  pendingNames,
+  marks,
 }: {
   state: TournamentState;
   display: StandingsDisplay;
   followKey: string | null;
-  /** Names placed by a resolved cut-off tie, per table key. */
-  placedNames: Record<string, string[]>;
-  /** Names in an unresolved cut-off tie cluster, per table key. */
-  pendingNames: Record<string, string[]>;
+  marks: Record<string, CutTieMarks>;
 }) {
   const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   return (
@@ -141,8 +141,8 @@ export function TournamentStandings({
                     display={display}
                     state={state}
                     followed={followKey === entry.name}
-                    placed={(placedNames[table.key] ?? []).includes(entry.name)}
-                    pending={(pendingNames[table.key] ?? []).includes(entry.name)}
+                    placed={marks[table.key]?.placed.includes(entry.name) ?? false}
+                    pending={marks[table.key]?.pending.includes(entry.name) ?? false}
                   />
                 ))}
               </tbody>

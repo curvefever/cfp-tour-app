@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { describeStandings, hasStandingsPhase, standingFor } from '../standings-display';
+import {
+  cutTieMarks,
+  describeStandings,
+  hasStandingsPhase,
+  standingFor,
+  type StandingsDisplay,
+} from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
@@ -296,6 +302,20 @@ describe('a cut-off tie', () => {
   it('shares a rank while unresolved', () => {
     const entries = describeStandings(tiedAtCut())?.tables[0].entries ?? [];
     expect(entries.slice(0, 2).map((entry) => entry.rank)).toEqual([1, 1]);
+  });
+
+  it('marks a resolved cut tie as placed for both units, also once play has moved past pooling', () => {
+    const resolved = { ...tiedAtCut(), tieResolutions: { 'qual-cutoff': ['C'] } };
+    for (const state of [resolved, { ...resolved, curRound: 1 }]) {
+      const display = describeStandings(state) as StandingsDisplay;
+      expect(cutTieMarks(state, display)['qual-cutoff']).toEqual({ placed: ['C', 'A'], pending: [] });
+    }
+  });
+
+  it('marks an unresolved cut tie as pending for both units and none as placed', () => {
+    const state = tiedAtCut();
+    const display = describeStandings(state) as StandingsDisplay;
+    expect(cutTieMarks(state, display)['qual-cutoff']).toEqual({ placed: [], pending: ['A', 'C'] });
   });
 
   it('gets distinct ranks in the resolved order', () => {

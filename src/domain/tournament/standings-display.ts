@@ -3,9 +3,13 @@ import {
   applyQualCutoffOrder,
   computeGroupStandings,
   computeQualificationStandings,
+  getAllTies,
+  isTieResolved,
+  refreshRoundStandings,
   isRoomFullyScored,
   isUncontestedRoom,
   rankStandings,
+  sameStanding,
 } from './advancement';
 import { tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
@@ -136,4 +140,31 @@ export function standingFor(
     };
   }
   return null;
+}
+
+export interface CutTieMarks {
+  /** Units placed by a resolved cut-off tie: everything level with a picked unit, in any phase. */
+  placed: string[];
+  /** Members of a cut-off tie cluster still waiting for the organiser's pick. */
+  pending: string[];
+}
+
+/** Tie marks per table key, for the Standings tab. */
+export function cutTieMarks(state: TournamentState, display: StandingsDisplay): Record<string, CutTieMarks> {
+  const ties = getAllTies(refreshRoundStandings(state, state.curRound), state.curRound);
+  return Object.fromEntries(
+    display.tables.map((table) => {
+      const picked = tieResolutionList(state, table.key);
+      const pickedEntries = table.entries.filter((entry) => picked.includes(entry.name));
+      const placed = table.entries
+        .filter((entry) => pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)))
+        .map((entry) => entry.name);
+      const cluster = ties[table.key];
+      const pending =
+        cluster && !isTieResolved(table.key, cluster, state)
+          ? cluster.players.map((player) => player.name)
+          : [];
+      return [table.key, { placed, pending }];
+    }),
+  );
 }
