@@ -8,7 +8,11 @@ import {
   hasPendingTies,
   isTieResolved,
 } from '../../domain/tournament/advancement';
-import { describeStandings } from '../../domain/tournament/standings-display';
+import {
+  describeStandings,
+  standingFor,
+  type StandingsDisplay,
+} from '../../domain/tournament/standings-display';
 import {
   bracketBoxes,
   bracketFollowStatus,
@@ -71,6 +75,14 @@ import { bracketRowBase, resultClasses, type RowResult } from '../tournament/com
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
 
+/** " · #6 in standings" (or "in Group A") while the standings are still being decided; nothing after pooling. */
+function standingsSuffix(standings: StandingsDisplay | null, followKey: string): string {
+  if (!standings || standings.phase === 'final') return '';
+  const standing = standingFor(standings, followKey);
+  if (!standing) return '';
+  return ` · #${standing.rank} in ${standing.groupLabel ? `Group ${standing.groupLabel}` : 'standings'}`;
+}
+
 function FollowBanner({
   state,
   followKey,
@@ -82,6 +94,7 @@ function FollowBanner({
   follow: BracketFollowStatus | null;
   clear(): void;
 }) {
+  const standings = useMemo(() => describeStandings(state), [state]);
   if (!followKey) return null;
   const label = unitDisplay(state, followKey).label;
   const out = !follow || follow.eliminated;
@@ -103,6 +116,7 @@ function FollowBanner({
       )}
     >
       <strong className={out ? 'text-muted' : 'text-primary'}>Following {label}</strong> — {where}
+      {standingsSuffix(standings, followKey)}
       <Button
         aria-label='Stop following'
         className='size-6 min-h-0 rounded-full p-0'
@@ -741,19 +755,23 @@ function TieBanners({ state }: { state: TournamentState }) {
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
       const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
       const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
-      const heading =
-        'groupLabel' in tie && tie.groupLabel
-          ? `⚠ Tie-break required — Group ${tie.groupLabel} qualification cutoff (${formatStandingValue(tie.fp, scoring)} ${scoringUnit})`
-          : 'score' in tie
-            ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
-            : `⚠ Tie-break required — Qualification cutoff (${formatStandingValue(tie.fp, scoring)} ${scoringUnit})`;
+      const isCutoff = !('score' in tie);
+      const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp, scoring)} ${scoringUnit}` : '';
+      const heading = !isCutoff
+        ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
+        : 'groupLabel' in tie && tie.groupLabel
+          ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
+          : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
       return (
         <div
-          className='mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-danger bg-danger-soft px-4.5 py-3.5'
+          className={cn(
+            'mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border px-4.5 py-3.5',
+            isCutoff ? 'border-warning bg-warning-soft' : 'border-danger bg-danger-soft',
+          )}
           key={key}
         >
           <div>
-            <div className='font-semibold text-danger'>{heading}</div>
+            <div className={cn('font-semibold', isCutoff ? 'text-warning' : 'text-danger')}>{heading}</div>
             <div className='mt-1 text-xs text-muted'>
               {resolved.length
                 ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
