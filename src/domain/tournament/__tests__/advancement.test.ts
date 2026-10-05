@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildAdvancementTiers,
+  applyGroupCutoffOrder,
   computeGroupStandings,
   computeLuckyLoserStandings,
   computeQualificationStandings,
+  applyQualCutoffOrder,
   computeStandingsCutoffAdvancing,
+  getAllTies,
+  sameStanding,
   detectTieBreaks,
   doubleEliminationComputeAdvancement,
   hasPendingTies,
@@ -1472,5 +1476,209 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     const live = removeRosterUnit(state, 'B');
     expect(isUncontestedRoom(live, 0, 1)).toBe(true);
     expect(roomBasedComputeAdvancement(live, 0).advancing.map((entry) => entry.name)).toEqual(['A', 'C']);
+  });
+});
+
+describe('room-share tie-breaker', () => {
+  const POINTS_TABLE = [10, 8, 6, 5, 4, 3, 2, 1];
+
+  /** Qualification table over the given rooms (scores listed per room, in assignment order), then a non-qualification round. */
+  function qualStateWith(rooms: number[][], qualAdv: number | undefined): TournamentState {
+    const names: string[] = [];
+    const scores: Record<string, number> = {};
+    for (const [roomIndex, roomScores] of rooms.entries()) {
+      for (const [position, score] of roomScores.entries()) {
+        names.push(`R${roomIndex + 1}P${position + 1}`);
+        scores[`r0-rm${roomIndex + 1}-p${position}`] = score;
+      }
+    }
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: names,
+      cfg: { poolingPhase: 'qual-table', qualAdv },
+      gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: POINTS_TABLE },
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          isQual: true,
+          rooms: rooms.map((room) => room.length),
+          players: names.length,
+        }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        buildAssignments(
+          names,
+          rooms.map((room) => room.length),
+        ),
+      ],
+      scores,
+    });
+  }
+
+  function withTable(state: TournamentState): TournamentState {
+    return { ...state, qualTable: computeQualificationStandings(state) };
+  }
+
+  it('orders equal points by room share and gives distinct ranks', () => {
+    // R1P1 .75 and R2P1 .833 both win (10 pts); R1P2 .25 and R2P2 .167 both lose (8 pts).
+    const table = computeQualificationStandings(
+      qualStateWith(
+        [
+          [300, 100],
+          [500, 100],
+        ],
+        undefined,
+      ),
+    );
+    expect(table.map((entry) => entry.name)).toEqual(['R2P1', 'R1P1', 'R1P2', 'R2P2']);
+    expect(rankStandings(table).map((entry) => entry.rank)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('ranks by share, not raw score, across room sizes (scenario B shape)', () => {
+    // Both winners get 10 pts. The 3-room winner has the bigger raw score (300) but the smaller share (.5 vs .75).
+    const table = computeQualificationStandings(
+      qualStateWith(
+        [
+          [300, 200, 100],
+          [150, 50],
+        ],
+        undefined,
+      ),
+    );
+    const winners = table.filter((entry) => entry.totalFP === 10);
+    expect(winners.map((entry) => entry.name)).toEqual(['R2P1', 'R1P1']);
+    expect(winners[0].totalScore).toBeLessThan(winners[1].totalScore);
+  });
+
+  it('shares a rank only when points and share are both equal', () => {
+    const table = computeQualificationStandings(
+      qualStateWith(
+        [
+          [300, 100],
+          [300, 100],
+        ],
+        undefined,
+      ),
+    );
+    expect(rankStandings(table).map((entry) => entry.rank)).toEqual([1, 1, 3, 3]);
+  });
+
+  it('splits an all-zero room equally instead of dividing by zero', () => {
+    const table = computeQualificationStandings(qualStateWith([[0, 0, 0]], undefined));
+    expect(table.map((entry) => entry.roomShare)).toEqual([1 / 3, 1 / 3, 1 / 3]);
+  });
+
+  it('has no qualification cut-off tie when equal points differ in share, and the higher share advances', () => {
+    const state = withTable(
+      qualStateWith(
+        [
+          [300, 100],
+          [500, 100],
+        ],
+        1,
+      ),
+    );
+    expect(getAllTies(state, 0)['qual-cutoff']).toBeUndefined();
+    expect(hasPendingTies(state, 0)).toBe(false);
+    expect(roomBasedComputeAdvancement(state, 0).advancing.map((unit) => unit.name)).toEqual(['R2P1']);
+  });
+
+  it('still reports a qualification cut-off tie when points and share are equal', () => {
+    const state = withTable(
+      qualStateWith(
+        [
+          [300, 100],
+          [300, 100],
+        ],
+        1,
+      ),
+    );
+    expect(getAllTies(state, 0)['qual-cutoff'].players.map((entry) => entry.name)).toEqual(['R1P1', 'R2P1']);
+    expect(hasPendingTies(state, 0)).toBe(true);
+  });
+
+  it('applies the same rule to a group cut-off', () => {
+    function groupState(roomOneWinner: number, roomTwoWinner: number): TournamentState {
+      const state = createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        cfg: { qualifiersPerGroup: 1 },
+        gamemodeConfig: { scoring: 'positional-points', positionalPointsTable: POINTS_TABLE },
+        groups: [{ label: 'A', members: ['P1', 'P2', 'P3', 'P4'] }],
+        rounds: [
+          buildRound({ roundNum: 1, isGroupStage: true, rooms: [2, 2], roomGroups: ['A', 'A'], players: 4 }),
+          buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+        ],
+        assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [2, 2])],
+        scores: {
+          'r0-rm1-p0': roomOneWinner,
+          'r0-rm1-p1': 100,
+          'r0-rm2-p0': roomTwoWinner,
+          'r0-rm2-p1': 100,
+        },
+      });
+      return { ...state, groupStandings: computeGroupStandings(state) };
+    }
+    expect(Object.keys(getAllTies(groupState(300, 500), 0))).toEqual([]);
+    expect(Object.keys(getAllTies(groupState(300, 300), 0))).toEqual(['group-cutoff-A']);
+    const resolved = { ...groupState(300, 300), tieResolutions: { 'group-cutoff-A': ['P3', 'P1'] } };
+    expect(
+      applyGroupCutoffOrder('A', resolved.groupStandings.A, resolved)
+        .slice(0, 2)
+        .map((entry) => entry.name),
+    ).toEqual(['P3', 'P1']);
+  });
+
+  it('reorders a resolved cut-off cluster among entries with the same points but other shares', () => {
+    // Winners: R3P1 .9, then R1P1 and R2P1 both .75; qualAdv 2 puts the cut inside that equal pair.
+    const state = withTable({
+      ...qualStateWith(
+        [
+          [300, 100],
+          [300, 100],
+          [900, 100],
+        ],
+        2,
+      ),
+      tieResolutions: { 'qual-cutoff': ['R2P1', 'R1P1'] },
+    });
+    const ordered = applyQualCutoffOrder(state.qualTable, state);
+    expect(ordered.slice(0, 3).map((entry) => entry.name)).toEqual(['R3P1', 'R2P1', 'R1P1']);
+  });
+
+  it('detects the cut-off cluster by points alone for a legacy snapshot without roomShare', () => {
+    const state = qualStateWith(
+      [
+        [300, 100],
+        [500, 100],
+      ],
+      1,
+    );
+    const legacy = computeQualificationStandings(state).map(({ roomShare: _share, ...entry }) => entry);
+    expect(sameStanding(legacy[0], legacy[1])).toBe(true);
+    expect(getAllTies({ ...state, qualTable: legacy }, 0)['qual-cutoff'].players).toHaveLength(2);
+  });
+
+  describe('rankStandings with resolved names', () => {
+    const tied = (name: string): TournamentStanding => ({
+      name,
+      totalFP: 5,
+      totalScore: 0,
+      played: 1,
+      roomShare: 0.5,
+    });
+    const trio = [tied('A'), tied('B'), tied('C')];
+
+    it('gives the picked unit its own rank; the rest share the next one', () => {
+      expect(rankStandings(trio, new Set(['A'])).map((entry) => entry.rank)).toEqual([1, 2, 2]);
+    });
+
+    it('gives all three distinct ranks once two are picked', () => {
+      expect(rankStandings(trio, new Set(['A', 'B'])).map((entry) => entry.rank)).toEqual([1, 2, 3]);
+    });
+
+    it('shares one rank when nothing is resolved', () => {
+      expect(rankStandings(trio).map((entry) => entry.rank)).toEqual([1, 1, 1]);
+    });
   });
 });

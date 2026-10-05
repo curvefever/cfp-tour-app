@@ -15,6 +15,33 @@ function compareStandingValue(first: number, second: number, scoring: ScoringSys
   return scoring === 'positional-points' ? second - first : first - second;
 }
 
+/** Room shares closer than this count as equal (they are averages of floating-point ratios). */
+const ROOM_SHARE_TOLERANCE = 1e-9;
+
+/** Equal standing points (strict) and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
+export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
+  if (first.totalFP !== second.totalFP) return false;
+  const firstShare = first.roomShare ?? null;
+  const secondShare = second.roomShare ?? null;
+  if (firstShare === null || secondShare === null) return firstShare === secondShare;
+  return Math.abs(firstShare - secondShare) < ROOM_SHARE_TOLERANCE;
+}
+
+/** Best-first order: unplayed (null points) last, then standing points, then higher average room share. */
+export function compareStandings(
+  first: TournamentStanding,
+  second: TournamentStanding,
+  scoring: ScoringSystemKey,
+): number {
+  if (first.totalFP === null && second.totalFP === null) return 0;
+  if (first.totalFP === null) return 1;
+  if (second.totalFP === null) return -1;
+  const byPoints = compareStandingValue(first.totalFP, second.totalFP, scoring);
+  if (byPoints !== 0) return byPoints;
+  if (sameStanding(first, second)) return 0;
+  return (second.roomShare ?? 0) - (first.roomShare ?? 0);
+}
+
 interface ScoredUnit {
   name: string;
   score: number;
@@ -35,6 +62,7 @@ interface CutoffTieCluster {
   key: string;
   players: TournamentStanding[];
   fp: number;
+  roomShare: number | null;
   rm: null;
   groupLabel?: string;
 }
@@ -208,10 +236,16 @@ function detectQualCutoffTie(state: Pick<TournamentState, 'qualTable' | 'cfg'>):
   );
   const qualifiers = state.cfg.qualAdv;
   if (!qualifiers || qualifiers >= table.length) return null;
-  const boundary = table[qualifiers - 1].totalFP;
-  const players = table.filter((entry) => entry.totalFP === boundary);
+  const boundary = table[qualifiers - 1];
+  const players = table.filter((entry) => sameStanding(entry, boundary));
   if (players.length < 2) return null;
-  return { key: 'qual-cutoff', players, fp: boundary, rm: null };
+  return {
+    key: 'qual-cutoff',
+    players,
+    fp: boundary.totalFP,
+    roomShare: boundary.roomShare ?? null,
+    rm: null,
+  };
 }
 
 function detectGroupCutoffTie(
@@ -223,13 +257,14 @@ function detectGroupCutoffTie(
   );
   const qualifiers = state.cfg.qualifiersPerGroup;
   if (!qualifiers || qualifiers >= table.length) return null;
-  const boundary = table[qualifiers - 1].totalFP;
-  const players = table.filter((entry) => entry.totalFP === boundary);
+  const boundary = table[qualifiers - 1];
+  const players = table.filter((entry) => sameStanding(entry, boundary));
   if (players.length < 2) return null;
   return {
     key: `group-cutoff-${label}`,
     players,
-    fp: boundary,
+    fp: boundary.totalFP,
+    roomShare: boundary.roomShare ?? null,
     rm: null,
     groupLabel: label,
   };
@@ -245,7 +280,7 @@ function applyCutoffOrder(
   const remaining = tie.players.map((entry) => entry.name).filter((name) => !resolved.includes(name));
   const byName = new Map(tie.players.map((entry) => [entry.name, entry]));
   const output = [...table];
-  const start = output.findIndex((entry) => entry.totalFP === tie.fp);
+  const start = output.findIndex((entry) => sameStanding(entry, tie.players[0]));
   for (const [offset, name] of [...resolved, ...remaining].entries()) {
     const entry = byName.get(name);
     if (entry && output[start + offset] !== undefined) {
@@ -271,30 +306,36 @@ export function applyGroupCutoffOrder(
 }
 
 /**
- * Dense/competition ranking by totalFP -- a tie shares one rank, and the next
- * distinct value's rank correctly skips ahead by the tie's size (e.g. a
- * three-way tie at rank 2 is followed by rank 5, not rank 3). An entrant with
- * no rounds played yet (totalFP === null) gets rank: null rather than a
- * misleading sequential number.
+ * Competition ranking by standing -- units with equal points and equal room
+ * share (`sameStanding`) share one rank, and the next distinct standing's
+ * rank skips ahead by the tie's size (a three-way tie at rank 2 is followed by
+ * rank 5, not rank 3). A unit the organiser placed in a cut-off tie
+ * (`resolvedNames`) never shares a rank with its neighbour: A, B, C tied with
+ * only A picked gives A its own rank and B and C a shared one; with A then B
+ * picked all three are distinct. An entrant with no rounds played yet
+ * (totalFP === null) gets rank: null rather than a misleading sequential number.
  */
 export function rankStandings(
   entries: readonly TournamentStanding[],
+  resolvedNames: ReadonlySet<string> = new Set(),
 ): Array<TournamentStanding & { rank: number | null }> {
   let rank = 0;
-  let previousFP: number | null | undefined;
   return entries.map((entry, index) => {
     if (entry.totalFP === null) return { ...entry, rank: null };
-    if (entry.totalFP !== previousFP) {
-      rank = index + 1;
-      previousFP = entry.totalFP;
-    }
+    const previous = entries[index - 1];
+    const sharesRank =
+      previous !== undefined &&
+      sameStanding(previous, entry) &&
+      !resolvedNames.has(previous.name) &&
+      !resolvedNames.has(entry.name);
+    if (!sharesRank) rank = index + 1;
     return { ...entry, rank };
   });
 }
 
 interface StandingAccumulator {
   name: string;
-  rounds: Array<{ fp: number; score: number }>;
+  rounds: Array<{ fp: number; score: number; share: number }>;
 }
 
 // For 'fairpoints', totalFP is an average across rounds played, not a sum --
@@ -305,6 +346,12 @@ interface StandingAccumulator {
 // organiser's own real-tournament convention is a plain sum -- and summing a
 // per-round value that's already bounded below by 0 naturally penalizes a
 // smaller sample instead of needing the same protection.
+/** One round's share of its room: score ÷ the room's total; an all-zero room splits equally. */
+function roomShareOf(score: number, scoredRoom: readonly ScoredUnit[]): number {
+  const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
+  return roomTotal > 0 ? score / roomTotal : 1 / scoredRoom.length;
+}
+
 function materializeStandings(
   entries: StandingAccumulator[],
   scoring: ScoringSystemKey,
@@ -319,13 +366,11 @@ function materializeStandings(
         : null,
       totalScore: entry.rounds.reduce((total, round) => total + round.score, 0),
       played: entry.rounds.length,
+      roomShare: entry.rounds.length
+        ? entry.rounds.reduce((total, round) => total + round.share, 0) / entry.rounds.length
+        : null,
     }))
-    .sort((first, second) => {
-      if (first.totalFP === null && second.totalFP === null) return 0;
-      if (first.totalFP === null) return 1;
-      if (second.totalFP === null) return -1;
-      return compareStandingValue(first.totalFP, second.totalFP, scoring);
-    });
+    .sort((first, second) => compareStandings(first, second, scoring));
 }
 
 /**
@@ -349,18 +394,15 @@ export function computeQualificationStandings(state: TournamentState): Tournamen
     if (!(round.isQual || round.isSwiss) || round.excludeFromStandings) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       if (isUncontestedRoom(state, roundIndex, room)) continue;
-      for (const [index, entry] of orderRoomByScore(
-        scoreRoom(state, roundIndex, room, null),
-        roundIndex,
-        room,
-        state,
-      ).entries()) {
+      const scored = scoreRoom(state, roundIndex, room, null);
+      for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
         accumulators.get(entry.name)?.rounds.push({
           fp:
             scoring === 'positional-points'
               ? positionalPoints(index + 1, positionalPointsTable)
               : fairPoints(index + 1, entry.score),
           score: entry.score,
+          share: roomShareOf(entry.score, scored),
         });
       }
     }
@@ -381,12 +423,8 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
     for (let room = 1; room <= round.rooms.length; room += 1) {
       const groupLabel = round.roomGroups?.[room - 1];
       if (!groupLabel || isUncontestedRoom(state, roundIndex, room)) continue;
-      for (const [index, entry] of orderRoomByScore(
-        scoreRoom(state, roundIndex, room, null),
-        roundIndex,
-        room,
-        state,
-      ).entries()) {
+      const scored = scoreRoom(state, roundIndex, room, null);
+      for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
         byGroup
           .get(groupLabel)
           ?.get(entry.name)
@@ -396,6 +434,7 @@ export function computeGroupStandings(state: TournamentState): Record<string, To
                 ? positionalPoints(index + 1, positionalPointsTable)
                 : fairPoints(index + 1, entry.score),
             score: entry.score,
+            share: roomShareOf(entry.score, scored),
           });
       }
     }
@@ -427,9 +466,7 @@ function computeGroupStageAdvancement(state: TournamentState): {
     const finishers = perGroup
       .map((qualifiers) => qualifiers[tier])
       .filter((entry): entry is TournamentStanding => Boolean(entry))
-      .sort((first, second) =>
-        compareStandingValue(first.totalFP as number, second.totalFP as number, scoring),
-      );
+      .sort((first, second) => compareStandings(first, second, scoring));
     for (const finisher of finishers) {
       advancing.push({ name: finisher.name, isLucky: false });
     }

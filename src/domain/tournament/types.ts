@@ -144,6 +144,8 @@ export interface TournamentStanding {
   totalFP: number | null;
   totalScore: number;
   played: number;
+  /** Average over counted rounds of score ÷ own room's total; tie-breaker, higher is better; absent in snapshots saved before 2026-10-05. */
+  roomShare?: number | null;
 }
 
 export interface TournamentGroup {
