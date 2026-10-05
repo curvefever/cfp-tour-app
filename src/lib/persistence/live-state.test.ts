@@ -100,9 +100,13 @@ describe('normalizePersistedSetup', () => {
 
 describe('normalizeActiveTab', () => {
   it('passes through every known tab', () => {
-    for (const tab of ['admin', 'scoreboard', 'bracket', 'rankings', 'archive']) {
+    for (const tab of ['admin', 'bracket', 'standings', 'rankings', 'archive']) {
       expect(normalizeActiveTab(tab)).toBe(tab);
     }
+  });
+
+  it('maps the legacy scoreboard tab to standings', () => {
+    expect(normalizeActiveTab('scoreboard')).toBe('standings');
   });
 
   it('falls back to bracket for an unknown or non-string value', () => {

@@ -8,7 +8,7 @@ import type {
   TournamentState,
 } from '../../domain/tournament/types';
 
-const ACTIVE_TABS: readonly ActiveTab[] = ['admin', 'scoreboard', 'bracket', 'rankings', 'archive'];
+const ACTIVE_TABS: readonly ActiveTab[] = ['admin', 'bracket', 'standings', 'rankings', 'archive'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -69,6 +69,7 @@ export function normalizePersistedSetup(value: unknown): PersistedSetup {
 }
 
 export function normalizeActiveTab(value: unknown): ActiveTab {
+  if (value === 'scoreboard') return 'standings';
   return typeof value === 'string' && (ACTIVE_TABS as readonly string[]).includes(value)
     ? (value as ActiveTab)
     : 'bracket';

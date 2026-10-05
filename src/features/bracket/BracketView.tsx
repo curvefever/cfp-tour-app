@@ -65,9 +65,9 @@ import {
   cn,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { bracketRowBase, resultClasses, type RowResult } from '../tournament/components/result-row';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
-const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
 
 function FollowBanner({
   state,
@@ -254,24 +254,6 @@ function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scor
  */
 function isByeLikeRound(round: TournamentRound): boolean {
   return !round.isWaterfall && !round.bracket && !round.isFinal;
-}
-
-type RowResult = 'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '';
-
-function resultClasses(result: RowResult, followed: boolean) {
-  return cn(
-    result === 'advance' && 'border-l-success text-success',
-    // A drop (double-elim: to the losers bracket) is a real, ongoing result,
-    // not an elimination -- amber like a Kings Valley demote, but never
-    // struck through.
-    result === 'drop' && 'border-l-warning text-warning',
-    result === 'eliminate' && 'border-l-surface-hover text-muted line-through opacity-50',
-    result === 'lucky' && 'border-l-accent text-accent',
-    result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
-    result === 'promote' && 'border-l-success text-success',
-    result === 'demote' && 'border-l-warning text-warning',
-    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
-  );
 }
 
 /** Shown on a unit the organiser placed, moved or reinstated through a line-up correction. */

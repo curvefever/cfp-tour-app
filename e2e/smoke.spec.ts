@@ -34,8 +34,8 @@ test.describe('anonymous visitor smoke test', () => {
 
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
     await expect(nav.getByRole('button', { name: '⚙ Admin' })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '📊 Scoreboard' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toBeVisible();
+    await expect(nav.getByRole('button', { name: '📊 Standings' })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '🗄 Archive' })).toBeVisible();
 
@@ -46,13 +46,9 @@ test.describe('anonymous visitor smoke test', () => {
     await gotoHydrated(page);
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
-    await nav.getByRole('button', { name: '📊 Scoreboard' }).click();
-    await expect(page.locator('#view-scoreboard')).toBeVisible();
-    await expect(page.locator('#view-bracket')).toBeHidden();
-
     await nav.getByRole('button', { name: '🏆 Rankings' }).click();
     await expect(page.locator('#view-rankings')).toBeVisible();
-    await expect(page.locator('#view-scoreboard')).not.toBeVisible();
+    await expect(page.locator('#view-bracket')).toBeHidden();
 
     await nav.getByRole('button', { name: '🗄 Archive' }).click();
     await expect(page.locator('#view-archive')).toBeVisible();

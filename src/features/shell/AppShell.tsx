@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { hasStandingsPhase } from '../../domain/tournament/standings-display';
 import type { ActiveTab } from '../../domain/tournament/types';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
@@ -7,15 +8,15 @@ import { BracketView } from '../bracket/BracketView';
 import { SetupView } from '../admin/SetupView';
 import { RunningAdmin } from '../admin/RunningAdmin';
 import { RankingsView } from '../rankings/RankingsView';
-import { ScoreboardView } from '../scoreboard/ScoreboardView';
+import { StandingsView } from '../standings/StandingsView';
 import { ArchiveView } from '../archive/ArchiveView';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
 
 const TABS: Array<{ key: ActiveTab; label: string }> = [
   { key: 'admin', label: '⚙ Admin' },
-  { key: 'scoreboard', label: '📊 Scoreboard' },
   { key: 'bracket', label: '🗂 Bracket' },
+  { key: 'standings', label: '📊 Standings' },
   { key: 'rankings', label: '🏆 Rankings' },
   { key: 'archive', label: '🗄 Archive' },
 ];
@@ -25,6 +26,10 @@ export function AppShell() {
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const currentRound = app.state.rounds[app.state.curRound];
+  const showStandings = hasStandingsPhase(app.state);
+  const tabs = TABS.filter((tab) => tab.key !== 'standings' || showStandings);
+  // A stored 'standings' tab with no standings phase shows Bracket instead (nothing is written back).
+  const activeTab = app.activeTab === 'standings' && !showStandings ? 'bracket' : app.activeTab;
 
   function chooseTab(tab: ActiveTab) {
     if (tab === 'admin' && !app.unlocked) {
@@ -61,14 +66,14 @@ export function AppShell() {
         aria-label='Tournament sections'
         className='sticky top-14 z-40 flex flex-wrap gap-0.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
       >
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.key}
             className={cn(
               'cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-muted transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary max-[700px]:flex-auto max-[700px]:px-2',
-              app.activeTab === tab.key && 'border-primary text-primary',
+              activeTab === tab.key && 'border-primary text-primary',
             )}
-            aria-current={app.activeTab === tab.key ? 'page' : undefined}
+            aria-current={activeTab === tab.key ? 'page' : undefined}
             onClick={() => chooseTab(tab.key)}
           >
             {tab.label}
@@ -84,7 +89,7 @@ export function AppShell() {
         className='mx-auto max-w-7xl px-6 py-5 max-[700px]:px-3 max-[700px]:py-3.5'
         data-hydrated={app.hydrated ? 'true' : 'false'}
       >
-        {app.activeTab === 'admin' ? (
+        {activeTab === 'admin' ? (
           <section id='view-admin'>
             <Panel>
               <PanelTitle>Admin Access</PanelTitle>
@@ -101,20 +106,20 @@ export function AppShell() {
             {app.state.started ? <RunningAdmin /> : <SetupView />}
           </section>
         ) : null}
-        {app.activeTab === 'scoreboard' ? (
-          <section id='view-scoreboard'>
-            <ScoreboardView />
+        {activeTab === 'standings' ? (
+          <section id='view-standings'>
+            <StandingsView />
           </section>
         ) : null}
-        <section id='view-bracket' hidden={app.activeTab !== 'bracket'}>
+        <section id='view-bracket' hidden={activeTab !== 'bracket'}>
           <BracketView />
         </section>
-        {app.activeTab === 'rankings' ? (
+        {activeTab === 'rankings' ? (
           <section id='view-rankings'>
             <RankingsView />
           </section>
         ) : null}
-        {app.activeTab === 'archive' ? (
+        {activeTab === 'archive' ? (
           <section id='view-archive'>
             <ArchiveView />
           </section>
