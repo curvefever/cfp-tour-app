@@ -5,7 +5,7 @@ import { cn } from '../../../components/ui';
 export const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
 
 export type RowResult =
-  'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | '';
+  'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | 'below-cut' | '';
 
 export function resultClasses(result: RowResult, followed: boolean) {
   return cn(
@@ -19,6 +19,8 @@ export function resultClasses(result: RowResult, followed: boolean) {
     result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
     result === 'promote' && 'border-l-success text-success',
     result === 'demote' && 'border-l-warning text-warning',
+    // Below a live standings cut: a projection, muted but never struck through.
+    result === 'below-cut' && 'text-muted',
     followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
   );
 }
@@ -30,5 +32,5 @@ export function standingsRowResult(
   phase: StandingsDisplay['phase'],
 ): RowResult {
   if (cut === null || index < cut) return 'advance';
-  return phase === 'final' ? 'eliminate' : '';
+  return phase === 'final' ? 'eliminate' : 'below-cut';
 }

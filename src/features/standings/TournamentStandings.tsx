@@ -76,13 +76,7 @@ function StandingsRows({
   return (
     <>
       {table.cut !== null && index === table.cut ? <CutLine /> : null}
-      <TableRow
-        className={cn(
-          'border-l-[3px] border-l-transparent',
-          resultClasses(result, followed),
-          result === '' && 'text-muted',
-        )}
-      >
+      <TableRow className={cn('border-l-[3px] border-l-transparent', resultClasses(result, followed))}>
         <TableCell>{entry.rank ?? '—'}</TableCell>
         <TableCell>
           <TournamentUnit state={state} name={entry.name} />

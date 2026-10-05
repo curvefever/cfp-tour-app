@@ -156,14 +156,17 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
     display.tables.map((table) => {
       const picked = tieResolutionList(state, table.key);
       const pickedEntries = table.entries.filter((entry) => picked.includes(entry.name));
-      const placed = table.entries
-        .filter((entry) => pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)))
-        .map((entry) => entry.name);
       const cluster = ties[table.key];
       const pending =
         cluster && !isTieResolved(table.key, cluster, state)
           ? cluster.players.map((player) => player.name)
           : [];
+      // A cluster still waiting for a pick shows only "pending", never a partial placement.
+      const placed = pending.length
+        ? []
+        : table.entries
+            .filter((entry) => pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)))
+            .map((entry) => entry.name);
       return [table.key, { placed, pending }];
     }),
   );

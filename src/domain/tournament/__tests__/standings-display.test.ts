@@ -312,6 +312,36 @@ describe('a cut-off tie', () => {
     }
   });
 
+  it('marks every member of a three-way cut tie as pending, none as placed, after one pick', () => {
+    const base = tiedAtCut();
+    const state = {
+      ...base,
+      players: ['A', 'B', 'C', 'D', 'E', 'F'],
+      cfg: { ...base.cfg, qualAdv: 2 },
+      rounds: [{ ...base.rounds[0], rooms: [2, 2, 2], players: 6 }, base.rounds[1]],
+      assignments: [
+        ['A', 'B', 'C', 'D', 'E', 'F'].map((name, index) => ({
+          name,
+          room: Math.floor(index / 2) + 1,
+          isLucky: false,
+        })),
+      ],
+      scores: {
+        'r0-rm1-p0': 300,
+        'r0-rm1-p1': 100,
+        'r0-rm2-p0': 300,
+        'r0-rm2-p1': 100,
+        'r0-rm3-p0': 300,
+        'r0-rm3-p1': 100,
+      },
+      tieResolutions: { 'qual-cutoff': ['C'] },
+    };
+    const display = describeStandings(state) as StandingsDisplay;
+    const marks = cutTieMarks(state, display)['qual-cutoff'];
+    expect(marks.placed).toEqual([]);
+    expect([...marks.pending].sort()).toEqual(['A', 'C', 'E']);
+  });
+
   it('marks an unresolved cut tie as pending for both units and none as placed', () => {
     const state = tiedAtCut();
     const display = describeStandings(state) as StandingsDisplay;
