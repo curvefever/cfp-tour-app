@@ -8,6 +8,7 @@ import {
   hasPendingTies,
   isTieResolved,
 } from '../../domain/tournament/advancement';
+import { describeStandings } from '../../domain/tournament/standings-display';
 import {
   bracketBoxes,
   bracketFollowStatus,
@@ -65,6 +66,7 @@ import {
   cn,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { StandingsColumn } from './StandingsColumn';
 import { bracketRowBase, resultClasses, type RowResult } from '../tournament/components/result-row';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
@@ -1473,6 +1475,9 @@ function BracketRounds({
   collapse,
   onToggleCollapse,
   followedRounds,
+  standingsCollapsed = false,
+  onToggleStandings,
+  onOpenFullTable,
 }: {
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
@@ -1482,8 +1487,12 @@ function BracketRounds({
   collapse?: Record<number, boolean>;
   onToggleCollapse?: (roundIndex: number, collapsed: boolean) => void;
   followedRounds?: BracketFollowStatus['rounds'];
+  standingsCollapsed?: boolean;
+  onToggleStandings?: () => void;
+  onOpenFullTable?: () => void;
 }) {
   const boxes = bracketBoxes(state);
+  const standings = useMemo(() => describeStandings(state), [state]);
   const finalRoundIndex = useMemo(() => state.rounds.findIndex((round) => round.isFinal), [state.rounds]);
   const finalRound = finalRoundIndex >= 0 ? state.rounds[finalRoundIndex] : null;
   const finalProgress = finalRound ? finalsProgressState(state, finalRoundIndex, finalRound) : null;
@@ -1559,7 +1568,24 @@ function BracketRounds({
   }
   return (
     <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds'>
-      {boxes.map((box) => (box.kind === 'single' ? renderSingle(box.roundIndex) : renderWave(box)))}
+      {boxes.map((box) => {
+        if (box.kind !== 'single') return renderWave(box);
+        if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)
+          return renderSingle(box.roundIndex);
+        return (
+          <Fragment key={box.roundIndex}>
+            {renderSingle(box.roundIndex)}
+            <StandingsColumn
+              display={standings}
+              state={state}
+              followKey={followKey}
+              collapsed={standingsCollapsed}
+              onToggle={onToggleStandings}
+              onOpenFullTable={onOpenFullTable}
+            />
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -1567,6 +1593,7 @@ function BracketRounds({
 export function BracketView() {
   const app = useTournamentApp();
   const [collapse, setCollapse] = useState<Record<number, boolean>>({});
+  const [standingsCollapsed, setStandingsCollapsed] = useState(false);
   const [query, setQuery] = useState('');
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -1576,7 +1603,10 @@ export function BracketView() {
     setFollowKey(stored);
     if (stored) setQuery(unitDisplay(app.state, stored).label);
   }, [app.hydrated]);
-  useEffect(() => setCollapse({}), [app.state.tournamentId]);
+  useEffect(() => {
+    setCollapse({});
+    setStandingsCollapsed(false);
+  }, [app.state.tournamentId]);
   const follow = useMemo(() => bracketFollowStatus(app.state, followKey), [app.state, followKey]);
   const labels = bracketRoundLabels(app.state);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
@@ -1658,6 +1688,9 @@ export function BracketView() {
           setCollapse((current) => ({ ...current, [roundIndex]: !collapsed }))
         }
         followedRounds={follow?.rounds}
+        standingsCollapsed={standingsCollapsed}
+        onToggleStandings={() => setStandingsCollapsed((current) => !current)}
+        onOpenFullTable={() => app.setActiveTab('standings')}
       />
       {editable ? (
         <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>

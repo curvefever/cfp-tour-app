@@ -16,7 +16,7 @@ import {
   TableScroll,
   cn,
 } from '../../components/ui';
-import { resultClasses, type RowResult } from '../tournament/components/result-row';
+import { resultClasses, standingsRowResult } from '../tournament/components/result-row';
 
 const COLUMN_COUNT = 6;
 
@@ -24,11 +24,6 @@ type Entry = StandingsDisplayTable['entries'][number];
 
 function formatShare(share: number | null | undefined): string {
   return share === null || share === undefined ? '—' : `${(share * 100).toFixed(1)}%`;
-}
-
-function rowResult(index: number, table: StandingsDisplayTable, phase: StandingsDisplay['phase']): RowResult {
-  if (table.cut === null || index < table.cut) return 'advance';
-  return phase === 'final' ? 'eliminate' : '';
 }
 
 function CutLine() {
@@ -77,7 +72,7 @@ function StandingsRows({
   pending: boolean;
 }) {
   const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-  const result = rowResult(index, table, display.phase);
+  const result = standingsRowResult(index, table.cut, display.phase);
   return (
     <>
       {table.cut !== null && index === table.cut ? <CutLine /> : null}

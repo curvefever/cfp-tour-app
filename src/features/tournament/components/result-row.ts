@@ -1,3 +1,4 @@
+import type { StandingsDisplay } from '../../../domain/tournament/standings-display';
 import { cn } from '../../../components/ui';
 
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
@@ -20,4 +21,14 @@ export function resultClasses(result: RowResult, followed: boolean) {
     result === 'demote' && 'border-l-warning text-warning',
     followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
   );
+}
+
+/** How a standings row reads: through the cut, or past it (struck through only once the standings are final). */
+export function standingsRowResult(
+  index: number,
+  cut: number | null,
+  phase: StandingsDisplay['phase'],
+): RowResult {
+  if (cut === null || index < cut) return 'advance';
+  return phase === 'final' ? 'eliminate' : '';
 }
