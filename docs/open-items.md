@@ -13,6 +13,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 - **Live corrections have gaps by design** (mid-tournament corrections): no edit history or undo; no live edits of seeding method, pooling round count, Semis/Final sizes or LB qualifiers; no mid-bracket advancement edits for shared-Final double elimination; no line-up edits of scored rounds, fixed-draw pooling rounds, or in group stage, either double elimination, Kings Valley or waterfall; no moving into or out of byes. Details: `docs/rules.md`, "Line-up corrections".
 
 ## Awaiting organiser feedback
+- **Scoreboard as an admin tool vs user-focused** — views.md describes Scoreboard as "admin tooling, not viewer destination". This is misleading; the scoreboard features information that players need to have, e.g. standings in qualifiers or in a Swiss tournament. Its purpose needs to be re-evaluated and it needs to be re-integrated with a viewer perspective. (Note added by the organizer 04-10-26)
 - **Rankings' rank badge vs Scoreboard's standings table** — two levels of detail for "where do I stand" (Rankings: one line `#rank · X.XXX FP`; Scoreboard: full table). Both judged fine; open only if the organiser finds them inconsistent or wants one view.
 
 ## UX ideas, organiser-interested but not requested
