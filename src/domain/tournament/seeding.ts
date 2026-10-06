@@ -481,7 +481,9 @@ export function assignWaveToRooms(
       let repeatScore = 0;
       for (const existing of roomMembersSoFar.get(room) ?? []) {
         const lastRound = options.roomHistory[roomPairKey(member.name, existing)];
-        if (lastRound === undefined) continue;
+        // A meeting at or after the round being drawn is a stale or planned entry (e.g. a
+        // re-draw of an already drawn round), not a past repeat; roundsAgo would be 0 or negative.
+        if (lastRound === undefined || lastRound >= options.targetRoundIndex) continue;
         repeatScore += recencyWeight(options.targetRoundIndex - lastRound);
       }
       const balanceCost = Math.abs((roomBalanceSoFar.get(room) ?? 0) + member.tierRank - mean);

@@ -350,6 +350,42 @@ describe('assignWaveToRooms', () => {
     expect(result.find((entry) => entry.name === 'A')?.room).toBe(2);
     expect(result.find((entry) => entry.name === 'B')?.room).toBe(1);
   });
+
+  it('ignores history entries at or after targetRoundIndex (stale or planned meetings, not past repeats)', () => {
+    const members = [
+      { name: 'A', tierRank: 0 },
+      { name: 'B', tierRank: 0 },
+    ];
+    const roomMembersSoFar = new Map([
+      [1, ['X']],
+      [2, ['Y']],
+    ]);
+    const roomBalanceSoFar = new Map([
+      [1, 0],
+      [2, 0],
+    ]);
+    const options = {
+      targetRoundIndex: 5,
+      allRoomNumbers: [1, 2],
+      diversityWeight: 10,
+      balanceWeight: 1,
+    };
+    const withoutStale = assignWaveToRooms(members, [1, 2], roomMembersSoFar, roomBalanceSoFar, {
+      ...options,
+      roomHistory: {},
+    });
+    const withStale = assignWaveToRooms(members, [1, 2], roomMembersSoFar, roomBalanceSoFar, {
+      ...options,
+      roomHistory: {
+        // Every member has a stale entry against every room, so unguarded every cost is Infinity.
+        [roomPairKey('A', 'X')]: 5, // exactly the target round: roundsAgo 0 is Infinity
+        [roomPairKey('A', 'Y')]: 5,
+        [roomPairKey('B', 'X')]: 6, // after the target round: negative roundsAgo
+        [roomPairKey('B', 'Y')]: 6,
+      },
+    });
+    expect(withStale).toEqual(withoutStale);
+  });
 });
 
 describe('semisApproachProgress', () => {
@@ -434,6 +470,29 @@ describe('tieredSeed', () => {
     const roomOf = Object.fromEntries(seeded.map((entry) => [entry.name, entry.room]));
     expect(roomOf.A).not.toBe(roomOf.F);
     // Every candidate still placed exactly once, into one of the two rooms.
+    expect(seeded).toHaveLength(4);
+    expect(new Set(seeded.map((entry) => entry.room))).toEqual(new Set([1, 2]));
+  });
+
+  it('returns a full draw when roomHistory holds entries at the round being drawn (a re-draw), instead of hanging', () => {
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+      rounds: [
+        buildRound({ roundNum: 1, isNoElim: true, rooms: [4, 4], players: 8, advPerRoom: 2 }),
+        buildRound({ roundNum: 2, rooms: [2, 2], players: 4 }),
+      ],
+      assignments: [names.map((name, index) => ({ name, room: index < 4 ? 1 : 2, isLucky: false }))],
+      // Pairs recorded for round index 1 (the draw being redone) and one for index 2.
+      roomHistory: {
+        [roomPairKey('A', 'E')]: 1,
+        [roomPairKey('B', 'F')]: 1,
+        [roomPairKey('A', 'F')]: 2,
+      },
+    });
+    const advancing = [{ name: 'A' }, { name: 'B' }, { name: 'E' }, { name: 'F' }];
+    const { seeded } = tieredSeed({ state, roundIndex: 0, advancing });
     expect(seeded).toHaveLength(4);
     expect(new Set(seeded.map((entry) => entry.room))).toEqual(new Set([1, 2]));
   });
