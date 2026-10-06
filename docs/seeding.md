@@ -19,7 +19,7 @@ Survivors are grouped into rank tiers across all rooms (tier 0 = every room's wi
 - repeat pairings against everyone already placed and all prior rounds, recency-weighted (a pair that met last round costs ~10% more than one that met long ago), and
 - how far each room's running total lands from balanced.
 
-The weighting tapers from diversity-heavy (warm-up and early cuts) to balance-heavy by the round that seeds Semis. Match history is kept in `state.roomHistory` (pair key → last round index shared), also written by double elimination.
+The weighting tapers from diversity-heavy (warm-up and early cuts) to balance-heavy by the round that seeds Semis. Match history is kept in `state.roomHistory` (pair key → last round index shared), also written by double elimination. A re-draw ("Next Round" after "Previous") first rewinds the discarded draws' entries, and entries at or after the round being drawn are ignored, so a stale or planned entry is never treated as a past repeat.
 
 Behaviour worth knowing when explaining it to players: the balance term is often an exact tie (whenever a wave's candidates share a tier, and for any two-room destination starting from zero), so the taper acts almost like pure diversity in common shapes; balance only visibly matters with 3+ destination rooms. A pure `balance` seeding override (diversity weight exactly 0) ignores repeat history entirely, so it can produce more repeat opponents than a balance-heavy blend. Details: "Seeding system explainer + seeding-behavior findings" in the log.
 

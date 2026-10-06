@@ -6,6 +6,47 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## "Next Round" after "Previous": freeze fix and re-draw semantics (done — 2026-10-06)
+
+### Context
+Two test tournaments (`1791278326232`: 2v2v2v2, 23 teams, qualification table into single elimination; `1790504751628`: FFA, 16, no pooling, single elimination) froze the browser on "Next Round". Steps: score round r, Next Round (draws r+1), Previous, optionally edit a score in r, Next Round. The score edit isn't needed: Previous then Next alone hangs.
+
+### Cause chain
+1. The first advance records round r+1's draw in `state.roomHistory` (pair key → last round index shared) with value r+1 (`transitions.ts`, `recordRoomHistory(..., roundIndex + 1)`; the same in `seedRoundFromPendingPool`).
+2. "Previous" (`BracketView.tsx`) is only `curRound - 1`; nothing is undone.
+3. Re-advancing re-draws round r+1. `assignWaveToRooms` computes `recencyWeight(targetRoundIndex - lastRound)` = `recencyWeight(0)` = `1 + 0.1/0` = Infinity.
+4. `hungarian()` (`assignment.ts`) never terminates with infinite or NaN potentials (it needs a member whose whole cost row is Infinite), so `advanceTournamentRound` never returns.
+
+Verified by replaying both stored states: both hang as they are, and both advance normally once `rewindRoomHistory(roomHistory, assignments, curRound + 1)` is applied first. `tieredBracketSeed` (double elimination, waterfall) goes through the same `assignWaveToRooms`, so it was exposed too.
+
+A re-advance also left other stale state: pooling-bye counts counted twice (generic no-elimination bye, Swiss), `byes[r+1]` stale when the new draw has no bye, `luckyLosers[r+1]` stale when `luckyNames` is null, and double elimination/waterfall pushing the round's units into `pendingBracketSeeds` again.
+
+### Organiser decisions
+- **Re-draw**: when the next round is already drawn and not locked, Next Round always re-draws it from the current results, discarding the old draw. With nothing changed it comes out identical.
+- **Locked**: if any drawn later round has scores, or a double elimination/waterfall round is involved, Next Round steps forward to the existing round unchanged (no re-draw, no re-route). The organiser is never stranded.
+- A note on the earlier round says which of the two will happen.
+- Correct re-routing for double elimination/waterfall after a correction is out of scope (open-items).
+- Invariant tested against: a re-draw equals a first advance from the corrected state.
+
+### Stages
+1. **Solver guard** (`a42236c`, `cb02822`): `assignWaveToRooms` skips history entries with `lastRound >= targetRoundIndex` (a stale or planned entry, not a past repeat). Fix-up: the first test passed without the guard because a single stale pair doesn't make a whole cost row infinite, so it now gives every member stale entries (at and after the target) and puts B first with a stale entry against room 1 only, so that `===` instead of `>=` fails; the `tieredSeed` test makes every advancing pair stale so it hangs unguarded.
+2. **Re-advance semantics** (`331f3de`, `d627c70`): new `redraw.ts` with `drawnAheadStatus()` and `discardDrawsAfter()`, wired into `advanceTournamentRound` after the pending-ties check (locked steps forward with `prepared`, redraw continues from the discarded state). `discardDrawsAfter` rewinds each discarded round's history highest first (not for a fixed-draw round), undoes counted pooling byes (`!fixedRoomAssignments && !isGroupStage && (isNoElim || isSwiss)`, checked against the `selectPoolingBye` branch and `swissFoldPair`), and clears byes, lucky losers and `r{j}-` tie resolutions. **Narrowed lock rule (fix-up):** `drawnAheadStatus` is `'locked'` when any round from the current one up to the one before the last drawn round has `bracket` or `isWaterfall`, i.e. a bracket round that has been advanced from (that advance pushed `pendingBracketSeeds`). It is narrower than "any bracket round ahead" on purpose: correcting the last pooling round while the first bracket round is drawn but not played is the common case, and it re-draws correctly (the generic path seeds it and pushes no pending seeds). Fix-up tests: the three resets are checked directly (they are reachable when the count changes between the draw and the re-draw, which the invariant tests can't see), and a double elimination re-advance out of a qualification table.
+3. **Bracket note and close-out**: in `BracketView.tsx` an `Alert` (info tone) above the sticky action bar, for admins, when `drawnAheadStatus` isn't `'none'` and the round isn't the last; it names the next round with the column header's label (`destinationLabel`). The locked wording doesn't name a reason. Docs: `docs/rules.md` ("Going back a round"), `docs/seeding.md`, `docs/views.md`, `docs/open-items.md`, `HANDOFF.md` code map.
+
+### Testing
+- `redraw.test.ts` (24 tests) asserts the invariant on assignments, byes, lucky losers, `roomHistory`, `poolingByeCounts`, `rounds` and `curRound`, with no edit and with a score edit that reverses every room (and asserts the edit changes the draw, except for fixed and group draws, which are predetermined). Counts: 2v2v2v2 qualification table, 23 teams (into the first elimination round); FFA no pooling, 37 (from a warm-up round and from an elimination round); 1v1 Swiss, 31 (two Swiss hops, with a bye); FFA qualification table with fixed draws, 43 (from a fixed round, `roomHistory` untouched, and into the first elimination round); double elimination shared Final after a qualification table, 37; Kings Valley, 53 (inside the ladder); 1v1 group stage, 37 (group to group, last group round into elimination).
+- Locked cases: two rounds back (Next from r steps forward, then Next from r+1 re-draws identically); one score in the drawn-ahead round after an earlier-round edit (draw kept); double elimination FFA shared-final 37, 1v1 double elimination 37 and the 16-player waterfall example (`pendingBracketSeeds` and lucky losers unchanged); `drawnAheadStatus` unit cases (none, redraw, locked by score, by the Final's `finalScores`, by format, by an advanced-from bracket round); `discardDrawsAfter` purity and resets.
+- Mutations run (each fails the tests): skip the rewind, skip the bye-count undo, drop the fixed-round exception, make locked re-draw, delete each of the three resets, check only `rounds[roundIndex]` for the format lock, `===` for `>=` in the solver guard, remove the guard (hangs under `timeout 60`).
+- eslint, prettier and typecheck on the changed code files; related tests. The live check on the test site (open `1790504751628`: Bracket shows the "re-draws" note on Round 3, Next Round reaches Semis with the page responsive; the same for `1791278326232`, Round 4 to Round 5) is the reviewer's, after the push.
+
+### Out of scope
+- Correct re-route for double elimination/waterfall after a correction (open-items).
+- Migrating the stored state of the two stuck tournaments: not needed, the fix handles them on the next click.
+- A confirm dialog before re-drawing.
+- Re-checking `recencyWeight` or the Hungarian solver for other non-finite inputs (the guard removes the only known source).
+
+---
+
 ## Eliminated rows: red bar instead of strike-through (done — 2026-10-06)
 
 ### Context

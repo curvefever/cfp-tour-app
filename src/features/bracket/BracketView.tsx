@@ -56,6 +56,7 @@ import {
   scoredTeamSize,
   tieResolutionList,
 } from '../../domain/tournament/scoring';
+import { drawnAheadStatus } from '../../domain/tournament/redraw';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { ordinal } from '../../lib/ordinal';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
@@ -1619,6 +1620,7 @@ export function BracketView() {
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
     app.state.curRound >= app.state.rounds.length - 1 || currentRound?.bracket === 'grand-final';
+  const drawnAhead = isLastRound ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
     // result instead of throwing, but this guards against any
@@ -1694,6 +1696,14 @@ export function BracketView() {
         onToggleStandings={() => setStandingsCollapsed((current) => !current)}
         onOpenFullTable={() => app.setActiveTab('standings')}
       />
+      {editable && drawnAhead !== 'none' ? (
+        <Alert className='mt-2.5'>
+          {destinationLabel(app.state.curRound + 1, labels)}{' '}
+          {drawnAhead === 'redraw'
+            ? "is already drawn. Next Round re-draws it from this round's results."
+            : "is already drawn and locked. Next Round returns to it unchanged; a correction here won't change its draw."}
+        </Alert>
+      ) : null}
       {editable ? (
         <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
           {!isLastRound ? (
