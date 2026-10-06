@@ -6,6 +6,24 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Eliminated rows: red bar instead of strike-through (done — 2026-10-06)
+
+### Context
+Organiser request: eliminated units are no longer struck through; they get a red indicator instead.
+
+### What changed
+- `resultClasses` (`features/tournament/components/result-row.ts`): `'eliminate'` is now `border-l-danger text-muted` (a red 3px left bar like the green advance bar, grey text, no strike-through, no opacity). That one style feeds Bracket room rows, the Bracket standings column and the Standings tab. The `'drop'`, `'below-cut'` and `standingsRowResult` comments were reworded. `grep line-through src` finds nothing else; the unused `TableRow` `'eliminate'` tone in `components/ui/Table.tsx` is left as it was.
+- `docs/views.md`: the two "struck through once final" phrasings (Bracket column, Standings) now describe the red bar.
+- A pending in-room tie (`'pending'`) keeps its red bar with red text, so it stays distinguishable from an eliminated row's red bar with grey text.
+
+### Testing
+- eslint, prettier and typecheck on the changed file; no unit test covers the class string (styling only). Live check results are below.
+
+### Out of scope
+- The unused `TableRow` `'eliminate'` tone; any change to the `'pending'` style.
+
+---
+
 ## Points rule, Rankings fixes, readable Standings table (done — 2026-10-06)
 
 ### Context

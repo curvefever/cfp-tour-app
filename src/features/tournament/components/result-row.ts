@@ -11,21 +11,21 @@ export function resultClasses(result: RowResult, followed: boolean) {
   return cn(
     result === 'advance' && 'border-l-success text-success',
     // A drop (double-elim: to the losers bracket) is a real, ongoing result,
-    // not an elimination -- amber like a Kings Valley demote, but never
-    // struck through.
+    // not an elimination -- amber like a Kings Valley demote, never the red
+    // bar of an eliminated row.
     result === 'drop' && 'border-l-warning text-warning',
-    result === 'eliminate' && 'border-l-surface-hover text-muted line-through opacity-50',
+    result === 'eliminate' && 'border-l-danger text-muted',
     result === 'lucky' && 'border-l-accent text-accent',
     result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
     result === 'promote' && 'border-l-success text-success',
     result === 'demote' && 'border-l-warning text-warning',
-    // Below a live standings cut: a projection, muted but never struck through.
+    // Below a live standings cut: a projection, muted, without the red bar of an eliminated row.
     result === 'below-cut' && 'text-muted',
     followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
   );
 }
 
-/** How a standings row reads: through the cut, or past it (struck through only once the standings are final). */
+/** How a standings row reads: through the cut, or past it (the red bar of an eliminated row only once the standings are final). */
 export function standingsRowResult(
   index: number,
   cut: number | null,
