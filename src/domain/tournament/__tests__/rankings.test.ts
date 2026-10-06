@@ -349,6 +349,52 @@ describe('computeRankings -- eliminated at a standings cut', () => {
     expect(eliminated[0].rank).toBe((rankings?.stillActive.length ?? 0) + 1);
   });
 
+  it.each([
+    ['three picked in order', ['T1', 'T2', 'T3']],
+    ['all four picked in order', ['T1', 'T2', 'T3', 'T4']],
+  ])(
+    'a 4-way cut tie straddling the cut with %s: the third pick ranks alone above the remainder',
+    (_label, picks) => {
+      // Room winners W1-W2 (share 1.8) lead; T1-T4 win with an identical 300-100 (share 1.5): 4 units for 2 places.
+      const pairs: Array<[string, number, string, number]> = [
+        ['W1', 900, 'L1', 100],
+        ['W2', 900, 'L2', 100],
+        ['T1', 300, 'L3', 100],
+        ['T2', 300, 'L4', 100],
+        ['T3', 300, 'L5', 100],
+        ['T4', 300, 'L6', 100],
+      ];
+      const scores: Record<string, number> = {};
+      const poolRound = pairs.flatMap(([winner, winnerScore, loser, loserScore], index) => {
+        scores[`r0-rm${index + 1}-p0`] = winnerScore;
+        scores[`r0-rm${index + 1}-p1`] = loserScore;
+        return [
+          { name: winner, room: index + 1, isLucky: false },
+          { name: loser, room: index + 1, isLucky: false },
+        ];
+      });
+      const state = createDefaultTournamentState({
+        gameFormat: 'individual-1v1',
+        players: poolRound.map((entry) => entry.name),
+        started: true,
+        curRound: 1,
+        cfg: { poolingPhase: 'qual-table', qualAdv: 4 },
+        gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+        rounds: [
+          buildRound({ roundNum: 1, isQual: true, isNoElim: true, rooms: [2, 2, 2, 2, 2, 2], players: 12 }),
+          buildRound({ roundNum: 2, rooms: [4], players: 4 }),
+        ],
+        assignments: [poolRound, ['W1', 'W2', 'T1', 'T2'].map((name) => ({ name, room: 1, isLucky: false }))],
+        scores,
+        tieResolutions: { 'qual-cutoff': picks },
+      });
+      const eliminated = computeRankings(state)?.eliminatedList ?? [];
+      const rankOf = (name: string) => eliminated.find((entry) => entry.name === name)?.rank;
+      expect(eliminated.slice(0, 2).map((entry) => entry.name)).toEqual(['T3', 'T4']);
+      expect([rankOf('T3'), rankOf('T4')]).toEqual([5, 6]);
+    },
+  );
+
   it('with the Final complete the ranks are unchanged: finalists 1…n, then the eliminated', () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
