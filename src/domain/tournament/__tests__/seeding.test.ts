@@ -352,9 +352,10 @@ describe('assignWaveToRooms', () => {
   });
 
   it('ignores history entries at or after targetRoundIndex (stale or planned meetings, not past repeats)', () => {
+    // B first: with no history the tie-break gives B room 1 and A room 2.
     const members = [
-      { name: 'A', tierRank: 0 },
       { name: 'B', tierRank: 0 },
+      { name: 'A', tierRank: 0 },
     ];
     const roomMembersSoFar = new Map([
       [1, ['X']],
@@ -377,11 +378,13 @@ describe('assignWaveToRooms', () => {
     const withStale = assignWaveToRooms(members, [1, 2], roomMembersSoFar, roomBalanceSoFar, {
       ...options,
       roomHistory: {
-        // Every member has a stale entry against every room, so unguarded every cost is Infinity.
-        [roomPairKey('A', 'X')]: 5, // exactly the target round: roundsAgo 0 is Infinity
+        // A: stale at exactly the target round against both rooms, so unguarded A's whole
+        // cost row is Infinity (roundsAgo 0) and the solver never terminates.
+        [roomPairKey('A', 'X')]: 5,
         [roomPairKey('A', 'Y')]: 5,
-        [roomPairKey('B', 'X')]: 6, // after the target round: negative roundsAgo
-        [roomPairKey('B', 'Y')]: 6,
+        // B: stale after the target round against room 1 only; if only `=== target` were
+        // skipped, this would push B out of room 1 (negative roundsAgo still costs something).
+        [roomPairKey('B', 'X')]: 6,
       },
     });
     expect(withStale).toEqual(withoutStale);
@@ -484,12 +487,13 @@ describe('tieredSeed', () => {
         buildRound({ roundNum: 2, rooms: [2, 2], players: 4 }),
       ],
       assignments: [names.map((name, index) => ({ name, room: index < 4 ? 1 : 2, isLucky: false }))],
-      // Pairs recorded for round index 1 (the draw being redone) and one for index 2.
-      roomHistory: {
-        [roomPairKey('A', 'E')]: 1,
-        [roomPairKey('B', 'F')]: 1,
-        [roomPairKey('A', 'F')]: 2,
-      },
+      // Every advancing pair is recorded for round index 1, the draw being redone: unguarded,
+      // the second wave's costs are all Infinity.
+      roomHistory: Object.fromEntries(
+        ['A', 'B', 'E', 'F'].flatMap((first, index, all) =>
+          all.slice(index + 1).map((second) => [roomPairKey(first, second), 1]),
+        ),
+      ),
     });
     const advancing = [{ name: 'A' }, { name: 'B' }, { name: 'E' }, { name: 'F' }];
     const { seeded } = tieredSeed({ state, roundIndex: 0, advancing });
