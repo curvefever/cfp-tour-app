@@ -359,7 +359,7 @@ describe('a cut-off tie', () => {
 });
 
 describe('describeStandings availability', () => {
-  it('is null without a pooling phase and before start', () => {
+  it('is null without a pooling phase', () => {
     const none = buildState({
       label: 'se',
       count: 16,
@@ -376,7 +376,42 @@ describe('describeStandings availability', () => {
     });
     expect(kings).not.toBeNull();
     expect(describeStandings({ ...(kings as TournamentState), started: true })).toBeNull();
-    expect(describeStandings({ ...scenarioA(), started: false })).toBeNull();
+  });
+
+  it('exists from schedule generation: before start every entry is unranked and the phase is upcoming', () => {
+    const generated = { ...scenarioA(), started: false };
+    expect(hasStandingsPhase(generated)).toBe(true);
+    const display = describeStandings(generated);
+    expect(display?.phase).toBe('upcoming');
+    expect(display?.roundsDone).toBe(0);
+    expect(display?.tables[0].entries).toHaveLength(43);
+    expect(display?.tables[0].entries.every((entry) => entry.rank === null && entry.totalFP === null)).toBe(
+      true,
+    );
+  });
+
+  it('before start a bye earns no points and a group-stage schedule has upcoming tables too', () => {
+    const swiss = buildState({
+      label: 'swiss',
+      count: 37,
+      teams: false,
+      setup: { ...H2H, poolingPhase: 'swiss', qualAdv: '16' },
+    }) as TournamentState;
+    const swissDisplay = describeStandings({ ...swiss, started: false });
+    expect(swissDisplay?.phase).toBe('upcoming');
+    expect(swissDisplay?.tables[0].entries.every((entry) => entry.totalFP === null)).toBe(true);
+    const groups = buildState({
+      label: 'groups',
+      count: 31,
+      teams: false,
+      setup: { ...H2H, poolingPhase: 'group-stage', groupSize: '4', qualifiersPerGroup: '2', qualAdv: '8' },
+    }) as TournamentState;
+    const groupDisplay = describeStandings({ ...groups, started: false });
+    expect(groupDisplay?.phase).toBe('upcoming');
+    expect(groupDisplay?.tables.length).toBeGreaterThan(1);
+    expect(groupDisplay?.tables.every((table) => table.entries.every((entry) => entry.rank === null))).toBe(
+      true,
+    );
   });
 });
 

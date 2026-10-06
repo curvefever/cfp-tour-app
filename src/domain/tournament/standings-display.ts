@@ -53,7 +53,7 @@ function isCountedRound(round: TournamentRound): boolean {
 }
 
 export function hasStandingsPhase(state: TournamentState): boolean {
-  return state.started && state.rounds.some(isStandingsRound);
+  return state.rounds.some(isStandingsRound);
 }
 
 /** A round is complete once it has contested rooms and every one is fully scored. */
