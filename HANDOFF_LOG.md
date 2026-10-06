@@ -17,7 +17,8 @@ Organiser request: eliminated units are no longer struck through; they get a red
 - A pending in-room tie (`'pending'`) keeps its red bar with red text, so it stays distinguishable from an eliminated row's red bar with grey text.
 
 ### Testing
-- eslint, prettier and typecheck on the changed file; no unit test covers the class string (styling only). Live check results are below.
+- eslint, prettier and typecheck on the changed file; `vitest related` finds no test for it (styling only, no unit test covers the class string).
+- **Live check** on the test site (throwaway: 24 FFA players, qualification table, 2 qualifying rounds, top 16; reset without saving afterwards; zero console errors). Computed styles after the cut: 16 eliminated Bracket room rows from the past qualifying round, the 8 eliminated rows (17–24) in the Bracket standings column and the 8 eliminated rows in the Standings tab (final phase) all have a red 3px left bar (rgb 255,77,106), grey text (rgb 128,144,173), opacity 1 and no line-through; the 16 rows through the cut keep the green bar; no element in the Bracket has a line-through. A tied pair in a current-round room (500 against 500) showed red bar, red text, opacity 0.85 and the "⚠ TB?" marker, so it stays distinguishable from an eliminated row (grey text, no marker).
 
 ### Out of scope
 - The unused `TableRow` `'eliminate'` tone; any change to the `'pending'` style.
