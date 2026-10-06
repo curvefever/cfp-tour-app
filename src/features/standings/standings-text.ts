@@ -29,12 +29,16 @@ function pointsPerPlace(state: TournamentState): number[] {
 }
 
 function pointsSentence(state: TournamentState): string {
-  const places = pointsPerPlace(state)
-    .map((points, index) => `${ordinal(index + 1)} = ${points}`)
-    .join(', ');
-  return state.gamemodeConfig.scoring === 'positional-points'
-    ? `Each counted round, your place in your room earns points from the organiser's table: ${places}.`
-    : `Each counted round, your place in your room earns points: ${places}, whatever the size of your room.`;
+  const points = pointsPerPlace(state);
+  const { scoring, roomSize } = state.gamemodeConfig;
+  if (roomSize?.max === 2)
+    return `Each counted round, a win earns ${points[0]} points and a loss ${points[1]}.`;
+  const places = points.map((value, index) => `${ordinal(index + 1)} = ${value}`).join(', ');
+  if (scoring === 'positional-points') {
+    return `Each counted round, your place in your room earns points from the organiser's table: ${places}.`;
+  }
+  const sizeNote = roomSize && roomSize.min === roomSize.max ? '' : ', whatever the size of your room';
+  return `Each counted round, your place in your room earns points: ${places}${sizeNote}.`;
 }
 
 /** "Round 1 doesn't count." / "Rounds 1–2 don't count."; empty when every round counts. */

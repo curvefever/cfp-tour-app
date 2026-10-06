@@ -62,6 +62,25 @@ describe('standingsExplanation', () => {
     );
   });
 
+  it('drops "whatever the size of your room" when every room has the same size', () => {
+    expect(
+      standingsExplanation(stateWith({ roomSize: { min: 4, max: 4, ideal: 4 } }), display({}, 16))[0],
+    ).toBe('Each counted round, your place in your room earns points: 1st = 4, 2nd = 3, 3rd = 2, 4th = 1.');
+  });
+
+  it('head-to-head: a win and a loss, from the settings', () => {
+    const h2h = { roomSize: { min: 2, max: 2, ideal: 2 } };
+    expect(standingsExplanation(stateWith(h2h), display({}, 16))[0]).toBe(
+      'Each counted round, a win earns 2 points and a loss 1.',
+    );
+    expect(
+      standingsExplanation(
+        stateWith({ ...h2h, scoring: 'positional-points', positionalPointsTable: [10, 8] }),
+        display({}, 16),
+      )[0],
+    ).toBe('Each counted round, a win earns 10 points and a loss 8.');
+  });
+
   it('Standard points, FFA: 8 down to 1', () => {
     const sentence = standingsExplanation(
       stateWith({ roomSize: { min: 6, max: 8, ideal: 8 } }),
