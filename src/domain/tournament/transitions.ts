@@ -10,6 +10,7 @@ import {
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { seedFromGroupStageRound } from './pooling';
+import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
 import {
   avoidSameGroupInFirstBracketRound,
@@ -548,17 +549,23 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       state: prepared,
     };
   }
+  const drawnAhead = drawnAheadStatus(prepared, roundIndex);
+  if (drawnAhead === 'locked') {
+    const state = { ...prepared, curRound: roundIndex + 1, needsSave: true };
+    return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
+  }
+  const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;
   if (round.bracket) {
-    return advanceDoubleElimination(prepared, roundIndex, round);
+    return advanceDoubleElimination(base, roundIndex, round);
   }
   if (round.isKingsValley) {
-    return advanceKingsValley(prepared, roundIndex);
+    return advanceKingsValley(base, roundIndex);
   }
   if (round.isWaterfall) {
-    return advanceWaterfallBracket(prepared, roundIndex, round);
+    return advanceWaterfallBracket(base, roundIndex, round);
   }
 
-  const state = cloneForTransition(prepared);
+  const state = cloneForTransition(base);
   const result = roomBasedComputeAdvancement(state, roundIndex);
   if (result.qualTable) state.qualTable = result.qualTable;
   if (result.groupStandings) state.groupStandings = result.groupStandings;
