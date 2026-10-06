@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { compareStandings, isStandingsCutoffRound } from '../advancement';
 import { computeRankings } from '../rankings';
+import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
-import type { TournamentState } from '../types';
+import { advanceTournamentRound } from '../transitions';
+import type { TournamentStanding, TournamentState } from '../types';
+import { buildState, scoreCurrentRound } from './play-through';
 import { buildRound } from './test-fixtures';
 
 describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
@@ -243,5 +247,141 @@ describe('computeRankings -- pool rank badge', () => {
     const complete = { ...state, scores: { ...state.scores, 'r0-rm2-p1': 50 } };
     const after = new Map(computeRankings(complete)?.stillActive.map((unit) => [unit.name, unit.poolRank]));
     expect(after.get('P3')?.rank).toBeDefined();
+  });
+});
+
+describe('computeRankings -- eliminated at a standings cut', () => {
+  function advance(state: TournamentState): TournamentState {
+    const result = advanceTournamentRound(state);
+    if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  /** Plays and scores rounds until the current one is the standings cut-off round. */
+  function playToCutoffRound(start: TournamentState, teamSize: number): TournamentState {
+    let state = start;
+    for (let guard = 0; guard < 20 && !isStandingsCutoffRound(state, state.curRound); guard += 1) {
+      state = advance(scoreCurrentRound(state, teamSize));
+    }
+    return state;
+  }
+
+  /** Scenario B: 23 teams, 2v2v2v2, qualification table, 4 rounds with round 1 not counted, 16 qualify. */
+  function afterTeamQualCut(): TournamentState {
+    const start = buildState({
+      label: 'scenario B',
+      count: 23,
+      teams: true,
+      setup: {
+        gameFormat: 'team-2v2v2v2',
+        poolingPhase: 'qual-table',
+        qualAdv: '16',
+        qualRoundsOverride: '4',
+        nonCountingRounds: '1',
+      },
+    }) as TournamentState;
+    return advance(scoreCurrentRound(playToCutoffRound(start, 3), 3));
+  }
+
+  it('scenario B: the 7 teams the cut eliminated rank 17-23, in standings order', () => {
+    const state = afterTeamQualCut();
+    const rankings = computeRankings(state);
+    const table = describeStandings(state)?.tables[0].entries ?? [];
+    expect(rankings?.stillActive).toHaveLength(16);
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).toEqual(
+      table.slice(16).map((entry) => entry.name),
+    );
+    expect(rankings?.eliminatedList.map((entry) => entry.rank)).toEqual([17, 18, 19, 20, 21, 22, 23]);
+  });
+
+  it("a later-round elimination ranks above the cut's eliminated, and both sets sit below the still-active", () => {
+    let state = afterTeamQualCut();
+    const cutRoundIndex = state.curRound - 1;
+    state = advance(scoreCurrentRound(state, 3));
+    const rankings = computeRankings(state);
+    const eliminated = rankings?.eliminatedList ?? [];
+    const later = eliminated.filter((entry) => entry.ri > cutRoundIndex);
+    const atCut = eliminated.filter((entry) => entry.ri === cutRoundIndex);
+    expect(later.length).toBeGreaterThan(0);
+    expect(atCut).toHaveLength(7);
+    expect(eliminated.slice(0, later.length)).toEqual(later);
+    const active = rankings?.stillActive.length ?? 0;
+    expect(eliminated[0].rank).toBe(active + 1);
+    expect(atCut.map((entry) => entry.rank)).toEqual([17, 18, 19, 20, 21, 22, 23]);
+    expect(Math.max(...later.map((entry) => entry.rank))).toBeLessThan(17);
+  });
+
+  it('group stage (31 units, 2 per group go through): eliminated units are ordered by place in group, then standing', () => {
+    let state = buildState({
+      label: 'scenario D',
+      count: 31,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        qualAdv: '8',
+        oddCountStrategy: 'bye',
+      },
+    }) as TournamentState;
+    state = advance(scoreCurrentRound(playToCutoffRound(state, 0), 0));
+    const rankings = computeRankings(state);
+    const placed = new Map<string, { place: number; standing: TournamentStanding }>();
+    for (const table of describeStandings(state)?.tables ?? []) {
+      for (const [place, standing] of table.entries.entries()) placed.set(standing.name, { place, standing });
+    }
+    const eliminated = rankings?.eliminatedList ?? [];
+    expect(eliminated.length).toBeGreaterThan(0);
+    for (const [index, entry] of eliminated.entries()) {
+      const next = eliminated[index + 1];
+      if (!next) continue;
+      const here = placed.get(entry.name);
+      const there = placed.get(next.name);
+      expect(here?.place).toBeLessThanOrEqual(there?.place ?? Infinity);
+      if (here?.place === there?.place) {
+        expect(
+          compareStandings(here?.standing as TournamentStanding, there?.standing as TournamentStanding),
+        ).toBeLessThanOrEqual(0);
+      }
+      expect(entry.rank).toBeLessThanOrEqual(next.rank);
+    }
+    expect(eliminated[0].rank).toBe((rankings?.stillActive.length ?? 0) + 1);
+  });
+
+  it('with the Final complete the ranks are unchanged: finalists 1…n, then the eliminated', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2', 'P3', 'P4'],
+      curRound: 1,
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [4], players: 4, advPerRoom: 2 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2, isFinal: true, numGames: 1 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+      finalScores: { 'game1-P1': 50, 'game1-P2': 80 },
+    });
+    const rankings = computeRankings(state);
+    expect(rankings?.finalComplete).toBe(true);
+    expect(rankings?.finalists.map((entry) => [entry.name, entry.rank])).toEqual([
+      ['P2', 1],
+      ['P1', 2],
+    ]);
+    expect(rankings?.eliminatedList.map((entry) => [entry.name, entry.rank])).toEqual([
+      ['P3', 3],
+      ['P4', 4],
+    ]);
   });
 });

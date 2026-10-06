@@ -1,8 +1,15 @@
-import { describeStandings } from './standings-display';
+import { compareStandings, isStandingsCutoffRound, sameStanding } from './advancement';
+import { describeStandings, type StandingsDisplay } from './standings-display';
 import { computeGrandFinalRaceState } from './finals';
-import { getFinalUnitScore, getUnitScore, orderRoomByScore } from './scoring';
+import { getFinalUnitScore, getUnitScore, orderRoomByScore, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
-import type { RoundAssignment, TournamentRound, TournamentState, WithdrawnUnit } from './types';
+import type {
+  RoundAssignment,
+  TournamentRound,
+  TournamentStanding,
+  TournamentState,
+  WithdrawnUnit,
+} from './types';
 
 export interface RankingDisplay {
   name: string;
@@ -46,6 +53,67 @@ export function lastAssignedRound(state: Pick<TournamentState, 'assignments'>): 
     if (assignments?.length) last = index;
   }
   return last;
+}
+
+/** Where an eliminated unit stood in the table that decided its standings cut. */
+interface CutPlacement {
+  /** Position in its table (its group's table, for a Group Stage). */
+  place: number;
+  standing: TournamentStanding;
+  /** The organiser picked this unit in a cut-off tie, so it never shares a rank. */
+  resolved: boolean;
+}
+
+/** Each unit's placement in the standings tables, for ordering the units a standings cut eliminates. */
+function cutPlacements(state: TournamentState, display: StandingsDisplay | null): Map<string, CutPlacement> {
+  const placements = new Map<string, CutPlacement>();
+  for (const table of display?.tables ?? []) {
+    const resolved = tieResolutionList(state, table.key);
+    for (const [place, standing] of table.entries.entries()) {
+      placements.set(standing.name, { place, standing, resolved: resolved.includes(standing.name) });
+    }
+  }
+  return placements;
+}
+
+interface EliminatedEntry {
+  name: string;
+  ri: number;
+  round: TournamentRound;
+  pct: number;
+  room?: number;
+  cut?: CutPlacement;
+}
+
+/** Later elimination first; at a standings cut by place in the table (a Group Stage: by place in the group, then by standing); else a lower Kings Valley room, then room share. */
+function compareEliminated(perGroup: boolean) {
+  return (first: EliminatedEntry, second: EliminatedEntry): number => {
+    if (second.ri !== first.ri) return second.ri - first.ri;
+    if (first.cut && second.cut) {
+      const byPlace = first.cut.place - second.cut.place;
+      return perGroup && byPlace === 0 ? compareStandings(first.cut.standing, second.cut.standing) : byPlace;
+    }
+    if (first.cut || second.cut) return first.cut ? -1 : 1;
+    if (first.room !== undefined && second.room !== undefined && first.room !== second.room) {
+      return first.room - second.room; // lower room number (closer to the top) ranks higher
+    }
+    return second.pct - first.pct;
+  };
+}
+
+/** Neighbours in the eliminated order share a rank when nothing separates them: the same standing at a cut, else the same Kings Valley room and room share. */
+function sharesRank(previous: EliminatedEntry, current: EliminatedEntry, perGroup: boolean): boolean {
+  if (previous.ri !== current.ri) return false;
+  if (previous.cut && current.cut) {
+    return (
+      sameStanding(previous.cut.standing, current.cut.standing) &&
+      !(perGroup && previous.cut.place !== current.cut.place) &&
+      !previous.cut.resolved &&
+      !current.cut.resolved
+    );
+  }
+  if (previous.cut || current.cut) return false;
+  return previous.room === current.room && previous.pct.toFixed(9) === current.pct.toFixed(9);
 }
 
 function assignmentsByRoom(assignments: RoundAssignment[]) {
@@ -185,29 +253,26 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
 
   const activeNames = new Set(active.map(({ name }) => name));
   const finalistNames = new Set(finalistValues.map(({ name }) => name));
-  const eliminatedValues = rosterKeys(state.players)
+  const standings = describeStandings(state);
+  const placements = cutPlacements(state, standings);
+  const perGroup = Boolean(standings?.perGroup);
+  const eliminatedValues: EliminatedEntry[] = rosterKeys(state.players)
     .filter((name) => !activeNames.has(name) && !finalistNames.has(name))
     .flatMap((name) => {
       const info = eliminated.get(name);
-      return info ? [{ name, ...info }] : [];
+      if (!info) return [];
+      return [
+        { name, ...info, cut: isStandingsCutoffRound(state, info.ri) ? placements.get(name) : undefined },
+      ];
     })
-    .sort((first, second) => {
-      if (second.ri !== first.ri) return second.ri - first.ri;
-      if (first.room !== undefined && second.room !== undefined && first.room !== second.room) {
-        return first.room - second.room; // lower room number (closer to the top) ranks higher
-      }
-      return second.pct - first.pct;
-    });
+    .sort(compareEliminated(perGroup));
 
-  const offset = finalComplete ? finalistValues.length : 0;
+  // Eliminated units always rank below every unit that is not eliminated (still active, in the Final, finalists).
+  const offset = rosterKeys(state.players).length - eliminatedValues.length;
   let rank = 0;
-  let previousKey: string | null = null;
-  const rankedEliminated = eliminatedValues.map((entry, index) => {
-    const key = `${entry.ri}|${entry.room ?? '-'}|${entry.pct.toFixed(9)}`;
-    if (key !== previousKey) {
-      rank = index + 1 + offset;
-      previousKey = key;
-    }
+  const rankedEliminated = eliminatedValues.map(({ cut: _cut, ...entry }, index) => {
+    const previous = eliminatedValues[index - 1];
+    if (!previous || !sharesRank(previous, eliminatedValues[index], perGroup)) rank = index + 1 + offset;
     return { ...entry, rank };
   });
 
@@ -223,7 +288,6 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   });
 
   const poolRanks = new Map<string, { rank: number; fp: number | null; groupLabel?: string }>();
-  const standings = describeStandings(state);
   for (const table of standings?.tables ?? []) {
     for (const entry of table.entries) {
       if (entry.rank !== null)
