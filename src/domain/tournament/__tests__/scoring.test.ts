@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  fairPoints,
   formatStandingValue,
   getDefenderIndex,
   getFinalUnitScore,
@@ -11,6 +10,7 @@ import {
   scoredTeamSize,
   scoreKeysForPosition,
   scoringSystemLabel,
+  standardPoints,
   tieResolutionList,
 } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -198,14 +198,14 @@ describe('scoreKeysForPosition', () => {
   });
 });
 
-describe('fairPoints', () => {
-  it('computes rank - score/100_000, exactly', () => {
-    expect(fairPoints(1, 1306)).toBe(1 - 1306 / 100_000);
-    expect(fairPoints(2, 500)).toBe(2 - 500 / 100_000);
+describe('standardPoints', () => {
+  it('gives 1st place the largest room size and one point less per place', () => {
+    expect([1, 2, 3, 4].map((place) => standardPoints(place, 4))).toEqual([4, 3, 2, 1]);
+    expect([1, 2, 3].map((place) => standardPoints(place, 8))).toEqual([8, 7, 6]);
   });
 
-  it('is monotonically more favorable (lower) for a higher score at the same rank', () => {
-    expect(fairPoints(1, 1306)).toBeLessThan(fairPoints(1, 1200));
+  it('floors at 0 for a place beyond the largest room size', () => {
+    expect(standardPoints(5, 4)).toBe(0);
   });
 });
 
@@ -227,20 +227,15 @@ describe('positionalPoints', () => {
 });
 
 describe('scoringSystemLabel', () => {
-  it('labels each scoring system', () => {
-    expect(scoringSystemLabel('fairpoints')).toBe('Fair Points');
-    expect(scoringSystemLabel('positional-points')).toBe('Positional Points');
+  it('calls both scoring systems "Points"', () => {
+    expect(scoringSystemLabel()).toBe('Points');
   });
 });
 
 describe('formatStandingValue', () => {
-  it('formats Fair Points to 5 decimals', () => {
-    expect(formatStandingValue(1.23456789, 'fairpoints')).toBe('1.23457');
-  });
-
-  it('formats positional points as a rounded whole number', () => {
-    expect(formatStandingValue(24, 'positional-points')).toBe('24');
-    expect(formatStandingValue(23.999999, 'positional-points')).toBe('24');
+  it('formats a points total as a rounded whole number', () => {
+    expect(formatStandingValue(24)).toBe('24');
+    expect(formatStandingValue(23.999999)).toBe('24');
   });
 });
 

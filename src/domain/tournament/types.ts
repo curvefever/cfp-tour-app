@@ -139,13 +139,26 @@ export interface PendingBracketSeed {
   pct: number;
 }
 
+/** One counted round of a unit's standing. `score` and `rank` (place in its room) are null for a bye, which still earns points. */
+export interface StandingRoundResult {
+  roundIndex: number;
+  score: number | null;
+  rank: number | null;
+  points: number;
+  bye: boolean;
+}
+
 export interface TournamentStanding {
   name: string;
+  /** Points total: the sum of the points of every counted round (a round not played earns 0, a bye earns 1st-place points); null until the unit has a result. The field name is persisted. Higher is better. */
   totalFP: number | null;
   totalScore: number;
+  /** Counted rounds played in a room (byes excluded). */
   played: number;
-  /** Average over counted rounds of score ÷ own room's total; tie-breaker, higher is better; absent in snapshots saved before 2026-10-05. */
+  /** Tie-breaker, higher is better: per round, score ÷ own room's total × the room's scored units (1 = an average score in that room; an all-zero room gives 1), averaged over the rounds played in a room (byes skipped). Null when there are none. */
   roomShare?: number | null;
+  /** Per counted round with a result, for the Standings table; a counted round the unit didn't play has no entry. */
+  rounds?: StandingRoundResult[];
 }
 
 export interface TournamentGroup {

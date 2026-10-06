@@ -176,7 +176,7 @@ export function RankingsContent({
                     <small>
                       #{unit.poolRank.rank}
                       {unit.poolRank.fp !== null
-                        ? ` · ${formatStandingValue(unit.poolRank.fp, scoring)} ${scoringUnit}`
+                        ? ` · ${formatStandingValue(unit.poolRank.fp)} ${scoringUnit}`
                         : ''}
                     </small>
                   ) : null}

@@ -36,7 +36,7 @@ export function buildState(config: SweepConfig): TournamentState | null {
     createTournamentRuntime(),
   );
   // A config the generator itself refuses (e.g. an oversized Final) isn't part of the sweep.
-  return result.status === 'generated' ? result.state : null;
+  return result.status === 'generated' ? { ...result.state, started: true } : null;
 }
 
 /** Scores every occupied room of the current round; every score is globally distinct. */

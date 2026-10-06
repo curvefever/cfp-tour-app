@@ -1,6 +1,6 @@
 import { getGameFormat } from './formats';
 import { buildTeamMap } from './roster';
-import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
+import type { TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
 function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
   return raw !== null && raw !== undefined && raw !== '' ? Number.parseInt(String(raw), 10) : fallback;
@@ -153,8 +153,12 @@ export function scoreKeysForPosition(options: {
   return keys;
 }
 
-export function fairPoints(rank: number, score: number): number {
-  return rank - score / 100_000;
+/**
+ * Standard points for one counted round: 1st place earns the tournament's largest room size, minus one per
+ * place (floored at 0). The same place earns the same points whatever the size of the room it was played in.
+ */
+export function standardPoints(place: number, maxRoomSize: number): number {
+  return Math.max(0, maxRoomSize + 1 - place);
 }
 
 /** Organiser-supplied rank->points table lookup (1-indexed rank, highest rank first). A rank beyond the table's own length (shouldn't happen given generation.ts's validation) falls back to 0. */
@@ -162,13 +166,13 @@ export function positionalPoints(rank: number, table: readonly number[]): number
   return table[rank - 1] ?? 0;
 }
 
-export function scoringSystemLabel(scoring: ScoringSystemKey): string {
-  return scoring === 'positional-points' ? 'Positional Points' : 'Fair Points';
+/** What players see for either scoring system. */
+export function scoringSystemLabel(): string {
+  return 'Points';
 }
 
-/** Fair Points' fractional value needs 5-decimal precision to disambiguate close ties; positional points is always a whole number, so it's shown without decimals. */
-export function formatStandingValue(value: number, scoring: ScoringSystemKey): string {
-  return scoring === 'positional-points' ? String(Math.round(value)) : value.toFixed(5);
+export function formatStandingValue(value: number): string {
+  return String(Math.round(value));
 }
 
 export function groupByScore<T extends { score: number }>(scoredDescending: T[]): T[][] {

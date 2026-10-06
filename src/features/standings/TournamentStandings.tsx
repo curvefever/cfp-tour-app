@@ -71,7 +71,6 @@ function StandingsRows({
   placed: boolean;
   pending: boolean;
 }) {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const result = standingsRowResult(index, table.cut, display.phase);
   return (
     <>
@@ -82,7 +81,7 @@ function StandingsRows({
           <TournamentUnit state={state} name={entry.name} />
           <TieMark placed={placed} pending={pending} />
         </TableCell>
-        <TableCell>{entry.totalFP !== null ? formatStandingValue(entry.totalFP, scoring) : '—'}</TableCell>
+        <TableCell>{entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}</TableCell>
         <TableCell>{formatShare(entry.roomShare)}</TableCell>
         <TableCell>{entry.totalScore}</TableCell>
         <TableCell>{entry.played}</TableCell>
@@ -102,7 +101,6 @@ export function TournamentStandings({
   followKey: string | null;
   marks: Record<string, CutTieMarks>;
 }) {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   return (
     <div className='grid grid-cols-[repeat(auto-fit,minmax(310px,1fr))] gap-3.5'>
       {display.tables.map((table) => (
@@ -114,7 +112,7 @@ export function TournamentStandings({
                 <TableRow>
                   <TableHeadCell>Pos</TableHeadCell>
                   <TableHeadCell>Player / Team</TableHeadCell>
-                  <TableHeadCell>{scoringSystemLabel(scoring)}</TableHeadCell>
+                  <TableHeadCell>{scoringSystemLabel()}</TableHeadCell>
                   <TableHeadCell>Room share</TableHeadCell>
                   <TableHeadCell>Score</TableHeadCell>
                   <TableHeadCell>Played</TableHeadCell>

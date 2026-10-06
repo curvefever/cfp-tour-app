@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { cutTieMarks, describeStandings } from '../../domain/tournament/standings-display';
-import type { TournamentState } from '../../domain/tournament/types';
 import { readBracketFollow } from '../../lib/persistence/storage';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { Alert } from '../../components/ui';
 import { TournamentStandings } from './TournamentStandings';
 import { standingsContextLine } from './standings-text';
 
-function explanationLine(state: TournamentState): string {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-  const direction = scoring === 'positional-points' ? 'higher is better' : 'lower is better';
-  return `${scoringSystemLabel(scoring)}: ${direction}. Equal points are separated by average room share: your score as a share of your room's total, averaged over counted rounds.`;
+function explanationLine(): string {
+  return `${scoringSystemLabel()}: higher is better. Equal points are separated by average room share: your score as a share of your room's total, averaged over counted rounds.`;
 }
 
 export function StandingsView() {
@@ -28,7 +25,7 @@ export function StandingsView() {
   return (
     <div id='st-content'>
       <p className='mb-1 text-sm font-semibold'>{standingsContextLine(display)}</p>
-      <p className='mb-3.5 text-xs text-muted'>{explanationLine(state)}</p>
+      <p className='mb-3.5 text-xs text-muted'>{explanationLine()}</p>
       <TournamentStandings state={state} display={display} followKey={followKey} marks={marks} />
     </div>
   );

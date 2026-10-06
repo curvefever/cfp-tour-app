@@ -1,19 +1,14 @@
 import { kingsValleyRoundMoves } from './kings-valley';
 import {
-  fairPoints,
   getUnitScore,
   groupByScore,
   orderRoomByScore,
   positionalPoints,
+  standardPoints,
   tieResolutionList,
 } from './scoring';
 import { rosterKeys } from './roster';
-import type { ScoringSystemKey, TournamentRound, TournamentStanding, TournamentState } from './types';
-
-/** Fair Points is lower-is-better (rank - score/100000); positional points is higher-is-better (a rank-to-points table). Everything downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table, so this is the one place the direction needs to be decided. */
-function compareStandingValue(first: number, second: number, scoring: ScoringSystemKey): number {
-  return scoring === 'positional-points' ? second - first : first - second;
-}
+import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
 
 /** Room shares closer than this count as equal (they are averages of floating-point ratios). */
 const ROOM_SHARE_TOLERANCE = 1e-9;
@@ -27,16 +22,12 @@ export function sameStanding(first: TournamentStanding, second: TournamentStandi
   return Math.abs(firstShare - secondShare) < ROOM_SHARE_TOLERANCE;
 }
 
-/** Best-first order: unplayed (null points) last, then standing points, then higher average room share. */
-export function compareStandings(
-  first: TournamentStanding,
-  second: TournamentStanding,
-  scoring: ScoringSystemKey,
-): number {
+/** Best-first order: unplayed (null points) last, then more points, then higher average room share. Both scoring systems are higher-is-better sums, and every table downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table. */
+export function compareStandings(first: TournamentStanding, second: TournamentStanding): number {
   if (first.totalFP === null && second.totalFP === null) return 0;
   if (first.totalFP === null) return 1;
   if (second.totalFP === null) return -1;
-  const byPoints = compareStandingValue(first.totalFP, second.totalFP, scoring);
+  const byPoints = second.totalFP - first.totalFP;
   if (byPoints !== 0) return byPoints;
   if (sameStanding(first, second)) return 0;
   return (second.roomShare ?? 0) - (first.roomShare ?? 0);
@@ -334,50 +325,60 @@ export function rankStandings(
   });
 }
 
+/** One counted round of a unit's standing, plus its relative room share (null for a bye). */
+interface RoundOutcome extends StandingRoundResult {
+  share: number | null;
+}
+
 interface StandingAccumulator {
   name: string;
-  rounds: Array<{ fp: number; score: number; share: number }>;
+  rounds: RoundOutcome[];
 }
 
-/** One round's share of its room: score ÷ the room's total; an all-zero room splits equally. */
-function roomShareOf(score: number, scoredRoom: readonly ScoredUnit[]): number {
+/** The tournament's largest room (`roomSize.max`): what 1st place earns under Standard points. */
+function largestRoomSize(state: TournamentState): number {
+  return state.gamemodeConfig.roomSize?.max ?? Math.max(0, ...state.rounds.flatMap((round) => round.rooms));
+}
+
+/** Points for a place in one counted round: the organiser's table under Custom points, else Standard points. */
+function pointsForPlace(state: TournamentState, place: number): number {
+  return state.gamemodeConfig.scoring === 'positional-points'
+    ? positionalPoints(place, state.gamemodeConfig.positionalPointsTable ?? [])
+    : standardPoints(place, largestRoomSize(state));
+}
+
+/** One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room gives everyone 1. */
+function relativeRoomShare(score: number, scoredRoom: readonly ScoredUnit[]): number {
   const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
-  return roomTotal > 0 ? score / roomTotal : 1 / scoredRoom.length;
+  return roomTotal > 0 ? (score / roomTotal) * scoredRoom.length : 1;
 }
 
-// For 'fairpoints', totalFP is an average across rounds played, not a sum --
-// despite the name (kept for compatibility with the persisted
-// TournamentState shape) -- so a unit with fewer counted rounds (a bye, a
-// late-joining reserve) is ranked by rate of performance, not rewarded
-// simply for having a smaller sample. For 'positional-points', the
-// organiser's own real-tournament convention is a plain sum -- and summing a
-// per-round value that's already bounded below by 0 naturally penalizes a
-// smaller sample instead of needing the same protection.
-function materializeStandings(
-  entries: StandingAccumulator[],
-  scoring: ScoringSystemKey,
-): TournamentStanding[] {
+/**
+ * A unit's totals over its counted rounds. totalFP (the name is persisted) is the SUM of the round points,
+ * higher is better: a counted round not played earns 0, a bye earns 1st-place points. It stays null until the
+ * unit has a result. The tie-breaker roomShare averages the relative room share over the rounds played in a
+ * room (byes skipped).
+ */
+function materializeStandings(entries: StandingAccumulator[]): TournamentStanding[] {
   return entries
-    .map((entry) => ({
-      name: entry.name,
-      totalFP: entry.rounds.length
-        ? scoring === 'positional-points'
-          ? entry.rounds.reduce((total, round) => total + round.fp, 0)
-          : entry.rounds.reduce((total, round) => total + round.fp, 0) / entry.rounds.length
-        : null,
-      totalScore: entry.rounds.reduce((total, round) => total + round.score, 0),
-      played: entry.rounds.length,
-      roomShare: entry.rounds.length
-        ? entry.rounds.reduce((total, round) => total + round.share, 0) / entry.rounds.length
-        : null,
-    }))
-    .sort((first, second) => compareStandings(first, second, scoring));
+    .map((entry) => {
+      const shares = entry.rounds.flatMap((round) => (round.share === null ? [] : [round.share]));
+      return {
+        name: entry.name,
+        totalFP: entry.rounds.length ? entry.rounds.reduce((total, round) => total + round.points, 0) : null,
+        totalScore: entry.rounds.reduce((total, round) => total + (round.score ?? 0), 0),
+        played: shares.length,
+        roomShare: shares.length ? shares.reduce((total, share) => total + share, 0) / shares.length : null,
+        rounds: entry.rounds.map(({ share: _share, ...result }) => result),
+      };
+    })
+    .sort(compareStandings);
 }
 
 /**
  * A room with exactly one assigned unit is not a match (its opponent was
- * removed, or the seeder left an odd unit alone): standings skip it, like a
- * bye, so the unit doesn't collect a free rank-1 result. Counts assigned
+ * removed, or the seeder left an odd unit alone): the standings credit the
+ * unit like a bye (a win), with no score and no room share. Counts assigned
  * units, not scored ones -- a two-unit room with a missing score is still a
  * normal match. Advancement is unaffected: a lone unit already advances.
  */
@@ -405,12 +406,59 @@ function isHeldBackLiveRoom(
   return options?.liveRound === roundIndex && !isRoomFullyScored(state, roundIndex, room);
 }
 
+/** True once the round is being played or is over: a bye or a lone unit only earns its win then. */
+function roundHasBegun(state: TournamentState, roundIndex: number): boolean {
+  return roundIndex < state.curRound || (roundIndex === state.curRound && state.started);
+}
+
+/** Group Stage byes of groups that play a match this round (a group whose round robin ran out is idle, not on a bye). */
+function activeGroupByes(state: TournamentState, round: TournamentRound): string[] {
+  const playing = new Set((round.matches ?? []).map((match) => match.group));
+  const idle = new Set(
+    state.groups.filter((group) => !playing.has(group.label)).flatMap((group) => group.members),
+  );
+  return (round.groupByes ?? []).filter((name) => !idle.has(name));
+}
+
+/** Units that sit a counted round out with a win: its byes, and every unit alone in a room (its opponent was removed). */
+function walkoverNames(state: TournamentState, roundIndex: number, round: TournamentRound): Set<string> {
+  if (!roundHasBegun(state, roundIndex)) return new Set();
+  const names = new Set(round.isGroupStage ? activeGroupByes(state, round) : (state.byes[roundIndex] ?? []));
+  for (let room = 1; room <= round.rooms.length; room += 1) {
+    if (!isUncontestedRoom(state, roundIndex, room)) continue;
+    for (const entry of state.assignments[roundIndex]) {
+      if (entry.room === room) names.add(entry.name);
+    }
+  }
+  return names;
+}
+
+function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutcome {
+  return { roundIndex, score: null, rank: null, points: pointsForPlace(state, 1), bye: true, share: null };
+}
+
+/** Every scored unit of a room with its result, best place first. */
+function roomOutcomes(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+): Array<RoundOutcome & { name: string }> {
+  const scored = scoreRoom(state, roundIndex, room, null);
+  return orderRoomByScore(scored, roundIndex, room, state).map((entry, index) => ({
+    name: entry.name,
+    roundIndex,
+    score: entry.score,
+    rank: index + 1,
+    points: pointsForPlace(state, index + 1),
+    bye: false,
+    share: relativeRoomShare(entry.score, scored),
+  }));
+}
+
 export function computeQualificationStandings(
   state: TournamentState,
   options?: StandingsOptions,
 ): TournamentStanding[] {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-  const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const accumulators = new Map<string, StandingAccumulator>(
     rosterKeys(state.players).map((name) => [name, { name, rounds: [] }]),
   );
@@ -419,31 +467,26 @@ export function computeQualificationStandings(
     for (let room = 1; room <= round.rooms.length; room += 1) {
       if (isUncontestedRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
         continue;
-      const scored = scoreRoom(state, roundIndex, room, null);
-      for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
-        accumulators.get(entry.name)?.rounds.push({
-          fp:
-            scoring === 'positional-points'
-              ? positionalPoints(index + 1, positionalPointsTable)
-              : fairPoints(index + 1, entry.score),
-          score: entry.score,
-          share: roomShareOf(entry.score, scored),
-        });
+      for (const { name, ...outcome } of roomOutcomes(state, roundIndex, room)) {
+        accumulators.get(name)?.rounds.push(outcome);
       }
     }
+    for (const name of walkoverNames(state, roundIndex, round)) {
+      accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex));
+    }
   }
-  return materializeStandings([...accumulators.values()], scoring);
+  return materializeStandings([...accumulators.values()]);
 }
 
 export function computeGroupStandings(
   state: TournamentState,
   options?: StandingsOptions,
 ): Record<string, TournamentStanding[]> {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-  const positionalPointsTable = state.gamemodeConfig.positionalPointsTable ?? [];
   const byGroup = new Map<string, Map<string, StandingAccumulator>>();
+  const groupOf = new Map<string, string>();
   for (const group of state.groups) {
     byGroup.set(group.label, new Map(group.members.map((name) => [name, { name, rounds: [] }])));
+    for (const name of group.members) groupOf.set(name, group.label);
   }
 
   for (const [roundIndex, round] of state.rounds.entries()) {
@@ -456,25 +499,20 @@ export function computeGroupStandings(
         isHeldBackLiveRoom(state, roundIndex, room, options)
       )
         continue;
-      const scored = scoreRoom(state, roundIndex, room, null);
-      for (const [index, entry] of orderRoomByScore(scored, roundIndex, room, state).entries()) {
-        byGroup
-          .get(groupLabel)
-          ?.get(entry.name)
-          ?.rounds.push({
-            fp:
-              scoring === 'positional-points'
-                ? positionalPoints(index + 1, positionalPointsTable)
-                : fairPoints(index + 1, entry.score),
-            score: entry.score,
-            share: roomShareOf(entry.score, scored),
-          });
+      for (const { name, ...outcome } of roomOutcomes(state, roundIndex, room)) {
+        byGroup.get(groupLabel)?.get(name)?.rounds.push(outcome);
       }
+    }
+    for (const name of walkoverNames(state, roundIndex, round)) {
+      byGroup
+        .get(groupOf.get(name) ?? '')
+        ?.get(name)
+        ?.rounds.push(walkoverOutcome(state, roundIndex));
     }
   }
 
   return Object.fromEntries(
-    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()], scoring)]),
+    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()])]),
   );
 }
 
@@ -486,7 +524,6 @@ function computeGroupStageAdvancement(state: TournamentState): {
   const groupStandings = computeGroupStandings(state);
   const stateWithStandings = { ...state, groupStandings };
   const qualifiersPerGroup = state.cfg.qualifiersPerGroup ?? 0;
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   const perGroup = state.groups.map((group) =>
     applyGroupCutoffOrder(
       group.label,
@@ -499,7 +536,7 @@ function computeGroupStageAdvancement(state: TournamentState): {
     const finishers = perGroup
       .map((qualifiers) => qualifiers[tier])
       .filter((entry): entry is TournamentStanding => Boolean(entry))
-      .sort((first, second) => compareStandings(first, second, scoring));
+      .sort(compareStandings);
     for (const finisher of finishers) {
       advancing.push({ name: finisher.name, isLucky: false });
     }

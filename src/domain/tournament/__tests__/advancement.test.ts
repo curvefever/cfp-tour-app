@@ -23,10 +23,10 @@ import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { roundExitRule } from '../room-exits';
 import { createTournamentRuntime } from '../runtime';
-import { fairPoints } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
-import type { TournamentStanding, TournamentState } from '../types';
+import type { RoundAssignment, TournamentRound, TournamentStanding, TournamentState } from '../types';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { buildState, scoreCurrentRound } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
@@ -168,7 +168,7 @@ describe('invalidateStaleTieResolutions', () => {
 });
 
 describe('computeQualificationStandings', () => {
-  it('orders standings ascending by fairPoints across independent rooms', () => {
+  it('orders standings by Standard points, then room share, across independent rooms', () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       players: ['P1', 'P2', 'P3', 'P4'],
@@ -183,22 +183,20 @@ describe('computeQualificationStandings', () => {
         ],
       ],
       // room1: P1=100 (rank1), P2=50 (rank2). room2: P3=200 (rank1), P4=10 (rank2).
-      // fairPoints(1,200) < fairPoints(1,100) < fairPoints(2,50) < fairPoints(2,10).
+      // Both winners earn 2 points, both runners-up 1; the room share (score vs room average) orders each pair.
       scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50, 'r0-rm2-p0': 200, 'r0-rm2-p1': 10 },
     });
     expect(computeQualificationStandings(state).map((entry) => entry.name)).toEqual(['P3', 'P1', 'P2', 'P4']);
   });
 
-  it('averages fairPoints across rounds played instead of summing, so a stronger multi-round record outranks a single lucky round', () => {
-    // G plays 3 rounds: rank1, rank1, rank2 (strong, one slip).
-    // H only plays the final round (e.g. joined late as a reserve): rank2, once.
-    // H's raw SUM (one round) is smaller than G's SUM (three rounds) even
-    // though G's actual rate of performance is clearly better -- averaging
-    // is what correctly ranks G ahead of H.
+  it('sums Standard points across counted rounds, so a unit that missed counted rounds earns 0 for them', () => {
+    // G plays 3 rounds: rank1, rank1, rank2 (4 + 4 + 3). H only plays the
+    // final round (e.g. joined late as a reserve): rank2, once (3).
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       players: ['G', 'H', 'Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'],
       cfg: { poolingPhase: 'qual-table' },
+      gamemodeConfig: { roomSize: { min: 3, max: 4, ideal: 4 } },
       rounds: [
         buildRound({ roundNum: 1, isQual: true, rooms: [4], players: 4 }),
         buildRound({ roundNum: 2, isQual: true, rooms: [4], players: 4 }),
@@ -233,19 +231,19 @@ describe('computeQualificationStandings', () => {
     const h = standings.find((entry) => entry.name === 'H');
     expect(g?.played).toBe(3);
     expect(h?.played).toBe(1);
-    // Sanity check the raw sums would have flipped this the other way.
-    expect((g?.totalFP as number) * 3).toBeGreaterThan((h?.totalFP as number) * 1);
-    expect(g?.totalFP).toBeLessThan(h?.totalFP as number);
+    expect(g?.totalFP).toBe(11);
+    expect(h?.totalFP).toBe(3);
     expect(standings.findIndex((entry) => entry.name === 'G')).toBeLessThan(
       standings.findIndex((entry) => entry.name === 'H'),
     );
   });
 
-  it('excludes a round flagged excludeFromStandings from both the count of rounds played and the averaged fairPoints, even though it was actually played', () => {
+  it('excludes a round flagged excludeFromStandings from both the count of rounds played and the points, even though it was actually played', () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       players: ['P1', 'P2'],
       cfg: { poolingPhase: 'qual-table' },
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
       rounds: [
         // Round 1 is a non-counting round: P1 finishes last (rank2) here, a
         // real result -- but it must never enter the average.
@@ -266,10 +264,10 @@ describe('computeQualificationStandings', () => {
     // Each unit only has ONE round counted, not two.
     expect(p1?.played).toBe(1);
     expect(p2?.played).toBe(1);
-    // If the excluded round's rank-2 result leaked into the average, P1
-    // would rank behind P2 here instead of ahead.
-    expect(p1?.totalFP).toBe(fairPoints(1, 100));
-    expect(p2?.totalFP).toBe(fairPoints(2, 10));
+    // If the excluded round's rank-2 result leaked into the total, P1
+    // would tie P2 here instead of leading.
+    expect(p1?.totalFP).toBe(2);
+    expect(p2?.totalFP).toBe(1);
     expect(standings.findIndex((entry) => entry.name === 'P1')).toBeLessThan(
       standings.findIndex((entry) => entry.name === 'P2'),
     );
@@ -277,7 +275,7 @@ describe('computeQualificationStandings', () => {
 });
 
 describe('computeQualificationStandings -- positional-points scoring', () => {
-  it('uses the positional-points table instead of fairPoints, sorted descending (highest points first)', () => {
+  it('uses the positional-points table instead of Standard points, sorted descending (highest points first)', () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       players: ['P1', 'P2', 'P3', 'P4'],
@@ -293,7 +291,7 @@ describe('computeQualificationStandings -- positional-points scoring', () => {
     expect(standings.map((entry) => entry.totalFP)).toEqual([10, 8, 6, 5]);
   });
 
-  it('sums positional points across rounds instead of averaging like fairPoints, so more rounds played at equal performance yields more total points', () => {
+  it('sums positional points across rounds, so more rounds played at equal performance yields more total points', () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       players: ['G', 'H', 'Y1', 'Y2'],
@@ -375,12 +373,13 @@ describe('computeGroupStandings', () => {
     expect(standings.B.map((entry) => entry.name)).toEqual(['P3', 'P4']);
   });
 
-  it('averages fairPoints across rounds played, same as the qualification-table path, since both share materializeStandings', () => {
+  it('sums Standard points across rounds played, same as the qualification-table path, since both share materializeStandings', () => {
     // G plays both rounds (rank1, then rank2). H only plays round 2 (a
     // round-robin bye left them out of round 1) with a single rank1 result.
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       groups: [{ label: 'A', members: ['G', 'H', 'Y1', 'Y2'] }],
+      gamemodeConfig: { roomSize: { min: 3, max: 3, ideal: 3 } },
       rounds: [
         buildRound({ roundNum: 1, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
         buildRound({ roundNum: 2, isGroupStage: true, rooms: [3], roomGroups: ['A'], players: 3 }),
@@ -400,9 +399,9 @@ describe('computeGroupStandings', () => {
     const h = standings.find((entry) => entry.name === 'H');
     expect(g?.played).toBe(2);
     expect(h?.played).toBe(1);
-    // G: (fp(1,300) + fp(2,200)) / 2. H: fp(1,300) / 1.
-    expect(g?.totalFP).toBeCloseTo((0.997 + 1.998) / 2, 5);
-    expect(h?.totalFP).toBeCloseTo(0.997, 5);
+    // G: 3 + 2. H: 3.
+    expect(g?.totalFP).toBe(5);
+    expect(h?.totalFP).toBe(3);
   });
 
   it('sums positional points (not averaged) within a group, sorted descending', () => {
@@ -1297,7 +1296,7 @@ describe('rankStandings', () => {
   });
 });
 
-describe('uncontested rooms (a room with exactly one assigned unit is not a match)', () => {
+describe('uncontested rooms (a room with exactly one assigned unit is not a match: the unit is credited like a bye)', () => {
   type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
 
   function generate(count: number, setup: SetupOverrides, teams = false): TournamentState {
@@ -1314,7 +1313,7 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
       createTournamentRuntime(),
     );
     if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return result.state;
+    return { ...result.state, started: true };
   }
 
   /** Scores every occupied room of `roundIndex`: first listed unit highest. */
@@ -1370,7 +1369,7 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     expect(isUncontestedRoom(state, 0, 3)).toBe(false);
   });
 
-  it('adaptive Swiss (11 players): a unit left alone by a removal keeps its earlier standing, gains no round from a typed score, and still advances', () => {
+  it('adaptive Swiss (11 players): a unit left alone by a removal earns a win, gains no played round from a typed score, and still advances', () => {
     let live = advance(
       scoreRound(
         generate(11, {
@@ -1391,13 +1390,14 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     live = scoreRound(live, 1);
     const after = standingOf(live, lone);
     expect(after?.played).toBe(1);
-    expect(after?.totalFP).toBe(before?.totalFP);
+    expect(after?.totalFP).toBe((before?.totalFP as number) + 2);
+    expect(after?.rounds?.at(-1)).toMatchObject({ roundIndex: 1, score: null, rank: null, bye: true });
 
     live = advance(live);
     expect(live.assignments[2].map((entry) => entry.name)).toContain(lone);
   });
 
-  it('group stage (9 players): a lone unit is left out of the group standings for that round', () => {
+  it('group stage (9 players): a lone unit is credited a win in its own group, with no played round', () => {
     let live = generate(9, {
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
@@ -1412,23 +1412,23 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
       .flat()
       .find((standing) => standing.name === lone);
     expect(entry?.played).toBe(0);
-    expect(entry?.totalFP).toBeNull();
+    expect(entry?.totalFP).toBe(2);
   });
 
-  it('team-3v3v3 qualification table (13 teams): a 2-team room reduced to one team is excluded from standings', () => {
+  it('team-3v3v3 qualification table (13 teams): a 2-team room reduced to one team earns 1st-place points without a played round', () => {
     let live = generate(13, { gameFormat: 'team-3v3v3', poolingPhase: 'qual-table', qualAdv: '6' }, true);
     const { removed, lone } = pairRoom(live, 0);
     live = scoreRound(removeRosterUnit(live, removed), 0);
     expect(standingOf(live, lone)?.played).toBe(0);
-    expect(standingOf(live, lone)?.totalFP).toBeNull();
+    expect(standingOf(live, lone)?.totalFP).toBe(3);
   });
 
   it.each([
-    ['fairpoints', {}],
-    ['positional-points', { scoring: 'positional-points' as const, positionalPointsTable: '10,8' }],
+    ['fairpoints', {}, 2],
+    ['positional-points', { scoring: 'positional-points' as const, positionalPointsTable: '10,8' }, 10],
   ])(
-    'qualification table 1v1 (12 players, one removed so its opponent is left alone) with %s: the lone unit gets no result for that round',
-    (_label, scoringSetup) => {
+    'qualification table 1v1 (12 players, one removed so its opponent is left alone) with %s: the lone unit earns 1st-place points but no played round',
+    (_label, scoringSetup, winPoints) => {
       let live = generate(12, {
         gameFormat: 'individual-1v1',
         poolingPhase: 'qual-table',
@@ -1440,7 +1440,7 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
       live = scoreRound(live, 0);
       const standing = standingOf(live, lone);
       expect(standing?.played).toBe(0);
-      expect(standing?.totalFP).toBeNull();
+      expect(standing?.totalFP).toBe(winPoints);
       expect(computeQualificationStandings(live).filter((entry) => entry.played === 1)).toHaveLength(10);
     },
   );
@@ -1535,13 +1535,13 @@ describe('room-share tie-breaker', () => {
     expect(rankStandings(table).map((entry) => entry.rank)).toEqual([1, 2, 3, 4]);
   });
 
-  it('ranks by share, not raw score, across room sizes (scenario B shape)', () => {
-    // Both winners get 10 pts. The 3-room winner has the bigger raw score (300) but the smaller share (.5 vs .75).
+  it('ranks by share relative to the room average, not raw score, across room sizes (scenario B shape)', () => {
+    // Both winners get 10 pts. The 3-room winner has the bigger raw score (300) but the smaller relative share (1.5 vs 1.6).
     const table = computeQualificationStandings(
       qualStateWith(
         [
           [300, 200, 100],
-          [150, 50],
+          [160, 40],
         ],
         undefined,
       ),
@@ -1564,9 +1564,9 @@ describe('room-share tie-breaker', () => {
     expect(rankStandings(table).map((entry) => entry.rank)).toEqual([1, 1, 3, 3]);
   });
 
-  it('splits an all-zero room equally instead of dividing by zero', () => {
+  it('gives everyone in an all-zero room an average share (1) instead of dividing by zero', () => {
     const table = computeQualificationStandings(qualStateWith([[0, 0, 0]], undefined));
-    expect(table.map((entry) => entry.roomShare)).toEqual([1 / 3, 1 / 3, 1 / 3]);
+    expect(table.map((entry) => entry.roomShare)).toEqual([1, 1, 1]);
   });
 
   it('has no qualification cut-off tie when equal points differ in share, and the higher share advances', () => {
@@ -1700,5 +1700,312 @@ describe('room-share tie-breaker', () => {
     it('shares one rank when nothing is resolved', () => {
       expect(rankStandings(trio).map((entry) => entry.rank)).toEqual([1, 1, 1]);
     });
+  });
+});
+
+describe('standard points', () => {
+  /** One room: its units with their scores, in room order. */
+  type RoomScores = Array<[name: string, score: number]>;
+
+  /** A started qualification table: one list of rooms per round, every room fully scored. */
+  function qualState(
+    rounds: RoomScores[][],
+    gamemodeConfig: Partial<TournamentState['gamemodeConfig']>,
+    roundOverrides: Array<Partial<TournamentRound>> = [],
+  ): TournamentState {
+    const names = new Set<string>();
+    const scores: Record<string, number> = {};
+    const assignments = rounds.map((rooms, roundIndex) => {
+      const list: RoundAssignment[] = [];
+      for (const [roomIndex, room] of rooms.entries()) {
+        for (const [position, [name, score]] of room.entries()) {
+          names.add(name);
+          list.push({ name, room: roomIndex + 1, isLucky: false });
+          scores[`r${roundIndex}-rm${roomIndex + 1}-p${position}`] = score;
+        }
+      }
+      return list;
+    });
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: [...names],
+      cfg: { poolingPhase: 'qual-table' },
+      gamemodeConfig,
+      started: true,
+      curRound: rounds.length - 1,
+      rounds: rounds.map((rooms, index) =>
+        buildRound({
+          roundNum: index + 1,
+          isQual: true,
+          rooms: rooms.map((room) => room.length),
+          players: rooms.flat().length,
+          ...roundOverrides[index],
+        }),
+      ),
+      assignments,
+      scores,
+      byes: rounds.map(() => []),
+    });
+  }
+
+  const MAX_2 = { roomSize: { min: 2, max: 2, ideal: 2 } };
+  const MAX_4 = { roomSize: { min: 3, max: 4, ideal: 4 } };
+
+  /** A room whose units score 100 less than the one before, from `top`. */
+  const room = (names: string[], top = 400): RoomScores =>
+    names.map((name, index) => [name, top - index * 100]);
+
+  const standingOf = (state: TournamentState, name: string) =>
+    computeQualificationStandings(state).find((entry) => entry.name === name);
+
+  describe('points by place', () => {
+    it('2v2v2v2: a room of 4 earns 4,3,2,1 and a room of 3 earns 4,3,2', () => {
+      const state = qualState([[room(['A', 'B', 'C', 'D']), room(['E', 'F', 'G'])]], MAX_4);
+      const points = (names: string[]) => names.map((name) => standingOf(state, name)?.totalFP);
+      expect(points(['A', 'B', 'C', 'D'])).toEqual([4, 3, 2, 1]);
+      expect(points(['E', 'F', 'G'])).toEqual([4, 3, 2]);
+    });
+
+    it('FFA with rooms of 8 and 7 (max 8): the same place earns the same points, so the last of 7 earns 2', () => {
+      const eight = ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8'];
+      const seven = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'];
+      const state = qualState([[room(eight, 800), room(seven, 700)]], {
+        roomSize: { min: 6, max: 8, ideal: 8 },
+      });
+      expect(eight.map((name) => standingOf(state, name)?.totalFP)).toEqual([8, 7, 6, 5, 4, 3, 2, 1]);
+      expect(seven.map((name) => standingOf(state, name)?.totalFP)).toEqual([8, 7, 6, 5, 4, 3, 2]);
+    });
+
+    it('head-to-head (max 2): a win earns 2 and a loss 1', () => {
+      const state = qualState([[room(['A', 'B'])]], MAX_2);
+      expect([standingOf(state, 'A')?.totalFP, standingOf(state, 'B')?.totalFP]).toEqual([2, 1]);
+    });
+  });
+
+  describe('sum, not average', () => {
+    it('4 + 1 = 5 ranks below 3 + 3 = 6', () => {
+      const state = qualState([[room(['X', 'Y', 'P', 'Q'])], [room(['Z', 'Y', 'P', 'X'])]], MAX_4);
+      expect(standingOf(state, 'X')?.totalFP).toBe(5);
+      expect(standingOf(state, 'Y')?.totalFP).toBe(6);
+      const names = computeQualificationStandings(state).map((entry) => entry.name);
+      expect(names.indexOf('Y')).toBeLessThan(names.indexOf('X'));
+    });
+
+    it('a unit missing a counted round earns 0 for it, so it trails (scenario B shape)', () => {
+      // G plays 3 rounds (rank 1, 1, 2 = 4 + 4 + 3); H joins for the last round only (rank 2 = 3).
+      const state = qualState(
+        [
+          [room(['G', 'Y1', 'Y2', 'Y3'])],
+          [room(['G', 'Y1', 'Y2', 'Y3'])],
+          [room(['Y1', 'G', 'Y2', 'Y3']), room(['Y4', 'H', 'Y5', 'Y6'])],
+        ],
+        MAX_4,
+      );
+      expect(standingOf(state, 'G')?.totalFP).toBe(11);
+      expect(standingOf(state, 'H')?.totalFP).toBe(3);
+    });
+  });
+
+  describe('a bye counts as a win', () => {
+    function playedSwissRound(setup: Partial<Parameters<typeof createDefaultSetup>[0]>): TournamentState {
+      const state = buildState({
+        label: 'swiss',
+        count: 37,
+        teams: false,
+        setup: {
+          gameFormat: 'individual-1v1',
+          poolingPhase: 'swiss',
+          qualAdv: '16',
+          oddCountStrategy: 'bye',
+          ...setup,
+        },
+      }) as TournamentState;
+      return scoreCurrentRound(state, 0);
+    }
+
+    it.each([
+      ['Standard points', {}, 2],
+      ['a Custom table', { scoring: 'positional-points' as const, positionalPointsTable: '10,8' }, 10],
+    ])(
+      'Swiss (37 units): the unit with the bye earns 1st-place points under %s, with no share entry',
+      (_label, setup, win) => {
+        const state = playedSwissRound(setup);
+        const standing = standingOf(state, state.byes[0][0]);
+        expect(standing?.totalFP).toBe(win);
+        expect(standing?.played).toBe(0);
+        expect(standing?.roomShare).toBeNull();
+        expect(standing?.rounds).toEqual([
+          { roundIndex: 0, score: null, rank: null, points: win, bye: true },
+        ]);
+      },
+    );
+
+    it('a unit alone in a room (its opponent was removed) earns 1st-place points and adds no share entry', () => {
+      const state = qualState([[room(['A', 'B']), room(['C'])]], MAX_2);
+      const lone = standingOf(state, 'C');
+      expect(lone?.totalFP).toBe(2);
+      expect(lone?.roomShare).toBeNull();
+      expect(lone?.rounds).toEqual([{ roundIndex: 0, score: null, rank: null, points: 2, bye: true }]);
+    });
+
+    it('a bye in a round that has not begun earns nothing', () => {
+      const state = { ...playedSwissRound({}), started: false };
+      expect(standingOf(state, state.byes[0][0])?.totalFP).toBeNull();
+    });
+  });
+
+  describe('Group Stage', () => {
+    it('31 units: the bye of a group of 3 is credited to its own group', () => {
+      const state = scoreCurrentRound(
+        buildState({
+          label: 'groups',
+          count: 31,
+          teams: false,
+          setup: {
+            gameFormat: 'individual-1v1',
+            poolingPhase: 'group-stage',
+            groupSize: '4',
+            qualifiersPerGroup: '2',
+            qualAdv: '8',
+            oddCountStrategy: 'bye',
+          },
+        }) as TournamentState,
+        0,
+      );
+      const byes = state.rounds[0].groupByes ?? [];
+      expect(byes.length).toBeGreaterThan(0);
+      const standings = computeGroupStandings(state);
+      for (const name of byes) {
+        const group = state.groups.find((candidate) => candidate.members.includes(name));
+        const entry = standings[group?.label ?? ''].find((standing) => standing.name === name);
+        expect(entry?.rounds).toEqual([{ roundIndex: 0, score: null, rank: null, points: 2, bye: true }]);
+        const elsewhere = Object.entries(standings)
+          .filter(([label]) => label !== group?.label)
+          .flatMap(([, table]) => table);
+        expect(elsewhere.some((standing) => standing.name === name)).toBe(false);
+      }
+    });
+
+    it('a group whose round robin ran out is idle, not on a bye', () => {
+      const state = createDefaultTournamentState({
+        gameFormat: 'individual-1v1',
+        started: true,
+        curRound: 0,
+        groups: [
+          { label: 'A', members: ['A1', 'A2'] },
+          { label: 'B', members: ['B1', 'B2'] },
+        ],
+        gamemodeConfig: MAX_2,
+        rounds: [
+          buildRound({
+            roundNum: 1,
+            isGroupStage: true,
+            rooms: [2],
+            roomGroups: ['A'],
+            players: 4,
+            matches: [{ group: 'A', pair: ['A1', 'A2'] }],
+            groupByes: ['B1', 'B2'],
+          }),
+        ],
+        assignments: [buildAssignments(['A1', 'A2'], [2])],
+        scores: { 'r0-rm1-p0': 5, 'r0-rm1-p1': 3 },
+      });
+      const standings = computeGroupStandings(state);
+      expect(standings.B.map((entry) => entry.totalFP)).toEqual([null, null]);
+      expect(standings.A.map((entry) => entry.totalFP)).toEqual([2, 1]);
+    });
+  });
+
+  describe('room share tie-breaker', () => {
+    it('on equal points the higher score relative to the room average ranks first', () => {
+      // Both win their room of 2: A holds 300 of 400, C 500 of 600.
+      const state = qualState(
+        [
+          [
+            [
+              ['A', 300],
+              ['B', 100],
+            ],
+            [
+              ['C', 500],
+              ['D', 100],
+            ],
+          ],
+        ],
+        MAX_2,
+      );
+      expect(computeQualificationStandings(state).map((entry) => entry.name)).toEqual(['C', 'A', 'B', 'D']);
+    });
+
+    it('a 3-unit room score of 40% (1.20) beats a 4-unit room score of 28% (1.12)', () => {
+      const state = qualState(
+        [
+          [
+            [
+              ['T1', 400],
+              ['T2', 350],
+              ['T3', 250],
+            ],
+            [
+              ['F1', 280],
+              ['F2', 270],
+              ['F3', 250],
+              ['F4', 200],
+            ],
+          ],
+        ],
+        MAX_4,
+      );
+      expect(standingOf(state, 'T1')?.roomShare).toBeCloseTo(1.2, 10);
+      expect(standingOf(state, 'F1')?.roomShare).toBeCloseTo(1.12, 10);
+      const names = computeQualificationStandings(state).map((entry) => entry.name);
+      expect(names.indexOf('T1')).toBeLessThan(names.indexOf('F1'));
+    });
+
+    it('an all-zero room gives everyone 1.00', () => {
+      const state = qualState(
+        [
+          [
+            [
+              ['A', 0],
+              ['B', 0],
+              ['C', 0],
+            ],
+          ],
+        ],
+        MAX_4,
+      );
+      expect(computeQualificationStandings(state).map((entry) => entry.roomShare)).toEqual([1, 1, 1]);
+    });
+  });
+
+  it('a non-counting round earns nothing and has no rounds entry (scenario B: round 1)', () => {
+    const state = qualState([[room(['A', 'B', 'C', 'D'])], [room(['B', 'A', 'C', 'D'])]], MAX_4, [
+      { excludeFromStandings: true },
+    ]);
+    const entry = standingOf(state, 'A');
+    expect(entry?.totalFP).toBe(3);
+    expect(entry?.rounds?.map((result) => result.roundIndex)).toEqual([1]);
+  });
+
+  it('rounds carry the score, rank and points of every counted round', () => {
+    const state = qualState([[room(['A', 'B', 'C'])], [room(['B', 'A', 'C'], 300)]], MAX_4);
+    expect(standingOf(state, 'A')?.rounds).toEqual([
+      { roundIndex: 0, score: 400, rank: 1, points: 4, bye: false },
+      { roundIndex: 1, score: 200, rank: 2, points: 3, bye: false },
+    ]);
+  });
+
+  it('Custom table (scenario E): sums the table values, higher is better', () => {
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const second = ['A', 'H', 'G', 'F', 'E', 'D', 'C', 'B'];
+    const state = qualState([[room(names, 800)], [room(second, 800)]], {
+      scoring: 'positional-points',
+      positionalPointsTable: [10, 8, 6, 5, 4, 3, 2, 1],
+    });
+    const standings = computeQualificationStandings(state);
+    // A 10 + 10; B 8 + 1 and H 1 + 8; C..G 8 each.
+    expect(standings.map((entry) => entry.totalFP)).toEqual([20, 9, 9, 8, 8, 8, 8, 8]);
+    expect(standings[0].name).toBe('A');
   });
 });

@@ -756,7 +756,7 @@ function TieBanners({ state }: { state: TournamentState }) {
       const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
       const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
       const isCutoff = !('score' in tie);
-      const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp, scoring)} ${scoringUnit}` : '';
+      const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} ${scoringUnit}` : '';
       const heading = !isCutoff
         ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
         : 'groupLabel' in tie && tie.groupLabel

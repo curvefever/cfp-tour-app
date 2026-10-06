@@ -32,7 +32,6 @@ function StandingsBlock({
   state: TournamentState;
   followKey: string | null;
 }) {
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
   return (
     <div className='mt-2'>
       {display.perGroup ? (
@@ -52,7 +51,7 @@ function StandingsBlock({
               <span className='w-5 shrink-0 text-right tabular-nums'>{entry.rank ?? '—'}</span>
               <span className='min-w-0 flex-1 truncate'>{unitDisplay(state, entry.name).label}</span>
               <span className='shrink-0 text-muted tabular-nums'>
-                {entry.totalFP !== null ? formatStandingValue(entry.totalFP, scoring) : '—'}
+                {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
               </span>
             </div>
           </div>
