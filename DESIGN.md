@@ -54,7 +54,7 @@ While the user requested "flat," we elevate this through **Atmospheric Gradients
 
 ## 3. Typography: The Editorial Voice
 
-We use **Asap** (and its modern derivative **Inter** for system-level clarity) to provide a clean, high-contrast experience.
+We use **Asap** for all text (loaded from Google Fonts) to provide a clean, high-contrast experience.
 
 - **Display (3.5rem - 2.25rem):** Use sparingly for high-level metrics (e.g., total open bugs). Bold weight, tight letter spacing.
 

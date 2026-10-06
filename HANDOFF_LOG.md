@@ -64,7 +64,7 @@ Lower-stakes calls made while building (open to correction):
 - Showing non-counting rounds in the Standings table.
 - Any change to Semis/Final scoring (raw score sums), Kings Valley or in-room tie-breaks.
 - The "what do I need to stay safe" banner line (still parked in `docs/roadmap.md`).
-- `DESIGN.md` still names Inter beside Asap (design reference, not edited).
+- `DESIGN.md` named Inter beside Asap; the reviewer corrected it to Asap only.
 
 ---
 
