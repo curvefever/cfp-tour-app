@@ -6,6 +6,68 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Points rule, Rankings fixes, readable Standings table (done — 2026-10-06)
+
+### Context
+Organiser feedback after manual tests on test tournament 1791278326232 (23 teams, 2v2v2v2, qualification table, Fair Points, 4 rounds with round 1 not counted, 16 qualify):
+1. **Fair Points hid a raw-score tie-break.** `fairPoints(rank, score) = rank − score / 100 000`, averaged: two teams with the same average placement were separated by game points in the 5th decimal ("fourth place" 1.6666100 above "judy's cubs" 1.6666133 on 17 against 16 game points), so the room-share tie-breaker (2026-10-05) almost never decided. Raw score is the measure rejected for favouring bigger rooms. The values (0.99993, 3.66665) were also unreadable.
+2. **The Standings table was cryptic**: unclear column titles ("Room share", "Score"), no per-round detail, no written explanation.
+3. **Rankings right after the qualification cut were wrong twice** (`computeRankings`): eliminated units were ordered by their room share in the last round only, not by the standings that decided the cut, and their rank numbers started at 1 because the offset below the still-active units was only applied once the Final was complete. The 7 eliminated teams showed 1–7 instead of 17–23, and "The Special Ones" (17th in the standings) showed 2nd.
+4. **Standings appeared only once the tournament started.**
+
+### Decisions (organiser, 2026-10-06)
+- **New points rule, "Standard points"**, replacing `rank − score / 100 000`: each counted round, 1st place earns the tournament's largest room size (`roomSize.max`), minus one per place (FFA 8…1, 2v2v2v2 4…1, 3v3v3 3…1, head-to-head win 2 / loss 1). **The same place earns the same points whatever the room's size** (last of a room of 3 in 2v2v2v2 earns 2, like 3rd of 4) — chosen over scaling placement to the room size; the organiser accepted the last-of-3 equalling 3rd-of-4 consequence.
+- **Sums over averages**, higher is better; a counted round the unit didn't play earns 0 (no compensation for late arrivals). The earlier switch to averages is reverted for both systems.
+- **A bye counts as a win** (also a unit alone in a room), under Custom points too (the table's first value).
+- **Tie-break: room share relative to the room average** (score ÷ room total × scored units; 1.00 = average; all-zero room 1.00), averaged over rounds actually played in a room. Raw room share was not used: it favours small rooms (33% against 25% on average).
+- **No versioning:** only test tournaments exist, so every tournament recomputes with the new rule. **Legacy deviation:** the legacy app's Fair Points formula is gone; nothing reproduces it.
+- **Names:** players only ever see "Points" / "Pts"; Setup options are "Standard points (1st = largest room size, −1 per place)" and "Custom points table". The persisted keys `'fairpoints'` / `'positional-points'` and `totalFP` stay.
+- **Rankings:** units eliminated at a standings cut are ordered by those standings; every eliminated unit's rank continues below all units not eliminated.
+- **Standings from schedule generation**: tab and Bracket column appear before "Confirm & Start".
+- **Standings table:** a generated explanation box, per counted round Score | Rank | Pts, then Points and Tie-break; Points stand out. **Compact views:** Bracket column shows the points total, Rankings badge "#4 · 10 pts". **Font:** Asap throughout.
+- Wording follow-ups from review: drop "whatever the size of your room" when every room has the same size; head-to-head reads "a win earns 2 points and a loss 1".
+
+Lower-stakes calls made while building (open to correction):
+- A bye or a lone unit earns its win only once its round has begun (`roundHasBegun`: an earlier round, or the current one once `started`), so a schedule that hasn't started has no points and `describeStandings` is `'upcoming'`. Test helpers that build a played tournament set `started: true`.
+- Group Stage byes are credited from `round.groupByes`, to the unit's own group, only when that group plays a match that round (a group whose round robin ran out is idle). Known edge: a survivor turned into a bye by a future-round removal, in a group with no other match that round, gets no credit.
+- `roomSize.max` falls back to the largest scheduled room for hand-built test states (real tournaments always set it). `played` counts rounds played in a room (byes excluded).
+- A counted round without a result shows 0 points in the table only once the round is over, "—" before (a future or still-running round must not read as a zero).
+- `scoringSystemLabel` was removed (nothing used it); `ordinal()` moved to `src/lib/ordinal.ts`, shared by Bracket and Standings.
+
+### Independently testable parts (commits on `test`)
+1. **Points rule** (`a900752`): `standardPoints`, sums, byes and lone units, relative share, `StandingRoundResult` / `TournamentStanding.rounds`, `compareStandings` without a scoring argument.
+2. **Rankings** (`ee11018`, `ebbc41e`): cut ordering by the standings, ranks below everyone not eliminated; a hand-built resolved-tie test.
+3. **Standings from schedule generation** (`e5561a7`): `hasStandingsPhase` without `started`.
+4. **Standings table, explanation, labels** (`05b34e5`): `standingsExplanation`, `roundCells`, `formatTieBreak`, `tableRoundIndexes`, `SCORING_SYSTEM_OPTION_LABELS`, no "FP" / "Fair Points" / "Positional Points" left in player-facing text.
+5. **Wording follow-up and Asap** (`dbeb918`, `8716bc9`): explanation tweaks; Google Fonts link in the root route, `body` font, Rankings PNG loads the weights before drawing.
+
+### Testing
+- **Stage 1** (domain): `vitest related` 27 files, 980 tests. Existing tests changed because they encoded the old formula: `scoring.test.ts` (`fairPoints` → `standardPoints`, label, whole-number format), `advancement.test.ts` (averaging → sums with G = 4+4+3 = 11 and H = 3; non-counting round totals 2 and 1; group totals 5 and 3; room-share scenario scores 150/50 → 160/40 and the all-zero room now 1,1,1; the four uncontested-room tests now expect a win with `played` 0). **No test changed who advances or how a bracket is seeded.** New `describe('standard points')` (points by place for 2v2v2v2 rooms of 4 and 3, FFA rooms of 8 and 7, 1v1; sum not average; Swiss bye under Standard and Custom; lone unit; a bye before the round has begun earns nothing; group-stage bye credited to its own group and an idle group; relative share incl. 40% (1.20) over 28% (1.12) and an all-zero room; a non-counting round; `rounds` detail; Custom table sums).
+- **Stage 2:** `vitest related` 5 files, 269 tests; scenario B after the cut (7 eliminated rank 17–23 in standings order), a later elimination ranks above them, group-stage cut (31 units), Final complete unchanged, 4-way cut tie straddling the cut with three or four picks (the picked third ranks alone). Mutation checks (reverting the offset or the cut ordering, ignoring `resolved`) fail the matching tests.
+- **Stage 3:** 6 files, 291 tests; `describeStandings` is `'upcoming'` before start (scenario A, a Swiss schedule with a bye, a group-stage schedule).
+- **Stage 4:** 28 files, 1006 tests; `standings-text.test.ts` covers the explanation for Standard 2v2v2v2 and FFA, two Custom tables, qualAdv 16 against 24, one and two non-counting rounds, group wording, `cut` null, final wording, `roundCells`, `formatTieBreak`; `tableRoundIndexes` in `standings-display.test.ts`.
+- **Stage 5:** standings tests 18; `pnpm run test:e2e` 3/3 with zero console errors.
+- Awkward counts: A 43 FFA, B 23 teams (rooms 4,4,4,4,4,3), C 37 Swiss with a bye, D 31 group stage and E 53 FFA with a Custom table appear in the unit tests (generated tournaments); B, C and E also in the live check.
+- **Live check** on the test site (signed in as an admin; zero console errors):
+  - **B** (23 teams, 2v2v2v2, qual table, 4 rounds, round 1 not counted, top 16; rooms 4,4,4,4,4,3): after "Generate Schedule", before "Confirm & Start", the Standings tab and the Bracket column existed ("Standings start after Round 2."). After scoring rounds 1–4 the table showed Rounds 2–4 only, points 4/3/2/1 (six 1st, six 2nd, six 3rd, five 4th places: the room of 3 earned 4,3,2), totals 12/9/6/3, tie-break "133%" … "89%", "top 16" in the explanation; Score and Rank muted, Pts and Points emphasised; the Bracket column showed whole-number points; the Rankings badge read "#7 · 9 pts"; no "FP" in the page. After advancing past the cut, Rankings listed the 7 eliminated teams as 17–23 in standings order (Team 07, 19, 16, 23, 18, 11, 09).
+  - **C** (37 `individual-1v1` Swiss, 5 rounds, top 16): the bye unit showed "Bye", "—", 2 points; the explanation read "a win earns 2 points and a loss 1".
+  - **E** (a leftover 53-FFA run, Custom `10,8,6,5,4,3,2,1`, round 1 not counted, top 31; archived afterwards as "Archive live check 31 (delete me)"): the explanation listed 1st = 10 … 8th = 1 and "Round 1 doesn't count"; badges "#30 · 8 pts" and so on; Setup showed "Standard points (1st = largest room size, −1 per place)" / "Custom points table".
+  - **Asap:** computed `font-family` `Asap, "Segoe UI", sans-serif` on body, `td` and `th`; Asap 400, 500, 600 and 700 reported loaded by `document.fonts`.
+  - **Rankings PNG** (one download, organiser-approved): 1800 × 3052 px (900 × 1526 at 2×), title, "FINAL RANKINGS" and 37 rows with "STILL IN TOURNAMENT" badges, drawn in Asap (a canvas measurement also differed between `sans-serif` and `Asap`: 211.3 against 194.8).
+  - **375 px:** `scrollWidth` 375 (no page overflow); the table scroller 317 wide, 533 of content, so the table scrolls inside its panel.
+  - Throwaway tournaments B and C were discarded without saving after the check.
+
+### Out of scope
+- Lucky losers' raw room-share comparison (added to `docs/open-items.md`).
+- Versioning the points rule for old tournaments.
+- Renaming the internal keys `'fairpoints'` / `'positional-points'` or the `totalFP` field.
+- Showing non-counting rounds in the Standings table.
+- Any change to Semis/Final scoring (raw score sums), Kings Valley or in-room tie-breaks.
+- The "what do I need to stay safe" banner line (still parked in `docs/roadmap.md`).
+- `DESIGN.md` still names Inter beside Asap (design reference, not edited).
+
+---
+
 ## Standings: viewer tab, Bracket column, room-share tie-breaker (done — 2026-10-05)
 
 ### Context
