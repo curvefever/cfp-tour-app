@@ -11,18 +11,31 @@ export type DrawnAheadStatus = 'none' | 'redraw' | 'locked';
 
 /**
  * A later drawn round with scores can't be thrown away, and a double
- * elimination or waterfall round routes into pools that a re-draw can't
- * rebuild, so those step forward instead (see docs/rules.md, "Going back a round").
+ * elimination or waterfall round that has been advanced from (anything from
+ * `roundIndex` up to the one before the last drawn round) already pushed its
+ * units into pendingBracketSeeds, which a re-draw can't rebuild; both step
+ * forward instead (see docs/rules.md, "Going back a round"). A bracket round
+ * that is only drawn, not advanced from, still re-draws: the generic path
+ * seeds it and pushes no pending seeds.
  */
 export function drawnAheadStatus(state: TournamentState, roundIndex: number): DrawnAheadStatus {
   if (!state.assignments[roundIndex + 1]?.length) return 'none';
-  const round = state.rounds[roundIndex];
-  if (round?.bracket || round?.isWaterfall) return 'locked';
-  for (let index = roundIndex + 1; index < state.assignments.length; index += 1) {
+  const lastDrawn = lastDrawnIndex(state);
+  for (let index = roundIndex; index < lastDrawn; index += 1) {
+    if (state.rounds[index]?.bracket || state.rounds[index]?.isWaterfall) return 'locked';
+  }
+  for (let index = roundIndex + 1; index <= lastDrawn; index += 1) {
     if (!state.assignments[index]?.length) continue;
     if (roundHasAnyScore(state, index, state.rounds[index])) return 'locked';
   }
   return 'redraw';
+}
+
+function lastDrawnIndex(state: TournamentState): number {
+  for (let index = state.assignments.length - 1; index >= 0; index -= 1) {
+    if (state.assignments[index]?.length) return index;
+  }
+  return -1;
 }
 
 /**

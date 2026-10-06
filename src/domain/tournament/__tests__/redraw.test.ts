@@ -109,6 +109,13 @@ function expectRedrawEquivalence(atRound: TournamentState, teamSize: number, edi
 const FFA = { gameFormat: 'ffa-individual' } as const;
 const H2H = { gameFormat: 'individual-1v1', oddCountStrategy: 'bye' } as const;
 
+const DE_AFTER_QUAL: SweepConfig = {
+  label: 'de shared final 37 qual-table',
+  count: 37,
+  teams: false,
+  setup: { ...FFA, scheduleLogic: 'double-elimination-shared-final', poolingPhase: 'qual-table' },
+};
+
 describe('Next Round after Previous re-draws like a first advance', () => {
   it('2v2v2v2 qual-table, 23 teams: re-advance into the first elimination round', () => {
     const config: SweepConfig = {
@@ -199,6 +206,14 @@ describe('Next Round after Previous re-draws like a first advance', () => {
       );
       expectRedrawEquivalence(atRound, 0);
     });
+  });
+
+  it('double elimination after a qual-table, 37 FFA players: re-advance from the last pooling round into the first winners round', () => {
+    const atRound = playUntil(build(DE_AFTER_QUAL), 0, (state) =>
+      Boolean(state.rounds[state.curRound + 1]?.bracket),
+    );
+    expect(atRound.rounds[atRound.curRound].isQual).toBe(true);
+    expectRedrawEquivalence(atRound, 0);
   });
 
   it('Kings Valley, 53 players: re-advance inside the ladder', () => {
@@ -387,16 +402,30 @@ describe('drawnAheadStatus', () => {
       expect(drawnAheadStatus({ ...drawn, rounds } as TournamentState, 0)).toBe('locked');
     }
   });
+
+  it('is "locked" when a double elimination round between the current and the last drawn round was advanced from', () => {
+    const start = build(DE_AFTER_QUAL);
+    const atRound = playUntil(start, 0, (state) => Boolean(state.rounds[state.curRound + 1]?.bracket));
+    const r = atRound.curRound;
+    const drawnOnce = { ...atRound, assignments: [...atRound.assignments, atRound.assignments[r]] };
+    // The first bracket round is only drawn: the generic path seeded it, so it still re-draws.
+    expect(drawnAheadStatus(drawnOnce, r)).toBe('redraw');
+    // The bracket round was advanced from (the next round is drawn too): its pending seeds can't be rebuilt.
+    const drawnTwice = { ...drawnOnce, assignments: [...drawnOnce.assignments, atRound.assignments[r]] };
+    expect(drawnAheadStatus(drawnTwice, r)).toBe('locked');
+  });
 });
 
 describe('discardDrawsAfter', () => {
+  const config: SweepConfig = {
+    label: 'ffa 37 none',
+    count: 37,
+    teams: false,
+    setup: { ...FFA, scheduleLogic: 'single-elimination', poolingPhase: 'none' },
+  };
+
   it('leaves the draws up to the round advanced from and the input state alone', () => {
-    const start = build({
-      label: 'ffa 37 none',
-      count: 37,
-      teams: false,
-      setup: { ...FFA, scheduleLogic: 'single-elimination', poolingPhase: 'none' },
-    });
+    const start = build(config);
     const first = advanceOk(scoreRound(start, 0, false));
     const second = advanceOk(scoreRound(first, 0, false));
     const snapshot = structuredClone(second);
@@ -404,5 +433,25 @@ describe('discardDrawsAfter', () => {
     expect(second).toEqual(snapshot);
     expect(discarded.assignments).toEqual([start.assignments[0]]);
     expect(discarded.roomHistory).toEqual(start.roomHistory);
+  });
+
+  it('clears the byes, lucky losers, pooling-bye counts and tie resolutions of every discarded round, and keeps the kept round entries', () => {
+    const first = advanceOk(scoreRound(build(config), 0, false));
+    const second = advanceOk(scoreRound(first, 0, false));
+    // Round 1 is a warm-up (its bye was counted); round 2 is the first elimination round.
+    const seeded: TournamentState = {
+      ...second,
+      byes: second.byes.map((round, index) => (index === 1 ? ['X'] : index === 2 ? ['Y'] : round)),
+      luckyLosers: second.luckyLosers.map((round, index) => (index === 1 || index === 2 ? ['Z'] : round)),
+      poolingByeCounts: { X: 1 },
+      tieResolutions: { 'r0-rm1-s5': ['A'], 'r1-rm1-s5': ['B'], 'r2-rm1-s5': ['C'] },
+    };
+    const discarded = discardDrawsAfter(seeded, 0);
+    expect(discarded.byes[1]).toEqual([]);
+    expect(discarded.byes[2]).toEqual([]);
+    expect(discarded.luckyLosers[1]).toEqual([]);
+    expect(discarded.luckyLosers[2]).toEqual([]);
+    expect(discarded.poolingByeCounts).toEqual({});
+    expect(discarded.tieResolutions).toEqual({ 'r0-rm1-s5': ['A'] });
   });
 });
