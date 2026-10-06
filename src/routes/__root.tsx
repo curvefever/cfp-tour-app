@@ -14,6 +14,14 @@ export const Route = createRootRoute({
       { title: "Curve Fever Pro Tour Hub" },
       { name: "theme-color", content: "#0D0F14" },
     ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Asap:wght@400;500;600;700&display=swap",
+      },
+    ],
   }),
   component: RootComponent,
   notFoundComponent: NotFoundComponent,

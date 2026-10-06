@@ -2,9 +2,19 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { downloadBlob, sanitizeFilename } from '../../lib/browser-download';
 
+const FONT = 'Asap, sans-serif';
+const FONT_SPECS = ['500 13px', '600 17px', '700 22px'];
+
+/** The canvas only draws with a web font once it is loaded, so load the weights it uses before drawing. */
+async function loadAppFont(): Promise<void> {
+  await Promise.all(FONT_SPECS.map((spec) => document.fonts.load(`${spec} ${FONT}`)));
+  await document.fonts.ready;
+}
+
 export async function buildRankingsImage(state: TournamentState): Promise<Blob | null> {
   const data = computeRankings(state);
   if (!data) return null;
+  await loadAppFont();
   const rows = [
     ...data.stillActive.map((entry) => ({
       rank: '—',
@@ -37,14 +47,14 @@ export async function buildRankingsImage(state: TournamentState): Promise<Blob |
   context.scale(scale, scale);
   context.fillStyle = '#0D0F14';
   context.fillRect(0, 0, width, height);
-  context.font = '700 22px sans-serif';
+  context.font = '700 22px ' + FONT;
   context.fillStyle = '#00E5FF';
   context.fillText('CFP', 32, 36);
   context.fillStyle = '#E8EDF5';
   context.fillText('TOUR HUB', 82, 36);
-  context.font = '600 17px sans-serif';
+  context.font = '600 17px ' + FONT;
   context.fillText(state.title.trim() || 'Unnamed Tournament', 32, 68);
-  context.font = '600 11px sans-serif';
+  context.font = '600 11px ' + FONT;
   context.fillStyle = '#6B7A99';
   context.fillText('FINAL RANKINGS', 32, 92);
   rows.forEach((row, index) => {
@@ -53,13 +63,13 @@ export async function buildRankingsImage(state: TournamentState): Promise<Blob |
       context.fillStyle = 'rgba(0,224,150,.08)';
       context.fillRect(26, y - 20, width - 52, rowHeight - 2);
     }
-    context.font = '700 15px sans-serif';
+    context.font = '700 15px ' + FONT;
     context.fillStyle = row.champion ? '#00E096' : '#6B7A99';
     context.fillText(row.rank, 34, y + 4);
-    context.font = '500 13px sans-serif';
+    context.font = '500 13px ' + FONT;
     context.fillStyle = '#E8EDF5';
     context.fillText(row.name.slice(0, 80), 76, y + 4);
-    context.font = '600 10px sans-serif';
+    context.font = '600 10px ' + FONT;
     context.fillStyle = '#6B7A99';
     context.textAlign = 'right';
     context.fillText(row.badge, width - 34, y + 4);

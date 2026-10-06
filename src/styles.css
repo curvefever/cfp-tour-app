@@ -58,7 +58,7 @@
     margin: 0;
     background: linear-gradient(180deg, var(--app-background), var(--app-background-alt) 58%, var(--app-background));
     color: var(--app-foreground);
-    font-family: "Inter", "Aptos", "Segoe UI", sans-serif;
+    font-family: "Asap", "Segoe UI", sans-serif;
     font-size: 0.875rem;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
