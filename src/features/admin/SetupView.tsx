@@ -19,6 +19,7 @@ import {
   parseTeamLines,
 } from '../../domain/tournament/roster';
 import { getMinimumBracketUnits } from '../../domain/tournament/schedule-generation';
+import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { PersistedSetup, TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -417,15 +418,17 @@ export function SetupView() {
                   value={setup.scoring}
                   onChange={(e) => change('scoring', e.target.value)}
                 >
-                  <option value='fairpoints'>Fair Points (rank − score ÷ 100000)</option>
-                  <option value='positional-points'>Positional Points (rank-to-points table)</option>
+                  <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
+                  <option value='positional-points'>
+                    {SCORING_SYSTEM_OPTION_LABELS['positional-points']}
+                  </option>
                 </Select>
               </Field>
               {setup.scoring === 'positional-points' ? (
                 <Field
                   label={
                     <>
-                      Positional points table{' '}
+                      Custom points table{' '}
                       <span className='font-normal normal-case tracking-normal text-muted'>
                         — one entry per rank, highest rank first, e.g. "10,8,6,5,4,3,2,1"
                       </span>
@@ -450,7 +453,7 @@ export function SetupView() {
           ) : (
             <Field label='Scoring system'>
               <Select id='cfg-scoring' value='fairpoints' disabled>
-                <option value='fairpoints'>Fair Points (rank − score ÷ 100000)</option>
+                <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
               </Select>
             </Field>
           )}

@@ -57,6 +57,7 @@ import {
   tieResolutionList,
 } from '../../domain/tournament/scoring';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
+import { ordinal } from '../../lib/ordinal';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
 import {
@@ -608,21 +609,6 @@ function KingsValleyDisclaimer() {
   );
 }
 
-function ordinal(n: number): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
-  switch (n % 10) {
-    case 1:
-      return `${n}st`;
-    case 2:
-      return `${n}nd`;
-    case 3:
-      return `${n}rd`;
-    default:
-      return `${n}th`;
-  }
-}
-
 function destinationLabel(roundIndex: number, labels: ReturnType<typeof bracketRoundLabels>): string {
   return labels[roundIndex]?.label ?? `Round ${roundIndex + 1}`;
 }
@@ -753,10 +739,8 @@ function TieBanners({ state }: { state: TournamentState }) {
     .map(([key, tie]) => {
       const resolved = tieResolutionList(state, key);
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
-      const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-      const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
       const isCutoff = !('score' in tie);
-      const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} ${scoringUnit}` : '';
+      const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} pts` : '';
       const heading = !isCutoff
         ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
         : 'groupLabel' in tie && tie.groupLabel

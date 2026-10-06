@@ -136,8 +136,6 @@ export function RankingsContent({
   }
   const data = computeRankings(state);
   if (!data) return <RosterOnly state={state} editable={editable} />;
-  const scoring = state.gamemodeConfig.scoring ?? 'fairpoints';
-  const scoringUnit = scoring === 'positional-points' ? 'pts' : 'FP';
   return (
     <div id='rk-content'>
       <p className='text-muted'>
@@ -175,9 +173,7 @@ export function RankingsContent({
                   {unit.poolRank ? (
                     <small>
                       #{unit.poolRank.rank}
-                      {unit.poolRank.fp !== null
-                        ? ` · ${formatStandingValue(unit.poolRank.fp)} ${scoringUnit}`
-                        : ''}
+                      {unit.poolRank.fp !== null ? ` · ${formatStandingValue(unit.poolRank.fp)} pts` : ''}
                     </small>
                   ) : null}
                 </span>

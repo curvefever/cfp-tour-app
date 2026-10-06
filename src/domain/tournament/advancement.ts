@@ -336,7 +336,7 @@ interface StandingAccumulator {
 }
 
 /** The tournament's largest room (`roomSize.max`): what 1st place earns under Standard points. */
-function largestRoomSize(state: TournamentState): number {
+export function largestRoomSize(state: TournamentState): number {
   return state.gamemodeConfig.roomSize?.max ?? Math.max(0, ...state.rounds.flatMap((round) => round.rooms));
 }
 

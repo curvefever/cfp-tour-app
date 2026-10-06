@@ -123,6 +123,15 @@ export function describeStandings(state: TournamentState): StandingsDisplay | nu
   };
 }
 
+/** The counted rounds a table shows (indexes into state.rounds): every counted pooling round, or for a group the counted group-stage rounds in which that group plays a match. */
+export function tableRoundIndexes(state: TournamentState, table: StandingsDisplayTable): number[] {
+  return state.rounds.flatMap((round, index) => {
+    if (!isCountedRound(round)) return [];
+    const groupPlays = (round.matches ?? []).some((match) => match.group === table.groupLabel);
+    return table.groupLabel === undefined || groupPlays ? [index] : [];
+  });
+}
+
 /** Where a unit stands: null when it isn't in any table or has no rank yet. `insideCut` is null when everyone goes through. */
 export function standingFor(
   display: StandingsDisplay,

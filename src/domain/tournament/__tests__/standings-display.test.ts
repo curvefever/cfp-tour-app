@@ -5,6 +5,8 @@ import {
   hasStandingsPhase,
   standingFor,
   type StandingsDisplay,
+  type StandingsDisplayTable,
+  tableRoundIndexes,
 } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -435,5 +437,60 @@ describe('standingFor', () => {
     const first = display.tables[0].entries[0];
     expect(standingFor(display, first.name)?.groupLabel).toBe(display.tables[0].groupLabel);
     expect(standingFor(display, 'nobody')).toBeNull();
+  });
+});
+
+describe('tableRoundIndexes', () => {
+  it('lists the counted rounds of a qualification table, leaving out a non-counting round', () => {
+    const state = scenarioA();
+    const counted = state.rounds.flatMap((round, index) => (round.isQual ? [index] : []));
+    const table = describeStandings(state)?.tables[0];
+    expect(tableRoundIndexes(state, table as NonNullable<typeof table>)).toEqual(counted);
+    const withSkipped = {
+      ...state,
+      rounds: state.rounds.map((round, index) =>
+        index === 0 ? { ...round, excludeFromStandings: true } : round,
+      ),
+    };
+    const skippedTable = describeStandings(withSkipped)?.tables[0];
+    expect(tableRoundIndexes(withSkipped, skippedTable as NonNullable<typeof skippedTable>)).toEqual(
+      counted.slice(1),
+    );
+  });
+
+  it("shows a group's own rounds only: a group whose round robin ran out has fewer", () => {
+    const state = {
+      ...scenarioA(),
+      groups: [
+        { label: 'A', members: ['A1', 'A2', 'A3'] },
+        { label: 'B', members: ['B1', 'B2'] },
+      ],
+      rounds: [
+        {
+          ...scenarioA().rounds[0],
+          isQual: false,
+          isGroupStage: true,
+          matches: [
+            { group: 'A', pair: ['A1', 'A2'] as [string, string] },
+            { group: 'B', pair: ['B1', 'B2'] as [string, string] },
+          ],
+        },
+        {
+          ...scenarioA().rounds[0],
+          isQual: false,
+          isGroupStage: true,
+          matches: [{ group: 'A', pair: ['A1', 'A3'] as [string, string] }],
+        },
+      ],
+    } as TournamentState;
+    const table = (groupLabel: string): StandingsDisplayTable => ({
+      key: `group-cutoff-${groupLabel}`,
+      label: groupLabel,
+      groupLabel,
+      entries: [],
+      cut: null,
+    });
+    expect(tableRoundIndexes(state, table('A'))).toEqual([0, 1]);
+    expect(tableRoundIndexes(state, table('B'))).toEqual([0]);
   });
 });

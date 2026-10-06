@@ -7,9 +7,9 @@ import {
   groupByScore,
   orderRoomByScore,
   positionalPoints,
+  SCORING_SYSTEM_OPTION_LABELS,
   scoredTeamSize,
   scoreKeysForPosition,
-  scoringSystemLabel,
   standardPoints,
   tieResolutionList,
 } from '../scoring';
@@ -226,9 +226,12 @@ describe('positionalPoints', () => {
   });
 });
 
-describe('scoringSystemLabel', () => {
-  it('calls both scoring systems "Points"', () => {
-    expect(scoringSystemLabel()).toBe('Points');
+describe('SCORING_SYSTEM_OPTION_LABELS', () => {
+  it('names the two systems for Setup without the old Fair Points / Positional Points wording', () => {
+    expect(SCORING_SYSTEM_OPTION_LABELS).toEqual({
+      fairpoints: 'Standard points (1st = largest room size, −1 per place)',
+      'positional-points': 'Custom points table',
+    });
   });
 });
 

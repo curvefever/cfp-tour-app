@@ -6,6 +6,7 @@ import {
   TEAM_SCORING_RULE_LABELS,
   getGameFormat,
 } from '../../domain/tournament/formats';
+import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import {
   Button,
@@ -74,11 +75,7 @@ export function TournamentSettingsRecap({ state }: { state: TournamentState }) {
           </Field>
         ) : null}
         <Field label='Scoring system'>
-          <FieldDisplay>
-            {config.scoring === 'positional-points'
-              ? 'Positional Points (rank-to-points table)'
-              : 'Fair Points (rank − score ÷ 100000)'}
-          </FieldDisplay>
+          <FieldDisplay>{SCORING_SYSTEM_OPTION_LABELS[config.scoring ?? 'fairpoints']}</FieldDisplay>
         </Field>
         {isRace ? (
           <Field label='Grand Final — wins needed'>

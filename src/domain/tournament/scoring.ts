@@ -1,6 +1,6 @@
 import { getGameFormat } from './formats';
 import { buildTeamMap } from './roster';
-import type { TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
+import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
 function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
   return raw !== null && raw !== undefined && raw !== '' ? Number.parseInt(String(raw), 10) : fallback;
@@ -166,10 +166,11 @@ export function positionalPoints(rank: number, table: readonly number[]): number
   return table[rank - 1] ?? 0;
 }
 
-/** What players see for either scoring system. */
-export function scoringSystemLabel(): string {
-  return 'Points';
-}
+/** How Setup and the Admin recap name each scoring system (players only ever see "Points"). */
+export const SCORING_SYSTEM_OPTION_LABELS: Record<ScoringSystemKey, string> = {
+  fairpoints: 'Standard points (1st = largest room size, −1 per place)',
+  'positional-points': 'Custom points table',
+};
 
 export function formatStandingValue(value: number): string {
   return String(Math.round(value));

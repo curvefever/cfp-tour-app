@@ -302,8 +302,7 @@ export function addReserveUnit(
   }
   // A reserve joining a qualification-table/Swiss standings phase must still
   // get to play at least two of the remaining rounds themselves -- otherwise
-  // a single lucky round could win a real qualifying spot outright, with no
-  // volume discount once Fair Points is averaged rather than summed.
+  // a single lucky round could win a real qualifying spot outright.
   const completedQualRounds = state.rounds
     .slice(0, state.curRound)
     .filter((round) => round.isQual || round.isSwiss).length;
