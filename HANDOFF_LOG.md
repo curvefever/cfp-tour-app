@@ -6,6 +6,53 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Rankings: order within an elimination round (done — 2026-10-07)
+
+### Context
+`computeRankings` ordered the units eliminated in the same round (other than at a standings cut) by raw room share (score ÷ room total) only, and shared a rank when that and the Kings Valley room matched. Three problems, each confirmed with a scratch test:
+- **A. Raw share favours small rooms.** 3rd place with 20 points: room of 4 (30/30/20/20) is 20%, room of 3 (30/30/20) is 25%, so the room-of-3 unit ranked higher. Relative to the room average it is 0.80 against 0.75. The standings tie-break moved to relative share on 2026-10-06 for the same reason.
+- **B. Place in the room was ignored.** Two rooms of 8, top 4 advance: room 1's 6th (10.8%) ranked above room 2's 5th (2.6%).
+- **C. No fallback.** An all-zero room gave all four eliminated units a shared 5th; three 0.6% units shared 14th.
+
+### Organiser decisions (2026-10-07)
+For units eliminated in the same round, other than at a standings cut (which is unchanged), order by:
+1. Kings Valley room (lower first), as before.
+2. Place in the room (lower first).
+3. Relative room share (higher first), the same measure as the standings tie-break.
+4. The unit's earlier pooling standing, compared exactly the way the cut compares it (place in the table; group stage: place in the group, then `compareStandings`; an organiser-resolved cut tie never shares).
+5. Still equal: shared rank.
+
+Final ties keep a shared rank (equal Final totals, same rank, no separation): already the behaviour, now locked by a test.
+
+### Lower-stakes calls (planner, open to correction)
+- **Place** is a competition rank by score within the room: 1 + the units in the same room with a strictly higher score (a missing score counts as 0). Tied scores share the place. In-room tie resolutions (`tieResolutions`) are ignored: a unit that tied for 4th and lost the organiser's pick has place 4.
+- **Relative share** uses every unit assigned to the room (missing score = 0) through `relativeRoomShare` in `advancement.ts`; an all-zero room gives everyone 1, so they fall through to the standings fallback.
+- **Fallback with one placement:** the unit with a pooling placement ranks first, mirroring how the cut comparator treats a missing placement; neither having one shares the rank (always the case with no pooling phase). In practice this arises only in a Group Stage with a rostered unit in no group: a qualification table has a row for every rostered unit (a late joiner is an unplayed row, last in the table).
+- **Lucky losers are unchanged** (they still compare raw share in `advancement.ts`; changing that changes who advances, a separate decision). The `docs/open-items.md` entry stays open.
+
+### Independently testable parts (commits on `test`)
+1. **Ordering and rank sharing** (`f7ccf47`): `advancement.ts` exports `relativeRoomShare` (parameter widened to `{ score }[]`) and a new `sameRoomShare` (the tolerance check extracted from `sameStanding`, no behaviour change). `rankings.ts`: the two branches of the elimination loop became one path (`survivorNames`, `eliminationsInRound`) that stores `place` and `share` instead of `pct` (dropped; nothing read it from rankings); `EliminatedEntry` keeps `cut` ("eliminated at a standings cut") and gains `standing` (the unit's placement, for the fallback); the cut comparison and sharing became `compareCutPlacement` / `sameCutPlacement`, reused by the fallback; `compareWithinRound` and `sharesRank` apply the new order.
+2. **Fallback test** (`43c89f5`): one placement present, one missing.
+3. **Docs and log** (the commit holding this entry): `docs/views.md`, Rankings bullet. `docs/rules.md` does not describe the Rankings order and is unchanged.
+
+### Testing
+- `rankings.test.ts`, 27 tests. New describe "order within an elimination round": room-size bias (rooms of 4 and 3, ranks 5, 5, 7); place before share (two rooms of 8, ranks 9, 10, 11, 12, 12, 12, 15, 16); all-zero rooms with no pooling share one rank; a waterfall round across rooms of different size; Kings Valley room ahead of place and share; fallback to the qualification standings (23 teams, 2v2v2v2, the elimination round scored 0-0-0-0 in every room with tie picks supplied; four distinct ranks in table order); units level on the standings too share a rank (5, 5, 5, then 8); a unit with a standing above a level unit without one (Group Stage, unit in no group); Final totals 50, 50, 20 give ranks 1, 1, 3 and the next rank 4.
+- **Awkward count:** 37 individual players (rooms 8, 8, 7, 7, 7) through `buildState` / `scoreCurrentRound`; the first elimination round (round 3 of the schedule) eliminates 7. The test recomputes every unit's place and relative share from the scores and asserts the eliminated list is sorted by place then share, a rank is shared only when both are equal, and ranks continue below the still-active count (30).
+- The two existing Kings Valley tests were renamed (place, then relative share); no assertion changed. `advancement.test.ts` outcomes are unchanged (advancement is untouched).
+- Implementer checks: eslint, prettier and typecheck clean on the changed files; `vitest related` 28 files, 1011 tests pass.
+- Reviewer: five mutation checks (fallback order off, place ignored, raw share instead of relative, fallback rank-sharing off, the one-sided fallback line `if (first.standing || second.standing) return first.standing ? -1 : 1;` deleted). The first four were caught; the fifth survived `f7ccf47` and is caught by the test added in `43c89f5`, so all five now fail a test.
+
+### Out of scope
+- Lucky losers' raw room share (`advancement.ts`, `docs/open-items.md`).
+- Standings-cut ordering (already correct).
+- Separating Final ties, grand-final ranking.
+- In-room tie resolutions influencing the eliminated order.
+- Room-depth ordering for waterfall rooms (like Kings Valley): not decided.
+- The known "eliminated until its destination round is reached" timing for double elimination and waterfall.
+- Any UI change in `RankingsView.tsx` / `rankings-image.ts` (no new figures are shown).
+
+---
+
 ## "Next Round" after "Previous": freeze fix and re-draw semantics (done — 2026-10-06)
 
 ### Context
