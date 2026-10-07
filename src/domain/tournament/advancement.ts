@@ -13,13 +13,16 @@ import type { StandingRoundResult, TournamentRound, TournamentStanding, Tourname
 /** Room shares closer than this count as equal (they are averages of floating-point ratios). */
 const ROOM_SHARE_TOLERANCE = 1e-9;
 
+/** Room shares are equal within the tolerance; a missing share (legacy snapshot) is null and equals only another null. */
+export function sameRoomShare(first: number | null, second: number | null): boolean {
+  if (first === null || second === null) return first === second;
+  return Math.abs(first - second) < ROOM_SHARE_TOLERANCE;
+}
+
 /** Equal standing points (strict) and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
 export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
   if (first.totalFP !== second.totalFP) return false;
-  const firstShare = first.roomShare ?? null;
-  const secondShare = second.roomShare ?? null;
-  if (firstShare === null || secondShare === null) return firstShare === secondShare;
-  return Math.abs(firstShare - secondShare) < ROOM_SHARE_TOLERANCE;
+  return sameRoomShare(first.roomShare ?? null, second.roomShare ?? null);
 }
 
 /** Best-first order: unplayed (null points) last, then more points, then higher average room share. Both scoring systems are higher-is-better sums, and every table downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table. */
@@ -348,7 +351,7 @@ function pointsForPlace(state: TournamentState, place: number): number {
 }
 
 /** One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room gives everyone 1. */
-function relativeRoomShare(score: number, scoredRoom: readonly ScoredUnit[]): number {
+export function relativeRoomShare(score: number, scoredRoom: readonly { score: number }[]): number {
   const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
   return roomTotal > 0 ? (score / roomTotal) * scoredRoom.length : 1;
 }
