@@ -43,7 +43,8 @@ interface ScoredUnit {
 
 interface LuckyLoserCandidate {
   name: string;
-  pct: number;
+  /** Score relative to the room average (1 = average), so rooms of different sizes compare fairly. */
+  share: number;
 }
 
 interface RoomTieCluster {
@@ -98,18 +99,19 @@ export function isStandingsCutoffRound(state: TournamentState, roundIndex: numbe
   return isLastStandingsRound(state, roundIndex) || Boolean(round?.isGroupStage && !nextRound?.isGroupStage);
 }
 
+/** A room's best non-advancing unit and its share relative to the room average; an all-zero room offers none. */
 function luckyLoserCandidate(scored: ScoredUnit[], advPerRoom: number): LuckyLoserCandidate | null {
   const candidate = scored[advPerRoom];
   if (!candidate) return null;
   const roomTotal = scored.reduce((total, entry) => total + entry.score, 0);
   if (roomTotal <= 0) return null;
-  return { name: candidate.name, pct: candidate.score / roomTotal };
+  return { name: candidate.name, share: relativeRoomShare(candidate.score, scored) };
 }
 
 function pickLuckyLosers(candidates: LuckyLoserCandidate[], luckyCount: number): string[] {
   if (!luckyCount || candidates.length === 0) return [];
   return [...candidates]
-    .sort((first, second) => second.pct - first.pct)
+    .sort((first, second) => second.share - first.share)
     .slice(0, luckyCount)
     .map((candidate) => candidate.name);
 }
@@ -723,7 +725,8 @@ export interface LuckyLoserStanding {
   room: number;
   score: number;
   roomTotal: number;
-  pct: number;
+  /** Score relative to the room average (1 = average). */
+  share: number;
   leading: boolean;
 }
 
@@ -751,12 +754,12 @@ export function computeLuckyLoserStandings(
       room,
       score: scored[advPerRoom].score,
       roomTotal,
-      pct: candidate.pct,
+      share: candidate.share,
     });
   }
 
   return [...candidates]
-    .sort((first, second) => second.pct - first.pct)
+    .sort((first, second) => second.share - first.share)
     .map((entry, index) => ({ ...entry, leading: index < round.luckyCount }));
 }
 

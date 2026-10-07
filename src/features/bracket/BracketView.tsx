@@ -72,6 +72,7 @@ import {
   cn,
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { formatTieBreak } from '../standings/standings-text';
 import { StandingsColumn } from './StandingsColumn';
 import { bracketRowBase, resultClasses, type RowResult } from '../tournament/components/result-row';
 
@@ -570,7 +571,8 @@ function LuckyLoserDisclaimer({ round }: { round: TournamentRound }) {
       <span className='font-semibold text-accent'>★ Lucky loser{round.luckyCount === 1 ? '' : 's'}: </span>
       Top {direct} advance{direct === 1 ? 's' : ''} directly from each room. {round.luckyCount} extra spot
       {round.luckyCount === 1 ? '' : 's'} go{round.luckyCount === 1 ? 'es' : ''} to whoever's next-best
-      finisher scores highest as a share of their own room's total — compared across every room.
+      finisher scores highest relative to their own room's average (100% = average) — compared across every
+      room.
     </div>
   );
 }
@@ -592,7 +594,7 @@ function LuckyLoserStandingsPanel({ state, roundIndex }: { state: TournamentStat
           <span className='min-w-0 flex-1 truncate'>
             {entry.leading ? '★ ' : ''}Room {roomLetter(entry.room)} · {unitDisplay(state, entry.name).label}
           </span>
-          <span>{(entry.pct * 100).toFixed(1)}%</span>
+          <span>{formatTieBreak(entry.share)}</span>
         </div>
       ))}
     </div>

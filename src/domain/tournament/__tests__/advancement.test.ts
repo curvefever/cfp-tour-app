@@ -479,7 +479,7 @@ describe('roomBasedComputeAdvancement', () => {
     expect(result.luckyNames).toEqual(['P7']);
   });
 
-  it('picks the top-luckyCount candidates by relative (pct) score across rooms', () => {
+  it('picks the top-luckyCount candidates by relative room share across rooms', () => {
     const buildRoomAssignments = (prefix: string, room: number) =>
       Array.from({ length: 8 }, (_, index) => ({ name: `${prefix}${index + 1}`, room, isLucky: false }));
     const state = createDefaultTournamentState({
@@ -498,7 +498,7 @@ describe('roomBasedComputeAdvancement', () => {
         [...buildRoomAssignments('P', 1), ...buildRoomAssignments('Q', 2), ...buildRoomAssignments('R', 3)],
       ],
       scores: {
-        // Room 1 (P): candidate P7=150, total=2900, pct~=0.0517 (highest)
+        // Room 1 (P): candidate P7=150, total=2900, share~=0.41 (highest)
         'r0-rm1-p0': 700,
         'r0-rm1-p1': 600,
         'r0-rm1-p2': 500,
@@ -507,7 +507,7 @@ describe('roomBasedComputeAdvancement', () => {
         'r0-rm1-p5': 200,
         'r0-rm1-p6': 150,
         'r0-rm1-p7': 50,
-        // Room 2 (Q): candidate Q7=50, total=2760, pct~=0.0181 (lowest)
+        // Room 2 (Q): candidate Q7=50, total=2760, share~=0.14 (lowest)
         'r0-rm2-p0': 700,
         'r0-rm2-p1': 600,
         'r0-rm2-p2': 500,
@@ -516,7 +516,7 @@ describe('roomBasedComputeAdvancement', () => {
         'r0-rm2-p5': 200,
         'r0-rm2-p6': 50,
         'r0-rm2-p7': 10,
-        // Room 3 (R): candidate R7=100, total=2890, pct~=0.0346 (middle)
+        // Room 3 (R): candidate R7=100, total=2890, share~=0.28 (middle)
         'r0-rm3-p0': 700,
         'r0-rm3-p1': 600,
         'r0-rm3-p2': 500,
@@ -817,7 +817,7 @@ describe('doubleEliminationComputeAdvancement', () => {
 });
 
 describe('computeLuckyLoserStandings', () => {
-  it("ranks each room's near-miss candidate by score share of their own room total, leading = top luckyCount", () => {
+  it("ranks each room's near-miss candidate by share relative to their own room's average, leading = top luckyCount", () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       rounds: [buildRound({ roundNum: 1, rooms: [3, 3, 3], players: 9, advPerRoom: 1, luckyCount: 1 })],
@@ -850,7 +850,68 @@ describe('computeLuckyLoserStandings', () => {
     expect(standings?.map((entry) => entry.name)).toEqual(['E', 'B', 'H']);
     expect(standings?.map((entry) => entry.leading)).toEqual([true, false, false]);
     expect(standings?.[0].room).toBe(2);
-    expect(standings?.[0].pct).toBeCloseTo(0.475);
+    expect(standings?.[0].share).toBeCloseTo(1.425); // 95/200 x 3 units
+  });
+
+  it('prefers the candidate with the higher share relative to its room average over the higher raw share', () => {
+    // Room of 8 (total 400, 5th = 50): raw 12.5%, relative 1.00. Room of 7 (total 380, 5th = 50): raw 13.2%, relative 0.92.
+    const roomOf = (prefix: string, room: number, size: number) =>
+      Array.from({ length: size }, (_, index) => ({ name: `${prefix}${index + 1}`, room, isLucky: false }));
+    const state = createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, rooms: [8, 7], players: 15, advPerRoom: 4, luckyCount: 1 })],
+      assignments: [[...roomOf('A', 1, 8), ...roomOf('B', 2, 7)]],
+      scores: Object.fromEntries([
+        ...[100, 90, 80, 70, 50, 5, 3, 2].map((score, index) => [`r0-rm1-p${index}`, score]),
+        ...[80, 70, 60, 55, 50, 40, 25].map((score, index) => [`r0-rm2-p${index}`, score]),
+      ]),
+    });
+    expect(roomBasedComputeAdvancement(state, 0).luckyNames).toEqual(['A5']);
+    const standings = computeLuckyLoserStandings(state, 0);
+    expect(standings?.map((entry) => [entry.name, entry.leading])).toEqual([
+      ['A5', true],
+      ['B5', false],
+    ]);
+    expect(standings?.[0].share).toBeCloseTo(1.0);
+    expect(standings?.[1].share).toBeCloseTo((50 / 380) * 7);
+  });
+
+  it('43 individual players, first elimination round: the lucky losers are the top candidates by relative share', () => {
+    // 43 rather than 37: its first elimination round (rooms of 8, 7, 7, 7, 7, 7) has 5 lucky losers; 37's lucky-loser rounds have equal rooms or a single lucky loser.
+    let state = buildState({
+      label: 'ffa 43',
+      count: 43,
+      teams: false,
+      setup: { gameFormat: 'ffa-individual' },
+    }) as TournamentState;
+    for (let round = 0; round < 2; round += 1) {
+      const result = advanceTournamentRound(scoreCurrentRound(state, 0));
+      if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
+      state = result.state;
+    }
+    const roundIndex = state.curRound;
+    const round = state.rounds[roundIndex];
+    state = scoreCurrentRound(state, 0);
+    const roomSizes = round.rooms;
+    const candidates = roomSizes.map((size, roomIndex) => {
+      const scores = Array.from(
+        { length: size },
+        (_, position) => state.scores[`r${roundIndex}-rm${roomIndex + 1}-p${position}`] ?? 0,
+      );
+      const total = scores.reduce((sum, score) => sum + score, 0);
+      const sorted = [...scores].sort((first, second) => second - first);
+      const name = state.assignments[roundIndex].filter((entry) => entry.room === roomIndex + 1)[
+        scores.indexOf(sorted[round.advPerRoom ?? 0])
+      ].name;
+      return { name, share: (sorted[round.advPerRoom ?? 0] / total) * size };
+    });
+    const expected = candidates
+      .sort((first, second) => second.share - first.share)
+      .slice(0, round.luckyCount)
+      .map((entry) => entry.name);
+    expect(new Set(roomSizes).size).toBeGreaterThan(1);
+    expect(round.luckyCount).toBe(5);
+    expect(new Set(roomBasedComputeAdvancement(state, roundIndex).luckyNames)).toEqual(new Set(expected));
   });
 
   it('returns null for isNoElim, isFinal, and zero-luckyCount rounds', () => {
