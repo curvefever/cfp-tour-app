@@ -6,6 +6,39 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Lucky losers by relative share (done — 2026-10-07)
+
+### Context
+Follow-up to "Rankings: order within an elimination round" (below), which left the lucky-loser comparison out of scope. `luckyLoserCandidate` (`advancement.ts`) takes each room's best non-advancing unit and compared candidates by score ÷ room total. The same function feeds room-based rounds (`roomBasedComputeAdvancement`), double elimination and the live "Lucky loser race" panel in Bracket (`computeLuckyLoserStandings`). With awkward counts rooms differ in size (43 FFA: 8, 7, 7, 7, 7, 7), and raw share favours the smaller room (a candidate with 50 points is 12.5% of a room of 8 totalling 400 but 13.2% of a room of 7 totalling 380; relative to the room average it is 1.00 against 0.92). This is the bias the standings tie-break (2026-10-06) and Rankings (2026-10-07) already correct.
+
+### Decisions (organiser, 2026-10-07)
+- Lucky-loser candidates are compared by **relative room share** (`relativeRoomShare`: score ÷ room total × units in the room; 1 = room average). Every candidate sits at the same place (`advPerRoom + 1`) in its room, so share is the whole comparison. With equal room sizes the order is unchanged (relative = raw × the same factor).
+- The Bracket panel shows the share like the Standings tie-break (`formatTieBreak`, "143%"), and the explanation text says "relative to their own room's average (100% = average)".
+- **Cancelled, waterfall depth in Rankings.** The plan also had waterfall eliminations ranked by room depth in the organiser's order (planner's reading: one level per graph depth, parallel rounds such as R6B and R6C in organiser order, then room letter). The organiser cancelled it before it was built: waterfall graphs can take endlessly many shapes, so no single depth order is defensible yet, and the planner's reading was not what the organiser had in mind. Rankings keep the current rule for waterfall rounds (later round first, then place, relative share, pooling standings). Recorded as the open question "Waterfall depth in Rankings" in `docs/open-items.md`.
+
+### Lower-stakes call (planner, open to correction)
+- An all-zero room still offers no candidate (the `roomTotal <= 0` guard stays; `relativeRoomShare` alone would give such a room 1).
+
+### Independently testable parts (commits on `test`)
+1. **Lucky losers by relative share** (`fa01351`): `advancement.ts` (`LuckyLoserCandidate` and `LuckyLoserStanding` carry `share` instead of `pct`; `pickLuckyLosers` and `computeLuckyLoserStandings` sort by it) and `BracketView.tsx` (panel figure, explanation sentence). `AdvancementTierMember.pct` (seeding tiers) is untouched.
+2. **Docs and log** (the commit holding this entry): `docs/rules.md` (Lucky losers section; the standings tie-break line no longer says lucky losers still use raw share), `docs/open-items.md` (raw-share item closed; "Waterfall depth in Rankings" and "Equal lucky-loser shares are split silently by room order" added). `docs/views.md` does not name the measure and is unchanged.
+
+### Testing
+- `advancement.test.ts` (84 tests). The two existing lucky-loser tests moved to the new field and measure (equal-sized rooms, so picks and order are unchanged; the standings figure is now 0.475 × 3 = 1.425). New: rooms of 8 and 7, top 4 advance, 1 lucky loser, the room-of-8 candidate (relative 1.00, raw 12.5%) beats the room-of-7 candidate (0.92, raw 13.2%) and `computeLuckyLoserStandings` lists it first with `leading: true`.
+- **Awkward count:** a generated 43-unit FFA played through `buildState` / `scoreCurrentRound` to its first elimination round (rooms 8, 7, 7, 7, 7, 7, 5 lucky losers); the test recomputes every room's candidate share from the scores and asserts the lucky losers are the top 5. 43 rather than 37 because 37's lucky-loser rounds have equal rooms (round 4, three rooms of 8) or a single lucky loser (round 5).
+- Implementer checks: eslint, prettier and typecheck clean on the changed files; `vitest related` 28 files, 1014 tests pass; no expectation changed in any other test file (`transitions`, `redraw`, `room-exits`, `play-through` untouched).
+- Reviewer: two mutation checks, both fail a test: reverting to raw share, and removing the all-zero-room guard. (The implementer's own run of the first fails the standings test, the 8-and-7 test and the 43-unit test.)
+
+### Out of scope
+- Seeding tiers' raw share (`AdvancementTierMember.pct`, `seeding.ts`, `transitions.ts`): orders units inside a seeding tier; same bias, separate decision.
+- Tie detection between lucky-loser candidates with equal shares (the earlier room wins silently; now an open item).
+- Double-elimination ranking structure (winners/losers bracket depth).
+- Waterfall depth in Rankings (cancelled, open item).
+- Any change to who advances in a waterfall (routes are fixed by the organiser).
+- Pushing and deploying: the organiser decides after the final review.
+
+---
+
 ## Rankings: order within an elimination round (done — 2026-10-07)
 
 ### Context
