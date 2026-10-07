@@ -683,6 +683,36 @@ describe('computeRankings -- order within an elimination round', () => {
         ['L4', 8],
       ]);
     });
+
+    it('ranks a unit with a standing above a level unit without one (in no group), and they do not share', () => {
+      // X1 is first on the roster but sits in no group, so it has no row in any table; only L1 has a standing.
+      const roomOf = (names: string[], room: number) => names.map((name) => ({ name, room, isLucky: false }));
+      const state = createDefaultTournamentState({
+        gameFormat: 'individual-1v1',
+        players: ['X1', 'W1', 'L1', 'W2', 'L2'],
+        started: true,
+        curRound: 2,
+        cfg: { poolingPhase: 'group-stage', qualifiersPerGroup: 2 },
+        gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+        groups: [{ label: 'A', members: ['W1', 'L1', 'W2', 'L2'] }],
+        rounds: [
+          buildRound({ roundNum: 1, isGroupStage: true, rooms: [2, 2], players: 4, roomGroups: ['A', 'A'] }),
+          buildRound({ roundNum: 2, rooms: [4], players: 4, advPerRoom: 2 }),
+          buildRound({ roundNum: 3, rooms: [2], players: 2 }),
+        ],
+        assignments: [
+          [...roomOf(['W1', 'L1'], 1), ...roomOf(['W2', 'L2'], 2)],
+          roomOf(['W1', 'W2', 'L1', 'X1'], 1),
+          roomOf(['W1', 'W2'], 1),
+        ],
+        scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 100, 'r0-rm2-p0': 300, 'r0-rm2-p1': 100 }, // round 2 unscored
+      });
+      expect(ranked(state)).toEqual([
+        ['L1', 3],
+        ['X1', 4],
+        ['L2', 5], // out in the earlier group round, so it ranks below both
+      ]);
+    });
   });
 
   it('37 individual players, first elimination round: sorted by place then share, rank shared only when both match', () => {
