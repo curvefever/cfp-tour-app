@@ -41,6 +41,7 @@ Final ties keep a shared rank (equal Final totals, same rank, no separation): al
 - The two existing Kings Valley tests were renamed (place, then relative share); no assertion changed. `advancement.test.ts` outcomes are unchanged (advancement is untouched).
 - Implementer checks: eslint, prettier and typecheck clean on the changed files; `vitest related` 28 files, 1011 tests pass.
 - Reviewer: five mutation checks (fallback order off, place ignored, raw share instead of relative, fallback rank-sharing off, the one-sided fallback line `if (first.standing || second.standing) return first.standing ? -1 : 1;` deleted). The first four were caught; the fifth survived `f7ccf47` and is caught by the test added in `43c89f5`, so all five now fail a test.
+- Final review: full suite 44 files, 1274 tests pass; eslint, prettier and typecheck clean on `advancement.ts`, `rankings.ts` and `rankings.test.ts`. No e2e or live check (domain-only change, no UI).
 
 ### Out of scope
 - Lucky losers' raw room share (`advancement.ts`, `docs/open-items.md`).
