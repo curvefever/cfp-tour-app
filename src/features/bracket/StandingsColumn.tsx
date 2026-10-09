@@ -63,8 +63,7 @@ function StandingsBlock({
 
 /**
  * The compact standings block between the last pooling round and the first
- * bracket round: rank, name, points and the cut. Deliberately not a round (no
- * `data-ri`: follow-scrolling uses that to find round columns).
+ * bracket round: rank, name, points and the cut. Deliberately not a round.
  */
 export function StandingsColumn({
   display,

@@ -1313,7 +1313,6 @@ function RoundColumn({
   gameCount,
   label,
   onToggle,
-  roundIndex,
 }: {
   accent?: string;
   children: ReactNode;
@@ -1323,7 +1322,6 @@ function RoundColumn({
   gameCount?: RoundGameCount | null;
   label: ReactNode;
   onToggle?: () => void;
-  roundIndex: number;
 }) {
   const accentClass =
     accent === 'wb'
@@ -1358,7 +1356,6 @@ function RoundColumn({
         'overflow-hidden rounded-lg border border-surface-hover bg-surface',
         current && 'border-primary shadow-[0_0_0_1px_var(--app-primary-soft)]',
       )}
-      data-ri={roundIndex}
     >
       {onToggle ? (
         <button className={headerClass} onClick={onToggle}>
@@ -1391,9 +1388,7 @@ function RoundColumn({
  * rounds), each gets its own small round-identifying sub-label first,
  * since `roomLetter()` restarts at "Room A" independently per round and
  * two stacked "Room A" blocks would otherwise be ambiguous about which
- * round they belong to. Each LB round's own wrapper carries `data-ri` so
- * `chooseFollow` can still scroll/highlight it individually, not just the
- * wave's WB anchor.
+ * round they belong to.
  */
 function WaveBoxBody({
   state,
@@ -1433,7 +1428,7 @@ function WaveBoxBody({
             Losers bracket
           </div>
           {box.losersRoundIndices.map((roundIndex, index) => (
-            <div className={index > 0 ? 'mt-2.5' : undefined} data-ri={roundIndex} key={roundIndex}>
+            <div className={index > 0 ? 'mt-2.5' : undefined} key={roundIndex}>
               {box.losersRoundIndices.length > 1 ? (
                 <div className='mb-1 text-[0.65rem] font-semibold text-muted'>
                   Round {state.rounds[roundIndex]?.roundNum}
@@ -1515,7 +1510,6 @@ function BracketRounds({
         key={roundIndex}
         label={labels[roundIndex]?.label}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
-        roundIndex={roundIndex}
       >
         <RoundBody
           state={state}
@@ -1558,7 +1552,6 @@ function BracketRounds({
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
-        roundIndex={box.winnersRoundIndex}
       >
         <WaveBoxBody
           state={state}
@@ -1645,14 +1638,6 @@ export function BracketView() {
     const resolved = resolveUnitQuery(app.state, value);
     setFollowKey(resolved);
     saveBracketFollow(window.localStorage, resolved);
-    if (resolved)
-      queueMicrotask(() => {
-        const status = bracketFollowStatus(app.state, resolved);
-        const column = status
-          ? document.querySelector<HTMLElement>(`#br-rounds [data-ri="${status.lastRi}"]`)
-          : null;
-        column?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      });
   }
   return (
     <div id='br-content'>

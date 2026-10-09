@@ -6,6 +6,30 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Follow search highlights only, no scrolling (done — 2026-10-09)
+
+### Context
+Viewer feedback on the test site: "The search jumping the scroll region and making search bar go out of view is pretty bad ux, I would just make it highlight matching players which you already do but remove the focus stuff."
+
+Cause: `chooseFollow` (`BracketView.tsx`) runs on every keystroke of the "Follow a player or team…" input. `resolveUnitQuery` accepts partial matches, so one letter already picks a unit; a `queueMicrotask` then found the unit's last round column (`#br-rounds [data-ri=…]`) and called `scrollIntoView({ block: 'nearest', inline: 'center' })`. Round columns are tall, so the page scrolled vertically as well as the strip, and the search box left the screen mid-word.
+
+### Decisions (organiser, 2026-10-09)
+- No scrolling at all: the follow search only highlights; the viewer finds the row themselves. This drops "scroll to their current round" from the follow feature on purpose. The middle path (scroll once on confirm, strip only) was offered and declined.
+- The highlight stays one unit: the single unit the text resolves to, as before.
+- Everything else is unchanged: resolve on every keystroke, save to `localStorage`, banner, highlighted rows and standings rank.
+
+### Change
+- `chooseFollow` no longer scrolls. The `data-ri` attributes (round column, LB round wrapper in `WaveBoxBody`) had no other reader in `src/` or `e2e/` and are gone; `RoundColumn`'s `roundIndex` prop, now unused, is removed. The LB wrapper `div` stays for its spacing and `key`.
+- Doc comments of `WaveBoxBody` and `StandingsColumn` no longer mention `data-ri`. `docs/views.md` describes the follow as highlight-only.
+
+### Testing
+eslint and prettier clean on the two `.tsx` files; no type errors under `features/bracket`; `vitest related` finds no test files for them (no test covered the scroll). Live check on the test site: see the report of this stage.
+
+### Out of scope
+Highlighting every partial match; a suggestion list / autocomplete; committing the follow only on Enter instead of per keystroke.
+
+---
+
 ## Lucky losers by relative share (done — 2026-10-07)
 
 ### Context
