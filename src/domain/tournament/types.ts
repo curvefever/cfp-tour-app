@@ -1,6 +1,6 @@
 import type { OrderedWaterfallGraph } from './waterfall-bracket';
 
-export type ActiveTab = 'admin' | 'bracket' | 'standings' | 'rankings' | 'archive';
+export type ActiveTab = 'home' | 'admin' | 'bracket' | 'standings' | 'rankings' | 'archive';
 
 export type GameFormatKey = 'ffa-individual' | 'team-2v2v2v2' | 'team-3v3v3' | 'team-3v3' | 'individual-1v1';
 

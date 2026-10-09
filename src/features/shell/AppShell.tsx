@@ -5,21 +5,15 @@ import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
 import { BracketView } from '../bracket/BracketView';
+import { HomeView } from '../home/HomeView';
 import { SetupView } from '../admin/SetupView';
 import { RunningAdmin } from '../admin/RunningAdmin';
 import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
 import { ArchiveView } from '../archive/ArchiveView';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { effectiveTab, visibleTabs } from './tabs';
 import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
-
-const TABS: Array<{ key: ActiveTab; label: string }> = [
-  { key: 'admin', label: '⚙ Admin' },
-  { key: 'bracket', label: '🗂 Bracket' },
-  { key: 'standings', label: '📊 Standings' },
-  { key: 'rankings', label: '🏆 Rankings' },
-  { key: 'archive', label: '🗄 Archive' },
-];
 
 export function AppShell() {
   const app = useTournamentApp();
@@ -27,9 +21,8 @@ export function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const currentRound = app.state.rounds[app.state.curRound];
   const showStandings = hasStandingsPhase(app.state);
-  const tabs = TABS.filter((tab) => tab.key !== 'standings' || showStandings);
-  // A stored 'standings' tab with no standings phase shows Bracket instead (nothing is written back).
-  const activeTab = app.activeTab === 'standings' && !showStandings ? 'bracket' : app.activeTab;
+  const tabs = visibleTabs({ showStandings });
+  const activeTab = effectiveTab(app.activeTab, { showStandings });
 
   function chooseTab(tab: ActiveTab) {
     if (tab === 'admin' && !app.unlocked) {
@@ -89,6 +82,11 @@ export function AppShell() {
         className='mx-auto max-w-7xl px-6 py-5 max-[700px]:px-3 max-[700px]:py-3.5'
         data-hydrated={app.hydrated ? 'true' : 'false'}
       >
+        {activeTab === 'home' ? (
+          <section id='view-home'>
+            <HomeView signedIn={app.unlocked} onLogIn={() => setLoginOpen(true)} />
+          </section>
+        ) : null}
         {activeTab === 'admin' ? (
           <section id='view-admin'>
             <Panel>

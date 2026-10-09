@@ -100,7 +100,7 @@ describe('normalizePersistedSetup', () => {
 
 describe('normalizeActiveTab', () => {
   it('passes through every known tab', () => {
-    for (const tab of ['admin', 'bracket', 'standings', 'rankings', 'archive']) {
+    for (const tab of ['home', 'admin', 'bracket', 'standings', 'rankings', 'archive']) {
       expect(normalizeActiveTab(tab)).toBe(tab);
     }
   });

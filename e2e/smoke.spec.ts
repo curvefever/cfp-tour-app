@@ -33,13 +33,14 @@ test.describe('anonymous visitor smoke test', () => {
     await expect(page.getByText('CFP Tour Hub')).toBeVisible();
 
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
+    await expect(nav.getByRole('button', { name: '🏠 Home' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '⚙ Admin' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '📊 Standings' })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '🗄 Archive' })).toBeVisible();
 
-    await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
   });
 
   test('switching between viewer tabs works', async ({ page }) => {
@@ -72,6 +73,17 @@ test.describe('anonymous visitor smoke test', () => {
 
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).not.toBeVisible();
-    await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('a reload returns to the tab the visitor was last on', async ({ page }) => {
+    await gotoHydrated(page);
+    const nav = page.getByRole('navigation', { name: 'Tournament sections' });
+
+    await nav.getByRole('button', { name: '🏆 Rankings' }).click();
+    await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toHaveAttribute('aria-current', 'page');
+
+    await gotoHydrated(page);
+    await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toHaveAttribute('aria-current', 'page');
   });
 });

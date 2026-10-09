@@ -1,7 +1,7 @@
 import type { IdSource } from '../../domain/tournament/runtime';
-import type { PersistedTournamentEnvelope } from '../../domain/tournament/types';
-import { parseLiveEnvelope, serializeLiveEnvelope } from './live-state';
-import { LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
+import type { ActiveTab, PersistedTournamentEnvelope } from '../../domain/tournament/types';
+import { normalizeActiveTab, parseLiveEnvelope, serializeLiveEnvelope } from './live-state';
+import { LAST_TAB_KEY, LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
 
 export interface BrowserStorage {
   getItem(key: string): string | null;
@@ -52,4 +52,14 @@ export function readBracketFollow(storage: BrowserStorage): string | null {
 export function saveBracketFollow(storage: BrowserStorage, unitKey: string | null): void {
   if (unitKey === null) storage.removeItem(LEGACY_BRACKET_FOLLOW_KEY);
   else storage.setItem(LEGACY_BRACKET_FOLLOW_KEY, unitKey);
+}
+
+/** The tab this browser was last on, for any visitor; a first visit lands on Home. */
+export function readLastTab(storage: BrowserStorage): ActiveTab {
+  const stored = storage.getItem(LAST_TAB_KEY);
+  return stored === null ? 'home' : normalizeActiveTab(stored);
+}
+
+export function saveLastTab(storage: BrowserStorage, tab: ActiveTab): void {
+  storage.setItem(LAST_TAB_KEY, tab);
 }

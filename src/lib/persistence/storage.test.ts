@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
-import { LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
+import { LAST_TAB_KEY, LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
 import { createMemoryStorage } from './test-fixtures';
 import {
   clearLiveEnvelope,
   loadLiveEnvelope,
   readBracketFollow,
+  readLastTab,
   saveBracketFollow,
+  saveLastTab,
   saveLiveEnvelope,
 } from './storage';
 
@@ -94,5 +96,23 @@ describe('clearLiveEnvelope / readBracketFollow / saveBracketFollow', () => {
     const storage = createMemoryStorage({ [LEGACY_BRACKET_FOLLOW_KEY]: 'P1' });
     saveBracketFollow(storage, null);
     expect(storage.getItem(LEGACY_BRACKET_FOLLOW_KEY)).toBeNull();
+  });
+});
+
+describe('readLastTab / saveLastTab', () => {
+  it('lands on Home when nothing is stored', () => {
+    expect(readLastTab(createMemoryStorage())).toBe('home');
+  });
+
+  it('round-trips a saved tab', () => {
+    const storage = createMemoryStorage();
+    saveLastTab(storage, 'rankings');
+    expect(storage.getItem(LAST_TAB_KEY)).toBe('rankings');
+    expect(readLastTab(storage)).toBe('rankings');
+  });
+
+  it('treats an unknown stored value like normalizeActiveTab does', () => {
+    expect(readLastTab(createMemoryStorage({ [LAST_TAB_KEY]: 'nonsense' }))).toBe('bracket');
+    expect(readLastTab(createMemoryStorage({ [LAST_TAB_KEY]: 'scoreboard' }))).toBe('standings');
   });
 });

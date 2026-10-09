@@ -8,7 +8,7 @@ import type {
   TournamentState,
 } from '../../domain/tournament/types';
 
-const ACTIVE_TABS: readonly ActiveTab[] = ['admin', 'bracket', 'standings', 'rankings', 'archive'];
+const ACTIVE_TABS: readonly ActiveTab[] = ['home', 'admin', 'bracket', 'standings', 'rankings', 'archive'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
