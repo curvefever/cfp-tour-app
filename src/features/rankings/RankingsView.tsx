@@ -130,7 +130,7 @@ export function RankingsContent({
     return (
       <Alert>
         No {unitLabelPluralLower(state.gameFormat)} registered yet — check back once the organiser loads a
-        roster in Admin.
+        roster.
       </Alert>
     );
   }

@@ -1608,8 +1608,7 @@ export function BracketView() {
   const follow = useMemo(() => bracketFollowStatus(app.state, followKey), [app.state, followKey]);
   const labels = bracketRoundLabels(app.state);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
-  if (!app.state.rounds.length)
-    return <Alert>Start a tournament in Admin to see the bracket overview.</Alert>;
+  if (!app.state.rounds.length) return <Alert>No tournament has started yet.</Alert>;
   const editable = app.unlocked && !app.isViewer && app.state.started;
   const pendingTies = hasPendingTies(app.state, app.state.curRound);
   const currentRound = app.state.rounds[app.state.curRound];

@@ -6,6 +6,35 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Home tab, and the Admin tab only for signed-in admins (done — 2026-10-09)
+
+### Context
+Every visitor saw an Admin tab that only opened a login box, and the tournament title in the header did the same. Spectators have no use for Admin, and the app had no neutral first page. A signed-in account is always an admin (`AuthProvider` rejects a CFP account without a Tour Admin role at login and on session restore), so `app.unlocked` is the only condition the tab rules need.
+
+### Decisions (organiser, 2026-10-09)
+- New **Home** tab, first in the bar, empty for now apart from a discreet "Log in as admin" link in the bottom-right corner.
+- A reload brings everyone, admins and spectators alike, back to the tab they were last on; with nothing stored they land on Home.
+- The Admin tab shows only for a signed-in admin. The tournament title is plain text for everyone. The platform title "CFP Tour Hub" opens Home.
+
+### Planner calls (low-stakes, open to correction)
+- Label `🏠 Home`; order Home, Admin, Bracket, Standings, Rankings, Archive.
+- One per-browser "last tab" value for everyone (`curveFFA_active_tab`, `readLastTab` / `saveLastTab`), saved by one provider effect whenever the tab changes after hydration, read on hydrate. Not tied to a tournament. The envelope's `activeTab` is still written but no longer read on load.
+- A tab that is not available is displayed as a fallback and never overwritten (`effectiveTab()`: Admin without a session shows Home, Standings without a standings phase shows Bracket), so an admin whose session restores after load is put back on Admin by itself. The provider's "non-admin on Admin → Bracket" reset is gone.
+- The corner link is `fixed` to the viewport's bottom-right, small muted text, a `<button>`; hidden when signed in. Signing in from it goes to Admin (`unlockAdmin`); signing out (`lockAdmin`) goes to Home.
+- A tournament with no title shows nothing in the header (naming happens in Admin).
+- Viewer-facing messages no longer point at Admin: Bracket's empty state is "No tournament has started yet.", Rankings' empty roster drops " in Admin".
+
+### Change
+Stage 1: `'home'` in `ActiveTab` and `ACTIVE_TABS`; `readLastTab` / `saveLastTab`; `shell/tabs.ts` (`TABS`, `visibleTabs`, `effectiveTab`); `home/HomeView.tsx`; provider hydrate / save / `lockAdmin`. Stage 2: `tabs.ts` takes `canAdmin`; `chooseTab` is gone (tabs call `app.setActiveTab`); "CFP Tour Hub" is a button to Home; the tournament title is a plain `div`; the two viewer messages. Docs: `docs/views.md`, `docs/platform.md`, `HANDOFF.md` code map.
+
+### Testing
+Unit: `tabs.test.ts` (anonymous and admin lists with and without a standings phase, Home first; the Admin → Home and Standings → Bracket fallbacks and pass-through), `storage.test.ts` (`readLastTab` / `saveLastTab`), `live-state.test.ts` (`'home'` passes through). e2e (`pnpm run test:e2e`, 4 tests): signed-out shell (no Admin tab, Home current), tab switching including Home and "CFP Tour Hub", Home's "Log in as admin" opens the "Sign in with CFP" dialog and Cancel keeps Home current with no Admin tab, a reload returns to Rankings. Home's section has no height (its only child is the fixed link), so the tests assert the current tab through `aria-current`, not the section's visibility. Live check on the test site: see the stage 2 report.
+
+### Out of scope
+Home content; dropping `activeTab` from the stored envelope; a "last tab" per tournament; any non-admin "account" sign-in.
+
+---
+
 ## Follow search highlights only, no scrolling (done — 2026-10-09)
 
 ### Context

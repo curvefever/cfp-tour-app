@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { hasStandingsPhase } from '../../domain/tournament/standings-display';
-import type { ActiveTab } from '../../domain/tournament/types';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
@@ -21,34 +20,28 @@ export function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const currentRound = app.state.rounds[app.state.curRound];
   const showStandings = hasStandingsPhase(app.state);
-  const tabs = visibleTabs({ showStandings });
-  const activeTab = effectiveTab(app.activeTab, { showStandings });
-
-  function chooseTab(tab: ActiveTab) {
-    if (tab === 'admin' && !app.unlocked) {
-      setLoginOpen(true);
-      return;
-    }
-    app.setActiveTab(tab);
-  }
+  const tabContext = { canAdmin: app.unlocked, showStandings };
+  const tabs = visibleTabs(tabContext);
+  const activeTab = effectiveTab(app.activeTab, tabContext);
 
   return (
     <div className='min-h-screen bg-background text-foreground'>
       <header className='sticky top-0 z-50 flex h-14 items-center justify-between border-b border-surface-hover bg-background/95 px-6 backdrop-blur-md max-[700px]:px-3.5'>
-        <div className='whitespace-nowrap text-lg font-bold tracking-[0.16em] text-primary uppercase max-[700px]:text-base max-[700px]:tracking-[0.12em]'>
+        <button
+          className='cursor-pointer whitespace-nowrap text-lg font-bold tracking-[0.16em] text-primary uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:text-base max-[700px]:tracking-[0.12em]'
+          onClick={() => app.setActiveTab('home')}
+        >
           CFP <span className='text-foreground'>Tour Hub</span>
-        </div>
+        </button>
         <div className='flex min-w-0 items-center gap-2.5'>
-          <button
-            className={cn(
-              'max-w-55 cursor-pointer overflow-hidden rounded-[5px] px-2 py-1 text-ellipsis whitespace-nowrap text-sm font-semibold text-foreground transition hover:bg-surface-low focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:max-w-31',
-              !app.state.title && 'font-normal text-muted italic',
-            )}
-            onClick={() => chooseTab('admin')}
-            title={app.state.title}
-          >
-            {app.state.title || 'Unnamed Tournament — click to name'}
-          </button>
+          {app.state.title ? (
+            <div
+              className='max-w-55 overflow-hidden px-2 py-1 text-ellipsis whitespace-nowrap text-sm font-semibold text-foreground max-[700px]:max-w-31'
+              title={app.state.title}
+            >
+              {app.state.title}
+            </div>
+          ) : null}
           <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
           <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(0_229_255_/_40%)]'>
             {currentRound?.roundNum ?? '—'}
@@ -67,7 +60,7 @@ export function AppShell() {
               activeTab === tab.key && 'border-primary text-primary',
             )}
             aria-current={activeTab === tab.key ? 'page' : undefined}
-            onClick={() => chooseTab(tab.key)}
+            onClick={() => app.setActiveTab(tab.key)}
           >
             {tab.label}
           </button>

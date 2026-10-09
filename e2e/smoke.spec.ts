@@ -34,7 +34,7 @@ test.describe('anonymous visitor smoke test', () => {
 
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
     await expect(nav.getByRole('button', { name: '🏠 Home' })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '⚙ Admin' })).toBeVisible();
+    await expect(nav.getByRole('button', { name: '⚙ Admin' })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toBeVisible();
     await expect(nav.getByRole('button', { name: '📊 Standings' })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toBeVisible();
@@ -58,13 +58,23 @@ test.describe('anonymous visitor smoke test', () => {
     await nav.getByRole('button', { name: '🗂 Bracket' }).click();
     await expect(page.locator('#view-bracket')).toBeVisible();
     await expect(page.locator('#view-archive')).not.toBeVisible();
+
+    await nav.getByRole('button', { name: '🏠 Home' }).click();
+    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#view-bracket')).toBeHidden();
+
+    await nav.getByRole('button', { name: '🏆 Rankings' }).click();
+    await page.getByRole('button', { name: 'CFP Tour Hub' }).click();
+    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
   });
 
-  test('clicking Admin opens the CFP login modal without navigating away', async ({ page }) => {
+  test("Home's Log in as admin button opens the CFP login modal without navigating away", async ({
+    page,
+  }) => {
     await gotoHydrated(page);
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
-    await nav.getByRole('button', { name: '⚙ Admin' }).click();
+    await page.getByRole('button', { name: 'Log in as admin' }).click();
 
     const dialog = page.getByRole('dialog', { name: 'Sign in with CFP' });
     await expect(dialog).toBeVisible();
@@ -74,6 +84,7 @@ test.describe('anonymous visitor smoke test', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).not.toBeVisible();
     await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: '⚙ Admin' })).toHaveCount(0);
   });
 
   test('a reload returns to the tab the visitor was last on', async ({ page }) => {
