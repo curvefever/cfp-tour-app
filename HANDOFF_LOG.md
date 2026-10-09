@@ -23,7 +23,9 @@ Cause: `chooseFollow` (`BracketView.tsx`) runs on every keystroke of the "Follow
 - Doc comments of `WaveBoxBody` and `StandingsColumn` no longer mention `data-ri`. `docs/views.md` describes the follow as highlight-only.
 
 ### Testing
-eslint and prettier clean on the two `.tsx` files; no type errors under `features/bracket`; `vitest related` finds no test files for them (no test covered the scroll). Live check on the test site: see the report of this stage.
+eslint and prettier clean on the two `.tsx` files; no type errors under `features/bracket`; `vitest related` finds no test files for them (no test covered the scroll). Live check on the test site (viewer link; the deployed build had no `data-ri` elements, so it was this one): with the search box near the top (`scrollY` 105, strip `scrollLeft` 0, box 20px from the viewport top, strip 1570px wide over 961px visible), typing "team1" with real key events changed the banner to "Following team10" and left all three values unchanged; synthetic input at every prefix (`t` … `team20`) changed the banner per keystroke ("Anti stackers unlike CC1", "That other team", "team10", "team20") and also left them unchanged. A first attempt showed `scrollY` 105 → 0, put down to the browser tool scrolling the box into view on its click-by-reference; it disappeared once the box was focused without scrolling (the old build was not compared).
+
+Final review (planner, 2026-10-09): diff matches the plan; removing `RoundColumn`'s `roundIndex` prop is accepted (it only fed `data-ri`). eslint, prettier, types clean; no `data-ri` left in `src/`, `e2e/` or `docs/`; full suite 44 files / 1276 tests pass. No mutation check: no automated test covers the scroll, and the change is a deletion.
 
 ### Out of scope
 Highlighting every partial match; a suggestion list / autocomplete; committing the follow only on Enter instead of per keystroke.
