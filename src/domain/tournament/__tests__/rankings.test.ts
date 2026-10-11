@@ -166,6 +166,35 @@ describe('computeRankings -- double elimination deferred drop', () => {
     state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 0, pct: 0 }];
     expect(computeRankings(state)?.eliminatedList).toEqual([]);
   });
+
+  it('lists the loser waiting in the losers-bracket pool under still in tournament, waiting for that round', () => {
+    const state = buildDeferredDropState();
+    state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 0, pct: 0 }];
+    const waiting = computeRankings(state)?.stillActive.find((entry) => entry.name === 'P2');
+    expect(waiting).toMatchObject({ room: null, waitingFor: 2 });
+  });
+
+  it('lists a unit that is both drawn and in a pool only once, as drawn', () => {
+    const state = buildDeferredDropState();
+    state.pendingBracketSeeds[2] = [
+      { name: 'P2', tierRank: 0, pct: 0 },
+      { name: 'P1', tierRank: 0, pct: 0 },
+    ];
+    const active = computeRankings(state)?.stillActive ?? [];
+    expect(active.map((entry) => entry.name).sort()).toEqual(['P1', 'P2']);
+    expect(active.find((entry) => entry.name === 'P1')).toMatchObject({ room: 1 });
+    expect(active.find((entry) => entry.name === 'P1')?.waitingFor).toBeUndefined();
+  });
+
+  it('does not list pooled units as waiting once the Final is complete', () => {
+    const state = buildDeferredDropState();
+    state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 0, pct: 0 }];
+    state.rounds[1] = { ...state.rounds[1], isFinal: true, numGames: 1 };
+    state.finalScores = { 'game1-P1': 100 };
+    const ranked = computeRankings(state);
+    expect(ranked?.finalComplete).toBe(true);
+    expect(ranked?.stillActive.some((entry) => entry.waitingFor !== undefined)).toBe(false);
+  });
 });
 
 describe('computeRankings -- DNF/no-show', () => {
@@ -876,5 +905,47 @@ describe('computeRankings -- a waterfall fed by the qualification table (Qual so
     // Every eliminated unit ranks below the 24 that are still in.
     expect(entries.every((entry) => entry.rank > 24)).toBe(true);
     expect(entries.map((entry) => entry.name)).toEqual(expect.arrayContaining(order.slice(24)));
+  });
+});
+
+describe('computeRankings -- units waiting in a pending pool are still in the tournament', () => {
+  function atPoolingExit(registered: number) {
+    const exit = playToQualificationExit(buildQualWaterfall(registered));
+    const order = orderedQualificationTable(exit).ordered.map((entry) => entry.name);
+    const result = advanceTournamentRound(exit);
+    if (result.status !== 'advanced') throw new Error('expected the pooling exit to advance');
+    return { state: result.state, order };
+  }
+
+  it('at 37 registered: R1 plays, ranks 17-24 wait for R1C, ranks 25+ are eliminated from rank 25', () => {
+    const { state, order } = atPoolingExit(37);
+    const rankings = computeRankings(state);
+    const r1c = state.rounds.findIndex((round) => round.customLabel === 'R1C');
+    const active = rankings?.stillActive ?? [];
+    expect(active).toHaveLength(24);
+    const waiting = active.filter((entry) => entry.waitingFor !== undefined);
+    expect(waiting.map((entry) => entry.name).sort()).toEqual(order.slice(16, 24).sort());
+    expect(waiting.every((entry) => entry.waitingFor === r1c && entry.room === null)).toBe(true);
+    expect(active.filter((entry) => entry.room !== null)).toHaveLength(16);
+    expect(rankings?.eliminatedList).toHaveLength(13);
+    expect(Math.min(...(rankings?.eliminatedList ?? []).map((entry) => entry.rank))).toBe(25);
+  });
+
+  it('at 53 registered: 24 still in, 29 eliminated', () => {
+    const { state } = atPoolingExit(53);
+    const rankings = computeRankings(state);
+    expect(rankings?.stillActive).toHaveLength(24);
+    expect(rankings?.eliminatedList).toHaveLength(29);
+  });
+
+  it('once R1 is played and R1C is drawn, those 8 are R1C entries with a room, not waiting', () => {
+    const { state, order } = atPoolingExit(37);
+    const next = advanceTournamentRound(scoreCurrentRound(state, 0));
+    if (next.status !== 'advanced') throw new Error('expected R1 to advance');
+    const active = computeRankings(next.state)?.stillActive ?? [];
+    const r1c = new Set(order.slice(16, 24));
+    const inR1c = active.filter((entry) => r1c.has(entry.name));
+    expect(inR1c).toHaveLength(8);
+    expect(inR1c.every((entry) => entry.room !== null && entry.waitingFor === undefined)).toBe(true);
   });
 });

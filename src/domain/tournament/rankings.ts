@@ -27,6 +27,8 @@ interface ActiveRanking extends RankingDisplay {
   room: number | null;
   isLucky: boolean;
   poolRank: { rank: number; fp: number | null; groupLabel?: string } | null;
+  /** Index of the round this unit is routed to but not drawn into yet (it waits in that round's pending pool); `room` is null then. */
+  waitingFor?: number;
 }
 
 interface FinalistRanking extends RankingDisplay {
@@ -229,6 +231,31 @@ function eliminationsInRound(state: TournamentState, roundIndex: number): Array<
   return eliminations;
 }
 
+/**
+ * Units routed to a round that is not drawn yet: they wait in that round's pending pool (a waterfall band
+ * sent several rounds ahead, a double-elimination loser waiting for a deferred losers round). They are
+ * still in the tournament, so they are listed with the round they wait for, once.
+ */
+function waitingUnits(
+  state: TournamentState,
+  lastDrawnIndex: number,
+  roster: ReadonlySet<string>,
+  active: RoundAssignment[],
+): Array<{ name: string; isLucky: boolean; waitingFor: number }> {
+  const seen = new Set(active.map(({ name }) => name));
+  const waiting: Array<{ name: string; isLucky: boolean; waitingFor: number }> = [];
+  for (const [key, seeds] of Object.entries(state.pendingBracketSeeds)) {
+    const waitingFor = Number(key);
+    if (waitingFor <= lastDrawnIndex) continue;
+    for (const seed of seeds) {
+      if (!roster.has(seed.name) || seen.has(seed.name)) continue;
+      seen.add(seed.name);
+      waiting.push({ name: seed.name, isLucky: Boolean(seed.isLucky), waitingFor });
+    }
+  }
+  return waiting;
+}
+
 export function computeRankings(state: TournamentState): TournamentRankings | null {
   if (!state.rounds.length || !state.assignments.length) return null;
   const lastRi = lastAssignedRound(state);
@@ -289,8 +316,9 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   // they never appear as "still in tournament".
   const rosterSet = new Set(rosterKeys(state.players));
   active = active.filter((entry) => rosterSet.has(entry.name));
+  const waiting = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
 
-  const activeNames = new Set(active.map(({ name }) => name));
+  const activeNames = new Set([...active.map(({ name }) => name), ...waiting.map(({ name }) => name)]);
   const finalistNames = new Set(finalistValues.map(({ name }) => name));
   const standings = describeStandings(state);
   const placements = cutPlacements(state, standings);
@@ -342,12 +370,14 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const dnfList = state.withdrawnUnits.filter((unit) => unit.playedAnyMatch);
   const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
   return {
-    stillActive: active
-      .map((entry) => ({
-        ...display(entry.name),
-        room: entry.room,
-        isLucky: Boolean(entry.isLucky),
-        poolRank: poolRanks.get(entry.name) ?? null,
+    stillActive: [
+      ...active.map((entry) => ({ name: entry.name, room: entry.room, isLucky: Boolean(entry.isLucky) })),
+      ...waiting.map((entry) => ({ ...entry, room: null })),
+    ]
+      .map(({ name, ...rest }) => ({
+        ...display(name),
+        ...rest,
+        poolRank: poolRanks.get(name) ?? null,
       }))
       .sort((first, second) => first.label.localeCompare(second.label)),
     finalComplete,

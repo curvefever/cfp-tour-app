@@ -6,6 +6,30 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Qual source display follow-ups (done — 2026-10-11)
+
+### Context
+Follow-up to "The qualification table as a source in the waterfall graph" (same day). Its live check on the test site showed three places that still described the routing wrongly although who goes where was right: the last qualification round's badge read "Top 24 in standings → R1" (16 go to R1, 8 to R1C); the Bracket tab's standings block kept one "cut" line at 24; and the 8 units waiting for R1C were in neither "Still in tournament" nor "Eliminated" in Rankings. Two stages, planned and reviewed in the separate planner session.
+
+### Planner calls
+- The badge lists the bands, `1–16 → R1 · 17–24 → R1C · 25+ out`; gap runs are their own bands (`17–19 out`); the open tail is `N+ out` (its size changes with the head count) and is left out when nobody is ranked past the last routed rank. Without `standingsRoutes` the badge is unchanged.
+- One band helper: `standingsBandLabel` (`standings-display.ts`) names a band for the badge's sibling views, the Standings tab and the Bracket standings block.
+- Units waiting in a pending pool are "Still in tournament", with "Waiting for <round>" in place of the room line, sorted with the other active units. No new section.
+
+### Change
+- Stage 1 (`e2d09ba`): `roundExitRule`'s `standings-cutoff` carries `bands` (runs of equal destination from `standingsRoutes`, plus the open eliminated tail); `RoundExitSummary` writes them; `StandingsColumn` draws a labelled separator per band like `TournamentStandings`.
+- Stage 2: `computeRankings` adds every unit in `pendingBracketSeeds[i]` for i after the last drawn round (roster-filtered, de-duplicated against the drawn units, not once the Final is complete) as an active entry with `room: null` and `waitingFor: i`; `RankingsView` shows "Waiting for <RoundLabel>". This covers the Qual source and the double-elimination deferred drop. The rankings PNG is unchanged ("STILL IN TOURNAMENT").
+
+### Testing
+- Bands: 37 registered (1–16 / 17–24 / 25+), the gap graph at 31 (1–16, 17–19 out, 20–27, 28+), no bands without `standingsRoutes` and after a plain single elimination.
+- Rankings at 37 and 53 registered: 24 still in (16 drawn in R1 + 8 waiting with `waitingFor` = R1C and no room), 13 / 29 eliminated, eliminated ranks start at 25; after R1 is played and R1C drawn the 8 have a room and no `waitingFor`; the double-elimination deferred loser is listed as waiting; a unit both drawn and pooled is listed once; no waiting units once the Final is complete.
+- Live check on the test site, view only, no scores, no Next Round (see below).
+
+### Out of scope
+The rankings PNG wording for waiting units; ordering waiting units differently from drawn ones; any change to who advances or where.
+
+---
+
 ## The qualification table as a source in the waterfall graph (done — 2026-10-11)
 
 ### Context

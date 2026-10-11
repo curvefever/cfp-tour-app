@@ -158,12 +158,20 @@ export function RankingsContent({
                 <span className='min-w-0'>
                   <Unit entry={unit} />
                   <small className='mt-1 block text-xs text-muted'>
-                    <RoundLabel round={data.lastRound} /> —{' '}
-                    {unit.room === null ? (
-                      <strong className='text-warning'>BYE — advances automatically</strong>
+                    {unit.waitingFor !== undefined ? (
+                      <>
+                        Waiting for <RoundLabel round={state.rounds[unit.waitingFor]} />
+                      </>
                     ) : (
                       <>
-                        Room <strong className='text-primary'>{roomLetter(unit.room)}</strong>
+                        <RoundLabel round={data.lastRound} /> —{' '}
+                        {unit.room === null ? (
+                          <strong className='text-warning'>BYE — advances automatically</strong>
+                        ) : (
+                          <>
+                            Room <strong className='text-primary'>{roomLetter(unit.room)}</strong>
+                          </>
+                        )}
                       </>
                     )}
                   </small>
