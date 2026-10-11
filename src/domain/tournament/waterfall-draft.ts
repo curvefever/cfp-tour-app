@@ -4,6 +4,7 @@ import {
   LABEL_PATTERN,
   MAX_ROOMS_PER_ROUND,
   QUAL_LABEL,
+  declaredWaterfallRooms,
   expandRankTokens,
   parseWaterfallGraph,
   roomIndexToLetter,
@@ -317,12 +318,16 @@ export function waterfallDraftFromRounds(
 ): WaterfallDraft {
   const labelByIndex = new Map(rounds.map((round, index) => [index, round.customLabel]));
   const waterfallRounds = rounds.filter((round) => round.isWaterfall);
-  const draftRounds: WaterfallDraftRound[] = waterfallRounds.map((round) => ({
-    label: round.customLabel as string,
-    roomCount: round.rooms.length,
-    roomSize: round.rooms[0],
-    isFinal: round.isFinal,
-  }));
+  // A round drawn short (a withdrawal) is shown with the room sizes the graph declared for it.
+  const draftRounds: WaterfallDraftRound[] = waterfallRounds.map((round) => {
+    const declared = declaredWaterfallRooms(round);
+    return {
+      label: round.customLabel as string,
+      roomCount: declared.length,
+      roomSize: declared[0],
+      isFinal: round.isFinal,
+    };
+  });
   const routes: Record<string, WaterfallSlotDestination[][]> = {};
   for (const round of waterfallRounds) {
     routes[round.customLabel as string] = round.isFinal
