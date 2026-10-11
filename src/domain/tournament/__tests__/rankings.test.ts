@@ -107,9 +107,63 @@ describe('computeRankings -- waterfall bracket elimination', () => {
     expect(rankings?.eliminatedList.map((entry) => entry.name)).toContain('P3');
   });
 
-  it('documents a known, pre-existing characteristic shared with double-elimination: a destination round that has not been finalized yet reads as empty, so a unit legitimately routed there (rank 2 -> round 2, never reached) shows as eliminated until curRound actually catches up to it -- not a waterfall-specific regression, the exact same pendingBracketSeeds-finalize-on-a-delay timing double-elimination already has for any deferred LB target', () => {
-    const rankings = computeRankings(buildState());
-    expect(rankings?.eliminatedList.some((entry) => entry.name === 'P2')).toBe(true);
+  it('counts a unit waiting in a destination round pending pool as alive -- rank 2, routed to round 2 which is not drawn yet, is not ranked as eliminated', () => {
+    const state = buildState();
+    state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 1, pct: 0.5 }];
+    const rankings = computeRankings(state);
+    expect(rankings?.eliminatedList.some((entry) => entry.name === 'P2')).toBe(false);
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).toContain('P3');
+  });
+
+  it('still ranks a unit routed to eliminated as eliminated while other units wait in a pending pool', () => {
+    const state = buildState();
+    state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 1, pct: 0.5 }];
+    expect(computeRankings(state)?.eliminatedList.map((entry) => entry.name)).toEqual(['P3']);
+  });
+});
+
+describe('computeRankings -- double elimination deferred drop', () => {
+  // Round 0's loser drops to round 2 (a losers-bracket round not drawn yet), so the loser waits in
+  // pendingBracketSeeds[2] instead of assignments[2].
+  function buildDeferredDropState() {
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['P1', 'P2'],
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          rooms: [2],
+          players: 2,
+          advPerRoom: 1,
+          bracket: 'winners',
+          winnersTo: 1,
+          losersTo: 2,
+        }),
+        buildRound({ roundNum: 2, rooms: [1], players: 1, bracket: 'winners' }),
+        buildRound({ roundNum: 2, rooms: [1], players: 1, bracket: 'losers' }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+        [{ name: 'P1', room: 1, isLucky: false }],
+        [],
+      ],
+      scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 200 },
+    });
+  }
+
+  it('ranks the deferred loser as eliminated only when nothing is waiting for it', () => {
+    expect(computeRankings(buildDeferredDropState())?.eliminatedList.map((entry) => entry.name)).toEqual([
+      'P2',
+    ]);
+  });
+
+  it('counts the loser waiting in the losers-bracket pool as alive', () => {
+    const state = buildDeferredDropState();
+    state.pendingBracketSeeds[2] = [{ name: 'P2', tierRank: 0, pct: 0 }];
+    expect(computeRankings(state)?.eliminatedList).toEqual([]);
   });
 });
 

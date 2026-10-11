@@ -173,7 +173,8 @@ function assignmentsByRoom(assignments: RoundAssignment[]) {
  * Names of the units a round sent on. A bracket or waterfall round's own routing can send occupants to
  * several rounds (exactly [winnersTo, losersTo] for a double-elimination round, every distinct
  * non-'eliminated' index in waterfallRoutes for a waterfall round, which can be more than 2), so its
- * survivors are the union over those rounds; any other round sends its units to the next one.
+ * survivors are the union over those rounds; any other round sends its units to the next one. A unit
+ * waiting in a destination's pendingBracketSeeds (not drawn into it yet) is still a survivor.
  */
 function survivorNames(state: TournamentState, roundIndex: number, round: TournamentRound): Set<string> {
   if (!round.bracket && !round.isWaterfall) {
@@ -190,7 +191,12 @@ function survivorNames(state: TournamentState, roundIndex: number, round: Tourna
           ),
         ),
       ];
-  return new Set(destinations.flatMap((index) => (state.assignments[index] ?? []).map(({ name }) => name)));
+  return new Set(
+    destinations.flatMap((index) => [
+      ...(state.assignments[index] ?? []).map(({ name }) => name),
+      ...(state.pendingBracketSeeds[index] ?? []).map(({ name }) => name),
+    ]),
+  );
 }
 
 /** The units one round eliminated, each with its place and relative share in its room. */
