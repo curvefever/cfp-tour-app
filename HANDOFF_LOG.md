@@ -6,6 +6,39 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Reserve substitution by swap, closed once anyone is eliminated (done — 2026-10-11)
+
+### Context
+The organiser wants reserves usable in every format, waterfall and group stage included, but only as a one-for-one substitution of a no-show (an extra unit would need manual waterfall graph edits), and only until anyone has been eliminated. The substitution already existed: the ⇄ Swap button in Rankings' Manage Players/Teams (`swapIndividual` / `swapTeam`, `mutations.ts`) checked no format. Live findings on the test site before the build (2026-10-11): in a waterfall with a Qual source (37 players, at R1) swapping a unit seated in R1 worked, but swapping a unit waiting for R1C (in `pendingBracketSeeds`, in no assignment) did nothing and showed nothing, because `replaceAssignedUnit` only looks in the current round's assignments and returned `null` (a silent no-op). In a 1v1 group stage (37 players, group size 5, round 1) swapping a unit on a group bye and a seated unit both worked, including their later group fixtures (group byes are assignments with `room: null`).
+
+### Planner decisions
+- "Anyone eliminated" = `computeRankings(state)?.eliminatedList.length > 0`, not `reserveOpen` (that window is about joining: it closes at the pooling cut and in Kings Valley / double elimination differs from the first real elimination).
+- The rule covers `swapIndividual` and `swapTeam` (walk-up replacements alike). It does not cover `fillTeamSlot`, rename or remove.
+- A unit waiting in a pending pool is renamed in its `PendingBracketSeed` entry in place; `tierRank`, `pct` and `isLucky` are inherited (the replacement takes the slot the no-show earned).
+- Adding a reserve to a waterfall or group stage stays blocked (`addReserveUnit` unchanged); only its alert wording changes.
+
+### Change
+- Stage 1 (`2f8f00c`): `replacePendingUnit` renames the unit in every pool (also drops its `qualTable` entry and moves `poolingByeCounts`, like the seated path); `replaceUnitInPlay` = seated, else pending, else `null`, used by both swap functions; `movePoolingByeCount` extracted from `replaceAssignedUnit`. A unit in neither place still returns the state unchanged.
+- Stage 2 (`7c242f8`): `swapWindowOpen(state)` (true while nobody is eliminated); `swapIndividual` and `swapTeam` return the state unchanged when it is false.
+- Stage 3: `RankingsRoster.tsx`: both Swap buttons are disabled with the title "Swaps closed — eliminations have started" (not hidden: rename/remove stay usable); `applySwap` compares before/after in the click handler and alerts "Can't swap … it isn't in the current round or waiting for a later one" instead of doing nothing (a blank replacement name just cancels); the `'group-stage'` and `'waterfall-bracket'` alerts of the "+" button now say adding isn't possible and point to ⇄ Swap until the first elimination. `docs/rules.md`, `docs/views.md`, `docs/open-items.md` updated.
+
+### Testing
+- Pending-pool swap (new tests in `mutations.test.ts`): waterfall with a Qual source routing everyone at 37 (R1 = ranks 1–16, R1C = 21 waiting) — the replacement holds the same slot with the same `tierRank`/`pct`, the no-show is in no pool and in `withdrawnUnits` as `'swapped'`, and when R1C is drawn the replacement is seated and the no-show is not; at 43 (R1 = 5 rooms of 7, R1C = 8 waiting) a seated swap in R1 is unchanged; a unit that is neither seated nor waiting returns the same state; double elimination 1v1 at 31: at round 3, 16 winners-bracket units wait in round 4's pool, one is swapped and seated when round 4 is drawn.
+- Swap window, each asserting both sides of the boundary and that a blocked swap (seated unit, and an actually eliminated unit) returns the identical state: single elimination FFA 31 (open R0–R2, closed at R3), qualification table into a Qual waterfall 37 (open through the last qualification round, closed at R1), group stage 1v1 43 in groups of 5 (open through group round 5, closed at the first bracket round), Kings Valley 53 (open R0–R2, closed at R3), double elimination 1v1 31 (open at the first losers round, closed at R4), and team swaps (31 teams of 3).
+- Mutation checks: the pending branch disabled fails the waterfall and double-elimination pending tests; the `swapIndividual` guard removed fails five window tests (the team test has its own guard).
+- Live check on the test site (2026-10-11, after pushing 370f69e), throwaway "Swap check (group stage)" (1v1, 37 players, group size 5): the "+" alert for a walk-up in the group stage carries the new sentence pointing to ⇄ Swap; swapping Tp02, a unit on a group bye in round 1, with a typed name works (the replacement appears, the old name is gone); through the last group round (R5) all 37 Swap buttons stay enabled titled "Swap"; after the group exit (R6, 18 units cut) all 37 are disabled with the title "Swaps closed — eliminations have started" while Rename and Remove stay enabled (and the reserve panel reads closed). The "Can't swap … isn't in the current round" alert was not triggered live (every listed unit is in play there); it is a before/after comparison in the click handler. The waterfall pending-pool swap is not reachable live for the same reason as in the deviation below: it is covered by the tests only. (The scripted score fill for rounds 1–4 did not register, so those rounds were advanced unscored and the group cut needed the "ranks next" tie picks; irrelevant to this check.)
+
+### Deviation from the plan, and what it means
+With the standard Qual graph (`Qual: 1-16->R1, 17-24->R1C`), ranks 25+ are eliminated at the pooling exit, so by the time a unit waits for R1C the swap window is already closed. A waterfall pending-pool swap is therefore only reachable when the graph eliminates nobody at the exit (rare), and double elimination, where units wait for the next round while only losers-bracket drops have happened, is the realistic case. The stage 1 waterfall tests at 37 and 43 were reworked onto Qual graphs that route everyone (`ALL_ROUTED_GRAPHS`) so they still exercise the path at awkward counts.
+
+### Out of scope
+- Adding (not swapping) a reserve in a waterfall or group stage; Swiss/qual-table-fed waterfall additions.
+- `fillTeamSlot`, rename and remove: no new restrictions.
+- Suspected, unverified: `removeRosterUnit` doesn't touch `pendingBracketSeeds`, so removing a unit waiting in a pool may leave it to be drawn into its round anyway. Noted in `docs/open-items.md` for a separate pass.
+- Carrying a no-show's earlier group-stage results over to the replacement (it starts fresh; other teams keep their results against the no-show).
+
+---
+
 ## Qual source display follow-ups (done — 2026-10-11)
 
 ### Context
