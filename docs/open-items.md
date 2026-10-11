@@ -10,7 +10,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 
 ## Accepted limitations (not building without an organiser request)
 - **No extra reserves for a waterfall, or for a group stage.** Adding a reserve stays blocked once either starts (its graph or group schedule is built for the exact head count; allowing it during qualification would only grow the eliminated tail). A no-show is replaced one for one with ⇄ Swap, until the first elimination.
-- **Suspected, unverified: removing a unit that waits in a pending pool.** `removeRosterUnit` doesn't touch `pendingBracketSeeds`, so the removed unit may still be drawn into its round. Needs a separate check and pass.
+- **A withdrawn unit's name used again for a new entrant** (the individual swap prompt only refuses names in the current roster) makes the live graph edit's replay map old line-ups to the new person. Edge case, not fixed.
 - **Standings displays ignore a partly scored current-round room, but advancing with an unscored unit still uses that partial room for the real cut.** The Standings tab, Bracket column, banner rank and Rankings badge wait for a room's last score; `roomBasedComputeAdvancement` does not.
 - **FFA counts that can't fill rooms of 6–8 are seated in smaller rooms** (9 → [5,4], 17 → [6,6,5]), by the organiser's decision; planned counts avoid this, organiser-entered counts can't. A few Shared-Final FFA configurations (17–19 entrants with 3–4 LB qualifiers) also fall back to it.
 - **A removal can leave the current Kings Valley round, and rarely the next, below the minimum** (holding fallback; e.g. 7 [4,3] with a removal from room 2 has no seatable cut). The organiser can fill the room with a reserve.
