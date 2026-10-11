@@ -12,6 +12,7 @@ import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
+import { buildQualWaterfall } from './qual-waterfall';
 import { buildRound, fixedIdSource } from './test-fixtures';
 
 function project(rounds: TournamentRound[], curRound: number) {
@@ -653,5 +654,38 @@ describe('roundGameCount', () => {
     );
     expect(counts(result.state)).toEqual(expected);
     expect(expected.filter(Boolean)).toHaveLength(1);
+  });
+});
+
+describe('projectFutureRoundSlots -- a round fed by the qualification table (Qual source)', () => {
+  const texts = (slots: ReturnType<typeof project>[number]) =>
+    (slots ?? []).map((room) => room.map(projectedSlotLabelText));
+
+  it('projects R1 as qualification ranks 1-16 over its 2 rooms and R1C as ranks 17-24, before anything is played', () => {
+    const state = buildQualWaterfall(37);
+    const projected = project(state.rounds, state.curRound);
+    const r1 = state.rounds.findIndex((round) => round.customLabel === 'R1');
+    const r1c = state.rounds.findIndex((round) => round.customLabel === 'R1C');
+
+    const r1Rooms = texts(projected[r1]);
+    expect(r1Rooms).toHaveLength(2);
+    expect(r1Rooms.flat().sort()).toEqual(
+      Array.from({ length: 16 }, (_, index) => `Qualification #${index + 1}`).sort(),
+    );
+    // Ranks 1 and 2 land in different rooms.
+    expect(r1Rooms[0]).toContain('Qualification #1');
+    expect(r1Rooms[1]).toContain('Qualification #2');
+
+    expect(texts(projected[r1c])).toEqual([
+      Array.from({ length: 8 }, (_, index) => `Qualification #${17 + index}`),
+    ]);
+  });
+
+  it('no longer projects the generic qualifier-from-standings for a round the Qual source feeds', () => {
+    const state = buildQualWaterfall(43);
+    const projected = project(state.rounds, state.curRound);
+    const all = Object.values(projected).flatMap((rooms) => (rooms ?? []).flat().map(projectedSlotLabelText));
+    expect(all).not.toContain('Qualifier from standings (seed TBD)');
+    expect(all).toContain('Qualification #24');
   });
 });

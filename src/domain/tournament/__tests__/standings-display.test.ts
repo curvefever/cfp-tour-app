@@ -8,10 +8,12 @@ import {
   type StandingsDisplayTable,
   tableRoundIndexes,
 } from '../standings-display';
+import { resolveTournamentTie } from '../mutations';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { buildState, scoreCurrentRound } from './play-through';
+import { QUAL_GRAPH, buildQualWaterfall, playToQualificationExit, tiedQualExit } from './qual-waterfall';
 
 const POINTS = '10,8,6,5,4,3,2,1';
 const H2H = { gameFormat: 'individual-1v1' as const, oddCountStrategy: 'bye' as const };
@@ -492,5 +494,67 @@ describe('tableRoundIndexes', () => {
     });
     expect(tableRoundIndexes(state, table('A'))).toEqual([0, 1]);
     expect(tableRoundIndexes(state, table('B'))).toEqual([0]);
+  });
+});
+
+describe('a qualification table feeding a waterfall graph (Qual source)', () => {
+  const GAP_QUAL = 'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C';
+
+  it('splits the table into bands by destination, with the last routed rank as the cut', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const table = describeStandings(exit)?.tables[0];
+    expect(table?.bands).toEqual([
+      { start: 0, destination: 'R1' },
+      { start: 16, destination: 'R1C' },
+      { start: 24, destination: 'out' },
+    ]);
+    expect(table?.cut).toBe(24);
+  });
+
+  it.each([31, 53])('shows every unrouted standing as out at %i registered', (registered) => {
+    const table = describeStandings(playToQualificationExit(buildQualWaterfall(registered)))?.tables[0];
+    expect(table?.bands?.at(-1)).toEqual({ start: 24, destination: 'out' });
+    expect(table?.entries).toHaveLength(registered);
+  });
+
+  it('marks a gap inside the routing as its own run', () => {
+    const graph = QUAL_GRAPH.replace('Qual: 1-16->R1, 17-24->R1C', GAP_QUAL);
+    const table = describeStandings(playToQualificationExit(buildQualWaterfall(31, graph)))?.tables[0];
+    expect(table?.bands).toEqual([
+      { start: 0, destination: 'R1' },
+      { start: 16, destination: 'out' },
+      { start: 19, destination: 'R1C' },
+      { start: 27, destination: 'out' },
+    ]);
+  });
+
+  it('keeps the single cut line for a table without standings routing', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const plain = {
+      ...exit,
+      rounds: exit.rounds.map(({ standingsRoutes: _routes, ...round }) => round),
+    };
+    const table = describeStandings(plain)?.tables[0];
+    expect(table?.bands).toBeUndefined();
+    expect(table?.cut).toBe(24);
+  });
+
+  it('marks the members of every unresolved band tie as pending, and places a resolved cluster', () => {
+    const exit = tiedQualExit();
+    const display = describeStandings(exit) as StandingsDisplay;
+    expect(cutTieMarks(exit, display)['qual-cutoff'].pending).toHaveLength(8);
+
+    // Resolve the 13-16 cluster (3 picks fully order 4 units).
+    let state = exit;
+    const bandMembers = display.tables[0].entries.slice(12, 16).map((entry) => entry.name);
+    for (const name of bandMembers.slice(0, 3)) state = resolveTournamentTie(state, 'qual-band-13', name);
+    const after = describeStandings(state) as StandingsDisplay;
+    const marks = cutTieMarks(state, after)['qual-cutoff'];
+    expect([...marks.placed].sort()).toEqual([...bandMembers].sort());
+    // Only the 21-24 cluster is still waiting for a pick.
+    expect(marks.pending).toHaveLength(4);
+    // The four picked units now hold four different ranks (13-16), not one shared rank.
+    const ranks = after.tables[0].entries.slice(12, 16).map((entry) => entry.rank);
+    expect(new Set(ranks).size).toBe(4);
   });
 });

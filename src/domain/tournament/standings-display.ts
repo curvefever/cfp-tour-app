@@ -4,7 +4,9 @@ import {
   computeGroupStandings,
   computeQualificationStandings,
   getAllTies,
+  isQualCutoffKey,
   isTieResolved,
+  qualStandingsRoutes,
   refreshRoundStandings,
   isRoomFullyScored,
   isUncontestedRoom,
@@ -29,6 +31,14 @@ export interface StandingsDisplayTable {
   entries: Array<TournamentStanding & { rank: number | null }>;
   /** Units that go through; null when everyone does. */
   cut: number | null;
+  /** With a waterfall Qual source: where each run of standings goes. `start` is the 0-based row the run begins at. */
+  bands?: StandingsBand[];
+}
+
+export interface StandingsBand {
+  start: number;
+  /** The destination round's label, or "out" when the run is eliminated. */
+  destination: string;
 }
 
 export interface StandingsDisplay {
@@ -72,15 +82,39 @@ function countRoundsDone(state: TournamentState, countedIndexes: number[]): numb
   ).length;
 }
 
+/** The runs of consecutive standings that share a destination, in table order. */
+function standingsBands(
+  state: TournamentState,
+  routes: NonNullable<ReturnType<typeof qualStandingsRoutes>>,
+  rowCount: number,
+): StandingsBand[] {
+  const bands: StandingsBand[] = [];
+  for (let index = 0; index < rowCount; index += 1) {
+    const route = routes[index] ?? 'eliminated';
+    const destination =
+      route === 'eliminated'
+        ? 'out'
+        : (state.rounds[route]?.customLabel ?? `Round ${state.rounds[route]?.roundNum}`);
+    if (bands.at(-1)?.destination !== destination) bands.push({ start: index, destination });
+  }
+  return bands;
+}
+
 function qualificationTable(state: TournamentState): StandingsDisplayTable {
   const computed = computeQualificationStandings(state, { liveRound: state.curRound });
   const ordered = applyQualCutoffOrder(computed, { ...state, qualTable: computed });
-  const cut = state.cfg.qualAdv;
+  const routes = qualStandingsRoutes(state);
+  const cut = routes ? routes.length : state.cfg.qualAdv;
+  // Every cut-off tie of the table counts as placing the units it picked (one key, or one per band boundary).
+  const placedNames = Object.keys(state.tieResolutions)
+    .filter(isQualCutoffKey)
+    .flatMap((key) => tieResolutionList(state, key));
   return {
     key: 'qual-cutoff',
     label: state.rounds.some((round) => round.isSwiss) ? 'Swiss Standings' : 'Qualification Table',
-    entries: rankStandings(ordered, new Set(tieResolutionList(state, 'qual-cutoff'))),
+    entries: rankStandings(ordered, new Set(placedNames)),
     cut: cut && cut < ordered.length ? cut : null,
+    ...(routes ? { bands: standingsBands(state, routes, ordered.length) } : {}),
   };
 }
 
@@ -158,24 +192,39 @@ export interface CutTieMarks {
   pending: string[];
 }
 
+/** The tie-resolution keys a table's cut-off ties live under: the qualification table has one per band boundary. */
+function tieKeysOf(
+  state: TournamentState,
+  ties: Record<string, unknown>,
+  table: StandingsDisplayTable,
+): string[] {
+  if (table.key !== 'qual-cutoff') return [table.key];
+  return [...new Set([...Object.keys(ties), ...Object.keys(state.tieResolutions), table.key])].filter(
+    isQualCutoffKey,
+  );
+}
+
 /** Tie marks per table key, for the Standings tab. */
 export function cutTieMarks(state: TournamentState, display: StandingsDisplay): Record<string, CutTieMarks> {
   const ties = getAllTies(refreshRoundStandings(state, state.curRound), state.curRound);
   return Object.fromEntries(
     display.tables.map((table) => {
-      const picked = tieResolutionList(state, table.key);
+      const keys = tieKeysOf(state, ties, table);
+      const picked = keys.flatMap((key) => tieResolutionList(state, key));
       const pickedEntries = table.entries.filter((entry) => picked.includes(entry.name));
-      const cluster = ties[table.key];
-      const pending =
-        cluster && !isTieResolved(table.key, cluster, state)
-          ? cluster.players.map((player) => player.name)
-          : [];
+      const unresolved = keys.flatMap((key) => {
+        const cluster = ties[key];
+        return cluster && !isTieResolved(key, cluster, state) ? [cluster] : [];
+      });
+      const pending = unresolved.flatMap((cluster) => cluster.players.map((player) => player.name));
       // A cluster still waiting for a pick shows only "pending", never a partial placement.
-      const placed = pending.length
-        ? []
-        : table.entries
-            .filter((entry) => pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)))
-            .map((entry) => entry.name);
+      const placed = table.entries
+        .filter(
+          (entry) =>
+            !pending.includes(entry.name) &&
+            pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)),
+        )
+        .map((entry) => entry.name);
       return [table.key, { placed, pending }];
     }),
   );

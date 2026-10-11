@@ -5,6 +5,7 @@ import {
   isUncontestedRoom,
   detectTieBreaks,
   getAllTies,
+  qualTieBoundaryText,
   hasPendingTies,
   isTieResolved,
 } from '../../domain/tournament/advancement';
@@ -743,12 +744,15 @@ function TieBanners({ state }: { state: TournamentState }) {
       const resolved = tieResolutionList(state, key);
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
       const isCutoff = !('score' in tie);
+      const boundaryText = 'firstRank' in tie ? qualTieBoundaryText(state, tie) : null;
       const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} pts` : '';
       const heading = !isCutoff
         ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
         : 'groupLabel' in tie && tie.groupLabel
           ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
-          : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
+          : boundaryText
+            ? `⚖ Qualification tie between ${boundaryText} (${cutoffValue})`
+            : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
       return (
         <div
           className={cn(

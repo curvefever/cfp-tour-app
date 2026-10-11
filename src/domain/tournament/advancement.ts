@@ -56,6 +56,8 @@ interface RoomTieCluster {
 interface CutoffTieCluster {
   key: string;
   players: TournamentStanding[];
+  /** Standings rank of the cluster's first unit, set only for clusters found against a Qual source's band boundaries. */
+  firstRank?: number;
   fp: number;
   roomShare: number | null;
   rm: null;
@@ -240,6 +242,29 @@ export function qualStandingsRoutes(state: Pick<TournamentState, 'rounds'>) {
   return state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
 }
 
+/**
+ * Names the destinations a band-boundary tie decides between ("R1 and R1C", "R1C and elimination"), or null
+ * when the tie isn't against a Qual source's bands.
+ */
+export function qualTieBoundaryText(
+  state: Pick<TournamentState, 'rounds'>,
+  tie: { firstRank?: number; players: unknown[] },
+): string | null {
+  const routes = qualStandingsRoutes(state);
+  if (!routes || tie.firstRank === undefined) return null;
+  const names: string[] = [];
+  for (let rank = tie.firstRank; rank < tie.firstRank + tie.players.length; rank += 1) {
+    const destination = routes[rank - 1] ?? 'eliminated';
+    const name =
+      destination === 'eliminated'
+        ? 'elimination'
+        : (state.rounds[destination]?.customLabel ?? `Round ${state.rounds[destination]?.roundNum}`);
+    if (!names.includes(name)) names.push(name);
+  }
+  if (names.length < 2) return null;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 function cutoffCluster(
   key: string,
   players: Array<TournamentStanding & { totalFP: number }>,
@@ -277,7 +302,7 @@ function detectQualBandTies(
     if (straddles) {
       const holdsLastRoutedRank = firstRank <= routes.length && routes.length <= lastRank;
       const key = holdsLastRoutedRank ? QUAL_CUTOFF_KEY : `${QUAL_BAND_KEY_PREFIX}${firstRank}`;
-      clusters.push(cutoffCluster(key, table.slice(first, last + 1)));
+      clusters.push({ ...cutoffCluster(key, table.slice(first, last + 1)), firstRank });
     }
     first = last + 1;
   }

@@ -6,6 +6,59 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The qualification table as a source in the waterfall graph (done — 2026-10-11)
+
+### Context
+After a qualification table, the waterfall bracket only sent the top `qualAdv` into one entry round, mixed across its rooms by `tieredSeed`. The organiser wanted rank bands of the final standings sent to different waterfall rounds, e.g. ranks 1–16 to the top round (2 rooms of 8), 17–24 to a lower round (1 room of 8), everyone else eliminated. Five stages plus one fix-up, planned and reviewed in a separate session (`plans/2026-10-11-waterfall-qual-source.md`, gitignored).
+
+### Decisions (organiser, 2026-10-11)
+- The qualification table is a source in the waterfall graph, routed by rank bands like any room.
+- Ranks the graph doesn't route are eliminated. The routed ranks are fixed; the eliminated tail grows or shrinks with the head count. Generation refuses a graph that routes more ranks than there are players.
+- Seating within a destination is balanced: a band sent to a multi-room round is spread over its rooms like any waterfall arrival (`seedRoundFromPendingPool`), not filled in rank order.
+- Only for the qualification-table pooling phase. No pooling, Swiss and group stage keep today's single entry round.
+
+### Planner calls (low-stakes, open to correction)
+- Text syntax: a reserved `Qual` route line (`Qual: 1-16->R1, 17-24->R1C`), case-insensitive, no room letter, never declared in `ROUNDS:` (a round named `Qual` is an error in every pooling phase); a `Qual` line under another pooling phase is a generation error. Gaps are allowed (explicit `->eliminated` bands, also in the middle), never required.
+- "Advance to bracket" is derived (the highest non-eliminated routed Qual rank) and shown as a read-only line.
+- One model, not two: a qual-table graph with no `Qual` line is read as `Qual: 1-<entry total> -> <entry round>`, in one place (`validateAndOrderWaterfallGraph(…, { standingsSource: true })`), and the editor's draft load uses it too.
+- The first waterfall round is drawn by `seedRoundFromPendingPool` (was `tieredSeed`): same balance intent, different weights, so existing qual-table waterfalls draw their first round slightly differently. Qual arrivals carry `tierRank` = arrival position within their destination and `pct` = the standing's `roomShare ?? 0`.
+- The routing lives on the last qualification round as `standingsRoutes` (same convention as `waterfallRoutes`).
+- Ties at every band boundary: one cluster per distinct tied standing that straddles a boundary; key `qual-cutoff` for the cluster holding the last routed rank (unchanged, so stored resolutions stay valid), `qual-band-<first rank>` for the others.
+
+### Change
+- Stage 1 (`d327cda`, cross-cutting, own commit): Rankings' `survivorNames` counts a unit waiting in a destination's `pendingBracketSeeds` as alive. This was the root cause of the old "known behaviour" (a still-alive unit shown as eliminated for a round, waterfall and double elimination); the docs paragraph is gone.
+- Stage 2 (`7c5836f`): `Qual` parsing and validation (`standingsSource`, rules 7 and 9 adjusted, every declared round must be fed), `OrderedWaterfallGraph.qualRoutes`, `TournamentRound.standingsRoutes`, `waterfallStandingsRoutes`, generation derives `cfg.qualAdv` and `bracketEntryCount` and ignores the form's value.
+- Stage 3 (`98b208a`): `routeStandings` + `advanceFromStandings` at the pooling exit (routes from the ordered table, not `advancing`; no `fitNextRound`, `tieredSeed` or byes; shared fold-and-draw with `advanceWaterfallBracket` as `enterNextWaterfallRound`), the shortfall block, band-boundary ties in `advancement.ts` (`detectQualCutoffTies`, `orderedQualificationTable`), Rankings. Fix-up (`cab2eb9`): Previous then Next Round re-ran the exit and added the Qual arrivals to the pools a second time; `discardDrawsAfter` now drops the pools the qualification round pushed, so correcting a qualification score and re-drawing R1 still works.
+- Stage 4 (`fdc096e`): the draft model (`qualRoutes`), `Qual` in the editor (a "Qualification table" block with the same slot grid, "Players registered / sent on / eliminated" header, "+ Add ranks" while the head count is unknown), the derived "Advance to bracket" line in Setup, live edits (rewrite `standingsRoutes` and `qualAdv` during qualification; replay the Qual routing once the bracket is entered and compare the first waterfall round like any reached round).
+- Stage 5: Standings shows a labelled separator at every band boundary ("→ R1", "→ R1C", "out") instead of the single cut line, with every band tie's members marked and picked units ranked apart; the Bracket projection shows "Qualification #17" for slots the Qual source feeds; the tie banner names the destinations ("Qualification tie between R1 and R1C").
+
+### Plan versus reality
+- `waterfallBracketPhase` keeps its signature; the absolute routes come from a separate `waterfallStandingsRoutes`, attached in `buildTournamentProgression`. Its seed check compares against the highest routed rank (= `qualAdv`), not the count of routed ranks, so gap graphs work.
+- The plan's "reserve added during qualification" case can't happen: `addReserveUnit` already blocks every waterfall tournament, and removals don't replan waterfall rounds, so nothing rebuilds the routing. Tested instead: the block, and a withdrawal keeping `standingsRoutes` and `qualAdv`.
+- Two old tests changed meaning, not just numbers: the removal-sweep waterfall test now hits the shortfall message first ("the qualification table ranks 15 unit(s) … up to 16"), and the live-edit test "entry total no longer matches" is a valid edit under the new reading (`qualAdv` becomes the entry total).
+- `routeStandings(ordered, round)` takes the ordered table instead of `(state, roundIndex, round)`; `tierRank` is per destination rather than per band (same result for one contiguous band).
+
+### Testing
+- Awkward counts as separate cases: 31, 37, 43 and 53 registered all generate (`qualAdv` 24; `standingsRoutes` 16 × R1 then 8 × R1C); at the pooling exit R1 holds exactly ranks 1–16 in 2 rooms of 8 (ranks 1 and 2, and 3 and 4, in different rooms), R1C's pool holds ranks 17–24, and the 7 / 13 / 19 / 29 below are in no round or pool; Rankings lists exactly those as eliminated at the last qualification round and never 17–24. 20 registered is refused with the rank-24 message. Gap graph (`17-19 -> eliminated, 20-27 -> R1C`) at 31 (`qualAdv` 27) and as a live edit at 43.
+- Ties: crafted tables (a tie inside a band, among eliminated, at 16|17 → `qual-band-15`, at 24|25 → `qual-cutoff`, one cluster across both → one tie); a real end-to-end tie (1 qualification round, 32 units, all rooms scored alike, graph `Qual: 1-14 -> R1, 15-22 -> R1C`) blocks Next Round on `qual-band-13` and `qual-cutoff`, and the picks decide who is in R1 / R1C / out.
+- Withdrawals: 31 with one removed keeps the routing and routes exactly 24; 25 registered with 2 removed blocks with the shortfall message ("ranks 23 unit(s)", "up to 24", "Edit graph").
+- Live edit: gap edit during qualification, roster-size check, an unscored R1 redrawn when a rank 16/17 swap changes its line-up, the same edit refused once R1 has a score, an R1C-only edit accepted and its pool updated, play on to the Final.
+- A graph with no Qual line plays end to end; the Qual graph plays to the Final at 37; the redraw after Previous (three tests).
+- Mutations by the reviewer after each stage were all caught (rule 9 bound, Qual in rule 7, derived `qualAdv`, shortfall check, band straddle detection, `tierRank`, `standingsRoutes` rewrite, first-round compare, the Previous-redraw fix, Qual replay).
+- Live checks (Setup header 37 / 24 / 13, the derived Advance line, "Remove the Qual line" under Swiss; Standings bands, Bracket projection, R1 draw, Rankings on the test site) are run on the test site after the push; results are added to this entry.
+
+### Known gap
+- A live edit after the bracket is entered can move a band boundary into an unresolved tie in the qualification table: kept tie resolutions only cover the old boundaries, so the default order decides the new one silently. Rare, and a changed line-up of a reached round is still caught by the compare. Also in `docs/open-items.md`.
+
+### Out of scope
+- Allow reserves during qualification for a waterfall with a Qual source (they would only grow the eliminated tail).
+- The Qual source for Swiss standings or group-stage tables (those keep a single entry round).
+- Rank-order seating inside a destination (the organiser chose balanced); routing a band to a specific room rather than a round.
+- Rooms of different sizes inside one waterfall round.
+- Showing the qualification table as a node in a drawn graph diagram (there is no diagram today; the Bracket tab shows rounds).
+
+---
+
 ## Home tab, and the Admin tab only for signed-in admins (done — 2026-10-09)
 
 ### Context

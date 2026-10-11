@@ -1,5 +1,6 @@
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
+import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
@@ -64,4 +65,51 @@ export function playToQualificationExit(start: TournamentState): TournamentState
     state = result.state;
   }
   throw new Error('qualification did not end');
+}
+
+/**
+ * 1 qualification round, 32 units in 4 rooms of 8, every room scored the same way: every place ties
+ * across the 4 rooms, so the standings come in clusters of 4. With this graph (Qual: 1-14 -> R1,
+ * 15-22 -> R1C) the clusters 13-16 and 21-24 straddle its two band boundaries.
+ */
+export const TIE_GRAPH = `
+ROUNDS:
+R1 = 2x7
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-14->R1, 15-22->R1C
+R1.A: 1-4->R2, 5-7->eliminated
+R1.B: 1-4->R2, 5-7->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated
+`;
+
+/** Scores the current round so that every room gets the same scores by seat, tying each place across rooms. */
+export function scoredAlike(state: TournamentState): TournamentState {
+  const round = state.rounds[state.curRound];
+  const scores = { ...state.scores };
+  const seen = new Map<number, number>();
+  for (const entry of state.assignments[state.curRound] ?? []) {
+    if (entry.room === null) continue;
+    const position = seen.get(entry.room) ?? 0;
+    seen.set(entry.room, position + 1);
+    const [key] = scoreKeysForPosition({
+      roundIndex: state.curRound,
+      room: entry.room,
+      position,
+      numGames: round.numGames ?? 1,
+      teamSize: undefined,
+    });
+    scores[key] = 1000 - 100 * position;
+  }
+  return { ...state, scores };
+}
+
+/** The TIE_GRAPH tournament with its one qualification round scored alike: Next Round is blocked on two ties. */
+export function tiedQualExit(): TournamentState {
+  const start = buildQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
+  return scoredAlike(start);
 }

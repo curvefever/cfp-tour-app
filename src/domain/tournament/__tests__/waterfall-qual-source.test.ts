@@ -4,6 +4,7 @@ import {
   getAllTies,
   hasPendingTies,
   orderedQualificationTable,
+  qualTieBoundaryText,
   refreshRoundStandings,
 } from '../advancement';
 import { addReserveUnit, removeRosterUnit, resolveTournamentTie } from '../mutations';
@@ -11,7 +12,13 @@ import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound, routeStandings } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentStanding } from '../types';
 import { playThrough, playWithRemovals, scoreCurrentRound } from './play-through';
-import { QUAL_GRAPH, buildQualWaterfall, playToQualificationExit, playerNames } from './qual-waterfall';
+import {
+  QUAL_GRAPH,
+  buildQualWaterfall,
+  playToQualificationExit,
+  playerNames,
+  tiedQualExit,
+} from './qual-waterfall';
 
 function advanced(state: TournamentState): TournamentState {
   const result = advanceTournamentRound(state);
@@ -208,51 +215,19 @@ describe('qualification ties at the band boundaries', () => {
 });
 
 describe('a real tie at the band boundaries blocks the exit until it is resolved', () => {
-  // 1 qualification round, 32 units in 4 rooms of 8, every room scored the same way: every place ties
-  // across the 4 rooms, so the standings come in clusters of 4 (13-16 and 21-24 straddle the two
-  // boundaries of Qual: 1-14 -> R1, 15-22 -> R1C).
-  const TIE_GRAPH = `
-ROUNDS:
-R1 = 2x7
-R1C = 8
-R2 = 8
-Final = 8 FINAL
-
-ROUTES:
-Qual: 1-14->R1, 15-22->R1C
-R1.A: 1-4->R2, 5-7->eliminated
-R1.B: 1-4->R2, 5-7->eliminated
-R1C: 1-4->Final, 5-8->eliminated
-R2: 1-4->Final, 5-8->eliminated
-`;
-
-  function scoredAlike(state: TournamentState): TournamentState {
-    const round = state.rounds[state.curRound];
-    const scores = { ...state.scores };
-    const seen = new Map<number, number>();
-    for (const entry of state.assignments[state.curRound] ?? []) {
-      if (entry.room === null) continue;
-      const position = seen.get(entry.room) ?? 0;
-      seen.set(entry.room, position + 1);
-      const [key] = scoreKeysForPosition({
-        roundIndex: state.curRound,
-        room: entry.room,
-        position,
-        numGames: round.numGames ?? 1,
-        teamSize: undefined,
-      });
-      scores[key] = 1000 - 100 * position;
-    }
-    return { ...state, scores };
-  }
-
-  function tiedExit(): TournamentState {
-    const start = buildQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
-    return scoredAlike(start);
-  }
+  it('names the destinations each cluster decides between', () => {
+    const exit = tiedQualExit();
+    const ties = getAllTies(refreshRoundStandings(exit, exit.curRound), exit.curRound);
+    const text = (key: string) => {
+      const tie = ties[key];
+      return 'firstRank' in tie ? qualTieBoundaryText(exit, tie) : null;
+    };
+    expect(text('qual-band-13')).toBe('R1 and R1C');
+    expect(text('qual-cutoff')).toBe('R1C and elimination');
+  });
 
   it('blocks Next Round on the two clusters, then draws the picked units into the higher band', () => {
-    const exit = tiedExit();
+    const exit = tiedQualExit();
     const blocked = advanceTournamentRound(exit);
     expect(blocked.status).toBe('blocked');
     if (blocked.status !== 'blocked') return;

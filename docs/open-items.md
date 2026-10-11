@@ -6,8 +6,10 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 - **Partial automated test coverage** — React components, hooks and server functions have no direct tests (`@testing-library/react`/`jsdom` installed, not configured). See `AGENTS.md`, "Testing". Current count: 1264 tests.
 - **A roster loaded under one format can be generated under another.** `SetupView`'s `changeFormat()` never touches `state.players`; `rosterKeys()`/`generateTournament` accept whatever shape the roster already has (string or `TournamentTeam`) regardless of the selected format, so switching game format after loading a roster — by hand, or via "Copy settings from a past tournament" changing the format — and generating without reloading produces a schedule of the wrong unit type. The Setup panel already warns "load the roster again" when a copy changes the format; nothing currently blocks generating anyway. Noticed during the copy-settings live check (see the log entry).
 - **A score correction in a double-elimination or waterfall round, after the next round is drawn, doesn't re-route.** Next Round steps forward to the drawn round unchanged (`drawnAheadStatus()` is `'locked'`), because the round already pushed its units into `pendingBracketSeeds` and a re-draw can't rebuild them. A full undo would need snapshot/restore of the pending pools, lucky losers and round shapes.
+- **A live graph edit can move a Qual band boundary into an unresolved tie.** After the bracket is entered, tie resolutions are kept, but they only cover the old boundaries; a new boundary inside a tied cluster is then decided silently by the default order. Rare, and a changed line-up of a reached round is still caught by the replay compare.
 
 ## Accepted limitations (not building without an organiser request)
+- **No late reserves for a waterfall with a Qual source.** Reserves stay blocked once a waterfall tournament starts (allowing them during qualification would only grow the eliminated tail).
 - **Standings displays ignore a partly scored current-round room, but advancing with an unscored unit still uses that partial room for the real cut.** The Standings tab, Bracket column, banner rank and Rankings badge wait for a room's last score; `roomBasedComputeAdvancement` does not.
 - **FFA counts that can't fill rooms of 6–8 are seated in smaller rooms** (9 → [5,4], 17 → [6,6,5]), by the organiser's decision; planned counts avoid this, organiser-entered counts can't. A few Shared-Final FFA configurations (17–19 entrants with 3–4 LB qualifiers) also fall back to it.
 - **A removal can leave the current Kings Valley round, and rarely the next, below the minimum** (holding fallback; e.g. 7 [4,3] with a removal from room 2 has no seatable cut). The organiser can fill the room with a reserve.
@@ -25,4 +27,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
   - starter-template wizard (pick a shape and a player count, get a graph that adds up);
   - drag-and-drop canvas (largest option, not discarded);
   - showing every validation problem at once (`validateAndOrderWaterfallGraph` reports only the first);
-  - rooms of different sizes inside one round (the text format only allows `N x size`).
+  - rooms of different sizes inside one round (the text format only allows `N x size`);
+  - the qualification table (`Qual`) for Swiss or group-stage standings, which keep a single entry round;
+  - rank-order seating inside a destination instead of the balanced draw, or routing a band to a specific room;
+  - the qualification table drawn as a node in a graph diagram (there is no diagram, only the editor's round list).

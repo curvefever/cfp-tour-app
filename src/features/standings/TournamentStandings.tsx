@@ -27,14 +27,19 @@ const ROUND_CELL = 'px-2 text-center tabular-nums';
 const ROUND_START = 'border-l border-l-surface-hover';
 const TOTAL_START = 'border-l-2 border-l-muted';
 
-function CutLine({ columnCount }: { columnCount: number }) {
+function CutLine({ columnCount, label = 'cut' }: { columnCount: number; label?: string }) {
   return (
-    <tr aria-label='Cut line'>
+    <tr aria-label={label === 'cut' ? 'Cut line' : `Band: ${label}`}>
       <td className='border-0 border-t border-dashed border-t-warning p-0 text-right' colSpan={columnCount}>
-        <span className='bg-surface px-2 text-[0.6rem] tracking-[0.1em] text-warning uppercase'>cut</span>
+        <span className='bg-surface px-2 text-[0.6rem] tracking-[0.1em] text-warning uppercase'>{label}</span>
       </td>
     </tr>
   );
+}
+
+/** A run of standings that goes to a round reads "→ R1C"; one that is eliminated reads "out". */
+function bandLabel(destination: string): string {
+  return destination === 'out' ? 'out' : `→ ${destination}`;
 }
 
 function TieMark({ placed, pending }: { placed: boolean; pending: boolean }) {
@@ -140,9 +145,13 @@ function StandingsRows({
   pending: boolean;
 }) {
   const result = standingsRowResult(index, table.cut, display.phase);
+  const band = table.bands?.find((candidate) => candidate.start === index);
   return (
     <>
-      {table.cut !== null && index === table.cut ? (
+      {band ? (
+        <CutLine columnCount={roundIndexes.length * 3 + 4} label={bandLabel(band.destination)} />
+      ) : null}
+      {!table.bands && table.cut !== null && index === table.cut ? (
         <CutLine columnCount={roundIndexes.length * 3 + 4} />
       ) : null}
       <TableRow className={cn('border-l-[3px] border-l-transparent', resultClasses(result, followed))}>
