@@ -1,3 +1,4 @@
+import { isQualCutoffKey } from './advancement';
 import { parseAdvanceToBracket } from './bracket-entry';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
@@ -206,9 +207,11 @@ function applyPoolingEdit(
   }
   // The standings-cutoff tie is keyed plainly and judged by count only, so a
   // resolution made for the old cut line would wrongly satisfy a new one.
-  const { 'qual-cutoff': staleCutoff, ...keptTies } = state.tieResolutions;
-  const tieResolutions =
-    qualAdv === scope.qualAdv || staleCutoff === undefined ? state.tieResolutions : keptTies;
+  const keptTies = Object.fromEntries(
+    Object.entries(state.tieResolutions).filter(([key]) => !isQualCutoffKey(key)),
+  );
+  const hasStaleCutoff = Object.keys(keptTies).length < Object.keys(state.tieResolutions).length;
+  const tieResolutions = qualAdv === scope.qualAdv || !hasStaleCutoff ? state.tieResolutions : keptTies;
   const emptyTail = () => Array.from({ length: rounds.length - bracketStart }, (): string[] => []);
   return {
     ok: true,

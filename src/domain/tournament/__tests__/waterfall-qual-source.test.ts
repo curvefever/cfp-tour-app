@@ -1,0 +1,347 @@
+import { describe, expect, it } from 'vitest';
+import {
+  applyQualCutoffOrder,
+  getAllTies,
+  hasPendingTies,
+  orderedQualificationTable,
+  refreshRoundStandings,
+} from '../advancement';
+import { addReserveUnit, removeRosterUnit, resolveTournamentTie } from '../mutations';
+import { scoreKeysForPosition } from '../scoring';
+import { advanceTournamentRound, routeStandings } from '../transitions';
+import type { TournamentRound, TournamentState, TournamentStanding } from '../types';
+import { playThrough, playWithRemovals, scoreCurrentRound } from './play-through';
+import { QUAL_GRAPH, buildQualWaterfall, playToQualificationExit, playerNames } from './qual-waterfall';
+
+function advanced(state: TournamentState): TournamentState {
+  const result = advanceTournamentRound(state);
+  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
+  return result.state;
+}
+
+function roundIndex(state: TournamentState, label: string): number {
+  return state.rounds.findIndex((round) => round.customLabel === label);
+}
+
+function names(state: TournamentState, index: number): string[] {
+  return (state.assignments[index] ?? []).map((entry) => entry.name);
+}
+
+function pendingNames(state: TournamentState, index: number): string[] {
+  return (state.pendingBracketSeeds[index] ?? []).map((entry) => entry.name);
+}
+
+/** Everyone seated in a bracket-phase round or waiting in a bracket-phase pool. */
+function bracketPhaseNames(state: TournamentState): Set<string> {
+  const firstBracket = state.rounds.findIndex((round) => round.isWaterfall);
+  return new Set([
+    ...state.assignments.slice(firstBracket).flatMap((entries) => entries.map((entry) => entry.name)),
+    ...Object.values(state.pendingBracketSeeds).flatMap((seeds) => seeds.map((seed) => seed.name)),
+  ]);
+}
+
+/** The qualification standings in rank order, as the pooling exit reads them. */
+function standingsOrder(state: TournamentState): string[] {
+  return orderedQualificationTable(state).ordered.map((entry) => entry.name);
+}
+
+describe('the pooling exit of a waterfall graph with a Qual source', () => {
+  it.each([
+    [31, 7],
+    [37, 13],
+    [43, 19],
+    [53, 29],
+  ])(
+    'at %i registered: R1 gets ranks 1-16, R1C waits with 17-24, the other %i are out',
+    (registered, out) => {
+      const exit = playToQualificationExit(buildQualWaterfall(registered));
+      const order = standingsOrder(exit);
+      expect(order).toHaveLength(registered);
+
+      const next = advanced(exit);
+      const r1 = roundIndex(next, 'R1');
+      const r1c = roundIndex(next, 'R1C');
+      expect(next.curRound).toBe(r1);
+      expect(new Set(names(next, r1))).toEqual(new Set(order.slice(0, 16)));
+      expect(next.rounds[r1].rooms).toEqual([8, 8]);
+      // Ranks 1 and 2 are seeded into different rooms.
+      const roomOf = (name: string) => next.assignments[r1].find((entry) => entry.name === name)?.room;
+      expect(roomOf(order[0])).not.toBe(roomOf(order[1]));
+      // 17-24 wait in R1C's pool, in standings order.
+      expect(pendingNames(next, r1c)).toEqual(order.slice(16, 24));
+      // Everyone else is in no assignment and no pool.
+      const placed = bracketPhaseNames(next);
+      const eliminated = order.slice(24);
+      expect(eliminated).toHaveLength(out);
+      for (const name of eliminated) expect(placed.has(name)).toBe(false);
+    },
+  );
+
+  it('seeds R1 with the same balanced draw as any waterfall arrival: ranks 3-4 split across the two rooms too', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const order = standingsOrder(exit);
+    const next = advanced(exit);
+    const r1 = roundIndex(next, 'R1');
+    const roomOf = (name: string) => next.assignments[r1].find((entry) => entry.name === name)?.room;
+    expect(roomOf(order[2])).not.toBe(roomOf(order[3]));
+  });
+
+  it('draws R1C with exactly qualification ranks 17-24 once R1 has been played', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const order = standingsOrder(exit);
+    const atR1 = advanced(exit);
+    const atR1C = advanced(scoreCurrentRound(atR1, 0));
+    const r1c = roundIndex(atR1C, 'R1C');
+    expect(atR1C.curRound).toBe(r1c);
+    expect(new Set(names(atR1C, r1c))).toEqual(new Set(order.slice(16, 24)));
+    expect(atR1C.pendingBracketSeeds[r1c]).toBeUndefined();
+  });
+
+  it('keeps a gap graph exact: ranks 17-19 are out and 20-27 reach R1C', () => {
+    const gapGraph = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C',
+    );
+    const exit = playToQualificationExit(buildQualWaterfall(31, gapGraph));
+    const order = standingsOrder(exit);
+    const next = advanced(exit);
+    const r1 = roundIndex(next, 'R1');
+    const r1c = roundIndex(next, 'R1C');
+    expect(new Set(names(next, r1))).toEqual(new Set(order.slice(0, 16)));
+    expect(pendingNames(next, r1c)).toEqual(order.slice(19, 27));
+    const placed = bracketPhaseNames(next);
+    for (const name of [...order.slice(16, 19), ...order.slice(27)]) expect(placed.has(name)).toBe(false);
+    expect(order.slice(27)).toHaveLength(4);
+  });
+
+  it('routes from the ordered table, not from the top-qualAdv names: tierRank is the position within its destination', () => {
+    const table = playerNames(6).map((name, index): TournamentStanding => ({
+      name,
+      totalFP: 10 - index,
+      totalScore: 0,
+      played: 1,
+      roomShare: 1 - index / 10,
+    }));
+    const round = { standingsRoutes: [5, 5, 7, 'eliminated', 7] } as unknown as TournamentRound;
+    const routed = routeStandings(table, round);
+    expect(routed.get(5)).toEqual([
+      { name: 'P1', isLucky: false, tierRank: 0, pct: 1 },
+      { name: 'P2', isLucky: false, tierRank: 1, pct: 0.9 },
+    ]);
+    expect(routed.get(7)?.map((seed) => [seed.name, seed.tierRank])).toEqual([
+      ['P3', 0],
+      ['P5', 1],
+    ]);
+    // P4 is eliminated and P6 lies past the end of the routing.
+    expect([...routed.values()].flat().map((seed) => seed.name)).not.toContain('P4');
+    expect([...routed.values()].flat().map((seed) => seed.name)).not.toContain('P6');
+  });
+});
+
+describe('qualification ties at the band boundaries', () => {
+  /** The exit state with a hand-made qualification table: ranks 1..n, with `tiedFrom..tiedTo` (1-based) level. */
+  function withTiedPositions(tiedFrom: number, tiedTo: number): TournamentState {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const qualTable = playerNames(37).map((name, index): TournamentStanding => {
+      const rank = index + 1;
+      const level = rank >= tiedFrom && rank <= tiedTo;
+      return {
+        name,
+        totalFP: level ? 100 - tiedFrom : 100 - rank,
+        totalScore: 0,
+        played: 3,
+        roomShare: 1,
+      };
+    });
+    return { ...exit, qualTable };
+  }
+
+  const tieKeys = (state: TournamentState) =>
+    Object.keys(getAllTies(state, state.curRound)).filter((key) => key.startsWith('qual-'));
+
+  it('has no tie where level units all fall in the same band', () => {
+    expect(tieKeys(withTiedPositions(3, 4))).toEqual([]);
+    expect(tieKeys(withTiedPositions(18, 20))).toEqual([]);
+  });
+
+  it('has no tie where level units are all eliminated', () => {
+    expect(tieKeys(withTiedPositions(26, 29))).toEqual([]);
+  });
+
+  it('keys a tie straddling the 16|17 boundary by its first rank', () => {
+    expect(tieKeys(withTiedPositions(15, 17))).toEqual(['qual-band-15']);
+  });
+
+  it('keys a tie straddling the 24|25 boundary (the last routed rank) as qual-cutoff', () => {
+    expect(tieKeys(withTiedPositions(24, 26))).toEqual(['qual-cutoff']);
+  });
+
+  it('treats one cluster straddling both boundaries as a single qual-cutoff tie', () => {
+    const state = withTiedPositions(15, 26);
+    expect(tieKeys(state)).toEqual(['qual-cutoff']);
+    const cluster = getAllTies(state, state.curRound)['qual-cutoff'];
+    expect(cluster.players).toHaveLength(12);
+  });
+
+  it('reports two separate clusters when each boundary has its own tie', () => {
+    const exit = withTiedPositions(16, 17);
+    const qualTable = exit.qualTable.map((entry, index) =>
+      index === 23 || index === 24 ? { ...entry, totalFP: 76 } : entry,
+    );
+    expect(tieKeys({ ...exit, qualTable })).toEqual(['qual-band-16', 'qual-cutoff']);
+  });
+
+  it('applies a band tie resolution to the order the routing reads', () => {
+    const state = withTiedPositions(16, 17);
+    const before = applyQualCutoffOrder(state.qualTable, state).map((entry) => entry.name);
+    expect(before.slice(15, 17)).toEqual(['P16', 'P17']);
+    const resolved = resolveTournamentTie(state, 'qual-band-16', 'P17');
+    const after = applyQualCutoffOrder(resolved.qualTable, resolved).map((entry) => entry.name);
+    expect(after.slice(15, 17)).toEqual(['P17', 'P16']);
+  });
+
+  it('counts a band tie as pending until resolved', () => {
+    const state = withTiedPositions(16, 17);
+    expect(hasPendingTies(state, state.curRound)).toBe(true);
+    expect(hasPendingTies(resolveTournamentTie(state, 'qual-band-16', 'P17'), state.curRound)).toBe(false);
+  });
+});
+
+describe('a real tie at the band boundaries blocks the exit until it is resolved', () => {
+  // 1 qualification round, 32 units in 4 rooms of 8, every room scored the same way: every place ties
+  // across the 4 rooms, so the standings come in clusters of 4 (13-16 and 21-24 straddle the two
+  // boundaries of Qual: 1-14 -> R1, 15-22 -> R1C).
+  const TIE_GRAPH = `
+ROUNDS:
+R1 = 2x7
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-14->R1, 15-22->R1C
+R1.A: 1-4->R2, 5-7->eliminated
+R1.B: 1-4->R2, 5-7->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated
+`;
+
+  function scoredAlike(state: TournamentState): TournamentState {
+    const round = state.rounds[state.curRound];
+    const scores = { ...state.scores };
+    const seen = new Map<number, number>();
+    for (const entry of state.assignments[state.curRound] ?? []) {
+      if (entry.room === null) continue;
+      const position = seen.get(entry.room) ?? 0;
+      seen.set(entry.room, position + 1);
+      const [key] = scoreKeysForPosition({
+        roundIndex: state.curRound,
+        room: entry.room,
+        position,
+        numGames: round.numGames ?? 1,
+        teamSize: undefined,
+      });
+      scores[key] = 1000 - 100 * position;
+    }
+    return { ...state, scores };
+  }
+
+  function tiedExit(): TournamentState {
+    const start = buildQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
+    return scoredAlike(start);
+  }
+
+  it('blocks Next Round on the two clusters, then draws the picked units into the higher band', () => {
+    const exit = tiedExit();
+    const blocked = advanceTournamentRound(exit);
+    expect(blocked.status).toBe('blocked');
+    if (blocked.status !== 'blocked') return;
+    expect(blocked.reason).toBe('pending-ties');
+
+    const ties = getAllTies(refreshRoundStandings(exit, exit.curRound), exit.curRound);
+    expect(Object.keys(ties).filter((key) => key.startsWith('qual-'))).toEqual([
+      'qual-band-13',
+      'qual-cutoff',
+    ]);
+
+    // Rank each cluster in the order of its listed players, last-listed first so the pick matters.
+    let state = exit;
+    const picks = new Map<string, string[]>();
+    for (const key of ['qual-band-13', 'qual-cutoff']) {
+      const members = ties[key].players.map((player) => player.name);
+      const order = [...members].reverse();
+      picks.set(key, order);
+      for (const name of order.slice(0, members.length - 1)) state = resolveTournamentTie(state, key, name);
+    }
+    const next = advanced(state);
+    const r1 = roundIndex(next, 'R1');
+    const r1c = roundIndex(next, 'R1C');
+    const band = picks.get('qual-band-13') as string[];
+    const cut = picks.get('qual-cutoff') as string[];
+    // Band 13-16: the first two picks take ranks 13-14 (R1), the other two 15-16 (R1C).
+    expect(names(next, r1)).toEqual(expect.arrayContaining(band.slice(0, 2)));
+    expect(names(next, r1)).not.toEqual(expect.arrayContaining([band[2]]));
+    expect(pendingNames(next, r1c)).toEqual(expect.arrayContaining([band[2], band[3]]));
+    // Cut-off cluster 21-24: the first two picks take ranks 21-22 (R1C), the other two are out.
+    expect(pendingNames(next, r1c)).toEqual(expect.arrayContaining(cut.slice(0, 2)));
+    expect(bracketPhaseNames(next).has(cut[2])).toBe(false);
+    expect(bracketPhaseNames(next).has(cut[3])).toBe(false);
+    expect(pendingNames(next, r1c)).toHaveLength(8);
+  });
+});
+
+describe('a withdrawal during qualification', () => {
+  it('keeps the standings routing and the derived qualAdv, and still routes exactly 24 ranks', () => {
+    const start = buildQualWaterfall(31);
+    const victim = start.assignments[0][0].name;
+    const removed = removeRosterUnit(start, victim);
+    const lastQual = removed.rounds.filter((round) => round.isQual).at(-1);
+    expect(removed.cfg.qualAdv).toBe(24);
+    expect(lastQual?.standingsRoutes).toHaveLength(24);
+
+    const exit = playToQualificationExit(removed);
+    const order = standingsOrder(exit);
+    expect(order).toHaveLength(30);
+    const next = advanced(exit);
+    expect(pendingNames(next, roundIndex(next, 'R1C'))).toEqual(order.slice(16, 24));
+    expect(order.slice(24)).toHaveLength(6);
+  });
+
+  it('blocks Next Round, naming both numbers, when withdrawals leave fewer ranked units than routed ranks', () => {
+    const play = playWithRemovals(buildQualWaterfall(25), 0, [0, 0]);
+    expect(play.outcome.kind).toBe('blocked');
+    if (play.outcome.kind !== 'blocked') return;
+    expect(play.outcome.reason).toBe('too-few-units');
+    expect(play.outcome.message).toContain('ranks 23 unit(s)');
+    expect(play.outcome.message).toContain('up to 24');
+    expect(play.outcome.message).toContain('Edit graph');
+  });
+
+  it('does not take a late reserve into a waterfall tournament (addReserveUnit blocks it), so the routing never has to absorb one', () => {
+    const state = { ...buildQualWaterfall(31), reserves: ['Late'], reserveOpen: true };
+    expect(addReserveUnit(state, 'Late')).toEqual({ status: 'blocked', reason: 'waterfall-bracket' });
+  });
+});
+
+describe('a whole waterfall played from the qualification table', () => {
+  it('plays a Qual-line graph end to end at 37 registered', () => {
+    expect(playThrough(buildQualWaterfall(37), 0, null)).toEqual({ kind: 'ok' });
+  });
+
+  it('plays a qualification-table graph without a Qual line (read as Qual: 1-16 -> R1) end to end', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
+R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
+SemiB: 1-2->Final, 3-8->eliminated
+`;
+    const start = buildQualWaterfall(37, graph);
+    expect(start.cfg.qualAdv).toBe(16);
+    expect(playThrough(start, 0, null)).toEqual({ kind: 'ok' });
+  });
+});

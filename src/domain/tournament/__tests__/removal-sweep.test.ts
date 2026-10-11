@@ -94,7 +94,7 @@ describe('removing one unit never makes Next Round throw', () => {
 });
 
 describe('a hand-authored waterfall bracket stays exact-headcount', () => {
-  it('blocks (with the waterfall message) instead of reshaping or throwing when a removal leaves its first round short', () => {
+  it('blocks (with the standings shortfall message) instead of reshaping or throwing when a removal leaves its first round short', () => {
     const state = buildState({
       label: 'waterfall',
       count: 16,
@@ -112,6 +112,7 @@ describe('a hand-authored waterfall bracket stays exact-headcount', () => {
     expect(playThrough(state as TournamentState, 0, null).kind).toBe('ok');
     const outcome = playThrough(state as TournamentState, 0, 'first');
     expect(outcome.kind).toBe('blocked');
-    expect(outcome.kind === 'blocked' && outcome.message).toContain('15 entrant');
+    expect(outcome.kind === 'blocked' && outcome.message).toContain('ranks 15 unit(s)');
+    expect(outcome.kind === 'blocked' && outcome.message).toContain('up to 16');
   });
 });

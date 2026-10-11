@@ -4,6 +4,7 @@ import {
   hasPendingTies,
   isStandingsCutoffRound,
   kingsValleyComputeAdvancement,
+  orderedQualificationTable,
   refreshRoundStandings,
   roomBasedComputeAdvancement,
 } from './advancement';
@@ -22,7 +23,13 @@ import {
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
-import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
+import type {
+  PendingBracketSeed,
+  RoundAssignment,
+  TournamentRound,
+  TournamentStanding,
+  TournamentState,
+} from './types';
 import { waterfallDestination } from './waterfall-bracket';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
@@ -482,25 +489,58 @@ export function routeWaterfallRound(
 }
 
 /**
- * Waterfall's advance step: push routeWaterfallRound's per-destination
- * additions into pendingBracketSeeds[destination] -- the same
- * destination-indexed accumulator advanceDoubleElimination already uses,
- * generalized from 2 named destinations to N. Always finalizes roundIndex +
- * 1 specifically (mirroring advanceDoubleElimination's own nextIndex
- * finalize) -- NOT whatever a band's own destination is, which may be
- * several rounds ahead and stay merely pending until curRound actually
- * reaches it. This is safe because the graph is a validated DAG played in
- * its own topological order: every source of round X is guaranteed already
- * played by the time curRound reaches X - 1, so X's pool is always complete
- * by the time it's X's own turn to be finalized here.
+ * Sends the qualification table's final standings through the last
+ * qualification round's `standingsRoutes` (the Qual source of a waterfall
+ * graph): position i of the ordered table goes to `standingsRoutes[i]`, and a
+ * position routed 'eliminated' or past the end of the routing goes nowhere.
+ * `ordered` is the table with every cut-off tie resolution applied
+ * (orderedQualificationTable). Each destination's arrivals are numbered in
+ * standings order (`tierRank`), with the standing's room share as `pct`, so a
+ * round fed only by Qual is seeded in standings order. Same shape as
+ * routeWaterfallRound: additions only, no pool is touched.
  */
-function advanceWaterfallBracket(
-  input: TournamentState,
-  roundIndex: number,
+export function routeStandings(
+  ordered: TournamentStanding[],
   round: TournamentRound,
+): Map<number, PendingBracketSeed[]> {
+  const additionsByDestination = new Map<number, PendingBracketSeed[]>();
+  for (const [position, standing] of ordered.entries()) {
+    const destination = round.standingsRoutes?.[position];
+    if (typeof destination !== 'number') continue;
+    const additions = additionsByDestination.get(destination) ?? [];
+    additions.push({
+      name: standing.name,
+      isLucky: false,
+      tierRank: additions.length,
+      pct: standing.roomShare ?? 0,
+    });
+    additionsByDestination.set(destination, additions);
+  }
+  return additionsByDestination;
+}
+
+function standingsShortfallMessage(ranked: number, highestRoutedRank: number): string {
+  return `Can't advance -- the qualification table ranks ${ranked} unit(s), but the waterfall graph routes qualification ranks up to ${highestRoutedRank}. A withdrawal during qualification has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
+}
+
+/**
+ * Folds one round's per-destination additions into pendingBracketSeeds
+ * (the destination-indexed accumulator advanceDoubleElimination already uses,
+ * generalized from 2 named destinations to N), then draws the round right
+ * after it. Always finalizes roundIndex + 1 specifically -- NOT whatever a
+ * band's own destination is, which may be several rounds ahead and stay
+ * merely pending until curRound actually reaches it. This is safe because
+ * the graph is a validated DAG played in its own topological order: every
+ * source of round X is guaranteed already played by the time curRound
+ * reaches X - 1, so X's pool is always complete by the time it's X's own turn
+ * to be finalized here.
+ */
+function enterNextWaterfallRound(
+  input: TournamentState,
+  state: TournamentState,
+  roundIndex: number,
+  additionsByDestination: Map<number, PendingBracketSeed[]>,
 ): RoundAdvanceResult {
-  const state = cloneForTransition(input);
-  const additionsByDestination = routeWaterfallRound(state, roundIndex, round);
   for (const [destination, additions] of additionsByDestination) {
     state.pendingBracketSeeds[destination] = [
       ...(state.pendingBracketSeeds[destination] ?? []),
@@ -526,6 +566,44 @@ function advanceWaterfallBracket(
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   state.needsSave = true;
   return { status: 'advanced', state };
+}
+
+/** Waterfall's advance step: route the finished round's rooms (routeWaterfallRound), then enter the next round. */
+function advanceWaterfallBracket(
+  input: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): RoundAdvanceResult {
+  const state = cloneForTransition(input);
+  return enterNextWaterfallRound(input, state, roundIndex, routeWaterfallRound(state, roundIndex, round));
+}
+
+/**
+ * The pooling exit of a waterfall graph with a Qual source: the ordered
+ * qualification table is routed through the last qualification round's
+ * `standingsRoutes`. It does not go through roomBasedComputeAdvancement's
+ * `advancing` list (that is the top `qualAdv` names, which includes ranks the
+ * graph eliminates inside its range) and has no bye or tieredSeed step: the
+ * waterfall has no byes, and every destination is drawn from its pool.
+ */
+function advanceFromStandings(
+  input: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): RoundAdvanceResult {
+  const state = cloneForTransition(input);
+  const { qualTable, ordered } = orderedQualificationTable(state);
+  state.qualTable = qualTable;
+  const highestRoutedRank = round.standingsRoutes?.length ?? 0;
+  if (ordered.length < highestRoutedRank) {
+    return {
+      status: 'blocked',
+      reason: 'too-few-units',
+      message: standingsShortfallMessage(ordered.length, highestRoutedRank),
+      state: input,
+    };
+  }
+  return enterNextWaterfallRound(input, state, roundIndex, routeStandings(ordered, round));
 }
 
 /**
@@ -563,6 +641,9 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   }
   if (round.isWaterfall) {
     return advanceWaterfallBracket(base, roundIndex, round);
+  }
+  if (round.standingsRoutes) {
+    return advanceFromStandings(base, roundIndex, round);
   }
 
   const state = cloneForTransition(base);

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { compareStandings, isStandingsCutoffRound } from '../advancement';
+import { compareStandings, isStandingsCutoffRound, orderedQualificationTable } from '../advancement';
 import { computeRankings } from '../rankings';
 import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState } from '../types';
 import { buildState, scoreCurrentRound } from './play-through';
+import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
 describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
@@ -839,5 +840,41 @@ describe('computeRankings -- order within an elimination round', () => {
       ['P3', 3],
     ]);
     expect(rankings?.eliminatedList.map((entry) => [entry.name, entry.rank])).toEqual([['P4', 4]]);
+  });
+});
+
+describe('computeRankings -- a waterfall fed by the qualification table (Qual source)', () => {
+  function afterQualification(registered: number) {
+    const exit = playToQualificationExit(buildQualWaterfall(registered));
+    const order = orderedQualificationTable(exit).ordered.map((entry) => entry.name);
+    const result = advanceTournamentRound(exit);
+    if (result.status !== 'advanced') throw new Error('expected the pooling exit to advance');
+    return { state: result.state, order };
+  }
+
+  it.each([
+    [31, 7],
+    [37, 13],
+    [43, 19],
+    [53, 29],
+  ])(
+    'at %i registered: only the %i units below the routed ranks are eliminated, not 17-24 waiting for R1C',
+    (registered, out) => {
+      const { state, order } = afterQualification(registered);
+      const eliminated = computeRankings(state)?.eliminatedList.map((entry) => entry.name) ?? [];
+      expect(eliminated).toHaveLength(out);
+      expect(new Set(eliminated)).toEqual(new Set(order.slice(24)));
+      for (const name of order.slice(16, 24)) expect(eliminated).not.toContain(name);
+    },
+  );
+
+  it('ranks the units below the routed ranks as eliminated at the qualification round', () => {
+    const { state, order } = afterQualification(37);
+    const entries = computeRankings(state)?.eliminatedList ?? [];
+    const lastQualification = state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
+    expect(entries.every((entry) => entry.ri === lastQualification)).toBe(true);
+    // Every eliminated unit ranks below the 24 that are still in.
+    expect(entries.every((entry) => entry.rank > 24)).toBe(true);
+    expect(entries.map((entry) => entry.name)).toEqual(expect.arrayContaining(order.slice(24)));
   });
 });

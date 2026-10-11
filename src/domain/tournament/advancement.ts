@@ -177,8 +177,7 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
   };
   const nextRound = state.rounds[roundIndex + 1];
   if (isLastStandingsRound(state, roundIndex)) {
-    const cutoff = detectQualCutoffTie(state);
-    if (cutoff) ties[cutoff.key] = cutoff;
+    for (const cutoff of detectQualCutoffTies(state)) ties[cutoff.key] = cutoff;
   }
   if (round.isGroupStage && !nextRound?.isGroupStage) {
     for (const group of state.groups) {
@@ -226,22 +225,78 @@ export function invalidateStaleTieResolutions(
   return changed ? { ...state, tieResolutions } : state;
 }
 
-function detectQualCutoffTie(state: Pick<TournamentState, 'qualTable' | 'cfg'>): CutoffTieCluster | null {
+/** Tie-resolution key of the cluster that holds the last routed qualification rank (the single cut-off without a Qual source). */
+export const QUAL_CUTOFF_KEY = 'qual-cutoff';
+/** Key prefix of the other clusters that straddle a band boundary of the standings routing. */
+export const QUAL_BAND_KEY_PREFIX = 'qual-band-';
+
+/** True for every tie-resolution key the qualification table's cut-offs use. */
+export function isQualCutoffKey(key: string): boolean {
+  return key === QUAL_CUTOFF_KEY || key.startsWith(QUAL_BAND_KEY_PREFIX);
+}
+
+/** The standings routing of the qualification round that carries one (a waterfall graph with a Qual source). */
+export function qualStandingsRoutes(state: Pick<TournamentState, 'rounds'>) {
+  return state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
+}
+
+function cutoffCluster(
+  key: string,
+  players: Array<TournamentStanding & { totalFP: number }>,
+): CutoffTieCluster {
+  return {
+    key,
+    players,
+    fp: players[0].totalFP,
+    roomShare: players[0].roomShare ?? null,
+    rm: null,
+  };
+}
+
+/**
+ * With a Qual source: one cluster per distinct tied standing that straddles a band boundary (a
+ * position whose destination differs from the next position's, eliminated counting as a
+ * destination). A cluster is keyed `qual-cutoff` when it holds the last routed rank, otherwise
+ * `qual-band-<its first rank>`; its resolution fully orders it, so it settles every boundary inside it.
+ */
+function detectQualBandTies(
+  table: Array<TournamentStanding & { totalFP: number }>,
+  routes: NonNullable<TournamentRound['standingsRoutes']>,
+): CutoffTieCluster[] {
+  const destinationAt = (rank: number) => routes[rank - 1] ?? 'eliminated';
+  const clusters: CutoffTieCluster[] = [];
+  let first = 0;
+  while (first < table.length) {
+    let last = first;
+    while (last + 1 < table.length && sameStanding(table[last + 1], table[first])) last += 1;
+    const firstRank = first + 1;
+    const lastRank = last + 1;
+    const straddles = Array.from({ length: lastRank - firstRank }, (_, offset) => firstRank + offset).some(
+      (rank) => destinationAt(rank) !== destinationAt(rank + 1),
+    );
+    if (straddles) {
+      const holdsLastRoutedRank = firstRank <= routes.length && routes.length <= lastRank;
+      const key = holdsLastRoutedRank ? QUAL_CUTOFF_KEY : `${QUAL_BAND_KEY_PREFIX}${firstRank}`;
+      clusters.push(cutoffCluster(key, table.slice(first, last + 1)));
+    }
+    first = last + 1;
+  }
+  return clusters;
+}
+
+function detectQualCutoffTies(
+  state: Pick<TournamentState, 'qualTable' | 'cfg' | 'rounds'>,
+): CutoffTieCluster[] {
   const table = state.qualTable.filter(
     (entry): entry is TournamentStanding & { totalFP: number } => entry.totalFP !== null,
   );
+  const routes = qualStandingsRoutes(state);
+  if (routes) return detectQualBandTies(table, routes);
   const qualifiers = state.cfg.qualAdv;
-  if (!qualifiers || qualifiers >= table.length) return null;
+  if (!qualifiers || qualifiers >= table.length) return [];
   const boundary = table[qualifiers - 1];
   const players = table.filter((entry) => sameStanding(entry, boundary));
-  if (players.length < 2) return null;
-  return {
-    key: 'qual-cutoff',
-    players,
-    fp: boundary.totalFP,
-    roomShare: boundary.roomShare ?? null,
-    rm: null,
-  };
+  return players.length < 2 ? [] : [cutoffCluster(QUAL_CUTOFF_KEY, players)];
 }
 
 function detectGroupCutoffTie(
@@ -289,9 +344,22 @@ function applyCutoffOrder(
 
 export function applyQualCutoffOrder(
   table: TournamentStanding[],
-  state: Pick<TournamentState, 'qualTable' | 'cfg' | 'tieResolutions'>,
+  state: Pick<TournamentState, 'qualTable' | 'cfg' | 'tieResolutions' | 'rounds'>,
 ): TournamentStanding[] {
-  return applyCutoffOrder(table, detectQualCutoffTie(state), state);
+  return detectQualCutoffTies(state).reduce((ordered, tie) => applyCutoffOrder(ordered, tie, state), table);
+}
+
+/** The qualification standings with every cut-off tie resolution applied, units with no result yet left out. */
+export function orderedQualificationTable(state: TournamentState): {
+  qualTable: TournamentStanding[];
+  ordered: TournamentStanding[];
+} {
+  const qualTable = computeQualificationStandings(state);
+  const ordered = applyQualCutoffOrder(
+    qualTable.filter((entry) => entry.totalFP !== null),
+    { ...state, qualTable },
+  );
+  return { qualTable, ordered };
 }
 
 export function applyGroupCutoffOrder(
@@ -560,11 +628,7 @@ export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: 
   const round = state.rounds[roundIndex];
   const nextRound = state.rounds[roundIndex + 1];
   if (isLastStandingsRound(state, roundIndex)) {
-    const qualTable = computeQualificationStandings(state);
-    const ordered = applyQualCutoffOrder(
-      qualTable.filter((entry) => entry.totalFP !== null),
-      { ...state, qualTable },
-    );
+    const { qualTable, ordered } = orderedQualificationTable(state);
     return {
       advancing: ordered.slice(0, state.cfg.qualAdv).map((entry) => ({ name: entry.name, isLucky: false })),
       luckyNames: null,
