@@ -1411,12 +1411,11 @@ SemiB: 1-2->Final, 3-5->eliminated
     expect(state.rounds[finalIndex].isFinal).toBe(true);
   });
 
-  it('blocks with "malformed-waterfall-round" when a withdrawal leaves fewer entrants than the graph declares', () => {
+  it('draws the next round short when a withdrawal leaves fewer entrants than the graph declares', () => {
     const rounds = buildWaterfallRounds('ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-4->Final', 4, 4);
 
     // Only 3 real occupants instead of the declared 4 -- simulates a
-    // mid-tournament withdrawal. Waterfall has no bye/remainder concept, so
-    // this can only ever surface as a straight size mismatch.
+    // mid-tournament withdrawal: the empty seat is simply not there.
     const state = createDefaultTournamentState({
       rounds,
       assignments: [buildAssignments(['P1', 'P2', 'P3'], [4])],
@@ -1424,12 +1423,27 @@ SemiB: 1-2->Final, 3-5->eliminated
       curRound: 0,
     });
     const result = advanceTournamentRound(state);
-    expect(result.status).toBe('blocked');
+    expect(result.status).toBe('advanced');
+    if (result.status === 'advanced') {
+      expect(result.state.rounds[1]).toMatchObject({ rooms: [3], players: 3, declaredRooms: [4] });
+      expect(result.state.assignments[1]).toHaveLength(3);
+    }
+  });
+
+  it('blocks with "malformed-waterfall-round" when more entrants arrive than the graph declares', () => {
+    const rounds = buildWaterfallRounds('ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-4->Final', 4, 4);
+    const state = createDefaultTournamentState({
+      rounds: [rounds[0], { ...rounds[1], rooms: [3], players: 3 }],
+      assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [4])],
+      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+      curRound: 0,
+    });
+    const result = advanceTournamentRound(state);
     expect(result.status === 'blocked' && result.reason).toBe('malformed-waterfall-round');
     if (result.status === 'blocked') {
       expect(result.message).toContain('Final');
-      expect(result.message).toContain('3 entrant');
-      expect(result.message).toContain('Manage Teams');
+      expect(result.message).toContain('4 entrant');
+      expect(result.message).toContain('Edit graph');
     }
   });
 });

@@ -30,7 +30,7 @@ import type {
   TournamentStanding,
   TournamentState,
 } from './types';
-import { waterfallDestination } from './waterfall-bracket';
+import { declaredWaterfallSeats, fitWaterfallRound, waterfallDestination } from './waterfall-bracket';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
@@ -449,9 +449,26 @@ function advanceKingsValley(input: TournamentState, roundIndex: number): RoundAd
   return { status: 'advanced', state };
 }
 
+/** A waterfall round accepts fewer units than it declares (a withdrawal), never more. */
 function malformedWaterfallRoundMessage(round: TournamentRound, actual: number): string {
   const label = round.customLabel ?? `Round ${round.roundNum}`;
-  return `Can't advance into "${label}" — ${actual} entrant(s) would arrive instead of the ${round.players} the graph declares for it. A mid-tournament withdrawal has likely thrown off the waterfall graph's exact rank-band counts (no bye/lucky-loser concept applies here); check Manage Teams, or add a replacement, before advancing further.`;
+  return `Can't advance into "${label}" — ${actual} entrant(s) would arrive, more than the ${declaredWaterfallSeats(round)} the graph declares for it. The graph's rank-band counts don't add up for this round; check the routing with "Edit graph" in the Admin tab before advancing further.`;
+}
+
+/** Draws the waterfall round at `roundIndex` for `arriving` units, or says why it can't. */
+function fitWaterfallRoundAt(
+  state: TournamentState,
+  roundIndex: number,
+  arriving: number,
+): RoundFitFailure | null {
+  const round = state.rounds[roundIndex];
+  if (arriving > declaredWaterfallSeats(round)) {
+    return { reason: 'malformed-waterfall-round', message: malformedWaterfallRoundMessage(round, arriving) };
+  }
+  const fitted = fitWaterfallRound(round, arriving);
+  if ('error' in fitted) return { reason: 'too-few-units', message: fitted.error };
+  state.rounds[roundIndex] = fitted;
+  return null;
 }
 
 /**
@@ -549,16 +566,12 @@ function enterNextWaterfallRound(
   }
 
   const nextIndex = roundIndex + 1;
-  const nextRound = state.rounds[nextIndex];
-  const poolAtNext = state.pendingBracketSeeds[nextIndex] ?? [];
-  if (poolAtNext.length !== nextRound.players) {
-    return {
-      status: 'blocked',
-      reason: 'malformed-waterfall-round',
-      message: malformedWaterfallRoundMessage(nextRound, poolAtNext.length),
-      state: input,
-    };
-  }
+  const shapeFailure = fitWaterfallRoundAt(
+    state,
+    nextIndex,
+    (state.pendingBracketSeeds[nextIndex] ?? []).length,
+  );
+  if (shapeFailure) return { status: 'blocked', ...shapeFailure, state: input };
 
   state.curRound = nextIndex;
   const fitFailure = seedRoundFromPendingPool(state, nextIndex);
@@ -740,7 +753,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       };
     }
     const newByes: SeedCandidate[] = [];
-    if (state.gamemodeConfig.oddCountStrategy === 'bye') {
+    if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {
       let needed = 0;
       if (nextRound.bracketPhaseFirstRound) {
         needed = nextPowerOf2AndRounds(advancing.length).bracketSize - advancing.length;
@@ -769,17 +782,11 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
         }
       }
     }
-    if (nextRound.isWaterfall && advancing.length !== nextRound.players) {
-      // The hand-authored waterfall graph needs its exact headcount, so it
-      // blocks (like waterfall-to-waterfall) instead of being reshaped.
-      return {
-        status: 'blocked',
-        reason: 'malformed-waterfall-round',
-        message: malformedWaterfallRoundMessage(nextRound, advancing.length),
-        state: input,
-      };
-    }
-    const fitFailure = fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
+    // A hand-authored waterfall graph keeps its room count and routes: fewer arrivals than it
+    // declares are drawn short (fitWaterfallRoundAt, not distributeRooms), more block.
+    const fitFailure = nextRound.isWaterfall
+      ? fitWaterfallRoundAt(state, roundIndex + 1, advancing.length)
+      : fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
     seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride: round.seedingOverride }).seeded;
     if (round.isGroupStage) {

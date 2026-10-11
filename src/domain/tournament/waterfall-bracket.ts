@@ -825,6 +825,63 @@ export function waterfallDestination(round: TournamentRound, room: number, rankI
   return typeof destination === 'number' ? destination : null;
 }
 
+/** The seats the graph declares for a waterfall round, whether or not it was drawn short. */
+export function declaredWaterfallRooms(round: TournamentRound): number[] {
+  return round.declaredRooms ?? round.rooms;
+}
+
+export function declaredWaterfallSeats(round: TournamentRound): number {
+  return declaredWaterfallRooms(round).reduce((total, size) => total + size, 0);
+}
+
+/**
+ * Takes `missing` seats out of the declared rooms, one per room in turn starting from the last
+ * room, so room sizes differ by at most 1 (2x8 missing 1 is [8, 7], missing 2 is [7, 7]).
+ */
+function removeSeatsFromLastRooms(declared: number[], missing: number): number[] {
+  const rooms = [...declared];
+  for (let taken = 0; taken < missing; taken += 1) rooms[rooms.length - 1 - (taken % rooms.length)] -= 1;
+  return rooms.filter((size) => size > 0);
+}
+
+/** The units a drawn room set sends on: every rank whose band isn't 'eliminated' (a Final keeps its single winner). */
+function advancingSeats(round: TournamentRound, rooms: number[]): number {
+  if (round.isFinal || !round.waterfallRoutes) return round.advTotal;
+  return rooms.reduce(
+    (total, size, index) =>
+      total +
+      (round.waterfallRoutes?.[index] ?? []).slice(0, size).filter((route) => route !== 'eliminated').length,
+    0,
+  );
+}
+
+/**
+ * Draws a waterfall round for the units that actually arrived. A round accepts fewer than it declares
+ * (a withdrawal: the empty seat is simply not there, and each room routes the ranks it has), keeping
+ * its room count; the missing seats come out of the last rooms first. Arrivals beyond the declared
+ * seats are the caller's malformed case. The declared rooms stay on the round (`declaredRooms`) while
+ * it is short. An error when nobody arrives, or a Final would have under 2.
+ */
+export function fitWaterfallRound(
+  round: TournamentRound,
+  poolSize: number,
+): TournamentRound | { error: string } {
+  const declared = declaredWaterfallRooms(round);
+  const seats = declared.reduce((total, size) => total + size, 0);
+  const minimum = round.isFinal ? 2 : 1;
+  if (poolSize < minimum) {
+    const label = round.customLabel ?? `Round ${round.roundNum}`;
+    const reaching = poolSize <= 0 ? 'Nobody' : `Only ${poolSize} unit`;
+    return {
+      error: `${reaching} would reach "${label}", which needs at least ${minimum} to play. A mid-tournament withdrawal has emptied it; check Manage Teams before advancing further.`,
+    };
+  }
+  const { declaredRooms: _declared, ...rest } = round;
+  const rooms = removeSeatsFromLastRooms(declared, seats - poolSize);
+  const fitted = { ...rest, rooms, players: poolSize, advTotal: advancingSeats(round, rooms) };
+  return poolSize === seats ? fitted : { ...fitted, declaredRooms: declared };
+}
+
 export interface WaterfallBracketConfig {
   graph: OrderedWaterfallGraph;
   finalsGames: number;
