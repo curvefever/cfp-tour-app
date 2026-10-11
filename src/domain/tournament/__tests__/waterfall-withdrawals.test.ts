@@ -25,6 +25,24 @@ R2: 1-4->Final, 5-8->eliminated
 R3: 1-4->Final, 5-8->eliminated
 `;
 
+/** Both of R3's bands route on: ranks 1-2 to the Final, 3-8 to R4, which also feeds the Final. */
+const BOTH_BANDS_ROUTE_ON = `
+ROUNDS:
+R1 = 2x8
+R2 = 8
+R3 = 8
+R4 = 6
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1
+R1.A: 1-4->R2, 5-8->R3
+R1.B: 1-4->R2, 5-8->R3
+R2: 1-4->Final, 5-8->eliminated
+R3: 1-2->Final, 3-8->R4
+R4: 1-2->Final, 3-6->eliminated
+`;
+
 /** R3 has two rooms of 7, fed by R1's bottom bands (8) and by Qual ranks 17-22 (6). */
 const TWO_ROOM_DESTINATION = `
 ROUNDS:
@@ -103,6 +121,8 @@ describe.each([31, 37, 43, 53])('withdrawals in a running waterfall at %i regist
     expect(played.outcome).toEqual({ kind: 'ok' });
     const end = played.state;
     expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [7], players: 7, declaredRooms: [8] });
+    // The gap fell in the eliminated band: the round still sends the same 4 on.
+    expect(end.rounds[indexOfRound(end, 'R3')].advTotal).toBe(4);
     for (const round of drawnRounds(end)) expect(sum(round.rooms)).toBe(round.players);
     expect(end.assignments[indexOfRound(end, 'R3')]).toHaveLength(7);
   });
@@ -114,6 +134,20 @@ describe.each([31, 37, 43, 53])('withdrawals in a running waterfall at %i regist
     const r1 = indexOfRound(end, 'R1');
     expect(roomSizes(end, r1)).toEqual([7, 7]);
     expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [6], players: 6 });
+  });
+
+  it('counts a short round’s advancing seats from the bands it still has (advTotal)', () => {
+    const played = playRemovingFromR1(buildQualWaterfall(registered, BOTH_BANDS_ROUTE_ON), 1);
+    expect(played.outcome).toEqual({ kind: 'ok' });
+    const end = played.state;
+    // R3 has 7: every rank still advances (2 to the Final, 5 to R4), so the gap lowers advTotal from 8 to 7.
+    expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [7], players: 7, advTotal: 7 });
+    expect(end.rounds[indexOfRound(end, 'R4')]).toMatchObject({
+      rooms: [5],
+      players: 5,
+      declaredRooms: [6],
+      advTotal: 2,
+    });
   });
 
   it.each([

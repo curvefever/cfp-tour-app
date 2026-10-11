@@ -528,6 +528,19 @@ function patchPublishedFutureRounds(
   return { ...state, rounds, ...rebuildFixedDrawHistory(rounds, state.assignments, state.curRound) };
 }
 
+/** A removed unit must not be drawn into a later round it was only waiting for. */
+function withoutPendingUnit(
+  pools: TournamentState['pendingBracketSeeds'],
+  key: string,
+): TournamentState['pendingBracketSeeds'] {
+  return Object.fromEntries(
+    Object.entries(pools).map(([destination, seeds]) => [
+      destination,
+      seeds.filter((seed) => seed.name !== key),
+    ]),
+  );
+}
+
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize ?? 0;
@@ -548,6 +561,7 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
       ? (next.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key)
       : (next.reserves as string[]).filter((entry) => entry !== key),
     qualTable: next.qualTable.filter((entry) => entry.name !== key),
+    pendingBracketSeeds: withoutPendingUnit(next.pendingBracketSeeds, key),
     luckyLosers: next.luckyLosers.map(strip),
     byes: next.byes.map(strip),
     groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),

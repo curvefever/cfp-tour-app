@@ -1297,16 +1297,19 @@ R2.B: 1-4->Final, 5-7->eliminated
 `,
 };
 
+const advanced = (state: TournamentState): TournamentState => {
+  const result = advanceTournamentRound(state);
+  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
+  return result.state;
+};
+const seatedNames = (state: TournamentState, index: number) =>
+  (state.assignments[index] ?? []).map((entry) => entry.name);
+const roundIndexOf = (state: TournamentState, label: string) =>
+  state.rounds.findIndex((round) => round.customLabel === label);
+const poolNames = (state: TournamentState) =>
+  Object.values(state.pendingBracketSeeds).flatMap((seeds) => seeds.map((seed) => seed.name));
+
 describe('swapIndividual -- where the outgoing unit is in play', () => {
-  const advanced = (state: TournamentState): TournamentState => {
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-    return result.state;
-  };
-  const seatedNames = (state: TournamentState, index: number) =>
-    (state.assignments[index] ?? []).map((entry) => entry.name);
-  const roundIndexOf = (state: TournamentState, label: string) =>
-    state.rounds.findIndex((round) => round.customLabel === label);
   const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
 
   it('37 waterfall routing everyone: a unit waiting for R1C is replaced in its pool, keeping the slot it earned', () => {
@@ -1488,5 +1491,65 @@ describe('swaps close once anyone is eliminated', () => {
     expect(swapTeam(state, state.assignments[state.curRound][0].name, reserve)).toBe(state);
     expect(swapTeam(state, eliminated, reserve)).toBe(state);
     expect(swapTeam(start, start.assignments[0][0].name, reserve)).not.toBe(start);
+  });
+});
+
+describe('removeRosterUnit -- a unit waiting in a pending pool', () => {
+  it('37 waterfall: a unit waiting for R1C is in no pool, and R1C is drawn short without it', () => {
+    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const r1c = roundIndexOf(atR1, 'R1C');
+    const waiting = atR1.pendingBracketSeeds[r1c][3].name;
+
+    const removed = removeRosterUnit(atR1, waiting);
+
+    expect(poolNames(removed)).not.toContain(waiting);
+    expect(removed.pendingBracketSeeds[r1c]).toHaveLength(7);
+    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    expect(seatedNames(atR1c, r1c)).not.toContain(waiting);
+    expect(atR1c.rounds[r1c]).toMatchObject({ rooms: [7], players: 7 });
+  });
+
+  it('43 waterfall: a unit waiting for R2 after playing R1 is not seated in R2, which is drawn short', () => {
+    const atR1c = advanced(scoreCurrentRound(advanced(playToQualificationExit(buildQualWaterfall(43))), 0));
+    const r2 = roundIndexOf(atR1c, 'R2');
+    const waiting = atR1c.pendingBracketSeeds[r2][0].name;
+
+    const removed = removeRosterUnit(atR1c, waiting);
+
+    expect(poolNames(removed)).not.toContain(waiting);
+    const atR2 = advanced(scoreCurrentRound(removed, 0));
+    expect(atR2.curRound).toBe(r2);
+    expect(seatedNames(atR2, r2)).not.toContain(waiting);
+    expect(atR2.rounds[r2]).toMatchObject({ rooms: [7], players: 7 });
+  });
+
+  it('double elimination 1v1 at 31: a unit waiting in the round 4 pool is not seated, and the round is still drawn', () => {
+    let state = buildState({
+      label: 'de 31',
+      count: 31,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'double-elimination',
+        poolingPhase: 'none',
+        oddCountStrategy: 'bye',
+      },
+    }) as TournamentState;
+    while (state.curRound < 3) state = advanced(scoreCurrentRound(state, 0));
+    const waiting = state.pendingBracketSeeds[4][0].name;
+
+    const removed = removeRosterUnit(state, waiting);
+
+    expect(poolNames(removed)).not.toContain(waiting);
+    const drawn = advanced(scoreCurrentRound(removed, 0));
+    expect(drawn.curRound).toBe(4);
+    expect(seatedNames(drawn, 4)).not.toContain(waiting);
+    expect((drawn.assignments[4] ?? []).length).toBe(15);
+  });
+
+  it('removing a seated unit leaves every pool untouched (regression)', () => {
+    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const seated = atR1.assignments[atR1.curRound][0].name;
+    expect(removeRosterUnit(atR1, seated).pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
   });
 });
