@@ -1,6 +1,10 @@
 import { formatStandingValue } from '../../domain/tournament/scoring';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { standingFor, type StandingsDisplay } from '../../domain/tournament/standings-display';
+import {
+  standingFor,
+  standingsBandLabel,
+  type StandingsDisplay,
+} from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { standingsContextLine } from '../standings/standings-text';
@@ -9,14 +13,14 @@ import { bracketRowBase, resultClasses, standingsRowResult } from '../tournament
 const headerClass =
   'flex w-full cursor-pointer items-center gap-1 border-b border-muted bg-surface-low px-3 py-2.5 text-left text-xs font-bold tracking-[0.08em] text-primary uppercase';
 
-function CutLine() {
+function CutLine({ label = 'cut' }: { label?: string }) {
   return (
     <div
-      aria-label='Cut line'
+      aria-label={label === 'cut' ? 'Cut line' : `Band: ${label}`}
       className='my-1 flex items-center gap-1.5 text-[0.6rem] text-warning uppercase'
     >
       <span className='h-0 flex-1 border-t border-dashed border-t-warning' />
-      cut
+      {label}
     </div>
   );
 }
@@ -38,24 +42,31 @@ function StandingsBlock({
         <div className='mb-1 text-[0.68rem] font-bold text-muted'>{table.label}</div>
       ) : null}
       <div className='flex flex-col gap-0.5'>
-        {table.entries.map((entry, index) => (
-          <div key={entry.name}>
-            {table.cut !== null && index === table.cut ? <CutLine /> : null}
-            <div
-              className={cn(
-                bracketRowBase,
-                'flex items-center gap-1.5',
-                resultClasses(standingsRowResult(index, table.cut, display.phase), followKey === entry.name),
-              )}
-            >
-              <span className='w-5 shrink-0 text-right tabular-nums'>{entry.rank ?? '—'}</span>
-              <span className='min-w-0 flex-1 truncate'>{unitDisplay(state, entry.name).label}</span>
-              <span className='shrink-0 text-muted tabular-nums'>
-                {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
-              </span>
+        {table.entries.map((entry, index) => {
+          const band = table.bands?.find((candidate) => candidate.start === index);
+          return (
+            <div key={entry.name}>
+              {band ? <CutLine label={standingsBandLabel(band.destination)} /> : null}
+              {!table.bands && table.cut !== null && index === table.cut ? <CutLine /> : null}
+              <div
+                className={cn(
+                  bracketRowBase,
+                  'flex items-center gap-1.5',
+                  resultClasses(
+                    standingsRowResult(index, table.cut, display.phase),
+                    followKey === entry.name,
+                  ),
+                )}
+              >
+                <span className='w-5 shrink-0 text-right tabular-nums'>{entry.rank ?? '—'}</span>
+                <span className='min-w-0 flex-1 truncate'>{unitDisplay(state, entry.name).label}</span>
+                <span className='shrink-0 text-muted tabular-nums'>
+                  {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

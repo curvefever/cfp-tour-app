@@ -1,6 +1,7 @@
 import { getGameFormat } from '../../domain/tournament/formats';
 import { formatStandingValue } from '../../domain/tournament/scoring';
 import {
+  standingsBandLabel,
   tableRoundIndexes,
   type CutTieMarks,
   type StandingsDisplay,
@@ -35,11 +36,6 @@ function CutLine({ columnCount, label = 'cut' }: { columnCount: number; label?: 
       </td>
     </tr>
   );
-}
-
-/** A run of standings that goes to a round reads "→ R1C"; one that is eliminated reads "out". */
-function bandLabel(destination: string): string {
-  return destination === 'out' ? 'out' : `→ ${destination}`;
 }
 
 function TieMark({ placed, pending }: { placed: boolean; pending: boolean }) {
@@ -149,7 +145,7 @@ function StandingsRows({
   return (
     <>
       {band ? (
-        <CutLine columnCount={roundIndexes.length * 3 + 4} label={bandLabel(band.destination)} />
+        <CutLine columnCount={roundIndexes.length * 3 + 4} label={standingsBandLabel(band.destination)} />
       ) : null}
       {!table.bands && table.cut !== null && index === table.cut ? (
         <CutLine columnCount={roundIndexes.length * 3 + 4} />

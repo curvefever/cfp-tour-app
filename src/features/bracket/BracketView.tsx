@@ -47,6 +47,7 @@ import {
   roundExitRule,
   type RoomExitBand,
   type RoundExitRule,
+  type StandingsExitBand,
 } from '../../domain/tournament/room-exits';
 import { buildTeamMap, resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import {
@@ -621,6 +622,23 @@ function rankRangeText(fromRank: number, toRank: number): string {
   return fromRank === toRank ? `${fromRank}` : `${fromRank}–${toRank}`;
 }
 
+/** The final standings of a Qual source by destination: "1–16 → R1 · 17–24 → R1C · 25+ out"; the open tail is dropped when nobody is ranked past the routed ranks. */
+function standingsBandsText(
+  bands: StandingsExitBand[],
+  rankedUnits: number,
+  labels: ReturnType<typeof bracketRoundLabels>,
+): string {
+  return bands
+    .filter((band) => band.to !== null || band.from <= rankedUnits)
+    .map((band) => {
+      const ranks = band.to === null ? `${band.from}+` : rankRangeText(band.from, band.to);
+      return band.destination === 'eliminated'
+        ? `${ranks} out`
+        : `${ranks} → ${destinationLabel(band.destination, labels)}`;
+    })
+    .join(' · ');
+}
+
 function exitBandTone(kind: RoomExitBand['kind']): 'success' | 'danger' | 'accent' | 'warning' | 'neutral' {
   switch (kind) {
     case 'advance':
@@ -712,9 +730,11 @@ function RoomExitChips({
 function RoundExitSummary({
   rule,
   labels,
+  rankedUnits,
 }: {
   rule: RoundExitRule;
   labels: ReturnType<typeof bracketRoundLabels>;
+  rankedUnits: number;
 }) {
   if (rule.kind === 'per-room' || rule.kind === 'none') return null;
   const text =
@@ -724,7 +744,9 @@ function RoundExitSummary({
         ? rule.counted
           ? 'Counts toward standings'
           : 'Seeding only, not counted'
-        : `Top ${rule.advancing} ${rule.perGroup ? 'per group' : 'in standings'} → ${destinationLabel(rule.destination, labels)}`;
+        : rule.bands
+          ? standingsBandsText(rule.bands, rankedUnits, labels)
+          : `Top ${rule.advancing} ${rule.perGroup ? 'per group' : 'in standings'} → ${destinationLabel(rule.destination, labels)}`;
   return (
     <Badge
       className='mb-2 px-2 py-0.5 text-[0.65rem] leading-snug normal-case tracking-normal whitespace-normal'
@@ -803,7 +825,7 @@ function PlaceholderRound({
 }) {
   if (!round.rooms.length) return <div className='text-muted'>Not yet seeded</div>;
   const rule = roundExitRule(state, roundIndex);
-  const summary = <RoundExitSummary rule={rule} labels={labels} />;
+  const summary = <RoundExitSummary rule={rule} labels={labels} rankedUnits={state.players.length} />;
   if (round.fixedRoomAssignments) {
     // A pre-published draw -- the real room assignment is already fully
     // decided at generation time (see fixed-draws.ts / docs/seeding.md), so
@@ -1009,7 +1031,7 @@ function RoundBody({
   );
   return (
     <>
-      <RoundExitSummary rule={exitRule} labels={labels} />
+      <RoundExitSummary rule={exitRule} labels={labels} rankedUnits={state.players.length} />
       {round.rooms.map((_, roomIndex) => {
         const room = roomIndex + 1;
         const units = assignments.filter((entry) => entry.room === room);

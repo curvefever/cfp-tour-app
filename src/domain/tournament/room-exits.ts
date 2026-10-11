@@ -35,8 +35,34 @@ export type RoundExitRule =
   | { kind: 'per-room'; rooms: RoomExitBand[][] } // index-aligned with round.rooms
   | { kind: 'all-advance' } // no-elim warm-up round
   | { kind: 'standings'; counted: boolean } // a non-final qual/Swiss/group round
-  | { kind: 'standings-cutoff'; advancing: number; perGroup: boolean; destination: number }
+  | {
+      kind: 'standings-cutoff';
+      advancing: number;
+      perGroup: boolean;
+      destination: number;
+      /** Only with a waterfall Qual source: where each run of final standings goes. */
+      bands?: StandingsExitBand[];
+    }
   | { kind: 'none' }; // Final, grand final
+
+/** A run of final standings (1-based ranks, inclusive) that share a destination; `to: null` is the open-ended tail past the last routed rank. */
+export interface StandingsExitBand {
+  from: number;
+  to: number | null;
+  destination: number | 'eliminated';
+}
+
+/** The runs of equal destination in a Qual source's `standingsRoutes`, then the eliminated tail beyond the last routed rank. */
+function standingsExitBands(routes: NonNullable<TournamentRound['standingsRoutes']>): StandingsExitBand[] {
+  const bands: StandingsExitBand[] = [];
+  routes.forEach((destination, index) => {
+    const rank = index + 1;
+    const last = bands.at(-1);
+    if (last && last.destination === destination) last.to = rank;
+    else bands.push({ from: rank, to: rank, destination });
+  });
+  return [...bands, { from: routes.length + 1, to: null, destination: 'eliminated' }];
+}
 
 /**
  * The number of units actually occupying a room, once the round has real
@@ -205,6 +231,7 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
       advancing: perGroup ? (state.cfg.qualifiersPerGroup ?? 0) : (state.cfg.qualAdv ?? 0),
       perGroup,
       destination: roundIndex + 1,
+      ...(round.standingsRoutes ? { bands: standingsExitBands(round.standingsRoutes) } : {}),
     };
   }
 

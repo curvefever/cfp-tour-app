@@ -9,6 +9,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { waterfallBracketPhase, type OrderedWaterfallGraph } from '../waterfall-bracket';
 import { scoreCurrentRound } from './play-through';
+import { QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 function names(count: number, prefix = 'P'): string[] {
@@ -643,5 +644,63 @@ describe('roundExitRule -- Kings Valley chips agree with the real advance', () =
     for (const size of next.rooms) expect(size).toBeGreaterThanOrEqual(3);
     // 15 units, the bottom room cuts 2: 13 survive, re-planned from the real count.
     expect(next.rooms.reduce((total, size) => total + size, 0)).toBe(13);
+  });
+});
+
+describe('roundExitRule -- the last qualification round of a waterfall Qual source', () => {
+  function lastQualificationIndex(state: TournamentState): number {
+    return state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
+  }
+  const indexOf = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+
+  it('37 registered: bands 1-16 to R1, 17-24 to R1C, then an open eliminated tail from 25', () => {
+    const state = buildQualWaterfall(37);
+    const rule = roundExitRule(state, lastQualificationIndex(state));
+    expect(rule).toMatchObject({ kind: 'standings-cutoff', advancing: 24 });
+    expect(rule.kind === 'standings-cutoff' && rule.bands).toEqual([
+      { from: 1, to: 16, destination: indexOf(state, 'R1') },
+      { from: 17, to: 24, destination: indexOf(state, 'R1C') },
+      { from: 25, to: null, destination: 'eliminated' },
+    ]);
+  });
+
+  it('a gap graph at 31 registered: 1-16, 17-19 eliminated, 20-27, then the open tail from 28', () => {
+    const graph = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C',
+    );
+    const state = buildQualWaterfall(31, graph);
+    const rule = roundExitRule(state, lastQualificationIndex(state));
+    expect(rule.kind === 'standings-cutoff' && rule.bands).toEqual([
+      { from: 1, to: 16, destination: indexOf(state, 'R1') },
+      { from: 17, to: 19, destination: 'eliminated' },
+      { from: 20, to: 27, destination: indexOf(state, 'R1C') },
+      { from: 28, to: null, destination: 'eliminated' },
+    ]);
+  });
+
+  it('has no bands without standingsRoutes, and advancing is unchanged', () => {
+    const state = buildQualWaterfall(37);
+    const index = lastQualificationIndex(state);
+    const plain = {
+      ...state,
+      rounds: state.rounds.map(({ standingsRoutes: _routes, ...round }) => round),
+    };
+    const rule = roundExitRule(plain, index);
+    expect(rule).toEqual({
+      kind: 'standings-cutoff',
+      advancing: 24,
+      perGroup: false,
+      destination: index + 1,
+    });
+    expect(rule).not.toHaveProperty('bands');
+  });
+
+  it('a single elimination after a qualification table has no bands', () => {
+    const state = generate(37, { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '16' });
+    const rule = roundExitRule(state, lastQualificationIndex(state));
+    expect(rule.kind).toBe('standings-cutoff');
+    expect(rule).not.toHaveProperty('bands');
   });
 });
