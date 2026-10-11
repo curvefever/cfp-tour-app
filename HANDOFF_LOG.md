@@ -36,6 +36,7 @@ Two throwaway tests at 37 registered with a Qual source and `QUAL_GRAPH` showed 
 - Rankings ordering of units eliminated from a short room: unchanged rules.
 - Kings Valley and single elimination: removal already re-fits their rounds; only the pool clean-up touches them, and only where they use pools.
 - A withdrawn unit's name used again for a new entrant (the individual swap prompt only refuses names in the current roster) makes the replay map old line-ups to the new person. Edge case, noted in `docs/open-items.md`, not fixed.
+- Bracket's preview of an undrawn waterfall round can still list a slot for a rank a short source room no longer has, until the round is drawn (cosmetic; found at the planner's final review, noted in `docs/open-items.md`).
 
 ---
 
