@@ -5,6 +5,8 @@ import { roundHasAnyScore } from './scoring';
 import { routeStandings, routeWaterfallRound, seedRoundFromPendingPool } from './transitions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
+  declaredWaterfallRooms,
+  fitWaterfallRound,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
@@ -25,8 +27,23 @@ export type WaterfallGraphEditResult =
 const MISSING_CONFIG_MESSAGE =
   "Can't save — this tournament's gamemode configuration is missing a room size or Finals format. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
 
-function sameNameSet(assignments: { name: string }[], seeds: PendingBracketSeed[]): boolean {
-  const existing = new Set(assignments.map((entry) => entry.name));
+/**
+ * Maps a name from a recorded line-up to the unit that is in the tournament now: itself if still registered,
+ * the unit that replaced it if it was swapped out (followed through further swaps), else null (a withdrawal).
+ */
+function currentUnit(state: TournamentState, roster: Set<string>, name: string): string | null {
+  let current = name;
+  for (let hops = 0; hops <= state.withdrawnUnits.length; hops += 1) {
+    if (roster.has(current)) return current;
+    const next = state.withdrawnUnits.find((unit) => unit.name === current)?.replacedBy;
+    if (next === undefined) return null;
+    current = next;
+  }
+  return null;
+}
+
+function sameNameSet(assignments: string[], seeds: PendingBracketSeed[]): boolean {
+  const existing = new Set(assignments);
   const replayed = new Set(seeds.map((seed) => seed.name));
   return existing.size === replayed.size && [...existing].every((name) => replayed.has(name));
 }
@@ -39,6 +56,14 @@ function sameNameSet(assignments: { name: string }[], seeds: PendingBracketSeed[
 function lastQualificationIndex(state: TournamentState, firstWaterfallIndex: number): number {
   const index = state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
   return index >= 0 && index < firstWaterfallIndex ? index : -1;
+}
+
+/** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
+function rerouted(reachedRound: TournamentRound, spec: TournamentRound): TournamentRound {
+  const next = { ...reachedRound, waterfallRoutes: spec.waterfallRoutes, advTotal: spec.advTotal };
+  if (!reachedRound.declaredRooms) return next;
+  const fitted = fitWaterfallRound(next, reachedRound.players);
+  return 'error' in fitted ? next : fitted;
 }
 
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
@@ -80,11 +105,13 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // identity.
   for (const [index, oldRound] of reached.entries()) {
     const spec = graph.rounds[index];
+    // A round drawn short (a withdrawal) is compared by the shape the graph declared for it.
+    const declaredRooms = declaredWaterfallRooms(oldRound);
     const sameShape =
       spec &&
       spec.label === oldRound.customLabel &&
-      spec.roomSizes.length === oldRound.rooms.length &&
-      spec.roomSizes[0] === oldRound.rooms[0] &&
+      spec.roomSizes.length === declaredRooms.length &&
+      spec.roomSizes[0] === declaredRooms[0] &&
       spec.isFinal === oldRound.isFinal;
     if (!sameShape) {
       return {
@@ -104,7 +131,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // total it implies are replaced. Unreached rounds are wholly new.
   const newBracketRounds: TournamentRound[] = materialized.map((spec, index) => {
     if (index >= reached.length) return spec;
-    return { ...reached[index], waterfallRoutes: spec.waterfallRoutes, advTotal: spec.advTotal };
+    return rerouted(reached[index], spec);
   });
 
   const keptLength = firstWaterfallIndex + reached.length;
@@ -149,15 +176,26 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // curRound -- curRound itself hasn't been advanced from yet) under the new
   // routing, accumulating per-destination pools exactly as advanceTournamentRound
   // would across a sequence of real advances.
+  // Recorded line-ups still hold the units that withdrew or were swapped out: a replayed pool keeps only
+  // the units now in the tournament (a swapped-out unit becomes its replacement), so a withdrawal never
+  // moves anyone else up into the empty seat.
+  const roster = new Set(rosterKeys(state.players));
   const replayPools = new Map<number, PendingBracketSeed[]>();
   const addToReplay = (additions: Map<number, PendingBracketSeed[]>) => {
     for (const [destination, seeds] of additions) {
-      replayPools.set(destination, [...(replayPools.get(destination) ?? []), ...seeds]);
+      const current = seeds.flatMap((seed) => {
+        const name = currentUnit(state, roster, seed.name);
+        return name === null ? [] : [{ ...seed, name }];
+      });
+      replayPools.set(destination, [...(replayPools.get(destination) ?? []), ...current]);
     }
   };
-  // Once the bracket is entered, the qualification table has already been routed through the Qual source.
+  // Once the bracket is entered, the qualification table has already been routed through the Qual source:
+  // replay the order it was routed in (a table recomputed now has lost the withdrawn units, shifting every rank).
   if (standingsSource && state.curRound >= firstWaterfallIndex) {
-    addToReplay(routeStandings(orderedQualificationTable(working).ordered, working.rounds[qualIndex]));
+    const exitOrder =
+      state.rounds[qualIndex].standingsExitOrder ?? orderedQualificationTable(working).ordered;
+    addToReplay(routeStandings(exitOrder, working.rounds[qualIndex]));
   }
   for (let index = firstWaterfallIndex; index < state.curRound; index += 1) {
     addToReplay(routeWaterfallRound(working, index, working.rounds[index]));
@@ -169,7 +207,11 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   let redrawnRound: string | null = null;
   for (let index = firstWaterfallIndex + (standingsSource ? 0 : 1); index < keptLength; index += 1) {
     const round = working.rounds[index];
-    if (sameNameSet(working.assignments[index] ?? [], replayPools.get(index) ?? [])) continue;
+    const lineUp = (working.assignments[index] ?? []).flatMap((entry) => {
+      const name = currentUnit(state, roster, entry.name);
+      return name === null ? [] : [name];
+    });
+    if (sameNameSet(lineUp, replayPools.get(index) ?? [])) continue;
     if (index < state.curRound) {
       return {
         ok: false,
@@ -220,9 +262,15 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
       ...working,
       roomHistory: rewindRoomHistory(working.roomHistory, working.assignments, curRound),
     };
+    // The pool may be short of the round's declared seats (a withdrawal): draw it short, as an advance would.
+    const fitted = fitWaterfallRound(working.rounds[curRound], (replayPools.get(curRound) ?? []).length);
+    if ('error' in fitted) return { ok: false, error: fitted.error };
+    working = {
+      ...working,
+      rounds: working.rounds.map((round, index) => (index === curRound ? fitted : round)),
+    };
     const failure = seedRoundFromPendingPool(working, curRound);
-    // Waterfall's headcount always fits exactly (validated against the
-    // graph's own declared totals above); this is a defensive fallback.
+    // The pool now fits the round exactly; this is a defensive fallback.
     if (failure) return { ok: false, error: failure.message };
   }
 

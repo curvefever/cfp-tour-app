@@ -94,6 +94,8 @@ export interface TournamentRound {
   waterfallRoutes?: Array<Array<number | 'eliminated'>>;
   /** The graph's room sizes for this round, written only when it was drawn short (fewer units arrived than declared: a withdrawal), in which case `rooms`/`players` hold the real shape. The shape check of a live graph edit and the next draw of this round read it. Only set when isWaterfall is true. */
   declaredRooms?: number[];
+  /** Set on the last qualification round when the waterfall graph has a Qual source, at the moment the standings are routed: the final standings in rank order (cut-off tie resolutions applied), with each unit's room share. A graph edit after the bracket is entered replays this instead of recomputing the table from the current roster, whose ranks shift after a withdrawal. */
+  standingsExitOrder?: Array<{ name: string; roomShare: number }>;
   /** Set on the last qualification round when the waterfall graph has a Qual source: where each final standing goes. Index = standings rank - 1; a destination is an absolute index into `state.rounds` (or 'eliminated'), the same convention as `waterfallRoutes`. Its length is the highest routed rank; every rank past the end is eliminated. */
   standingsRoutes?: Array<number | 'eliminated'>;
   /** The organiser's own round label from the waterfall graph (e.g. "SemiA", "6B"), read by bracketRoundLabels() instead of a synthetic "Round N". Only set when isWaterfall is true. */
@@ -188,6 +190,8 @@ export interface WithdrawnUnit {
   members: string[] | null;
   playedAnyMatch: boolean;
   reason: 'removed' | 'swapped';
+  /** The unit that took this one's place; set only when reason is 'swapped'. A live graph edit replays played rounds' recorded line-ups, which still hold the outgoing name, and follows this to the unit now in the tournament. */
+  replacedBy?: string;
 }
 
 export interface GeneratedTournamentConfig {

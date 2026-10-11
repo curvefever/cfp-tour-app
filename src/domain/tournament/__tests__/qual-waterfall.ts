@@ -113,3 +113,46 @@ export function tiedQualExit(): TournamentState {
   const start = buildQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
   return scoredAlike(start);
 }
+
+/**
+ * Qual-source waterfalls that route every registered unit, so nobody is eliminated at the pooling exit and the
+ * swap window is still open while the later bands wait in a pool: 37 = R1 (ranks 1-16) + R1C (21 waiting),
+ * 43 = R1 (ranks 1-35, 5 rooms of 7) + R1C (8 waiting).
+ */
+export const ALL_ROUTED_GRAPHS = {
+  37: `
+ROUNDS:
+R1 = 2x8
+R1C = 3x7
+R2 = 2x7
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-37->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C.A: 1-2->R2, 3-7->eliminated
+R1C.B: 1-2->R2, 3-7->eliminated
+R1C.C: 1-2->R2, 3-7->eliminated
+R2.A: 1-4->Final, 5-7->eliminated
+R2.B: 1-4->Final, 5-7->eliminated
+`,
+  43: `
+ROUNDS:
+R1 = 5x7
+R1C = 8
+R2 = 2x7
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-35->R1, 36-43->R1C
+R1.A: 1-2->R2, 3-7->eliminated
+R1.B: 1-2->R2, 3-7->eliminated
+R1.C: 1-2->R2, 3-7->eliminated
+R1.D: 1-2->R2, 3-7->eliminated
+R1.E: 1-2->R2, 3-7->eliminated
+R1C: 1-4->R2, 5-8->eliminated
+R2.A: 1-4->Final, 5-7->eliminated
+R2.B: 1-4->Final, 5-7->eliminated
+`,
+};

@@ -517,7 +517,7 @@ export function routeWaterfallRound(
  * routeWaterfallRound: additions only, no pool is touched.
  */
 export function routeStandings(
-  ordered: TournamentStanding[],
+  ordered: Array<Pick<TournamentStanding, 'name' | 'roomShare'>>,
   round: TournamentRound,
 ): Map<number, PendingBracketSeed[]> {
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
@@ -616,6 +616,13 @@ function advanceFromStandings(
       state: input,
     };
   }
+  state.rounds[roundIndex] = {
+    ...round,
+    standingsExitOrder: ordered.map((standing) => ({
+      name: standing.name,
+      roomShare: standing.roomShare ?? 0,
+    })),
+  };
   return enterNextWaterfallRound(input, state, roundIndex, routeStandings(ordered, round));
 }
 

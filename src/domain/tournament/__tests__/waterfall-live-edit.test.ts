@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable } from '../advancement';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit, swapIndividual } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -9,7 +9,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { playThrough, scoreCurrentRound } from './play-through';
-import { QUAL_GRAPH, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
+import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
 function names(count: number): string[] {
@@ -543,5 +543,133 @@ describe('applyWaterfallGraphEdit -- a graph with a Qual source', () => {
     expect(edited.ok).toBe(true);
     if (!edited.ok) return;
     expect(playThrough(edited.state, 0, null)).toEqual({ kind: 'ok' });
+  });
+});
+
+describe('saving a graph after a withdrawal (Qual source)', () => {
+  const advanced = (state: TournamentState): TournamentState => {
+    const result = advanceTournamentRound(state);
+    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
+    return result.state;
+  };
+  const roundIndex = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+  /** Everyone seated in a bracket-phase round or waiting in a pool (the qualification rounds are left out). */
+  const allSeeded = (state: TournamentState) => [
+    ...Object.values(state.pendingBracketSeeds).flatMap((seeds) => seeds.map((seed) => seed.name)),
+    ...state.assignments
+      .slice(state.rounds.findIndex((round) => round.isWaterfall))
+      .flatMap((entries) => entries.map((entry) => entry.name)),
+  ];
+  const saved = (state: TournamentState, text = QUAL_GRAPH) => {
+    const result = applyWaterfallGraphEdit(state, text);
+    if (!result.ok) throw new Error(`save refused: ${result.error}`);
+    return result;
+  };
+
+  it.each([37, 43])(
+    '%i: after removing a unit that waits for R2 (R1 played), the unchanged graph saves and changes nothing',
+    (registered) => {
+      const atR1c = advanced(
+        scoreCurrentRound(advanced(playToQualificationExit(buildQualWaterfall(registered))), 0),
+      );
+      const r2 = roundIndex(atR1c, 'R2');
+      const removed = removeRosterUnit(atR1c, atR1c.pendingBracketSeeds[r2][0].name);
+
+      const result = saved(removed);
+
+      expect(result.redrawnRound).toBeNull();
+      expect(result.state.pendingBracketSeeds).toEqual(removed.pendingBracketSeeds);
+      expect(result.state.assignments.slice(0, removed.curRound + 1)).toEqual(removed.assignments);
+      expect(
+        result.state.rounds.map((round) => [round.customLabel, round.rooms, round.players, round.advTotal]),
+      ).toEqual(
+        removed.rounds.map((round) => [round.customLabel, round.rooms, round.players, round.advTotal]),
+      );
+    },
+  );
+
+  it.each([37, 43])(
+    '%i: after removing a unit that waits for R1C, the unchanged graph saves, R1C stays at 7 and the next rank is not pulled in',
+    (registered) => {
+      const atR1 = advanced(playToQualificationExit(buildQualWaterfall(registered)));
+      const r1c = roundIndex(atR1, 'R1C');
+      const order = orderedQualificationTable(atR1).ordered.map((entry) => entry.name);
+      const waiting = atR1.pendingBracketSeeds[r1c][2].name;
+      const removed = removeRosterUnit(atR1, waiting);
+      const nextRank = order.find((name) => !allSeeded(atR1).includes(name));
+
+      const result = saved(removed);
+
+      expect(result.redrawnRound).toBeNull();
+      expect(result.state.pendingBracketSeeds[r1c]).toHaveLength(7);
+      expect(result.state.pendingBracketSeeds).toEqual(removed.pendingBracketSeeds);
+      expect(allSeeded(result.state)).not.toContain(waiting);
+      if (nextRank !== undefined) expect(allSeeded(result.state)).not.toContain(nextRank);
+    },
+  );
+
+  it('after R1C was drawn short, a save keeping its declared 8 passes the shape check and shrinking it to 7 is refused', () => {
+    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const r1c = roundIndex(atR1, 'R1C');
+    const removed = removeRosterUnit(atR1, atR1.pendingBracketSeeds[r1c][0].name);
+    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    expect(atR1c.rounds[r1c]).toMatchObject({ rooms: [7], players: 7, declaredRooms: [8] });
+
+    const result = saved(atR1c);
+    expect(result.state.rounds[r1c]).toMatchObject({
+      rooms: [7],
+      players: 7,
+      declaredRooms: [8],
+      advTotal: 4,
+    });
+    expect(result.state.assignments[r1c]).toEqual(atR1c.assignments[r1c]);
+
+    const smaller = QUAL_GRAPH.replace('R1C = 8', 'R1C = 7')
+      .replace('17-24->R1C', '17-23->R1C')
+      .replace('R1C: 1-4->Final, 5-8->eliminated', 'R1C: 1-4->Final, 5-7->eliminated');
+    const refused = applyWaterfallGraphEdit(atR1c, smaller);
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.error).toContain('already started');
+  });
+
+  it('a short reached round recounts the ranks it still sends on when its bands change (advTotal)', () => {
+    const graph = QUAL_GRAPH.replace('R1C: 1-4->Final, 5-8->eliminated', 'R1C: 1-5->Final, 6-8->eliminated');
+    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH)));
+    const r1c = roundIndex(atR1, 'R1C');
+    const removed = removeRosterUnit(atR1, atR1.pendingBracketSeeds[r1c][0].name);
+    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    const finalWithFive = graph.replace('R2: 1-4->Final, 5-8->eliminated', 'R2: 1-3->Final, 4-8->eliminated');
+    const result = saved(atR1c, finalWithFive);
+    expect(result.state.rounds[r1c]).toMatchObject({ rooms: [7], declaredRooms: [8], advTotal: 5 });
+  });
+
+  it('a unit swapped in while waiting keeps its place in the rebuilt pool', () => {
+    const atR1 = advanced(
+      playToQualificationExit({ ...buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]), reserves: ['Sub'] }),
+    );
+    const r1c = roundIndex(atR1, 'R1C');
+    const waiting = atR1.pendingBracketSeeds[r1c][4].name;
+    const swapped = swapIndividual(atR1, waiting, 'Sub');
+    expect(swapped.pendingBracketSeeds[r1c][4].name).toBe('Sub');
+
+    const result = saved(swapped, ALL_ROUTED_GRAPHS[37]);
+
+    expect(result.state.pendingBracketSeeds[r1c]).toEqual(swapped.pendingBracketSeeds[r1c]);
+    expect(allSeeded(result.state)).not.toContain(waiting);
+  });
+
+  it('a tournament without a stored exit order still saves as before', () => {
+    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const qualIndex = atR1.rounds.findIndex((round) => round.standingsExitOrder);
+    expect(qualIndex).toBeGreaterThanOrEqual(0);
+    const stripped = {
+      ...atR1,
+      rounds: atR1.rounds.map((round, index) =>
+        index === qualIndex ? { ...round, standingsExitOrder: undefined } : round,
+      ),
+    };
+    const result = saved(stripped);
+    expect(result.state.pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
   });
 });

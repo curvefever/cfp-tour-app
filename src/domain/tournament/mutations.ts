@@ -608,6 +608,7 @@ function recordWithdrawal(
   state: TournamentState,
   key: string,
   reason: WithdrawnUnit['reason'],
+  replacedBy?: string,
 ): TournamentState {
   const info = unitDisplay(state, key);
   const entry: WithdrawnUnit = {
@@ -616,6 +617,7 @@ function recordWithdrawal(
     members: info.members,
     playedAnyMatch: hasPlayedAnyMatch(state, key),
     reason,
+    ...(replacedBy === undefined ? {} : { replacedBy }),
   };
   return { ...state, withdrawnUnits: [...state.withdrawnUnits, entry] };
 }
@@ -701,7 +703,7 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
 
   const replaced = replaceUnitInPlay(state, oldName, trimmed);
   if (!replaced) return state;
-  const withdrawn = recordWithdrawal(state, oldName, 'swapped');
+  const withdrawn = recordWithdrawal(state, oldName, 'swapped', trimmed);
 
   return dirty(
     patchPublishedFutureRounds(
@@ -740,7 +742,7 @@ export function swapTeam(
   if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
   const replaced = replaceUnitInPlay(state, oldTeamId, replacement.teamId);
   if (!replaced) return state;
-  const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped');
+  const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped', replacement.teamId);
 
   return dirty(
     patchPublishedFutureRounds(

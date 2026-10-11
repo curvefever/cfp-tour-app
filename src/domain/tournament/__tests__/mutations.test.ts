@@ -24,7 +24,7 @@ import { settingsFromForm } from '../tournament-settings';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
-import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
+import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
@@ -178,7 +178,7 @@ describe('swapIndividual', () => {
     });
     const result = swapIndividual(state, 'P1', 'P3');
     expect(result.withdrawnUnits).toEqual([
-      { name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'swapped' },
+      { name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'swapped', replacedBy: 'P3' },
     ]);
     expect(result.players).toEqual(['P2', 'P3']);
   });
@@ -244,7 +244,14 @@ describe('swapTeam', () => {
       members: [{ name: 'Erin' }, { name: 'Frank' }],
     });
     expect(result.withdrawnUnits).toEqual([
-      { name: 't1', label: 'Team One', members: ['Alice', 'Bob'], playedAnyMatch: false, reason: 'swapped' },
+      {
+        name: 't1',
+        label: 'Team One',
+        members: ['Alice', 'Bob'],
+        playedAnyMatch: false,
+        reason: 'swapped',
+        replacedBy: 't3',
+      },
     ]);
     // Existing groups-remap behavior, unchanged by this plan -- regression coverage only.
     expect(result.groups).toEqual([{ label: 'A', members: ['t3', 't2'] }]);
@@ -1253,49 +1260,6 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
     expect(removed.rounds).toHaveLength(state.rounds.length);
   });
 });
-
-/**
- * Qual-source waterfalls that route every registered unit, so nobody is eliminated at the pooling exit and the
- * swap window is still open while the later bands wait in a pool: 37 = R1 (ranks 1-16) + R1C (21 waiting),
- * 43 = R1 (ranks 1-35, 5 rooms of 7) + R1C (8 waiting).
- */
-const ALL_ROUTED_GRAPHS = {
-  37: `
-ROUNDS:
-R1 = 2x8
-R1C = 3x7
-R2 = 2x7
-Final = 8 FINAL
-
-ROUTES:
-Qual: 1-16->R1, 17-37->R1C
-R1.A: 1-4->R2, 5-8->eliminated
-R1.B: 1-4->R2, 5-8->eliminated
-R1C.A: 1-2->R2, 3-7->eliminated
-R1C.B: 1-2->R2, 3-7->eliminated
-R1C.C: 1-2->R2, 3-7->eliminated
-R2.A: 1-4->Final, 5-7->eliminated
-R2.B: 1-4->Final, 5-7->eliminated
-`,
-  43: `
-ROUNDS:
-R1 = 5x7
-R1C = 8
-R2 = 2x7
-Final = 8 FINAL
-
-ROUTES:
-Qual: 1-35->R1, 36-43->R1C
-R1.A: 1-2->R2, 3-7->eliminated
-R1.B: 1-2->R2, 3-7->eliminated
-R1.C: 1-2->R2, 3-7->eliminated
-R1.D: 1-2->R2, 3-7->eliminated
-R1.E: 1-2->R2, 3-7->eliminated
-R1C: 1-4->R2, 5-8->eliminated
-R2.A: 1-4->Final, 5-7->eliminated
-R2.B: 1-4->Final, 5-7->eliminated
-`,
-};
 
 const advanced = (state: TournamentState): TournamentState => {
   const result = advanceTournamentRound(state);
