@@ -3,6 +3,7 @@ import {
   ELIMINATED,
   LABEL_PATTERN,
   MAX_ROOMS_PER_ROUND,
+  QUAL_LABEL,
   expandRankTokens,
   parseWaterfallGraph,
   roomIndexToLetter,
@@ -20,6 +21,10 @@ import {
  * complete, consistent graph is still decided by
  * `validateAndOrderWaterfallGraph` on the serialized text, the same call
  * generation makes.
+ *
+ * A graph fed by a qualification table also has a Qual source (`qualRoutes`),
+ * edited like a room whose slots are the standings ranks. It has no unset
+ * slots: a rank with no destination is simply eliminated.
  */
 
 export interface WaterfallDraftRound {
@@ -36,6 +41,20 @@ export interface WaterfallDraft {
   rounds: WaterfallDraftRound[];
   /** `routes[label][room][rank - 1]`. Empty for the Final, which routes nowhere. */
   routes: Record<string, WaterfallSlotDestination[][]>;
+  /**
+   * The qualification table's standings routing, `qualRoutes[rank - 1]` (null = eliminated); null when
+   * the graph has no qualification table. Its length is how many ranks the editor shows.
+   */
+  qualRoutes: WaterfallSlotDestination[] | null;
+}
+
+export interface WaterfallDraftParseOptions {
+  /** The graph is fed by a qualification table. Without a Qual line it is read as the entry round taking every rank. */
+  standingsSource?: boolean;
+  /** How many standings ranks to show (the registered head count), when known. */
+  rankCount?: number;
+  /** Ranks to show beyond the highest routed one while `rankCount` isn't known. */
+  padRanks?: number;
 }
 
 export interface WaterfallSlot {
@@ -86,8 +105,87 @@ function labelIsTaken(draft: WaterfallDraft, label: string): boolean {
   return draft.rounds.some((round) => round.label.toLowerCase() === lower);
 }
 
+/** Highest rank sent anywhere (not eliminated), 0 when none. */
+export function highestRoutedQualRank(qualRoutes: WaterfallSlotDestination[]): number {
+  return qualRoutes.reduce(
+    (highest, destination, index) =>
+      destination !== null && destination !== ELIMINATED ? index + 1 : highest,
+    0,
+  );
+}
+
+/** The "Advance to bracket" a Qual routing implies: the highest rank it sends on. */
+export function waterfallQualAdvance(draft: WaterfallDraft): number {
+  return draft.qualRoutes ? highestRoutedQualRank(draft.qualRoutes) : 0;
+}
+
+/** "Advance to bracket" read off graph text fed by a qualification table: the highest rank its Qual line sends on, 0 while unreadable or unset. */
+export function waterfallGraphQualAdvance(text: string): number {
+  const parsed = parseWaterfallDraft(text, { standingsSource: true });
+  return parsed.ok ? waterfallQualAdvance(parsed.value) : 0;
+}
+
+/** How many ranks are sent on / eliminated out of `registered` (null while the head count isn't known). */
+export function waterfallQualCounts(
+  qualRoutes: WaterfallSlotDestination[],
+  registered: number | null,
+): { sentOn: number; eliminated: number | null } {
+  const sentOn = qualRoutes.filter(
+    (destination) => destination !== null && destination !== ELIMINATED,
+  ).length;
+  return { sentOn, eliminated: registered === null ? null : Math.max(0, registered - sentOn) };
+}
+
+function qualRoutesFromBands(
+  bands: Array<{ rankTokens: string[]; destinationLabel: string }>,
+  byLower: Map<string, WaterfallDraftRound>,
+): WaterfallParseResult<WaterfallSlotDestination[]> {
+  const destinations: WaterfallSlotDestination[] = [];
+  const seen = new Set<number>();
+  for (const band of bands) {
+    const destination = resolveDestination(band.destinationLabel, byLower);
+    if (destination === null) {
+      return err(`Qual routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
+    }
+    const ranks = expandRankTokens(band.rankTokens);
+    if (!ranks.ok) return ranks;
+    for (const rank of ranks.value) {
+      if (rank < 1) return err(`Qual: rank ${rank} is out of range -- qualification ranks start at 1.`);
+      if (seen.has(rank)) return err(`Qual: rank ${rank} is routed more than once.`);
+      seen.add(rank);
+      destinations[rank - 1] = destination === ELIMINATED ? null : destination;
+    }
+  }
+  return ok(Array.from({ length: destinations.length }, (_, index) => destinations[index] ?? null));
+}
+
+/** The Qual routing of a draft: as written, or (no Qual line) the one round nothing routes into taking every rank, padded to the ranks shown. */
+function buildQualRoutes(
+  bands: Array<{ rankTokens: string[]; destinationLabel: string }> | null,
+  draft: Pick<WaterfallDraft, 'rounds' | 'routes'>,
+  byLower: Map<string, WaterfallDraftRound>,
+  options: WaterfallDraftParseOptions,
+): WaterfallParseResult<WaterfallSlotDestination[]> {
+  let routed: WaterfallSlotDestination[] = [];
+  if (bands) {
+    const built = qualRoutesFromBands(bands, byLower);
+    if (!built.ok) return built;
+    routed = built.value;
+  } else {
+    const startingLabel = waterfallRoundIntake({ ...draft, qualRoutes: null }).startingRound;
+    const entry = startingLabel ? byLower.get(startingLabel.toLowerCase()) : undefined;
+    if (entry) routed = Array.from({ length: entry.roomCount * entry.roomSize }, () => entry.label);
+  }
+  const highest = highestRoutedQualRank(routed);
+  const shown = Math.max(highest, options.rankCount ?? highest + (options.padRanks ?? 0), 1);
+  return ok(Array.from({ length: shown }, (_, index) => routed[index] ?? null));
+}
+
 /** Reads ROUNDS:/ROUTES: text into a draft. Empty text is a valid, empty draft. */
-export function parseWaterfallDraft(text: string): WaterfallParseResult<WaterfallDraft> {
+export function parseWaterfallDraft(
+  text: string,
+  options: WaterfallDraftParseOptions = {},
+): WaterfallParseResult<WaterfallDraft> {
   const raw = parseWaterfallGraph(text, { allowIncomplete: true });
   if (!raw.ok) return raw;
 
@@ -136,7 +234,10 @@ export function parseWaterfallDraft(text: string): WaterfallParseResult<Waterfal
       }
     }
   }
-  return ok({ rounds, routes });
+  if (!options.standingsSource || rounds.length === 0) return ok({ rounds, routes, qualRoutes: null });
+  const qualRoutes = buildQualRoutes(raw.value.qualBands, { rounds, routes }, byLower, options);
+  if (!qualRoutes.ok) return qualRoutes;
+  return ok({ rounds, routes, qualRoutes: qualRoutes.value });
 }
 
 function resolveDestination(label: string, byLower: Map<string, WaterfallDraftRound>): string | null {
@@ -188,7 +289,18 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
       return [`${address}: ${bands.join(', ')}`];
     }),
   );
-  return `ROUNDS:\n${roundLines.join('\n')}\n\nROUTES:\n${routeLines.join('\n')}`.trimEnd();
+  const qualLines = draft.qualRoutes ? [qualRouteLine(draft.qualRoutes)] : [];
+  return `ROUNDS:\n${roundLines.join('\n')}\n\nROUTES:\n${[...qualLines, ...routeLines].join('\n')}`.trimEnd();
+}
+
+/** The Qual line: only the ranks sent on are written. An all-eliminated routing still writes a line, so it is never read as "no Qual line". */
+function qualRouteLine(qualRoutes: WaterfallSlotDestination[]): string {
+  const bands = groupRoomByDestination(
+    qualRoutes.map((destination) => (destination === ELIMINATED ? null : destination)),
+  ).map(({ destination, ranks }) => `${compressWaterfallRanks(ranks).join(',')}->${destination}`);
+  return bands.length > 0
+    ? `Qual: ${bands.join(', ')}`
+    : `Qual: 1-${Math.max(qualRoutes.length, 1)}->${ELIMINATED}`;
 }
 
 /**
@@ -199,7 +311,10 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
  * `state.rounds` indices are resolved back to round labels via each
  * destination round's own `customLabel`.
  */
-export function waterfallDraftFromRounds(rounds: TournamentRound[]): WaterfallDraft {
+export function waterfallDraftFromRounds(
+  rounds: TournamentRound[],
+  options: Pick<WaterfallDraftParseOptions, 'rankCount'> = {},
+): WaterfallDraft {
   const labelByIndex = new Map(rounds.map((round, index) => [index, round.customLabel]));
   const waterfallRounds = rounds.filter((round) => round.isWaterfall);
   const draftRounds: WaterfallDraftRound[] = waterfallRounds.map((round) => ({
@@ -218,7 +333,26 @@ export function waterfallDraftFromRounds(rounds: TournamentRound[]): WaterfallDr
           ),
         );
   }
-  return { rounds: draftRounds, routes };
+  const draft: WaterfallDraft = { rounds: draftRounds, routes, qualRoutes: null };
+  if (!rounds.some((round) => round.isQual)) return draft;
+  const standingsRoutes = rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
+  const routed: WaterfallSlotDestination[] = standingsRoutes
+    ? standingsRoutes.map((destination) =>
+        destination === ELIMINATED ? null : (labelByIndex.get(destination) ?? null),
+      )
+    : legacyQualRoutes(draft);
+  const highest = highestRoutedQualRank(routed);
+  const shown = Math.max(highest, options.rankCount ?? highest, 1);
+  return { ...draft, qualRoutes: Array.from({ length: shown }, (_, index) => routed[index] ?? null) };
+}
+
+/** A qualification-table tournament generated before the Qual source existed: every rank it advanced went to the entry round. */
+function legacyQualRoutes(draft: WaterfallDraft): WaterfallSlotDestination[] {
+  const entry = findWaterfallRound(
+    draft,
+    waterfallRoundIntake({ ...draft, qualRoutes: null }).startingRound ?? '',
+  );
+  return entry ? Array.from({ length: entry.roomCount * entry.roomSize }, () => entry.label) : [];
 }
 
 export interface WaterfallFlowEdge {
@@ -233,6 +367,14 @@ export interface WaterfallFlowEdge {
 /** Every from-to hop in the draft with how many players take it, in round order. */
 export function waterfallFlowEdges(draft: WaterfallDraft): WaterfallFlowEdge[] {
   const edges: WaterfallFlowEdge[] = [];
+  const qualGroups = draft.qualRoutes
+    ? groupRoomByDestination(
+        draft.qualRoutes.map((destination) => (destination === ELIMINATED ? null : destination)),
+      )
+    : [];
+  for (const { destination, ranks } of qualGroups) {
+    edges.push({ from: QUAL_LABEL, to: destination, players: ranks.length, ranksByRoom: { 0: ranks } });
+  }
   for (const round of draft.rounds) {
     (draft.routes[round.label] ?? []).forEach((room, roomIndex) => {
       for (const { destination, ranks } of groupRoomByDestination(room)) {
@@ -252,7 +394,7 @@ export function waterfallFlowEdges(draft: WaterfallDraft): WaterfallFlowEdge[] {
 export interface WaterfallIntake {
   /** Players routed into each round so far, by label. */
   incoming: Record<string, number>;
-  /** The one round nothing routes into, or null when there are none or several. */
+  /** The one round nothing routes into, or null when there are none or several (always null with a Qual source: Qual is the source). */
   startingRound: string | null;
   /** Play order when the routing has no loops, otherwise the order rounds were added. */
   order: string[];
@@ -267,6 +409,10 @@ export function waterfallRoundIntake(draft: WaterfallDraft): WaterfallIntake {
   for (const edge of hops) incoming[edge.to] += edge.players;
 
   const remaining = new Map(labels.map((label) => [label, hops.filter((edge) => edge.to === label).length]));
+  // A Qual source feeds its destinations before any round is played.
+  for (const edge of hops) {
+    if (edge.from === QUAL_LABEL) remaining.set(edge.to, (remaining.get(edge.to) ?? 0) - 1);
+  }
   const sources = labels.filter((label) => remaining.get(label) === 0);
   const order: string[] = [];
   const queue = [...sources];
@@ -291,14 +437,18 @@ export function waterfallRoundIntake(draft: WaterfallDraft): WaterfallIntake {
   );
   return {
     incoming,
-    startingRound: sources.length === 1 ? sources[0] : null,
+    startingRound: !draft.qualRoutes && sources.length === 1 ? sources[0] : null,
     order: order.length === labels.length ? order : labels,
     unsetSlots,
   };
 }
 
 /** A new draft: an entry round and a Final, every rank unset. Rooms are sized to fit the entrants when they divide evenly. */
-export function blankWaterfallDraft(entrantCount: number | null, roomSize: RoomSize): WaterfallDraft {
+export function blankWaterfallDraft(
+  entrantCount: number | null,
+  roomSize: RoomSize,
+  options: Pick<WaterfallDraftParseOptions, 'standingsSource'> = {},
+): WaterfallDraft {
   const fits = entrantCount !== null && entrantCount > 0 && entrantCount % roomSize.ideal === 0;
   const rounds: WaterfallDraftRound[] = [
     {
@@ -309,7 +459,10 @@ export function blankWaterfallDraft(entrantCount: number | null, roomSize: RoomS
     },
     { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true },
   ];
-  return { rounds, routes: reshapeRoutes(rounds, {}) };
+  const qualRoutes = options.standingsSource
+    ? Array.from({ length: entrantCount ?? roomSize.max }, (): WaterfallSlotDestination => null)
+    : null;
+  return { rounds, routes: reshapeRoutes(rounds, {}), qualRoutes };
 }
 
 /** Adds a 1-room round, before the Final when the last round is one. */
@@ -319,7 +472,7 @@ export function addWaterfallRound(draft: WaterfallDraft, roomSize: number): Wate
   const added: WaterfallDraftRound = { label: `R${number}`, roomCount: 1, roomSize, isFinal: false };
   const last = draft.rounds[draft.rounds.length - 1];
   const rounds = last?.isFinal ? [...draft.rounds.slice(0, -1), added, last] : [...draft.rounds, added];
-  return { rounds, routes: reshapeRoutes(rounds, draft.routes) };
+  return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };
 }
 
 /** Removes a round; any slot that pointed at it becomes unset again. */
@@ -331,7 +484,14 @@ export function removeWaterfallRound(draft: WaterfallDraft, label: string): Wate
       if (destination === label) room[index] = null;
     });
   }
-  return { rounds, routes };
+  return { rounds, routes, qualRoutes: unsetQualRoutesTo(draft.qualRoutes, label) };
+}
+
+function unsetQualRoutesTo(
+  qualRoutes: WaterfallSlotDestination[] | null,
+  label: string,
+): WaterfallSlotDestination[] | null {
+  return qualRoutes?.map((destination) => (destination === label ? null : destination)) ?? null;
 }
 
 export function renameWaterfallRound(
@@ -353,7 +513,9 @@ export function renameWaterfallRound(
       room.map((destination) => (destination === from ? to : destination)),
     );
   }
-  return ok({ rounds, routes });
+  const qualRoutes =
+    draft.qualRoutes?.map((destination) => (destination === from ? to : destination)) ?? null;
+  return ok({ rounds, routes, qualRoutes });
 }
 
 /** Changes a round's room count and size, keeping every slot that still exists. */
@@ -372,7 +534,7 @@ export function resizeWaterfallRound(
         }
       : round,
   );
-  return { rounds, routes: reshapeRoutes(rounds, draft.routes) };
+  return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };
 }
 
 /** Marks one round as the Final (clearing the flag elsewhere), or clears it. A round that becomes the Final loses its outgoing routes. */
@@ -381,13 +543,14 @@ export function setWaterfallFinal(draft: WaterfallDraft, label: string, isFinal:
     ...round,
     isFinal: round.label === label ? isFinal : isFinal ? false : round.isFinal,
   }));
-  return { rounds, routes: reshapeRoutes(rounds, draft.routes) };
+  return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };
 }
 
 /**
  * Sends the given slots of one round to a destination (a declared round other
  * than itself, 'eliminated', or null to unset them). An unusable destination
- * leaves the draft as it was.
+ * leaves the draft as it was. The label `Qual` addresses the qualification
+ * table: its slots are `{ room: 0, rank }`, and eliminated and unset are the same thing.
  */
 export function assignWaterfallSlots(
   draft: WaterfallDraft,
@@ -395,6 +558,7 @@ export function assignWaterfallSlots(
   slots: WaterfallSlot[],
   destination: WaterfallSlotDestination,
 ): WaterfallDraft {
+  if (label === QUAL_LABEL) return assignQualSlots(draft, slots, destination);
   const round = findWaterfallRound(draft, label);
   const validDestination =
     destination === null ||
@@ -407,5 +571,23 @@ export function assignWaterfallSlots(
       routes[label][room][rank - 1] = destination;
     }
   }
-  return { rounds: draft.rounds, routes };
+  return { ...draft, routes };
+}
+
+function assignQualSlots(
+  draft: WaterfallDraft,
+  slots: WaterfallSlot[],
+  destination: WaterfallSlotDestination,
+): WaterfallDraft {
+  const validDestination =
+    destination === null ||
+    destination === ELIMINATED ||
+    findWaterfallRound(draft, destination) !== undefined;
+  if (!draft.qualRoutes || !validDestination) return draft;
+  const stored = destination === ELIMINATED ? null : destination;
+  const qualRoutes = [...draft.qualRoutes];
+  for (const { rank } of slots) {
+    if (rank >= 1 && rank <= qualRoutes.length) qualRoutes[rank - 1] = stored;
+  }
+  return { ...draft, qualRoutes };
 }

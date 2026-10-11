@@ -21,6 +21,7 @@ import {
 import { getMinimumBracketUnits } from '../../domain/tournament/schedule-generation';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
+import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import type { PersistedSetup, TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
@@ -241,11 +242,17 @@ export function SetupView() {
   const sharedFinalShare =
     (Number.parseInt(setup.finalOverride, 10) || derivedRoomSize.ideal) -
     (Number.parseInt(lbQualifiers, 10) || 0);
-  const waterfallEntrantCount = bracketEntryCountFromSetup(
-    setup,
-    state.confirmedCount,
-    getMinimumBracketUnits('waterfall-bracket', derivedRoomSize),
-  );
+  // After a qualification table the graph routes the final standings itself (its Qual source), so
+  // "Advance to bracket" is derived from it and the graph is checked against the registered head count.
+  const waterfallStandingsSource = isWaterfallBracket && setup.poolingPhase === 'qual-table';
+  const waterfallEntrantCount = waterfallStandingsSource
+    ? state.confirmedCount || null
+    : bracketEntryCountFromSetup(
+        setup,
+        state.confirmedCount,
+        getMinimumBracketUnits('waterfall-bracket', derivedRoomSize),
+      );
+  const derivedAdvance = waterfallStandingsSource ? waterfallGraphQualAdvance(setup.waterfallGraph) : 0;
   return (
     <div id='panel-setup'>
       <Panel>
@@ -374,15 +381,25 @@ export function SetupView() {
             </>
           ) : setup.poolingPhase !== 'none' ? (
             <>
-              <Field label='Advance to bracket'>
-                <Input
-                  id='cfg-qual-adv'
-                  type='number'
-                  min='1'
-                  value={setup.qualAdv}
-                  onChange={(e) => change('qualAdv', e.target.value)}
-                />
-              </Field>
+              {waterfallStandingsSource ? (
+                <Field label='Advance to bracket'>
+                  <p className='text-sm' id='cfg-qual-adv'>
+                    {derivedAdvance > 0
+                      ? `${derivedAdvance}, set by the waterfall graph`
+                      : 'not set yet — route ranks of the qualification table in the waterfall graph below'}
+                  </p>
+                </Field>
+              ) : (
+                <Field label='Advance to bracket'>
+                  <Input
+                    id='cfg-qual-adv'
+                    type='number'
+                    min='1'
+                    value={setup.qualAdv}
+                    onChange={(e) => change('qualAdv', e.target.value)}
+                  />
+                </Field>
+              )}
               <Field label='Non-counting rounds (optional)'>
                 <Input
                   id='cfg-non-counting-rounds'
@@ -716,6 +733,7 @@ export function SetupView() {
             entrantCount={waterfallEntrantCount}
             onChange={(text) => change('waterfallGraph', text)}
             roomSize={derivedRoomSize}
+            standingsSource={waterfallStandingsSource}
             text={setup.waterfallGraph}
           />
           <p className='mt-3 text-xs text-muted'>

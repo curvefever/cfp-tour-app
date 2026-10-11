@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { rosterKeys } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
 import {
   serializeWaterfallDraft,
@@ -27,8 +28,14 @@ function reachedRounds(state: TournamentState): { lockedRounds: Set<string>; cur
   return { lockedRounds, currentRoundLabel };
 }
 
+/** A qualification-table graph has a Qual source and is checked against the units still registered, not the entry round's size. */
+function hasStandingsSource(state: TournamentState): boolean {
+  return state.cfg.poolingPhase === 'qual-table' && state.rounds.some((round) => round.isQual);
+}
+
 function savedText(state: TournamentState): string {
-  return serializeWaterfallDraft(waterfallDraftFromRounds(state.rounds));
+  const rankCount = rosterKeys(state.players).length;
+  return serializeWaterfallDraft(waterfallDraftFromRounds(state.rounds, { rankCount }));
 }
 
 /** Admin-only view of a running waterfall bracket's graph, rebuilt from `state.rounds` (the live source of truth), not the `settings.waterfallGraph` snapshot. */
@@ -43,6 +50,8 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const roomSize = state.gamemodeConfig.roomSize;
   if (!roomSize) return null;
   const entryRound = state.rounds.find((round) => round.isWaterfall);
+  const standingsSource = hasStandingsSource(state);
+  const entrantCount = standingsSource ? rosterKeys(state.players).length : (entryRound?.players ?? null);
   const { lockedRounds, currentRoundLabel } = reachedRounds(state);
 
   function startEdit() {
@@ -103,11 +112,12 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         ) : null}
         <WaterfallGraphEditor
           currentRoundLabel={currentRoundLabel}
-          entrantCount={entryRound?.players ?? null}
+          entrantCount={entrantCount}
           lockedRounds={lockedRounds}
           onChange={() => {}}
           readOnly
           roomSize={roomSize}
+          standingsSource={standingsSource}
           text={savedText(state)}
         />
         <ButtonRow className='mt-3'>
@@ -131,13 +141,14 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
       <WaterfallGraphEditor
         allowReplace={false}
         currentRoundLabel={currentRoundLabel}
-        entrantCount={entryRound?.players ?? null}
+        entrantCount={entrantCount}
         lockedRounds={lockedRounds}
         onChange={(next) => {
           setDraftText(next);
           setRedrawPrompt(null);
         }}
         roomSize={roomSize}
+        standingsSource={standingsSource}
         text={draftText}
       />
       {redrawPrompt ? (

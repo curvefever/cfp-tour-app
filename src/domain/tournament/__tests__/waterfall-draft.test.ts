@@ -18,6 +18,8 @@ import {
   setWaterfallFinal,
   waterfallDraftFromRounds,
   waterfallFlowEdges,
+  waterfallQualAdvance,
+  waterfallQualCounts,
   waterfallRoundIntake,
   type WaterfallDraft,
 } from '../waterfall-draft';
@@ -105,8 +107,8 @@ describe('parseWaterfallDraft / serializeWaterfallDraft round trip', () => {
   });
 
   it('treats empty text as an empty draft, and an empty draft as empty text', () => {
-    expect(draftOf('')).toEqual({ rounds: [], routes: {} });
-    expect(serializeWaterfallDraft({ rounds: [], routes: {} })).toBe('');
+    expect(draftOf('')).toEqual({ rounds: [], routes: {}, qualRoutes: null });
+    expect(serializeWaterfallDraft({ rounds: [], routes: {}, qualRoutes: null })).toBe('');
   });
 
   it('reads rounds with no routes yet, which the strict parser rejects', () => {
@@ -400,4 +402,168 @@ describe('waterfallDraftFromRounds', () => {
       expect(rebuiltGraph).toEqual({ ok: true, value: result.state.gamemodeConfig.graph });
     },
   );
+});
+
+describe('the Qual source in a draft', () => {
+  const QUAL_DRAFT_GRAPH = `ROUNDS:
+R1 = 2x8
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-24->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated`;
+
+  const qualOptions = { standingsSource: true as const };
+
+  function qualDraft(text: string, rankCount?: number): WaterfallDraft {
+    const parsed = parseWaterfallDraft(text, { ...qualOptions, rankCount });
+    if (!parsed.ok) throw new Error(parsed.error);
+    return parsed.value;
+  }
+
+  function validatedQualRoutes(text: string, registered: number) {
+    const raw = parseWaterfallGraph(text);
+    if (!raw.ok) throw new Error(raw.error);
+    const result = validateAndOrderWaterfallGraph(raw.value, {
+      roomSize: FFA_ROOM_SIZE,
+      entrantCount: registered,
+      standingsSource: true,
+    });
+    if (!result.ok) throw new Error(result.error);
+    return result.value.qualRoutes;
+  }
+
+  it('reads the Qual line into one slot per rank, padded to the ranks shown', () => {
+    const draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    expect(draft.qualRoutes).toHaveLength(37);
+    expect(draft.qualRoutes?.slice(0, 16)).toEqual(Array(16).fill('R1'));
+    expect(draft.qualRoutes?.slice(16, 24)).toEqual(Array(8).fill('R1C'));
+    expect(draft.qualRoutes?.slice(24)).toEqual(Array(13).fill(null));
+  });
+
+  it('writes the Qual line first in ROUTES and leaves eliminated ranks out, and the text round-trips', () => {
+    const draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    const text = serializeWaterfallDraft(draft);
+    expect(text).toContain('ROUTES:\nQual: 1-16->R1, 17-24->R1C\nR1.A:');
+    expect(qualDraft(text, 37)).toEqual(draft);
+    expect(validatedQualRoutes(text, 37)).toEqual(validatedQualRoutes(QUAL_DRAFT_GRAPH, 37));
+  });
+
+  it('round-trips a gap: ranks 17-19 stay eliminated and 20-27 reach R1C', () => {
+    const gapText = QUAL_DRAFT_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C',
+    );
+    const draft = qualDraft(gapText, 31);
+    expect(draft.qualRoutes?.slice(16, 19)).toEqual([null, null, null]);
+    expect(waterfallQualAdvance(draft)).toBe(27);
+    const text = serializeWaterfallDraft(draft);
+    expect(text).toContain('Qual: 1-16->R1, 20-27->R1C');
+    expect(validatedQualRoutes(text, 31)).toEqual(validatedQualRoutes(gapText, 31));
+  });
+
+  it('reads a qualification-table graph with no Qual line as every rank going to the entry round', () => {
+    const draft = qualDraft(SPREADSHEET_GRAPH, 37);
+    expect(draft.qualRoutes).toHaveLength(37);
+    expect(draft.qualRoutes?.slice(0, 32)).toEqual(Array(32).fill('5'));
+    expect(draft.qualRoutes?.slice(32)).toEqual(Array(5).fill(null));
+    // Writing it back adds the explicit line, and it validates to the same routing.
+    const text = serializeWaterfallDraft(draft);
+    expect(text).toContain('Qual: 1-32->5');
+    expect(validatedQualRoutes(text, 37)).toEqual(validatedQualRoutes(SPREADSHEET_GRAPH, 37));
+  });
+
+  it('has no Qual source when the pooling phase is not a qualification table, and ignores a leftover Qual line', () => {
+    const parsed = parseWaterfallDraft(QUAL_DRAFT_GRAPH);
+    expect(parsed.ok && parsed.value.qualRoutes).toBeNull();
+    if (parsed.ok) expect(serializeWaterfallDraft(parsed.value)).not.toContain('Qual');
+  });
+
+  it('writes an all-eliminated Qual routing as an explicit line, so it is never read as "no Qual line"', () => {
+    const blank = blankWaterfallDraft(37, FFA_ROOM_SIZE, qualOptions);
+    expect(blank.qualRoutes).toEqual(Array(37).fill(null));
+    const text = serializeWaterfallDraft(blank);
+    expect(text).toContain('Qual: 1-37->eliminated');
+    expect(qualDraft(text, 37).qualRoutes).toEqual(Array(37).fill(null));
+  });
+
+  it('sends Qual slots with assignWaterfallSlots (label Qual): eliminated and unset are the same', () => {
+    let draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    draft = assignWaterfallSlots(
+      draft,
+      'Qual',
+      [
+        { room: 0, rank: 30 },
+        { room: 0, rank: 31 },
+      ],
+      'R1C',
+    );
+    expect(draft.qualRoutes?.slice(29, 31)).toEqual(['R1C', 'R1C']);
+    draft = assignWaterfallSlots(draft, 'Qual', [{ room: 0, rank: 30 }], 'eliminated');
+    expect(draft.qualRoutes?.[29]).toBeNull();
+    // An unknown destination, or a rank past the last slot, leaves the draft as it was.
+    expect(assignWaterfallSlots(draft, 'Qual', [{ room: 0, rank: 1 }], 'Nowhere')).toBe(draft);
+    expect(assignWaterfallSlots(draft, 'Qual', [{ room: 0, rank: 99 }], 'R1').qualRoutes).toEqual(
+      draft.qualRoutes,
+    );
+  });
+
+  it('counts the Qual source in the flow edges and the round intake', () => {
+    const draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    const edges = waterfallFlowEdges(draft);
+    expect(edges.slice(0, 2)).toEqual([
+      {
+        from: 'Qual',
+        to: 'R1',
+        players: 16,
+        ranksByRoom: { 0: Array.from({ length: 16 }, (_, i) => i + 1) },
+      },
+      {
+        from: 'Qual',
+        to: 'R1C',
+        players: 8,
+        ranksByRoom: { 0: Array.from({ length: 8 }, (_, i) => i + 17) },
+      },
+    ]);
+    const intake = waterfallRoundIntake(draft);
+    expect(intake.incoming).toEqual({ R1: 16, R1C: 8, R2: 8, Final: 8 });
+    expect(intake.startingRound).toBeNull();
+    expect(intake.order).toEqual(['R1', 'R1C', 'R2', 'Final']);
+  });
+
+  it('counts the ranks sent on and eliminated against the registered head count', () => {
+    const draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    expect(waterfallQualCounts(draft.qualRoutes ?? [], 37)).toEqual({ sentOn: 24, eliminated: 13 });
+    expect(waterfallQualCounts(draft.qualRoutes ?? [], null)).toEqual({ sentOn: 24, eliminated: null });
+  });
+
+  it('un-sets Qual slots that pointed at a removed round, and follows a rename', () => {
+    const draft = qualDraft(QUAL_DRAFT_GRAPH, 37);
+    expect(removeWaterfallRound(draft, 'R1C').qualRoutes?.slice(16, 24)).toEqual(Array(8).fill(null));
+    const renamed = renameWaterfallRound(draft, 'R1C', 'Repechage');
+    expect(renamed.ok && renamed.value.qualRoutes?.slice(16, 24)).toEqual(Array(8).fill('Repechage'));
+  });
+
+  it('rebuilds the Qual routing of a generated tournament from its last qualification round', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 37, players: names(37) }),
+      createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'waterfall-bracket',
+        poolingPhase: 'qual-table',
+        waterfallGraph: QUAL_DRAFT_GRAPH,
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const draft = waterfallDraftFromRounds(result.state.rounds, { rankCount: 37 });
+    expect(draft.qualRoutes).toEqual(qualDraft(QUAL_DRAFT_GRAPH, 37).qualRoutes);
+    expect(serializeWaterfallDraft(draft)).toBe(serializeWaterfallDraft(qualDraft(QUAL_DRAFT_GRAPH, 37)));
+  });
 });

@@ -1,6 +1,11 @@
-import type { WaterfallDraft, WaterfallIntake } from '../../../domain/tournament/waterfall-draft';
+import {
+  waterfallQualCounts,
+  type WaterfallDraft,
+  type WaterfallIntake,
+} from '../../../domain/tournament/waterfall-draft';
+import { QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cn } from '../../../components/ui/cn';
-import { destinationColor, roundIntakeBadge } from './waterfall-format';
+import { destinationColor, QUAL_DISPLAY_NAME, roundIntakeBadge } from './waterfall-format';
 
 const badgeClass = {
   ok: 'bg-success-soft text-success',
@@ -27,6 +32,24 @@ export function WaterfallRoundList({
 }) {
   return (
     <div className='flex flex-row flex-wrap gap-1.5 min-[901px]:flex-col'>
+      {draft.qualRoutes ? (
+        <button
+          aria-pressed={selected === QUAL_LABEL}
+          className={cn(
+            'flex cursor-pointer flex-col gap-0.5 rounded-lg border-2 bg-surface-low px-3 py-2 text-left transition hover:bg-surface-hover',
+            selected === QUAL_LABEL ? 'border-primary' : 'border-transparent',
+          )}
+          onClick={() => onSelect(QUAL_LABEL)}
+          type='button'
+        >
+          <span className='flex items-center justify-between gap-2 font-semibold'>
+            <span>{QUAL_DISPLAY_NAME}</span>
+          </span>
+          <span className='text-xs text-muted'>
+            {waterfallQualCounts(draft.qualRoutes, entrantCount).sentOn} sent on
+          </span>
+        </button>
+      ) : null}
       {intake.order.map((label) => {
         const round = draft.rounds.find((candidate) => candidate.label === label);
         if (!round) return null;

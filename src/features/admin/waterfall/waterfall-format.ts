@@ -1,4 +1,4 @@
-import { ELIMINATED } from '../../../domain/tournament/waterfall-bracket';
+import { ELIMINATED, QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import {
   compressWaterfallRanks,
   type WaterfallDraft,
@@ -27,6 +27,14 @@ export function slotKey(room: number, rank: number): string {
 export function parseSlotKey(key: string): WaterfallSlot {
   const [room, rank] = key.split(':').map(Number);
   return { room, rank };
+}
+
+/** The name shown for the Qual source of a graph. */
+export const QUAL_DISPLAY_NAME = 'Qualification table';
+
+/** A flow edge's source: a round label, or the qualification table. */
+export function sourceName(source: string): string {
+  return source === QUAL_LABEL ? QUAL_DISPLAY_NAME : source;
 }
 
 export function destinationName(destination: string): string {

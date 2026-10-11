@@ -5,10 +5,18 @@ import {
   MAX_WATERFALL_ROOM_SIZE,
   type WaterfallDraft,
   type WaterfallDraftRound,
+  type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { Button, Input, Select } from '../../../components/ui';
 import { cn } from '../../../components/ui/cn';
-import { destinationColor, destinationName, formatRanks, slotKey, UNSET_COLOR } from './waterfall-format';
+import {
+  destinationColor,
+  destinationName,
+  formatRanks,
+  QUAL_DISPLAY_NAME,
+  slotKey,
+  UNSET_COLOR,
+} from './waterfall-format';
 
 export const UNSET_OPTION = '__unset__';
 
@@ -24,6 +32,8 @@ export interface RoundEditorActions {
   onResize: (roomCount: number, roomSize: number) => void;
   onSetFinal: (isFinal: boolean) => void;
   onDelete: () => void;
+  /** Shows more ranks in the qualification table (only offered while the head count isn't known). */
+  onAddRanks?: () => void;
 }
 
 const fieldLabelClass = 'block text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase';
@@ -117,19 +127,22 @@ function RoundSettings({ round, actions }: { round: WaterfallDraftRound; actions
 }
 
 function SelectionToolbar({
-  draft,
-  round,
+  destinations,
   pickedCount,
   mirror,
+  showMirror,
+  allowClear,
   actions,
 }: {
-  draft: WaterfallDraft;
-  round: WaterfallDraftRound;
+  destinations: WaterfallDraftRound[];
   pickedCount: number;
   mirror: boolean;
+  /** "Apply to every room": a round has rooms, the qualification table doesn't. */
+  showMirror: boolean;
+  /** "Clear destination": a qualification rank has none to clear, it is simply eliminated. */
+  allowClear: boolean;
   actions: RoundEditorActions;
 }) {
-  const otherRounds = draft.rounds.filter((candidate) => candidate.label !== round.label);
   return (
     <div className='mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-surface-low px-3 py-2.5'>
       <span className='text-sm text-muted'>
@@ -144,15 +157,17 @@ function SelectionToolbar({
         Clear selection
       </Button>
       <span className='flex-1' />
-      <label className='flex items-center gap-2 text-sm'>
-        <input
-          checked={mirror}
-          className='size-4 accent-primary'
-          onChange={(event) => actions.onMirrorChange(event.target.checked)}
-          type='checkbox'
-        />
-        Apply to every room
-      </label>
+      {showMirror ? (
+        <label className='flex items-center gap-2 text-sm'>
+          <input
+            checked={mirror}
+            className='size-4 accent-primary'
+            onChange={(event) => actions.onMirrorChange(event.target.checked)}
+            type='checkbox'
+          />
+          Apply to every room
+        </label>
+      ) : null}
       <div className='w-52'>
         <Select
           aria-label='Send selected ranks to'
@@ -161,22 +176,102 @@ function SelectionToolbar({
           value=''
         >
           <option value=''>Send selected to…</option>
-          {otherRounds.map((candidate) => (
+          {destinations.map((candidate) => (
             <option key={candidate.label} value={candidate.label}>
               {candidate.label}
             </option>
           ))}
           <option value='eliminated'>Eliminated</option>
-          <option value={UNSET_OPTION}>Clear destination</option>
+          {allowClear ? <option value={UNSET_OPTION}>Clear destination</option> : null}
         </Select>
       </div>
     </div>
   );
 }
 
-function slotDescription(destination: string | null): string {
-  if (destination === null) return 'no destination';
+function slotDescription(destination: string | null, emptyMeaning: SlotEmptyMeaning): string {
+  if (destination === null) return emptyMeaning === 'out' ? 'eliminated' : 'no destination';
   return destination === 'eliminated' ? 'eliminated' : `to ${destination}`;
+}
+
+/** What a slot with no destination means: still to be set (a room's rank) or eliminated (a qualification rank). */
+type SlotEmptyMeaning = 'unset' | 'out';
+
+/** One row of clickable rank slots: a room of a round, or the qualification table's standings. */
+function SlotGrid({
+  draft,
+  slots,
+  room,
+  name,
+  emptyMeaning,
+  picked,
+  onPickSlot,
+}: {
+  draft: WaterfallDraft;
+  slots: WaterfallSlotDestination[];
+  room: number;
+  name: string;
+  emptyMeaning: SlotEmptyMeaning;
+  picked: ReadonlySet<string>;
+  onPickSlot?: RoundEditorActions['onPickSlot'];
+}) {
+  const summary = groupRoomByDestination(slots)
+    .map(({ destination, ranks }) => `${formatRanks(ranks)} → ${destinationName(destination)}`)
+    .join('  ·  ');
+  return (
+    <div className='mt-4'>
+      <div className='mb-1.5 flex flex-wrap items-baseline justify-between gap-2'>
+        <b>{name}</b>
+        <span className='font-mono text-xs text-muted'>{summary || 'nothing routed yet'}</span>
+      </div>
+      <div className='flex flex-wrap gap-1.5'>
+        {slots.map((destination, index) => {
+          const rank = index + 1;
+          const isPicked = picked.has(slotKey(room, rank));
+          const color = destinationColor(draft, destination);
+          const className = cn(
+            'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
+            destination === null && 'border-dashed',
+            isPicked && 'ring-2 ring-foreground',
+          );
+          const style = { borderColor: color, backgroundColor: `${color}22` };
+          const emptyText = emptyMeaning === 'out' ? 'out' : 'unset';
+          const content = (
+            <>
+              <span className='text-base font-semibold tabular-nums'>{rank}</span>
+              <span
+                className='max-w-13 truncate text-[0.65rem]'
+                style={{ color: destination === null ? UNSET_COLOR : color }}
+              >
+                {destination === null ? emptyText : destinationName(destination)}
+              </span>
+            </>
+          );
+          const label = `${name}, rank ${rank}, ${slotDescription(destination, emptyMeaning)}`;
+          // No onPickSlot (a read-only editor): a plain div, not a button --
+          // out of the tab order and with no click/hover affordance at all,
+          // rather than a button that merely does nothing when pressed.
+          return onPickSlot ? (
+            <button
+              aria-label={label}
+              aria-pressed={isPicked}
+              className={cn(className, 'cursor-pointer')}
+              key={rank}
+              onClick={(event) => onPickSlot(room, rank, event.shiftKey)}
+              style={style}
+              type='button'
+            >
+              {content}
+            </button>
+          ) : (
+            <div aria-label={label} className={className} key={rank} style={style}>
+              {content}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function RoomSlots({
@@ -192,66 +287,63 @@ function RoomSlots({
   picked: ReadonlySet<string>;
   onPickSlot?: RoundEditorActions['onPickSlot'];
 }) {
-  const slots = draft.routes[round.label]?.[room] ?? [];
-  const roomName = round.roomCount > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room';
-  const summary = groupRoomByDestination(slots)
-    .map(({ destination, ranks }) => `${formatRanks(ranks)} → ${destinationName(destination)}`)
-    .join('  ·  ');
   return (
-    <div className='mt-4'>
-      <div className='mb-1.5 flex flex-wrap items-baseline justify-between gap-2'>
-        <b>{roomName}</b>
-        <span className='font-mono text-xs text-muted'>{summary || 'nothing routed yet'}</span>
+    <SlotGrid
+      draft={draft}
+      emptyMeaning='unset'
+      name={round.roomCount > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room'}
+      onPickSlot={onPickSlot}
+      picked={picked}
+      room={room}
+      slots={draft.routes[round.label]?.[room] ?? []}
+    />
+  );
+}
+
+/** The qualification table as a source: one slot per final standing, routed like a room's ranks. A rank left as "out" is eliminated. */
+export function QualificationTableEditor({
+  draft,
+  picked,
+  actions,
+}: {
+  draft: WaterfallDraft;
+  picked: ReadonlySet<string>;
+  actions?: RoundEditorActions;
+}) {
+  const slots = draft.qualRoutes ?? [];
+  return (
+    <div>
+      <div className='flex flex-wrap items-center gap-3'>
+        <b>{QUAL_DISPLAY_NAME}</b>
+        <span className='text-sm text-muted'>
+          Where each final standing goes. Rank 1 is the top of the table; a rank left as "out" is eliminated
+          when qualification ends.
+        </span>
       </div>
-      <div className='flex flex-wrap gap-1.5'>
-        {slots.map((destination, index) => {
-          const rank = index + 1;
-          const isPicked = picked.has(slotKey(room, rank));
-          const color = destinationColor(draft, destination);
-          const className = cn(
-            'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
-            destination === null && 'border-dashed',
-            isPicked && 'ring-2 ring-foreground',
-          );
-          const style = { borderColor: color, backgroundColor: `${color}22` };
-          const content = (
-            <>
-              <span className='text-base font-semibold tabular-nums'>{rank}</span>
-              <span
-                className='max-w-13 truncate text-[0.65rem]'
-                style={{ color: destination === null ? UNSET_COLOR : color }}
-              >
-                {destination === null ? 'unset' : destinationName(destination)}
-              </span>
-            </>
-          );
-          // No onPickSlot (a read-only editor): a plain div, not a button --
-          // out of the tab order and with no click/hover affordance at all,
-          // rather than a button that merely does nothing when pressed.
-          return onPickSlot ? (
-            <button
-              aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
-              aria-pressed={isPicked}
-              className={cn(className, 'cursor-pointer')}
-              key={rank}
-              onClick={(event) => onPickSlot(room, rank, event.shiftKey)}
-              style={style}
-              type='button'
-            >
-              {content}
-            </button>
-          ) : (
-            <div
-              aria-label={`${roomName}, rank ${rank}, ${slotDescription(destination)}`}
-              className={className}
-              key={rank}
-              style={style}
-            >
-              {content}
-            </div>
-          );
-        })}
-      </div>
+      {actions ? (
+        <SelectionToolbar
+          actions={actions}
+          allowClear={false}
+          destinations={draft.rounds}
+          mirror={false}
+          pickedCount={picked.size}
+          showMirror={false}
+        />
+      ) : null}
+      <SlotGrid
+        draft={draft}
+        emptyMeaning='out'
+        name={QUAL_DISPLAY_NAME}
+        onPickSlot={actions?.onPickSlot}
+        picked={picked}
+        room={0}
+        slots={slots}
+      />
+      {actions?.onAddRanks ? (
+        <Button className='mt-3' onClick={actions.onAddRanks} size='sm'>
+          + Add ranks
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -311,10 +403,11 @@ export function WaterfallRoundEditor({
           {actions ? (
             <SelectionToolbar
               actions={actions}
-              draft={draft}
+              allowClear
+              destinations={draft.rounds.filter((candidate) => candidate.label !== round.label)}
               mirror={mirror}
               pickedCount={picked.size}
-              round={round}
+              showMirror
             />
           ) : null}
           {Array.from({ length: round.roomCount }, (_, room) => (

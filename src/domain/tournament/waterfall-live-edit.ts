@@ -1,11 +1,14 @@
+import { isQualCutoffKey, orderedQualificationTable } from './advancement';
+import { rosterKeys } from './roster';
 import { rewindRoomHistory } from './seeding';
 import { roundHasAnyScore } from './scoring';
-import { routeWaterfallRound, seedRoundFromPendingPool } from './transitions';
+import { routeStandings, routeWaterfallRound, seedRoundFromPendingPool } from './transitions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
+  waterfallStandingsRoutes,
 } from './waterfall-bracket';
 
 /**
@@ -28,6 +31,16 @@ function sameNameSet(assignments: { name: string }[], seeds: PendingBracketSeed[
   return existing.size === replayed.size && [...existing].every((name) => replayed.has(name));
 }
 
+/**
+ * A qualification-table tournament's graph has a Qual source: the last
+ * qualification round carries the standings routing (`standingsRoutes`) and
+ * `cfg.qualAdv` is the highest rank it sends on.
+ */
+function lastQualificationIndex(state: TournamentState, firstWaterfallIndex: number): number {
+  const index = state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
+  return index >= 0 && index < firstWaterfallIndex ? index : -1;
+}
+
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const firstWaterfallIndex = state.rounds.findIndex((round) => round.isWaterfall);
   if (firstWaterfallIndex === -1) {
@@ -40,7 +53,11 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   }
 
   const entryRound = state.rounds[firstWaterfallIndex];
-  const entrantCount = entryRound.players;
+  const qualIndex =
+    state.cfg.poolingPhase === 'qual-table' ? lastQualificationIndex(state, firstWaterfallIndex) : -1;
+  const standingsSource = qualIndex !== -1;
+  // With a Qual source the head count is the units still registered (a withdrawal shrinks it), not the entry round's size.
+  const entrantCount = standingsSource ? rosterKeys(state.players).length : entryRound.players;
   // Empty while still in pooling (the bracket hasn't been entered yet).
   const reachedCount = Math.max(0, state.curRound - firstWaterfallIndex + 1);
   const reached = state.rounds.slice(firstWaterfallIndex, firstWaterfallIndex + reachedCount);
@@ -48,7 +65,12 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
 
   const parsed = parseWaterfallGraph(text);
   if (!parsed.ok) return { ok: false, error: parsed.error };
-  const validated = validateAndOrderWaterfallGraph(parsed.value, { roomSize, entrantCount, fixedPrefix });
+  const validated = validateAndOrderWaterfallGraph(parsed.value, {
+    roomSize,
+    entrantCount,
+    fixedPrefix,
+    standingsSource,
+  });
   if (!validated.ok) return { ok: false, error: validated.error };
   const graph = validated.value;
 
@@ -72,7 +94,11 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     }
   }
 
-  const materialized = waterfallBracketPhase(entrantCount, entryRound.roundNum, { graph, finalsGames });
+  const materialized = waterfallBracketPhase(graph.qualRoutes?.length ?? entrantCount, entryRound.roundNum, {
+    graph,
+    finalsGames,
+  });
+  const standingsRoutes = waterfallStandingsRoutes(graph, entryRound.roundNum);
   // Reached rounds keep their own round object (scores, numGames,
   // anonymousGames, ... untouched) -- only their routing and the advancement
   // total it implies are replaced. Unreached rounds are wholly new.
@@ -83,7 +109,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
 
   const keptLength = firstWaterfallIndex + reached.length;
   const tailLength = newBracketRounds.length - reached.length;
-  const rounds = [...state.rounds.slice(0, firstWaterfallIndex), ...newBracketRounds];
+  const poolingRounds = state.rounds
+    .slice(0, firstWaterfallIndex)
+    .map((round, index) => (index === qualIndex && standingsRoutes ? { ...round, standingsRoutes } : round));
+  const rounds = [...poolingRounds, ...newBracketRounds];
   const assignments = [
     ...state.assignments.slice(0, keptLength),
     ...Array.from({ length: tailLength }, (): TournamentState['assignments'][number] => []),
@@ -97,25 +126,48 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     ...Array.from({ length: tailLength }, (): string[] => []),
   ];
 
-  let working: TournamentState = { ...state, rounds, assignments, byes, luckyLosers };
+  const qualAdv = graph.qualRoutes?.length ?? state.cfg.qualAdv;
+  // A tie resolution made for the old cut lines can't be trusted for new ones, but once the bracket is
+  // entered the draw already used them, so they stay.
+  const routingChanged =
+    JSON.stringify(state.rounds[qualIndex]?.standingsRoutes) !== JSON.stringify(standingsRoutes);
+  const dropStaleTies = standingsSource && routingChanged && reachedCount === 0;
+  const tieResolutions = dropStaleTies
+    ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isQualCutoffKey(key)))
+    : state.tieResolutions;
+  let working: TournamentState = {
+    ...state,
+    cfg: { ...state.cfg, qualAdv },
+    rounds,
+    assignments,
+    byes,
+    luckyLosers,
+    tieResolutions,
+  };
 
   // Replay every already-played waterfall round (up to, but not including,
   // curRound -- curRound itself hasn't been advanced from yet) under the new
   // routing, accumulating per-destination pools exactly as advanceTournamentRound
   // would across a sequence of real advances.
   const replayPools = new Map<number, PendingBracketSeed[]>();
-  for (let index = firstWaterfallIndex; index < state.curRound; index += 1) {
-    const additions = routeWaterfallRound(working, index, working.rounds[index]);
+  const addToReplay = (additions: Map<number, PendingBracketSeed[]>) => {
     for (const [destination, seeds] of additions) {
       replayPools.set(destination, [...(replayPools.get(destination) ?? []), ...seeds]);
     }
+  };
+  // Once the bracket is entered, the qualification table has already been routed through the Qual source.
+  if (standingsSource && state.curRound >= firstWaterfallIndex) {
+    addToReplay(routeStandings(orderedQualificationTable(working).ordered, working.rounds[qualIndex]));
+  }
+  for (let index = firstWaterfallIndex; index < state.curRound; index += 1) {
+    addToReplay(routeWaterfallRound(working, index, working.rounds[index]));
   }
 
-  // Compare every reached round but the entry round (which has no inbound
-  // routes, so its line-up can never change) against what the new routing
-  // would have produced.
+  // Compare every reached round against what the new routing would have
+  // produced -- except, without a Qual source, the entry round (which has no
+  // inbound routes, so its line-up can never change).
   let redrawnRound: string | null = null;
-  for (let index = firstWaterfallIndex + 1; index < keptLength; index += 1) {
+  for (let index = firstWaterfallIndex + (standingsSource ? 0 : 1); index < keptLength; index += 1) {
     const round = working.rounds[index];
     if (sameNameSet(working.assignments[index] ?? [], replayPools.get(index) ?? [])) continue;
     if (index < state.curRound) {

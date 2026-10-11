@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { waterfallFlowEdges, type WaterfallDraft } from '../../../domain/tournament/waterfall-draft';
 import { Alert, Button } from '../../../components/ui';
-import { describeFlowEdge, destinationColor, destinationName } from './waterfall-format';
+import { describeFlowEdge, destinationColor, destinationName, sourceName } from './waterfall-format';
 
 export type GraphStatus = { ok: true } | { ok: false; error: string };
 
@@ -9,11 +9,14 @@ export function WaterfallSidePanel({
   draft,
   status,
   entrantCount,
+  standingsSource,
   text,
 }: {
   draft: WaterfallDraft;
   status: GraphStatus;
   entrantCount: number | null;
+  /** The graph is fed by a qualification table, so `entrantCount` is the registered head count. */
+  standingsSource: boolean;
   text: string;
 }) {
   // Remember which text was copied, so the label reverts once the graph changes.
@@ -35,8 +38,9 @@ export function WaterfallSidePanel({
           <b>Ready to generate.</b>
           {entrantCount === null ? (
             <span className='mt-1 block text-xs'>
-              Load a roster (and set "Advance to bracket") to also check the starting round against your
-              entering players.
+              {standingsSource
+                ? 'Load a roster to also check the routed ranks against your registered players.'
+                : 'Load a roster (and set "Advance to bracket") to also check the starting round against your entering players.'}
             </span>
           ) : null}
         </Alert>
@@ -58,7 +62,7 @@ export function WaterfallSidePanel({
             style={{ background: destinationColor(draft, edge.to) }}
           />
           <span>
-            <b>{edge.from}</b> → {destinationName(edge.to)}{' '}
+            <b>{sourceName(edge.from)}</b> → {destinationName(edge.to)}{' '}
             <span className='text-muted'>
               {edge.players} player{edge.players > 1 ? 's' : ''} ·{' '}
               {describeFlowEdge(edge, roomCountOf(edge.from))}

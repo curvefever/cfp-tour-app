@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { RoomSize } from '../../../domain/tournament/types';
 import {
   parseWaterfallGraph,
+  QUAL_LABEL,
   validateAndOrderWaterfallGraph,
 } from '../../../domain/tournament/waterfall-bracket';
 import {
@@ -14,12 +15,19 @@ import {
   resizeWaterfallRound,
   serializeWaterfallDraft,
   setWaterfallFinal,
+  waterfallQualCounts,
   waterfallRoundIntake,
   type WaterfallDraft,
+  type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { WATERFALL_EXAMPLES } from '../../../domain/tournament/waterfall-examples';
 import { Alert, Button, ButtonRow } from '../../../components/ui';
-import { UNSET_OPTION, WaterfallRoundEditor, type RoundEditorActions } from './WaterfallRoundEditor';
+import {
+  QualificationTableEditor,
+  UNSET_OPTION,
+  WaterfallRoundEditor,
+  type RoundEditorActions,
+} from './WaterfallRoundEditor';
 import { WaterfallRoundList } from './WaterfallRoundList';
 import { WaterfallSidePanel, type GraphStatus } from './WaterfallSidePanel';
 import { parseSlotKey, slotKey } from './waterfall-format';
@@ -28,9 +36,11 @@ interface EditorProps {
   /** The persisted ROUNDS:/ROUTES: text; the editor reads it and writes it back on every change. */
   text: string;
   onChange: (text: string) => void;
-  /** Players entering the bracket, or null while it can't be known yet. */
+  /** Players entering the bracket (with `standingsSource`: the players registered), or null while it can't be known yet. */
   entrantCount: number | null;
   roomSize: RoomSize;
+  /** The graph is fed by a qualification table: its final standings are a source of the graph, routed by rank. Default false. */
+  standingsSource?: boolean;
   /** No control that changes the graph is rendered; the round list, room tables and side panel still show. */
   readOnly?: boolean;
   /** Labels of rounds that have already started: rename/resize/remove/Final-toggle are hidden for them, but their own routing stays editable. */
@@ -46,7 +56,10 @@ function roundHasRoutedSlots(draft: WaterfallDraft, label: string): boolean {
 }
 
 function hasRoutedSlots(draft: WaterfallDraft): boolean {
-  return draft.rounds.some((round) => roundHasRoutedSlots(draft, round.label));
+  return (
+    draft.rounds.some((round) => roundHasRoutedSlots(draft, round.label)) ||
+    (draft.qualRoutes ?? []).some((slot) => slot !== null)
+  );
 }
 
 function StartButtons({ onBlank, onExample }: { onBlank?: () => void; onExample: (text: string) => void }) {
@@ -66,6 +79,30 @@ function StartButtons({ onBlank, onExample }: { onBlank?: () => void; onExample:
   );
 }
 
+/** "Players registered: 37 · sent on: 24 · eliminated: 13". */
+function QualificationHeader({
+  entrantCount,
+  qualRoutes,
+}: {
+  entrantCount: number | null;
+  qualRoutes: WaterfallSlotDestination[];
+}) {
+  const { sentOn, eliminated } = waterfallQualCounts(qualRoutes, entrantCount);
+  return (
+    <span className='text-sm'>
+      Players registered: <b>{entrantCount ?? 'not known yet'}</b> · sent on: <b>{sentOn}</b>
+      {eliminated === null ? (
+        <span className='text-xs text-muted'> (load a roster to see how many are eliminated)</span>
+      ) : (
+        <>
+          {' '}
+          · eliminated: <b>{eliminated}</b>
+        </>
+      )}
+    </span>
+  );
+}
+
 function DraftEditor({
   draft,
   text,
@@ -77,12 +114,18 @@ function DraftEditor({
   lockedRounds,
   currentRoundLabel,
   allowReplace = true,
-}: EditorProps & { draft: WaterfallDraft; status: GraphStatus }) {
+  standingsSource = false,
+  onAddRanks,
+}: EditorProps & { draft: WaterfallDraft; status: GraphStatus; onAddRanks?: () => void }) {
   const [selectedLabel, setSelectedLabel] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [lastRank, setLastRank] = useState<number | null>(null);
   const [mirror, setMirror] = useState(true);
   const round = draft.rounds.find((candidate) => candidate.label === selectedLabel) ?? draft.rounds[0];
+  const qualSelected = draft.qualRoutes !== null && (selectedLabel === QUAL_LABEL || selectedLabel === '');
+  // The slots being picked: a round's rooms, or the qualification table's single row of ranks.
+  const roomCount = qualSelected ? 1 : round.roomCount;
+  const slotsPerRoom = qualSelected ? (draft.qualRoutes?.length ?? 0) : round.roomSize;
   const intake = waterfallRoundIntake(draft);
 
   const clearPicked = () => {
@@ -102,7 +145,7 @@ function DraftEditor({
 
   const actions: RoundEditorActions = {
     onPickSlot: (room, rank, extend) => {
-      const rooms = mirror ? Array.from({ length: round.roomCount }, (_, index) => index) : [room];
+      const rooms = mirror && !qualSelected ? Array.from({ length: roomCount }, (_, index) => index) : [room];
       const from = extend && lastRank !== null ? Math.min(lastRank, rank) : rank;
       const to = extend && lastRank !== null ? Math.max(lastRank, rank) : rank;
       const turnOn = !picked.has(slotKey(room, rank));
@@ -118,8 +161,8 @@ function DraftEditor({
     },
     onSelectAll: () => {
       const all = new Set<string>();
-      for (let room = 0; room < round.roomCount; room += 1) {
-        for (let rank = 1; rank <= round.roomSize; rank += 1) all.add(slotKey(room, rank));
+      for (let room = 0; room < roomCount; room += 1) {
+        for (let rank = 1; rank <= slotsPerRoom; rank += 1) all.add(slotKey(room, rank));
       }
       setPicked(all);
     },
@@ -128,7 +171,12 @@ function DraftEditor({
     onSend: (destination) => {
       const slots = [...picked].map(parseSlotKey);
       commit(
-        assignWaterfallSlots(draft, round.label, slots, destination === UNSET_OPTION ? null : destination),
+        assignWaterfallSlots(
+          draft,
+          qualSelected ? QUAL_LABEL : round.label,
+          slots,
+          destination === UNSET_OPTION ? null : destination,
+        ),
       );
     },
     onRename: (name) => {
@@ -151,6 +199,7 @@ function DraftEditor({
       }
       commit(setWaterfallFinal(draft, round.label, isFinal));
     },
+    onAddRanks,
     onDelete: () => {
       const isDestination = (intake.incoming[round.label] ?? 0) > 0;
       if (
@@ -175,7 +224,7 @@ function DraftEditor({
   const startBlank = () => {
     if (!confirmReplace()) return;
     setSelectedLabel('');
-    commit(blankWaterfallDraft(entrantCount, roomSize));
+    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource }));
   };
   const loadExample = (exampleText: string) => {
     if (!confirmReplace()) return;
@@ -187,12 +236,16 @@ function DraftEditor({
   return (
     <div>
       <div className='mb-3 flex flex-wrap items-center gap-2'>
-        <span className='text-sm'>
-          Players entering the bracket: <b>{entrantCount ?? 'not known yet'}</b>
-          {entrantCount === null ? (
-            <span className='text-xs text-muted'> (load a roster and set "Advance to bracket")</span>
-          ) : null}
-        </span>
+        {standingsSource && draft.qualRoutes ? (
+          <QualificationHeader entrantCount={entrantCount} qualRoutes={draft.qualRoutes} />
+        ) : (
+          <span className='text-sm'>
+            Players entering the bracket: <b>{entrantCount ?? 'not known yet'}</b>
+            {entrantCount === null ? (
+              <span className='text-xs text-muted'> (load a roster and set "Advance to bracket")</span>
+            ) : null}
+          </span>
+        )}
         {readOnly || !allowReplace ? null : (
           <>
             <span className='flex-1' />
@@ -213,7 +266,7 @@ function DraftEditor({
             intake={intake}
             lockedRounds={lockedRounds}
             onSelect={select}
-            selected={round.label}
+            selected={qualSelected ? QUAL_LABEL : round.label}
           />
           {readOnly ? null : (
             <Button className='mt-2 w-full' onClick={addRound} size='sm'>
@@ -221,16 +274,26 @@ function DraftEditor({
             </Button>
           )}
         </div>
-        <WaterfallRoundEditor
-          actions={readOnly ? undefined : actions}
+        {qualSelected ? (
+          <QualificationTableEditor actions={readOnly ? undefined : actions} draft={draft} picked={picked} />
+        ) : (
+          <WaterfallRoundEditor
+            actions={readOnly ? undefined : actions}
+            draft={draft}
+            incomingPlayers={intake.incoming[round.label] ?? 0}
+            locked={lockedRounds?.has(round.label)}
+            mirror={mirror}
+            picked={picked}
+            round={round}
+          />
+        )}
+        <WaterfallSidePanel
           draft={draft}
-          incomingPlayers={intake.incoming[round.label] ?? 0}
-          locked={lockedRounds?.has(round.label)}
-          mirror={mirror}
-          picked={picked}
-          round={round}
+          entrantCount={entrantCount}
+          standingsSource={standingsSource}
+          status={status}
+          text={text}
         />
-        <WaterfallSidePanel draft={draft} entrantCount={entrantCount} status={status} text={text} />
       </div>
     </div>
   );
@@ -245,18 +308,32 @@ export function WaterfallGraphEditor({
   lockedRounds,
   currentRoundLabel,
   allowReplace = true,
+  standingsSource = false,
 }: EditorProps) {
-  const parsed = useMemo(() => parseWaterfallDraft(text), [text]);
+  // Ranks shown past the last routed one while the head count isn't known ("+ Add ranks").
+  const [extraRanks, setExtraRanks] = useState(0);
   const { min, max, ideal } = roomSize;
+  const parsed = useMemo(
+    () =>
+      parseWaterfallDraft(text, {
+        standingsSource,
+        rankCount: entrantCount ?? undefined,
+        padRanks: max + extraRanks,
+      }),
+    [text, standingsSource, entrantCount, max, extraRanks],
+  );
+  const raw = useMemo(() => parseWaterfallGraph(text, { allowIncomplete: true }), [text]);
   const status = useMemo<GraphStatus>(() => {
-    const raw = parseWaterfallGraph(text, { allowIncomplete: true });
     if (!raw.ok) return { ok: false, error: raw.error };
     const validated = validateAndOrderWaterfallGraph(raw.value, {
       roomSize: { min, max, ideal },
       entrantCount: entrantCount ?? undefined,
+      standingsSource,
     });
     return validated.ok ? { ok: true } : { ok: false, error: validated.error };
-  }, [text, min, max, ideal, entrantCount]);
+  }, [raw, min, max, ideal, entrantCount, standingsSource]);
+  // A Qual line left over from a qualification table: the table below ignores it, and writing the graph back drops it.
+  const hasStrayQualLine = !standingsSource && raw.ok && raw.value.qualBands !== null;
 
   if (!parsed.ok) {
     return (
@@ -292,7 +369,11 @@ export function WaterfallGraphEditor({
           <ButtonRow>
             <Button
               onClick={() =>
-                onChange(serializeWaterfallDraft(blankWaterfallDraft(entrantCount, { min, max, ideal })))
+                onChange(
+                  serializeWaterfallDraft(
+                    blankWaterfallDraft(entrantCount, { min, max, ideal }, { standingsSource }),
+                  ),
+                )
               }
               variant='primary'
             >
@@ -306,17 +387,33 @@ export function WaterfallGraphEditor({
   }
 
   return (
-    <DraftEditor
-      allowReplace={allowReplace}
-      currentRoundLabel={currentRoundLabel}
-      draft={parsed.value}
-      entrantCount={entrantCount}
-      lockedRounds={lockedRounds}
-      onChange={onChange}
-      readOnly={readOnly}
-      roomSize={roomSize}
-      status={status}
-      text={text}
-    />
+    <>
+      {hasStrayQualLine && !readOnly ? (
+        <Alert className='mb-3' tone='info'>
+          <p>
+            This graph has a Qual line, but this tournament has no qualification table, so it can't be used.
+          </p>
+          <ButtonRow className='mt-2'>
+            <Button onClick={() => onChange(serializeWaterfallDraft(parsed.value))} size='sm'>
+              Remove the Qual line
+            </Button>
+          </ButtonRow>
+        </Alert>
+      ) : null}
+      <DraftEditor
+        allowReplace={allowReplace}
+        currentRoundLabel={currentRoundLabel}
+        draft={parsed.value}
+        entrantCount={entrantCount}
+        lockedRounds={lockedRounds}
+        onAddRanks={entrantCount === null ? () => setExtraRanks((count) => count + max) : undefined}
+        onChange={onChange}
+        readOnly={readOnly}
+        roomSize={roomSize}
+        standingsSource={standingsSource}
+        status={status}
+        text={text}
+      />
+    </>
   );
 }

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { orderedQualificationTable } from '../advancement';
 import { generateTournament } from '../generation';
+import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { scoreCurrentRound } from './play-through';
+import { playThrough, scoreCurrentRound } from './play-through';
+import { QUAL_GRAPH, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
 function names(count: number): string[] {
@@ -120,9 +123,9 @@ ROUTES:
     expect(result.state.rounds.map((round) => round.customLabel).filter(Boolean)).toEqual(['5', 'Final']);
   });
 
-  it('refuses a replacement graph whose entry total no longer matches the real entrant count', () => {
+  it('reads an entry round of a different size as the qualification table sending that many ranks on', () => {
     const state = buildTournament();
-    const mismatched = `
+    const smaller = `
 ROUNDS:
 5 = 4x7
 Final = 8 FINAL
@@ -133,10 +136,33 @@ ROUTES:
 5.C: 1-7->eliminated
 5.D: 1-7->eliminated
 `;
-    const result = applyWaterfallGraphEdit(state, mismatched);
+    const result = applyWaterfallGraphEdit(state, smaller);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // No Qual line: ranks 1-28 go to the entry round, so "Advance to bracket" becomes 28.
+    expect(result.state.cfg.qualAdv).toBe(28);
+  });
+
+  it('refuses a graph that routes more qualification ranks than there are units left in the roster', () => {
+    const state = buildTournament();
+    const tooMany = [
+      'ROUNDS:',
+      '5 = 5x8',
+      'Final = 8 FINAL',
+      '',
+      'ROUTES:',
+      'Qual: 1-40->5',
+      '5.A: 1-2->Final, 3-8->eliminated',
+      '5.B: 1-2->Final, 3-8->eliminated',
+      '5.C: 1-2->Final, 3-8->eliminated',
+      '5.D: 1-2->Final, 3-8->eliminated',
+      '5.E: 1-8->eliminated',
+    ].join(String.fromCharCode(10));
+    const result = applyWaterfallGraphEdit(state, tooMany);
     expect(result.ok).toBe(false);
     if (result.ok) return;
-    expect(result.error).toContain('must match exactly');
+    expect(result.error).toContain('rank 40');
+    expect(result.error).toContain('only 37 players are registered');
   });
 
   it('current round = the entry round: changing its routes is saved, nothing re-drawn', () => {
@@ -404,5 +430,118 @@ SemiB: 1-4->Final, 5-8->eliminated
     expect(current.curRound).toBe(finalIndex);
     expect(current.rounds[finalIndex].numGames).toBe(finalNumGames);
     expect(current.rounds[finalIndex].isFinal).toBe(true);
+  });
+});
+
+describe('applyWaterfallGraphEdit -- a graph with a Qual source', () => {
+  const standings = (state: TournamentState) =>
+    orderedQualificationTable(state).ordered.map((entry) => entry.name);
+  const indexOf = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+  const pool = (state: TournamentState, label: string) =>
+    (state.pendingBracketSeeds[indexOf(state, label)] ?? []).map((seed) => seed.name);
+  const seated = (state: TournamentState, label: string) =>
+    (state.assignments[indexOf(state, label)] ?? []).map((entry) => entry.name);
+  const GAP_QUAL = 'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C';
+
+  function enterBracket(registered: number): TournamentState {
+    const result = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(registered)));
+    if (result.status !== 'advanced') throw new Error('the pooling exit did not advance');
+    return result.state;
+  }
+
+  it('during qualification, moves a gap into the routing: 17-19 out, 20-27 to R1C, qualAdv follows (43 registered)', () => {
+    const state = { ...buildQualWaterfall(43), tieResolutions: { 'qual-cutoff': ['P1'] } };
+    expect(state.cfg.qualAdv).toBe(24);
+    const result = applyWaterfallGraphEdit(state, QUAL_GRAPH.replace('Qual: 1-16->R1, 17-24->R1C', GAP_QUAL));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const edited = result.state;
+    expect(edited.cfg.qualAdv).toBe(27);
+    const lastQual = edited.rounds.filter((round) => round.isQual).at(-1);
+    const r1 = indexOf(edited, 'R1');
+    const r1c = indexOf(edited, 'R1C');
+    expect(lastQual?.standingsRoutes).toEqual([
+      ...Array(16).fill(r1),
+      'eliminated',
+      'eliminated',
+      'eliminated',
+      ...Array(8).fill(r1c),
+    ]);
+    // The old cut lines' tie resolution no longer applies.
+    expect(edited.tieResolutions['qual-cutoff']).toBeUndefined();
+    // Playing on routes by the new bands.
+    const exit = playToQualificationExit(edited);
+    const order = standings(exit);
+    const next = advanceTournamentRound(exit);
+    expect(next.status).toBe('advanced');
+    if (next.status !== 'advanced') return;
+    expect(pool(next.state, 'R1C')).toEqual(order.slice(19, 27));
+    expect(new Set(seated(next.state, 'R1'))).toEqual(new Set(order.slice(0, 16)));
+  });
+
+  it('during qualification, refuses a routing that reaches past the units still in the roster', () => {
+    const start = buildQualWaterfall(31);
+    // Four withdrawals leave 27 units; the graph still routes up to rank 27, so it is fine ...
+    let state = start;
+    for (const name of start.assignments[0].slice(0, 4).map((entry) => entry.name)) {
+      state = removeRosterUnit(state, name);
+    }
+    expect(applyWaterfallGraphEdit(state, QUAL_GRAPH.replace('17-24->R1C', '20-27->R1C')).ok).toBe(true);
+    // ... but one more withdrawal puts rank 27 out of reach, by roster size, not by the registered count.
+    state = removeRosterUnit(state, start.assignments[0][4].name);
+    const result = applyWaterfallGraphEdit(state, QUAL_GRAPH.replace('17-24->R1C', '20-27->R1C'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('only 26 players are registered');
+  });
+
+  it('once the bracket is entered, re-draws an unscored R1 when the edit changes its line-up', () => {
+    const state = enterBracket(43);
+    const order = standings(state);
+    const swapped = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-15->R1, 16->R1C, 17->R1, 18-24->R1C',
+    );
+    const result = applyWaterfallGraphEdit(state, swapped);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.redrawnRound).toBe('R1');
+    expect(new Set(seated(result.state, 'R1'))).toEqual(new Set([...order.slice(0, 15), order[16]]));
+    expect(pool(result.state, 'R1C')).toEqual([order[15], ...order.slice(17, 24)]);
+  });
+
+  it('once the bracket is entered, refuses an edit that would change a scored R1', () => {
+    const state = scoreCurrentRound(enterBracket(43), 0);
+    const swapped = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-15->R1, 16->R1C, 17->R1, 18-24->R1C',
+    );
+    const result = applyWaterfallGraphEdit(state, swapped);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('a score has already been entered in "R1"');
+  });
+
+  it("accepts an edit that only changes R1C's Qual band before R1C is drawn, and updates its pending pool", () => {
+    const state = enterBracket(43);
+    const order = standings(state);
+    const shifted = QUAL_GRAPH.replace('17-24->R1C', '17-23->R1C, 25->R1C');
+    const result = applyWaterfallGraphEdit(state, shifted);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.redrawnRound).toBeNull();
+    expect(result.state.cfg.qualAdv).toBe(25);
+    expect(new Set(pool(result.state, 'R1C'))).toEqual(new Set([...order.slice(16, 23), order[24]]));
+    // R1 keeps its rooms.
+    expect(seated(result.state, 'R1')).toEqual(seated(state, 'R1'));
+  });
+
+  it('plays on to the Final after an edit during qualification', () => {
+    const state = buildQualWaterfall(37);
+    const edited = applyWaterfallGraphEdit(state, QUAL_GRAPH.replace('Qual: 1-16->R1, 17-24->R1C', GAP_QUAL));
+    expect(edited.ok).toBe(true);
+    if (!edited.ok) return;
+    expect(playThrough(edited.state, 0, null)).toEqual({ kind: 'ok' });
   });
 });
