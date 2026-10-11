@@ -23,7 +23,7 @@ Follow-up to "The qualification table as a source in the waterfall graph" (same 
 ### Testing
 - Bands: 37 registered (1–16 / 17–24 / 25+), the gap graph at 31 (1–16, 17–19 out, 20–27, 28+), no bands without `standingsRoutes` and after a plain single elimination.
 - Rankings at 37 and 53 registered: 24 still in (16 drawn in R1 + 8 waiting with `waitingFor` = R1C and no room), 13 / 29 eliminated, eliminated ranks start at 25; after R1 is played and R1C drawn the 8 have a room and no `waitingFor`; the double-elimination deferred loser is listed as waiting; a unit both drawn and pooled is listed once; no waiting units once the Final is complete.
-- Live check on the test site, view only, no scores, no Next Round (see below).
+- Live check on the test site (2026-10-11, after pushing c79e4b5), view only, no scores, no Next Round, on the throwaway Qual tournament (37 players, now at R1): the last qualification round's badge reads "1–16 → R1 · 17–24 → R1C · 25+ out"; the Bracket tab's standings block shows three labelled separators ("→ R1", "→ R1C", "out") instead of the single cut line; Rankings lists the 16 R1 units with their room and the 8 units waiting for R1C under "Still in tournament" as "Waiting for Round 4", with the 13 units below rank 24 under Final standings (reduced-scale screenshot taken). Rankings names rounds by number everywhere (R1 shows as "Round 3"), so the waiting line says "Round 4" for R1C, not the graph's own label; this follows Rankings' existing convention and was left as is.
 
 ### Out of scope
 The rankings PNG wording for waiting units; ordering waiting units differently from drawn ones; any change to who advances or where.
