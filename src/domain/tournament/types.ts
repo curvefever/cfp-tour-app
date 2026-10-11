@@ -92,6 +92,8 @@ export interface TournamentRound {
   isWaterfall?: boolean;
   /** Index-aligned with `rooms`; within a room, index-aligned with rank (`waterfallRoutes[room][rank - 1]` is that rank's destination). A destination is an absolute index into `state.rounds`, resolved at generation time from the organiser's graph -- or 'eliminated'. Only set when isWaterfall is true. */
   waterfallRoutes?: Array<Array<number | 'eliminated'>>;
+  /** Set on the last qualification round when the waterfall graph has a Qual source: where each final standing goes. Index = standings rank - 1; a destination is an absolute index into `state.rounds` (or 'eliminated'), the same convention as `waterfallRoutes`. Its length is the highest routed rank; every rank past the end is eliminated. */
+  standingsRoutes?: Array<number | 'eliminated'>;
   /** The organiser's own round label from the waterfall graph (e.g. "SemiA", "6B"), read by bracketRoundLabels() instead of a synthetic "Round N". Only set when isWaterfall is true. */
   customLabel?: string;
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */

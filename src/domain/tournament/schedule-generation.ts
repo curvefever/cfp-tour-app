@@ -16,7 +16,11 @@ import {
 } from './double-elimination';
 import { kingsValleyBracketPhase, type KingsValleyConfig } from './kings-valley';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
-import { waterfallBracketPhase, type WaterfallBracketConfig } from './waterfall-bracket';
+import {
+  waterfallBracketPhase,
+  waterfallStandingsRoutes,
+  type WaterfallBracketConfig,
+} from './waterfall-bracket';
 import type { PoolingPhaseKey, RoomSize, ScheduleLogicKey, TournamentGroup, TournamentRound } from './types';
 
 interface TournamentProgression {
@@ -95,8 +99,19 @@ function buildPoolingPhase(
   }
 }
 
+/** A waterfall graph with a Qual source puts its standings routing on the last qualification round. */
+function withStandingsRoutes(
+  pooledRounds: TournamentRound[],
+  routes: TournamentRound['standingsRoutes'],
+): TournamentRound[] {
+  if (!routes) return pooledRounds;
+  const last = pooledRounds.length - 1;
+  return pooledRounds.map((round, index) => (index === last ? { ...round, standingsRoutes: routes } : round));
+}
+
 export function buildTournamentProgression(input: TournamentProgressionInput): TournamentProgression {
   const pooled = buildPoolingPhase(input);
+  let pooledRounds = pooled.rounds;
   let bracket: TournamentRound[];
   switch (input.bracketPhase) {
     case 'single-elimination':
@@ -113,10 +128,14 @@ export function buildTournamentProgression(input: TournamentProgressionInput): T
       break;
     case 'waterfall-bracket':
       bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
+      pooledRounds = withStandingsRoutes(
+        pooledRounds,
+        waterfallStandingsRoutes(input.format.graph, pooled.nextRoundNum),
+      );
       break;
   }
   return {
-    rounds: [...pooled.rounds, ...bracket],
+    rounds: [...pooledRounds, ...bracket],
     groups: pooled.groups ?? [],
   };
 }

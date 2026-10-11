@@ -7,6 +7,7 @@ import {
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
   waterfallDestination,
+  waterfallStandingsRoutes,
   type OrderedWaterfallGraph,
 } from '../waterfall-bracket';
 import { buildAssignments, buildRound } from './test-fixtures';
@@ -590,5 +591,198 @@ C: 1-8->F
     if (result.ok) return;
     expect(result.error).toContain('"C"');
     expect(result.error).toContain('played after it');
+  });
+});
+
+describe('the Qual source (the qualification table as a route source)', () => {
+  const QUAL_GRAPH = `
+ROUNDS:
+R1 = 2x8
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-24->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated
+`;
+
+  function validateQual(text: string, entrantCount?: number, fixedPrefix?: string[]) {
+    const parsed = parseWaterfallGraph(text);
+    if (!parsed.ok) return parsed;
+    return validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: FFA_ROOM_SIZE,
+      entrantCount,
+      standingsSource: true,
+      fixedPrefix,
+    });
+  }
+
+  it('orders the rounds from the Qual source and resolves the Qual ranks to graph indices', () => {
+    const result = validateQual(QUAL_GRAPH, 37);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.rounds.map((round) => round.label)).toEqual(['R1', 'R1C', 'R2', 'Final']);
+    expect(result.value.qualRoutes).toEqual([...Array(16).fill(0), ...Array(8).fill(1)]);
+  });
+
+  it('keeps an explicit eliminated band in the middle of the Qual line and counts the highest routed rank as its length', () => {
+    const gapGraph = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C',
+    );
+    const result = validateQual(gapGraph, 31);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.qualRoutes).toHaveLength(27);
+    expect(result.value.qualRoutes?.slice(16, 19)).toEqual(['eliminated', 'eliminated', 'eliminated']);
+    expect(result.value.qualRoutes?.slice(19)).toEqual(Array(8).fill(1));
+  });
+
+  it('treats a rank the Qual line never mentions as eliminated', () => {
+    const result = validateQual(QUAL_GRAPH.replace('17-24->R1C', '20-27->R1C'), 31);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.qualRoutes?.slice(16, 19)).toEqual(['eliminated', 'eliminated', 'eliminated']);
+  });
+
+  it('refuses a graph that routes more qualification ranks than there are registered players (rule 9)', () => {
+    const result = validateQual(QUAL_GRAPH, 20);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(
+      'The graph sends qualification rank 24 on, but only 20 players are registered -- route fewer ranks or wait for more registrations.',
+    );
+  });
+
+  it('skips rule 9 while the head count is not known yet', () => {
+    expect(validateQual(QUAL_GRAPH).ok).toBe(true);
+  });
+
+  it.each([31, 37, 43, 53])('accepts the same graph at %i registered players', (registered) => {
+    expect(validateQual(QUAL_GRAPH, registered).ok).toBe(true);
+  });
+
+  it('reads a qualification-table graph with no Qual line as "Qual: 1-<entry total> -> <entry round>"', () => {
+    const result = validateQual(SPREADSHEET_GRAPH, 40);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.rounds[0].label).toBe('5');
+    expect(result.value.qualRoutes).toEqual(Array(32).fill(0));
+  });
+
+  it('refuses a Qual line when the tournament has no qualification table', () => {
+    const parsed = parseWaterfallGraph(QUAL_GRAPH);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const result = validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: FFA_ROOM_SIZE,
+      entrantCount: 24,
+      standingsSource: false,
+    });
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'The Qual line routes the qualification table, but this tournament has no qualification table -- remove the Qual line.',
+    });
+  });
+
+  it('refuses a round declared as Qual, whatever the pooling phase', () => {
+    const result = validateQual(QUAL_GRAPH.replace('R1C = 8', 'Qual = 8'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('reserved');
+  });
+
+  it('refuses a room letter on the Qual line', () => {
+    const result = validateQual(QUAL_GRAPH.replace('Qual:', 'Qual.A:'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('no rooms');
+  });
+
+  it('refuses overlapping Qual ranks', () => {
+    const result = validateQual(QUAL_GRAPH.replace('17-24->R1C', '16-23->R1C, 24->R1C'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('rank 16 is routed more than once');
+  });
+
+  it('refuses a Qual rank below 1', () => {
+    const result = validateQual(QUAL_GRAPH.replace('1-16->R1', '0-16->R1'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('start at 1');
+  });
+
+  it('refuses a Qual destination that is not declared', () => {
+    const result = validateQual(QUAL_GRAPH.replace('17-24->R1C', '17-24->Nowhere'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('"Nowhere"');
+  });
+
+  it('refuses a round that nothing feeds', () => {
+    const orphan = QUAL_GRAPH.replace('R1C = 8', 'R1C = 8\nSide = 8').replace(
+      'R2: 1-4->Final, 5-8->eliminated',
+      'R2: 1-4->Final, 5-8->eliminated\nSide: 1-8->eliminated',
+    );
+    const result = validateQual(orphan);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(
+      'Round "Side" has nothing routing into it -- send it a qualification rank or route another round into it.',
+    );
+  });
+
+  it('refuses a round whose declared size differs from what Qual sends it (rule 7)', () => {
+    const result = validateQual(QUAL_GRAPH.replace('17-24->R1C', '17-23->R1C'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('Round "R1C" declares 8 player(s) but its routing bands only send it 7');
+  });
+
+  it('refuses a Qual line that routes nothing on', () => {
+    const result = validateQual(QUAL_GRAPH.replace('Qual: 1-16->R1, 17-24->R1C', 'Qual: 1-24->eliminated'));
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toContain('sends no qualification rank on');
+  });
+
+  it('lets the prefix of reached rounds start with any Qual-fed round', () => {
+    const result = validateQual(QUAL_GRAPH, 37, ['R1C', 'R1']);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.rounds.slice(0, 2).map((round) => round.label)).toEqual(['R1C', 'R1']);
+  });
+
+  it('materializes the rounds against the highest routed Qual rank and exposes absolute standings routes', () => {
+    const result = validateQual(QUAL_GRAPH, 37);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // Pooling phase of 3 rounds: the bracket starts at round number 4 (array index 3).
+    const rounds = waterfallBracketPhase(24, 4, { graph: result.value, finalsGames: 3 });
+    expect(rounds.map((round) => round.customLabel)).toEqual(['R1', 'R1C', 'R2', 'Final']);
+    expect(waterfallStandingsRoutes(result.value, 4)).toEqual([...Array(16).fill(3), ...Array(8).fill(4)]);
+  });
+
+  it('throws when the pooling phase would seed a different number than the highest routed Qual rank', () => {
+    const result = validateQual(QUAL_GRAPH, 37);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(() => waterfallBracketPhase(16, 4, { graph: result.value, finalsGames: 3 })).toThrow(
+      /highest routed qualification rank \(24\)/,
+    );
+  });
+
+  it('has no standings routes for a graph without a Qual source', () => {
+    const parsed = parseAndValidate(SPREADSHEET_GRAPH, 32, FFA_ROOM_SIZE);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.qualRoutes).toBeUndefined();
+    expect(waterfallStandingsRoutes(parsed.value, 4)).toBeUndefined();
   });
 });

@@ -1616,3 +1616,143 @@ describe('generateTournament -- team scoring rule', () => {
       expect(result.state.gamemodeConfig.teamScoringRule).toBe('sum-members');
   });
 });
+
+describe('generateTournament -- waterfall bracket fed by the qualification table (Qual line)', () => {
+  const QUAL_GRAPH = `
+ROUNDS:
+R1 = 2x8
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-24->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated
+`;
+
+  function generateQual(registered: number, waterfallGraph: string, overrides = {}) {
+    return generateTournament(
+      createDefaultTournamentState({ confirmedCount: registered, players: names(registered) }),
+      createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'waterfall-bracket',
+        poolingPhase: 'qual-table',
+        // Deliberately not the graph's 24: the form's "Advance to bracket" is ignored here.
+        qualAdv: '99',
+        waterfallGraph,
+        ...overrides,
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+  }
+
+  it.each([31, 37, 43, 53])(
+    'at %i registered: derives qualAdv 24 and puts ranks 1-16 / 17-24 on the last qualification round',
+    (registered) => {
+      const result = generateQual(registered, QUAL_GRAPH);
+      expect(result.status).toBe('generated');
+      if (result.status !== 'generated') return;
+      const { rounds, cfg } = result.state;
+      expect(cfg.qualAdv).toBe(24);
+      const r1 = rounds.findIndex((round) => round.customLabel === 'R1');
+      const r1c = rounds.findIndex((round) => round.customLabel === 'R1C');
+      const lastQual = rounds.filter((round) => round.isQual).at(-1);
+      expect(lastQual?.standingsRoutes).toEqual([...Array(16).fill(r1), ...Array(8).fill(r1c)]);
+      // Only the last qualification round carries the routing.
+      expect(rounds.filter((round) => round.standingsRoutes)).toHaveLength(1);
+    },
+  );
+
+  it('refuses the graph at 20 registered: it routes qualification rank 24', () => {
+    const result = generateQual(20, QUAL_GRAPH);
+    expect(result).toEqual({
+      status: 'invalid',
+      message:
+        'The graph sends qualification rank 24 on, but only 20 players are registered -- route fewer ranks or wait for more registrations.',
+    });
+  });
+
+  it('accepts a gap graph at 31: ranks 17-19 are eliminated and qualAdv is the highest routed rank', () => {
+    const gapGraph = QUAL_GRAPH.replace(
+      'Qual: 1-16->R1, 17-24->R1C',
+      'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C',
+    );
+    const result = generateQual(31, gapGraph);
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.cfg.qualAdv).toBe(27);
+    const routes = result.state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes ?? [];
+    expect(routes).toHaveLength(27);
+    expect(routes.slice(16, 19)).toEqual(['eliminated', 'eliminated', 'eliminated']);
+    expect(routes.slice(19).every((destination) => typeof destination === 'number')).toBe(true);
+  });
+
+  it('reads a qualification-table graph without a Qual line as Qual: 1-<entry total> -> <entry round>', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
+R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
+SemiB: 1-2->Final, 3-8->eliminated
+`;
+    const result = generateQual(43, graph);
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.cfg.qualAdv).toBe(16);
+    const r1 = result.state.rounds.findIndex((round) => round.customLabel === 'R1');
+    expect(result.state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes).toEqual(
+      Array(16).fill(r1),
+    );
+  });
+
+  it.each([
+    ['no pooling phase', { poolingPhase: 'none' as const }],
+    ['a Swiss pooling phase', { poolingPhase: 'swiss' as const, gameFormat: 'individual-1v1' }],
+  ])('refuses a Qual line with %s', (_label, overrides) => {
+    const graph =
+      overrides.poolingPhase === 'swiss'
+        ? 'ROUNDS:\nR1 = 2\nFinal = 2 FINAL\n\nROUTES:\nQual: 1-2->R1\nR1: 1->Final, 2->eliminated'
+        : QUAL_GRAPH;
+    const result = generateQual(32, graph, overrides);
+    expect(result).toEqual({
+      status: 'invalid',
+      message:
+        'The Qual line routes the qualification table, but this tournament has no qualification table -- remove the Qual line.',
+    });
+  });
+
+  it.each([
+    ['a round declared Qual', QUAL_GRAPH.replace('R1C = 8', 'Qual = 8'), 'reserved'],
+    ['a room letter on Qual', QUAL_GRAPH.replace('Qual:', 'Qual.A:'), 'no rooms'],
+    [
+      'overlapping Qual ranks',
+      QUAL_GRAPH.replace('17-24->R1C', '16-23->R1C, 24->R1C'),
+      'routed more than once',
+    ],
+    [
+      'a round nothing feeds',
+      QUAL_GRAPH.replace('R1C = 8', 'R1C = 8\nSide = 8').replace(
+        'R2: 1-4->Final, 5-8->eliminated',
+        'R2: 1-4->Final, 5-8->eliminated\nSide: 1-8->eliminated',
+      ),
+      'has nothing routing into it',
+    ],
+    [
+      'R1C declared 8 but Qual sending it 7',
+      QUAL_GRAPH.replace('17-24->R1C', '17-23->R1C'),
+      'only send it 7',
+    ],
+  ])('refuses %s', (_label, graph, fragment) => {
+    const result = generateQual(37, graph);
+    expect(result.status).toBe('invalid');
+    if (result.status !== 'invalid') return;
+    expect(result.message).toContain(fragment);
+  });
+});

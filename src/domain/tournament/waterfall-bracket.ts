@@ -34,6 +34,11 @@ import type { RoomSize, TournamentRound } from './types';
  * round needs exactly one outgoing line per room. A band's rank list is a
  * comma-separated mix of single ranks ("5,8") and ranges ("1-4"); every
  * room's bands must partition 1..roomSize exactly, with no gaps or overlaps.
+ *
+ * After a qualification table, a reserved "Qual" line routes the final
+ * standings the same way, by rank ("Qual: 1-16->R1, 17-24->R1C"). It has no
+ * room letter, may leave ranks unrouted (they are eliminated), and is only
+ * valid for a qualification-table pooling phase (`standingsSource`).
  */
 
 export interface WaterfallRoundSpec {
@@ -57,6 +62,13 @@ export interface WaterfallRoundSpec {
 export interface OrderedWaterfallGraph {
   rounds: WaterfallRoundSpec[];
   routes: Array<Array<Array<number | 'eliminated'>>>;
+  /**
+   * Where the qualification table's standings go, when the graph has a Qual
+   * source: index = standings rank - 1, value = index into `rounds` or
+   * 'eliminated'. Its length is the highest routed rank (anything past the
+   * end is eliminated).
+   */
+  qualRoutes?: Array<number | 'eliminated'>;
 }
 
 export type WaterfallParseResult<T> = { ok: true; value: T } | { ok: false; error: string };
@@ -82,10 +94,14 @@ interface RawRouteLine {
 export interface RawWaterfallGraph {
   roundLines: RawRoundLine[];
   routeLines: RawRouteLine[];
+  /** The bands of the "Qual" route line (the qualification table as a source), null when the text has none. */
+  qualBands: RawRouteBand[] | null;
 }
 
 export const LABEL_PATTERN = /^[A-Za-z0-9]+$/;
 export const ELIMINATED = 'eliminated';
+/** The reserved route-line label for the qualification table; never a declared round. */
+export const QUAL_LABEL = 'Qual';
 /** Rooms are addressed by a single letter in ROUTES, so a round can have at most 26. */
 export const MAX_ROOMS_PER_ROUND = 26;
 
@@ -160,6 +176,11 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
   }
   if (label.toLowerCase() === ELIMINATED) {
     return err(`Round label "${label}" is reserved -- "eliminated" can't be used as a round label.`);
+  }
+  if (label.toLowerCase() === QUAL_LABEL.toLowerCase()) {
+    return err(
+      `Round label "${label}" is reserved -- "Qual" stands for the qualification table and can't be used as a round label.`,
+    );
   }
 
   const rest = line.slice(eqIndex + 1).trim();
@@ -293,13 +314,24 @@ export function parseWaterfallGraph(
   }
 
   const routeLines: RawRouteLine[] = [];
+  let qualBands: RawRouteBand[] | null = null;
   for (const line of routesLines) {
     const result = parseRouteLine(line);
     if (!result.ok) return result;
-    routeLines.push(result.value);
+    if (result.value.label.toLowerCase() !== QUAL_LABEL.toLowerCase()) {
+      routeLines.push(result.value);
+      continue;
+    }
+    if (result.value.room !== null) {
+      return err(
+        `ROUTES line "${line}" gives "Qual" a room letter -- the qualification table has no rooms, write "Qual: ..." instead.`,
+      );
+    }
+    if (qualBands) return err('The Qual line appears more than once -- combine them into one.');
+    qualBands = result.value.bands;
   }
 
-  return ok({ roundLines, routeLines });
+  return ok({ roundLines, routeLines, qualBands });
 }
 
 export function expandRankTokens(tokens: string[]): WaterfallParseResult<number[]> {
@@ -356,12 +388,77 @@ function buildRoomDestinations(
   return ok(destinations as string[]);
 }
 
+/**
+ * The per-rank destination labels of the Qual line: ranks the line doesn't
+ * route are eliminated (gaps allowed), and trailing eliminated ranks are
+ * trimmed so the array's length is the highest routed rank.
+ */
+function buildQualDestinations(
+  bands: RawRouteBand[],
+  roundByLabel: Map<string, RawRoundLine>,
+): WaterfallParseResult<string[]> {
+  const destinations: Array<string | undefined> = [];
+  for (const band of bands) {
+    const expanded = expandRankTokens(band.rankTokens);
+    if (!expanded.ok) return err(`Qual: ${expanded.error}`);
+    const destKey = band.destinationLabel.toLowerCase();
+    if (destKey !== ELIMINATED && !roundByLabel.has(destKey)) {
+      return err(`Qual routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
+    }
+    for (const rank of expanded.value) {
+      if (rank < 1) return err(`Qual: rank ${rank} is out of range -- qualification ranks start at 1.`);
+      if (destinations[rank - 1] !== undefined) {
+        return err(`Qual: rank ${rank} is routed more than once -- bands must not overlap.`);
+      }
+      destinations[rank - 1] = band.destinationLabel;
+    }
+  }
+  let length = destinations.length;
+  while (length > 0 && (destinations[length - 1] ?? ELIMINATED).toLowerCase() === ELIMINATED) length -= 1;
+  if (length === 0) {
+    return err('The Qual line sends no qualification rank on -- route at least one rank to a round.');
+  }
+  return ok(Array.from({ length }, (_, index) => destinations[index] ?? ELIMINATED));
+}
+
+/** The one round nothing routes into, or an error when there is none or more than one. */
+function findEntryLabel(
+  labels: string[],
+  inDegree: Map<string, number>,
+  roundByLabel: Map<string, RawRoundLine>,
+): WaterfallParseResult<string> {
+  const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
+  if (entryCandidates.length === 0) {
+    return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
+  }
+  if (entryCandidates.length > 1) {
+    return err(
+      `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
+    );
+  }
+  return ok(entryCandidates[0]);
+}
+
+function nonEliminatedLabels(destinations: string[]): string[] {
+  return destinations.map((label) => label.toLowerCase()).filter((label) => label !== ELIMINATED);
+}
+
 export function validateAndOrderWaterfallGraph(
   graph: RawWaterfallGraph,
   options: {
     roomSize: RoomSize;
-    /** Left out while it isn't known yet (no roster loaded); rule 9 is then skipped. */
+    /**
+     * Left out while it isn't known yet (no roster loaded); rule 9 is then skipped. Without a Qual
+     * source it is the number entering the bracket phase; with `standingsSource` it is the registered
+     * head count the qualification table is ranked from.
+     */
     entrantCount?: number;
+    /**
+     * True when the graph is fed by a qualification table: the Qual line is allowed (a graph without
+     * one is read as `Qual: 1-<entry round total> -> <entry round>`), and every declared round
+     * must be fed by Qual or another round. False: a Qual line is an error.
+     */
+    standingsSource?: boolean;
     /**
      * Round labels, in play order, that the returned order must start with
      * exactly (a live edit's already-reached rounds, which can't be
@@ -372,7 +469,13 @@ export function validateAndOrderWaterfallGraph(
   },
 ): WaterfallParseResult<OrderedWaterfallGraph> {
   const { roundLines, routeLines } = graph;
-  const { roomSize, entrantCount, fixedPrefix } = options;
+  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
+
+  if (!standingsSource && graph.qualBands) {
+    return err(
+      'The Qual line routes the qualification table, but this tournament has no qualification table -- remove the Qual line.',
+    );
+  }
 
   // Rule 1: every declared room size must fit the format's own bounds.
   for (const round of roundLines) {
@@ -494,13 +597,13 @@ export function validateAndOrderWaterfallGraph(
     roomBandsByLabel.set(key, roomDestinations);
   }
 
-  // Rule 6 (DAG) + rule 8 (reachability), via Kahn's algorithm -- also
-  // proves, as a byproduct, that there is exactly one round with no
-  // incoming routes (the entry round) and that every other round is
-  // reachable from it: if a second in-degree-0 round existed, it would
-  // never be reached by tracing incoming edges back from any other round,
-  // so the initial queue would contain more than one label; if a cycle
-  // existed, some rounds would never reach in-degree 0 at all.
+  // Rule 6 (DAG) + rule 8 (reachability), via Kahn's algorithm. Without a
+  // Qual source it also proves, as a byproduct, that there is exactly one
+  // round with no incoming routes (the entry round) and that every other
+  // round is reachable from it: a second in-degree-0 round would make the
+  // initial queue hold more than one label, and a cycle would leave some
+  // rounds never reaching in-degree 0. With a Qual source, Qual is the
+  // source instead, so every declared round just needs something feeding it.
   const destinationsByLabel = new Map<string, Set<string>>();
   for (const round of roundLines) {
     const key = round.label.toLowerCase();
@@ -513,25 +616,50 @@ export function validateAndOrderWaterfallGraph(
     destinationsByLabel.set(key, set);
   }
   const labels = roundLines.map((round) => round.label.toLowerCase());
+  const totalByLabel = new Map(
+    roundLines.map((round) => [
+      round.label.toLowerCase(),
+      round.roomSizes.reduce((sum, size) => sum + size, 0),
+    ]),
+  );
   const inDegree = new Map<string, number>(labels.map((label) => [label, 0]));
   for (const destinations of destinationsByLabel.values()) {
     for (const destination of destinations) {
       inDegree.set(destination, (inDegree.get(destination) ?? 0) + 1);
     }
   }
-  // Exactly one round may have zero incoming routes -- the entry round --
-  // whether or not a fixedPrefix is given (checked unconditionally so a
-  // fixedPrefix can't paper over a graph that's genuinely broken).
-  const entryCandidates = labels.filter((label) => (inDegree.get(label) ?? 0) === 0);
-  if (entryCandidates.length === 0) {
-    return err('The routing table has a cycle -- no round has zero incoming routes to start from.');
+
+  // The Qual source: the Qual line as written, or, for a qualification-table
+  // graph without one, the older "everyone entering the bracket goes to the
+  // entry round" reading. Only a graph with no Qual source at all has an
+  // entry round (entryLabel) to special-case below.
+  let qualLabels: string[] | null = null;
+  let entryLabel: string | null = null;
+  if (standingsSource && graph.qualBands) {
+    const built = buildQualDestinations(graph.qualBands, roundByLabel);
+    if (!built.ok) return built;
+    qualLabels = built.value;
+  } else {
+    const entry = findEntryLabel(labels, inDegree, roundByLabel);
+    if (!entry.ok) return entry;
+    if (standingsSource) {
+      qualLabels = Array.from({ length: totalByLabel.get(entry.value) as number }, () => entry.value);
+    } else {
+      entryLabel = entry.value;
+    }
   }
-  if (entryCandidates.length > 1) {
-    return err(
-      `More than one round has no incoming routes (${entryCandidates.map((label) => roundByLabel.get(label)!.label).join(', ')}) -- there must be exactly one starting round.`,
-    );
+  const qualDestinations = new Set(nonEliminatedLabels(qualLabels ?? []));
+  for (const destination of qualDestinations) {
+    inDegree.set(destination, (inDegree.get(destination) ?? 0) + 1);
   }
-  const entryLabel = entryCandidates[0];
+  if (qualLabels) {
+    const unfed = labels.find((label) => (inDegree.get(label) ?? 0) === 0);
+    if (unfed) {
+      return err(
+        `Round "${roundByLabel.get(unfed)!.label}" has nothing routing into it -- send it a qualification rank or route another round into it.`,
+      );
+    }
+  }
 
   const fixedPrefixLower = (fixedPrefix ?? []).map((label) => label.toLowerCase());
   if (fixedPrefixLower.length > 0) {
@@ -542,7 +670,7 @@ export function validateAndOrderWaterfallGraph(
         );
       }
     }
-    if (fixedPrefixLower[0] !== entryLabel) {
+    if (entryLabel !== null && fixedPrefixLower[0] !== entryLabel) {
       return err(
         `Round "${(fixedPrefix as string[])[0]}" is supposed to be the entry round (it's played first), but "${roundByLabel.get(entryLabel)!.label}" is the round nothing routes into now -- the entry round can't change.`,
       );
@@ -573,16 +701,23 @@ export function validateAndOrderWaterfallGraph(
   }
 
   // Standard Kahn, seeded with the fixedPrefix (in that exact order) or just
-  // the entry round -- a seed label is dequeued, hence its own out-edges
-  // decremented, before anything discovered ready afterward (newly-ready
-  // labels are only ever appended to the back of the queue), so every
-  // fixedPrefix label is guaranteed genuinely ready by the time it's its
-  // turn, given the inbound-source checks above.
-  const seed = fixedPrefixLower.length > 0 ? fixedPrefixLower : [entryLabel];
+  // the entry round, then every other round that only the Qual source feeds
+  // -- a seed label is dequeued, hence its own out-edges decremented, before
+  // anything discovered ready afterward (newly-ready labels are only ever
+  // appended to the back of the queue), so every fixedPrefix label is
+  // guaranteed genuinely ready by the time it's its turn, given the
+  // inbound-source checks above.
+  const seed = fixedPrefixLower.length > 0 ? fixedPrefixLower : entryLabel !== null ? [entryLabel] : [];
   const seedSet = new Set(seed);
   const topoOrder: string[] = [];
   const remainingInDegree = new Map(inDegree);
-  const queue = [...seed];
+  for (const destination of qualDestinations) {
+    remainingInDegree.set(destination, (remainingInDegree.get(destination) ?? 0) - 1);
+  }
+  const queue = [
+    ...seed,
+    ...labels.filter((label) => !seedSet.has(label) && remainingInDegree.get(label) === 0),
+  ];
   while (queue.length > 0) {
     const current = queue.shift() as string;
     topoOrder.push(current);
@@ -599,33 +734,24 @@ export function validateAndOrderWaterfallGraph(
     );
   }
 
-  const entryRound = roundByLabel.get(topoOrder[0]) as RawRoundLine;
-
-  // Rule 7: every non-entry round's declared total must exactly equal what
-  // routes into it, checked graph-wide (not just against one predecessor).
-  const totalByLabel = new Map(
-    roundLines.map((round) => [
-      round.label.toLowerCase(),
-      round.roomSizes.reduce((sum, size) => sum + size, 0),
-    ]),
-  );
+  // Rule 7: every round's declared total (except the entry round of a graph
+  // with no Qual source) must exactly equal what routes into it, checked
+  // graph-wide (not just against one predecessor); Qual ranks count as incoming.
   // (destinationsByLabel is deduplicated per round-pair -- the DAG check
   // above only needed "does an edge exist", not how many ranks use it. The
   // incoming tally below needs the real per-rank count, so it walks
   // roomBandsByLabel directly instead of reusing that deduplicated set.)
   const incomingCountByLabel = new Map<string, number>(labels.map((label) => [label, 0]));
-  for (const roomDestinationArrays of roomBandsByLabel.values()) {
-    for (const destinations of roomDestinationArrays) {
-      for (const destinationLabel of destinations) {
-        const destKey = destinationLabel.toLowerCase();
-        if (destKey === ELIMINATED) continue;
-        incomingCountByLabel.set(destKey, (incomingCountByLabel.get(destKey) ?? 0) + 1);
-      }
-    }
+  const incomingLabels = [
+    ...[...roomBandsByLabel.values()].flatMap((rooms) => rooms.flatMap(nonEliminatedLabels)),
+    ...nonEliminatedLabels(qualLabels ?? []),
+  ];
+  for (const destKey of incomingLabels) {
+    incomingCountByLabel.set(destKey, (incomingCountByLabel.get(destKey) ?? 0) + 1);
   }
   for (const round of roundLines) {
-    if (round === entryRound) continue;
     const key = round.label.toLowerCase();
+    if (key === entryLabel) continue;
     const total = totalByLabel.get(key) as number;
     const incoming = incomingCountByLabel.get(key) ?? 0;
     if (incoming !== total) {
@@ -635,21 +761,33 @@ export function validateAndOrderWaterfallGraph(
     }
   }
 
-  // Rule 9: the entry round's declared total must match the real entrant count.
-  const entryTotal = totalByLabel.get(entryRound.label.toLowerCase()) as number;
-  if (entrantCount !== undefined && entryTotal !== entrantCount) {
-    return err(
-      `The starting round "${entryRound.label}" declares ${entryTotal} player(s), but ${entrantCount} are actually entering this bracket phase -- these must match exactly.`,
-    );
+  // Rule 9: the real head count must cover what the graph takes in. Without
+  // a Qual source the entry round's declared total must match it exactly;
+  // with one, the highest routed qualification rank must be reachable.
+  if (qualLabels) {
+    if (entrantCount !== undefined && qualLabels.length > entrantCount) {
+      return err(
+        `The graph sends qualification rank ${qualLabels.length} on, but only ${entrantCount} players are registered -- route fewer ranks or wait for more registrations.`,
+      );
+    }
+  } else if (entryLabel !== null) {
+    const entryRound = roundByLabel.get(entryLabel) as RawRoundLine;
+    const entryTotal = totalByLabel.get(entryLabel) as number;
+    if (entrantCount !== undefined && entryTotal !== entrantCount) {
+      return err(
+        `The starting round "${entryRound.label}" declares ${entryTotal} player(s), but ${entrantCount} are actually entering this bracket phase -- these must match exactly.`,
+      );
+    }
   }
 
-  return ok(buildOrderedGraph(topoOrder, roundByLabel, roomBandsByLabel));
+  return ok(buildOrderedGraph(topoOrder, roundByLabel, roomBandsByLabel, qualLabels));
 }
 
 function buildOrderedGraph(
   topoOrder: string[],
   roundByLabel: Map<string, RawRoundLine>,
   roomBandsByLabel: Map<string, string[][]>,
+  qualLabels: string[] | null,
 ): OrderedWaterfallGraph {
   const indexByLabel = new Map(topoOrder.map((label, index) => [label, index]));
   const rounds: WaterfallRoundSpec[] = topoOrder.map((label) => {
@@ -667,7 +805,13 @@ function buildOrderedGraph(
     );
   });
 
-  return { rounds, routes };
+  const qualRoutes = qualLabels?.map((destinationLabel) =>
+    destinationLabel.toLowerCase() === ELIMINATED
+      ? ('eliminated' as const)
+      : (indexByLabel.get(destinationLabel.toLowerCase()) as number),
+  );
+
+  return { rounds, routes, ...(qualRoutes ? { qualRoutes } : {}) };
 }
 
 /**
@@ -687,6 +831,20 @@ export interface WaterfallBracketConfig {
 }
 
 /**
+ * The graph's Qual routing as absolute round indices, ready to sit on the last
+ * qualification round as `standingsRoutes` (the same convention as
+ * `waterfallRoutes`); undefined for a graph without a Qual source.
+ */
+export function waterfallStandingsRoutes(
+  graph: OrderedWaterfallGraph,
+  startRoundNum: number,
+): Array<number | 'eliminated'> | undefined {
+  return graph.qualRoutes?.map((destination) =>
+    destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,
+  );
+}
+
+/**
  * Materializes a fully-validated, topologically-sorted waterfall graph into
  * TournamentRound[] -- unlike every other bracket-phase builder in this
  * codebase, it doesn't derive room shape from a formula, it copies the
@@ -703,10 +861,14 @@ export function waterfallBracketPhase(
   config: WaterfallBracketConfig,
 ): TournamentRound[] {
   const { graph } = config;
-  const entryTotal = graph.rounds[0]?.roomSizes.reduce((sum, size) => sum + size, 0) ?? 0;
-  if (entryTotal !== seedTotal) {
+  // With a Qual source the qualification table feeds the graph, so the
+  // pooling phase's seedTotal (qualAdv, the highest routed rank) is checked
+  // against the Qual routing instead of the first round's total.
+  const expectedSeedTotal =
+    graph.qualRoutes?.length ?? graph.rounds[0]?.roomSizes.reduce((sum, size) => sum + size, 0) ?? 0;
+  if (expectedSeedTotal !== seedTotal) {
     throw new Error(
-      `waterfallBracketPhase: seedTotal (${seedTotal}) doesn't match the graph's own validated entry-round total (${entryTotal}) -- the graph should already have been validated against the real entrant count before this is called.`,
+      `waterfallBracketPhase: seedTotal (${seedTotal}) doesn't match the graph's own validated ${graph.qualRoutes ? 'highest routed qualification rank' : 'entry-round total'} (${expectedSeedTotal}) -- the graph should already have been validated against the real entrant count before this is called.`,
     );
   }
 

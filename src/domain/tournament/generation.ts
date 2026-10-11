@@ -46,6 +46,30 @@ function generationError(message: string): GenerateTournamentResult {
   return { status: 'invalid', message };
 }
 
+/**
+ * Parses and validates the organiser's waterfall graph here (rather than inside the builder) so a
+ * bad graph surfaces through the same generationError -> Setup <Alert> pipeline every other
+ * malformed-input case uses. Lenient parse so a graph that is still being built (rounds but no
+ * routes yet) reaches the validator, whose messages say what is missing.
+ */
+function resolveWaterfallGraph(
+  graphText: string,
+  options: Parameters<typeof validateAndOrderWaterfallGraph>[1],
+): { ok: true; graph: OrderedWaterfallGraph } | { ok: false; message: string } {
+  if (!graphText.trim()) {
+    return {
+      ok: false,
+      message:
+        'Waterfall bracket needs its rounds and routing set up in the "Waterfall bracket graph" section below the settings. Start a blank graph there, or load one of the examples, then route every rank.',
+    };
+  }
+  const parsedGraph = parseWaterfallGraph(graphText, { allowIncomplete: true });
+  if (!parsedGraph.ok) return { ok: false, message: parsedGraph.error };
+  const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, options);
+  if (!validatedGraph.ok) return { ok: false, message: validatedGraph.error };
+  return { ok: true, graph: validatedGraph.value };
+}
+
 function kingsValleyTooLargeMessage(input: {
   limit: number;
   entrants: number;
@@ -157,7 +181,23 @@ export function generateTournament(
       );
     }
   }
-  if (config.poolingPhase !== 'none') {
+  const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
+  const roomSize = deriveRoomSize(format, oddCountStrategy);
+
+  // After a qualification table the waterfall graph's own Qual routing decides who advances, so
+  // "Advance to bracket" is derived from it (the highest routed rank), not read from the form.
+  let waterfallGraph: OrderedWaterfallGraph | undefined;
+  const graphHasQualSource = schedule === 'waterfall-bracket' && config.poolingPhase === 'qual-table';
+  if (graphHasQualSource) {
+    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
+      roomSize,
+      entrantCount: config.n,
+      standingsSource: true,
+    });
+    if (!resolved.ok) return generationError(resolved.message);
+    waterfallGraph = resolved.graph;
+    config.qualAdv = waterfallGraph.qualRoutes?.length ?? config.qualAdv;
+  } else if (config.poolingPhase !== 'none') {
     const requestedQualAdv = parseAdvanceToBracket(form.qualAdv);
     if (requestedQualAdv === null) {
       return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
@@ -209,41 +249,28 @@ export function generateTournament(
   // matching groupStagePoolingPhase's own seedTotal formula). Every validation
   // below that needs the real entrant count should use this, not
   // config.qualAdv, which is meaningless for Group Stage.
-  const bracketEntryCount = resolveBracketEntryCount({
-    poolingPhase: config.poolingPhase,
-    confirmedCount: config.n,
-    qualAdv: config.qualAdv,
-    groupSize: config.groupSize,
-    qualifiersPerGroup: config.qualifiersPerGroup,
-  });
+  // With a Qual source only the routed (non-eliminated) ranks enter the bracket.
+  const bracketEntryCount = waterfallGraph?.qualRoutes
+    ? waterfallGraph.qualRoutes.filter((destination) => destination !== 'eliminated').length
+    : resolveBracketEntryCount({
+        poolingPhase: config.poolingPhase,
+        confirmedCount: config.n,
+        qualAdv: config.qualAdv,
+        groupSize: config.groupSize,
+        qualifiersPerGroup: config.qualifiersPerGroup,
+      });
 
-  const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
-  const roomSize = deriveRoomSize(format, oddCountStrategy);
-
-  // Waterfall's whole schedule is the organiser's own hand-authored graph --
-  // parsed and validated here (rather than inside the builder) so a bad
-  // graph surfaces through the same generationError -> Setup <Alert>
-  // pipeline every other malformed-input case already uses. Rule 9 checks
-  // the graph's declared entry total against bracketEntryCount, the real
-  // post-pooling entrant count computed just above -- not config.qualAdv,
-  // which is meaningless for Group Stage.
-  let waterfallGraph: OrderedWaterfallGraph | undefined;
-  if (schedule === 'waterfall-bracket') {
-    if (!form.waterfallGraph.trim()) {
-      return generationError(
-        'Waterfall bracket needs its rounds and routing set up in the "Waterfall bracket graph" section below the settings. Start a blank graph there, or load one of the examples, then route every rank.',
-      );
-    }
-    // Lenient parse so a graph that is still being built (rounds but no
-    // routes yet) reaches the validator, whose messages say what is missing.
-    const parsedGraph = parseWaterfallGraph(form.waterfallGraph, { allowIncomplete: true });
-    if (!parsedGraph.ok) return generationError(parsedGraph.error);
-    const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, {
+  // Waterfall's whole schedule is the organiser's own hand-authored graph. Without a Qual source,
+  // rule 9 checks the graph's declared entry total against bracketEntryCount, the real
+  // post-pooling entrant count computed just above -- not config.qualAdv, which is meaningless
+  // for Group Stage.
+  if (schedule === 'waterfall-bracket' && !graphHasQualSource) {
+    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
       roomSize,
       entrantCount: bracketEntryCount,
     });
-    if (!validatedGraph.ok) return generationError(validatedGraph.error);
-    waterfallGraph = validatedGraph.value;
+    if (!resolved.ok) return generationError(resolved.message);
+    waterfallGraph = resolved.graph;
   }
 
   let positionalPointsTable: number[] | undefined;

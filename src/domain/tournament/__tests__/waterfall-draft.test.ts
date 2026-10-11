@@ -394,7 +394,8 @@ describe('waterfallDraftFromRounds', () => {
       if (!rebuiltParsed.ok) return;
       const rebuiltGraph = validateAndOrderWaterfallGraph(rebuiltParsed.value, {
         roomSize: result.state.gamemodeConfig.roomSize as RoomSize,
-        entrantCount: qualAdv,
+        entrantCount: confirmedCount,
+        standingsSource: true,
       });
       expect(rebuiltGraph).toEqual({ ok: true, value: result.state.gamemodeConfig.graph });
     },
