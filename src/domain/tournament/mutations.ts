@@ -6,6 +6,7 @@ import {
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
+import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
 import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
@@ -674,10 +675,15 @@ function replaceUnitInPlay(state: TournamentState, oldKey: string, newKey: strin
   return replaceAssignedUnit(state, oldKey, newKey) ?? replacePendingUnit(state, oldKey, newKey);
 }
 
+/** Reserves can stand in for a no-show only until anyone has been eliminated, in every format. */
+export function swapWindowOpen(state: TournamentState): boolean {
+  return !computeRankings(state)?.eliminatedList.length;
+}
+
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
   const trimmed = newName.trim();
   const players = state.players as string[];
-  if (!trimmed || players.includes(trimmed)) return state;
+  if (!trimmed || players.includes(trimmed) || !swapWindowOpen(state)) return state;
 
   const replaced = replaceUnitInPlay(state, oldName, trimmed);
   if (!replaced) return state;
@@ -708,7 +714,11 @@ export function swapTeam(
 ): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize;
-  if (!teamSize || (state.players as TournamentTeam[]).some((team) => team.teamId === replacement.teamId)) {
+  if (
+    !teamSize ||
+    !swapWindowOpen(state) ||
+    (state.players as TournamentTeam[]).some((team) => team.teamId === replacement.teamId)
+  ) {
     return state;
   }
   // The outgoing team (oldTeamId) is excluded -- it's being removed by this

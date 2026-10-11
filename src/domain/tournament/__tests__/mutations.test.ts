@@ -13,15 +13,17 @@ import {
   setRoundScore,
   swapIndividual,
   swapTeam,
+  swapWindowOpen,
   unflagFinalGameAnonymous,
 } from '../mutations';
+import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { settingsFromForm } from '../tournament-settings';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
-import { scoreCurrentRound, buildState } from './play-through';
+import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
@@ -1252,6 +1254,49 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
   });
 });
 
+/**
+ * Qual-source waterfalls that route every registered unit, so nobody is eliminated at the pooling exit and the
+ * swap window is still open while the later bands wait in a pool: 37 = R1 (ranks 1-16) + R1C (21 waiting),
+ * 43 = R1 (ranks 1-35, 5 rooms of 7) + R1C (8 waiting).
+ */
+const ALL_ROUTED_GRAPHS = {
+  37: `
+ROUNDS:
+R1 = 2x8
+R1C = 3x7
+R2 = 2x7
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-37->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C.A: 1-2->R2, 3-7->eliminated
+R1C.B: 1-2->R2, 3-7->eliminated
+R1C.C: 1-2->R2, 3-7->eliminated
+R2.A: 1-4->Final, 5-7->eliminated
+R2.B: 1-4->Final, 5-7->eliminated
+`,
+  43: `
+ROUNDS:
+R1 = 5x7
+R1C = 8
+R2 = 2x7
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-35->R1, 36-43->R1C
+R1.A: 1-2->R2, 3-7->eliminated
+R1.B: 1-2->R2, 3-7->eliminated
+R1.C: 1-2->R2, 3-7->eliminated
+R1.D: 1-2->R2, 3-7->eliminated
+R1.E: 1-2->R2, 3-7->eliminated
+R1C: 1-4->R2, 5-8->eliminated
+R2.A: 1-4->Final, 5-7->eliminated
+R2.B: 1-4->Final, 5-7->eliminated
+`,
+};
+
 describe('swapIndividual -- where the outgoing unit is in play', () => {
   const advanced = (state: TournamentState): TournamentState => {
     const result = advanceTournamentRound(state);
@@ -1264,15 +1309,17 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     state.rounds.findIndex((round) => round.customLabel === label);
   const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
 
-  it('37 waterfall: a unit waiting for R1C is replaced in its pool, keeping the slot it earned', () => {
-    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(37))));
+  it('37 waterfall routing everyone: a unit waiting for R1C is replaced in its pool, keeping the slot it earned', () => {
+    const atR1 = advanced(
+      playToQualificationExit(withReserve(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]))),
+    );
     const r1c = roundIndexOf(atR1, 'R1C');
     const waiting = atR1.pendingBracketSeeds[r1c][3];
 
     const swapped = swapIndividual(atR1, waiting.name, 'Sub');
 
     expect(swapped.pendingBracketSeeds[r1c][3]).toEqual({ ...waiting, name: 'Sub' });
-    expect(swapped.pendingBracketSeeds[r1c]).toHaveLength(8);
+    expect(swapped.pendingBracketSeeds[r1c]).toHaveLength(21);
     expect(JSON.stringify(swapped.pendingBracketSeeds)).not.toContain(`"${waiting.name}"`);
     expect(swapped.players).toContain('Sub');
     expect(swapped.players).not.toContain(waiting.name);
@@ -1284,11 +1331,13 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     expect(atR1c.curRound).toBe(r1c);
     expect(seatedNames(atR1c, r1c)).toContain('Sub');
     expect(seatedNames(atR1c, r1c)).not.toContain(waiting.name);
-    expect(seatedNames(atR1c, r1c)).toHaveLength(8);
+    expect(seatedNames(atR1c, r1c)).toHaveLength(21);
   });
 
-  it('43 waterfall: a unit seated in R1 is still swapped in its seat (regression)', () => {
-    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(43))));
+  it('43 waterfall routing everyone: a unit seated in R1 is still swapped in its seat (regression)', () => {
+    const atR1 = advanced(
+      playToQualificationExit(withReserve(buildQualWaterfall(43, ALL_ROUTED_GRAPHS[43]))),
+    );
     const r1 = roundIndexOf(atR1, 'R1');
     const seated = atR1.assignments[r1][5];
 
@@ -1301,7 +1350,9 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
   });
 
   it('a unit that is neither seated nor waiting leaves the state unchanged', () => {
-    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(37))));
+    const atR1 = advanced(
+      playToQualificationExit(withReserve(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]))),
+    );
     expect(swapIndividual(atR1, 'Nobody', 'Sub')).toBe(atR1);
   });
 
@@ -1330,5 +1381,112 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     const drawn = advanced(scoreCurrentRound(swapped, 0));
     expect(seatedNames(drawn, Number(destination))).toContain('Sub');
     expect(seatedNames(drawn, Number(destination))).not.toContain(waiting.name);
+  });
+});
+
+describe('swaps close once anyone is eliminated', () => {
+  const advance = (state: TournamentState): TournamentState => {
+    const result = advanceTournamentRound(state);
+    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
+    return result.state;
+  };
+  const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
+  const individual = (count: number, setup: SweepConfig['setup']) =>
+    withReserve(buildState({ label: 'swap window', count, teams: false, setup }) as TournamentState);
+
+  /** Scores and advances until `target` is the current round; returns the state just before that last advance (scored) and just after. */
+  function playUpTo(start: TournamentState, target: number, teamSize = 0) {
+    let state = start;
+    while (state.curRound < target - 1) state = advance(scoreCurrentRound(state, teamSize));
+    const before = scoreCurrentRound(state, teamSize);
+    return { before, after: advance(before) };
+  }
+
+  /** Both sides of the boundary, and every swap attempt on the closed side leaves the state untouched. */
+  function expectBoundaryAt(start: TournamentState, firstClosedRound: number) {
+    const { before, after } = playUpTo(start, firstClosedRound);
+    expect(before.curRound).toBe(firstClosedRound - 1);
+    expect(swapWindowOpen(start)).toBe(true);
+    expect(swapWindowOpen(before)).toBe(true);
+    expect(swapWindowOpen(after)).toBe(false);
+
+    const seated = after.assignments[after.curRound][0].name;
+    const eliminated = computeRankings(after)?.eliminatedList[0].name as string;
+    expect(eliminated).toBeDefined();
+    expect(swapIndividual(after, seated, 'Sub')).toBe(after);
+    expect(swapIndividual(after, eliminated, 'Sub')).toBe(after);
+
+    const openSeat = before.assignments[before.curRound][0].name;
+    const swapped = swapIndividual(before, openSeat, 'Sub');
+    expect(swapped).not.toBe(before);
+    expect(swapped.players).toContain('Sub');
+  }
+
+  it('single elimination, 31: open through the warm-ups and the first elimination round, closed once its losers are out', () => {
+    expectBoundaryAt(
+      individual(31, {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'none',
+      }),
+      3,
+    );
+  });
+
+  it('qualification table into a waterfall with Qual source, 37: open in the last qualification round, closed after the pooling exit', () => {
+    expectBoundaryAt(withReserve(buildQualWaterfall(37)), 3);
+  });
+
+  it('group stage into a bracket, 43 in groups of 5: open through the last group round, closed after the group exit', () => {
+    expectBoundaryAt(
+      individual(43, {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'group-stage',
+        groupSize: '5',
+        oddCountStrategy: 'bye',
+      }),
+      5,
+    );
+  });
+
+  it('Kings Valley, 53: open until the first Kings Valley round that eliminates', () => {
+    expectBoundaryAt(
+      individual(53, { gameFormat: 'ffa-individual', scheduleLogic: 'kings-valley', poolingPhase: 'none' }),
+      3,
+    );
+  });
+
+  it('double elimination, 31: open while losers only drop to the losers bracket, closed at the first unit knocked out of it', () => {
+    const start = individual(31, {
+      gameFormat: 'individual-1v1',
+      scheduleLogic: 'double-elimination',
+      poolingPhase: 'none',
+      oddCountStrategy: 'bye',
+    });
+    const atFirstLosersRound = playUpTo(start, 3).after;
+    expect(atFirstLosersRound.rounds[atFirstLosersRound.curRound].bracket).toBe('losers');
+    expect(swapWindowOpen(atFirstLosersRound)).toBe(true);
+    expectBoundaryAt(start, 4);
+  });
+
+  it('team swaps close at the same point (single elimination, 31 teams of 3)', () => {
+    const start = buildState({
+      label: 'teams',
+      count: 31,
+      teams: true,
+      setup: { gameFormat: 'team-3v3v3', scheduleLogic: 'single-elimination', poolingPhase: 'none' },
+    }) as TournamentState;
+    const reserve: TournamentTeam = {
+      teamId: 'sub',
+      teamName: 'Sub Team',
+      members: [{ name: 'x' }, { name: 'y' }, { name: 'z' }],
+    };
+    let state = start;
+    while (swapWindowOpen(state)) state = advance(scoreCurrentRound(state, 3));
+    const eliminated = computeRankings(state)?.eliminatedList[0].name as string;
+    expect(swapTeam(state, state.assignments[state.curRound][0].name, reserve)).toBe(state);
+    expect(swapTeam(state, eliminated, reserve)).toBe(state);
+    expect(swapTeam(start, start.assignments[0][0].name, reserve)).not.toBe(start);
   });
 });
