@@ -627,12 +627,6 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
       delete scores[key];
   }
 
-  const poolingByeCounts = { ...state.poolingByeCounts };
-  if (poolingByeCounts[oldKey] !== undefined) {
-    poolingByeCounts[newKey] = poolingByeCounts[oldKey];
-    delete poolingByeCounts[oldKey];
-  }
-
   let next: TournamentState = {
     ...state,
     scores,
@@ -641,10 +635,43 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
     byes: state.byes.map((values, index) =>
       index === state.curRound ? values.map((name) => (name === oldKey ? newKey : name)) : values,
     ),
-    poolingByeCounts,
+    poolingByeCounts: movePoolingByeCount(state.poolingByeCounts, oldKey, newKey),
   };
   if (room !== null) next = invalidateStaleTieResolutions(next, state.curRound, room);
   return next;
+}
+
+function movePoolingByeCount(counts: Record<string, number>, oldKey: string, newKey: string) {
+  if (counts[oldKey] === undefined) return counts;
+  const { [oldKey]: moved, ...rest } = counts;
+  return { ...rest, [newKey]: moved };
+}
+
+/**
+ * A unit that has earned a place in a later round but isn't seated yet (it waits in a
+ * pendingBracketSeeds pool) is replaced in place: the substitute takes the slot the
+ * no-show earned, tierRank/pct/isLucky included. Null if the unit waits in no pool.
+ */
+function replacePendingUnit(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
+  const pools = Object.entries(state.pendingBracketSeeds);
+  if (!pools.some(([, seeds]) => seeds.some((seed) => seed.name === oldKey))) return null;
+  const pendingBracketSeeds = Object.fromEntries(
+    pools.map(([destination, seeds]) => [
+      destination,
+      seeds.map((seed) => (seed.name === oldKey ? { ...seed, name: newKey } : seed)),
+    ]),
+  );
+  return {
+    ...state,
+    pendingBracketSeeds,
+    qualTable: state.qualTable.filter((entry) => entry.name !== oldKey),
+    poolingByeCounts: movePoolingByeCount(state.poolingByeCounts, oldKey, newKey),
+  };
+}
+
+/** Seated in the current round, else waiting in a pending pool, else not in play (null). */
+function replaceUnitInPlay(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
+  return replaceAssignedUnit(state, oldKey, newKey) ?? replacePendingUnit(state, oldKey, newKey);
 }
 
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
@@ -652,7 +679,7 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
   const players = state.players as string[];
   if (!trimmed || players.includes(trimmed)) return state;
 
-  const replaced = replaceAssignedUnit(state, oldName, trimmed);
+  const replaced = replaceUnitInPlay(state, oldName, trimmed);
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldName, 'swapped');
 
@@ -687,7 +714,7 @@ export function swapTeam(
   // The outgoing team (oldTeamId) is excluded -- it's being removed by this
   // same swap, so a replacement sharing its exact name is not a collision.
   if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
-  const replaced = replaceAssignedUnit(state, oldTeamId, replacement.teamId);
+  const replaced = replaceUnitInPlay(state, oldTeamId, replacement.teamId);
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped');
 

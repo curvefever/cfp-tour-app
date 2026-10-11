@@ -19,7 +19,10 @@ import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { settingsFromForm } from '../tournament-settings';
+import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
+import { scoreCurrentRound, buildState } from './play-through';
+import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
@@ -1246,5 +1249,86 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
       state.rounds.filter((round) => round.isSwiss).length,
     );
     expect(removed.rounds).toHaveLength(state.rounds.length);
+  });
+});
+
+describe('swapIndividual -- where the outgoing unit is in play', () => {
+  const advanced = (state: TournamentState): TournamentState => {
+    const result = advanceTournamentRound(state);
+    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
+    return result.state;
+  };
+  const seatedNames = (state: TournamentState, index: number) =>
+    (state.assignments[index] ?? []).map((entry) => entry.name);
+  const roundIndexOf = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+  const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
+
+  it('37 waterfall: a unit waiting for R1C is replaced in its pool, keeping the slot it earned', () => {
+    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(37))));
+    const r1c = roundIndexOf(atR1, 'R1C');
+    const waiting = atR1.pendingBracketSeeds[r1c][3];
+
+    const swapped = swapIndividual(atR1, waiting.name, 'Sub');
+
+    expect(swapped.pendingBracketSeeds[r1c][3]).toEqual({ ...waiting, name: 'Sub' });
+    expect(swapped.pendingBracketSeeds[r1c]).toHaveLength(8);
+    expect(JSON.stringify(swapped.pendingBracketSeeds)).not.toContain(`"${waiting.name}"`);
+    expect(swapped.players).toContain('Sub');
+    expect(swapped.players).not.toContain(waiting.name);
+    expect(swapped.reserves).toEqual([]);
+    expect(swapped.withdrawnUnits).toMatchObject([{ name: waiting.name, reason: 'swapped' }]);
+    expect(swapped.needsSave).toBe(true);
+
+    const atR1c = advanced(scoreCurrentRound(swapped, 0));
+    expect(atR1c.curRound).toBe(r1c);
+    expect(seatedNames(atR1c, r1c)).toContain('Sub');
+    expect(seatedNames(atR1c, r1c)).not.toContain(waiting.name);
+    expect(seatedNames(atR1c, r1c)).toHaveLength(8);
+  });
+
+  it('43 waterfall: a unit seated in R1 is still swapped in its seat (regression)', () => {
+    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(43))));
+    const r1 = roundIndexOf(atR1, 'R1');
+    const seated = atR1.assignments[r1][5];
+
+    const swapped = swapIndividual(atR1, seated.name, 'Sub');
+
+    expect(swapped.assignments[r1][5]).toMatchObject({ name: 'Sub', room: seated.room });
+    expect(seatedNames(swapped, r1)).not.toContain(seated.name);
+    expect(swapped.pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
+    expect(swapped.withdrawnUnits).toMatchObject([{ name: seated.name, reason: 'swapped' }]);
+  });
+
+  it('a unit that is neither seated nor waiting leaves the state unchanged', () => {
+    const atR1 = advanced(playToQualificationExit(withReserve(buildQualWaterfall(37))));
+    expect(swapIndividual(atR1, 'Nobody', 'Sub')).toBe(atR1);
+  });
+
+  it('double elimination 1v1 at 31: a unit waiting in a pending pool is replaced and seated when its round is drawn', () => {
+    const start = buildState({
+      label: 'de 31',
+      count: 31,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'double-elimination',
+        poolingPhase: 'none',
+        oddCountStrategy: 'bye',
+      },
+    }) as TournamentState;
+    // Round 3 (losers) leaves 16 winners-bracket units waiting in round 4's pool.
+    let state: TournamentState = { ...start, reserves: ['Sub'] };
+    while (state.curRound < 3) state = advanced(scoreCurrentRound(state, 0));
+    const [destination, pool] = Object.entries(state.pendingBracketSeeds)[0];
+    expect(pool.length).toBeGreaterThan(0);
+    const waiting = pool[0];
+
+    const swapped = swapIndividual(state, waiting.name, 'Sub');
+
+    expect(swapped.pendingBracketSeeds[destination][0]).toEqual({ ...waiting, name: 'Sub' });
+    const drawn = advanced(scoreCurrentRound(swapped, 0));
+    expect(seatedNames(drawn, Number(destination))).toContain('Sub');
+    expect(seatedNames(drawn, Number(destination))).not.toContain(waiting.name);
   });
 });
