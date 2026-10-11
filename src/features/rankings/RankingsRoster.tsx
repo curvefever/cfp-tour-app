@@ -10,6 +10,7 @@ import {
   setTeamDefender,
   swapIndividual,
   swapTeam,
+  swapWindowOpen,
   updateTeam,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
@@ -36,11 +37,11 @@ function handleReserveResult(
   const messages = {
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
-      "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts.",
+      "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts. To replace a no-show with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
     'fixed-draw':
       "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
     'waterfall-bracket':
-      "Reserves can't be added to a waterfall bracket — its whole room-by-room routing table is validated against the exact entrant count at generation time, with no mechanism to fold in a late arrival.",
+      "Reserves can't be added to a waterfall bracket — its room-by-room routing table is built for the exact entrant count, so an extra unit has no place in it. To replace a no-show with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
     'qualification-in-progress':
       "Can't add a reserve now — more than one qualifying round has already been played, so a new entrant could never earn a fair standing.",
     'strict-room':
@@ -49,6 +50,22 @@ function handleReserveResult(
     'duplicate-name': 'A player with that name is already registered — pick a different name.',
   };
   window.alert(messages[result.reason]);
+}
+
+const SWAPS_CLOSED_TITLE = 'Swaps closed — eliminations have started';
+
+/** Applies a swap, or says so when the outgoing unit is neither seated in the current round nor waiting for a later one. */
+function applySwap(
+  state: TournamentState,
+  apply: (updater: (current: TournamentState) => TournamentState) => void,
+  swap: (current: TournamentState) => TournamentState,
+  unitLabel: string,
+) {
+  if (swap(state) === state) {
+    window.alert(`Can't swap "${unitLabel}" — it isn't in the current round or waiting for a later one.`);
+    return;
+  }
+  apply(swap);
 }
 
 export function ReservePanel({ state }: { state: TournamentState }) {
@@ -149,6 +166,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const format = getGameFormat(state.gameFormat);
   if (!state.players.length) return null;
+  const swapsOpen = swapWindowOpen(state);
+  const swapTitle = (open: string) => (swapsOpen ? open : SWAPS_CLOSED_TITLE);
   if (!format?.teamSize) {
     return (
       <Panel>
@@ -178,10 +197,11 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                 </Button>
                 <Button
                   size='sm'
-                  title='Swap'
+                  disabled={!swapsOpen}
+                  title={swapTitle('Swap')}
                   onClick={() => {
                     const value = window.prompt(`Swap out "${name}". Enter the replacement's name:`);
-                    if (value === null) return;
+                    if (value === null || !value.trim()) return;
                     // Only the active roster is a real conflict here -- a
                     // name matching an existing reserve is legitimately
                     // consumed by swapIndividual() (it promotes that
@@ -191,7 +211,12 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       window.alert(`"${value.trim()}" is already registered — pick a different name.`);
                       return;
                     }
-                    app.updateState((current) => swapIndividual(current, name, value));
+                    applySwap(
+                      state,
+                      app.updateState,
+                      (current) => swapIndividual(current, name, value),
+                      name,
+                    );
                   }}
                 >
                   ⇄
@@ -254,7 +279,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     </Button>
                     <Button
                       size='sm'
-                      title='Swap team'
+                      disabled={!swapsOpen}
+                      title={swapTitle('Swap team')}
                       onClick={() => {
                         const reserves = state.reserves as TournamentTeam[];
                         let replacement: TournamentTeam | undefined;
@@ -302,7 +328,12 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           );
                           return;
                         }
-                        app.updateState((current) => swapTeam(current, team.teamId, replacement));
+                        applySwap(
+                          state,
+                          app.updateState,
+                          (current) => swapTeam(current, team.teamId, replacement),
+                          team.teamName,
+                        );
                       }}
                     >
                       ⇄
