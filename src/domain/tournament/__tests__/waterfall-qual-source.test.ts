@@ -345,3 +345,60 @@ SemiB: 1-2->Final, 3-8->eliminated
     expect(playThrough(start, 0, null)).toEqual({ kind: 'ok' });
   });
 });
+
+describe('going back to the last qualification round after the pooling exit', () => {
+  function goBack(state: TournamentState): TournamentState {
+    return { ...state, curRound: state.curRound - 1 };
+  }
+
+  /** Raises one unit's score in the current round far above everyone else's. */
+  function boostScore(state: TournamentState, name: string): TournamentState {
+    const round = state.rounds[state.curRound];
+    const entries = state.assignments[state.curRound] ?? [];
+    const entry = entries.find((candidate) => candidate.name === name);
+    if (!entry || entry.room === null) throw new Error(`${name} is not seated in a room`);
+    const position = entries
+      .filter((other) => other.room === entry.room)
+      .findIndex((other) => other.name === name);
+    const [key] = scoreKeysForPosition({
+      roundIndex: state.curRound,
+      room: entry.room,
+      position,
+      numGames: round.numGames ?? 1,
+      teamSize: undefined,
+    });
+    return { ...state, scores: { ...state.scores, [key]: 1_000_000 } };
+  }
+
+  it('re-draws R1 and rebuilds the R1C pool instead of adding the qualifiers a second time', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const order = standingsOrder(exit);
+    const redrawn = advanced(goBack(advanced(exit)));
+    const r1c = roundIndex(redrawn, 'R1C');
+    expect(pendingNames(redrawn, r1c)).toEqual(order.slice(16, 24));
+    expect(new Set(names(redrawn, roundIndex(redrawn, 'R1')))).toEqual(new Set(order.slice(0, 16)));
+  });
+
+  it('follows a corrected qualification score: the new order feeds R1 and the R1C pool, with no duplicates', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const before = standingsOrder(exit);
+    const climber = before[16];
+    const corrected = boostScore(exit, climber);
+    const after = standingsOrder(corrected);
+    expect(after.indexOf(climber)).toBeLessThan(16);
+
+    const redrawn = advanced(boostScore(goBack(advanced(exit)), climber));
+    const r1 = roundIndex(redrawn, 'R1');
+    const r1c = roundIndex(redrawn, 'R1C');
+    expect(new Set(names(redrawn, r1))).toEqual(new Set(after.slice(0, 16)));
+    expect(names(redrawn, r1)).toContain(climber);
+    expect(pendingNames(redrawn, r1c)).toEqual(after.slice(16, 24));
+    expect(new Set(pendingNames(redrawn, r1c)).size).toBe(8);
+  });
+
+  it('plays on to the Final after the re-draw', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const redrawn = advanced(goBack(advanced(exit)));
+    expect(playThrough(redrawn, 0, null)).toEqual({ kind: 'ok' });
+  });
+});

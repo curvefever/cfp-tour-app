@@ -57,6 +57,22 @@ function undoPoolingByeCounts(counts: Record<string, number>, names: string[]): 
 }
 
 /**
+ * A qualification round with `standingsRoutes` pushed its routed units into its destinations' pools when it
+ * was advanced. 'redraw' is only reached while no bracket or waterfall round has advanced yet, so those pools
+ * hold nothing but those stale arrivals: drop them, or advancing again would add every unit a second time.
+ */
+function withoutStandingsArrivals(
+  state: TournamentState,
+  roundIndex: number,
+): TournamentState['pendingBracketSeeds'] {
+  const pools = { ...state.pendingBracketSeeds };
+  for (const destination of state.rounds[roundIndex]?.standingsRoutes ?? []) {
+    if (typeof destination === 'number') delete pools[destination];
+  }
+  return pools;
+}
+
+/**
  * Pure. Throws away every draw after `roundIndex` so the next advance starts
  * from the same bookkeeping as a first advance: the discarded rounds'
  * roomHistory entries, pooling-bye counts, byes, lucky losers and tie
@@ -70,6 +86,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
   const byes = state.byes.map((round) => [...round]);
   const luckyLosers = state.luckyLosers.map((round) => [...round]);
   const tieResolutions = { ...state.tieResolutions };
+  const pendingBracketSeeds = withoutStandingsArrivals(state, roundIndex);
 
   for (let index = state.assignments.length - 1; index > roundIndex; index -= 1) {
     if (!state.assignments[index]?.length) continue;
@@ -94,5 +111,6 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
     byes,
     luckyLosers,
     tieResolutions,
+    pendingBracketSeeds,
   };
 }
