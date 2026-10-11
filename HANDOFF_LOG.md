@@ -93,7 +93,7 @@ Follow-up to "The qualification table as a source in the waterfall graph" (same 
 - Live check on the test site (2026-10-11, after pushing c79e4b5), view only, no scores, no Next Round, on the throwaway Qual tournament (37 players, now at R1): the last qualification round's badge reads "1–16 → R1 · 17–24 → R1C · 25+ out"; the Bracket tab's standings block shows three labelled separators ("→ R1", "→ R1C", "out") instead of the single cut line; Rankings lists the 16 R1 units with their room and the 8 units waiting for R1C under "Still in tournament" as "Waiting for Round 4", with the 13 units below rank 24 under Final standings (reduced-scale screenshot taken). Rankings names rounds by number everywhere (R1 shows as "Round 3"), so the waiting line says "Round 4" for R1C, not the graph's own label; this follows Rankings' existing convention and was left as is.
 
 ### Out of scope
-The rankings PNG wording for waiting units; ordering waiting units differently from drawn ones; any change to who advances or where.
+The rankings PNG wording for waiting units; ordering waiting units differently from drawn ones; any change to who advances or where. Rankings using the graph's round labels instead of numbers: offered at review, the organiser kept the numbers for now (parked in `docs/open-items.md`).
 
 ---
 
@@ -205,6 +205,18 @@ Final review (planner, 2026-10-09): diff matches the plan; removing `RoundColumn
 
 ### Out of scope
 Highlighting every partial match; a suggestion list / autocomplete; committing the follow only on Enter instead of per keystroke.
+
+---
+
+## Prettier ignores the hand-formatted docs (done — 2026-10-07)
+
+**Context.** `AGENTS.md` already said never to run `prettier --write` on `HANDOFF.md`, `HANDOFF_LOG.md` or `docs/*.md`, but nothing enforced it: `.prettierignore` didn't list them, so `pnpm format` (`prettier . --write`) would have rewritten them and `pnpm format:check` always flagged them. Eight of them failed `prettier --check`. A dry run showed the rewrite would be purely cosmetic and large: about 1,260 changed lines in this log alone (blank lines around lists, `*emphasis*` to `_emphasis_`, padded table columns), with no visible difference once rendered. It would also churn an append-only file, bury `git blame`, and make every later table edit re-pad whole tables.
+
+**Change.** Added `HANDOFF.md`, `HANDOFF_LOG.md` and `docs/` to `.prettierignore`. `AGENTS.md` and `.agents/` already pass the check and stay covered.
+
+**Testing.** `prettier --check` on `HANDOFF.md`, `HANDOFF_LOG.md`, `docs/*.md` and `AGENTS.md` now reports all files clean (8 warnings before).
+
+**Out of scope.** Reformatting code files that already fail the check (e.g. `formats.ts`): a separate pass if ever wanted.
 
 ---
 

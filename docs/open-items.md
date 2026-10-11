@@ -33,3 +33,4 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
   - the qualification table (`Qual`) for Swiss or group-stage standings, which keep a single entry round;
   - rank-order seating inside a destination instead of the balanced draw, or routing a band to a specific room;
   - the qualification table drawn as a node in a graph diagram (there is no diagram, only the editor's round list).
+- **Graph labels in Rankings.** Rankings names rounds by number ("Round 3 — Room A", "Waiting for Round 4") where the other tabs use a waterfall round's own label (R1, R1C). Using `customLabel` wherever a round has one, across Rankings, was offered; the organiser kept the numbers for now.

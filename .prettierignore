@@ -7,3 +7,6 @@ legacy
 node_modules
 src/routeTree.gen.ts
 **/*.min.js
+HANDOFF.md
+HANDOFF_LOG.md
+docs/
