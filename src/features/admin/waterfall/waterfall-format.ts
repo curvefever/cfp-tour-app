@@ -35,8 +35,9 @@ export function sourceName(source: string): string {
   return source === QUAL_LABEL ? QUAL_DISPLAY_NAME : source;
 }
 
-export function destinationName(destination: string): string {
-  return destination === ELIMINATED ? 'out' : destination;
+/** A destination as shown to the organiser: a round label, or "out" for a null or eliminated one. */
+export function destinationName(destination: string | null): string {
+  return destination === null || destination === ELIMINATED ? 'out' : destination;
 }
 
 /** [1,2,3,5] becomes "1–3, 5". */

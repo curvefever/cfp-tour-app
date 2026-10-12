@@ -184,7 +184,7 @@ function SelectionToolbar({
 }
 
 function slotDescription(destination: string | null): string {
-  return destination === null || destination === 'eliminated' ? 'eliminated' : `to ${destination}`;
+  return destination === null ? 'eliminated' : `to ${destination}`;
 }
 
 /** One row of clickable rank slots: a room of a round, or the qualification table's standings. */
@@ -229,7 +229,7 @@ function SlotGrid({
             <>
               <span className='text-base font-semibold tabular-nums'>{rank}</span>
               <span className='max-w-13 truncate text-[0.65rem]' style={{ color }}>
-                {destinationName(destination ?? 'eliminated')}
+                {destinationName(destination)}
               </span>
             </>
           );

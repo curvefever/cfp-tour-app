@@ -303,7 +303,7 @@ describe('waterfall draft edits', () => {
     expect(renameWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'SemiB', 'SemiB').ok).toBe(true);
   });
 
-  it('keeps the slots that still exist when a round is resized, and leaves new ones unset', () => {
+  it('keeps the slots that still exist when a round is resized, and leaves new ones out', () => {
     const grown = resizeWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'R1', 3, 8);
     expect(grown.routes.R1).toHaveLength(3);
     expect(grown.routes.R1[0]).toEqual(['Final', 'Final', 'Final', 'SemiB', 'SemiB', 'SemiB', 'SemiB', null]);

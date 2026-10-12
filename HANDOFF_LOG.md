@@ -6,6 +6,35 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Waterfall graph: an unrouted room rank is eliminated, and "out" is one red (done — 2026-10-12)
+
+### Context
+In the graph editor a Qualification-table rank with no destination read "out" in red, but a room rank set to Eliminated read "out" in grey, and a room rank with no destination read "unset" and the graph was refused until every room rank was routed. The organiser wanted "out" to be the same colour everywhere, and a room rank with no destination to be eliminated, exactly as an unrouted Qual rank already is.
+
+### Decisions
+- **Organiser:** the rule lives in the graph rule itself (`ROUNDS:`/`ROUTES:` validation), not only in the editor, so the editor, saved text, generation and the live "Edit graph" follow one rule.
+- **Planner:** in the draft a room slot is a round label or `null`, and `null` means out, the same as the Qual source (no "unset" state). The serialized text lists only routed bands; old text with `->eliminated` still parses and means the same. A room's out ranks still appear as "R1 → out" flow edges (Qual's open tail does not). One colour: `ELIMINATED_COLOR = '#ff4d6a'`.
+- **Planner (open to correction): dead-end safety net.** A non-Final round whose every room eliminates every rank is refused ("sends nobody on"), keeping the old "a forgotten round fails loudly" intent. Checked after the entry-round, cycle and "nothing routes into it" checks (rule 10), so the earlier mistake is named first. Consequence, accepted by the reviewer: declared rounds with no routes at all now read "More than one round has no incoming routes (R1, Final)" instead of "has no ROUTES line".
+
+### Change
+- Stage 1 (`c9f8edb`, fix-up `a512be6`): `buildRoomDestinations` fills uncovered ranks with `'eliminated'`; `validateAndOrderWaterfallGraph` reads a missing room or round line as all-eliminated and adds the dead-end check; header comment rewritten.
+- Stage 2 (`de6d0bc`, clean-ups in the stage 3 commit): `waterfall-draft.ts` (`storedDestination`, per-room claimed-rank tracking in `parseWaterfallDraft` so an overlap with an `->eliminated` band is still refused, `groupRoomWithOut` for the flow edges and the slot-grid summary, `unsetSlots` removed); `waterfall-format.ts` (one red, `UNSET_COLOR` removed); `WaterfallRoundEditor.tsx` (no `emptyMeaning`, dashed border, "Clear destination" or `UNSET_OPTION`; hint "A rank left as "out" is eliminated."); `WaterfallGraphEditor.tsx` and the `SetupView`/`generation.ts` hint texts no longer say "route every rank".
+
+### Testing
+- `waterfall-bracket.test.ts`: the "has no ROUTES line" and "have no destination" refusals became positive cases (a missing rank and a missing room line read as eliminated); dead-end refusals for a single-room and a multi-room round (no line, and all-eliminated lines).
+- `generation.test.ts`: the "no routes yet" test now exercises the dead-end message; new `it.each([31, 37, 43])` with `QUAL_GRAPH` minus every `, 5-8->eliminated`: generation succeeds, R1 advances 8, R1C 4, R2 4, ranks 5-8 are `'eliminated'` in the routes.
+- `waterfall-draft.test.ts`: `->eliminated` loads as `null` and is not written back; an uncovered rank and a missing room line read as out; an overlap with an `->eliminated` band is still refused; a room's out ranks give an edge to `eliminated`; a generated round's `'eliminated'` becomes `null` in `waterfallDraftFromRounds`; the assign/remove/resize/blank tests expect `null`. `bracket-entry.test.ts`: the examples load and write back as the same draft.
+- Live check on the local dev server (Setup only, nothing generated), FFA + Qualification Table + waterfall, "Example: 16 players, second chance": Qual out slots, room out slots and the "→ out" swatches all `#ff4d6a`; an empty room slot reads "out" with no dashed border; sending ranks 5–8 of R1 to Eliminated gives "5–8 → out" and "R1 → out · 8 players"; the only error shown was the legitimate size rule (SemiB then received 2 of the 8 it declares); "View as text" shows `R1.A: 1-3->Final, 4->SemiB` with no `->eliminated`.
+- Awkward counts: 31, 37 and 43 (generation test above). Full suite and mutation checks are the reviewer's.
+
+### Out of scope
+- The Bracket tab, Standings and Rankings colours for eliminated units (`resultClasses()`, `result-row.ts`, exit chips): the request was about the graph editor.
+- The `Qual` line's behaviour: unchanged.
+- Converting stored graph text of existing tournaments: not needed, old `->eliminated` bands still parse to the same routing; the two built-in examples keep their explicit `->eliminated` bands.
+- The Bracket preview after a withdrawal (`docs/open-items.md`): unrelated.
+
+---
+
 ## Withdrawals in a running waterfall: the empty seat ripples down (done — 2026-10-11)
 
 ### Context
