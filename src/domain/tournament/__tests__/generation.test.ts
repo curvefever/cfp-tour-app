@@ -297,7 +297,7 @@ describe('generateTournament -- Group Stage format gating', () => {
   );
 
   it('still generates Group Stage successfully for a head-to-head format (individual-1v1)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
     const form = createDefaultSetup({ gameFormat: 'individual-1v1', poolingPhase: 'group-stage' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
@@ -412,7 +412,7 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
   // structurally plausible during the audit but never executed -- these
   // anchors convert "looks fine on paper" into "confirmed by running it."
   it('generates successfully: team-3v3, Group Stage + double-elimination-shared-final', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'team-3v3',
