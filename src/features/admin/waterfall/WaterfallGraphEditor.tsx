@@ -24,7 +24,6 @@ import { WATERFALL_EXAMPLES } from '../../../domain/tournament/waterfall-example
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import {
   QualificationTableEditor,
-  UNSET_OPTION,
   WaterfallRoundEditor,
   type RoundEditorActions,
 } from './WaterfallRoundEditor';
@@ -170,14 +169,7 @@ function DraftEditor({
     onMirrorChange: setMirror,
     onSend: (destination) => {
       const slots = [...picked].map(parseSlotKey);
-      commit(
-        assignWaterfallSlots(
-          draft,
-          qualSelected ? QUAL_LABEL : round.label,
-          slots,
-          destination === UNSET_OPTION ? null : destination,
-        ),
-      );
+      commit(assignWaterfallSlots(draft, qualSelected ? QUAL_LABEL : round.label, slots, destination));
     },
     onRename: (name) => {
       const result = renameWaterfallRound(draft, round.label, name);
@@ -205,7 +197,7 @@ function DraftEditor({
       if (
         (roundHasRoutedSlots(draft, round.label) || isDestination) &&
         !window.confirm(
-          `Delete ${round.label}? Its routing is lost, and ranks that pointed at it become unset.`,
+          `Delete ${round.label}? Its routing is lost, and ranks that pointed at it become out.`,
         )
       ) {
         return;
@@ -362,8 +354,8 @@ export function WaterfallGraphEditor({
     return (
       <div className='rounded-lg bg-surface-low p-4'>
         <p className='text-sm'>
-          No rounds yet. Start with an entry round and a Final and route every rank, or load an example to
-          edit.
+          No rounds yet. Start with an entry round and a Final and route the ranks that go on (the rest are
+          out), or load an example to edit.
         </p>
         {readOnly || !allowReplace ? null : (
           <ButtonRow>

@@ -726,7 +726,7 @@ export function SetupView() {
       </TwoColumnGrid>
       {isWaterfallBracket && format ? (
         <Panel>
-          <PanelTitle hint='— route every rank of every room to where those players go next'>
+          <PanelTitle hint='— route the ranks of every room that go on; the rest are out'>
             Waterfall bracket graph
           </PanelTitle>
           <WaterfallGraphEditor

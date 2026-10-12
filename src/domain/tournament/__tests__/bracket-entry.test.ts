@@ -111,11 +111,11 @@ describe('WATERFALL_EXAMPLES', () => {
     },
   );
 
-  it('loads into the editor draft and writes back unchanged', () => {
+  it('loads into the editor draft and writes back as the same draft (out ranks are no longer written)', () => {
     for (const example of WATERFALL_EXAMPLES) {
       const draft = parseWaterfallDraft(example.text);
       expect(draft.ok).toBe(true);
-      if (draft.ok) expect(serializeWaterfallDraft(draft.value)).toBe(example.text);
+      if (draft.ok) expect(parseWaterfallDraft(serializeWaterfallDraft(draft.value))).toEqual(draft);
     }
   });
 });

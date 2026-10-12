@@ -102,12 +102,29 @@ describe('parseWaterfallDraft / serializeWaterfallDraft round trip', () => {
     expect(roundTripped).toEqual(original);
   });
 
-  it('keeps unset slots unset, and leaves them out of the text', () => {
-    const draft = assignWaterfallSlots(draftOf(SECOND_CHANCE_GRAPH), 'R1', [{ room: 0, rank: 8 }], null);
+  it('reads ->eliminated bands as out slots, and leaves out slots out of the text', () => {
+    const draft = draftOf(SECOND_CHANCE_GRAPH);
+    expect(draft.routes.R1[1][7]).toBeNull();
     const text = serializeWaterfallDraft(draft);
     expect(text).toContain('R1.A: 1-3->Final, 4-7->SemiB\n');
-    expect(text).toContain('R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated');
+    expect(text).toContain('R1.B: 1-3->Final, 4-7->SemiB\n');
+    expect(text).not.toContain('R1.B: 1-3->Final, 4-7->SemiB, 8');
     expect(draftOf(text)).toEqual(draft);
+  });
+
+  it('reads a rank no band covers as out, and a room with no line as all out', () => {
+    const draft = draftOf('ROUNDS:\nR1 = 2x4\nFinal = 4 FINAL\nROUTES:\nR1.A: 1-2->Final');
+    expect(draft.routes.R1).toEqual([['Final', 'Final', null, null], Array(4).fill(null)]);
+    expect(serializeWaterfallDraft(draft)).toContain('R1.A: 1-2->Final');
+    expect(serializeWaterfallDraft(draft)).not.toContain('R1.B');
+  });
+
+  it('still refuses a rank routed twice, even when one of the bands is ->eliminated', () => {
+    const result = parseWaterfallDraft(
+      'ROUNDS:\nR1 = 4\nFinal = 4 FINAL\nROUTES:\nR1: 1-4->eliminated, 2->Final',
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('routed more than once');
   });
 
   it('treats empty text as an empty draft, and an empty draft as empty text', () => {
@@ -194,12 +211,17 @@ describe('waterfallFlowEdges / waterfallRoundIntake', () => {
     ]);
   });
 
+  it('reports the out ranks of a room as an edge to eliminated', () => {
+    const draft = draftOf(SECOND_CHANCE_GRAPH);
+    const toOut = waterfallFlowEdges(draft).find((edge) => edge.from === 'R1' && edge.to === 'eliminated');
+    expect(toOut).toMatchObject({ players: 2, ranksByRoom: { 0: [8], 1: [8] } });
+  });
+
   it('reports what each round receives, the starting round and the play order', () => {
     const intake = waterfallRoundIntake(draftOf(SECOND_CHANCE_GRAPH));
     expect(intake.incoming).toEqual({ R1: 0, SemiB: 8, Final: 8 });
     expect(intake.startingRound).toBe('R1');
     expect(intake.order).toEqual(['R1', 'SemiB', 'Final']);
-    expect(intake.unsetSlots).toBe(0);
   });
 
   it('puts a skipped-ahead round after every round that feeds it', () => {
@@ -210,10 +232,9 @@ describe('waterfallFlowEdges / waterfallRoundIntake', () => {
     expect(intake.incoming.SemiB).toBe(8);
   });
 
-  it('counts unset slots and has no starting round when two rounds have nothing routed in', () => {
+  it('has no starting round when two rounds have nothing routed in', () => {
     const draft = draftOf('ROUNDS:\nA = 8\nB = 8\nF = 8 FINAL\nROUTES:\nA: 1-4->F');
     const intake = waterfallRoundIntake(draft);
-    expect(intake.unsetSlots).toBe(4 + 8);
     expect(intake.startingRound).toBeNull();
   });
 
@@ -232,7 +253,7 @@ describe('waterfall draft edits', () => {
       { label: 'R1', roomCount: 3, roomSize: 8, isFinal: false },
       { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true },
     ]);
-    expect(waterfallRoundIntake(draft).unsetSlots).toBe(24);
+    expect(draft.routes.R1).toEqual(Array.from({ length: 3 }, () => Array(8).fill(null)));
   });
 
   it('starts with a single room when the entrants are unknown or do not divide evenly', () => {
@@ -250,11 +271,11 @@ describe('waterfall draft edits', () => {
     expect(addWaterfallRound(draftOf('ROUNDS:\nR3 = 8\nF = 8 FINAL\nROUTES:'), 8).rounds[1].label).toBe('R4');
   });
 
-  it('removes a round and unsets every slot that pointed at it', () => {
+  it('removes a round and makes every slot that pointed at it out', () => {
     const removed = removeWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'SemiB');
     expect(removed.rounds.map((round) => round.label)).toEqual(['R1', 'Final']);
     expect(removed.routes.SemiB).toBeUndefined();
-    expect(removed.routes.R1[0]).toEqual(['Final', 'Final', 'Final', null, null, null, null, 'eliminated']);
+    expect(removed.routes.R1[0]).toEqual(['Final', 'Final', 'Final', null, null, null, null, null]);
   });
 
   it('renames a round and every route that points at it', () => {
@@ -285,16 +306,7 @@ describe('waterfall draft edits', () => {
   it('keeps the slots that still exist when a round is resized, and leaves new ones unset', () => {
     const grown = resizeWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'R1', 3, 8);
     expect(grown.routes.R1).toHaveLength(3);
-    expect(grown.routes.R1[0]).toEqual([
-      'Final',
-      'Final',
-      'Final',
-      'SemiB',
-      'SemiB',
-      'SemiB',
-      'SemiB',
-      'eliminated',
-    ]);
+    expect(grown.routes.R1[0]).toEqual(['Final', 'Final', 'Final', 'SemiB', 'SemiB', 'SemiB', 'SemiB', null]);
     expect(grown.routes.R1[2]).toEqual(Array(8).fill(null));
     const shrunk = resizeWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'R1', 1, 6);
     expect(shrunk.routes.R1).toEqual([['Final', 'Final', 'Final', 'SemiB', 'SemiB', 'SemiB']]);
@@ -321,19 +333,19 @@ describe('waterfall draft edits', () => {
       { room: 1, rank: 8 },
     ];
 
-    it('sends the chosen slots to a round or to eliminated, and leaves the input untouched', () => {
+    it('sends the chosen slots to a round, and stores eliminated as out, leaving the input untouched', () => {
       const base = draftOf(SECOND_CHANCE_GRAPH);
       const sent = assignWaterfallSlots(base, 'R1', slots, 'Final');
       expect(sent.routes.R1[0][7]).toBe('Final');
       expect(sent.routes.R1[1][7]).toBe('Final');
-      expect(base.routes.R1[0][7]).toBe('eliminated');
-      expect(assignWaterfallSlots(sent, 'R1', slots, 'eliminated').routes.R1[1][7]).toBe('eliminated');
+      expect(base.routes.R1[0][7]).toBeNull();
+      expect(assignWaterfallSlots(sent, 'R1', slots, 'eliminated').routes.R1[1][7]).toBeNull();
     });
 
-    it('unsets slots when the destination is null', () => {
-      expect(
-        assignWaterfallSlots(draftOf(SECOND_CHANCE_GRAPH), 'R1', slots, null).routes.R1[0][7],
-      ).toBeNull();
+    it('sets slots out when the destination is null', () => {
+      const base = draftOf(SECOND_CHANCE_GRAPH);
+      const sent = assignWaterfallSlots(base, 'R1', slots, 'Final');
+      expect(assignWaterfallSlots(sent, 'R1', slots, null).routes.R1[0][7]).toBeNull();
     });
 
     it.each([
@@ -388,6 +400,23 @@ describe('waterfallDraftFromRounds', () => {
 
     expect(draft.rounds.find((round) => round.label === 'R1C')).toMatchObject({ roomCount: 1, roomSize: 8 });
     expect(serializeWaterfallDraft(draft)).toContain('R1C = 8');
+  });
+
+  it('turns the eliminated ranks of a generated round into out slots', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 16, players: names(16) }),
+      createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'waterfall-bracket',
+        waterfallGraph: SECOND_CHANCE_GRAPH,
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    const r1 = result.state.rounds.find((round) => round.customLabel === 'R1');
+    expect(r1?.waterfallRoutes?.[0][7]).toBe('eliminated');
+    expect(waterfallDraftFromRounds(result.state.rounds).routes.R1[0][7]).toBeNull();
   });
 
   it.each([
@@ -551,6 +580,8 @@ R2: 1-4->Final, 5-8->eliminated`;
         ranksByRoom: { 0: Array.from({ length: 8 }, (_, i) => i + 17) },
       },
     ]);
+    // The Qual source's open tail (ranks past the highest routed one) is not an edge.
+    expect(edges.some((edge) => edge.from === 'Qual' && edge.to === 'eliminated')).toBe(false);
     const intake = waterfallRoundIntake(draft);
     expect(intake.incoming).toEqual({ R1: 16, R1C: 8, R2: 8, Final: 8 });
     expect(intake.startingRound).toBeNull();

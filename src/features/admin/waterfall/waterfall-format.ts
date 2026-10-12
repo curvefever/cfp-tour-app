@@ -9,13 +9,11 @@ import {
 } from '../../../domain/tournament/waterfall-draft';
 
 const ROUND_COLORS = ['#b57bff', '#ffb830', '#00e096', '#00e5ff', '#ff7ab8', '#7aa8ff'];
-const ELIMINATED_COLOR = '#6b7891';
-export const UNSET_COLOR = '#ff4d6a';
+const ELIMINATED_COLOR = '#ff4d6a';
 
-/** A slot's colour follows where it goes: one colour per round, grey for eliminated, red while unset. */
+/** A slot's colour follows where it goes: one colour per round, red for out (eliminated, or no destination). */
 export function destinationColor(draft: WaterfallDraft, destination: string | null): string {
-  if (destination === null) return UNSET_COLOR;
-  if (destination === ELIMINATED) return ELIMINATED_COLOR;
+  if (destination === null || destination === ELIMINATED) return ELIMINATED_COLOR;
   const index = draft.rounds.findIndex((round) => round.label === destination);
   return ROUND_COLORS[Math.max(index, 0) % ROUND_COLORS.length];
 }
