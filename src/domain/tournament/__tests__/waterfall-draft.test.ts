@@ -361,13 +361,11 @@ describe('waterfall draft edits', () => {
       expect(outside.routes).toEqual(base.routes);
     });
 
-    it('makes an incomplete graph fail the real validator until every slot is set, then pass', () => {
-      let draft = assignWaterfallSlots(draftOf(SECOND_CHANCE_GRAPH), 'R1', slots, null);
-      const incomplete = validated(serializeWaterfallDraft(draft), 16);
-      expect(incomplete.ok).toBe(false);
-      if (!incomplete.ok) expect(incomplete.error).toContain('rank(s) 8 have no destination');
-      draft = assignWaterfallSlots(draft, 'R1', slots, 'eliminated');
-      expect(validated(serializeWaterfallDraft(draft), 16).ok).toBe(true);
+    it('lets a rank left unrouted pass the real validator as eliminated', () => {
+      const draft = assignWaterfallSlots(draftOf(SECOND_CHANCE_GRAPH), 'R1', slots, null);
+      const result = validated(serializeWaterfallDraft(draft), 16);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.value.routes[0][0][7]).toBe('eliminated');
     });
   });
 });

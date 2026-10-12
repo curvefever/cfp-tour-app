@@ -297,7 +297,7 @@ describe('generateTournament -- Group Stage format gating', () => {
   );
 
   it('still generates Group Stage successfully for a head-to-head format (individual-1v1)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
     const form = createDefaultSetup({ gameFormat: 'individual-1v1', poolingPhase: 'group-stage' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
@@ -412,7 +412,7 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
   // structurally plausible during the audit but never executed -- these
   // anchors convert "looks fine on paper" into "confirmed by running it."
   it('generates successfully: team-3v3, Group Stage + double-elimination-shared-final', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'team-3v3',
@@ -1298,17 +1298,18 @@ SemiB: 1-4->Final, 5-8->eliminated
     }
   });
 
-  it('says which rooms still have no routing when the graph has rounds but no routes yet', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 16, players: names(16) });
+  it('names the round that sends nobody on when its routes are missing', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'waterfall-bracket',
-      waterfallGraph: 'ROUNDS:\nR1 = 2x8\nFinal = 8 FINAL\n\nROUTES:',
+      waterfallGraph:
+        'ROUNDS:\nR1 = 2x6\nR2 = 6\nFinal = 6 FINAL\n\nROUTES:\nR1.A: 1-3->R2, 4-6->Final\nR1.B: 1-3->R2, 4-6->Final',
     });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') {
-      expect(result.message).toContain('has no ROUTES line');
+      expect(result.message).toContain('Round "R2" sends nobody on');
       expect(result.message).not.toContain('No ROUTES: section found');
     }
   });
@@ -1663,6 +1664,25 @@ R2: 1-4->Final, 5-8->eliminated
       expect(lastQual?.standingsRoutes).toEqual([...Array(16).fill(r1), ...Array(8).fill(r1c)]);
       // Only the last qualification round carries the routing.
       expect(rounds.filter((round) => round.standingsRoutes)).toHaveLength(1);
+    },
+  );
+
+  // Ranks 5-8 of every room are simply not written: they are eliminated, like the Qual line's unrouted ranks.
+  const UNWRITTEN_OUT_GRAPH = QUAL_GRAPH.replace(/, 5-8->eliminated/g, '');
+
+  it.each([31, 37, 43])(
+    'at %i registered: ranks left unrouted in a room are eliminated, and each round advances only its routed ranks',
+    (registered) => {
+      const result = generateQual(registered, UNWRITTEN_OUT_GRAPH);
+      expect(result.status).toBe('generated');
+      if (result.status !== 'generated') return;
+      const byLabel = (label: string) => result.state.rounds.find((round) => round.customLabel === label);
+      // R1 has 2 rooms x ranks 1-4 -> R2; R1C and R2 route ranks 1-4 -> Final; the other 4 ranks of each room are out.
+      expect(byLabel('R1')?.advTotal).toBe(8);
+      expect(byLabel('R1C')?.advTotal).toBe(4);
+      expect(byLabel('R2')?.advTotal).toBe(4);
+      expect(byLabel('R1')?.waterfallRoutes?.[0].slice(4)).toEqual(Array(4).fill('eliminated'));
+      expect(byLabel('R2')?.players).toBe(8);
     },
   );
 

@@ -31,9 +31,11 @@ import type { RoomSize, TournamentRound } from './types';
  * marked FINAL (an explicit keyword, not inferred from "has no outgoing
  * line", so a round the organiser forgot to route out of fails loudly
  * instead of silently becoming the de facto Final). Every other declared
- * round needs exactly one outgoing line per room. A band's rank list is a
- * comma-separated mix of single ranks ("5,8") and ranges ("1-4"); every
- * room's bands must partition 1..roomSize exactly, with no gaps or overlaps.
+ * round has at most one outgoing line per room. A band's rank list is a
+ * comma-separated mix of single ranks ("5,8") and ranges ("1-4"); a room's
+ * bands must not overlap, and any rank no band routes (or a room with no line
+ * at all) is eliminated, the same as on the Qual line. A non-Final round must
+ * still send at least one rank on, so a forgotten route fails loudly.
  *
  * After a qualification table, a reserved "Qual" line routes the final
  * standings the same way, by rank ("Qual: 1-16->R1, 17-24->R1C"). It has no
@@ -354,7 +356,7 @@ export function expandRankTokens(tokens: string[]): WaterfallParseResult<number[
   return ok(ranks);
 }
 
-/** Builds one room's per-rank destination-label array from its route line's bands, enforcing the exact-partition rule (every rank 1..roomSize covered exactly once). */
+/** Builds one room's per-rank destination-label array from its route line's bands; a rank no band covers is eliminated. Bands must not overlap. */
 function buildRoomDestinations(
   roomDisplayName: string,
   roomSize: number,
@@ -376,16 +378,7 @@ function buildRoomDestinations(
       destinations[rank - 1] = band.destinationLabel;
     }
   }
-  const missing: number[] = [];
-  destinations.forEach((destination, index) => {
-    if (destination === undefined) missing.push(index + 1);
-  });
-  if (missing.length > 0) {
-    return err(
-      `${roomDisplayName}: rank(s) ${missing.join(', ')} have no destination -- every rank from 1 to ${roomSize} must be covered.`,
-    );
-  }
-  return ok(destinations as string[]);
+  return ok(destinations.map((destination) => destination ?? ELIMINATED));
 }
 
 /**
@@ -437,6 +430,10 @@ function findEntryLabel(
     );
   }
   return ok(entryCandidates[0]);
+}
+
+function allEliminated(roomSize: number): string[] {
+  return Array.from({ length: roomSize }, () => ELIMINATED);
 }
 
 function nonEliminatedLabels(destinations: string[]): string[] {
@@ -510,7 +507,7 @@ export function validateAndOrderWaterfallGraph(
     routesByLabel.set(key, [...(routesByLabel.get(key) ?? []), route]);
   }
 
-  // Rule 3 + partition (rule 4) + destination existence/self-loop (rule 5):
+  // Rule 3 + overlap check (rule 4; uncovered ranks are eliminated) + destination existence/self-loop (rule 5):
   // resolve every round's per-room destination-label arrays.
   const roomBandsByLabel = new Map<string, string[][]>();
   for (const round of roundLines) {
@@ -527,22 +524,23 @@ export function validateAndOrderWaterfallGraph(
     const roomCount = round.roomSizes.length;
     const roomDestinations: string[][] = new Array(roomCount);
     if (roomCount === 1) {
-      if (routes.length === 0) {
-        return err(`Round "${round.label}" has no ROUTES line -- every non-Final round needs exactly one.`);
-      }
       if (routes.length > 1) {
         return err(
           `Round "${round.label}" has more than one ROUTES line -- it has only 1 room, combine them into one.`,
         );
       }
-      if (routes[0].room !== null) {
-        return err(
-          `Round "${round.label}" has only 1 room -- address it as "${round.label}", not "${round.label}.${roomIndexToLetter(routes[0].room)}".`,
-        );
+      if (routes.length === 0) {
+        roomDestinations[0] = allEliminated(round.roomSizes[0]);
+      } else {
+        if (routes[0].room !== null) {
+          return err(
+            `Round "${round.label}" has only 1 room -- address it as "${round.label}", not "${round.label}.${roomIndexToLetter(routes[0].room)}".`,
+          );
+        }
+        const built = buildRoomDestinations(round.label, round.roomSizes[0], routes[0].bands);
+        if (!built.ok) return built;
+        roomDestinations[0] = built.value;
       }
-      const built = buildRoomDestinations(round.label, round.roomSizes[0], routes[0].bands);
-      if (!built.ok) return built;
-      roomDestinations[0] = built.value;
     } else {
       const seenRooms = new Set<number>();
       for (const route of routes) {
@@ -571,11 +569,7 @@ export function validateAndOrderWaterfallGraph(
         roomDestinations[route.room - 1] = built.value;
       }
       for (let room = 1; room <= roomCount; room += 1) {
-        if (!seenRooms.has(room)) {
-          return err(
-            `Round "${round.label}.${roomIndexToLetter(room)}" has no ROUTES line -- every room needs exactly one.`,
-          );
-        }
+        if (!seenRooms.has(room)) roomDestinations[room - 1] = allEliminated(round.roomSizes[room - 1]);
       }
     }
     for (const destinations of roomDestinations) {
@@ -732,6 +726,18 @@ export function validateAndOrderWaterfallGraph(
     return err(
       `The routing table has a cycle involving: ${stuck.map((label) => roundByLabel.get(label)!.label).join(', ')}.`,
     );
+  }
+
+  // Rule 10: a non-Final round must send at least one rank on, so a round
+  // whose route was forgotten (every rank eliminated) fails loudly. Checked
+  // after the feeding, entry and cycle checks, which name the earlier mistake.
+  for (const round of roundLines) {
+    const rooms = roomBandsByLabel.get(round.label.toLowerCase()) ?? [];
+    if (!round.isFinal && rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0)) {
+      return err(
+        `Round "${round.label}" sends nobody on -- route at least one rank to a later round, or make it the Final.`,
+      );
+    }
   }
 
   // Rule 7: every round's declared total (except the entry round of a graph

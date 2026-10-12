@@ -218,18 +218,39 @@ describe('validateAndOrderWaterfallGraph -- validation rules', () => {
     if (!result.ok) expect(result.error).toContain('only 1 room');
   });
 
-  it("rule 3: rejects a multi-room round missing one room's ROUTES line", () => {
-    const text = 'ROUNDS:\n5 = 2x4\nFinal = 8 FINAL\nROUTES:\n5.A: 1-4->Final';
+  it("rule 3: reads a multi-room round's room with no ROUTES line as all eliminated", () => {
+    const text = 'ROUNDS:\n5 = 2x4\nFinal = 4 FINAL\nROUTES:\n5.A: 1-4->Final';
     const result = parseAndValidate(text, 8);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain('has no ROUTES line');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.routes[0]).toEqual([
+      [1, 1, 1, 1],
+      ['eliminated', 'eliminated', 'eliminated', 'eliminated'],
+    ]);
   });
 
-  it("rule 4: rejects a gap in a room's rank coverage", () => {
-    const text = 'ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-2->Final';
+  it('rule 3: refuses a single-room round with no ROUTES line as a dead end', () => {
+    const text = 'ROUNDS:\n5 = 4\n6 = 2\nFinal = 2 FINAL\nROUTES:\n5: 1-2->6, 3-4->Final';
     const result = parseAndValidate(text, 4);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain('have no destination');
+    if (!result.ok) expect(result.error).toContain('Round "6" sends nobody on');
+  });
+
+  it('rule 4: reads a rank no band routes as eliminated', () => {
+    const text = 'ROUNDS:\n5 = 4\nFinal = 2 FINAL\nROUTES:\n5: 1-2->Final';
+    const result = parseAndValidate(text, 4);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.routes[0]).toEqual([[1, 1, 'eliminated', 'eliminated']]);
+  });
+
+  it('rule 4: refuses a multi-room round whose every room eliminates every rank (a dead end)', () => {
+    for (const routes of ['', '6.A: 1-2->eliminated\n6.B: 1-2->eliminated']) {
+      const text = `ROUNDS:\n5 = 2x4\n6 = 2x2\nFinal = 4 FINAL\nROUTES:\n5.A: 1-2->6, 3-4->Final\n5.B: 1-2->6, 3-4->Final\n${routes}`;
+      const result = parseAndValidate(text, 8);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toContain('Round "6" sends nobody on');
+    }
   });
 
   it("rule 4: rejects an overlap in a room's rank coverage", () => {
