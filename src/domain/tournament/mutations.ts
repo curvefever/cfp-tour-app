@@ -25,10 +25,6 @@ import type {
 
 const MAX_ANONYMOUS_FINALISTS = 10;
 
-function dirty(state: TournamentState): TournamentState {
-  return { ...state, needsSave: true };
-}
-
 // Scores must be non-negative integers. Rejects (rather than truncates)
 // decimals so "5.7" doesn't silently become "5", and rejects negatives --
 // 0 is a real, complete score. Number(), not parseInt, so a fractional
@@ -52,7 +48,7 @@ export function setRoundScore(
     scores: { ...state.scores, [key]: parsed },
   };
   next = invalidateStaleTieResolutions(next, roundIndex, room);
-  return dirty(next);
+  return next;
 }
 
 export function setFinalScore(
@@ -62,10 +58,10 @@ export function setFinalScore(
 ): TournamentState {
   const raw = value === '' || value === null ? null : String(value);
   const parsed = raw !== null && isValidNonNegativeInteger(raw) ? Number.parseInt(raw, 10) : '';
-  const updated = dirty({
+  const updated: TournamentState = {
     ...state,
     finalScores: { ...state.finalScores, [key]: parsed },
-  });
+  };
   return progressGrandFinalRace(updated).state;
 }
 
@@ -111,7 +107,7 @@ export function flagFinalGameAnonymous(state: TournamentState, gameNumber: numbe
       ? { ...entry, anonymousGames: [...(entry.anonymousGames ?? []), gameNumber] }
       : entry,
   );
-  return dirty({ ...state, rounds, anonymousFinalists });
+  return { ...state, rounds, anonymousFinalists };
 }
 
 export function unflagFinalGameAnonymous(state: TournamentState, gameNumber: number): TournamentState {
@@ -127,7 +123,7 @@ export function unflagFinalGameAnonymous(state: TournamentState, gameNumber: num
       ? { ...entry, anonymousGames: (entry.anonymousGames ?? []).filter((game) => game !== gameNumber) }
       : entry,
   );
-  return dirty({ ...state, rounds });
+  return { ...state, rounds };
 }
 
 export function connectAnonymousFinalist(state: TournamentState, alias: string): TournamentState {
@@ -148,16 +144,16 @@ export function connectAnonymousFinalist(state: TournamentState, alias: string):
   const anonymousFinalists = state.anonymousFinalists.map((entry) =>
     entry.alias === alias ? { ...entry, connected: true } : entry,
   );
-  return dirty({ ...state, finalScores, anonymousFinalists });
+  return { ...state, finalScores, anonymousFinalists };
 }
 
 export function resolveTournamentTie(state: TournamentState, key: string, name: string): TournamentState {
   const list = [...tieResolutionList(state, key)];
   if (!list.includes(name)) list.push(name);
-  return dirty({
+  return {
     ...state,
     tieResolutions: { ...state.tieResolutions, [key]: list },
-  });
+  };
 }
 
 export function renameIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
@@ -172,7 +168,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     const match = key.match(/^(game\d+)-(.*)$/u);
     finalScores[match?.[2] === oldName ? `${match[1]}-${trimmed}` : key] = score;
   }
-  return dirty({
+  return {
     ...state,
     players: players.map(rename),
     reserves: reserves.map(rename),
@@ -188,7 +184,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
       ]),
     ),
     finalScores,
-  });
+  };
 }
 
 function rebuildFutureRounds(state: TournamentState): TournamentState | null {
@@ -340,7 +336,7 @@ export function addReserveUnit(
   };
   const rebuilt = rebuildFutureRounds(next);
   if (!rebuilt) return { status: 'blocked', reason: 'room-cap' };
-  next = dirty(rebuilt);
+  next = rebuilt;
   return { status: 'added', state: next };
 }
 
@@ -361,12 +357,12 @@ export function addWalkUpIndividual(
 
 export function removeReserveUnit(state: TournamentState, key: string): TournamentState {
   const format = getGameFormat(state.gameFormat);
-  return dirty({
+  return {
     ...state,
     reserves: format?.teamSize
       ? (state.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key)
       : (state.reserves as string[]).filter((entry) => entry !== key),
-  });
+  };
 }
 
 function removeUnitFromCurrentRoom(state: TournamentState, key: string): TournamentState {
@@ -556,7 +552,7 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     groups: next.groups.map((group) => ({ ...group, members: strip(group.members) })),
     tieResolutions,
   };
-  return dirty(replanFutureRounds(patchPublishedFutureRounds(next, key, null)));
+  return replanFutureRounds(patchPublishedFutureRounds(next, key, null));
 }
 
 /**
@@ -694,21 +690,19 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldName, 'swapped', trimmed);
 
-  return dirty(
-    patchPublishedFutureRounds(
-      {
-        ...replaced,
-        withdrawnUnits: withdrawn.withdrawnUnits,
-        players: players.filter((name) => name !== oldName).concat(trimmed),
-        reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
-        groups: state.groups.map((group) => ({
-          ...group,
-          members: group.members.map((name) => (name === oldName ? trimmed : name)),
-        })),
-      },
-      oldName,
-      trimmed,
-    ),
+  return patchPublishedFutureRounds(
+    {
+      ...replaced,
+      withdrawnUnits: withdrawn.withdrawnUnits,
+      players: players.filter((name) => name !== oldName).concat(trimmed),
+      reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
+      groups: state.groups.map((group) => ({
+        ...group,
+        members: group.members.map((name) => (name === oldName ? trimmed : name)),
+      })),
+    },
+    oldName,
+    trimmed,
   );
 }
 
@@ -733,23 +727,21 @@ export function swapTeam(
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped', replacement.teamId);
 
-  return dirty(
-    patchPublishedFutureRounds(
-      {
-        ...replaced,
-        withdrawnUnits: withdrawn.withdrawnUnits,
-        players: (state.players as TournamentTeam[])
-          .filter((team) => team.teamId !== oldTeamId)
-          .concat(replacement),
-        reserves: (state.reserves as TournamentTeam[]).filter((team) => team.teamId !== replacement.teamId),
-        groups: state.groups.map((group) => ({
-          ...group,
-          members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
-        })),
-      },
-      oldTeamId,
-      replacement.teamId,
-    ),
+  return patchPublishedFutureRounds(
+    {
+      ...replaced,
+      withdrawnUnits: withdrawn.withdrawnUnits,
+      players: (state.players as TournamentTeam[])
+        .filter((team) => team.teamId !== oldTeamId)
+        .concat(replacement),
+      reserves: (state.reserves as TournamentTeam[]).filter((team) => team.teamId !== replacement.teamId),
+      groups: state.groups.map((group) => ({
+        ...group,
+        members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
+      })),
+    },
+    oldTeamId,
+    replacement.teamId,
   );
 }
 
@@ -780,12 +772,12 @@ export function updateTeam(
   teamId: string,
   updater: (team: TournamentTeam) => TournamentTeam,
 ): TournamentState {
-  return dirty({
+  return {
     ...state,
     players: (state.players as TournamentTeam[]).map((team) =>
       team.teamId === teamId ? updater({ ...team, members: [...team.members] }) : team,
     ),
-  });
+  };
 }
 
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
@@ -793,10 +785,10 @@ export function setTeamDefender(state: TournamentState, teamId: string, memberId
   const existing = changes.find((entry) => entry.round === state.curRound);
   if (existing) existing.memberIdx = memberIdx;
   else changes.push({ round: state.curRound, memberIdx });
-  return dirty({
+  return {
     ...state,
     defenderChanges: { ...state.defenderChanges, [teamId]: changes },
-  });
+  };
 }
 
 /**
@@ -835,8 +827,6 @@ export function resetRoster(state: TournamentState): TournamentState {
     curRound: 0,
     reserveOpen: true,
     started: false,
-    needsSave: false,
-    autoSaved: false,
   };
 }
 
@@ -858,7 +848,5 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     curRound: 0,
     reserveOpen: true,
     started: false,
-    needsSave: false,
-    autoSaved: false,
   };
 }

@@ -1322,7 +1322,6 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     expect(swapped.players).not.toContain(waiting.name);
     expect(swapped.reserves).toEqual([]);
     expect(swapped.withdrawnUnits).toMatchObject([{ name: waiting.name, reason: 'swapped' }]);
-    expect(swapped.needsSave).toBe(true);
 
     const atR1c = advanced(scoreCurrentRound(swapped, 0));
     expect(atR1c.curRound).toBe(r1c);

@@ -267,8 +267,6 @@ export interface TournamentState {
   anonymousFinalists: AnonymousFinalist[];
   reserveOpen: boolean;
   started: boolean;
-  needsSave: boolean;
-  autoSaved: boolean;
   cfg: Partial<GeneratedTournamentConfig>;
   scheduleLogic: ScheduleLogicKey;
   gameFormat: GameFormatKey;

@@ -5,7 +5,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 
 /** The scheduled date and time of the loaded tournament, typed in the time zone of this browser. */
 export function ScheduledTimeField({ id }: { id: string }) {
-  const { state, updateState } = useTournamentApp();
+  const { state, updateState, readOnly } = useTournamentApp();
   const scheduledAt = state.info?.scheduledAt ?? null;
   const zone = timeZoneLabel(scheduledAt ?? Date.now());
   return (
@@ -13,6 +13,7 @@ export function ScheduledTimeField({ id }: { id: string }) {
       <Input
         id={id}
         type='datetime-local'
+        disabled={readOnly}
         value={toDateTimeLocalValue(scheduledAt)}
         onChange={(event) =>
           updateState((current) => ({

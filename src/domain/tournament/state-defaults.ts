@@ -27,8 +27,6 @@ export function createDefaultTournamentState(overrides: Partial<TournamentState>
     anonymousFinalists: [],
     reserveOpen: true,
     started: false,
-    needsSave: false,
-    autoSaved: false,
     cfg: {},
     scheduleLogic: 'single-elimination',
     gameFormat: 'ffa-individual',

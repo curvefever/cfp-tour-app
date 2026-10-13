@@ -299,7 +299,7 @@ describe('Next Round steps forward unchanged when the drawn-ahead round is locke
     const stepped = advanceOk(withScore);
     expect(stepped.curRound).toBe(3);
     expect(stepped.assignments).toEqual(first.assignments);
-    expect(stepped).toEqual({ ...withScore, curRound: 3, needsSave: true, reserveOpen: stepped.reserveOpen });
+    expect(stepped).toEqual({ ...withScore, curRound: 3, reserveOpen: stepped.reserveOpen });
   });
 
   it('double elimination, 37 FFA players: steps forward; pools and lucky losers are untouched', () => {

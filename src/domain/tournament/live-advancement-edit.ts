@@ -224,7 +224,6 @@ function applyPoolingEdit(
       assignments: state.assignments.slice(0, state.curRound + 1),
       byes: [...state.byes.slice(0, bracketStart), ...emptyTail()],
       luckyLosers: [...state.luckyLosers.slice(0, bracketStart), ...emptyTail()],
-      needsSave: true,
     },
   };
 }
@@ -292,7 +291,6 @@ function applyBracketEdit(
       ...state,
       ...syncSettings(state, eliminationTargetList(rounds), undefined),
       rounds,
-      needsSave: true,
     },
   };
 }

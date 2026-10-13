@@ -260,5 +260,5 @@ export function RankingsContent({
 
 export function RankingsView() {
   const app = useTournamentApp();
-  return <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer} />;
+  return <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer && !app.readOnly} />;
 }

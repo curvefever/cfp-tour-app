@@ -600,8 +600,6 @@ export function generateTournament(
     defenderChanges: {},
     reserveOpen: true,
     started: false,
-    needsSave: false,
-    autoSaved: false,
     tournamentId: current.tournamentId ?? runtime.ids.tournamentId(),
     cfg: config,
     scheduleLogic: schedule,

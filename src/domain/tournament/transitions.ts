@@ -417,7 +417,6 @@ function advanceDoubleElimination(
   const fitFailure = finalizeDoubleEliminationRound(state, nextIndex, chosenByes);
   if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   state.reserveOpen = reserveWindowAtCurrentRound(state);
-  state.needsSave = true;
   return { status: 'advanced', state };
 }
 
@@ -445,7 +444,6 @@ function advanceKingsValley(input: TournamentState, roundIndex: number): RoundAd
   state.assignments[nextIndex] = sequentialSeed(nextRoomOrder, nextRound.rooms);
   state.curRound = nextIndex;
   state.reserveOpen = reserveWindowAtCurrentRound(state);
-  state.needsSave = true;
   return { status: 'advanced', state };
 }
 
@@ -577,7 +575,6 @@ function enterNextWaterfallRound(
   const fitFailure = seedRoundFromPendingPool(state, nextIndex);
   if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   state.reserveOpen = reserveWindowAtCurrentRound(state);
-  state.needsSave = true;
   return { status: 'advanced', state };
 }
 
@@ -649,7 +646,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   }
   const drawnAhead = drawnAheadStatus(prepared, roundIndex);
   if (drawnAhead === 'locked') {
-    const state = { ...prepared, curRound: roundIndex + 1, needsSave: true };
+    const state = { ...prepared, curRound: roundIndex + 1 };
     return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
   }
   const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;
@@ -821,6 +818,5 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   state.curRound += 1;
   state.assignments[state.curRound] = seeded;
   state.reserveOpen = reserveWindowAtCurrentRound(state);
-  state.needsSave = true;
   return { status: 'advanced', state };
 }

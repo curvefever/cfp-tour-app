@@ -283,7 +283,7 @@ export function SetupView() {
             type='text'
             placeholder='Unnamed Tournament — click to name'
             value={state.title}
-            onChange={(event) => updateState({ ...state, title: event.target.value, needsSave: true })}
+            onChange={(event) => updateState({ ...state, title: event.target.value })}
           />
         </Field>
         <ScheduledTimeField id='cfg-scheduled-at' />

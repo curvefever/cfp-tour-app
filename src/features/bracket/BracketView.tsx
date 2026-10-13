@@ -73,6 +73,7 @@ import {
   ScoreInput,
   cn,
 } from '../../components/ui';
+import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { formatTieBreak } from '../standings/standings-text';
 import { StandingsColumn } from './StandingsColumn';
@@ -1635,7 +1636,7 @@ export function BracketView() {
   const labels = bracketRoundLabels(app.state);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
   if (!app.state.rounds.length) return <Alert>No tournament has started yet.</Alert>;
-  const editable = app.unlocked && !app.isViewer && app.state.started;
+  const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
   const pendingTies = hasPendingTies(app.state, app.state.curRound);
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
@@ -1693,6 +1694,14 @@ export function BracketView() {
       </div>
       {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
+      {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (
+        <Alert tone='warning' className='mb-2.5'>
+          {FINISH_REMINDER}{' '}
+          <button className='cursor-pointer underline' onClick={() => app.setActiveTab('admin')}>
+            Open Admin
+          </button>
+        </Alert>
+      ) : null}
       <BracketRounds
         state={app.state}
         labels={labels}

@@ -2,26 +2,11 @@ import { useState } from 'react';
 import { Alert, Badge, Button, ButtonRow, Panel, PanelTitle } from '../../components/ui';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { adminListEntries } from '../tournaments/tournament-index';
-import { tournamentPhase, type TournamentPhase } from '../tournaments/tournament-lifecycle';
+import { tournamentPhase } from '../tournaments/tournament-lifecycle';
+import { PHASE_LABELS, PHASE_TONES } from '../tournaments/phase-display';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { useTournamentIndex } from '../tournaments/useTournamentIndex';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-
-const PHASE_LABELS: Record<TournamentPhase, string> = {
-  draft: 'Draft',
-  upcoming: 'Upcoming',
-  'starting-soon': 'Starting soon',
-  ongoing: 'Ongoing',
-  finished: 'Finished',
-};
-
-const PHASE_TONES: Record<TournamentPhase, 'neutral' | 'primary' | 'warning' | 'success'> = {
-  draft: 'neutral',
-  upcoming: 'primary',
-  'starting-soon': 'warning',
-  ongoing: 'success',
-  finished: 'neutral',
-};
 
 function TournamentRow({ summary, onOpen }: { summary: TournamentSummary; onOpen(): void }) {
   const phase = tournamentPhase(summary, Date.now());

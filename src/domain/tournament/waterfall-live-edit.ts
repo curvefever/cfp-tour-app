@@ -277,7 +277,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const settings = state.settings ? { ...state.settings, waterfallGraph: text } : state.settings;
   const gamemodeConfig =
     state.gamemodeConfig.graph !== undefined ? { ...state.gamemodeConfig, graph } : state.gamemodeConfig;
-  working = { ...working, settings, gamemodeConfig, needsSave: true };
+  working = { ...working, settings, gamemodeConfig };
 
   return { ok: true, state: working, redrawnRound };
 }

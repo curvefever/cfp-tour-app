@@ -200,7 +200,6 @@ export function applyLineupEdit(state: TournamentState, draft: RoundAssignment[]
         Object.entries(state.tieResolutions).filter(([key]) => !key.startsWith(prefix)),
       ),
       roomHistory: recordRoomHistory(rewindRoomHistory(state.roomHistory, assignments, cur), entries, cur),
-      needsSave: true,
     },
   };
 }

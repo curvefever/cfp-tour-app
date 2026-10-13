@@ -9,7 +9,6 @@ import {
   type ReactNode,
 } from 'react';
 import { resetTournamentState } from '../../domain/tournament/mutations';
-import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime, type TournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';
@@ -21,7 +20,6 @@ import {
   saveLastTab,
   saveLiveEnvelope,
 } from '../../lib/persistence/storage';
-import { saveArchiveEntry } from '../archive/archive-write.server-fns';
 import { useAuth } from '../auth/AuthProvider';
 import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
 import { SyncCoordinator, withoutServerOwned, type SyncStatus, type SyncTransport } from '../sync/live-sync';
@@ -29,9 +27,15 @@ import { SetupSync } from '../sync/setup-sync';
 import { buildTournamentPatch } from '../sync/tournament-patch';
 import {
   createTournament,
+  deleteTournament,
+  finishTournament,
+  publishTournament,
+  reopenTournament,
   returnTournamentToDraft,
   startTournament,
+  unpublishTournament,
 } from '../tournaments/tournament-lifecycle.server-fns';
+import type { TournamentAction } from '../tournaments/tournament-lifecycle';
 import { stateDescription } from '../tournaments/tournament-summary';
 
 declare global {
@@ -65,7 +69,24 @@ export interface TournamentAppContext {
   startTournamentNow(): Promise<string | null>;
   /** Sends the loaded tournament back to draft, clearing what was played; resolves with an error message, or null. */
   backToDraft(): Promise<string | null>;
+  /** Changes the loaded tournament's status; resolves with the server's refusal or an error message, or null on success. */
+  changeStatus(action: StatusAction): Promise<string | null>;
+  /** True once the tournament is finished: everything but annotations is then read-only. */
+  readOnly: boolean;
 }
+
+export type StatusAction = Extract<
+  TournamentAction,
+  'publish' | 'unpublish' | 'finish' | 'reopen' | 'delete'
+>;
+
+const STATUS_CALLS = {
+  publish: publishTournament,
+  unpublish: unpublishTournament,
+  finish: finishTournament,
+  reopen: reopenTournament,
+  delete: deleteTournament,
+} as const;
 
 function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
@@ -89,7 +110,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const setupRef = useRef(setup);
   const activeTabRef = useRef(activeTab);
   const isViewerRef = useRef(isViewer);
-  const autoArchiveAttempted = useRef<string | null>(null);
   stateRef.current = state;
   setupRef.current = setup;
   activeTabRef.current = activeTab;
@@ -257,30 +277,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     },
     [activeTab, persist, state],
   );
-  useEffect(() => {
-    const tournamentId = state.tournamentId;
-    if (!hydrated || isViewer || !auth.canAdmin || state.autoSaved || !tournamentId) return;
-    const round = state.rounds[state.curRound];
-    if (!round?.isFinal || !computeRankings(state)?.finalComplete) return;
-    if (autoArchiveAttempted.current === tournamentId) return;
-    autoArchiveAttempted.current = tournamentId;
-    const announce = (detail: { message: string; failed?: boolean }) =>
-      window.dispatchEvent(new CustomEvent('curve-tour:archive-status', { detail }));
-    saveArchiveEntry({ data: { tournamentId, snapshot: state } }).then(
-      () => {
-        updateState((current) => ({ ...current, autoSaved: true, needsSave: false }));
-        announce({ message: 'Tournament archived automatically.' });
-      },
-      (error: unknown) => {
-        const message = error instanceof Error ? error.message : 'unknown error';
-        announce({
-          message: `Could not archive automatically: ${message}. Use Save to Archive in Admin.`,
-          failed: true,
-        });
-      },
-    );
-  }, [auth.canAdmin, hydrated, isViewer, state, updateState]);
-
   const flushPending = useCallback(async () => {
     await Promise.all([sync.current?.flush(), setupSync.current?.flush()]);
   }, []);
@@ -370,6 +366,23 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     return null;
   }, [patchTowards, updateState]);
 
+  const changeStatus = useCallback(
+    async (action: StatusAction) => {
+      const tournamentId = stateRef.current.tournamentId;
+      if (!tournamentId) return 'There is no tournament to change.';
+      try {
+        // What was just typed (a title, a date) must be in the database before the server checks it.
+        await flushPending();
+        await STATUS_CALLS[action]({ data: { tournamentId } });
+      } catch (error) {
+        return errorText(error);
+      }
+      if (action === 'delete') await unloadTournament();
+      return null;
+    },
+    [flushPending, unloadTournament],
+  );
+
   const unlockAdmin = useCallback(() => {
     if (isViewer) {
       setIsViewer(false);
@@ -410,10 +423,13 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       createTournamentRecord,
       startTournamentNow,
       backToDraft,
+      changeStatus,
+      readOnly: state.lifecycle?.status === 'finished',
     }),
     [
       activeTab,
       backToDraft,
+      changeStatus,
       createTournamentRecord,
       hydrated,
       isViewer,

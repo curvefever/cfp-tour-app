@@ -82,7 +82,6 @@ describe('line-up edit: moves', () => {
     expect(manual.map((entry) => entry.name)).toEqual([mover.name]);
     expect(edited.roomHistory[roomPairKey(mover.name, newMate.name)]).toBe(state.curRound);
     expect(edited.roomHistory[roomPairKey(mover.name, oldMate.name)]).not.toBe(state.curRound);
-    expect(edited.needsSave).toBe(true);
   });
 
   it('refuses elimination in a pooling round', () => {
