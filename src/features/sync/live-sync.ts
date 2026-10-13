@@ -57,6 +57,23 @@ function decodeStoredState(remoteValue: unknown): TournamentState {
   return decoded;
 }
 
+/**
+ * The remote map is authoritative: a key it lacks is gone. Only the keys edited here and not yet sent keep their
+ * local value (and stay deleted when the local edit was a deletion).
+ */
+function overlayDirtyKeys<T>(
+  remote: Record<string, T>,
+  local: Record<string, T>,
+  dirtyKeys: ReadonlySet<string>,
+): Record<string, T> {
+  const merged = { ...remote };
+  for (const key of dirtyKeys) {
+    if (local[key] === undefined) delete merged[key];
+    else merged[key] = local[key];
+  }
+  return merged;
+}
+
 export function mergeRemoteWriterState(
   current: TournamentState,
   remoteValue: unknown,
@@ -67,14 +84,8 @@ export function mergeRemoteWriterState(
   if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
   const remote = { ...(decoded as Partial<TournamentState> & { adminProof?: unknown }) };
   delete remote.adminProof;
-  const scores = { ...current.scores };
-  for (const [key, value] of Object.entries(remote.scores ?? {})) {
-    if (!dirtyScoreKeys.has(key)) scores[key] = value;
-  }
-  const finalScores = { ...current.finalScores };
-  for (const [key, value] of Object.entries(remote.finalScores ?? {})) {
-    if (!dirtyFinalScoreKeys.has(key)) finalScores[key] = value;
-  }
+  const scores = overlayDirtyKeys(remote.scores ?? {}, current.scores, dirtyScoreKeys);
+  const finalScores = overlayDirtyKeys(remote.finalScores ?? {}, current.finalScores, dirtyFinalScoreKeys);
   delete remote.scores;
   delete remote.finalScores;
   return { ...current, ...remote, scores, finalScores };

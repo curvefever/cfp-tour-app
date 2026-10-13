@@ -86,9 +86,32 @@ describe('mergeRemoteWriterState', () => {
     expect(merged?.finalScores).toEqual({ x: 5 });
   });
 
-  it('leaves a score key untouched if it is absent from the remote scores', () => {
-    const merged = mergeRemoteWriterState(current, { scores: {} }, new Set(), new Set());
-    expect(merged?.scores).toEqual({ a: 1, b: 2 });
+  it('drops a score key the remote no longer has, unless it was edited here and not yet sent', () => {
+    const merged = mergeRemoteWriterState(current, { scores: {} }, new Set(['a']), new Set());
+    expect(merged?.scores).toEqual({ a: 1 });
+    expect(mergeRemoteWriterState(current, { scores: {} }, new Set(), new Set())?.scores).toEqual({});
+  });
+
+  it('treats a missing remote scores map as empty', () => {
+    const merged = mergeRemoteWriterState(current, { curRound: 0 }, new Set(), new Set());
+    expect(merged?.scores).toEqual({});
+    expect(merged?.finalScores).toEqual({});
+  });
+
+  it('keeps a dirty finalScore key the remote lacks, and drops the others', () => {
+    const merged = mergeRemoteWriterState(
+      createDefaultTournamentState({ finalScores: { x: 5, y: 6 } }),
+      { finalScores: {} },
+      new Set(),
+      new Set(['x']),
+    );
+    expect(merged?.finalScores).toEqual({ x: 5 });
+  });
+
+  it('keeps a score deleted here deleted, even when the remote still has it', () => {
+    const local = createDefaultTournamentState({ scores: { b: 2 } });
+    const merged = mergeRemoteWriterState(local, { scores: { a: 1, b: 2 } }, new Set(['a']), new Set());
+    expect(merged?.scores).toEqual({ b: 2 });
   });
 
   it('wholesale-overwrites every non-scores field from remote regardless of dirtiness', () => {
@@ -492,6 +515,34 @@ describe('SyncCoordinator', () => {
       coordinator.configure('writer', 't2');
       handlers.onValue(marshalForFirebase(createDefaultTournamentState({ scores: { a: 4 } })));
       expect(remoteStates.at(-1)?.scores.a).toBe(4);
+    });
+
+    it('does not bring back the scores another admin cleared, when nothing was edited here', async () => {
+      const played = createDefaultTournamentState({
+        scores: { 'r0-rm1-p0': 7, 'r0-rm1-p1': 3 },
+        finalScores: { x: 4 },
+        curRound: 2,
+      });
+      const { handlers, transport } = startWriter(played);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(transport.update).not.toHaveBeenCalled();
+
+      // Another admin sends the tournament back to draft: no scores, round 0.
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ curRound: 0 })));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(transport.update).not.toHaveBeenCalled();
+      expect(remoteStates.at(-1)?.scores).toEqual({});
+      expect(remoteStates.at(-1)?.finalScores).toEqual({});
+    });
+
+    it('still sends a score edited here when a snapshot without that key arrives first', async () => {
+      const stored = createDefaultTournamentState();
+      const { coordinator, handlers, transport } = startWriter(stored);
+      coordinator.updateLocal(stored, createDefaultTournamentState({ scores: { a: 5 } }));
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ curRound: 1 })));
+      expect(remoteStates.at(-1)?.scores).toEqual({ a: 5 });
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledWith('t1', { scores: { a: 5 } });
     });
 
     it('resends after a failed push', async () => {

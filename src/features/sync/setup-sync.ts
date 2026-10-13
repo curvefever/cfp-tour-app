@@ -25,8 +25,6 @@ export interface SetupSyncOptions {
   onRemote(setup: PersistedSetup): void;
   onError(message: string): void;
   delayMs?: number;
-  /** How long after its last local edit a field still ignores incoming values, so one being typed in is left alone. */
-  holdMs?: number;
 }
 
 type SetupKey = keyof PersistedSetup;
@@ -48,19 +46,17 @@ function errorMessage(error: unknown): string {
 
 /**
  * Keeps one tournament's Setup form in step with Firebase, field by field: a local edit is sent as a patch of
- * just the changed fields, a remote value replaces a field unless it was edited here a moment ago, and nothing
- * is sent before the stored setup has been received.
+ * just the fields edited here and not yet sent, a remote value replaces every other field, and nothing is sent
+ * before the stored setup has been received.
  */
 export class SetupSync {
   private readonly transport: SetupTransport | null;
   private readonly onRemote: (setup: PersistedSetup) => void;
   private readonly onError: (message: string) => void;
   private readonly delayMs: number;
-  private readonly holdMs: number;
   private current: PersistedSetup;
   private base: PersistedSetup | null = null;
   private tournamentId: string | null = null;
-  private readonly lastEdit = new Map<SetupKey, number>();
   private readonly dirty = new Set<SetupKey>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -73,7 +69,6 @@ export class SetupSync {
     this.onRemote = options.onRemote;
     this.onError = options.onError;
     this.delayMs = options.delayMs ?? 400;
-    this.holdMs = options.holdMs ?? 3000;
   }
 
   configure(tournamentId: string | null): void {
@@ -82,7 +77,6 @@ export class SetupSync {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.base = null;
-    this.lastEdit.clear();
     this.dirty.clear();
     if (!tournamentId || !this.transport) return;
     this.unsubscribe = this.transport.subscribe(
@@ -103,17 +97,14 @@ export class SetupSync {
   /** The form now holds `current`, loaded from this device or from another tournament: nothing is pending. */
   reset(current: PersistedSetup): void {
     this.current = current;
-    this.lastEdit.clear();
     this.dirty.clear();
   }
 
   updateLocal(previous: PersistedSetup, next: PersistedSetup): void {
     this.current = next;
-    const now = Date.now();
     for (const key of SETUP_KEYS) {
       if (previous[key] === next[key]) continue;
       this.dirty.add(key);
-      this.lastEdit.set(key, now);
     }
     this.schedulePush();
   }
@@ -131,17 +122,13 @@ export class SetupSync {
     this.timer = setTimeout(() => void this.push(), this.delayMs);
   }
 
-  private isHeld(key: SetupKey): boolean {
-    if (this.dirty.has(key)) return true;
-    const edited = this.lastEdit.get(key);
-    return edited !== undefined && Date.now() - edited < this.holdMs;
-  }
-
-  private changedFields(base: PersistedSetup): Record<string, string> {
+  /** The fields edited here and not yet sent, whose value still differs from what is stored. */
+  private changedFields(base: PersistedSetup | null): Record<string, string> {
     const changed: Record<string, string> = {};
-    for (const key of SETUP_KEYS) {
+    for (const key of [...this.dirty]) {
       const value = this.current[key];
-      if (typeof value === 'string' && value !== base[key]) changed[key] = value;
+      if (typeof value === 'string' && value !== base?.[key]) changed[key] = value;
+      else this.dirty.delete(key);
     }
     return changed;
   }
@@ -161,7 +148,10 @@ export class SetupSync {
       this.dirty.clear();
       return;
     }
-    const summary = changedDescription(setupDescription(this.base), setupDescription(atPush));
+    const summary = changedDescription(
+      this.base ? setupDescription(this.base) : {},
+      setupDescription(atPush),
+    );
     this.pushInFlight = true;
     this.remoteReceivedSincePush = false;
     try {
@@ -189,7 +179,7 @@ export class SetupSync {
     const next: Record<string, unknown> = { ...this.current };
     let changed = false;
     for (const key of SETUP_KEYS) {
-      if (this.isHeld(key) || next[key] === remote[key]) continue;
+      if (this.dirty.has(key) || next[key] === remote[key]) continue;
       next[key] = remote[key];
       changed = true;
     }

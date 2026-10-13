@@ -6,6 +6,14 @@ import { SetupSync, type SetupTransport } from './setup-sync';
 
 const setupWith = (overrides: Partial<PersistedSetup> = {}) => createDefaultSetup(overrides);
 
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 describe('SetupSync', () => {
   let remoteSetups: PersistedSetup[];
   let errors: string[];
@@ -118,17 +126,19 @@ describe('SetupSync', () => {
     expect(remoteSetups.at(-1)?.qualAdv).toBe('12');
   });
 
-  it('keeps protecting a field for a few seconds after it was last edited, even once its push went out', async () => {
-    const stored = setupWith();
-    const { sync, handlers } = start(stored);
-    sync.updateLocal(stored, setupWith({ roster: 'A' }));
-    await vi.advanceTimersByTimeAsync(500); // pushed
-    handlers.onValue(marshalForFirebase(setupWith({ roster: 'B' })));
-    expect(remoteSetups.at(-1)?.roster ?? 'A').toBe('A');
+  it('does not send its own older value over another admin newer one', async () => {
+    const stored = setupWith({ finalsGames: '3' });
+    const { sync, handlers, transport } = start(stored);
+    sync.updateLocal(stored, setupWith({ finalsGames: '5' }));
+    await vi.advanceTimersByTimeAsync(400); // pushed and acknowledged
+    expect(transport.update).toHaveBeenCalledTimes(1);
+    handlers.onValue(marshalForFirebase(setupWith({ finalsGames: '5' }))); // the echo
+    await vi.advanceTimersByTimeAsync(1000);
 
-    await vi.advanceTimersByTimeAsync(3000);
-    handlers.onValue(marshalForFirebase(setupWith({ roster: 'C' })));
-    expect(remoteSetups.at(-1)?.roster).toBe('C');
+    handlers.onValue(marshalForFirebase(setupWith({ finalsGames: '7' }))); // the other admin
+    expect(remoteSetups.at(-1)?.finalsGames).toBe('7');
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(transport.update).toHaveBeenCalledTimes(1);
   });
 
   it('resends a protected field that a remote value would have replaced, so the last save wins', async () => {
@@ -138,6 +148,62 @@ describe('SetupSync', () => {
     handlers.onValue(marshalForFirebase(setupWith({ roster: 'theirs' })));
     await vi.advanceTimersByTimeAsync(400);
     expect(transport.update).toHaveBeenCalledWith('t1', { roster: 'mine' });
+  });
+
+  it('sends only the fields edited here, not every field that differs from the stored setup', async () => {
+    const stored = setupWith();
+    const { sync, handlers, transport } = start(stored);
+    // Another admin changes a field this tab never touched, while this tab edits another.
+    handlers.onValue(marshalForFirebase(setupWith({ qualAdv: '12' })));
+    sync.updateLocal(remoteSetups.at(-1) ?? stored, setupWith({ qualAdv: '12', roster: 'A' }));
+    await vi.advanceTimersByTimeAsync(400);
+    expect(transport.update).toHaveBeenCalledWith('t1', { roster: 'A' });
+  });
+
+  it('does not resend a field that another admin changed while its own push was in flight', async () => {
+    const deferred = createDeferred();
+    const update = vi.fn().mockReturnValueOnce(deferred.promise).mockResolvedValue(undefined);
+    const stored = setupWith({ finalsGames: '3' });
+    const { sync, handlers } = start(stored, { update });
+    sync.updateLocal(stored, setupWith({ finalsGames: '5' }));
+    await vi.advanceTimersByTimeAsync(400); // '5' is being sent
+    handlers.onValue(marshalForFirebase(setupWith({ finalsGames: '7' }))); // the other admin's value lands first
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a field edited here after its push failed, however long ago, until it is sent', async () => {
+    const update = vi
+      .fn<SetupTransport['update']>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue(undefined);
+    const stored = setupWith();
+    const { sync, handlers } = start(stored, { update });
+    sync.updateLocal(stored, setupWith({ roster: 'mine' }));
+    await vi.advanceTimersByTimeAsync(400); // fails
+    await vi.advanceTimersByTimeAsync(20_000);
+    handlers.onValue(marshalForFirebase(setupWith({ roster: 'theirs' })));
+    expect(remoteSetups.at(-1)?.roster ?? 'mine').toBe('mine');
+    await vi.advanceTimersByTimeAsync(400);
+    expect(update).toHaveBeenLastCalledWith('t1', { roster: 'mine' });
+  });
+
+  it('keeps what is typed when the echo of an earlier keystroke arrives', async () => {
+    const deferred = createDeferred();
+    const update = vi.fn().mockReturnValueOnce(deferred.promise).mockResolvedValue(undefined);
+    const stored = setupWith();
+    const { sync, handlers } = start(stored, { update });
+    sync.updateLocal(stored, setupWith({ roster: 'A' }));
+    await vi.advanceTimersByTimeAsync(400); // 'A' is being sent
+    sync.updateLocal(setupWith({ roster: 'A' }), setupWith({ roster: 'AB' })); // typing goes on
+
+    handlers.onValue(marshalForFirebase(setupWith({ roster: 'A' }))); // the echo of 'A'
+    deferred.resolve();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(remoteSetups.at(-1)?.roster ?? 'AB').toBe('AB');
+    await vi.advanceTimersByTimeAsync(400);
+    expect(update).toHaveBeenLastCalledWith('t1', { roster: 'AB' });
   });
 
   it('forgets one tournament when it moves to another: nothing is sent before the next one arrives', async () => {

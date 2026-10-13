@@ -68,7 +68,7 @@ export function buildTournamentSummary(state: TournamentState, setup: PersistedS
 
 /** The fields of `next` whose value differs from `previous`. */
 export function changedDescription<T extends Partial<TournamentDescription>>(
-  previous: T,
+  previous: Partial<T>,
   next: T,
 ): Partial<T> {
   const changed: Partial<T> = {};
