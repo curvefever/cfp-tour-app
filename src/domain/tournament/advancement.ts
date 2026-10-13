@@ -178,12 +178,14 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
     ...detectTieBreaks(roundIndex, round, state),
   };
   const nextRound = state.rounds[roundIndex + 1];
+  // The stored tables are not kept up to date while a round is scored, so the current round checks fresh ones.
+  const standings = roundIndex === state.curRound ? refreshRoundStandings(state, roundIndex) : state;
   if (isLastStandingsRound(state, roundIndex)) {
-    for (const cutoff of detectQualCutoffTies(state)) ties[cutoff.key] = cutoff;
+    for (const cutoff of detectQualCutoffTies(standings)) ties[cutoff.key] = cutoff;
   }
   if (round.isGroupStage && !nextRound?.isGroupStage) {
     for (const group of state.groups) {
-      const cutoff = detectGroupCutoffTie(group.label, state);
+      const cutoff = detectGroupCutoffTie(group.label, standings);
       if (cutoff) ties[cutoff.key] = cutoff;
     }
   }

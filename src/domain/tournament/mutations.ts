@@ -1,8 +1,4 @@
-import {
-  computeGroupStandings,
-  computeQualificationStandings,
-  invalidateStaleTieResolutions,
-} from './advancement';
+import { invalidateStaleTieResolutions } from './advancement';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
@@ -56,13 +52,6 @@ export function setRoundScore(
     scores: { ...state.scores, [key]: parsed },
   };
   next = invalidateStaleTieResolutions(next, roundIndex, room);
-  const round = next.rounds[next.curRound];
-  if (round && (round.isQual || round.isSwiss)) {
-    next = { ...next, qualTable: computeQualificationStandings(next) };
-  }
-  if (round?.isGroupStage) {
-    next = { ...next, groupStandings: computeGroupStandings(next) };
-  }
   return dirty(next);
 }
 

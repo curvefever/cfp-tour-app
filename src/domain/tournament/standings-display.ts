@@ -7,7 +7,6 @@ import {
   isQualCutoffKey,
   isTieResolved,
   qualStandingsRoutes,
-  refreshRoundStandings,
   isRoomFullyScored,
   isUncontestedRoom,
   rankStandings,
@@ -211,7 +210,7 @@ function tieKeysOf(
 
 /** Tie marks per table key, for the Standings tab. */
 export function cutTieMarks(state: TournamentState, display: StandingsDisplay): Record<string, CutTieMarks> {
-  const ties = getAllTies(refreshRoundStandings(state, state.curRound), state.curRound);
+  const ties = getAllTies(state, state.curRound);
   return Object.fromEntries(
     display.tables.map((table) => {
       const keys = tieKeysOf(state, ties, table);

@@ -163,8 +163,14 @@ describe('qualification ties at the band boundaries', () => {
     return { ...exit, qualTable };
   }
 
+  /** The hand-made table counts as the stored table of a past round; the current round is checked on fresh standings. */
+  const asPastRound = (state: TournamentState): TournamentState => ({
+    ...state,
+    curRound: state.curRound + 1,
+  });
+  const exitRound = (state: TournamentState) => state.curRound;
   const tieKeys = (state: TournamentState) =>
-    Object.keys(getAllTies(state, state.curRound)).filter((key) => key.startsWith('qual-'));
+    Object.keys(getAllTies(asPastRound(state), exitRound(state))).filter((key) => key.startsWith('qual-'));
 
   it('has no tie where level units all fall in the same band', () => {
     expect(tieKeys(withTiedPositions(3, 4))).toEqual([]);
@@ -186,7 +192,7 @@ describe('qualification ties at the band boundaries', () => {
   it('treats one cluster straddling both boundaries as a single qual-cutoff tie', () => {
     const state = withTiedPositions(15, 26);
     expect(tieKeys(state)).toEqual(['qual-cutoff']);
-    const cluster = getAllTies(state, state.curRound)['qual-cutoff'];
+    const cluster = getAllTies(asPastRound(state), exitRound(state))['qual-cutoff'];
     expect(cluster.players).toHaveLength(12);
   });
 
@@ -209,8 +215,9 @@ describe('qualification ties at the band boundaries', () => {
 
   it('counts a band tie as pending until resolved', () => {
     const state = withTiedPositions(16, 17);
-    expect(hasPendingTies(state, state.curRound)).toBe(true);
-    expect(hasPendingTies(resolveTournamentTie(state, 'qual-band-16', 'P17'), state.curRound)).toBe(false);
+    expect(hasPendingTies(asPastRound(state), exitRound(state))).toBe(true);
+    const resolved = resolveTournamentTie(state, 'qual-band-16', 'P17');
+    expect(hasPendingTies(asPastRound(resolved), exitRound(resolved))).toBe(false);
   });
 });
 

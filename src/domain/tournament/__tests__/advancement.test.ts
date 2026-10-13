@@ -13,6 +13,7 @@ import {
   doubleEliminationComputeAdvancement,
   hasPendingTies,
   invalidateStaleTieResolutions,
+  isLastStandingsRound,
   isUncontestedRoom,
   isTieResolved,
   kingsValleyComputeAdvancement,
@@ -20,7 +21,7 @@ import {
   roomBasedComputeAdvancement,
 } from '../advancement';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit, setRoundScore } from '../mutations';
 import { roundExitRule } from '../room-exits';
 import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
@@ -1737,7 +1738,9 @@ describe('room-share tie-breaker', () => {
     );
     const legacy = computeQualificationStandings(state).map(({ roomShare: _share, ...entry }) => entry);
     expect(sameStanding(legacy[0], legacy[1])).toBe(true);
-    expect(getAllTies({ ...state, qualTable: legacy }, 0)['qual-cutoff'].players).toHaveLength(2);
+    // A past round keeps its stored table (the current round is checked on fresh standings).
+    const frozen = { ...state, curRound: 1, qualTable: legacy };
+    expect(getAllTies(frozen, 0)['qual-cutoff'].players).toHaveLength(2);
   });
 
   describe('rankStandings with resolved names', () => {
@@ -2068,5 +2071,71 @@ describe('standard points', () => {
     // A 10 + 10; B 8 + 1 and H 1 + 8; C..G 8 each.
     expect(standings.map((entry) => entry.totalFP)).toEqual([20, 9, 9, 8, 8, 8, 8, 8]);
     expect(standings[0].name).toBe('A');
+  });
+});
+
+describe('a score entered in the last qualification round is seen by the tie checks at once', () => {
+  /** 37 players, three qualification rounds; positions 1.. of each current-round room get `scoreFor(room, position)`. */
+  function lastQualRoundWith(scoreFor: (room: number, position: number) => number): TournamentState {
+    let state = buildState({
+      label: 'qual 37',
+      count: 37,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+      },
+    })!;
+    while (!isLastStandingsRound(state, state.curRound)) {
+      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
+      if (advanced.status !== 'advanced')
+        throw new Error('could not advance to the last qualification round');
+      state = advanced.state;
+    }
+    // Only the last round counts, so equal scores in two equal rooms make equal standings.
+    const kept = Object.fromEntries(
+      Object.entries(state.scores).filter(([key]) => key.startsWith(`r${state.curRound}-`)),
+    );
+    state = { ...state, scores: kept, cfg: { ...state.cfg, qualAdv: 1 } };
+    const seen = new Map<number, number>();
+    for (const entry of state.assignments[state.curRound]) {
+      if (entry.room === null) continue;
+      const position = seen.get(entry.room) ?? 0;
+      seen.set(entry.room, position + 1);
+      state = setRoundScore(
+        state,
+        `r${state.curRound}-rm${entry.room}-p${position}`,
+        scoreFor(entry.room, position),
+        state.curRound,
+        entry.room,
+      );
+    }
+    return state;
+  }
+
+  it('reports a cut-off tie created by one score, with no recalculation step in between', () => {
+    const probe = lastQualRoundWith(() => 1);
+    const sizes = probe.rounds[probe.curRound].rooms;
+    const [roomA, roomB] = sizes
+      .map((size, index) => ({ size, room: index + 1 }))
+      .filter((entry) => entry.size === Math.max(...sizes))
+      .map((entry) => entry.room);
+    expect(roomB).toBeDefined();
+    // Room A's winner leads on 90; room B's winner has 80, so no tie yet.
+    const scoreFor = (room: number, position: number) =>
+      room === roomA ? 90 - 10 * position : room === roomB ? 80 - 10 * position : 40 - 3 * position - room;
+    const before = lastQualRoundWith(scoreFor);
+    expect(getAllTies(before, before.curRound)['qual-cutoff']).toBeUndefined();
+
+    // Room B is scored again to match room A, one score at a time: the tie shows with no step in between.
+    let after = before;
+    for (let position = 0; position < sizes[roomB - 1]; position += 1) {
+      const key = `r${after.curRound}-rm${roomB}-p${position}`;
+      after = setRoundScore(after, key, 90 - 10 * position, after.curRound, roomB);
+    }
+    const tie = getAllTies(after, after.curRound)['qual-cutoff'];
+    expect(tie.players).toHaveLength(2);
+    expect(hasPendingTies(after, after.curRound)).toBe(true);
   });
 });
