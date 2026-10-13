@@ -1,6 +1,4 @@
 import { useEffect, useState } from 'react';
-import { resetRoster, resetTournamentState } from '../../domain/tournament/mutations';
-import { saveBracketFollow } from '../../lib/persistence/storage';
 import {
   Alert,
   Button,
@@ -19,9 +17,10 @@ import { useSharedArchiveIndex } from '../archive/useSharedArchiveIndex';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
+import { ScheduledTimeField } from './ScheduledTimeField';
 import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
-type AdminPrompt = { kind: 'overwrite'; savedAt: string } | { kind: 'reset' } | { kind: 'start-new' };
+type AdminPrompt = { kind: 'overwrite'; savedAt: string } | { kind: 'reset' };
 
 export function RunningAdmin() {
   const app = useTournamentApp();
@@ -31,6 +30,8 @@ export function RunningAdmin() {
   const [archiveError, setArchiveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [prompt, setPrompt] = useState<AdminPrompt | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
   const archiveIndex = useSharedArchiveIndex();
   useEffect(() => {
     const showStatus = (event: Event) => {
@@ -77,16 +78,13 @@ export function RunningAdmin() {
     if (await saveArchive()) next();
   }
 
-  function resetNow() {
-    saveBracketFollow(window.localStorage, null);
-    app.updateState(resetTournamentState);
+  async function backToDraftNow() {
     setPrompt(null);
-  }
-
-  function startNewNow() {
-    saveBracketFollow(window.localStorage, null);
-    app.updateState(resetRoster);
-    setPrompt(null);
+    setResetError('');
+    setResetting(true);
+    const message = await app.backToDraft();
+    setResetting(false);
+    if (message) setResetError(message);
   }
   return (
     <div id='panel-running'>
@@ -103,10 +101,12 @@ export function RunningAdmin() {
             }
           />
         </Field>
+        <ScheduledTimeField id='running-scheduled-at' />
       </Panel>
       <TournamentSettingsRecap state={state} />
       {state.rounds.some((entry) => entry.isWaterfall) ? <RunningWaterfallPanel state={state} /> : null}
       {archiveError && !prompt ? <Alert tone='danger'>{archiveError}</Alert> : null}
+      {resetError ? <Alert tone='danger'>{resetError}</Alert> : null}
       {archiveStatus ? (
         <Alert tone='success' id='archive-save-status'>
           {archiveStatus}
@@ -140,25 +140,18 @@ export function RunningAdmin() {
           {saving ? 'Saving…' : '💾 Save to Archive'}
         </Button>
         <Button
+          disabled={resetting}
           onClick={() => {
             if (state.needsSave) setPrompt({ kind: 'reset' });
-            else if (window.confirm('Reset the full tournament? All scores will be lost.')) resetNow();
-          }}
-        >
-          ↺ Reset
-        </Button>
-        <Button
-          onClick={() => {
-            if (state.needsSave) setPrompt({ kind: 'start-new' });
             else if (
               window.confirm(
-                'Start a new tournament? This clears the current roster and schedule — archived tournaments are unaffected.',
+                'Send this tournament back to draft? Its players and settings stay; every score and round played is cleared.',
               )
             )
-              startNewNow();
+              void backToDraftNow();
           }}
         >
-          🏁 Save & Start New Tournament
+          {resetting ? 'Resetting…' : '↩ Back to draft'}
         </Button>
       </ButtonRow>
       {prompt?.kind === 'overwrite' ? (
@@ -175,36 +168,20 @@ export function RunningAdmin() {
       {prompt?.kind === 'reset' ? (
         <Modal titleId='reset-title' title='Unsaved tournament'>
           <p>
-            This tournament has changes that are not in the archive. Save a snapshot before resetting, discard
-            the changes, or cancel?
+            This tournament has changes that are not in the archive. Save a snapshot before sending it back to
+            draft, discard the changes, or cancel?
           </p>
           {archiveError ? <Alert tone='danger'>{archiveError}</Alert> : null}
           <ModalActions>
-            <Button variant='success' disabled={saving} onClick={() => void saveThen(resetNow)}>
-              Save &amp; reset
+            <Button
+              variant='success'
+              disabled={saving}
+              onClick={() => void saveThen(() => void backToDraftNow())}
+            >
+              Save &amp; back to draft
             </Button>
-            <Button variant='danger' disabled={saving} onClick={resetNow}>
-              Reset without saving
-            </Button>
-            <Button disabled={saving} onClick={() => setPrompt(null)}>
-              Cancel
-            </Button>
-          </ModalActions>
-        </Modal>
-      ) : null}
-      {prompt?.kind === 'start-new' ? (
-        <Modal titleId='start-new-title' title='Unsaved tournament'>
-          <p>
-            This tournament has changes that are not in the archive. Save a snapshot before starting a new
-            tournament, discard the changes, or cancel?
-          </p>
-          {archiveError ? <Alert tone='danger'>{archiveError}</Alert> : null}
-          <ModalActions>
-            <Button variant='success' disabled={saving} onClick={() => void saveThen(startNewNow)}>
-              Save &amp; start new
-            </Button>
-            <Button variant='danger' disabled={saving} onClick={startNewNow}>
-              Start new without saving
+            <Button variant='danger' disabled={saving} onClick={() => void backToDraftNow()}>
+              Back to draft without saving
             </Button>
             <Button disabled={saving} onClick={() => setPrompt(null)}>
               Cancel

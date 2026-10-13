@@ -5,8 +5,8 @@ import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
 import { BracketView } from '../bracket/BracketView';
 import { HomeView } from '../home/HomeView';
-import { SetupView } from '../admin/SetupView';
-import { RunningAdmin } from '../admin/RunningAdmin';
+import { AdminTournamentList } from '../admin/AdminTournamentList';
+import { LoadedTournamentAdmin } from '../admin/LoadedTournamentAdmin';
 import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
 import { ArchiveView } from '../archive/ArchiveView';
@@ -94,7 +94,7 @@ export function AppShell() {
                 </Button>
               </ButtonRow>
             </Panel>
-            {app.state.started ? <RunningAdmin /> : <SetupView />}
+            {app.state.tournamentId ? <LoadedTournamentAdmin /> : <AdminTournamentList />}
           </section>
         ) : null}
         {activeTab === 'standings' ? (

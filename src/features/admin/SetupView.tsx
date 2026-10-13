@@ -23,8 +23,10 @@ import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import type { PersistedSetup, TournamentSettings } from '../../domain/tournament/types';
+import { transitionRefusal } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
+import { ScheduledTimeField } from './ScheduledTimeField';
 import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
 import {
   Alert,
@@ -64,8 +66,10 @@ function reconcileScheduleLogicForFormat(
 }
 
 export function SetupView() {
-  const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
+  const { state, setup, runtime, updateSetup, updateState, startTournamentNow } = useTournamentApp();
   const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [startError, setStartError] = useState('');
   const [status, setStatus] = useState('');
   const [lbQualifiers, setLbQualifiers] = useState('2');
   const format = getGameFormat(setup.gameFormat);
@@ -210,6 +214,22 @@ export function SetupView() {
     updateState(result.state);
   }
 
+  async function confirmAndStart() {
+    setStartError('');
+    setStarting(true);
+    const message = await startTournamentNow();
+    setStarting(false);
+    if (message) setStartError(message);
+  }
+
+  const startRefusal = transitionRefusal('start', {
+    status: state.lifecycle?.status ?? 'draft',
+    started: false,
+    testRun: state.lifecycle?.testRun ?? false,
+    title: state.title,
+    scheduledAt: state.info?.scheduledAt ?? null,
+  });
+
   function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string): string {
     const previousGameFormat = setup.gameFormat;
     updateSetup((current) => applyTournamentSettings(current, settings));
@@ -266,6 +286,7 @@ export function SetupView() {
             onChange={(event) => updateState({ ...state, title: event.target.value, needsSave: true })}
           />
         </Field>
+        <ScheduledTimeField id='cfg-scheduled-at' />
       </Panel>
       <CopySettingsPanel onApply={applyCopiedSettings} />
       <TwoColumnGrid>
@@ -765,9 +786,15 @@ export function SetupView() {
               </TimelineItem>
             ))}
           </Timeline>
+          {startRefusal ? <p className='text-xs text-muted'>{startRefusal}</p> : null}
+          {startError ? <Alert tone='danger'>{startError}</Alert> : null}
           <ButtonRow>
-            <Button variant='success' onClick={() => updateState({ ...state, curRound: 0, started: true })}>
-              ✓ Confirm & Start
+            <Button
+              variant='success'
+              disabled={Boolean(startRefusal) || starting}
+              onClick={() => void confirmAndStart()}
+            >
+              {starting ? 'Starting…' : '✓ Confirm & Start'}
             </Button>
           </ButtonRow>
         </Panel>

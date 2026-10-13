@@ -92,6 +92,14 @@ export class SetupSync {
     );
   }
 
+  /** Sends what is waiting now instead of after the debounce, e.g. before leaving the tournament. */
+  async flush(): Promise<void> {
+    if (!this.timer) return;
+    clearTimeout(this.timer);
+    this.timer = null;
+    await this.push();
+  }
+
   /** The form now holds `current`, loaded from this device or from another tournament: nothing is pending. */
   reset(current: PersistedSetup): void {
     this.current = current;

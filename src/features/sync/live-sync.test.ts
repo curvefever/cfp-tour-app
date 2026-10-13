@@ -475,6 +475,25 @@ describe('SyncCoordinator', () => {
       expect(transport.update).toHaveBeenLastCalledWith('t1', { curRound: 1 });
     });
 
+    it('sends what is waiting at once on flush, without waiting for the debounce', async () => {
+      const stored = createDefaultTournamentState();
+      const { coordinator, transport } = startWriter(stored);
+      coordinator.updateLocal(stored, createDefaultTournamentState({ scores: { a: 1 } }));
+      await coordinator.flush();
+      expect(transport.update).toHaveBeenCalledWith('t1', { scores: { a: 1 } });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(transport.update).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not let the dirty scores of the tournament it left protect the next one', () => {
+      const stored = createDefaultTournamentState({ scores: { a: 0 } });
+      const { coordinator, handlers } = startWriter(stored);
+      coordinator.updateLocal(stored, createDefaultTournamentState({ scores: { a: 9 } }));
+      coordinator.configure('writer', 't2');
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ scores: { a: 4 } })));
+      expect(remoteStates.at(-1)?.scores.a).toBe(4);
+    });
+
     it('resends after a failed push', async () => {
       const update = vi
         .fn<SyncTransport['update']>()

@@ -167,6 +167,16 @@ describe('SetupSync', () => {
     expect(update).toHaveBeenLastCalledWith('t1', { qualAdv: '7', finalsGames: '2' });
   });
 
+  it('sends what is waiting at once on flush', async () => {
+    const stored = setupWith();
+    const { sync, transport } = start(stored);
+    sync.updateLocal(stored, setupWith({ qualAdv: '20' }));
+    await sync.flush();
+    expect(transport.update).toHaveBeenCalledWith('t1', { qualAdv: '20' });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(transport.update).toHaveBeenCalledTimes(1);
+  });
+
   it('fills a field the stored setup lacks with its default', () => {
     const { handlers } = start(setupWith());
     handlers.onValue(marshalForFirebase({ qualAdv: '3' }));

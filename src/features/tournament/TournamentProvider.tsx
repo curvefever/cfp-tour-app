@@ -8,16 +8,31 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { resetTournamentState } from '../../domain/tournament/mutations';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime, type TournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';
 import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
-import { loadLiveEnvelope, readLastTab, saveLastTab, saveLiveEnvelope } from '../../lib/persistence/storage';
+import {
+  loadLiveEnvelope,
+  readLastTab,
+  saveBracketFollow,
+  saveLastTab,
+  saveLiveEnvelope,
+} from '../../lib/persistence/storage';
 import { saveArchiveEntry } from '../archive/archive-write.server-fns';
-import { getFirebaseSyncTransport } from '../sync/firebase-client';
-import { SyncCoordinator, type SyncStatus, type SyncTransport } from '../sync/live-sync';
 import { useAuth } from '../auth/AuthProvider';
+import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
+import { SyncCoordinator, withoutServerOwned, type SyncStatus, type SyncTransport } from '../sync/live-sync';
+import { SetupSync } from '../sync/setup-sync';
+import { buildTournamentPatch } from '../sync/tournament-patch';
+import {
+  createTournament,
+  returnTournamentToDraft,
+  startTournament,
+} from '../tournaments/tournament-lifecycle.server-fns';
+import { stateDescription } from '../tournaments/tournament-summary';
 
 declare global {
   interface Window {
@@ -40,6 +55,20 @@ export interface TournamentAppContext {
   updateSetup(updater: PersistedSetup | ((current: PersistedSetup) => PersistedSetup)): void;
   unlockAdmin(): void;
   lockAdmin(): void;
+  /** Loads the tournament with this id (its state and Setup form follow from the database) and puts its id in the address. */
+  loadTournament(tournamentId: string): Promise<void>;
+  /** Unloads the tournament, after sending what is still waiting. */
+  unloadTournament(): Promise<void>;
+  /** Creates a draft tournament in the database and loads it; resolves with an error message, or null on success. */
+  createTournamentRecord(testRun: boolean): Promise<string | null>;
+  /** Starts the loaded tournament (generated rounds included); resolves with an error message, or null on success. */
+  startTournamentNow(): Promise<string | null>;
+  /** Sends the loaded tournament back to draft, clearing what was played; resolves with an error message, or null. */
+  backToDraft(): Promise<string | null>;
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
 }
 
 const Context = createContext<TournamentAppContext | null>(null);
@@ -55,6 +84,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [viewTournamentId, setViewTournamentId] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
   const sync = useRef<SyncCoordinator | null>(null);
+  const setupSync = useRef<SetupSync | null>(null);
   const stateRef = useRef(state);
   const setupRef = useRef(setup);
   const activeTabRef = useRef(activeTab);
@@ -73,11 +103,12 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     let loadedState = createDefaultTournamentState();
     let loadedSetup = createDefaultSetup();
     if (!viewer) {
-      const loaded = loadLiveEnvelope(window.localStorage, runtime.ids);
-      if (loaded.status === 'loaded') {
+      // The copy kept on this device only speeds up the tournament in the address; nothing else is loaded.
+      const loaded = queryId ? loadLiveEnvelope(window.localStorage, runtime.ids) : null;
+      if (loaded?.status === 'loaded' && loaded.envelope.T.tournamentId === queryId) {
         loadedState = loaded.envelope.T;
         loadedSetup = loaded.envelope.setup;
-      } else if (loaded.status === 'invalid') {
+      } else if (loaded?.status === 'invalid') {
         console.warn('Could not restore saved tournament state', loaded.error);
       }
       if (queryId && queryId !== loadedState.tournamentId) {
@@ -114,6 +145,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     const coordinator = new SyncCoordinator(stateRef.current, {
       transport: window.__CURVE_TOUR_SYNC_TRANSPORT__ ?? getFirebaseSyncTransport(),
       onStatus: setSyncStatus,
+      describe: stateDescription,
       onRemote(remote) {
         const next = normalizeLiveTournamentState(remote, runtime.ids);
         stateRef.current = next;
@@ -133,8 +165,35 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   }, [hydrated, runtime]);
 
   useEffect(() => {
+    if (!hydrated) return;
+    const setupCoordinator = new SetupSync(setupRef.current, {
+      transport: getFirebaseSetupTransport(),
+      onRemote(remote) {
+        setupRef.current = remote;
+        setSetup(remote);
+        saveLiveEnvelope(
+          window.localStorage,
+          { T: stateRef.current, setup: remote, activeTab: activeTabRef.current },
+          { isViewer: isViewerRef.current },
+        );
+      },
+      onError: (message) => console.warn('Could not save the Setup form', message),
+    });
+    setupSync.current = setupCoordinator;
+    return () => {
+      setupCoordinator.dispose();
+      if (setupSync.current === setupCoordinator) setupSync.current = null;
+    };
+  }, [hydrated]);
+
+  useEffect(() => {
     if (!hydrated || !sync.current) return;
     sync.current.configure(auth.canAdmin && !isViewer ? 'writer' : 'viewer', state.tournamentId);
+  }, [auth.canAdmin, hydrated, isViewer, state.tournamentId]);
+
+  useEffect(() => {
+    if (!hydrated || !setupSync.current) return;
+    setupSync.current.configure(auth.canAdmin && !isViewer ? state.tournamentId : null);
   }, [auth.canAdmin, hydrated, isViewer, state.tournamentId]);
 
   useEffect(() => {
@@ -159,12 +218,11 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || isViewer) return;
-    const url =
-      state.tournamentId && state.started
-        ? `${window.location.pathname}?t=${encodeURIComponent(state.tournamentId)}`
-        : window.location.pathname;
+    const url = state.tournamentId
+      ? `${window.location.pathname}?t=${encodeURIComponent(state.tournamentId)}`
+      : window.location.pathname;
     window.history.replaceState(null, '', url);
-  }, [hydrated, isViewer, state.started, state.tournamentId]);
+  }, [hydrated, isViewer, state.tournamentId]);
 
   useEffect(() => {
     if (hydrated) saveLastTab(window.localStorage, activeTab);
@@ -193,7 +251,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       setSetup((current) => {
         const next = typeof updater === 'function' ? updater(current) : updater;
         persist(state, next, activeTab);
-        sync.current?.schedulePush();
+        setupSync.current?.updateLocal(current, next);
         return next;
       });
     },
@@ -222,6 +280,94 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       },
     );
   }, [auth.canAdmin, hydrated, isViewer, state, updateState]);
+
+  const flushPending = useCallback(async () => {
+    await Promise.all([sync.current?.flush(), setupSync.current?.flush()]);
+  }, []);
+
+  const loadTournament = useCallback(
+    async (tournamentId: string) => {
+      await flushPending();
+      const next = { ...createDefaultTournamentState(), tournamentId };
+      const nextSetup = createDefaultSetup();
+      stateRef.current = next;
+      setupRef.current = nextSetup;
+      setupSync.current?.reset(nextSetup);
+      setState(next);
+      setSetup(nextSetup);
+      persist(next, nextSetup, 'admin');
+    },
+    [flushPending, persist],
+  );
+
+  const unloadTournament = useCallback(async () => {
+    await flushPending();
+    const next = createDefaultTournamentState();
+    const nextSetup = createDefaultSetup();
+    stateRef.current = next;
+    setupRef.current = nextSetup;
+    setupSync.current?.reset(nextSetup);
+    setState(next);
+    setSetup(nextSetup);
+    persist(next, nextSetup, 'admin');
+  }, [flushPending, persist]);
+
+  const createTournamentRecord = useCallback(
+    async (testRun: boolean) => {
+      const tournamentId = runtime.ids.tournamentId();
+      try {
+        await createTournament({
+          data: {
+            tournamentId,
+            state: { ...createDefaultTournamentState(), tournamentId },
+            setup: createDefaultSetup(),
+            testRun,
+          },
+        });
+      } catch (error) {
+        return errorText(error);
+      }
+      await loadTournament(tournamentId);
+      return null;
+    },
+    [loadTournament, runtime],
+  );
+
+  /** What differs between what the database holds and `next`, as the patch a lifecycle call carries. */
+  const patchTowards = useCallback((next: TournamentState) => {
+    const stored = sync.current?.storedState();
+    return buildTournamentPatch(stored ? withoutServerOwned(stored) : {}, withoutServerOwned(next));
+  }, []);
+
+  const startTournamentNow = useCallback(async () => {
+    const tournamentId = stateRef.current.tournamentId;
+    if (!tournamentId) return 'There is no tournament to start.';
+    const started = { ...stateRef.current, curRound: 0 };
+    try {
+      await startTournament({
+        data: { tournamentId, patch: patchTowards(started) ?? { curRound: 0 } },
+      });
+    } catch (error) {
+      return errorText(error);
+    }
+    updateState({ ...started, started: true });
+    return null;
+  }, [patchTowards, updateState]);
+
+  const backToDraft = useCallback(async () => {
+    const tournamentId = stateRef.current.tournamentId;
+    if (!tournamentId) return 'There is no tournament to reset.';
+    const reset = resetTournamentState(stateRef.current);
+    const patch = patchTowards(reset);
+    try {
+      await returnTournamentToDraft({ data: { tournamentId, ...(patch ? { patch } : {}) } });
+    } catch (error) {
+      return errorText(error);
+    }
+    saveBracketFollow(window.localStorage, null);
+    updateState(reset);
+    return null;
+  }, [patchTowards, updateState]);
 
   const unlockAdmin = useCallback(() => {
     if (isViewer) {
@@ -258,13 +404,23 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       updateSetup,
       unlockAdmin,
       lockAdmin,
+      loadTournament,
+      unloadTournament,
+      createTournamentRecord,
+      startTournamentNow,
+      backToDraft,
     }),
     [
       activeTab,
+      backToDraft,
+      createTournamentRecord,
       hydrated,
       isViewer,
+      loadTournament,
       lockAdmin,
       runtime,
+      startTournamentNow,
+      unloadTournament,
       syncStatus,
       setActiveTab,
       setup,

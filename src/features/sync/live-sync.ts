@@ -38,7 +38,8 @@ export type SyncStatus =
 // The server owns these: a patch never carries them, and a remote snapshot always wins them.
 const SERVER_OWNED_KEYS = ['tournamentId', 'lifecycle', 'started'] as const;
 
-function withoutServerOwned(state: TournamentState): TournamentState {
+/** The state without the fields only the server writes; a patch is built from states stripped this way. */
+export function withoutServerOwned(state: TournamentState): TournamentState {
   const copy = { ...state };
   for (const key of SERVER_OWNED_KEYS) delete copy[key as keyof TournamentState];
   return copy;
@@ -123,6 +124,11 @@ export class SyncCoordinator {
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.base = null;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    // Edits still waiting belong to the tournament left behind.
+    this.dirtyScores.clear();
+    this.dirtyFinalScores.clear();
     if (!tournamentId) {
       this.onStatus({ kind: 'idle' });
       return;
@@ -141,6 +147,19 @@ export class SyncCoordinator {
           this.onStatus({ kind: 'error', message: error instanceof Error ? error.message : String(error) });
       },
     );
+  }
+
+  /** The state last known to be stored in Firebase; `null` until the first snapshot has arrived. */
+  storedState(): TournamentState | null {
+    return this.base;
+  }
+
+  /** Sends what is waiting now instead of after the debounce, e.g. before leaving the tournament. */
+  async flush(): Promise<void> {
+    if (!this.timer) return;
+    clearTimeout(this.timer);
+    this.timer = null;
+    await this.push();
   }
 
   setCurrent(state: TournamentState): void {
