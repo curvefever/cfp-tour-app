@@ -573,6 +573,47 @@ describe('SyncCoordinator', () => {
       expect(remoteStates.at(-1)?.info?.screenshots).toEqual(['image00000001', 'image00000002']);
     });
 
+    it("keeps an edit that is not sent yet when a snapshot with someone else's change arrives", async () => {
+      const stored = createDefaultTournamentState({ title: 'Cup' });
+      const { coordinator, handlers, transport } = startWriter(stored);
+      coordinator.updateLocal(stored, createDefaultTournamentState({ title: 'Cup 2' }));
+      // The echo of an earlier save, with another admin's change to the round.
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ title: 'Cup', curRound: 3 })));
+      expect(remoteStates.at(-1)).toMatchObject({ title: 'Cup 2', curRound: 3 });
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledWith('t1', { title: 'Cup 2' });
+    });
+
+    it('keeps a typed rules text while the screenshot list next to it arrives from the server', () => {
+      const stored = createDefaultTournamentState({
+        info: { scheduledAt: null, rulesText: '', screenshots: [] },
+      });
+      const { coordinator, handlers } = startWriter(stored);
+      coordinator.updateLocal(
+        stored,
+        createDefaultTournamentState({ info: { scheduledAt: null, rulesText: 'No pause', screenshots: [] } }),
+      );
+      handlers.onValue(
+        marshalForFirebase(
+          createDefaultTournamentState({
+            info: { scheduledAt: null, rulesText: '', screenshots: ['image00000001'] },
+          }),
+        ),
+      );
+      expect(remoteStates.at(-1)?.info).toEqual({
+        scheduledAt: null,
+        rulesText: 'No pause',
+        screenshots: ['image00000001'],
+      });
+    });
+
+    it('takes the remote value for a field with nothing waiting to be sent', () => {
+      const stored = createDefaultTournamentState({ title: 'Cup' });
+      const { handlers } = startWriter(stored);
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ title: 'Renamed' })));
+      expect(remoteStates.at(-1)?.title).toBe('Renamed');
+    });
+
     it('resends after a failed push', async () => {
       const update = vi
         .fn<SyncTransport['update']>()

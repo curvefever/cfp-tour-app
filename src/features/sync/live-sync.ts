@@ -95,6 +95,39 @@ export function mergeRemoteWriterState(
   return { ...current, ...remote, scores, finalScores };
 }
 
+/**
+ * `merged` (the stored state with this tab's score edits kept) with every other edit made here and not yet sent
+ * laid back over it, so that an echo of an earlier save, or someone else's write elsewhere in the same block (say
+ * a screenshot next to the rules text), never takes back what was just typed. `pending` is the patch of those
+ * edits; only its paths are used, and the values are read from `local`.
+ */
+export function keepPendingEdits(
+  merged: TournamentState,
+  local: TournamentState,
+  pending: Record<string, unknown>,
+): TournamentState {
+  const result = { ...merged } as Record<string, unknown>;
+  const source = local as unknown as Record<string, unknown>;
+  for (const path of Object.keys(pending)) {
+    const [key, child] = path.split('/');
+    if (key === 'scores' || key === 'finalScores') continue;
+    if (child === undefined) {
+      if (source[key] === undefined) delete result[key];
+      else result[key] = source[key];
+      continue;
+    }
+    const container = result[key];
+    const copy: Record<string, unknown> = Array.isArray(container)
+      ? ([...container] as unknown as Record<string, unknown>)
+      : { ...(container as Record<string, unknown> | undefined) };
+    const value = (source[key] as Record<string, unknown> | undefined)?.[child];
+    if (value === undefined) delete copy[child];
+    else copy[child] = value;
+    result[key] = copy;
+  }
+  return result as unknown as TournamentState;
+}
+
 export interface SyncCoordinatorOptions {
   transport: SyncTransport | null;
   onRemote(state: TournamentState): void;
@@ -249,11 +282,16 @@ export class SyncCoordinator {
       this.onStatus({ kind: 'waiting' });
       return;
     }
-    const next =
+    const merged =
       this.mode === 'viewer'
         ? mergeRemoteWriterState(this.current, payload, new Set(), new Set())
         : mergeRemoteWriterState(this.current, payload, this.dirtyScores, this.dirtyFinalScores);
-    if (!next) return;
+    if (!merged) return;
+    const pending =
+      this.mode === 'writer' && this.base
+        ? buildTournamentPatch(withoutServerOwned(this.base), withoutServerOwned(this.current))
+        : null;
+    const next = pending ? keepPendingEdits(merged, this.current, pending) : merged;
     this.base = decodeStoredState(payload);
     this.remoteReceivedSincePush = true;
     this.current = next;
