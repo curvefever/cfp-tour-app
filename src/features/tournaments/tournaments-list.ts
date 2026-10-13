@@ -39,7 +39,7 @@ function bySchedule(a: TournamentCard, b: TournamentCard): number {
 }
 
 /**
- * The Tournaments page's sections. A draft is never listed; a viewer sees what `isVisibleToViewers` allows (on
+ * The Tournaments page's sections. A draft has no section, so it is never listed; a viewer sees what `isVisibleToViewers` allows (on
  * production no test run), an admin also sees the test runs.
  */
 export function tournamentSections(
@@ -47,7 +47,6 @@ export function tournamentSections(
   options: { env: TourEnvironment; nowMs: number; isAdmin: boolean },
 ): TournamentSections {
   const cards = summaries
-    .filter((summary) => summary.status !== 'draft')
     .filter((summary) => options.isAdmin || isVisibleToViewers(summary, options.env))
     .map((summary): TournamentCard => {
       const phase = tournamentPhase(summary, options.nowMs);

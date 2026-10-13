@@ -77,6 +77,13 @@ describe('tournamentSections', () => {
     expect([...result.ongoing, ...result.upcoming, ...result.finished]).toEqual([]);
   });
 
+  it('does not list a draft to an admin either', () => {
+    const result = sections([summary('draft', { status: 'draft' }), summary('real')], 'prod', true);
+    expect(
+      [...result.ongoing, ...result.upcoming, ...result.finished].map((card) => card.summary.id),
+    ).toEqual(['real']);
+  });
+
   it('hides test runs from viewers on production', () => {
     const rehearsal = summary('rehearsal', { testRun: true, started: true, scheduledAt: NOW - HOUR });
     expect(ids(sections([rehearsal, summary('real')], 'prod').upcoming)).toEqual(['real']);
