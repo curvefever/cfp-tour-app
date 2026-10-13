@@ -2139,3 +2139,68 @@ describe('a score entered in the last qualification round is seen by the tie che
     expect(hasPendingTies(after, after.curRound)).toBe(true);
   });
 });
+
+describe('a score entered in the last group-stage round is seen by the tie checks at once', () => {
+  /** 43 players in groups of 4, played to the last group-stage round, where only the round's own scores count. */
+  function lastGroupRound(): TournamentState {
+    let state = buildState({
+      label: 'groups 43',
+      count: 43,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'single-elimination',
+        oddCountStrategy: 'bye',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '1',
+      },
+    })!;
+    while (state.rounds[state.curRound + 1]?.isGroupStage) {
+      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
+      if (advanced.status !== 'advanced') throw new Error('could not advance to the last group-stage round');
+      state = advanced.state;
+    }
+    return { ...state, scores: {} };
+  }
+
+  /** The winner of each room gets `winnerScore(room)`, the other player 10. */
+  function scoreRooms(state: TournamentState, rooms: number[], winnerScore: (room: number) => number) {
+    let scored = state;
+    for (const room of rooms) {
+      const seated = scored.assignments[scored.curRound].filter((entry) => entry.room === room);
+      seated.forEach((_, position) => {
+        const key = `r${scored.curRound}-rm${room}-p${position}`;
+        scored = setRoundScore(scored, key, position === 0 ? winnerScore(room) : 10, scored.curRound, room);
+      });
+    }
+    return scored;
+  }
+
+  it('reports a group cut-off tie created by re-scoring one room, with no recalculation step in between', () => {
+    const start = lastGroupRound();
+    const members = new Set(start.groups[0].members);
+    const groupRooms = [
+      ...new Set(
+        start.assignments[start.curRound]
+          .filter((entry) => entry.room !== null && members.has(entry.name))
+          .map((entry) => entry.room as number),
+      ),
+    ];
+    expect(groupRooms).toHaveLength(2);
+    const allRooms = start.rounds[start.curRound].rooms.map((_, index) => index + 1);
+    const [roomA, roomB] = groupRooms;
+    // Every room has its own winner score, so no group has a tie; group A's winners differ by one point.
+    const distinct = (room: number) => 100 + room * 3;
+    const before = scoreRooms(start, allRooms, (room) =>
+      room === roomB ? distinct(roomA) - 1 : distinct(room),
+    );
+    expect(getAllTies(before, before.curRound)['group-cutoff-A']).toBeUndefined();
+
+    // Room B's winner is re-scored to equal room A's winner.
+    const after = scoreRooms(before, [roomB], () => distinct(roomA));
+    const tie = getAllTies(after, after.curRound)['group-cutoff-A'];
+    expect(tie.players).toHaveLength(2);
+    expect(hasPendingTies(after, after.curRound)).toBe(true);
+  });
+});
