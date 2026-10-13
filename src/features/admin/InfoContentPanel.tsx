@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { Alert, Button, Field, Panel, PanelTitle, Textarea } from '../../components/ui';
+import { PresenceField } from '../presence/PresenceField';
 import { shrinkImageFile } from '../info/image-shrink';
 import { ScreenshotThumb } from '../info/ScreenshotThumb';
 import { MAX_SCREENSHOTS } from '../tournaments/screenshots.shared';
@@ -32,7 +33,7 @@ function RulesTextField() {
     }));
   }
   return (
-    <Field label='Rules for this tournament' htmlFor='info-rules-text'>
+    <PresenceField label='Rules for this tournament' htmlFor='info-rules-text'>
       <Textarea
         id='info-rules-text'
         disabled={readOnly}
@@ -45,7 +46,7 @@ function RulesTextField() {
         onBlur={save}
       />
       <p className='mt-1 text-xs text-muted'>{FORMATTING_HINT}</p>
-    </Field>
+    </PresenceField>
   );
 }
 

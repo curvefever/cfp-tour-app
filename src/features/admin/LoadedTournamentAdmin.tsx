@@ -1,4 +1,5 @@
 import { Alert, Button, ButtonRow } from '../../components/ui';
+import { PresenceProvider } from '../presence/PresenceProvider';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { RunningAdmin } from './RunningAdmin';
 import { SetupView } from './SetupView';
@@ -23,10 +24,10 @@ export function LoadedTournamentAdmin() {
         </Alert>
       ) : null}
       {kind === 'connecting' || kind === 'waiting' || kind === 'unavailable' ? null : (
-        <>
+        <PresenceProvider tournamentId={app.state.tournamentId ?? ''}>
           <TournamentStatusPanel />
           {app.state.started ? <RunningAdmin /> : <SetupView />}
-        </>
+        </PresenceProvider>
       )}
     </>
   );

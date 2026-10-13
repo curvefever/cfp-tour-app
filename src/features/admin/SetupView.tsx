@@ -27,6 +27,8 @@ import type { PersistedSetup, TournamentSettings } from '../../domain/tournament
 import { transitionRefusal } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
+import { EditingTag } from '../presence/EditingTag';
+import { PresenceField } from '../presence/PresenceField';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ScheduledTimeField } from './ScheduledTimeField';
 import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
@@ -34,7 +36,6 @@ import {
   Alert,
   Button,
   ButtonRow,
-  Field,
   FieldDisplay,
   Input,
   Panel,
@@ -285,7 +286,7 @@ export function SetupView() {
     <div id='panel-setup'>
       <Panel>
         <PanelTitle>Tournament Name</PanelTitle>
-        <Field label='Tournament name'>
+        <PresenceField htmlFor='cfg-title' label='Tournament name'>
           <Input
             id='cfg-title'
             type='text'
@@ -293,7 +294,7 @@ export function SetupView() {
             value={state.title}
             onChange={(event) => updateState({ ...state, title: event.target.value })}
           />
-        </Field>
+        </PresenceField>
         <ScheduledTimeField id='cfg-scheduled-at' />
       </Panel>
       <InfoContentPanel />
@@ -301,7 +302,7 @@ export function SetupView() {
       <TwoColumnGrid>
         <Panel>
           <PanelTitle>Tournament Settings</PanelTitle>
-          <Field label='Game format'>
+          <PresenceField htmlFor='cfg-game-format' label='Game format'>
             <Select
               id='cfg-game-format'
               value={setup.gameFormat}
@@ -313,8 +314,8 @@ export function SetupView() {
                 </option>
               ))}
             </Select>
-          </Field>
-          <Field label='Schedule logic'>
+          </PresenceField>
+          <PresenceField htmlFor='cfg-schedule-logic' label='Schedule logic'>
             <Select
               id='cfg-schedule-logic'
               value={setup.scheduleLogic}
@@ -329,9 +330,9 @@ export function SetupView() {
               {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
               <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
             </Select>
-          </Field>
+          </PresenceField>
           {teamSize ? (
-            <Field label='Team scoring'>
+            <PresenceField htmlFor='cfg-team-scoring-rule' label='Team scoring'>
               <Select
                 id='cfg-team-scoring-rule'
                 value={setup.teamScoringRule || 'sum-members'}
@@ -343,9 +344,9 @@ export function SetupView() {
                   </option>
                 ))}
               </Select>
-            </Field>
+            </PresenceField>
           ) : null}
-          <Field label='Pooling phase'>
+          <PresenceField htmlFor='cfg-pooling-phase' label='Pooling phase'>
             <Select
               id='cfg-pooling-phase'
               value={setup.poolingPhase}
@@ -357,9 +358,9 @@ export function SetupView() {
                 </option>
               ))}
             </Select>
-          </Field>
+          </PresenceField>
           {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' ? (
-            <Field label='Draw publication'>
+            <PresenceField htmlFor='cfg-draw-publication' label='Draw publication'>
               <Select
                 id='cfg-draw-publication'
                 value={setup.drawPublication}
@@ -375,11 +376,11 @@ export function SetupView() {
                   can't be added once a tournament starts in this mode.
                 </p>
               ) : null}
-            </Field>
+            </PresenceField>
           ) : null}
           {isGroup ? (
             <>
-              <Field label='Group size'>
+              <PresenceField htmlFor='cfg-group-size' label='Group size'>
                 <Input
                   id='cfg-group-size'
                   type='number'
@@ -388,8 +389,8 @@ export function SetupView() {
                   value={setup.groupSize}
                   onChange={(e) => change('groupSize', e.target.value)}
                 />
-              </Field>
-              <Field label='Round-robin'>
+              </PresenceField>
+              <PresenceField htmlFor='cfg-round-robin-mode' label='Round-robin'>
                 <Select
                   id='cfg-round-robin-mode'
                   value={setup.roundRobinMode}
@@ -398,8 +399,8 @@ export function SetupView() {
                   <option value='single'>Single — every pair meets once</option>
                   <option value='double'>Double — every pair meets twice</option>
                 </Select>
-              </Field>
-              <Field label='Qualifiers per group'>
+              </PresenceField>
+              <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
                 <Input
                   id='cfg-qualifiers-per-group'
                   type='number'
@@ -407,20 +408,20 @@ export function SetupView() {
                   value={setup.qualifiersPerGroup}
                   onChange={(e) => change('qualifiersPerGroup', e.target.value)}
                 />
-              </Field>
+              </PresenceField>
             </>
           ) : setup.poolingPhase !== 'none' ? (
             <>
               {waterfallStandingsSource ? (
-                <Field label='Advance to bracket'>
+                <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
                   <p className='text-sm' id='cfg-qual-adv'>
                     {derivedAdvance > 0
                       ? `${derivedAdvance}, set by the waterfall graph`
                       : 'not set yet — route ranks of the qualification table in the waterfall graph below'}
                   </p>
-                </Field>
+                </PresenceField>
               ) : (
-                <Field label='Advance to bracket'>
+                <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
                   <Input
                     id='cfg-qual-adv'
                     type='number'
@@ -428,9 +429,9 @@ export function SetupView() {
                     value={setup.qualAdv}
                     onChange={(e) => change('qualAdv', e.target.value)}
                   />
-                </Field>
+                </PresenceField>
               )}
-              <Field label='Non-counting rounds (optional)'>
+              <PresenceField htmlFor='cfg-non-counting-rounds' label='Non-counting rounds (optional)'>
                 <Input
                   id='cfg-non-counting-rounds'
                   type='number'
@@ -439,11 +440,11 @@ export function SetupView() {
                   value={setup.nonCountingRounds}
                   onChange={(e) => change('nonCountingRounds', e.target.value)}
                 />
-              </Field>
+              </PresenceField>
             </>
           ) : null}
           {format?.supportedOddCountStrategies && format.supportedOddCountStrategies.length > 1 ? (
-            <Field label='Odd-count strategy'>
+            <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
               <Select
                 id='cfg-odd-count-strategy'
                 value={resolveOddCountStrategy(format, setup.oddCountStrategy)}
@@ -455,11 +456,11 @@ export function SetupView() {
                   </option>
                 ))}
               </Select>
-            </Field>
+            </PresenceField>
           ) : null}
           {setup.poolingPhase !== 'none' ? (
             <>
-              <Field label='Scoring system'>
+              <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
                 <Select
                   id='cfg-scoring'
                   value={setup.scoring}
@@ -470,9 +471,10 @@ export function SetupView() {
                     {SCORING_SYSTEM_OPTION_LABELS['positional-points']}
                   </option>
                 </Select>
-              </Field>
+              </PresenceField>
               {setup.scoring === 'positional-points' ? (
-                <Field
+                <PresenceField
+                  htmlFor='cfg-positional-points-table'
                   label={
                     <>
                       Custom points table{' '}
@@ -494,18 +496,18 @@ export function SetupView() {
                     unit in the largest room this format can produce — points are summed across every counted
                     round.
                   </p>
-                </Field>
+                </PresenceField>
               ) : null}
             </>
           ) : (
-            <Field label='Scoring system'>
+            <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
               <Select id='cfg-scoring' value='fairpoints' disabled>
                 <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
               </Select>
-            </Field>
+            </PresenceField>
           )}
           {!isRace ? (
-            <Field label='Finals format'>
+            <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
               <Select
                 id='cfg-finals-games'
                 value={setup.finalsGames}
@@ -517,11 +519,15 @@ export function SetupView() {
                   </option>
                 ))}
               </Select>
-            </Field>
+            </PresenceField>
           ) : (
-            <Field label='Grand Final — wins needed to take the title'>
+            <PresenceField
+              htmlFor='cfg-grand-final-wb-target'
+              label='Grand Final — wins needed to take the title'
+            >
               <div className='flex gap-2.5'>
                 <Input
+                  id='cfg-grand-final-wb-target'
                   aria-label='Winners bracket target'
                   type='number'
                   min='1'
@@ -529,6 +535,7 @@ export function SetupView() {
                   onChange={(e) => change('grandFinalWbTarget', e.target.value)}
                 />
                 <Input
+                  id='cfg-grand-final-lb-target'
                   aria-label='Losers bracket target'
                   type='number'
                   min='1'
@@ -536,11 +543,11 @@ export function SetupView() {
                   onChange={(e) => change('grandFinalLbTarget', e.target.value)}
                 />
               </div>
-            </Field>
+            </PresenceField>
           )}
           {isSingle ? (
             <>
-              <Field label='Semis size override (optional)'>
+              <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
                 <Input
                   id='cfg-semis-override'
                   type='number'
@@ -549,8 +556,8 @@ export function SetupView() {
                   value={setup.semisOverride}
                   onChange={(e) => change('semisOverride', e.target.value)}
                 />
-              </Field>
-              <Field label='Semis format'>
+              </PresenceField>
+              <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
                 <Select
                   id='cfg-semis-games'
                   value={setup.semisGames}
@@ -562,11 +569,11 @@ export function SetupView() {
                     </option>
                   ))}
                 </Select>
-              </Field>
+              </PresenceField>
             </>
           ) : null}
           {isShared ? (
-            <Field label='LB qualifiers into the Final'>
+            <PresenceField htmlFor='cfg-lb-qualifiers' label='LB qualifiers into the Final'>
               <Input
                 id='cfg-lb-qualifiers'
                 type='number'
@@ -574,10 +581,10 @@ export function SetupView() {
                 value={lbQualifiers}
                 onChange={(e) => setLbQualifiers(e.target.value)}
               />
-            </Field>
+            </PresenceField>
           ) : null}
           {isSingle || isShared ? (
-            <Field label='Final size override (optional)'>
+            <PresenceField htmlFor='cfg-final-override' label='Final size override (optional)'>
               <Input
                 id='cfg-final-override'
                 type='number'
@@ -586,7 +593,7 @@ export function SetupView() {
                 value={setup.finalOverride}
                 onChange={(e) => change('finalOverride', e.target.value)}
               />
-            </Field>
+            </PresenceField>
           ) : null}
           {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' || isSingle || isShared ? (
             <details className='mb-3 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2.5'>
@@ -595,7 +602,10 @@ export function SetupView() {
               </summary>
               <div className='mt-3'>
                 {setup.poolingPhase === 'qual-table' ? (
-                  <Field label='Qualification Table round count override'>
+                  <PresenceField
+                    htmlFor='cfg-qual-rounds-override'
+                    label='Qualification Table round count override'
+                  >
                     <Input
                       id='cfg-qual-rounds-override'
                       type='number'
@@ -605,10 +615,10 @@ export function SetupView() {
                       value={setup.qualRoundsOverride}
                       onChange={(e) => change('qualRoundsOverride', e.target.value)}
                     />
-                  </Field>
+                  </PresenceField>
                 ) : null}
                 {setup.poolingPhase === 'swiss' ? (
-                  <Field label='Swiss round count override'>
+                  <PresenceField htmlFor='cfg-swiss-rounds-override' label='Swiss round count override'>
                     <Input
                       id='cfg-swiss-rounds-override'
                       type='number'
@@ -618,11 +628,12 @@ export function SetupView() {
                       value={setup.swissRoundsOverride}
                       onChange={(e) => change('swissRoundsOverride', e.target.value)}
                     />
-                  </Field>
+                  </PresenceField>
                 ) : null}
                 {isSingle || isShared ? (
                   <>
-                    <Field
+                    <PresenceField
+                      htmlFor='cfg-elimination-round-targets'
                       label={
                         <>
                           Elimination round targets{' '}
@@ -647,8 +658,9 @@ export function SetupView() {
                           {sharedFinalShare >= 1 ? `, currently ${sharedFinalShare}` : ''}).
                         </p>
                       ) : null}
-                    </Field>
-                    <Field
+                    </PresenceField>
+                    <PresenceField
+                      htmlFor='cfg-elimination-seeding-overrides'
                       label={
                         <>
                           Elimination seeding overrides{' '}
@@ -676,7 +688,7 @@ export function SetupView() {
                         <strong>random</strong> (shuffle rooms, ignoring both history and skill). Blank keeps
                         the automatic taper for that round.
                       </p>
-                    </Field>
+                    </PresenceField>
                   </>
                 ) : null}
               </div>
@@ -694,14 +706,18 @@ export function SetupView() {
           </ButtonRow>
         </Panel>
         <Panel>
-          <Field label={`Registered ${unitLabelPluralLower(setup.gameFormat)}`}>
+          <PresenceField
+            htmlFor='cfg-n-display'
+            label={`Registered ${unitLabelPluralLower(setup.gameFormat)}`}
+          >
             <FieldDisplay id='cfg-n-display'>
               {state.confirmedCount ?? '—'}
               {state.reserves.length ? ` (+ ${state.reserves.length} reserves)` : ''}
             </FieldDisplay>
-          </Field>
+          </PresenceField>
           <PanelTitle hint={<>— confirmed {teamSize ? 'teams' : 'players'}, one per line</>}>
             Roster
+            <EditingTag field='roster' />
           </PanelTitle>
           <Textarea
             id='cfg-roster'
@@ -715,6 +731,7 @@ export function SetupView() {
           />
           <PanelTitle className='mt-4' hint='— one per line'>
             Reserves
+            <EditingTag field='reserves' />
           </PanelTitle>
           <Textarea
             id='cfg-reserves'
@@ -726,6 +743,7 @@ export function SetupView() {
             <>
               <PanelTitle className='mt-4' hint='— substitutes for one member'>
                 Individual reserves
+                <EditingTag field='reserveIndividuals' />
               </PanelTitle>
               <Textarea
                 id='cfg-reserve-individuals'

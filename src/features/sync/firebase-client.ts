@@ -1,5 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { get, getDatabase, onValue, ref, type Database, type Unsubscribe } from 'firebase/database';
+import { parsePresence, type PresenceMap } from '../presence/presence.shared';
 import { parseTournamentIndex } from '../tournaments/tournament-index';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
@@ -8,6 +9,7 @@ import { writeSetupPatch, writeTournamentPatch } from './tournament-write.server
 import {
   getIndexRootPath,
   getMediaRootPath,
+  getPresenceRootPath,
   getSetupRootPath,
   getTournamentRootPath,
 } from './firebase-paths';
@@ -93,6 +95,30 @@ export function subscribeTournamentIndex(
     (snapshot) => onChange(parseTournamentIndex(unmarshalFromFirebase(snapshot.val()))),
     onError,
   );
+}
+
+/** Live subscription to who is in which Setup field of a tournament; `null` when Firebase is unavailable. */
+export function subscribePresence(
+  tournamentId: string,
+  onChange: (presence: PresenceMap) => void,
+): Unsubscribe | null {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  return onValue(
+    ref(db, `${getPresenceRootPath(currentHostname())}/${tournamentId}`),
+    (snapshot) => onChange(parsePresence(snapshot.val())),
+    () => onChange({}),
+  );
+}
+
+/** Live subscription to how far this browser's clock is behind the database's (milliseconds, added to `Date.now()`). */
+export function subscribeServerClockOffset(onChange: (offsetMs: number) => void): Unsubscribe | null {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  return onValue(ref(db, '.info/serverTimeOffset'), (snapshot) => {
+    const offset: unknown = snapshot.val();
+    onChange(typeof offset === 'number' ? offset : 0);
+  });
 }
 
 function currentHostname(): string | undefined {
