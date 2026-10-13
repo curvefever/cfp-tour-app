@@ -59,7 +59,10 @@ export function transitionRefusal(action: TournamentAction, subject: LifecycleSu
       if (subject.status === 'finished') return 'Reopen the tournament before sending it back to draft.';
       return subject.started ? null : 'This tournament has not started.';
     case 'start':
-      return subject.started ? 'This tournament has already started.' : null;
+      if (subject.started) return 'This tournament has already started.';
+      return subject.status === 'draft' && !subject.title.trim()
+        ? 'Give the tournament a title before starting it.'
+        : null;
   }
 }
 

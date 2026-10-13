@@ -1,5 +1,5 @@
 import type { TournamentState } from '../../domain/tournament/types';
-import { marshalForFirebase, unmarshalFromFirebase } from './firebase-marshal';
+import { unmarshalFromFirebase } from './firebase-marshal';
 import { buildTournamentPatch } from './tournament-patch';
 
 export {
@@ -11,7 +11,6 @@ export {
 } from './firebase-marshal';
 
 export interface SyncTransport {
-  write(tournamentId: string, payload: unknown): Promise<void>;
   /** Applies a multi-path update (see `buildTournamentPatch`) to the stored tournament. */
   update(tournamentId: string, patch: Record<string, unknown>): Promise<void>;
   subscribe(
@@ -124,7 +123,6 @@ export class SyncCoordinator {
           this.onStatus({ kind: 'error', message: error instanceof Error ? error.message : String(error) });
       },
     );
-    if (this.mode === 'writer') this.schedulePush();
   }
 
   setCurrent(state: TournamentState): void {
@@ -147,6 +145,9 @@ export class SyncCoordinator {
   private async push(): Promise<void> {
     this.timer = null;
     if (this.mode === 'viewer' || !this.transport || !this.tournamentId) return;
+    // Every tournament exists in Firebase before it is edited, so nothing is sent until its first snapshot has
+    // arrived: the edits made meanwhile stay dirty and go out as a patch afterwards.
+    if (!this.base) return;
     if (this.pushInFlight) {
       // A previous push (e.g. a slow or hung write) is still settling — coalesce
       // instead of firing another concurrent request on top of it, so a stalled
@@ -161,8 +162,8 @@ export class SyncCoordinator {
     const pushedFinalScores = Object.fromEntries(
       [...this.dirtyFinalScores].map((key) => [key, stateAtPush.finalScores[key]]),
     );
-    const patch = this.base ? buildTournamentPatch(this.base, stateAtPush) : null;
-    if (this.base && !patch) {
+    const patch = buildTournamentPatch(this.base, stateAtPush);
+    if (!patch) {
       // Nothing differs from what Firebase holds, so no local edit is still waiting to be sent.
       this.dirtyScores.clear();
       this.dirtyFinalScores.clear();
@@ -171,8 +172,7 @@ export class SyncCoordinator {
     this.pushInFlight = true;
     this.remoteReceivedSincePush = false;
     try {
-      if (patch) await this.transport.update(this.tournamentId, patch);
-      else await this.transport.write(this.tournamentId, marshalForFirebase(stateAtPush));
+      await this.transport.update(this.tournamentId, patch);
       // A snapshot that arrived meanwhile is newer than the state this push started from.
       if (!this.remoteReceivedSincePush) this.base = stateAtPush;
       for (const [key, value] of Object.entries(pushedScores))
@@ -203,6 +203,8 @@ export class SyncCoordinator {
     this.current = next;
     this.onRemote(next);
     this.onStatus({ kind: 'active' });
+    // Edits made before this first snapshot arrived can go out now.
+    this.schedulePush();
   }
 
   dispose(): void {

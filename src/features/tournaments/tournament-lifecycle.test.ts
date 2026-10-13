@@ -130,4 +130,18 @@ describe('transition guards', () => {
     expect(transitionRefusal('start', draft)).toBeNull();
     expect(transitionRefusal('start', ongoing)).toBe('This tournament has already started.');
   });
+
+  it('refuses to start a draft without a title, and says so', () => {
+    expect(transitionRefusal('start', { ...draft, title: '  ' })).toBe(
+      'Give the tournament a title before starting it.',
+    );
+  });
+
+  it('starts a draft with no date, since starting fills it in', () => {
+    expect(transitionRefusal('start', { ...draft, scheduledAt: null })).toBeNull();
+  });
+
+  it('does not ask a published tournament for a title again', () => {
+    expect(transitionRefusal('start', { ...draft, status: 'published', title: '' })).toBeNull();
+  });
 });

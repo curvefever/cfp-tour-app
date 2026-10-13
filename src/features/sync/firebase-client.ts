@@ -7,7 +7,7 @@ import {
   type SharedArchiveSummary,
 } from '../archive/shared-archive';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
-import { writeTournament, writeTournamentPatch } from './tournament-write.server-fns';
+import { writeTournamentPatch } from './tournament-write.server-fns';
 import { getArchiveRootPath, getTournamentRootPath } from './firebase-paths';
 
 export const FIREBASE_CONFIG = {
@@ -79,9 +79,6 @@ export function getFirebaseSyncTransport(): SyncTransport | null {
   const db = getFirebaseDatabase();
   if (!db) return null;
   return {
-    write: async (tournamentId, payload) => {
-      await writeTournament({ data: { tournamentId, payload } });
-    },
     update: async (tournamentId, patch) => {
       await writeTournamentPatch({ data: { tournamentId, patch } });
     },
