@@ -105,7 +105,8 @@ async function connect() {
     return body && typeof body === 'object' ? Object.keys(body).sort() : [];
   }
   const read = async (path) => (await db.ref(path).get()).val();
-  return { childIds, read, update: (updates) => db.ref().update(updates) };
+  // The open database connection keeps the process alive, so the run closes it when it ends.
+  return { childIds, read, update: (updates) => db.ref().update(updates), close: () => app.delete() };
 }
 
 /** One root: its ids, each with a verdict, a title, a date and a size. */
@@ -174,6 +175,14 @@ async function run({ env, apply }) {
   );
   console.log(apply ? 'MODE: --apply, deleting' : 'MODE: dry run, nothing is deleted');
   const database = await connect();
+  try {
+    await clean(database, { env, apply });
+  } finally {
+    await database.close();
+  }
+}
+
+async function clean(database, { env, apply }) {
   const roots = [
     ['tournaments', `environments/${env}/tournaments`],
     ['archive', `environments/${env}/archive`],
