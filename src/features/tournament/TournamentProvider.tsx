@@ -350,7 +350,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       return errorText(error);
     }
-    updateState({ ...started, started: true });
+    // Built from the state as it is now: the server has meanwhile written the date it filled in.
+    updateState((current) => ({ ...current, curRound: 0, started: true }));
     return null;
   }, [patchTowards, updateState]);
 
@@ -365,7 +366,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       return errorText(error);
     }
     saveBracketFollow(window.localStorage, null);
-    updateState(reset);
+    updateState(resetTournamentState);
     return null;
   }, [patchTowards, updateState]);
 
