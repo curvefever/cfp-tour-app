@@ -49,13 +49,6 @@ export function parseLifecycle(value: unknown): TournamentLifecycle | null {
   });
 }
 
-/** Why a whole-tournament write is refused: a tournament that has a status is changed by patches only. */
-export function wholeWriteRefusal(storedLifecycle: unknown): string | null {
-  return storedLifecycle === null || storedLifecycle === undefined
-    ? null
-    : 'This tournament already has a status, so it cannot be overwritten as a whole.';
-}
-
 export function toSubject(facts: StoredFacts): LifecycleSubject | null {
   if (!facts.lifecycle) return null;
   return {

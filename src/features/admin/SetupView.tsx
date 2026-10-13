@@ -523,7 +523,12 @@ export function SetupView() {
           ) : (
             <PresenceField
               htmlFor='cfg-grand-final-wb-target'
-              label='Grand Final — wins needed to take the title'
+              label={
+                <>
+                  Grand Final — wins needed to take the title
+                  <EditingTag field='grandFinalLbTarget' />
+                </>
+              }
             >
               <div className='flex gap-2.5'>
                 <Input

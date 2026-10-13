@@ -1,11 +1,6 @@
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { parseDescriptionFields, type TournamentDescription } from '../tournaments/tournament-summary';
 
-export type TournamentWriteInput = {
-  payload: unknown;
-  tournamentId: string;
-};
-
 export type TournamentPatchInput = {
   patch: Record<string, unknown>;
   /** The descriptive fields of the tournament's list entry that this patch changes, if any. */
@@ -27,17 +22,6 @@ export function validateTournamentId(value: unknown): string {
   const tournamentId = typeof value === 'string' ? value.trim() : '';
   if (!TOURNAMENT_ID_PATTERN.test(tournamentId)) throw new Error('Invalid tournament ID.');
   return tournamentId;
-}
-
-export function validateWriteInput(input: TournamentWriteInput): TournamentWriteInput {
-  if (!input || typeof input !== 'object') throw new Error('Invalid tournament update.');
-  const tournamentId = validateTournamentId(input.tournamentId);
-  if (!input.payload || typeof input.payload !== 'object' || Array.isArray(input.payload)) {
-    throw new Error('Invalid tournament data.');
-  }
-  const payload = { ...(input.payload as Record<string, unknown>) };
-  delete payload.adminProof;
-  return { tournamentId, payload };
 }
 
 // The id never changes, and the status fields are written only by the lifecycle server functions.

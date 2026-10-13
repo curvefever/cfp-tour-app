@@ -21,7 +21,6 @@ import {
   planUnpublish,
   type StoredFacts,
   type UpdatePlan,
-  wholeWriteRefusal,
 } from './tournament-updates';
 
 const paths = getTournamentPaths('t1', 'tournaments-test.curvefever.pro');
@@ -273,19 +272,6 @@ describe('planStart', () => {
   it('refuses a second start', () => {
     const started = facts({ lifecycle: lifecycle('published'), started: true });
     expect(messageOf(planStart(paths, started, generated, NOW))).toBe('This tournament has already started.');
-  });
-});
-
-describe('wholeWriteRefusal', () => {
-  it('refuses a whole write onto a tournament that has a lifecycle', () => {
-    expect(wholeWriteRefusal({ status: 'draft', testRun: false, createdAt: 1, finishedAt: null })).toMatch(
-      /already has a status/,
-    );
-  });
-
-  it('allows one where there is no lifecycle (nothing stored, or stored before statuses existed)', () => {
-    expect(wholeWriteRefusal(null)).toBeNull();
-    expect(wholeWriteRefusal(undefined)).toBeNull();
   });
 });
 

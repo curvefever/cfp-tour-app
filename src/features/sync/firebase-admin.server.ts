@@ -1,6 +1,5 @@
 import { applicationDefault, cert, getApps, initializeApp, type App } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
-import { getTournamentRootPath } from './firebase-paths';
 
 const DATABASE_URL = 'https://curve-tour-app-default-rtdb.europe-west1.firebasedatabase.app';
 
@@ -58,20 +57,6 @@ export async function readFirebaseOnce(path: string): Promise<unknown> {
     `Firebase read timed out after ${WRITE_TIMEOUT_MS}ms.`,
   );
   return snapshot.val();
-}
-
-export async function writeTournamentToFirebase(
-  tournamentId: string,
-  payload: unknown,
-  hostname?: string,
-): Promise<void> {
-  await withTimeout(
-    getDatabase(getFirebaseAdminApp())
-      .ref(`${getTournamentRootPath(hostname)}/${tournamentId}`)
-      .set(payload),
-    WRITE_TIMEOUT_MS,
-    `Firebase write timed out after ${WRITE_TIMEOUT_MS}ms — check FIREBASE_SERVICE_ACCOUNT_JSON / Application Default Credentials.`,
-  );
 }
 
 /**
