@@ -10,6 +10,7 @@ import {
   parseDescriptionFields,
   setupDescription,
   stateDescription,
+  type TournamentDescription,
 } from './tournament-summary';
 
 describe('buildTournamentSummary', () => {
@@ -93,12 +94,9 @@ describe('stateDescription and setupDescription', () => {
 
 describe('changedDescription', () => {
   it('keeps only the fields whose value differs', () => {
-    expect(
-      changedDescription(
-        { title: 'A', unitCount: 3, scheduledAt: null },
-        { title: 'B', unitCount: 3, scheduledAt: 5 },
-      ),
-    ).toEqual({ title: 'B', scheduledAt: 5 });
+    const previous: Partial<TournamentDescription> = { title: 'A', unitCount: 3, scheduledAt: null };
+    const next: Partial<TournamentDescription> = { title: 'B', unitCount: 3, scheduledAt: 5 };
+    expect(changedDescription(previous, next)).toEqual({ title: 'B', scheduledAt: 5 });
   });
 
   it('is empty when nothing changed', () => {
