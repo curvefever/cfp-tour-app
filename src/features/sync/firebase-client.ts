@@ -6,10 +6,17 @@ import {
   type SharedArchiveEntry,
   type SharedArchiveSummary,
 } from '../archive/shared-archive';
+import { parseTournamentIndex } from '../tournaments/tournament-index';
+import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
 import type { SetupTransport } from './setup-sync';
 import { writeSetupPatch, writeTournamentPatch } from './tournament-write.server-fns';
-import { getArchiveRootPath, getSetupRootPath, getTournamentRootPath } from './firebase-paths';
+import {
+  getArchiveRootPath,
+  getIndexRootPath,
+  getSetupRootPath,
+  getTournamentRootPath,
+} from './firebase-paths';
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAzbwk2ZJj2jmtKRFjzDJyPk4ePmF3Q04M',
@@ -48,6 +55,29 @@ export async function fetchTournamentOnce(tournamentId: string): Promise<unknown
   const snapshot = await get(ref(db, `${rootPath}/${tournamentId}`));
   const value = snapshot.val();
   return value === null ? null : unmarshalFromFirebase(value);
+}
+
+/** A one-shot public read of a tournament's Setup form; `null` when Firebase is unavailable or none is stored under that id. */
+export async function fetchSetupOnce(tournamentId: string): Promise<unknown> {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  const snapshot = await get(ref(db, `${getSetupRootPath(currentHostname())}/${tournamentId}`));
+  const value = snapshot.val();
+  return value === null ? null : unmarshalFromFirebase(value);
+}
+
+/** Live subscription to the tournament list of this site (every tournament's summary); `null` when Firebase is unavailable. */
+export function subscribeTournamentIndex(
+  onChange: (summaries: TournamentSummary[]) => void,
+  onError: (error: unknown) => void,
+): Unsubscribe | null {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  return onValue(
+    ref(db, getIndexRootPath(currentHostname())),
+    (snapshot) => onChange(parseTournamentIndex(unmarshalFromFirebase(snapshot.val()))),
+    onError,
+  );
 }
 
 function currentHostname(): string | undefined {

@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { TournamentSettings } from '../../../domain/tournament/types';
-import { useSharedArchiveIndex } from '../../archive/useSharedArchiveIndex';
-import { fetchArchiveEntryOnce, fetchTournamentOnce } from '../../sync/firebase-client';
+import { fetchSetupOnce, fetchTournamentOnce } from '../../sync/firebase-client';
+import { copyableTournaments } from '../../tournaments/tournament-index';
+import { useTournamentIndex, type TournamentIndexState } from '../../tournaments/useTournamentIndex';
 import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle, Select } from '../../../components/ui';
 import {
-  archiveEntriesWithSettings,
   parseTournamentReference,
   settingsFromSnapshot,
   TOURNAMENT_NOT_FOUND_MESSAGE,
@@ -19,28 +19,29 @@ export interface CopySettingsPanelProps {
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
 
-function archiveEmptyText(status: ReturnType<typeof useSharedArchiveIndex>['status']): string {
-  if (status === 'loading') return 'Loading the archive…';
-  if (status === 'ready') return 'No archived tournament has saved settings yet.';
-  return 'The archive is unavailable right now.';
+function listEmptyText(status: TournamentIndexState['status']): string {
+  if (status === 'loading') return 'Loading the tournaments…';
+  if (status === 'ready') return 'No tournament has been published yet.';
+  return 'The tournament list is unavailable right now.';
 }
 
-function ArchivePicker({ disabled, onCopy }: { disabled: boolean; onCopy(tournamentId: string): void }) {
-  const archive = useSharedArchiveIndex();
+function TournamentPicker({ disabled, onCopy }: { disabled: boolean; onCopy(tournamentId: string): void }) {
+  const list = useTournamentIndex();
   const [selectedId, setSelectedId] = useState('');
-  const entries = archiveEntriesWithSettings(archive.entries);
-  if (!entries.length) return <p className='text-xs text-muted'>{archiveEmptyText(archive.status)}</p>;
+  const entries = copyableTournaments(list.summaries);
+  if (!entries.length) return <p className='text-xs text-muted'>{listEmptyText(list.status)}</p>;
   return (
     <>
       <Select
-        id='copy-settings-archive'
+        id='copy-settings-tournament'
         value={selectedId}
         onChange={(event) => setSelectedId(event.target.value)}
       >
         <option value=''>Select a tournament…</option>
         {entries.map((entry) => (
-          <option key={entry.tournamentId} value={entry.tournamentId}>
-            {entry.title} — {new Date(entry.dateSaved).toLocaleString()}
+          <option key={entry.id} value={entry.id}>
+            {entry.title || 'Unnamed Tournament'}
+            {entry.scheduledAt !== null ? ` — ${new Date(entry.scheduledAt).toLocaleString()}` : ''}
           </option>
         ))}
       </Select>
@@ -60,12 +61,16 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState('');
 
-  /** Loads a stored tournament (or archive snapshot) and applies its settings, or shows why it can't be. */
-  async function copyFrom(load: () => Promise<unknown>) {
+  /** Loads a stored tournament and its Setup form, and applies its settings, or shows why it cannot be. */
+  async function copyFrom(tournamentId: string) {
     setError('');
     setFetching(true);
     try {
-      const result = settingsFromSnapshot(await load());
+      const [tournament, setupForm] = await Promise.all([
+        fetchTournamentOnce(tournamentId),
+        fetchSetupOnce(tournamentId),
+      ]);
+      const result = settingsFromSnapshot(tournament, setupForm);
       if (!result.ok) {
         setConfirmation('');
         setError(
@@ -82,10 +87,6 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
     }
   }
 
-  function copyFromArchive(tournamentId: string) {
-    return copyFrom(async () => (await fetchArchiveEntryOnce(tournamentId))?.snapshot ?? null);
-  }
-
   function copyFromLink() {
     const tournamentId = parseTournamentReference(linkInput);
     if (!tournamentId) {
@@ -93,7 +94,7 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
       setError(TOURNAMENT_REFERENCE_INVALID_MESSAGE);
       return Promise.resolve();
     }
-    return copyFrom(() => fetchTournamentOnce(tournamentId));
+    return copyFrom(tournamentId);
   }
 
   return (
@@ -105,8 +106,8 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
         </ButtonRow>
       ) : (
         <>
-          <Field label='From the archive' htmlFor='copy-settings-archive'>
-            <ArchivePicker disabled={fetching} onCopy={(id) => void copyFromArchive(id)} />
+          <Field label='From a published tournament' htmlFor='copy-settings-tournament'>
+            <TournamentPicker disabled={fetching} onCopy={(id) => void copyFrom(id)} />
           </Field>
           <Field label='Tournament link or id' htmlFor='copy-settings-link'>
             <Input

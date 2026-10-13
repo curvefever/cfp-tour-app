@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import { settingsFromForm } from '../../../domain/tournament/tournament-settings';
-import type { SharedArchiveSummary } from '../../archive/shared-archive';
-import {
-  archiveEntriesWithSettings,
-  parseTournamentReference,
-  settingsFromSnapshot,
-} from './past-tournament-settings';
+import { parseTournamentReference, settingsFromSnapshot } from './past-tournament-settings';
 
 describe('parseTournamentReference', () => {
   it('accepts a bare id', () => {
@@ -70,30 +65,34 @@ describe('settingsFromSnapshot', () => {
   });
 });
 
-describe('archiveEntriesWithSettings', () => {
-  const summary = (tournamentId: string, dateSaved: string, hasSettings: boolean): SharedArchiveSummary => ({
-    tournamentId,
-    title: tournamentId,
-    dateSaved,
-    playerCount: 31,
-    roundsPlayed: 3,
-    hasSettings,
+describe('settingsFromSnapshot with a stored Setup form', () => {
+  it('uses the stored Setup form, with the losers-bracket qualifiers of the snapshot', () => {
+    const snapshot = settingsFromForm({ ...createDefaultSetup(), lbQualifiers: '3' });
+    const setup = createDefaultSetup({ qualAdv: '16', roster: 'A B' });
+    const result = settingsFromSnapshot({ title: 'Cup', settings: snapshot }, setup);
+    expect(result).toEqual({
+      ok: true,
+      settings: settingsFromForm({ ...setup, lbQualifiers: '3' }),
+      title: 'Cup',
+    });
   });
 
-  it('keeps only entries with saved settings, newest first', () => {
-    // Given oldest-first, so a missing or wrong sort can't pass by coincidence.
-    const entries = [
-      summary('older', '2026-01-01T00:00:00.000Z', true),
-      summary('newer-no-settings', '2026-01-15T00:00:00.000Z', false),
-      summary('newer', '2026-02-01T00:00:00.000Z', true),
-    ];
-    expect(archiveEntriesWithSettings(entries).map((entry) => entry.tournamentId)).toEqual([
-      'newer',
-      'older',
-    ]);
+  it('copies a tournament that was never generated, which has a Setup form but no snapshot', () => {
+    const setup = createDefaultSetup({ poolingPhase: 'qual-table' });
+    const result = settingsFromSnapshot({ title: 'Draft' }, setup);
+    expect(result).toEqual({ ok: true, settings: settingsFromForm(setup), title: 'Draft' });
   });
 
-  it('returns an empty list when no entry has settings', () => {
-    expect(archiveEntriesWithSettings([summary('a', '2026-01-01', false)])).toEqual([]);
+  it('falls back to the snapshot when the Setup form is missing', () => {
+    const settings = settingsFromForm(createDefaultSetup({ qualAdv: '12' }));
+    expect(settingsFromSnapshot({ title: 'Old', settings }, null)).toEqual({
+      ok: true,
+      settings,
+      title: 'Old',
+    });
+  });
+
+  it('is not found when the tournament itself is missing', () => {
+    expect(settingsFromSnapshot(null, createDefaultSetup())).toEqual({ ok: false, reason: 'not-found' });
   });
 });

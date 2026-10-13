@@ -1,6 +1,5 @@
 import type { TournamentSettings } from '../../../domain/tournament/types';
 import { readTournamentSettings } from '../../../domain/tournament/tournament-settings';
-import { sortArchiveIndex, type SharedArchiveSummary } from '../../archive/shared-archive';
 import { TOURNAMENT_ID_PATTERN } from '../../sync/tournament-write.shared';
 
 export const TOURNAMENT_NOT_FOUND_MESSAGE =
@@ -29,20 +28,24 @@ export type SettingsSnapshotResult =
   | { ok: true; settings: TournamentSettings; title: string }
   | { ok: false; reason: 'not-found' | 'no-settings' };
 
-/** `raw` is the unmarshalled Firebase value for a tournament id (or `null` when nothing is stored there). */
-export function settingsFromSnapshot(raw: unknown): SettingsSnapshotResult {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
-    return { ok: false, reason: 'not-found' };
-  }
-  const record = raw as Record<string, unknown>;
-  const settings = readTournamentSettings(record.settings);
-  if (!settings) return { ok: false, reason: 'no-settings' };
-  const title =
-    typeof record.title === 'string' && record.title.trim() ? record.title.trim() : 'Unnamed Tournament';
-  return { ok: true, settings, title };
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** The shared archive index filtered to entries whose snapshot has saved settings, newest first. */
-export function archiveEntriesWithSettings(entries: SharedArchiveSummary[]): SharedArchiveSummary[] {
-  return sortArchiveIndex(entries.filter((entry) => entry.hasSettings));
+/**
+ * `raw` is the unmarshalled Firebase value for a tournament id (or `null` when nothing is stored there) and
+ * `setupRaw` the one for its Setup form. The stored Setup form wins; a tournament that predates it falls back
+ * to the settings snapshot its schedule was generated with.
+ */
+export function settingsFromSnapshot(raw: unknown, setupRaw?: unknown): SettingsSnapshotResult {
+  if (!isRecord(raw)) return { ok: false, reason: 'not-found' };
+  const snapshotSettings = readTournamentSettings(raw.settings);
+  // The "losers' bracket qualifiers" box lives outside the Setup form, so it only ever comes from the snapshot.
+  const storedSettings = isRecord(setupRaw)
+    ? readTournamentSettings({ ...setupRaw, lbQualifiers: snapshotSettings?.lbQualifiers })
+    : null;
+  const settings = storedSettings ?? snapshotSettings;
+  if (!settings) return { ok: false, reason: 'no-settings' };
+  const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Unnamed Tournament';
+  return { ok: true, settings, title };
 }
