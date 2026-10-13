@@ -1,7 +1,13 @@
 import type { IdSource } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedTournamentEnvelope } from '../../domain/tournament/types';
 import { normalizeActiveTab, parseLiveEnvelope, serializeLiveEnvelope } from './live-state';
-import { LAST_TAB_KEY, LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
+import {
+  EXITED_KEY,
+  LAST_VIEW_KEY,
+  LEGACY_BRACKET_FOLLOW_KEY,
+  LEGACY_LAST_TAB_KEY,
+  LEGACY_LIVE_STATE_KEY,
+} from './storage-keys';
 
 export interface BrowserStorage {
   getItem(key: string): string | null;
@@ -54,12 +60,42 @@ export function saveBracketFollow(storage: BrowserStorage, unitKey: string | nul
   else storage.setItem(LEGACY_BRACKET_FOLLOW_KEY, unitKey);
 }
 
-/** The tab this browser was last on, for any visitor; a first visit lands on Home. */
-export function readLastTab(storage: BrowserStorage): ActiveTab {
-  const stored = storage.getItem(LAST_TAB_KEY);
-  return stored === null ? 'home' : normalizeActiveTab(stored);
+/** The tab this browser was last on, and the tournament it was on it for (null for one remembered before tournaments had their own). */
+export interface LastView {
+  tournamentId: string | null;
+  tab: ActiveTab;
 }
 
-export function saveLastTab(storage: BrowserStorage, tab: ActiveTab): void {
-  storage.setItem(LAST_TAB_KEY, tab);
+/** The last tab of this browser with its tournament; the old tab-only memory counts once, for any tournament. */
+export function readLastView(storage: BrowserStorage): LastView | null {
+  const stored = storage.getItem(LAST_VIEW_KEY);
+  if (stored !== null) {
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (typeof parsed === 'object' && parsed !== null) {
+        const { tournamentId, tab } = parsed as Record<string, unknown>;
+        if (typeof tournamentId === 'string') return { tournamentId, tab: normalizeActiveTab(tab) };
+      }
+    } catch {
+      // Unreadable memory is the same as none.
+    }
+    return null;
+  }
+  const legacy = storage.getItem(LEGACY_LAST_TAB_KEY);
+  return legacy === null ? null : { tournamentId: null, tab: normalizeActiveTab(legacy) };
+}
+
+export function saveLastView(storage: BrowserStorage, view: { tournamentId: string; tab: ActiveTab }): void {
+  storage.setItem(LAST_VIEW_KEY, JSON.stringify(view));
+  storage.removeItem(LEGACY_LAST_TAB_KEY);
+}
+
+/** The id of the tournament this browser exited, so it is not loaded again by a visit without a link. */
+export function readExited(storage: BrowserStorage): string | null {
+  return storage.getItem(EXITED_KEY);
+}
+
+export function saveExited(storage: BrowserStorage, tournamentId: string | null): void {
+  if (tournamentId === null) storage.removeItem(EXITED_KEY);
+  else storage.setItem(EXITED_KEY, tournamentId);
 }

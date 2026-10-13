@@ -15,13 +15,17 @@ import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/to
 import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
 import {
   loadLiveEnvelope,
-  readLastTab,
+  readExited,
+  readLastView,
   saveBracketFollow,
-  saveLastTab,
+  saveExited,
+  saveLastView,
   saveLiveEnvelope,
+  type LastView,
 } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
 import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
+import { getTourEnvironment } from '../sync/firebase-paths';
 import { SyncCoordinator, withoutServerOwned, type SyncStatus, type SyncTransport } from '../sync/live-sync';
 import { SetupSync } from '../sync/setup-sync';
 import { buildTournamentPatch } from '../sync/tournament-patch';
@@ -35,8 +39,10 @@ import {
   startTournament,
   unpublishTournament,
 } from '../tournaments/tournament-lifecycle.server-fns';
-import type { TournamentAction } from '../tournaments/tournament-lifecycle';
-import { stateDescription } from '../tournaments/tournament-summary';
+import { tournamentPhase, type TournamentAction } from '../tournaments/tournament-lifecycle';
+import { stateDescription, type TournamentSummary } from '../tournaments/tournament-summary';
+import { useTournamentIndex, type TournamentIndexState } from '../tournaments/useTournamentIndex';
+import { landingTab, resolveVisit } from '../tournaments/visit';
 
 declare global {
   interface Window {
@@ -51,7 +57,13 @@ export interface TournamentAppContext {
   hydrated: boolean;
   unlocked: boolean;
   isViewer: boolean;
-  viewTournamentId: string | null;
+  /** The tournaments of this site, as the index lists them. */
+  tournaments: TournamentIndexState;
+  /** False until the first visit has been resolved: until then nothing is loaded yet. */
+  visitResolved: boolean;
+  /** Why a link opened the Tournaments tab instead of a tournament, if it did. */
+  visitNotice: string | null;
+  dismissVisitNotice(): void;
   runtime: TournamentRuntime;
   syncStatus: SyncStatus;
   setActiveTab(tab: ActiveTab): void;
@@ -63,6 +75,10 @@ export interface TournamentAppContext {
   loadTournament(tournamentId: string): Promise<void>;
   /** Unloads the tournament, after sending what is still waiting. */
   unloadTournament(): Promise<void>;
+  /** Opens a tournament from the list, on the tab its phase calls for. */
+  openTournament(summary: TournamentSummary): Promise<void>;
+  /** Unloads the tournament and remembers it, so a visit without a link does not load it again. */
+  exitTournament(): Promise<void>;
   /** Creates a draft tournament in the database and loads it; resolves with an error message, or null on success. */
   createTournamentRecord(testRun: boolean): Promise<string | null>;
   /** Starts the loaded tournament (generated rounds included); resolves with an error message, or null on success. */
@@ -99,10 +115,12 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const runtime = useMemo(() => createTournamentRuntime(), []);
   const [state, setState] = useState(createDefaultTournamentState);
   const [setup, setSetup] = useState(createDefaultSetup);
-  const [activeTab, setActiveTabState] = useState<ActiveTab>('home');
+  const [activeTab, setActiveTabState] = useState<ActiveTab>('tournaments');
   const [hydrated, setHydrated] = useState(false);
-  const [isViewer, setIsViewer] = useState(false);
-  const [viewTournamentId, setViewTournamentId] = useState<string | null>(null);
+  const [visitResolved, setVisitResolved] = useState(false);
+  const [visitNotice, setVisitNotice] = useState<string | null>(null);
+  const tournaments = useTournamentIndex();
+  const isViewer = !auth.canAdmin;
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
   const sync = useRef<SyncCoordinator | null>(null);
   const setupSync = useRef<SetupSync | null>(null);
@@ -110,40 +128,26 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const setupRef = useRef(setup);
   const activeTabRef = useRef(activeTab);
   const isViewerRef = useRef(isViewer);
+  const initialUrlId = useRef<string | null>(null);
+  const memory = useRef<{ lastView: LastView | null; exitedId: string | null }>({
+    lastView: null,
+    exitedId: null,
+  });
   stateRef.current = state;
   setupRef.current = setup;
   activeTabRef.current = activeTab;
   isViewerRef.current = isViewer;
 
   useEffect(() => {
-    const queryId = new URLSearchParams(window.location.search).get('t');
     window.localStorage.removeItem('curveFFA_admin_unlocked');
     window.localStorage.removeItem('curveFFA_admin_proof_hash');
-    const viewer = Boolean(queryId) && !auth.canAdmin;
-    let loadedState = createDefaultTournamentState();
-    let loadedSetup = createDefaultSetup();
-    if (!viewer) {
-      // The copy kept on this device only speeds up the tournament in the address; nothing else is loaded.
-      const loaded = queryId ? loadLiveEnvelope(window.localStorage, runtime.ids) : null;
-      if (loaded?.status === 'loaded' && loaded.envelope.T.tournamentId === queryId) {
-        loadedState = loaded.envelope.T;
-        loadedSetup = loaded.envelope.setup;
-      } else if (loaded?.status === 'invalid') {
-        console.warn('Could not restore saved tournament state', loaded.error);
-      }
-      if (queryId && queryId !== loadedState.tournamentId) {
-        loadedState = { ...loadedState, tournamentId: queryId };
-      }
-    } else if (queryId) {
-      loadedState = { ...loadedState, tournamentId: queryId };
-    }
-    setState(loadedState);
-    setSetup(loadedSetup);
-    setActiveTabState(readLastTab(window.localStorage));
-    setIsViewer(viewer);
-    setViewTournamentId(queryId);
+    initialUrlId.current = new URLSearchParams(window.location.search).get('t');
+    memory.current = {
+      lastView: readLastView(window.localStorage),
+      exitedId: readExited(window.localStorage),
+    };
     setHydrated(true);
-  }, [runtime]);
+  }, []);
 
   const persist = useCallback(
     (nextState: TournamentState, nextSetup: PersistedSetup, nextTab: ActiveTab, viewer = isViewer) => {
@@ -208,45 +212,31 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated || !sync.current) return;
-    sync.current.configure(auth.canAdmin && !isViewer ? 'writer' : 'viewer', state.tournamentId);
-  }, [auth.canAdmin, hydrated, isViewer, state.tournamentId]);
+    sync.current.configure(auth.canAdmin ? 'writer' : 'viewer', state.tournamentId);
+  }, [auth.canAdmin, hydrated, state.tournamentId]);
 
   useEffect(() => {
     if (!hydrated || !setupSync.current) return;
-    setupSync.current.configure(auth.canAdmin && !isViewer ? state.tournamentId : null);
-  }, [auth.canAdmin, hydrated, isViewer, state.tournamentId]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!auth.canAdmin) {
-      if (viewTournamentId) setIsViewer(true);
-      return;
-    }
-    if (isViewer) {
-      setIsViewer(false);
-      const next = { ...stateRef.current, tournamentId: viewTournamentId };
-      stateRef.current = next;
-      setState(next);
-      persist(next, setupRef.current, 'admin', false);
-      setActiveTabState('admin');
-    }
-  }, [auth.canAdmin, hydrated, isViewer, persist, viewTournamentId]);
+    setupSync.current.configure(auth.canAdmin ? state.tournamentId : null);
+  }, [auth.canAdmin, hydrated, state.tournamentId]);
 
   useEffect(() => {
     sync.current?.setCurrent(state);
   }, [state]);
 
+  // The tournament in the address is the one that is loaded, for everyone, so a reload and a shared link keep it.
   useEffect(() => {
-    if (!hydrated || isViewer) return;
+    if (!hydrated || !visitResolved) return;
     const url = state.tournamentId
       ? `${window.location.pathname}?t=${encodeURIComponent(state.tournamentId)}`
       : window.location.pathname;
     window.history.replaceState(null, '', url);
-  }, [hydrated, isViewer, state.tournamentId]);
+  }, [hydrated, state.tournamentId, visitResolved]);
 
   useEffect(() => {
-    if (hydrated) saveLastTab(window.localStorage, activeTab);
-  }, [activeTab, hydrated]);
+    if (!hydrated || !visitResolved || !state.tournamentId) return;
+    saveLastView(window.localStorage, { tournamentId: state.tournamentId, tab: activeTab });
+  }, [activeTab, hydrated, state.tournamentId, visitResolved]);
 
   const setActiveTab = useCallback(
     (tab: ActiveTab) => {
@@ -281,19 +271,52 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     await Promise.all([sync.current?.flush(), setupSync.current?.flush()]);
   }, []);
 
-  const loadTournament = useCallback(
-    async (tournamentId: string) => {
-      await flushPending();
-      const next = { ...createDefaultTournamentState(), tournamentId };
-      const nextSetup = createDefaultSetup();
+  /** Makes `tournamentId` the loaded tournament; its state and Setup form follow from the database. */
+  const adoptTournament = useCallback(
+    (tournamentId: string) => {
+      const cached = auth.canAdmin ? loadLiveEnvelope(window.localStorage, runtime.ids) : null;
+      const useCache = cached?.status === 'loaded' && cached.envelope.T.tournamentId === tournamentId;
+      const next = useCache ? cached.envelope.T : { ...createDefaultTournamentState(), tournamentId };
+      const nextSetup = useCache ? cached.envelope.setup : createDefaultSetup();
       stateRef.current = next;
       setupRef.current = nextSetup;
       setupSync.current?.reset(nextSetup);
       setState(next);
       setSetup(nextSetup);
-      persist(next, nextSetup, 'admin');
+      persist(next, nextSetup, activeTabRef.current);
     },
-    [flushPending, persist],
+    [auth.canAdmin, persist, runtime],
+  );
+
+  useEffect(() => {
+    if (!hydrated || visitResolved) return;
+    if (auth.status === 'checking' || tournaments.status === 'loading') return;
+    const urlId = initialUrlId.current;
+    const result =
+      tournaments.status === 'ready'
+        ? resolveVisit({
+            urlId,
+            summaries: tournaments.summaries,
+            env: getTourEnvironment(window.location.hostname),
+            nowMs: Date.now(),
+            memory: memory.current,
+            isAdmin: auth.canAdmin,
+          })
+        : // The list cannot be read: a link is opened as it is.
+          { tournamentId: urlId, tab: urlId ? ('info' as const) : ('tournaments' as const) };
+    if ('forgetExited' in result && result.forgetExited) saveExited(window.localStorage, null);
+    if (result.tournamentId) adoptTournament(result.tournamentId);
+    setActiveTabState(result.tab);
+    setVisitNotice('notice' in result ? (result.notice ?? null) : null);
+    setVisitResolved(true);
+  }, [adoptTournament, auth.canAdmin, auth.status, hydrated, tournaments, visitResolved]);
+
+  const loadTournament = useCallback(
+    async (tournamentId: string) => {
+      await flushPending();
+      adoptTournament(tournamentId);
+    },
+    [adoptTournament, flushPending],
   );
 
   const unloadTournament = useCallback(async () => {
@@ -305,8 +328,23 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     setupSync.current?.reset(nextSetup);
     setState(next);
     setSetup(nextSetup);
-    persist(next, nextSetup, 'admin');
+    persist(next, nextSetup, activeTabRef.current);
   }, [flushPending, persist]);
+
+  const openTournament = useCallback(
+    async (summary: TournamentSummary) => {
+      await loadTournament(summary.id);
+      setActiveTabState(landingTab(tournamentPhase(summary, Date.now())));
+    },
+    [loadTournament],
+  );
+
+  const exitTournament = useCallback(async () => {
+    const tournamentId = stateRef.current.tournamentId;
+    await unloadTournament();
+    if (tournamentId) saveExited(window.localStorage, tournamentId);
+    setActiveTabState('tournaments');
+  }, [unloadTournament]);
 
   const createTournamentRecord = useCallback(
     async (testRun: boolean) => {
@@ -384,23 +422,13 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   );
 
   const unlockAdmin = useCallback(() => {
-    if (isViewer) {
-      setIsViewer(false);
-      const next = {
-        ...state,
-        tournamentId: viewTournamentId,
-      };
-      setState(next);
-      persist(next, setup, 'admin', false);
-    }
     setActiveTabState('admin');
-  }, [isViewer, persist, setup, state, viewTournamentId]);
+  }, []);
   const lockAdmin = useCallback(() => {
     auth.logout();
-    setActiveTabState('home');
-    if (viewTournamentId) setIsViewer(true);
-    persist(state, setup, 'home');
-  }, [auth, persist, setup, state, viewTournamentId]);
+    void unloadTournament();
+    setActiveTabState('tournaments');
+  }, [auth, unloadTournament]);
 
   const value = useMemo<TournamentAppContext>(
     () => ({
@@ -410,7 +438,10 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       hydrated,
       unlocked: auth.canAdmin,
       isViewer,
-      viewTournamentId,
+      tournaments,
+      visitResolved,
+      visitNotice,
+      dismissVisitNotice: () => setVisitNotice(null),
       runtime,
       syncStatus,
       setActiveTab,
@@ -420,6 +451,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       lockAdmin,
       loadTournament,
       unloadTournament,
+      openTournament,
+      exitTournament,
       createTournamentRecord,
       startTournamentNow,
       backToDraft,
@@ -431,11 +464,16 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       backToDraft,
       changeStatus,
       createTournamentRecord,
+      exitTournament,
       hydrated,
       isViewer,
       loadTournament,
       lockAdmin,
+      openTournament,
       runtime,
+      tournaments,
+      visitNotice,
+      visitResolved,
       startTournamentNow,
       unloadTournament,
       syncStatus,
@@ -446,7 +484,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       auth.canAdmin,
       updateSetup,
       updateState,
-      viewTournamentId,
     ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;

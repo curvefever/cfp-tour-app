@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function gotoHydrated(page: Page): Promise<void> {
-  await page.goto('/');
+async function gotoHydrated(page: Page, path = '/'): Promise<void> {
+  await page.goto(path);
   // The app renders server-side markup before React attaches its event
   // listeners; clicking too early is a no-op. Wait for its own hydration signal.
   await page.waitForSelector('main[data-hydrated="true"]');
@@ -16,7 +16,60 @@ function collectConsoleErrors(page: Page): string[] {
   return errors;
 }
 
-test.describe('anonymous visitor smoke test', () => {
+interface FixtureTournament {
+  id: string;
+  title: string;
+  /** Published tournaments are upcoming until `started`. */
+  started: boolean;
+}
+
+/**
+ * Stands in for the database: the tournament list and each tournament's stored state are supplied by the page,
+ * so the visitor rules can be exercised without any data on the test site.
+ */
+async function serveTournaments(page: Page, tournaments: FixtureTournament[]): Promise<void> {
+  await page.addInitScript((fixtures: FixtureTournament[]) => {
+    const week = 7 * 24 * 60 * 60 * 1000;
+    const scheduledAt = (entry: FixtureTournament) => Date.now() + (entry.started ? -60 * 60 * 1000 : week);
+    window.__CURVE_TOUR_INDEX__ = Object.fromEntries(
+      fixtures.map((entry) => [
+        entry.id,
+        {
+          title: entry.title,
+          status: 'published',
+          started: entry.started,
+          testRun: false,
+          scheduledAt: scheduledAt(entry),
+          createdAt: 1,
+          finishedAt: null,
+          gameFormat: 'ffa-individual',
+          poolingPhase: 'none',
+          scheduleLogic: 'single-elimination',
+          unitCount: 37,
+        },
+      ]),
+    );
+    window.__CURVE_TOUR_SYNC_TRANSPORT__ = {
+      update: () => Promise.resolve(),
+      subscribe(tournamentId, onValue) {
+        const entry = fixtures.find((candidate) => candidate.id === tournamentId);
+        if (entry) {
+          onValue({
+            title: entry.title,
+            tournamentId,
+            started: entry.started,
+            lifecycle: { status: 'published', testRun: false, createdAt: 1, finishedAt: { __ffaNull: true } },
+            info: { scheduledAt: scheduledAt(entry), rulesText: '', screenshots: { __ffaEmptyArray: true } },
+            players: ['A', 'B', 'C'],
+          });
+        }
+        return () => {};
+      },
+    };
+  }, tournaments);
+}
+
+test.describe('visitor smoke test', () => {
   let consoleErrors: string[];
 
   test.beforeEach(({ page }) => {
@@ -27,50 +80,23 @@ test.describe('anonymous visitor smoke test', () => {
     expect(consoleErrors, 'expected zero console errors').toEqual([]);
   });
 
-  test('renders the app shell for an anonymous visitor', async ({ page }) => {
+  test('a signed-out visitor lands on Tournaments, with no tournament tabs', async ({ page }) => {
+    await serveTournaments(page, []);
     await gotoHydrated(page);
 
     await expect(page.getByText('CFP Tour Hub')).toBeVisible();
-
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
-    await expect(nav.getByRole('button', { name: '🏠 Home' })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '⚙ Admin' })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: '🗂 Bracket' })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '📊 Standings' })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toBeVisible();
-    await expect(nav.getByRole('button', { name: '🗄 Archive' })).toBeVisible();
-
-    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button')).toHaveCount(1);
+    await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#view-tournaments')).toBeVisible();
+    await expect(page.getByText('No tournament yet.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
   });
 
-  test('switching between viewer tabs works', async ({ page }) => {
-    await gotoHydrated(page);
-    const nav = page.getByRole('navigation', { name: 'Tournament sections' });
-
-    await nav.getByRole('button', { name: '🏆 Rankings' }).click();
-    await expect(page.locator('#view-rankings')).toBeVisible();
-    await expect(page.locator('#view-bracket')).toBeHidden();
-
-    await nav.getByRole('button', { name: '🗄 Archive' }).click();
-    await expect(page.locator('#view-archive')).toBeVisible();
-    await expect(page.locator('#view-rankings')).not.toBeVisible();
-
-    await nav.getByRole('button', { name: '🗂 Bracket' }).click();
-    await expect(page.locator('#view-bracket')).toBeVisible();
-    await expect(page.locator('#view-archive')).not.toBeVisible();
-
-    await nav.getByRole('button', { name: '🏠 Home' }).click();
-    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
-    await expect(page.locator('#view-bracket')).toBeHidden();
-
-    await nav.getByRole('button', { name: '🏆 Rankings' }).click();
-    await page.getByRole('button', { name: 'CFP Tour Hub' }).click();
-    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
-  });
-
-  test("Home's Log in as admin button opens the CFP login modal without navigating away", async ({
+  test('the Log in as admin link on Tournaments opens the CFP login modal without navigating away', async ({
     page,
   }) => {
+    await serveTournaments(page, []);
     await gotoHydrated(page);
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
@@ -83,18 +109,92 @@ test.describe('anonymous visitor smoke test', () => {
 
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).not.toBeVisible();
-    await expect(nav.getByRole('button', { name: '🏠 Home' })).toHaveAttribute('aria-current', 'page');
-    await expect(nav.getByRole('button', { name: '⚙ Admin' })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: /Admin/ })).toHaveCount(0);
   });
 
-  test('a reload returns to the tab the visitor was last on', async ({ page }) => {
+  test('a link to a published tournament opens its Info, and the tabs follow its phase', async ({ page }) => {
+    await serveTournaments(page, [{ id: 'cup', title: 'Autumn Cup', started: false }]);
+    await gotoHydrated(page, '/?t=cup');
+    const nav = page.getByRole('navigation', { name: 'Tournament sections' });
+
+    await expect(nav.getByRole('button', { name: /Info/ })).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#view-info')).toBeVisible();
+    await expect(page.locator('#view-info').getByText('Autumn Cup')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'General tournament rules' })).toHaveAttribute(
+      'href',
+      'https://info.curvefever.pro/tournaments/tournament-rules',
+    );
+    // Not started: the roster is shown as Players, and there is no Bracket or Standings yet.
+    await expect(nav.getByRole('button', { name: /Players/ })).toBeVisible();
+    await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: /Standings/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Exit tournament' })).toBeVisible();
+  });
+
+  test('switching between the tabs of a tournament works, and Tournaments lists it', async ({ page }) => {
+    await serveTournaments(page, [{ id: 'cup', title: 'Autumn Cup', started: false }]);
+    await gotoHydrated(page, '/?t=cup');
+    const nav = page.getByRole('navigation', { name: 'Tournament sections' });
+
+    await nav.getByRole('button', { name: /Players/ }).click();
+    await expect(page.locator('#view-rankings')).toBeVisible();
+    await expect(page.locator('#view-info')).toHaveCount(0);
+
+    await nav.getByRole('button', { name: /Tournaments/ }).click();
+    await expect(page.locator('#view-tournaments').getByText('Autumn Cup')).toBeVisible();
+
+    await nav.getByRole('button', { name: /Info/ }).click();
+    await expect(page.locator('#view-info')).toBeVisible();
+
+    await nav.getByRole('button', { name: /Players/ }).click();
+    await page.getByRole('button', { name: 'CFP Tour Hub' }).click();
+    await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
+    // The title only opens the list: the tournament stays loaded.
+    await expect(page.getByRole('button', { name: 'Exit tournament' })).toBeVisible();
+  });
+
+  test('a reload returns to the tab the visitor was last on in that tournament', async ({ page }) => {
+    await serveTournaments(page, [{ id: 'cup', title: 'Autumn Cup', started: false }]);
+    await gotoHydrated(page, '/?t=cup');
+    const nav = page.getByRole('navigation', { name: 'Tournament sections' });
+
+    await nav.getByRole('button', { name: /Players/ }).click();
+    await expect(nav.getByRole('button', { name: /Players/ })).toHaveAttribute('aria-current', 'page');
+
+    await gotoHydrated(page, '/?t=cup');
+    await expect(nav.getByRole('button', { name: /Players/ })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('a link to a tournament that is not there opens Tournaments with a notice', async ({ page }) => {
+    await serveTournaments(page, [{ id: 'cup', title: 'Autumn Cup', started: false }]);
+    await gotoHydrated(page, '/?t=missing');
+
+    await expect(page.getByText("This tournament isn't available.")).toBeVisible();
+    await expect(page.locator('#view-tournaments')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
+  });
+
+  test('a visit without a link loads the only ongoing tournament, and Exit sticks across a reload', async ({
+    page,
+  }) => {
+    await serveTournaments(page, [
+      { id: 'live', title: 'Live Cup', started: true },
+      { id: 'later', title: 'Later Cup', started: false },
+    ]);
     await gotoHydrated(page);
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
-    await nav.getByRole('button', { name: '🏆 Rankings' }).click();
-    await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByText('Live Cup').first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Exit tournament' }).click();
+    await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button')).toHaveCount(1);
 
     await gotoHydrated(page);
-    await expect(nav.getByRole('button', { name: '🏆 Rankings' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('button')).toHaveCount(1);
+    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
   });
 });

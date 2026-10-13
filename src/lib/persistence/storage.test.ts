@@ -1,14 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
-import { LAST_TAB_KEY, LEGACY_BRACKET_FOLLOW_KEY, LEGACY_LIVE_STATE_KEY } from './storage-keys';
+import {
+  EXITED_KEY,
+  LAST_VIEW_KEY,
+  LEGACY_BRACKET_FOLLOW_KEY,
+  LEGACY_LAST_TAB_KEY,
+  LEGACY_LIVE_STATE_KEY,
+} from './storage-keys';
 import { createMemoryStorage } from './test-fixtures';
 import {
   clearLiveEnvelope,
   loadLiveEnvelope,
   readBracketFollow,
-  readLastTab,
+  readExited,
+  readLastView,
   saveBracketFollow,
-  saveLastTab,
+  saveExited,
+  saveLastView,
   saveLiveEnvelope,
 } from './storage';
 
@@ -99,20 +107,57 @@ describe('clearLiveEnvelope / readBracketFollow / saveBracketFollow', () => {
   });
 });
 
-describe('readLastTab / saveLastTab', () => {
-  it('lands on Home when nothing is stored', () => {
-    expect(readLastTab(createMemoryStorage())).toBe('home');
+describe('readLastView / saveLastView', () => {
+  it('has no memory when nothing is stored', () => {
+    expect(readLastView(createMemoryStorage())).toBeNull();
   });
 
-  it('round-trips a saved tab', () => {
+  it('round-trips a tab together with its tournament', () => {
     const storage = createMemoryStorage();
-    saveLastTab(storage, 'rankings');
-    expect(storage.getItem(LAST_TAB_KEY)).toBe('rankings');
-    expect(readLastTab(storage)).toBe('rankings');
+    saveLastView(storage, { tournamentId: 't1', tab: 'rankings' });
+    expect(JSON.parse(storage.getItem(LAST_VIEW_KEY)!)).toEqual({ tournamentId: 't1', tab: 'rankings' });
+    expect(readLastView(storage)).toEqual({ tournamentId: 't1', tab: 'rankings' });
   });
 
-  it('treats an unknown stored value like normalizeActiveTab does', () => {
-    expect(readLastTab(createMemoryStorage({ [LAST_TAB_KEY]: 'nonsense' }))).toBe('bracket');
-    expect(readLastTab(createMemoryStorage({ [LAST_TAB_KEY]: 'scoreboard' }))).toBe('standings');
+  it('reads the old tab-only memory once, for any tournament, and the first save removes it', () => {
+    const storage = createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'rankings' });
+    expect(readLastView(storage)).toEqual({ tournamentId: null, tab: 'rankings' });
+    saveLastView(storage, { tournamentId: 't1', tab: 'info' });
+    expect(storage.getItem(LEGACY_LAST_TAB_KEY)).toBeNull();
+    expect(readLastView(storage)).toEqual({ tournamentId: 't1', tab: 'info' });
+  });
+
+  it('maps the retired Home and Archive tabs of the old memory to Tournaments', () => {
+    expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'home' }))?.tab).toBe('tournaments');
+    expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'archive' }))?.tab).toBe('tournaments');
+  });
+
+  it('treats an unknown stored tab like normalizeActiveTab does', () => {
+    const storage = createMemoryStorage({
+      [LAST_VIEW_KEY]: JSON.stringify({ tournamentId: 't1', tab: 'nonsense' }),
+    });
+    expect(readLastView(storage)).toEqual({ tournamentId: 't1', tab: 'bracket' });
+  });
+
+  it('ignores unreadable memory, and does not fall back to the old tab then', () => {
+    expect(readLastView(createMemoryStorage({ [LAST_VIEW_KEY]: 'not json' }))).toBeNull();
+    expect(readLastView(createMemoryStorage({ [LAST_VIEW_KEY]: '{"tab":"info"}' }))).toBeNull();
+    const both = createMemoryStorage({ [LAST_VIEW_KEY]: 'not json', [LEGACY_LAST_TAB_KEY]: 'rankings' });
+    expect(readLastView(both)).toBeNull();
+  });
+});
+
+describe('readExited / saveExited', () => {
+  it('has no exited tournament until one is saved', () => {
+    expect(readExited(createMemoryStorage())).toBeNull();
+  });
+
+  it('round-trips an id and forgets it when saved with null', () => {
+    const storage = createMemoryStorage();
+    saveExited(storage, 't1');
+    expect(storage.getItem(EXITED_KEY)).toBe('t1');
+    expect(readExited(storage)).toBe('t1');
+    saveExited(storage, null);
+    expect(readExited(storage)).toBeNull();
   });
 });

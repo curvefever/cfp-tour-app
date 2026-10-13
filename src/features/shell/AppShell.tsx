@@ -4,12 +4,13 @@ import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
 import { BracketView } from '../bracket/BracketView';
-import { HomeView } from '../home/HomeView';
+import { InfoView } from '../info/InfoView';
 import { AdminTournamentList } from '../admin/AdminTournamentList';
 import { LoadedTournamentAdmin } from '../admin/LoadedTournamentAdmin';
 import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
-import { ArchiveView } from '../archive/ArchiveView';
+import { TournamentsView } from '../tournaments/TournamentsView';
+import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { effectiveTab, visibleTabs } from './tabs';
 import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
@@ -20,7 +21,17 @@ export function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const currentRound = app.state.rounds[app.state.curRound];
   const showStandings = hasStandingsPhase(app.state);
-  const tabContext = { canAdmin: app.unlocked, showStandings };
+  const phase = app.state.tournamentId
+    ? tournamentPhase(
+        {
+          status: app.state.lifecycle?.status ?? 'published',
+          started: app.state.started,
+          scheduledAt: app.state.info?.scheduledAt ?? null,
+        },
+        Date.now(),
+      )
+    : null;
+  const tabContext = { canAdmin: app.unlocked, phase, showStandings };
   const tabs = visibleTabs(tabContext);
   const activeTab = effectiveTab(app.activeTab, tabContext);
 
@@ -29,7 +40,7 @@ export function AppShell() {
       <header className='sticky top-0 z-50 flex h-14 items-center justify-between border-b border-surface-hover bg-background/95 px-6 backdrop-blur-md max-[700px]:px-3.5'>
         <button
           className='cursor-pointer whitespace-nowrap text-lg font-bold tracking-[0.16em] text-primary uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:text-base max-[700px]:tracking-[0.12em]'
-          onClick={() => app.setActiveTab('home')}
+          onClick={() => app.setActiveTab('tournaments')}
         >
           CFP <span className='text-foreground'>Tour Hub</span>
         </button>
@@ -42,10 +53,24 @@ export function AppShell() {
               {app.state.title}
             </div>
           ) : null}
-          <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
-          <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(0_229_255_/_40%)]'>
-            {currentRound?.roundNum ?? '—'}
-          </div>
+          {app.state.started ? (
+            <>
+              <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
+              <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(0_229_255_/_40%)]'>
+                {currentRound?.roundNum ?? '—'}
+              </div>
+            </>
+          ) : null}
+          {app.state.tournamentId ? (
+            <button
+              className='cursor-pointer rounded px-1.5 py-0.5 text-sm text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+              aria-label='Exit tournament'
+              title='Exit tournament'
+              onClick={() => void app.exitTournament()}
+            >
+              ✕
+            </button>
+          ) : null}
         </div>
       </header>
       <nav
@@ -75,9 +100,22 @@ export function AppShell() {
         className='mx-auto max-w-7xl px-6 py-5 max-[700px]:px-3 max-[700px]:py-3.5'
         data-hydrated={app.hydrated ? 'true' : 'false'}
       >
-        {activeTab === 'home' ? (
-          <section id='view-home'>
-            <HomeView signedIn={app.unlocked} onLogIn={() => setLoginOpen(true)} />
+        {activeTab === 'tournaments' ? (
+          <section id='view-tournaments'>
+            {app.visitNotice ? (
+              <Alert className='mb-2.5' tone='info'>
+                {app.visitNotice}{' '}
+                <button className='cursor-pointer underline' onClick={app.dismissVisitNotice}>
+                  Dismiss
+                </button>
+              </Alert>
+            ) : null}
+            <TournamentsView onLogIn={() => setLoginOpen(true)} />
+          </section>
+        ) : null}
+        {activeTab === 'info' ? (
+          <section id='view-info'>
+            <InfoView />
           </section>
         ) : null}
         {activeTab === 'admin' ? (
@@ -108,11 +146,6 @@ export function AppShell() {
         {activeTab === 'rankings' ? (
           <section id='view-rankings'>
             <RankingsView />
-          </section>
-        ) : null}
-        {activeTab === 'archive' ? (
-          <section id='view-archive'>
-            <ArchiveView />
           </section>
         ) : null}
       </main>

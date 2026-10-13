@@ -1,7 +1,10 @@
 export const LEGACY_LIVE_STATE_KEY = 'curveFFA_state_v1';
 export const LEGACY_ARCHIVE_INDEX_KEY = 'curveFFA_archive_index';
 export const LEGACY_BRACKET_FOLLOW_KEY = 'curveFFA_bracket_follow';
-export const LAST_TAB_KEY = 'curveFFA_active_tab';
+/** The tab of this browser before tournaments had their own memory: read once as a fallback, then removed. */
+export const LEGACY_LAST_TAB_KEY = 'curveFFA_active_tab';
+export const LAST_VIEW_KEY = 'curveFFA_last_view';
+export const EXITED_KEY = 'curveFFA_exited';
 
 const LEGACY_ARCHIVE_ENTRY_PREFIX = 'curveFFA_archive_';
 

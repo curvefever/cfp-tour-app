@@ -18,6 +18,13 @@ import {
   getTournamentRootPath,
 } from './firebase-paths';
 
+declare global {
+  interface Window {
+    /** Test hook: the tournament list, as the database would hold it, instead of reading the database. */
+    __CURVE_TOUR_INDEX__?: Record<string, unknown>;
+  }
+}
+
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAzbwk2ZJj2jmtKRFjzDJyPk4ePmF3Q04M',
   authDomain: 'curve-tour-app.firebaseapp.com',
@@ -71,6 +78,11 @@ export function subscribeTournamentIndex(
   onChange: (summaries: TournamentSummary[]) => void,
   onError: (error: unknown) => void,
 ): Unsubscribe | null {
+  // End-to-end tests supply the list instead of reading the database.
+  if (typeof window !== 'undefined' && window.__CURVE_TOUR_INDEX__) {
+    onChange(parseTournamentIndex(window.__CURVE_TOUR_INDEX__));
+    return () => {};
+  }
   const db = getFirebaseDatabase();
   if (!db) return null;
   return onValue(

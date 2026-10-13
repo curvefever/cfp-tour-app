@@ -119,13 +119,15 @@ describe('normalizePersistedSetup', () => {
 
 describe('normalizeActiveTab', () => {
   it('passes through every known tab', () => {
-    for (const tab of ['home', 'admin', 'bracket', 'standings', 'rankings', 'archive']) {
+    for (const tab of ['tournaments', 'info', 'admin', 'bracket', 'standings', 'rankings']) {
       expect(normalizeActiveTab(tab)).toBe(tab);
     }
   });
 
   it('maps the legacy scoreboard tab to standings', () => {
     expect(normalizeActiveTab('scoreboard')).toBe('standings');
+    expect(normalizeActiveTab('home')).toBe('tournaments');
+    expect(normalizeActiveTab('archive')).toBe('tournaments');
   });
 
   it('falls back to bracket for an unknown or non-string value', () => {
