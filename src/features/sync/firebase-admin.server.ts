@@ -74,14 +74,14 @@ export async function writeTournamentToFirebase(
   );
 }
 
-/** Applies a tournament patch (paths relative to the tournament, `null` deleting) in one atomic update. */
-export async function writeTournamentPatchToFirebase(
-  tournamentId: string,
-  patch: Record<string, unknown>,
-  hostname?: string,
-): Promise<void> {
-  const tournamentPath = `${getTournamentRootPath(hostname)}/${tournamentId}`;
-  await updateFirebase(
-    Object.fromEntries(Object.entries(patch).map(([path, value]) => [`${tournamentPath}/${path}`, value])),
+/** Sets a boolean flag from "not true" to true in one transaction; `false` when it was already true. */
+export async function claimFirebaseFlag(path: string): Promise<boolean> {
+  const result = await withTimeout(
+    getDatabase(getFirebaseAdminApp())
+      .ref(path)
+      .transaction((current: unknown) => (current === true ? undefined : true)),
+    WRITE_TIMEOUT_MS,
+    `Firebase transaction timed out after ${WRITE_TIMEOUT_MS}ms.`,
   );
+  return result.committed;
 }

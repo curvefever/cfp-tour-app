@@ -25,6 +25,28 @@
               ".write": false
             }
           }
+        },
+        "index": {
+          ".read": true,
+          ".write": false
+        },
+        "setups": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        },
+        "presence": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        },
+        "media": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
         }
       },
       "prod": {
@@ -44,6 +66,28 @@
               ".read": true,
               ".write": false
             }
+          }
+        },
+        "index": {
+          ".read": true,
+          ".write": false
+        },
+        "setups": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        },
+        "presence": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
+          }
+        },
+        "media": {
+          "$tournamentId": {
+            ".read": true,
+            ".write": false
           }
         }
       }
