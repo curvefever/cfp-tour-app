@@ -14,18 +14,6 @@
             ".write": false
           }
         },
-        "archive": {
-          "index": {
-            ".read": true,
-            ".write": false
-          },
-          "entries": {
-            "$tournamentId": {
-              ".read": true,
-              ".write": false
-            }
-          }
-        },
         "index": {
           ".read": true,
           ".write": false
@@ -54,18 +42,6 @@
           "$tournamentId": {
             ".read": true,
             ".write": false
-          }
-        },
-        "archive": {
-          "index": {
-            ".read": true,
-            ".write": false
-          },
-          "entries": {
-            "$tournamentId": {
-              ".read": true,
-              ".write": false
-            }
           }
         },
         "index": {
