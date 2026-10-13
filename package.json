@@ -6,7 +6,6 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "vite dev",
-    "dev:legacy": "node scripts/serve-legacy.mjs",
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "lint": "eslint .",
