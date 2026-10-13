@@ -439,6 +439,42 @@ describe('SyncCoordinator', () => {
       expect(remoteStates.at(-1)?.scores.a).toBe(7);
     });
 
+    it('never puts the status fields or the id in a patch, and takes them from the snapshot', async () => {
+      const stored = createDefaultTournamentState({ tournamentId: 't1', started: false });
+      const { coordinator, handlers, transport } = startWriter(stored);
+      coordinator.updateLocal(
+        stored,
+        createDefaultTournamentState({
+          tournamentId: 'other',
+          started: true,
+          lifecycle: { status: 'draft', testRun: false, createdAt: 1, finishedAt: null },
+          curRound: 2,
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledWith('t1', { curRound: 2 });
+
+      handlers.onValue(marshalForFirebase({ ...stored, started: true, curRound: 2 }));
+      expect(remoteStates.at(-1)?.started).toBe(true);
+    });
+
+    it('sends the changed list fields with the patch, and none when they did not change', async () => {
+      const describe = (state: TournamentState) => ({ title: state.title, unitCount: state.players.length });
+      const stored = createDefaultTournamentState({ title: 'Old' });
+      const { handlers, transport } = subscribeCapturing();
+      const coordinator = new SyncCoordinator(stored, { transport, onRemote, onStatus, describe });
+      coordinator.configure('writer', 't1');
+      handlers.onValue(marshalForFirebase(stored));
+      coordinator.updateLocal(stored, createDefaultTournamentState({ title: 'New' }));
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenLastCalledWith('t1', { title: 'New' }, { title: 'New' });
+
+      const renamed = createDefaultTournamentState({ title: 'New' });
+      coordinator.updateLocal(renamed, createDefaultTournamentState({ title: 'New', curRound: 1 }));
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenLastCalledWith('t1', { curRound: 1 });
+    });
+
     it('resends after a failed push', async () => {
       const update = vi
         .fn<SyncTransport['update']>()
@@ -471,7 +507,7 @@ describe('SyncCoordinator', () => {
       expect(statuses).toEqual([{ kind: 'waiting' }]);
     });
 
-    it('ignores a falsy payload in writer mode without changing status', () => {
+    it('reports waiting on a falsy payload in writer mode too: the tournament is not stored', () => {
       const transport = createTransport();
       const coordinator = new SyncCoordinator(createDefaultTournamentState(), {
         transport,
@@ -484,7 +520,7 @@ describe('SyncCoordinator', () => {
       ) => void;
       statuses.length = 0;
       onValue(null);
-      expect(statuses).toEqual([]);
+      expect(statuses).toEqual([{ kind: 'waiting' }]);
       expect(remoteStates).toEqual([]);
     });
 

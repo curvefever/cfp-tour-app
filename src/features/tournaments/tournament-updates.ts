@@ -243,9 +243,14 @@ export function planPatchWrite(
   return { ok: true, updates };
 }
 
-/** The setup form's changed fields, written as they are. */
-export function planSetupWrite(paths: TournamentPaths, patch: Record<string, string>): UpdatePlan {
+/** The setup form's changed fields, written as they are, with the list entry's changed descriptive fields. */
+export function planSetupWrite(
+  paths: TournamentPaths,
+  patch: Record<string, string>,
+  summary?: Partial<TournamentDescription>,
+): UpdatePlan {
   const updates: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(patch)) updates[`${paths.setup}/${key}`] = value;
+  for (const [key, value] of Object.entries(summary ?? {})) put(updates, `${paths.index}/${key}`, value);
   return { ok: true, updates };
 }

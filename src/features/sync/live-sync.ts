@@ -1,4 +1,5 @@
 import type { TournamentState } from '../../domain/tournament/types';
+import { changedDescription, type TournamentDescription } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase } from './firebase-marshal';
 import { buildTournamentPatch } from './tournament-patch';
 
@@ -12,7 +13,11 @@ export {
 
 export interface SyncTransport {
   /** Applies a multi-path update (see `buildTournamentPatch`) to the stored tournament. */
-  update(tournamentId: string, patch: Record<string, unknown>): Promise<void>;
+  update(
+    tournamentId: string,
+    patch: Record<string, unknown>,
+    summary?: Partial<TournamentDescription>,
+  ): Promise<void>;
   subscribe(
     tournamentId: string,
     onValue: (payload: unknown) => void,
@@ -29,6 +34,15 @@ export type SyncStatus =
   | { kind: 'active' }
   | { kind: 'error'; message: string }
   | { kind: 'stale' };
+
+// The server owns these: a patch never carries them, and a remote snapshot always wins them.
+const SERVER_OWNED_KEYS = ['tournamentId', 'lifecycle', 'started'] as const;
+
+function withoutServerOwned(state: TournamentState): TournamentState {
+  const copy = { ...state };
+  for (const key of SERVER_OWNED_KEYS) delete copy[key as keyof TournamentState];
+  return copy;
+}
 
 function changedKeys(previous: Record<string, unknown>, next: Record<string, unknown>): string[] {
   const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
@@ -70,6 +84,8 @@ export interface SyncCoordinatorOptions {
   onRemote(state: TournamentState): void;
   onStatus(status: SyncStatus): void;
   delayMs?: number;
+  /** The tournament-list fields to keep in step with the state; the changed ones go with each patch. */
+  describe?(state: TournamentState): Partial<TournamentDescription>;
 }
 
 export class SyncCoordinator {
@@ -77,6 +93,7 @@ export class SyncCoordinator {
   private readonly onRemote: (state: TournamentState) => void;
   private readonly onStatus: (status: SyncStatus) => void;
   private readonly delayMs: number;
+  private readonly describe: ((state: TournamentState) => Partial<TournamentDescription>) | undefined;
   private current: TournamentState;
   private mode: SyncMode = 'writer';
   private tournamentId: string | null = null;
@@ -95,6 +112,7 @@ export class SyncCoordinator {
     this.onRemote = options.onRemote;
     this.onStatus = options.onStatus;
     this.delayMs = options.delayMs ?? 400;
+    this.describe = options.describe;
   }
 
   configure(mode: SyncMode, tournamentId: string | null): void {
@@ -162,7 +180,7 @@ export class SyncCoordinator {
     const pushedFinalScores = Object.fromEntries(
       [...this.dirtyFinalScores].map((key) => [key, stateAtPush.finalScores[key]]),
     );
-    const patch = buildTournamentPatch(this.base, stateAtPush);
+    const patch = buildTournamentPatch(withoutServerOwned(this.base), withoutServerOwned(stateAtPush));
     if (!patch) {
       // Nothing differs from what Firebase holds, so no local edit is still waiting to be sent.
       this.dirtyScores.clear();
@@ -172,7 +190,11 @@ export class SyncCoordinator {
     this.pushInFlight = true;
     this.remoteReceivedSincePush = false;
     try {
-      await this.transport.update(this.tournamentId, patch);
+      const summary = this.describe
+        ? changedDescription(this.describe(this.base), this.describe(stateAtPush))
+        : {};
+      if (Object.keys(summary).length) await this.transport.update(this.tournamentId, patch, summary);
+      else await this.transport.update(this.tournamentId, patch);
       // A snapshot that arrived meanwhile is newer than the state this push started from.
       if (!this.remoteReceivedSincePush) this.base = stateAtPush;
       for (const [key, value] of Object.entries(pushedScores))
@@ -190,7 +212,7 @@ export class SyncCoordinator {
   private receive(payload: unknown): void {
     if (!payload) {
       this.base = null;
-      if (this.mode === 'viewer') this.onStatus({ kind: 'waiting' });
+      this.onStatus({ kind: 'waiting' });
       return;
     }
     const next =

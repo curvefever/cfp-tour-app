@@ -4,7 +4,13 @@ import {
   createDefaultSetup,
   createDefaultTournamentState,
 } from '../../domain/tournament/state-defaults';
-import { buildTournamentSummary, parseDescriptionFields } from './tournament-summary';
+import {
+  buildTournamentSummary,
+  changedDescription,
+  parseDescriptionFields,
+  setupDescription,
+  stateDescription,
+} from './tournament-summary';
 
 describe('buildTournamentSummary', () => {
   it('describes a 37-player roster from the setup form and the state', () => {
@@ -65,5 +71,37 @@ describe('parseDescriptionFields', () => {
   it('rejects a summary that is not an object', () => {
     expect(() => parseDescriptionFields(null)).toThrow('Invalid tournament summary.');
     expect(() => parseDescriptionFields([])).toThrow('Invalid tournament summary.');
+  });
+});
+
+describe('stateDescription and setupDescription', () => {
+  it('split the summary between what the state decides and what the Setup form decides', () => {
+    const state = createDefaultTournamentState({ title: 'Cup', players: ['A', 'B'] });
+    const setup = createDefaultSetup({ gameFormat: 'individual-1v1', poolingPhase: 'swiss' });
+    expect(stateDescription(state)).toEqual({ title: 'Cup', scheduledAt: null, unitCount: 2 });
+    expect(setupDescription(setup)).toEqual({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      scheduleLogic: setup.scheduleLogic,
+    });
+    expect(buildTournamentSummary(state, setup)).toEqual({
+      ...stateDescription(state),
+      ...setupDescription(setup),
+    });
+  });
+});
+
+describe('changedDescription', () => {
+  it('keeps only the fields whose value differs', () => {
+    expect(
+      changedDescription(
+        { title: 'A', unitCount: 3, scheduledAt: null },
+        { title: 'B', unitCount: 3, scheduledAt: 5 },
+      ),
+    ).toEqual({ title: 'B', scheduledAt: 5 });
+  });
+
+  it('is empty when nothing changed', () => {
+    expect(changedDescription({ title: 'A' }, { title: 'A' })).toEqual({});
   });
 });

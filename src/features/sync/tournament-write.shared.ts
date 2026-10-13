@@ -74,6 +74,8 @@ export function validatePatchInput(input: TournamentPatchInput): TournamentPatch
 
 export type SetupPatchInput = {
   patch: Record<string, string>;
+  /** The descriptive fields of the tournament's list entry that this patch changes, if any. */
+  summary?: Partial<TournamentDescription>;
   tournamentId: string;
 };
 
@@ -92,5 +94,6 @@ export function validateSetupPatchInput(input: SetupPatchInput): SetupPatchInput
     if (!SETUP_KEYS.has(key)) throw new Error(`Invalid setup field: ${key}`);
     if (typeof value !== 'string') throw new Error(`Invalid value for setup field: ${key}`);
   }
-  return { tournamentId, patch: input.patch };
+  const summary = input.summary === undefined ? undefined : parseDescriptionFields(input.summary);
+  return summary ? { tournamentId, patch: input.patch, summary } : { tournamentId, patch: input.patch };
 }

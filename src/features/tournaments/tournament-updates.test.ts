@@ -319,6 +319,15 @@ describe('planPatchWrite', () => {
   });
 });
 
+describe('planSetupWrite with a summary', () => {
+  it('also writes the changed list fields', () => {
+    expect(updatesOf(planSetupWrite(paths, { poolingPhase: 'swiss' }, { poolingPhase: 'swiss' }))).toEqual({
+      [`${paths.setup}/poolingPhase`]: 'swiss',
+      [`${paths.index}/poolingPhase`]: 'swiss',
+    });
+  });
+});
+
 describe('planSetupWrite', () => {
   it('writes each field under the tournament setup', () => {
     expect(updatesOf(planSetupWrite(paths, { qualAdv: '16', roster: 'A\nB' }))).toEqual({

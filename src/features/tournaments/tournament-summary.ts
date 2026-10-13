@@ -40,15 +40,42 @@ export const DESCRIPTION_KEYS = [
   'unitCount',
 ] as const satisfies readonly (keyof TournamentDescription)[];
 
-export function buildTournamentSummary(state: TournamentState, setup: PersistedSetup): TournamentDescription {
+/** The summary fields that follow the tournament's state: what a state patch can change. */
+export function stateDescription(
+  state: TournamentState,
+): Pick<TournamentDescription, 'title' | 'scheduledAt' | 'unitCount'> {
   return {
     title: state.title,
     scheduledAt: state.info?.scheduledAt ?? null,
+    unitCount: state.players.length,
+  };
+}
+
+/** The summary fields that follow the Setup form: what a setup patch can change. */
+export function setupDescription(
+  setup: PersistedSetup,
+): Pick<TournamentDescription, 'gameFormat' | 'poolingPhase' | 'scheduleLogic'> {
+  return {
     gameFormat: setup.gameFormat,
     poolingPhase: setup.poolingPhase,
     scheduleLogic: setup.scheduleLogic,
-    unitCount: state.players.length,
   };
+}
+
+export function buildTournamentSummary(state: TournamentState, setup: PersistedSetup): TournamentDescription {
+  return { ...stateDescription(state), ...setupDescription(setup) };
+}
+
+/** The fields of `next` whose value differs from `previous`. */
+export function changedDescription<T extends Partial<TournamentDescription>>(
+  previous: T,
+  next: T,
+): Partial<T> {
+  const changed: Partial<T> = {};
+  for (const key of Object.keys(next) as (keyof T)[]) {
+    if (previous[key] !== next[key]) changed[key] = next[key];
+  }
+  return changed;
 }
 
 const MAX_SUMMARY_TEXT_LENGTH = 500;

@@ -7,8 +7,9 @@ import {
   type SharedArchiveSummary,
 } from '../archive/shared-archive';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
-import { writeTournamentPatch } from './tournament-write.server-fns';
-import { getArchiveRootPath, getTournamentRootPath } from './firebase-paths';
+import type { SetupTransport } from './setup-sync';
+import { writeSetupPatch, writeTournamentPatch } from './tournament-write.server-fns';
+import { getArchiveRootPath, getSetupRootPath, getTournamentRootPath } from './firebase-paths';
 
 export const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAzbwk2ZJj2jmtKRFjzDJyPk4ePmF3Q04M',
@@ -79,8 +80,8 @@ export function getFirebaseSyncTransport(): SyncTransport | null {
   const db = getFirebaseDatabase();
   if (!db) return null;
   return {
-    update: async (tournamentId, patch) => {
-      await writeTournamentPatch({ data: { tournamentId, patch } });
+    update: async (tournamentId, patch, summary) => {
+      await writeTournamentPatch({ data: { tournamentId, patch, ...(summary ? { summary } : {}) } });
     },
     subscribe(tournamentId, onPayload, onError) {
       const rootPath = getTournamentRootPath(
@@ -88,6 +89,23 @@ export function getFirebaseSyncTransport(): SyncTransport | null {
       );
       return onValue(
         ref(db, `${rootPath}/${tournamentId}`),
+        (snapshot) => onPayload(snapshot.val()),
+        onError,
+      );
+    },
+  };
+}
+
+export function getFirebaseSetupTransport(): SetupTransport | null {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  return {
+    update: async (tournamentId, patch, summary) => {
+      await writeSetupPatch({ data: { tournamentId, patch, ...(summary ? { summary } : {}) } });
+    },
+    subscribe(tournamentId, onPayload, onError) {
+      return onValue(
+        ref(db, `${getSetupRootPath(currentHostname())}/${tournamentId}`),
         (snapshot) => onPayload(snapshot.val()),
         onError,
       );

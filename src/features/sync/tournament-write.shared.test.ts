@@ -160,6 +160,22 @@ describe('validateSetupPatchInput', () => {
     );
   });
 
+  it('keeps the known list fields of a summary and rejects a badly typed one', () => {
+    const result = validateSetupPatchInput({
+      tournamentId: 't1',
+      patch: { poolingPhase: 'swiss' },
+      summary: { poolingPhase: 'swiss', status: 'x' } as never,
+    });
+    expect(result.summary).toEqual({ poolingPhase: 'swiss' });
+    expect(() =>
+      validateSetupPatchInput({
+        tournamentId: 't1',
+        patch: { qualAdv: '1' },
+        summary: { unitCount: 'a' } as never,
+      }),
+    ).toThrow('unitCount');
+  });
+
   it('rejects an empty or missing patch and a bad id', () => {
     expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: {} })).toThrow('Invalid setup patch.');
     expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: null as never })).toThrow(

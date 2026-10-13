@@ -37,5 +37,5 @@ export const writeSetupPatch = createServerFn({ method: 'POST' })
   .inputValidator(validateSetupPatchInput)
   .handler(async ({ data }): Promise<void> => {
     await requireTourAdminPermission();
-    await applyPlan(planSetupWrite(requestPaths(data.tournamentId), data.patch));
+    await applyPlan(planSetupWrite(requestPaths(data.tournamentId), data.patch, data.summary));
   });
