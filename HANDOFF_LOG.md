@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Tournaments hub: shared tournaments, statuses, the Tournaments page and the Info tab (done — 2026-10-13)
 
-Built in nine stages on `test`, planned and reviewed by a second session (the planner/reviewer) and implemented by this one, one stage at a time with a review between stages. Nothing went to `main`.
+Built in nine stages on `test`, planned and reviewed by a second session (the planner/reviewer) and implemented by this one, one stage at a time with a review between stages. It was built on `test` and went to `main` on 2026-10-13, after the final review.
 
 ### Context
 The organiser wanted visitors to reach the right tournament with no clicks, and admins (five or more, sometimes at the same time) to prepare several tournaments at once without archiving them. The Archive and the empty Home tab give way to one Tournaments page, and each tournament gets an Info tab (date, format, lobby screenshots, specific rules). One measurement drove the first stage: every save sent each connected viewer the whole tournament (13.7 KB per score at 43 players; 22 KB at the start of a 67-player qualification + double-elimination tournament, about 63 KB by its Final, about 20 MB per viewer per tournament, so four such tournaments a month at 100 viewers is about 8 of the 10 GB of the Firebase free plan).
@@ -71,8 +71,15 @@ Final review (planner, 2026-10-13, at `a589e04`): every stage matches the plan w
 
 The script did not exit after its last line, because the Admin SDK connection stayed open.
 
-### Cleanup of the 2026-10-13 test data (not run)
-`scripts/cleanup-2026-10-13.mjs` (Admin SDK, credentials from `FIREBASE_SERVICE_ACCOUNT_JSON`) lists, per environment and root, what was made on or before 2026-10-13: everything under `environments/{env}/tournaments` (with its `index`, `setups`, `presence` and `media`), under `environments/{env}/archive`, and the legacy root `tournaments` (listed in every run, deleted by the `--env prod` run). It is a dry run by default; deleting needs `--env test|prod --apply`, one environment per run. The organiser runs it, per environment, only after an explicit go-ahead, and deploys `database.rules.json` (archive rules removed) only after that. The test site holds the Stage checks' data (the "Hub Live Check" and "Hub Visit" tournaments, two archive entries).
+### Cleanup of the 2026-10-13 test data (done)
+`scripts/cleanup-2026-10-13.mjs` (Admin SDK, credentials from `FIREBASE_SERVICE_ACCOUNT_JSON`) lists, per environment and root, what was made on or before 2026-10-13: everything under `environments/{env}/tournaments` (with its `index`, `setups`, `presence` and `media`), under `environments/{env}/archive`, and the legacy root `tournaments` (listed in every run, deleted by the `--env prod` run). It is a dry run by default; deleting needs `--env test|prod --apply`, one environment per run. The script's first version never exited after its last line, because the open Admin SDK database connection kept the process alive (`e3c893d` closes the app when the run ends). What happened, all on 2026-10-13:
+1. Test cleanup: the organiser ran `--env test --apply`; 519 paths were cleared and the script exited by itself.
+2. Push to `main`: the planner fast-forwarded `main` to `test` (`fec953c..e3c893d`) on the organiser's go-ahead, and the "Deploy tour" run succeeded.
+3. Production cleanup: the organiser ran `--env prod --apply`; 34 paths were cleared: 2 tournaments ("Prod test" and an untitled one) and the 24 legacy-root entries. The production archive was empty.
+4. Rules: the organiser deployed `database.rules.json` without the archive rules.
+5. Production check (planner, signed out, headless): https://tournaments.curvefever.pro/ opens on Tournaments with the three empty texts and "Log in as admin", has no Archive or Home tab and no page errors; `environments/prod/index` and `environments/test/index` are both empty.
+6. Still on the test site: `impl-polish-check-1`, which the script lists as "date unknown" (its id is not a timestamp) and keeps; the organiser may delete it by hand.
+No archive data or rules remain. The script is a finished one-off, kept for the record.
 
 ### Out of scope
 - Firebase Auth for admins, direct client writes, instant presence.
