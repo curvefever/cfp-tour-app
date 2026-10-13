@@ -89,7 +89,9 @@ test.describe('visitor smoke test', () => {
     await expect(nav.getByRole('button')).toHaveCount(1);
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#view-tournaments')).toBeVisible();
-    await expect(page.getByText('No tournament yet.')).toBeVisible();
+    await expect(page.getByText('No tournament currently ongoing')).toBeVisible();
+    await expect(page.getByText('New tournaments coming out soon!')).toBeVisible();
+    await expect(page.getByText('No tournament completed yet')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
   });
 
@@ -142,7 +144,9 @@ test.describe('visitor smoke test', () => {
     await expect(page.locator('#view-info')).toHaveCount(0);
 
     await nav.getByRole('button', { name: /Tournaments/ }).click();
-    await expect(page.locator('#view-tournaments').getByText('Autumn Cup')).toBeVisible();
+    const upcoming = page.locator('#view-tournaments').getByRole('button', { name: /Autumn Cup/ });
+    await expect(upcoming).toBeVisible();
+    await expect(upcoming).toContainText('37 players');
 
     await nav.getByRole('button', { name: /Info/ }).click();
     await expect(page.locator('#view-info')).toBeVisible();

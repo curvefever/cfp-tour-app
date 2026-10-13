@@ -1,22 +1,11 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { get, getDatabase, onValue, ref, type Database, type Unsubscribe } from 'firebase/database';
-import {
-  parseArchiveEntry,
-  parseArchiveIndex,
-  type SharedArchiveEntry,
-  type SharedArchiveSummary,
-} from '../archive/shared-archive';
 import { parseTournamentIndex } from '../tournaments/tournament-index';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
 import type { SetupTransport } from './setup-sync';
 import { writeSetupPatch, writeTournamentPatch } from './tournament-write.server-fns';
-import {
-  getArchiveRootPath,
-  getIndexRootPath,
-  getSetupRootPath,
-  getTournamentRootPath,
-} from './firebase-paths';
+import { getIndexRootPath, getSetupRootPath, getTournamentRootPath } from './firebase-paths';
 
 declare global {
   interface Window {
@@ -94,28 +83,6 @@ export function subscribeTournamentIndex(
 
 function currentHostname(): string | undefined {
   return typeof window === 'undefined' ? undefined : window.location.hostname;
-}
-
-/** Live, parsed, newest-first subscription to the shared archive index; `null` when Firebase is unavailable. */
-export function subscribeArchiveIndex(
-  onChange: (entries: SharedArchiveSummary[]) => void,
-  onError: (error: unknown) => void,
-): Unsubscribe | null {
-  const db = getFirebaseDatabase();
-  if (!db) return null;
-  return onValue(
-    ref(db, `${getArchiveRootPath(currentHostname())}/index`),
-    (snapshot) => onChange(parseArchiveIndex(snapshot.val())),
-    onError,
-  );
-}
-
-/** A one-shot public read of one shared archive entry; `null` when Firebase is unavailable or the entry is missing. */
-export async function fetchArchiveEntryOnce(tournamentId: string): Promise<SharedArchiveEntry | null> {
-  const db = getFirebaseDatabase();
-  if (!db) return null;
-  const snapshot = await get(ref(db, `${getArchiveRootPath(currentHostname())}/entries/${tournamentId}`));
-  return parseArchiveEntry(snapshot.val());
 }
 
 export function getFirebaseSyncTransport(): SyncTransport | null {

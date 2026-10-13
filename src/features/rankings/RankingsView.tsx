@@ -117,15 +117,7 @@ function RosterOnly({ state, editable }: { state: TournamentState; editable: boo
   );
 }
 
-export function RankingsContent({
-  state,
-  downloads = true,
-  editable = false,
-}: {
-  state: TournamentState;
-  downloads?: boolean;
-  editable?: boolean;
-}) {
+export function RankingsContent({ state, editable = false }: { state: TournamentState; editable?: boolean }) {
   if (!state.players.length && !state.reserves.length) {
     return (
       <Alert>
@@ -141,13 +133,11 @@ export function RankingsContent({
       <p className='text-muted'>
         Live tournament ranking. Active entrants remain unranked until eliminated or the Final is complete.
       </p>
-      {downloads ? (
-        <ButtonRow>
-          <Button size='sm' onClick={() => void downloadRankingsImage(state)}>
-            ⬇ Download rankings PNG
-          </Button>
-        </ButtonRow>
-      ) : null}
+      <ButtonRow>
+        <Button size='sm' onClick={() => void downloadRankingsImage(state)}>
+          ⬇ Download rankings PNG
+        </Button>
+      </ButtonRow>
       {data.stillActive.length ? (
         <>
           <SectionTitle>Still in tournament</SectionTitle>

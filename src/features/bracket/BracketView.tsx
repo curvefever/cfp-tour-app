@@ -74,6 +74,7 @@ import {
   cn,
 } from '../../components/ui';
 import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
+import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { formatTieBreak } from '../standings/standings-text';
 import { StandingsColumn } from './StandingsColumn';
@@ -1489,9 +1490,7 @@ function WaveBoxBody({
  * original single-row rendering for every non-double-elimination format
  * (single-elimination, Kings Valley, pooling-only), by construction --
  * `bracketBoxes()` never produces a `wave` box when no round is tagged
- * `bracket === 'winners'`. Shared between `BracketView` (editable, has
- * collapse/follow state) and `ArchivedBracket` (read-only, has neither)
- * via optional props.
+ * `bracket === 'winners'`.
  */
 function BracketRounds({
   state,
@@ -1620,6 +1619,7 @@ export function BracketView() {
   const [collapse, setCollapse] = useState<Record<number, boolean>>({});
   const [standingsCollapsed, setStandingsCollapsed] = useState(false);
   const [query, setQuery] = useState('');
+  const [notesOpen, setNotesOpen] = useState(false);
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {
@@ -1686,7 +1686,9 @@ export function BracketView() {
             saveBracketFollow(window.localStorage, null);
           }}
         />
+        <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
       </div>
+      {notesOpen ? <AnnotationsPanel /> : null}
       <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
         <Badge tone='success'>Advanced</Badge>
         <Badge tone='accent'>Lucky loser</Badge>
@@ -1747,19 +1749,5 @@ export function BracketView() {
         </ButtonRow>
       ) : null}
     </div>
-  );
-}
-
-export function ArchivedBracket({ state }: { state: TournamentState }) {
-  const labels = bracketRoundLabels(state);
-  const projectedSlots = projectFutureRoundSlots(state);
-  return (
-    <BracketRounds
-      state={state}
-      labels={labels}
-      projectedSlots={projectedSlots}
-      editable={false}
-      followKey={null}
-    />
   );
 }
