@@ -278,6 +278,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   /** Makes `tournamentId` the loaded tournament; its state and Setup form follow from the database. */
   const adoptTournament = useCallback(
     (tournamentId: string) => {
+      // Already loaded: its subscription is live, and a blank state would never be filled again.
+      if (stateRef.current.tournamentId === tournamentId) return;
       const cached = auth.canAdmin ? loadLiveEnvelope(window.localStorage, runtime.ids) : null;
       const useCache = cached?.status === 'loaded' && cached.envelope.T.tournamentId === tournamentId;
       const next = useCache ? cached.envelope.T : { ...createDefaultTournamentState(), tournamentId };

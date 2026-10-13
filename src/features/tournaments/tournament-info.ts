@@ -39,6 +39,8 @@ export function tournamentFormatLine(format: {
 }
 
 export interface DateFormatOptions {
+  /** Leave out how far away the time is, e.g. for a tournament that is over. True by default. */
+  relative?: boolean;
   /** An IANA time zone; the browser's own by default. */
   timeZone?: string;
 }
@@ -82,5 +84,5 @@ export function formatScheduledAt(
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((entry) => entry.type === type)?.value ?? '';
   const date = `${part('weekday')} ${part('day')} ${part('month')}, ${part('hour')}:${part('minute')}`;
-  return `${date} · ${relativePart(scheduledMs, nowMs)}`;
+  return options.relative === false ? date : `${date} · ${relativePart(scheduledMs, nowMs)}`;
 }

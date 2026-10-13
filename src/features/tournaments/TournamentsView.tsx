@@ -25,7 +25,7 @@ function TournamentCardButton({ card, onOpen }: { card: TournamentCard; onOpen()
           <span>
             {summary.scheduledAt === null
               ? 'Date to be announced'
-              : formatScheduledAt(summary.scheduledAt, Date.now())}
+              : formatScheduledAt(summary.scheduledAt, Date.now(), { relative: card.phase !== 'finished' })}
           </span>
         </span>
         <span className='text-xs text-muted'>

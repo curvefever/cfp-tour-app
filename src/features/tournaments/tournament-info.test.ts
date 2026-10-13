@@ -87,6 +87,12 @@ describe('formatScheduledAt', () => {
     expect(after(3 * 24 * HOUR)).toBe('started 3 days ago');
   });
 
+  it('can leave out the relative part', () => {
+    expect(formatScheduledAt(SCHEDULED, SCHEDULED + 3 * HOUR, { timeZone: 'UTC', relative: false })).toBe(
+      'Sun 18 Oct, 18:00',
+    );
+  });
+
   it('says it is starting now within a minute of the time', () => {
     const near = (offset: number) =>
       formatScheduledAt(SCHEDULED, SCHEDULED + offset, inZone('UTC')).split(' · ')[1];
