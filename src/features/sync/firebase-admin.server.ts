@@ -73,3 +73,15 @@ export async function writeTournamentToFirebase(
     `Firebase write timed out after ${WRITE_TIMEOUT_MS}ms — check FIREBASE_SERVICE_ACCOUNT_JSON / Application Default Credentials.`,
   );
 }
+
+/** Applies a tournament patch (paths relative to the tournament, `null` deleting) in one atomic update. */
+export async function writeTournamentPatchToFirebase(
+  tournamentId: string,
+  patch: Record<string, unknown>,
+  hostname?: string,
+): Promise<void> {
+  const tournamentPath = `${getTournamentRootPath(hostname)}/${tournamentId}`;
+  await updateFirebase(
+    Object.fromEntries(Object.entries(patch).map(([path, value]) => [`${tournamentPath}/${path}`, value])),
+  );
+}

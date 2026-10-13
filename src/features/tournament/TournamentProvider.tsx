@@ -174,7 +174,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     (tab: ActiveTab) => {
       setActiveTabState(tab);
       persist(state, setup, tab);
-      sync.current?.schedulePush();
     },
     [persist, setup, state],
   );

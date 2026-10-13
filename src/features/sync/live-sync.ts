@@ -1,11 +1,19 @@
 import type { TournamentState } from '../../domain/tournament/types';
+import { marshalForFirebase, unmarshalFromFirebase } from './firebase-marshal';
+import { buildTournamentPatch } from './tournament-patch';
 
-export const FIREBASE_NULL_SENTINEL_KEY = '__ffaNull';
-export const FIREBASE_EMPTY_ARRAY_SENTINEL_KEY = '__ffaEmptyArray';
-export const FIREBASE_EMPTY_OBJECT_SENTINEL_KEY = '__ffaEmptyObject';
+export {
+  FIREBASE_EMPTY_ARRAY_SENTINEL_KEY,
+  FIREBASE_EMPTY_OBJECT_SENTINEL_KEY,
+  FIREBASE_NULL_SENTINEL_KEY,
+  marshalForFirebase,
+  unmarshalFromFirebase,
+} from './firebase-marshal';
 
 export interface SyncTransport {
   write(tournamentId: string, payload: unknown): Promise<void>;
+  /** Applies a multi-path update (see `buildTournamentPatch`) to the stored tournament. */
+  update(tournamentId: string, patch: Record<string, unknown>): Promise<void>;
   subscribe(
     tournamentId: string,
     onValue: (payload: unknown) => void,
@@ -23,44 +31,16 @@ export type SyncStatus =
   | { kind: 'error'; message: string }
   | { kind: 'stale' };
 
-/**
- * Firebase Realtime Database stores no empty values (null, [] and {} are
- * deleted, at any depth) and turns an array back into an object when most of
- * its slots are missing. So every empty value is written as a marker object
- * instead: then no container is ever deleted and every array is stored with
- * every slot present, which Firebase always returns as an array.
- */
-export function marshalForFirebase(value: unknown): unknown {
-  if (value === null) return { [FIREBASE_NULL_SENTINEL_KEY]: true };
-  if (Array.isArray(value)) {
-    return value.length ? value.map(marshalForFirebase) : { [FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]: true };
-  }
-  if (value && typeof value === 'object') {
-    const entries = Object.entries(value);
-    if (!entries.length) return { [FIREBASE_EMPTY_OBJECT_SENTINEL_KEY]: true };
-    return Object.fromEntries(entries.map(([key, child]) => [key, marshalForFirebase(child)]));
-  }
-  return value;
-}
-
-/** Reverses marshalForFirebase. */
-export function unmarshalFromFirebase(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(unmarshalFromFirebase);
-  if (value && typeof value === 'object') {
-    const record = value as Record<string, unknown>;
-    if (record[FIREBASE_NULL_SENTINEL_KEY]) return null;
-    if (record[FIREBASE_EMPTY_ARRAY_SENTINEL_KEY]) return [];
-    if (record[FIREBASE_EMPTY_OBJECT_SENTINEL_KEY]) return {};
-    return Object.fromEntries(
-      Object.entries(record).map(([key, child]) => [key, unmarshalFromFirebase(child)]),
-    );
-  }
-  return value;
-}
-
 function changedKeys(previous: Record<string, unknown>, next: Record<string, unknown>): string[] {
   const keys = new Set([...Object.keys(previous), ...Object.keys(next)]);
   return [...keys].filter((key) => previous[key] !== next[key]);
+}
+
+/** The stored tournament as the app reads it (markers decoded, the legacy `adminProof` dropped). */
+function decodeStoredState(remoteValue: unknown): TournamentState {
+  const decoded = { ...(unmarshalFromFirebase(remoteValue) as TournamentState & { adminProof?: unknown }) };
+  delete decoded.adminProof;
+  return decoded;
 }
 
 export function mergeRemoteWriterState(
@@ -101,6 +81,9 @@ export class SyncCoordinator {
   private current: TournamentState;
   private mode: SyncMode = 'writer';
   private tournamentId: string | null = null;
+  /** The state last known to be stored in Firebase; `null` while nothing is known to be stored there. */
+  private base: TournamentState | null = null;
+  private remoteReceivedSincePush = false;
   private dirtyScores = new Set<string>();
   private dirtyFinalScores = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -122,6 +105,7 @@ export class SyncCoordinator {
     if (!subscriptionChanged) return;
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.base = null;
     if (!tournamentId) {
       this.onStatus({ kind: 'idle' });
       return;
@@ -177,10 +161,20 @@ export class SyncCoordinator {
     const pushedFinalScores = Object.fromEntries(
       [...this.dirtyFinalScores].map((key) => [key, stateAtPush.finalScores[key]]),
     );
-    const payload = marshalForFirebase(stateAtPush);
+    const patch = this.base ? buildTournamentPatch(this.base, stateAtPush) : null;
+    if (this.base && !patch) {
+      // Nothing differs from what Firebase holds, so no local edit is still waiting to be sent.
+      this.dirtyScores.clear();
+      this.dirtyFinalScores.clear();
+      return;
+    }
     this.pushInFlight = true;
+    this.remoteReceivedSincePush = false;
     try {
-      await this.transport.write(this.tournamentId, payload);
+      if (patch) await this.transport.update(this.tournamentId, patch);
+      else await this.transport.write(this.tournamentId, marshalForFirebase(stateAtPush));
+      // A snapshot that arrived meanwhile is newer than the state this push started from.
+      if (!this.remoteReceivedSincePush) this.base = stateAtPush;
       for (const [key, value] of Object.entries(pushedScores))
         if (this.current.scores[key] === value) this.dirtyScores.delete(key);
       for (const [key, value] of Object.entries(pushedFinalScores))
@@ -195,6 +189,7 @@ export class SyncCoordinator {
 
   private receive(payload: unknown): void {
     if (!payload) {
+      this.base = null;
       if (this.mode === 'viewer') this.onStatus({ kind: 'waiting' });
       return;
     }
@@ -203,6 +198,8 @@ export class SyncCoordinator {
         ? mergeRemoteWriterState(this.current, payload, new Set(), new Set())
         : mergeRemoteWriterState(this.current, payload, this.dirtyScores, this.dirtyFinalScores);
     if (!next) return;
+    this.base = decodeStoredState(payload);
+    this.remoteReceivedSincePush = true;
     this.current = next;
     this.onRemote(next);
     this.onStatus({ kind: 'active' });
