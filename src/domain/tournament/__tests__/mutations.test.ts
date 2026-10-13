@@ -915,6 +915,11 @@ describe('resetRoster', () => {
     expect(result.anonymousFinalists).toEqual([]);
   });
 
+  it('keeps the tournament id, since the tournament itself stays', () => {
+    const state = createDefaultTournamentState({ tournamentId: 't-keep', players: ['P1'] });
+    expect(resetRoster(state).tournamentId).toBe('t-keep');
+  });
+
   it('removes the settings snapshot, since it describes the schedule that resetRoster just cleared', () => {
     const state = createDefaultTournamentState({
       settings: settingsFromForm(createDefaultSetup()),
@@ -924,6 +929,31 @@ describe('resetRoster', () => {
 });
 
 describe('resetTournamentState', () => {
+  it('keeps the tournament id, the roster and the generated rounds, and clears what was played', () => {
+    const state = createDefaultTournamentState({
+      tournamentId: 't-keep',
+      players: ['P1', 'P2'],
+      confirmedCount: 2,
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50 },
+      curRound: 0,
+      started: true,
+    });
+    const result = resetTournamentState(state);
+    expect(result.tournamentId).toBe('t-keep');
+    expect(result.players).toEqual(['P1', 'P2']);
+    expect(result.rounds).toEqual(state.rounds);
+    expect(result.scores).toEqual({});
+    expect(result.assignments).toEqual([]);
+    expect(result.started).toBe(false);
+  });
+
   it('keeps the settings snapshot, since it keeps the schedule (rounds) the snapshot describes', () => {
     const settings = settingsFromForm(createDefaultSetup());
     const state = createDefaultTournamentState({ settings });

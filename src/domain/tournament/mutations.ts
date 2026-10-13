@@ -837,7 +837,6 @@ export function resetRoster(state: TournamentState): TournamentState {
     started: false,
     needsSave: false,
     autoSaved: false,
-    tournamentId: null,
   };
 }
 
@@ -861,6 +860,5 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     started: false,
     needsSave: false,
     autoSaved: false,
-    tournamentId: null,
   };
 }

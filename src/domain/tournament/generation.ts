@@ -602,7 +602,7 @@ export function generateTournament(
     started: false,
     needsSave: false,
     autoSaved: false,
-    tournamentId: runtime.ids.tournamentId(),
+    tournamentId: current.tournamentId ?? runtime.ids.tournamentId(),
     cfg: config,
     scheduleLogic: schedule,
     gameFormat: form.gameFormat,

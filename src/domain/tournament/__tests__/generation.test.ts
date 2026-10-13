@@ -997,6 +997,32 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
   });
 });
 
+describe('generateTournament -- the tournament id', () => {
+  const form = createDefaultSetup({
+    gameFormat: 'ffa-individual',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'none',
+  });
+
+  it('keeps the id a tournament was created with, so regenerating never makes a second tournament', () => {
+    const state = createDefaultTournamentState({
+      tournamentId: 'created-earlier',
+      confirmedCount: 37,
+      players: names(37),
+    });
+    const runtime = createTournamentRuntime({ ids: fixedIdSource() });
+    const result = generateTournament(state, form, runtime);
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated') expect(result.state.tournamentId).toBe('created-earlier');
+  });
+
+  it('still mints an id for a state that has none', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+    expect(result.status === 'generated' && result.state.tournamentId).toBe('test-tournament-id');
+  });
+});
+
 describe('generateTournament -- round-0 seeding', () => {
   it('seeds round 0 via randomSeed with the injected RandomSource, exact assignment', () => {
     const state = createDefaultTournamentState({ confirmedCount: 4, players: names(4) });
