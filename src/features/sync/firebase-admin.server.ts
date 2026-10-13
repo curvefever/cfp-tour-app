@@ -74,14 +74,24 @@ export async function writeTournamentToFirebase(
   );
 }
 
-/** Sets a boolean flag from "not true" to true in one transaction; `false` when it was already true. */
-export async function claimFirebaseFlag(path: string): Promise<boolean> {
+/**
+ * Changes the value at `path` in one transaction: `update` gets the current value (or null while the database has not
+ * answered yet, in which case it is run again) and returns the new one, or `undefined` to leave things as they are.
+ * Resolves true when the new value was written.
+ */
+export async function transactFirebase(
+  path: string,
+  update: (current: unknown) => unknown,
+): Promise<boolean> {
   const result = await withTimeout(
-    getDatabase(getFirebaseAdminApp())
-      .ref(path)
-      .transaction((current: unknown) => (current === true ? undefined : true)),
+    getDatabase(getFirebaseAdminApp()).ref(path).transaction(update),
     WRITE_TIMEOUT_MS,
     `Firebase transaction timed out after ${WRITE_TIMEOUT_MS}ms.`,
   );
   return result.committed;
+}
+
+/** Sets a boolean flag from "not true" to true in one transaction; `false` when it was already true. */
+export function claimFirebaseFlag(path: string): Promise<boolean> {
+  return transactFirebase(path, (current) => (current === true ? undefined : true));
 }

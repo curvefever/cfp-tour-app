@@ -186,3 +186,26 @@ describe('validateSetupPatchInput', () => {
     );
   });
 });
+
+describe('validatePatchInput and the screenshot list', () => {
+  it('refuses a patch that writes the screenshot list, as a path or inside the info block', () => {
+    expect(() => validatePatchInput({ tournamentId: 't1', patch: { 'info/screenshots': ['a'] } })).toThrow(
+      'patch path',
+    );
+    expect(() =>
+      validatePatchInput({ tournamentId: 't1', patch: { info: { rulesText: '', screenshots: ['a'] } } }),
+    ).toThrow('patch path');
+  });
+
+  it('still accepts the other parts of the info block', () => {
+    expect(() =>
+      validatePatchInput({
+        tournamentId: 't1',
+        patch: { 'info/rulesText': 'No pause', 'info/scheduledAt': 5 },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validatePatchInput({ tournamentId: 't1', patch: { info: { rulesText: '', scheduledAt: null } } }),
+    ).not.toThrow();
+  });
+});

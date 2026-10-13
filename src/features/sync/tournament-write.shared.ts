@@ -50,13 +50,21 @@ function isValidPatchPath(path: string): boolean {
   return !PATCH_FORBIDDEN_TOP_LEVEL_KEYS.has(segments[0]);
 }
 
+/** The screenshots are listed by the upload functions only: a patch that wrote the list could drop another admin's upload. */
+function carriesScreenshots(path: string, value: unknown): boolean {
+  if (path === 'info/screenshots') return true;
+  return path === 'info' && typeof value === 'object' && value !== null && 'screenshots' in value;
+}
+
 /** Checks every path of a patch (the value can be anything, `null` deleting) and drops legacy `adminProof` paths. */
 export function cleanPatchPaths(patch: unknown): Record<string, unknown> {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch))
     throw new Error('Invalid tournament patch.');
   const cleaned: Record<string, unknown> = {};
   for (const [path, value] of Object.entries(patch)) {
-    if (!isValidPatchPath(path)) throw new Error(`Invalid tournament patch path: ${path}`);
+    if (!isValidPatchPath(path) || carriesScreenshots(path, value)) {
+      throw new Error(`Invalid tournament patch path: ${path}`);
+    }
     if (path.split('/')[0] !== 'adminProof') cleaned[path] = value;
   }
   return cleaned;

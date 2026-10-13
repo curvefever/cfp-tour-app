@@ -545,6 +545,34 @@ describe('SyncCoordinator', () => {
       expect(transport.update).toHaveBeenCalledWith('t1', { scores: { a: 5 } });
     });
 
+    it('never sends the screenshot list of the info block, which only the upload functions write', async () => {
+      const stored = createDefaultTournamentState({
+        info: { scheduledAt: null, rulesText: '', screenshots: ['image00000001'] },
+      });
+      const { coordinator, handlers, transport } = startWriter(stored);
+      // This tab's copy lacks an upload another admin made, and has a rules text of its own.
+      coordinator.updateLocal(
+        stored,
+        createDefaultTournamentState({ info: { scheduledAt: null, rulesText: 'No pause', screenshots: [] } }),
+      );
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledTimes(1);
+      expect(transport.update).toHaveBeenCalledWith('t1', { 'info/rulesText': 'No pause' });
+
+      handlers.onValue(
+        marshalForFirebase(
+          createDefaultTournamentState({
+            info: {
+              scheduledAt: null,
+              rulesText: 'No pause',
+              screenshots: ['image00000001', 'image00000002'],
+            },
+          }),
+        ),
+      );
+      expect(remoteStates.at(-1)?.info?.screenshots).toEqual(['image00000001', 'image00000002']);
+    });
+
     it('resends after a failed push', async () => {
       const update = vi
         .fn<SyncTransport['update']>()
