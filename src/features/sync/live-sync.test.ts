@@ -415,6 +415,57 @@ describe('SyncCoordinator', () => {
       expect(transport.update).toHaveBeenCalledWith('t1', { 'scores/a': 5 });
     });
 
+    it('keeps a snapshot that arrives during a push as the base, so the local value is sent again', async () => {
+      const { handlers, transport } = subscribeCapturing();
+      const deferred = createDeferredWrite();
+      transport.update = vi.fn().mockReturnValueOnce(deferred.promise).mockResolvedValue(undefined);
+      const start = createDefaultTournamentState({ scores: { a: 0 } });
+      const coordinator = new SyncCoordinator(start, { transport, onRemote, onStatus });
+      coordinator.configure('writer', 't1');
+      handlers.onValue(marshalForFirebase(start));
+      coordinator.updateLocal(start, createDefaultTournamentState({ scores: { a: 5 } }));
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledTimes(1);
+
+      // Another admin's value for the same key lands while our push is still in flight.
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ scores: { a: 9 } })));
+      deferred.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+      coordinator.schedulePush();
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledTimes(2);
+      expect(transport.update).toHaveBeenLastCalledWith('t1', { 'scores/a': 5 });
+    });
+
+    it('forgets what it knew of one tournament when it switches to another', async () => {
+      const { handlers, transport } = subscribeCapturing();
+      const coordinator = new SyncCoordinator(empty(), { transport, onRemote, onStatus });
+      coordinator.configure('writer', 't1');
+      handlers.onValue(marshalForFirebase(empty()));
+      coordinator.configure('writer', 't2');
+      coordinator.updateLocal(empty(), createDefaultTournamentState({ curRound: 4 }));
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).not.toHaveBeenCalled();
+      expect(transport.write).toHaveBeenCalledTimes(1);
+      expect(transport.write).toHaveBeenCalledWith('t2', expect.anything());
+    });
+
+    it('stops protecting a score that was edited and then put back before the push', async () => {
+      const { handlers, transport } = subscribeCapturing();
+      const start = createDefaultTournamentState({ scores: { a: 1 } });
+      const coordinator = new SyncCoordinator(start, { transport, onRemote, onStatus });
+      coordinator.configure('writer', 't1');
+      handlers.onValue(marshalForFirebase(start));
+      const edited = createDefaultTournamentState({ scores: { a: 2 } });
+      coordinator.updateLocal(start, edited);
+      coordinator.updateLocal(edited, start);
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).not.toHaveBeenCalled();
+
+      handlers.onValue(marshalForFirebase(createDefaultTournamentState({ scores: { a: 7 } })));
+      expect(remoteStates.at(-1)?.scores.a).toBe(7);
+    });
+
     it('resends after a failed push', async () => {
       const update = vi
         .fn<SyncTransport['update']>()
