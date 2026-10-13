@@ -25,7 +25,7 @@ export function parseTournamentReference(input: string): string | null {
 }
 
 export type SettingsSnapshotResult =
-  | { ok: true; settings: TournamentSettings; title: string }
+  | { ok: true; settings: TournamentSettings; title: string; rulesText: string; screenshotCount: number }
   | { ok: false; reason: 'not-found' | 'no-settings' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,5 +47,8 @@ export function settingsFromSnapshot(raw: unknown, setupRaw?: unknown): Settings
   const settings = storedSettings ?? snapshotSettings;
   if (!settings) return { ok: false, reason: 'no-settings' };
   const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'Unnamed Tournament';
-  return { ok: true, settings, title };
+  const info = isRecord(raw.info) ? raw.info : {};
+  const rulesText = typeof info.rulesText === 'string' ? info.rulesText : '';
+  const screenshotCount = Array.isArray(info.screenshots) ? info.screenshots.length : 0;
+  return { ok: true, settings, title, rulesText, screenshotCount };
 }

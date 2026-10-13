@@ -10,6 +10,7 @@ import {
   unitLabelPluralLower,
 } from '../../domain/tournament/formats';
 import { generateTournament } from '../../domain/tournament/generation';
+import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { resetRoster } from '../../domain/tournament/mutations';
 import { computeSwissRoundCount, QUALIFICATION_ROUNDS } from '../../domain/tournament/pooling';
 import {
@@ -26,6 +27,7 @@ import type { PersistedSetup, TournamentSettings } from '../../domain/tournament
 import { transitionRefusal } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
+import { InfoContentPanel } from './InfoContentPanel';
 import { ScheduledTimeField } from './ScheduledTimeField';
 import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
 import {
@@ -230,9 +232,15 @@ export function SetupView() {
     scheduledAt: state.info?.scheduledAt ?? null,
   });
 
-  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string): string {
+  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string, rulesText: string): string {
     const previousGameFormat = setup.gameFormat;
     updateSetup((current) => applyTournamentSettings(current, settings));
+    if (rulesText) {
+      updateState((current) => ({
+        ...current,
+        info: { ...(current.info ?? createDefaultInfo()), rulesText },
+      }));
+    }
     setLbQualifiers(settings.lbQualifiers);
     let message = `Copied settings from "${sourceTitle}".`;
     if (state.rounds.length && !state.started) {
@@ -288,6 +296,7 @@ export function SetupView() {
         </Field>
         <ScheduledTimeField id='cfg-scheduled-at' />
       </Panel>
+      <InfoContentPanel />
       <CopySettingsPanel onApply={applyCopiedSettings} />
       <TwoColumnGrid>
         <Panel>

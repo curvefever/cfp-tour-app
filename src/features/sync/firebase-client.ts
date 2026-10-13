@@ -5,7 +5,12 @@ import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase, type SyncTransport } from './live-sync';
 import type { SetupTransport } from './setup-sync';
 import { writeSetupPatch, writeTournamentPatch } from './tournament-write.server-fns';
-import { getIndexRootPath, getSetupRootPath, getTournamentRootPath } from './firebase-paths';
+import {
+  getIndexRootPath,
+  getMediaRootPath,
+  getSetupRootPath,
+  getTournamentRootPath,
+} from './firebase-paths';
 
 declare global {
   interface Window {
@@ -60,6 +65,15 @@ export async function fetchSetupOnce(tournamentId: string): Promise<unknown> {
   const snapshot = await get(ref(db, `${getSetupRootPath(currentHostname())}/${tournamentId}`));
   const value = snapshot.val();
   return value === null ? null : unmarshalFromFirebase(value);
+}
+
+/** A one-shot public read of one screenshot (a data URL); `null` when Firebase is unavailable or the image is gone. */
+export async function fetchScreenshotOnce(tournamentId: string, imageId: string): Promise<string | null> {
+  const db = getFirebaseDatabase();
+  if (!db) return null;
+  const snapshot = await get(ref(db, `${getMediaRootPath(currentHostname())}/${tournamentId}/${imageId}`));
+  const value: unknown = snapshot.val();
+  return typeof value === 'string' ? value : null;
 }
 
 /** Live subscription to the tournament list of this site (every tournament's summary); `null` when Firebase is unavailable. */

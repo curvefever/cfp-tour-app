@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Panel, PanelTitle } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { formatScheduledAt, tournamentFormatLine } from '../tournaments/tournament-info';
+import { RulesText } from './RulesText';
+import { ScreenshotGallery } from './ScreenshotGallery';
 
 export const GENERAL_RULES_URL = 'https://info.curvefever.pro/tournaments/tournament-rules';
 
@@ -30,23 +32,41 @@ export function InfoView() {
     scheduleLogic: state.scheduleLogic,
   };
   const title = state.title.trim() || summary?.title.trim() || 'Unnamed Tournament';
+  const rulesText = state.info?.rulesText.trim() ?? '';
+  const imageIds = state.info?.screenshots ?? [];
   return (
-    <Panel>
-      <PanelTitle>{title}</PanelTitle>
-      <p className='mb-1 text-lg font-semibold' suppressHydrationWarning>
-        {scheduledAt === null ? 'Date to be announced' : (scheduledText ?? ' ')}
-      </p>
-      <p className='mb-4 text-sm text-muted'>{tournamentFormatLine(format)}</p>
-      <p className='text-sm'>
-        <a
-          className='text-primary underline'
-          href={GENERAL_RULES_URL}
-          target='_blank'
-          rel='noopener noreferrer'
-        >
-          General tournament rules
-        </a>
-      </p>
-    </Panel>
+    <>
+      <Panel>
+        <PanelTitle>{title}</PanelTitle>
+        <p className='mb-1 text-lg font-semibold' suppressHydrationWarning>
+          {scheduledAt === null ? 'Date to be announced' : (scheduledText ?? '\u00a0')}
+        </p>
+        <p className='text-sm text-muted'>{tournamentFormatLine(format)}</p>
+      </Panel>
+      {state.tournamentId && imageIds.length ? (
+        <Panel>
+          <PanelTitle>Lobby</PanelTitle>
+          <ScreenshotGallery tournamentId={state.tournamentId} imageIds={imageIds} />
+        </Panel>
+      ) : null}
+      {rulesText ? (
+        <Panel>
+          <PanelTitle>Rules</PanelTitle>
+          <RulesText text={rulesText} />
+        </Panel>
+      ) : null}
+      <Panel>
+        <p className='text-sm'>
+          <a
+            className='text-primary underline'
+            href={GENERAL_RULES_URL}
+            target='_blank'
+            rel='noopener noreferrer'
+          >
+            General tournament rules
+          </a>
+        </p>
+      </Panel>
+    </>
   );
 }

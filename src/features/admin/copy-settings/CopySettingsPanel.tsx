@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { TournamentSettings } from '../../../domain/tournament/types';
 import { fetchSetupOnce, fetchTournamentOnce } from '../../sync/firebase-client';
+import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { copyScreenshots } from '../../tournaments/screenshots.server-fns';
 import { copyableTournaments } from '../../tournaments/tournament-index';
 import { useTournamentIndex, type TournamentIndexState } from '../../tournaments/useTournamentIndex';
 import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle, Select } from '../../../components/ui';
@@ -14,7 +16,7 @@ import {
 
 export interface CopySettingsPanelProps {
   /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
-  onApply(settings: TournamentSettings, sourceTitle: string): string;
+  onApply(settings: TournamentSettings, sourceTitle: string, rulesText: string): string;
 }
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
@@ -55,11 +57,25 @@ function TournamentPicker({ disabled, onCopy }: { disabled: boolean; onCopy(tour
 }
 
 export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
+  const app = useTournamentApp();
   const [expanded, setExpanded] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState('');
+
+  /** Copies the screenshots of the source tournament onto the one being set up; the text to add to the confirmation. */
+  async function copyScreenshotsFrom(sourceId: string, count: number): Promise<string> {
+    if (!count || !app.state.tournamentId) return '';
+    try {
+      const { copied } = await copyScreenshots({
+        data: { fromTournamentId: sourceId, toTournamentId: app.state.tournamentId },
+      });
+      return copied ? ` ${copied} screenshot${copied === 1 ? '' : 's'} copied.` : '';
+    } catch (error) {
+      return ` The screenshots could not be copied: ${error instanceof Error ? error.message : 'unknown error'}`;
+    }
+  }
 
   /** Loads a stored tournament and its Setup form, and applies its settings, or shows why it cannot be. */
   async function copyFrom(tournamentId: string) {
@@ -78,7 +94,8 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
         );
         return;
       }
-      setConfirmation(onApply(result.settings, result.title));
+      const message = onApply(result.settings, result.title, result.rulesText);
+      setConfirmation(`${message}${await copyScreenshotsFrom(tournamentId, result.screenshotCount)}`);
     } catch {
       setConfirmation('');
       setError(NETWORK_ERROR_MESSAGE);

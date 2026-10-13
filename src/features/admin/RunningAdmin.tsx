@@ -13,6 +13,7 @@ import {
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
 import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
+import { InfoContentPanel } from './InfoContentPanel';
 import { ScheduledTimeField } from './ScheduledTimeField';
 import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
@@ -47,6 +48,7 @@ export function RunningAdmin() {
         </Field>
         <ScheduledTimeField id='running-scheduled-at' />
       </Panel>
+      <InfoContentPanel />
       <TournamentSettingsRecap state={state} />
       {state.rounds.some((entry) => entry.isWaterfall) && !app.readOnly ? (
         <RunningWaterfallPanel state={state} />

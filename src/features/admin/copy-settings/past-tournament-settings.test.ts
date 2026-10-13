@@ -55,13 +55,25 @@ describe('settingsFromSnapshot', () => {
     const settings = settingsFromForm(createDefaultSetup());
     const raw = { title: '  ', settings };
     const result = settingsFromSnapshot(raw);
-    expect(result).toEqual({ ok: true, settings, title: 'Unnamed Tournament' });
+    expect(result).toEqual({
+      ok: true,
+      settings,
+      title: 'Unnamed Tournament',
+      rulesText: '',
+      screenshotCount: 0,
+    });
   });
 
   it('reports ok with the real title when present', () => {
     const settings = settingsFromForm(createDefaultSetup());
     const raw = { title: 'My Tournament', settings };
-    expect(settingsFromSnapshot(raw)).toEqual({ ok: true, settings, title: 'My Tournament' });
+    expect(settingsFromSnapshot(raw)).toEqual({
+      ok: true,
+      settings,
+      title: 'My Tournament',
+      rulesText: '',
+      screenshotCount: 0,
+    });
   });
 });
 
@@ -70,7 +82,7 @@ describe('settingsFromSnapshot with a stored Setup form', () => {
     const snapshot = settingsFromForm({ ...createDefaultSetup(), lbQualifiers: '3' });
     const setup = createDefaultSetup({ qualAdv: '16', roster: 'A B' });
     const result = settingsFromSnapshot({ title: 'Cup', settings: snapshot }, setup);
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: true,
       settings: settingsFromForm({ ...setup, lbQualifiers: '3' }),
       title: 'Cup',
@@ -80,12 +92,12 @@ describe('settingsFromSnapshot with a stored Setup form', () => {
   it('copies a tournament that was never generated, which has a Setup form but no snapshot', () => {
     const setup = createDefaultSetup({ poolingPhase: 'qual-table' });
     const result = settingsFromSnapshot({ title: 'Draft' }, setup);
-    expect(result).toEqual({ ok: true, settings: settingsFromForm(setup), title: 'Draft' });
+    expect(result).toMatchObject({ ok: true, settings: settingsFromForm(setup), title: 'Draft' });
   });
 
   it('falls back to the snapshot when the Setup form is missing', () => {
     const settings = settingsFromForm(createDefaultSetup({ qualAdv: '12' }));
-    expect(settingsFromSnapshot({ title: 'Old', settings }, null)).toEqual({
+    expect(settingsFromSnapshot({ title: 'Old', settings }, null)).toMatchObject({
       ok: true,
       settings,
       title: 'Old',
@@ -94,5 +106,30 @@ describe('settingsFromSnapshot with a stored Setup form', () => {
 
   it('is not found when the tournament itself is missing', () => {
     expect(settingsFromSnapshot(null, createDefaultSetup())).toEqual({ ok: false, reason: 'not-found' });
+  });
+});
+
+describe('settingsFromSnapshot with info for visitors', () => {
+  it('carries the rules text and the number of screenshots of the source', () => {
+    const settings = settingsFromForm(createDefaultSetup());
+    const raw = {
+      title: 'Cup',
+      settings,
+      info: {
+        scheduledAt: 1,
+        rulesText: 'No pause.\n- Be on time',
+        screenshots: ['image00000001', 'image00000002'],
+      },
+    };
+    expect(settingsFromSnapshot(raw)).toMatchObject({
+      ok: true,
+      rulesText: 'No pause.\n- Be on time',
+      screenshotCount: 2,
+    });
+  });
+
+  it('has no rules text and no screenshots for a tournament without an info block', () => {
+    const raw = { title: 'Old', settings: settingsFromForm(createDefaultSetup()) };
+    expect(settingsFromSnapshot(raw)).toMatchObject({ ok: true, rulesText: '', screenshotCount: 0 });
   });
 });
