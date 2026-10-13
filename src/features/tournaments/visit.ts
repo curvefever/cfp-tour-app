@@ -1,7 +1,7 @@
-import type { ActiveTab } from '../../domain/tournament/types';
-import type { LastView } from '../../lib/persistence/storage';
+import { TOURNAMENT_PHASES, type ActiveTab, type TournamentPhase } from '../../domain/tournament/types';
+import type { ExitedMemory, LastView } from '../../lib/persistence/storage';
 import type { TourEnvironment } from '../sync/firebase-paths';
-import { isVisibleToViewers, tournamentPhase, type TournamentPhase } from './tournament-lifecycle';
+import { isVisibleToViewers, tournamentPhase } from './tournament-lifecycle';
 import type { TournamentSummary } from './tournament-summary';
 
 export const UNAVAILABLE_NOTICE = "This tournament isn't available.";
@@ -17,7 +17,7 @@ export interface VisitInput {
   env: TourEnvironment;
   nowMs: number;
   /** What this browser remembers: the last tab with its tournament, and the tournament it exited. */
-  memory: { lastView: LastView | null; exitedId: string | null };
+  memory: { lastView: LastView | null; exited: ExitedMemory | null };
   isAdmin: boolean;
 }
 
@@ -27,7 +27,7 @@ export interface VisitResult {
   tab: ActiveTab;
   /** Shown to the visitor, e.g. when a link points to a tournament they cannot see. */
   notice?: string;
-  /** True when the exited tournament is no longer the one that would load, so the exit is forgotten. */
+  /** True when the exited tournament has moved on to a later phase, or another tournament is the one that would load: the exit is forgotten. */
   forgetExited?: boolean;
 }
 
@@ -58,6 +58,11 @@ function opens(summary: TournamentSummary, input: VisitInput): VisitResult {
   return { tournamentId: summary.id, tab: tabFor(summary, input.memory.lastView, input.nowMs) };
 }
 
+/** Whether `phase` comes after `other` in the life of a tournament. */
+function isLater(phase: TournamentPhase, other: TournamentPhase): boolean {
+  return TOURNAMENT_PHASES.indexOf(phase) > TOURNAMENT_PHASES.indexOf(other);
+}
+
 const NOTHING_LOADED: VisitResult = { tournamentId: null, tab: 'tournaments' };
 
 /** Decides what a visit loads and which tab it opens on, from the address, the tournament list and the memory of this browser. */
@@ -77,8 +82,11 @@ export function resolveVisit(input: VisitInput): VisitResult {
   if (live.length > 1) return NOTHING_LOADED;
   if (live.length === 1) {
     const [only] = live;
-    if (memory.exitedId === only.id) return NOTHING_LOADED;
-    return { ...opens(only, input), ...(memory.exitedId !== null ? { forgetExited: true } : {}) };
+    const { exited } = memory;
+    if (exited === null) return opens(only, input);
+    // The exit holds while the tournament is in the phase it was exited in; a later phase lets it load again.
+    const movedOn = exited.tournamentId !== only.id || isLater(tournamentPhase(only, nowMs), exited.phase);
+    return movedOn ? { ...opens(only, input), forgetExited: true } : NOTHING_LOADED;
   }
 
   const latestFinished = visible
@@ -89,6 +97,7 @@ export function resolveVisit(input: VisitInput): VisitResult {
         nowMs - summary.finishedAt < RECENTLY_FINISHED_MS,
     )
     .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
-  if (latestFinished && memory.exitedId !== latestFinished.id) return opens(latestFinished, input);
+  if (latestFinished && memory.exited?.tournamentId !== latestFinished.id)
+    return opens(latestFinished, input);
   return NOTHING_LOADED;
 }

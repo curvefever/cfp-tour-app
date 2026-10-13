@@ -1,5 +1,10 @@
 import type { IdSource } from '../../domain/tournament/runtime';
-import type { ActiveTab, PersistedTournamentEnvelope } from '../../domain/tournament/types';
+import {
+  TOURNAMENT_PHASES,
+  type ActiveTab,
+  type PersistedTournamentEnvelope,
+  type TournamentPhase,
+} from '../../domain/tournament/types';
 import { normalizeActiveTab, parseLiveEnvelope, serializeLiveEnvelope } from './live-state';
 import {
   EXITED_KEY,
@@ -60,6 +65,8 @@ export function saveBracketFollow(storage: BrowserStorage, unitKey: string | nul
   else storage.setItem(LEGACY_BRACKET_FOLLOW_KEY, unitKey);
 }
 
+const TOURNAMENT_TABS: readonly ActiveTab[] = ['info', 'bracket', 'standings', 'rankings'];
+
 /** The tab this browser was last on, and the tournament it was on it for (null for one remembered before tournaments had their own). */
 export interface LastView {
   tournamentId: string | null;
@@ -82,7 +89,12 @@ export function readLastView(storage: BrowserStorage): LastView | null {
     return null;
   }
   const legacy = storage.getItem(LEGACY_LAST_TAB_KEY);
-  return legacy === null ? null : { tournamentId: null, tab: normalizeActiveTab(legacy) };
+  if (legacy === null) return null;
+  // Only a tab of a tournament counts: 'home', 'archive', 'admin' and anything unknown say nothing about which tab to open.
+  const tab = legacy === 'scoreboard' ? 'standings' : legacy;
+  return (TOURNAMENT_TABS as readonly string[]).includes(tab)
+    ? { tournamentId: null, tab: tab as ActiveTab }
+    : null;
 }
 
 export function saveLastView(storage: BrowserStorage, view: { tournamentId: string; tab: ActiveTab }): void {
@@ -90,12 +102,34 @@ export function saveLastView(storage: BrowserStorage, view: { tournamentId: stri
   storage.removeItem(LEGACY_LAST_TAB_KEY);
 }
 
-/** The id of the tournament this browser exited, so it is not loaded again by a visit without a link. */
-export function readExited(storage: BrowserStorage): string | null {
-  return storage.getItem(EXITED_KEY);
+/** The tournament this browser exited, and the phase it was in then. */
+export interface ExitedMemory {
+  tournamentId: string;
+  phase: TournamentPhase;
 }
 
-export function saveExited(storage: BrowserStorage, tournamentId: string | null): void {
-  if (tournamentId === null) storage.removeItem(EXITED_KEY);
-  else storage.setItem(EXITED_KEY, tournamentId);
+function isPhase(value: unknown): value is TournamentPhase {
+  return (TOURNAMENT_PHASES as readonly unknown[]).includes(value);
+}
+
+/** The tournament this browser exited; a plain id from before phases were remembered counts as exited while ongoing. */
+export function readExited(storage: BrowserStorage): ExitedMemory | null {
+  const stored = storage.getItem(EXITED_KEY);
+  if (stored === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(stored);
+    if (typeof parsed === 'object' && parsed !== null) {
+      const { tournamentId, phase } = parsed as Record<string, unknown>;
+      if (typeof tournamentId === 'string' && isPhase(phase)) return { tournamentId, phase };
+      return null;
+    }
+  } catch {
+    // Not JSON: the plain id of the old memory.
+  }
+  return stored ? { tournamentId: stored, phase: 'ongoing' } : null;
+}
+
+export function saveExited(storage: BrowserStorage, exited: ExitedMemory | null): void {
+  if (exited === null) storage.removeItem(EXITED_KEY);
+  else storage.setItem(EXITED_KEY, JSON.stringify(exited));
 }

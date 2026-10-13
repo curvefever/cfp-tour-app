@@ -127,9 +127,20 @@ describe('readLastView / saveLastView', () => {
     expect(readLastView(storage)).toEqual({ tournamentId: 't1', tab: 'info' });
   });
 
-  it('maps the retired Home and Archive tabs of the old memory to Tournaments', () => {
-    expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'home' }))?.tab).toBe('tournaments');
-    expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'archive' }))?.tab).toBe('tournaments');
+  it('uses the old memory only when it is a tab of a tournament', () => {
+    for (const tab of ['info', 'bracket', 'standings', 'rankings']) {
+      expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: tab }))).toEqual({
+        tournamentId: null,
+        tab,
+      });
+    }
+    expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'scoreboard' }))?.tab).toBe('standings');
+  });
+
+  it('counts the retired Home and Archive tabs, Admin and unknown values of the old memory as no memory', () => {
+    for (const tab of ['home', 'archive', 'admin', 'tournaments', 'nonsense']) {
+      expect(readLastView(createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: tab }))).toBeNull();
+    }
   });
 
   it('treats an unknown stored tab like normalizeActiveTab does', () => {
@@ -152,12 +163,30 @@ describe('readExited / saveExited', () => {
     expect(readExited(createMemoryStorage())).toBeNull();
   });
 
-  it('round-trips an id and forgets it when saved with null', () => {
+  it('round-trips an id with the phase it was in, and forgets it when saved with null', () => {
     const storage = createMemoryStorage();
-    saveExited(storage, 't1');
-    expect(storage.getItem(EXITED_KEY)).toBe('t1');
-    expect(readExited(storage)).toBe('t1');
+    saveExited(storage, { tournamentId: 't1', phase: 'starting-soon' });
+    expect(JSON.parse(storage.getItem(EXITED_KEY)!)).toEqual({ tournamentId: 't1', phase: 'starting-soon' });
+    expect(readExited(storage)).toEqual({ tournamentId: 't1', phase: 'starting-soon' });
     saveExited(storage, null);
     expect(readExited(storage)).toBeNull();
+  });
+
+  it('reads the old plain id, numeric or not, as exited while ongoing', () => {
+    expect(readExited(createMemoryStorage({ [EXITED_KEY]: 'abc-123' }))).toEqual({
+      tournamentId: 'abc-123',
+      phase: 'ongoing',
+    });
+    expect(readExited(createMemoryStorage({ [EXITED_KEY]: '1791894089967' }))).toEqual({
+      tournamentId: '1791894089967',
+      phase: 'ongoing',
+    });
+  });
+
+  it('ignores a stored object that is not a tournament and a phase', () => {
+    expect(
+      readExited(createMemoryStorage({ [EXITED_KEY]: '{"tournamentId":"t1","phase":"nope"}' })),
+    ).toBeNull();
+    expect(readExited(createMemoryStorage({ [EXITED_KEY]: '{"phase":"ongoing"}' }))).toBeNull();
   });
 });

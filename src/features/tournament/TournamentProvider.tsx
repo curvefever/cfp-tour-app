@@ -21,6 +21,7 @@ import {
   saveExited,
   saveLastView,
   saveLiveEnvelope,
+  type ExitedMemory,
   type LastView,
 } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
@@ -43,6 +44,7 @@ import { tournamentPhase, type TournamentAction } from '../tournaments/tournamen
 import { stateDescription, type TournamentSummary } from '../tournaments/tournament-summary';
 import { useTournamentIndex, type TournamentIndexState } from '../tournaments/useTournamentIndex';
 import { landingTab, resolveVisit } from '../tournaments/visit';
+import { loadedPhase } from '../shell/tabs';
 
 declare global {
   interface Window {
@@ -120,6 +122,8 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [visitResolved, setVisitResolved] = useState(false);
   const [visitNotice, setVisitNotice] = useState<string | null>(null);
   const tournaments = useTournamentIndex();
+  const tournamentsRef = useRef(tournaments);
+  tournamentsRef.current = tournaments;
   const isViewer = !auth.canAdmin;
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
   const sync = useRef<SyncCoordinator | null>(null);
@@ -129,9 +133,9 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const activeTabRef = useRef(activeTab);
   const isViewerRef = useRef(isViewer);
   const initialUrlId = useRef<string | null>(null);
-  const memory = useRef<{ lastView: LastView | null; exitedId: string | null }>({
+  const memory = useRef<{ lastView: LastView | null; exited: ExitedMemory | null }>({
     lastView: null,
-    exitedId: null,
+    exited: null,
   });
   stateRef.current = state;
   setupRef.current = setup;
@@ -144,7 +148,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     initialUrlId.current = new URLSearchParams(window.location.search).get('t');
     memory.current = {
       lastView: readLastView(window.localStorage),
-      exitedId: readExited(window.localStorage),
+      exited: readExited(window.localStorage),
     };
     setHydrated(true);
   }, []);
@@ -340,9 +344,15 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   );
 
   const exitTournament = useCallback(async () => {
-    const tournamentId = stateRef.current.tournamentId;
+    const { tournamentId } = stateRef.current;
+    const phase = loadedPhase({
+      state: stateRef.current,
+      summary: tournamentsRef.current.summaries.find((entry) => entry.id === tournamentId),
+      stateReceived: true,
+      nowMs: Date.now(),
+    });
     await unloadTournament();
-    if (tournamentId) saveExited(window.localStorage, tournamentId);
+    if (tournamentId && phase) saveExited(window.localStorage, { tournamentId, phase });
     setActiveTabState('tournaments');
   }, [unloadTournament]);
 

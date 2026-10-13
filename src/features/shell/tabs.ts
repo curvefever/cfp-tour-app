@@ -1,5 +1,6 @@
-import type { ActiveTab } from '../../domain/tournament/types';
-import type { TournamentPhase } from '../tournaments/tournament-lifecycle';
+import type { ActiveTab, TournamentPhase, TournamentState } from '../../domain/tournament/types';
+import { tournamentPhase } from '../tournaments/tournament-lifecycle';
+import type { TournamentSummary } from '../tournaments/tournament-summary';
 
 export const TABS: Array<{ key: ActiveTab; label: string }> = [
   { key: 'tournaments', label: '🗓 Tournaments' },
@@ -56,4 +57,27 @@ export function effectiveTab(activeTab: ActiveTab, context: TabContext): ActiveT
   // A stored Standings tab with no standings phase shows Bracket; anything else shows the tournament's Info, or the list.
   if (activeTab === 'standings' && isAvailable('bracket', context)) return 'bracket';
   return context.phase === null ? 'tournaments' : 'info';
+}
+
+/**
+ * The phase of the loaded tournament, for the tab rules; null when none is loaded. Until its stored state has
+ * arrived the state is only a blank one, so its list entry decides; once it is there the state wins.
+ */
+export function loadedPhase(input: {
+  state: Pick<TournamentState, 'tournamentId' | 'lifecycle' | 'started' | 'info'>;
+  summary: TournamentSummary | undefined;
+  stateReceived: boolean;
+  nowMs: number;
+}): TournamentPhase | null {
+  const { state, summary, stateReceived, nowMs } = input;
+  if (!state.tournamentId) return null;
+  if (!stateReceived && summary) return tournamentPhase(summary, nowMs);
+  return tournamentPhase(
+    {
+      status: state.lifecycle?.status ?? 'published',
+      started: state.started,
+      scheduledAt: state.info?.scheduledAt ?? null,
+    },
+    nowMs,
+  );
 }

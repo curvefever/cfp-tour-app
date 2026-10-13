@@ -39,8 +39,6 @@ export function tournamentFormatLine(format: {
 }
 
 export interface DateFormatOptions {
-  /** The language of the weekday and month names; the browser's own by default. */
-  locale?: string;
   /** An IANA time zone; the browser's own by default. */
   timeZone?: string;
 }
@@ -64,15 +62,15 @@ function relativePart(scheduledMs: number, nowMs: number): string {
 }
 
 /**
- * The scheduled time as the viewer reads it: weekday, date and time in their own time zone, then how far away it
- * is ("Sat 18 Oct, 20:00 · in 2 days"). It depends on the browser and the clock, so render it after hydration only.
+ * The scheduled time as the viewer reads it: weekday, date and time in their own time zone, in English like the rest
+ * of the app, then how far away it is ("Sat 18 Oct, 20:00 · in 2 days"). It depends on the browser and the clock, so render it after hydration only.
  */
 export function formatScheduledAt(
   scheduledMs: number,
   nowMs: number,
   options: DateFormatOptions = {},
 ): string {
-  const parts = new Intl.DateTimeFormat(options.locale, {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

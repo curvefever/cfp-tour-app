@@ -283,6 +283,10 @@ export interface TournamentState {
 
 export type TournamentStatus = 'draft' | 'published' | 'finished';
 
+/** Where a tournament is in its life, as visitors see it; `starting-soon` is computed from the scheduled time. */
+export const TOURNAMENT_PHASES = ['draft', 'upcoming', 'starting-soon', 'ongoing', 'finished'] as const;
+export type TournamentPhase = (typeof TOURNAMENT_PHASES)[number];
+
 export interface TournamentLifecycle {
   status: TournamentStatus;
   /** A rehearsal: never listed to viewers on production, deletable in any status. */

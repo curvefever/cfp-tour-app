@@ -10,9 +10,8 @@ import { LoadedTournamentAdmin } from '../admin/LoadedTournamentAdmin';
 import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
 import { TournamentsView } from '../tournaments/TournamentsView';
-import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { effectiveTab, visibleTabs } from './tabs';
+import { effectiveTab, loadedPhase, visibleTabs } from './tabs';
 import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
 
 export function AppShell() {
@@ -21,16 +20,12 @@ export function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const currentRound = app.state.rounds[app.state.curRound];
   const showStandings = hasStandingsPhase(app.state);
-  const phase = app.state.tournamentId
-    ? tournamentPhase(
-        {
-          status: app.state.lifecycle?.status ?? 'published',
-          started: app.state.started,
-          scheduledAt: app.state.info?.scheduledAt ?? null,
-        },
-        Date.now(),
-      )
-    : null;
+  const phase = loadedPhase({
+    state: app.state,
+    summary: app.tournaments.summaries.find((entry) => entry.id === app.state.tournamentId),
+    stateReceived: !['idle', 'connecting', 'waiting', 'unavailable'].includes(app.syncStatus.kind),
+    nowMs: Date.now(),
+  });
   const tabContext = { canAdmin: app.unlocked, phase, showStandings };
   const tabs = visibleTabs(tabContext);
   const activeTab = effectiveTab(app.activeTab, tabContext);

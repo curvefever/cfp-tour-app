@@ -1,7 +1,8 @@
+import type { TournamentPhase } from '../../domain/tournament/types';
 import type { TourEnvironment } from '../sync/firebase-paths';
 import type { TournamentSummary } from './tournament-summary';
 
-export type TournamentPhase = 'draft' | 'upcoming' | 'starting-soon' | 'ongoing' | 'finished';
+export type { TournamentPhase };
 
 /** How long before its scheduled time a published tournament counts as "Starting soon". */
 export const STARTING_SOON_MS = 60 * 60 * 1000;

@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { LEGACY_LAST_TAB_KEY } from '../../lib/persistence/storage-keys';
+import { readLastView } from '../../lib/persistence/storage';
+import { createMemoryStorage } from '../../lib/persistence/test-fixtures';
 import type { TournamentSummary } from './tournament-summary';
 import { landingTab, RECENTLY_FINISHED_MS, resolveVisit, UNAVAILABLE_NOTICE, type VisitInput } from './visit';
 
@@ -37,7 +40,7 @@ function visit(summaries: TournamentSummary[], overrides: Partial<VisitInput> = 
     summaries,
     env: 'prod',
     nowMs: NOW,
-    memory: { lastView: null, exitedId: null },
+    memory: { lastView: null, exited: null },
     isAdmin: false,
     ...overrides,
   });
@@ -149,32 +152,69 @@ describe('the tournament finished most recently', () => {
   });
 
   it('stays unloaded after Exit, while it is the one that would load', () => {
-    const memory = { lastView: null, exitedId: 'a' };
+    const memory = { lastView: null, exited: { tournamentId: 'a', phase: 'ongoing' as const } };
     expect(visit([finished('a', HOUR)], { memory })).toEqual({ tournamentId: null, tab: 'tournaments' });
   });
 });
 
 describe('Exit', () => {
-  it('sticks: the exited tournament is not loaded again by a visit without a link', () => {
-    const memory = { lastView: null, exitedId: 'a' };
-    expect(visit([ongoing('a')], { memory })).toEqual({ tournamentId: null, tab: 'tournaments' });
+  const exitedWhile = (phase: 'upcoming' | 'starting-soon' | 'ongoing', tournamentId = 'a') => ({
+    lastView: null,
+    exited: { tournamentId, phase },
+  });
+
+  it('sticks: a tournament exited while ongoing is not loaded again by a visit without a link', () => {
+    expect(visit([ongoing('a')], { memory: exitedWhile('ongoing') })).toEqual({
+      tournamentId: null,
+      tab: 'tournaments',
+    });
+  });
+
+  it('sticks for a tournament exited while starting soon, as long as it is still starting soon', () => {
+    expect(visit([startingSoon('a')], { memory: exitedWhile('starting-soon') }).tournamentId).toBeNull();
+  });
+
+  it('loads again, forgetting the exit, when it is starting soon after being exited as upcoming', () => {
+    expect(visit([startingSoon('a')], { memory: exitedWhile('upcoming') })).toMatchObject({
+      tournamentId: 'a',
+      tab: 'info',
+      forgetExited: true,
+    });
+  });
+
+  it('loads again, forgetting the exit, when it is ongoing after being exited as upcoming or starting soon', () => {
+    expect(visit([ongoing('a')], { memory: exitedWhile('upcoming') })).toMatchObject({
+      tournamentId: 'a',
+      forgetExited: true,
+    });
+    expect(visit([ongoing('a')], { memory: exitedWhile('starting-soon') })).toMatchObject({
+      tournamentId: 'a',
+      tab: 'bracket',
+      forgetExited: true,
+    });
+  });
+
+  it('never pulls back a visitor who exited while the tournament was ongoing', () => {
+    expect(visit([ongoing('a')], { memory: exitedWhile('ongoing') }).tournamentId).toBeNull();
   });
 
   it('does not stop a link to the exited tournament', () => {
-    const memory = { lastView: null, exitedId: 'a' };
-    expect(visit([ongoing('a')], { memory, urlId: 'a' }).tournamentId).toBe('a');
+    expect(visit([ongoing('a')], { memory: exitedWhile('ongoing'), urlId: 'a' }).tournamentId).toBe('a');
   });
 
   it('is forgotten once a different tournament is the one that would load', () => {
-    const memory = { lastView: null, exitedId: 'a' };
-    expect(visit([ongoing('a'), upcoming('b')], { memory }).forgetExited).toBeUndefined();
-    const result = visit([startingSoon('b'), upcoming('a')], { memory });
+    const result = visit([startingSoon('b'), upcoming('a')], { memory: exitedWhile('ongoing') });
     expect(result).toMatchObject({ tournamentId: 'b', forgetExited: true });
   });
 
+  it('keeps the exit while the exited tournament is not the one that would load', () => {
+    expect(
+      visit([ongoing('a'), upcoming('b')], { memory: exitedWhile('ongoing') }).forgetExited,
+    ).toBeUndefined();
+  });
+
   it('is kept while several tournaments are starting soon or ongoing', () => {
-    const memory = { lastView: null, exitedId: 'a' };
-    const result = visit([ongoing('a'), ongoing('b')], { memory });
+    const result = visit([ongoing('a'), ongoing('b')], { memory: exitedWhile('upcoming') });
     expect(result).toEqual({ tournamentId: null, tab: 'tournaments' });
   });
 
@@ -186,7 +226,7 @@ describe('Exit', () => {
 describe('the last tab', () => {
   const lastView = (tournamentId: string | null, tab: 'rankings' | 'info' | 'tournaments') => ({
     lastView: { tournamentId, tab },
-    exitedId: null,
+    exited: null,
   });
 
   it('is restored when the same unfinished tournament loads again', () => {
@@ -211,6 +251,12 @@ describe('the last tab', () => {
   it('counts the old tab-only memory for any unfinished tournament', () => {
     expect(visit([ongoing('a')], { memory: lastView(null, 'rankings') }).tab).toBe('rankings');
     expect(visit([finished('a', HOUR)], { memory: lastView(null, 'info') }).tab).toBe('rankings');
+  });
+
+  it('is not used for a legacy Home tab, which opens the tournament on its landing tab', () => {
+    const storage = createMemoryStorage({ [LEGACY_LAST_TAB_KEY]: 'home' });
+    const memory = { lastView: readLastView(storage), exited: null };
+    expect(visit([ongoing('a')], { memory })).toEqual({ tournamentId: 'a', tab: 'bracket' });
   });
 
   it('is not used when nothing loads', () => {

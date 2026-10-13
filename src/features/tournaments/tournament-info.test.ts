@@ -56,7 +56,7 @@ describe('formatScheduledAt', () => {
   const SCHEDULED = Date.UTC(2026, 9, 18, 18, 0); // Sunday 18 Oct 2026, 18:00 UTC
   const HOUR = 60 * 60 * 1000;
   const MINUTE = 60 * 1000;
-  const inZone = (zone: string) => ({ locale: 'en-GB', timeZone: zone });
+  const inZone = (zone: string) => ({ timeZone: zone });
 
   it('shows the date and time in the time zone of the viewer', () => {
     expect(formatScheduledAt(SCHEDULED, SCHEDULED - 3 * HOUR, inZone('UTC'))).toMatch(
