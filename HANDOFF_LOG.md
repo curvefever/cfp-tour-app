@@ -6,6 +6,81 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Tournaments hub: shared tournaments, statuses, the Tournaments page and the Info tab (done — 2026-10-13)
+
+Built in nine stages on `test`, planned and reviewed by a second session (the planner/reviewer) and implemented by this one, one stage at a time with a review between stages. Nothing went to `main`.
+
+### Context
+The organiser wanted visitors to reach the right tournament with no clicks, and admins (five or more, sometimes at the same time) to prepare several tournaments at once without archiving them. The Archive and the empty Home tab give way to one Tournaments page, and each tournament gets an Info tab (date, format, lobby screenshots, specific rules). One measurement drove the first stage: every save sent each connected viewer the whole tournament (13.7 KB per score at 43 players; 22 KB at the start of a 67-player qualification + double-elimination tournament, about 63 KB by its Final, about 20 MB per viewer per tournament, so four such tournaments a month at 100 viewers is about 8 of the 10 GB of the Firebase free plan).
+
+### Decisions (settled with the organiser, 2026-10-12/13)
+- **Statuses**: Draft ⇄ Published → Ongoing → Finished. Draft is visible to admins only, any admin can open and edit it, and it is deletable. Published needs a title and a scheduled date and time; viewers then see title, format, date and roster so far; Unpublish returns it to Draft, only before it starts. **Starting soon** is not stored: it is computed from 1 hour before the scheduled time until Confirm & Start. **Ongoing** is Confirm & Start; a second one is refused by the server. **Finished** only by a "Finish tournament" button, so a wrongly entered last score stays correctable; once the Final is complete Admin and Bracket show a reminder; Finished is read-only and an admin can Reopen it. **Reset = Back to draft** (keeps id, roster and settings, clears the played rounds); a started or finished real tournament is deleted only by Reopen → Back to draft → Unpublish → Delete, which is intended. **Delete** only from Draft with a confirmation. "Featured" was considered and dropped.
+- **Test run** flag (discreet): set when creating or while a draft. On production a test run is never shown to viewers, never loaded automatically, and can be deleted from any status. On the test site every tournament is a test run, but hiding and no-auto-load do not apply there so the viewer side can be tested; only "deletable from any status" applies.
+- **Visitor flow**: a `?t=<id>` link always opens that tournament, or says "This tournament isn't available." and opens Tournaments. Without a link: exactly one visible Starting soon / Ongoing tournament loads; several open Tournaments; none loads the most recently finished one if it finished under 24 hours ago, on Rankings; otherwise Tournaments. **Exit** unloads and sticks across reloads, forgotten as soon as a different tournament would load. **Last tab** is remembered with its tournament id and restored only for the same, unfinished tournament. A loaded tournament's id is always in the address bar.
+- **Tabs**: Tournaments (always; sections Ongoing, Upcoming soonest first with a "Starting soon" mark, Finished newest first; fixed empty texts; no rules link), Info (only while loaded), Bracket and Standings (only once started), Players / Rankings (one tab, "Players" before Confirm & Start), Admin (signed-in admins). The header shows the loaded tournament's name and an Exit ✕. Landing tab per phase: Draft → Admin, Upcoming / Starting soon → Info, Ongoing → Bracket, Finished → Rankings.
+- **Admins**: with nothing loaded the Admin tab lists drafts, published and ongoing tournaments plus "New tournament". Every tournament exists in Firebase from "New tournament" on, state and Setup form; Setup updates live on every admin's screen, the field being typed in is protected, otherwise last save wins per field. No "last edited by". A small "Alex is editing" name tag on a Setup field another admin is in; a server heartbeat, no Firebase Auth.
+- **Annotations** moved from the Archive to the tournament: a discreet icon in Bracket's follow row, shown to viewers only when notes exist, always to admins; addable during and after the tournament; no unread dot; gone from Rankings.
+- **Archive retired completely** (tab, Firebase archive, "Save to Archive", automatic archiving, the old local-archive download notice). No migration: everything created up to 2026-10-13 is test data, deleted once with the organiser's explicit go-ahead (below).
+- **Firebase free plan**: write only what changed (Stage 1); screenshots stored shrunk in the Realtime Database at their own path, uploaded through a server function by any admin and cached in the browser, because a test upload confirmed the server accepts the size.
+
+### Planner calls (low-stakes, open to correction)
+- Confirm & Start on a draft publishes it, filling the scheduled time with "now" if empty: a tournament can't be Ongoing and Draft at once.
+- No migration of a browser's old local working tournament: the local envelope is only a cache of the loaded tournament, and an envelope without a matching loaded id is ignored.
+- The "Log in as admin" corner link moved from Home to the Tournaments page.
+- Annotations stay editable on a Finished tournament; everything else is read-only.
+- The scheduled date and time and the rules text stay editable by admins in every status except Finished.
+- The Tournaments list has no pagination for now.
+
+### Decisions made during the reviews
+- Derived standings tables (`qualTable`, `groupStandings`) are no longer recalculated per score; `getAllTies` refreshes them for the current round only, and they are stored at round advance.
+- `SyncCoordinator` never pushes before a tournament's first snapshot and never writes a whole tournament; `writeTournament` refused a tournament with a `lifecycle`, and since nothing called it any more it was deleted in Stage 9 (with `validateWriteInput`, `wholeWriteRefusal` and `writeTournamentToFirebase`).
+- Server-owned, never in a client patch: `tournamentId`, `lifecycle`, `started`, `info/screenshots`.
+- Remote `scores`/`finalScores` are authoritative, except keys typed here and not yet sent; unsent non-score edits survive a snapshot (`keepPendingEdits`). `SetupSync` sends and protects only its own unsent fields (no time hold).
+- Confirm & Start refuses an untitled draft ("Give the tournament a title before starting it.").
+- Back to draft asks with a plain confirm; `needsSave`/`autoSaved` were removed.
+- The old tab memory counts only for info, bracket, standings or rankings.
+- Exit is stored with the phase at Exit: the exited tournament loads again once it moves into Starting soon or Ongoing; exited while ongoing → never auto-loaded again.
+- Dates are formatted in English (en-GB) in the viewer's time zone; finished cards show no countdown.
+- The upload size test passed: the server and the proxy accepted a 2 MB request, so the 400 KB limit is the app's own. Screenshots shrink to 5-10 KB in practice.
+- Stage 9 additions: the Grand Final losers-bracket target shows its name tag too; the cleanup script keeps (and reports) an entry whose id and stored date fall on different sides of the cutoff, and lists ids that are not timestamps as "date unknown", never deleted.
+
+### What was built (independently testable parts)
+1. **Patch writes** (`sync/tournament-patch.ts`, `firebase-marshal.ts`, `live-sync.ts`): `buildTournamentPatch` (two levels deep, marshalled values, a key written whole when either side is empty), `writeTournamentPatch`. Check: a score is a tiny patch; the patches of a 43- and 67-player run rebuild each next state in a replay.
+2. **The tournament record** (`tournaments/tournament-lifecycle.ts`, `tournament-updates.ts`, `tournament-summary.ts`, lifecycle server functions, `setups/`, `index/`, `presence/` and `media/` roots in `firebase-paths.ts` and the rules): statuses and their refusals as pure functions.
+3. **Several tournaments** (`TournamentProvider`, `SetupSync`, `AdminTournamentList`): the loaded id, per-field Setup sync, start and back to draft through the server.
+4. **Statuses in Admin** (`TournamentStatusPanel`, `admin-actions.ts`, `ScheduledTimeField`).
+5. **What a visitor loads** (`visit.ts`, `shell/tabs.ts`, `info/InfoView`).
+6. **The Tournaments page, annotations on the tournament, the Archive and Home removed** (`tournaments-list.ts`, `TournamentsView`, `AnnotationsPanel`).
+7. **Info content** (`info/rules-text.ts`, `image-shrink.ts`, `screenshots.shared.ts`, `screenshots.server-fns.ts`, `admin/InfoContentPanel.tsx`).
+8. **Name tags in Setup** (`presence/`).
+9. **Cleanup and close-out**: `scripts/cleanup-2026-10-13.mjs`, the archive rules removed from `database.rules.json`, these docs.
+
+### Bandwidth, before and after
+- Before: every save sent each connected viewer the whole tournament: 13.7 KB per score at 43 players; 22 KB per save at the start of a 67-player qualification + double-elimination run, growing to about 63 KB; about 20 MB per viewer per tournament.
+- After: about 80 bytes per score frame to a viewer live (67-player qualification round, measured on the test site), 22-25 bytes per score patch in the replays; a tab switch sends nothing; a screenshot is downloaded once per browser.
+
+### Testing
+- Unit tests grew from 1264 to 1763 (`vitest list`), plus 7 Playwright smoke tests (the signed-out viewer, with the tournament list and live tournament supplied by test hooks). Server functions have no direct tests: their validators and update planners are pure and tested, and each stage was checked live on the test site with the organiser's admin session (`https://tournaments-test.curvefever.pro`), including two admin tabs and a signed-out headless viewer.
+- Awkward counts: the patch replay and the per-score size test use 43 and 67 players; the qualification-table recalculation test uses 37 players over three rounds; the group-stage cut-off tie test uses 43 players in groups of 4; the Tournaments card and the summary tests use 31 and 37 players. 53 was not used in this build (nothing in it depends on a head count beyond the unit count shown on a card).
+- Bugs the live checks and the reviews found, and the fixes: a stale `updateState({...started})` overwrote the server-filled scheduled time (functional updates now); an idle admin tab brought back cleared scores, and `SetupSync` resent an older value (remote scores authoritative, Setup dirty-only); opening the already-loaded tournament from the list left a blank state (`adoptTournament` returns early); a snapshot replaced the whole `info` block and undid the rules text just applied by Copy settings (`keepPendingEdits`); one deploy step failed after a successful build (an empty commit redeployed it).
+- Name tags: the write, the 15 s repeat, the move between fields and the clear on blur were read back over REST; the tag was shown on a second view, appeared within about 2 s, followed the focus and was gone on blur, and went 34 s after the last announcement of a writer that could no longer send.
+
+### Cleanup of the 2026-10-13 test data (not run)
+`scripts/cleanup-2026-10-13.mjs` (Admin SDK, credentials from `FIREBASE_SERVICE_ACCOUNT_JSON`) lists, per environment and root, what was made on or before 2026-10-13: everything under `environments/{env}/tournaments` (with its `index`, `setups`, `presence` and `media`), under `environments/{env}/archive`, and the legacy root `tournaments` (listed in every run, deleted by the `--env prod` run). It is a dry run by default; deleting needs `--env test|prod --apply`, one environment per run. The organiser runs it, per environment, only after an explicit go-ahead, and deploys `database.rules.json` (archive rules removed) only after that. The test site holds the Stage checks' data (the "Hub Live Check" and "Hub Visit" tournaments, two archive entries).
+
+### Out of scope
+- Firebase Auth for admins, direct client writes, instant presence.
+- Name tags in Bracket or anywhere outside Setup (and the waterfall graph editor, which has no text control).
+- A "last edited by" line; edit history; undo.
+- Pagination or search on the Tournaments page; a countdown on cards.
+- A separate Rules tab; a rules link on the Tournaments page.
+- Restyling to the game look (the notes icon moves next to its "?" then).
+- Migrating old archive entries or a browser's old local tournament.
+- Firebase Storage or any paid Firebase feature.
+- Notifying players (Discord, email) of a status change.
+- Fixing same-field same-moment edits by two admins (last save wins, accepted).
+- Parked: the rules text saves on blur; Rankings still reads "Live tournament ranking" for a tournament finished before its Final; two tabs of one account share one presence key. All in `docs/open-items.md`.
+
 ## Waterfall graph: an unrouted room rank is eliminated, and "out" is one red (done — 2026-10-12)
 
 ### Context
