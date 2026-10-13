@@ -275,6 +275,37 @@ export interface TournamentState {
   gamemodeConfig: Partial<MaterializedGamemodeConfig>;
   /** The Setup form as typed when this schedule was generated (roster excluded), for copying onto a later tournament -- see tournament-settings.ts. Absent on tournaments generated before this field existed. */
   settings?: TournamentSettings;
+  /** Where the tournament stands (draft, published, finished). Written only by the lifecycle server functions; absent on tournaments stored before statuses existed. */
+  lifecycle?: TournamentLifecycle;
+  /** What viewers are told about the tournament: its date, its specific rules and its lobby screenshots. */
+  info?: TournamentInfo;
+  /** Notes added by admins to the tournament, during it or after it finished. */
+  annotations?: TournamentAnnotation[];
+}
+
+export type TournamentStatus = 'draft' | 'published' | 'finished';
+
+export interface TournamentLifecycle {
+  status: TournamentStatus;
+  /** A rehearsal: never listed to viewers on production, deletable in any status. */
+  testRun: boolean;
+  /** Epoch milliseconds. */
+  createdAt: number;
+  /** Epoch milliseconds; null until the tournament is finished. */
+  finishedAt: number | null;
+}
+
+export interface TournamentInfo {
+  /** Epoch milliseconds of the scheduled start; null while undecided. */
+  scheduledAt: number | null;
+  rulesText: string;
+  /** Ids of the screenshots stored for this tournament. */
+  screenshots: string[];
+}
+
+export interface TournamentAnnotation {
+  text: string;
+  timestamp: string;
 }
 
 export interface PersistedSetup {

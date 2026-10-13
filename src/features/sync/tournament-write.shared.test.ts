@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isValidPathSegment, validatePatchInput, validateWriteInput } from './tournament-write.shared';
+import {
+  isValidPathSegment,
+  validatePatchInput,
+  validateSetupPatchInput,
+  validateWriteInput,
+} from './tournament-write.shared';
 
 describe('validateWriteInput', () => {
   it('passes through a valid input, stripping adminProof if present', () => {
@@ -108,5 +113,60 @@ describe('isValidPathSegment', () => {
   it('accepts ordinary keys and refuses empty ones', () => {
     expect(isValidPathSegment('r0-rm1-p2-m0')).toBe(true);
     expect(isValidPathSegment('')).toBe(false);
+  });
+});
+
+describe('validatePatchInput and the status fields', () => {
+  it('refuses lifecycle and started at the top level, but not deeper', () => {
+    for (const path of ['lifecycle', 'lifecycle/status', 'started']) {
+      expect(() => validatePatchInput({ tournamentId: 't1', patch: { [path]: 1 } })).toThrow('patch path');
+    }
+    expect(() => validatePatchInput({ tournamentId: 't1', patch: { 'scores/started': 1 } })).not.toThrow();
+  });
+
+  it('keeps only the known descriptive fields of a summary', () => {
+    const result = validatePatchInput({
+      tournamentId: 't1',
+      patch: { title: 'Cup' },
+      summary: { title: 'Cup', unitCount: 37, status: 'finished' } as never,
+    });
+    expect(result.summary).toEqual({ title: 'Cup', unitCount: 37 });
+  });
+
+  it('rejects a badly typed summary', () => {
+    expect(() =>
+      validatePatchInput({ tournamentId: 't1', patch: { a: 1 }, summary: { unitCount: 'many' } as never }),
+    ).toThrow('unitCount');
+  });
+
+  it('leaves the summary out when none was sent', () => {
+    expect(validatePatchInput({ tournamentId: 't1', patch: { a: 1 } })).not.toHaveProperty('summary');
+  });
+});
+
+describe('validateSetupPatchInput', () => {
+  it('passes setup fields with text values', () => {
+    const patch = { qualAdv: '16', waterfallGraph: 'ROUNDS:\n1: 8' };
+    expect(validateSetupPatchInput({ tournamentId: ' t1 ', patch })).toEqual({ tournamentId: 't1', patch });
+  });
+
+  it('rejects unknown fields, non-text values and paths below a field', () => {
+    expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: { nope: 'x' } })).toThrow('nope');
+    expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: { qualAdv: 16 } as never })).toThrow(
+      'qualAdv',
+    );
+    expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: { 'roster/0': 'x' } })).toThrow(
+      'roster/0',
+    );
+  });
+
+  it('rejects an empty or missing patch and a bad id', () => {
+    expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: {} })).toThrow('Invalid setup patch.');
+    expect(() => validateSetupPatchInput({ tournamentId: 't1', patch: null as never })).toThrow(
+      'Invalid setup patch.',
+    );
+    expect(() => validateSetupPatchInput({ tournamentId: 'a b', patch: { qualAdv: '1' } })).toThrow(
+      'Invalid tournament ID.',
+    );
   });
 });

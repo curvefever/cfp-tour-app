@@ -18,6 +18,25 @@ describe('normalizeLiveTournamentState', () => {
     expect(state.curRound).toBe(0);
   });
 
+  it('keeps the lifecycle, info and annotations of a stored tournament', () => {
+    const stored = {
+      lifecycle: { status: 'published', testRun: false, createdAt: 5, finishedAt: null },
+      info: { scheduledAt: 1_790_000_000_000, rulesText: 'No pause', screenshots: ['a1'] },
+      annotations: [{ text: 'Rematch in room 3', timestamp: '2026-10-18T20:10:00Z' }],
+    };
+    const state = normalizeLiveTournamentState({ title: 'My Cup', ...stored }, fixedIds);
+    expect(state.lifecycle).toEqual(stored.lifecycle);
+    expect(state.info).toEqual(stored.info);
+    expect(state.annotations).toEqual(stored.annotations);
+  });
+
+  it('leaves them absent on a tournament stored before they existed', () => {
+    const state = normalizeLiveTournamentState({ title: 'Old Cup' }, fixedIds);
+    expect(state.lifecycle).toBeUndefined();
+    expect(state.info).toBeUndefined();
+    expect(state.annotations).toBeUndefined();
+  });
+
   it('pads player/reserve member arrays to teamSize for a team format', () => {
     const state = normalizeLiveTournamentState(
       {

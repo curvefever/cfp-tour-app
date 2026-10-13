@@ -1,0 +1,69 @@
+import { describe, expect, it } from 'vitest';
+import {
+  createDefaultInfo,
+  createDefaultSetup,
+  createDefaultTournamentState,
+} from '../../domain/tournament/state-defaults';
+import { buildTournamentSummary, parseDescriptionFields } from './tournament-summary';
+
+describe('buildTournamentSummary', () => {
+  it('describes a 37-player roster from the setup form and the state', () => {
+    const state = createDefaultTournamentState({
+      title: 'Autumn Cup',
+      players: Array.from({ length: 37 }, (_, index) => `P${index + 1}`),
+      info: createDefaultInfo({ scheduledAt: 1_790_000_000_000 }),
+    });
+    const setup = createDefaultSetup({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      scheduleLogic: 'double-elimination',
+    });
+    expect(buildTournamentSummary(state, setup)).toEqual({
+      title: 'Autumn Cup',
+      scheduledAt: 1_790_000_000_000,
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      scheduleLogic: 'double-elimination',
+      unitCount: 37,
+    });
+  });
+
+  it('counts teams, not their members, in a team format', () => {
+    const teams = Array.from({ length: 12 }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
+    }));
+    const state = createDefaultTournamentState({ gameFormat: 'team-3v3v3', players: teams });
+    const summary = buildTournamentSummary(state, createDefaultSetup({ gameFormat: 'team-3v3v3' }));
+    expect(summary.unitCount).toBe(12);
+  });
+
+  it('has no date until one is set', () => {
+    const summary = buildTournamentSummary(createDefaultTournamentState(), createDefaultSetup());
+    expect(summary.scheduledAt).toBeNull();
+    expect(summary.unitCount).toBe(0);
+  });
+});
+
+describe('parseDescriptionFields', () => {
+  it('keeps the known fields and drops the rest, including status fields', () => {
+    expect(parseDescriptionFields({ title: 'T', unitCount: 3, status: 'finished', started: true })).toEqual({
+      title: 'T',
+      unitCount: 3,
+    });
+  });
+
+  it('accepts a null date and rejects badly typed fields', () => {
+    expect(parseDescriptionFields({ scheduledAt: null })).toEqual({ scheduledAt: null });
+    expect(() => parseDescriptionFields({ scheduledAt: '2026' })).toThrow('scheduledAt');
+    expect(() => parseDescriptionFields({ unitCount: 2.5 })).toThrow('unitCount');
+    expect(() => parseDescriptionFields({ unitCount: -1 })).toThrow('unitCount');
+    expect(() => parseDescriptionFields({ title: 5 })).toThrow('title');
+  });
+
+  it('rejects a summary that is not an object', () => {
+    expect(() => parseDescriptionFields(null)).toThrow('Invalid tournament summary.');
+    expect(() => parseDescriptionFields([])).toThrow('Invalid tournament summary.');
+  });
+});

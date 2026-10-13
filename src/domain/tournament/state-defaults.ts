@@ -1,4 +1,4 @@
-import type { PersistedSetup, TournamentState } from './types';
+import type { PersistedSetup, TournamentInfo, TournamentLifecycle, TournamentState } from './types';
 
 export function createDefaultTournamentState(overrides: Partial<TournamentState> = {}): TournamentState {
   return {
@@ -68,4 +68,12 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     reserveIndividuals: '',
     ...overrides,
   };
+}
+
+export function createDefaultInfo(overrides: Partial<TournamentInfo> = {}): TournamentInfo {
+  return { scheduledAt: null, rulesText: '', screenshots: [], ...overrides };
+}
+
+export function createDefaultLifecycle(overrides: Partial<TournamentLifecycle> = {}): TournamentLifecycle {
+  return { status: 'draft', testRun: false, createdAt: 0, finishedAt: null, ...overrides };
 }
