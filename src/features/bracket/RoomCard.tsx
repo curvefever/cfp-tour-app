@@ -13,6 +13,18 @@ import { LoneUnitRow, RoomRow } from './RoomRow';
 import { roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 
+/** The small header of a pooling room that shows points: PLAYER, SCORE, PTS. */
+function PointsHeader() {
+  return (
+    <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
+      <span className='w-4.5 shrink-0' />
+      <span className='flex-1'>PLAYER</span>
+      <span className='w-11.5 shrink-0 text-right'>SCORE</span>
+      <span className='w-9 shrink-0 text-right'>PTS</span>
+    </div>
+  );
+}
+
 /**
  * Whether a lone unit's room reads as "treated as a bye": true for rounds
  * whose results feed standings or plain per-room advancement (pooling,
@@ -68,6 +80,7 @@ export function RoomCard({
   resolvedTieNames,
   pendingTieNames,
   teamMap,
+  points,
 }: {
   state: TournamentState;
   roundIndex: number;
@@ -80,6 +93,8 @@ export function RoomCard({
   resolvedTieNames: Set<string>;
   pendingTieNames: Set<string>;
   teamMap: ReturnType<typeof buildTeamMap>;
+  /** What each unit earned in this round (a pooling round that counts), or null when the round shows no points. */
+  points: Map<string, number> | null;
 }) {
   const round = state.rounds[roundIndex];
   const room = roomIndex + 1;
@@ -117,6 +132,7 @@ export function RoomCard({
   const memberInputs = scoredTeamSize(state);
   return (
     <RoomFrame lines={lines} title={title}>
+      {points ? <PointsHeader /> : null}
       {display.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
@@ -140,6 +156,7 @@ export function RoomCard({
             memberInputs={memberInputs}
             name={entry.name}
             pendingTie={pendingTie}
+            points={points ? (points.get(entry.name) ?? null) : undefined}
             position={entry.position}
             resolvedTie={resolvedTieNames.has(entry.name)}
             result={result}

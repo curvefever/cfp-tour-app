@@ -118,6 +118,8 @@ export interface RoomRowProps {
   manual: boolean;
   pendingTie: boolean;
   resolvedTie: boolean;
+  /** A pooling room of a counted round shows what each place earned: undefined without the column, null until earned. */
+  points?: number | null;
   /** The team behind a team row, to label its member inputs. */
   team: TournamentTeam | undefined;
   teamSize: number;
@@ -182,8 +184,18 @@ export function RoomRow(props: RoomRowProps) {
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games } = props;
   const label = teamSize ? unitDisplay(state, name).label : name;
+  const pointsColumn = props.points !== undefined;
   const scoreText = showResults ? (
-    <span className='ml-auto flex shrink-0 items-center text-[17px] font-extrabold'>{score}</span>
+    <span
+      className={cn(
+        'ml-auto flex shrink-0 items-center justify-end text-[17px] font-extrabold',
+        pointsColumn && 'w-11.5',
+      )}
+    >
+      {score}
+    </span>
+  ) : pointsColumn ? (
+    <span className='ml-auto w-11.5 shrink-0' />
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
@@ -214,6 +226,11 @@ export function RoomRow(props: RoomRowProps) {
         ) : (
           scoreText
         )}
+        {pointsColumn ? (
+          <span className='w-9 shrink-0 text-right text-[15px] font-bold text-cfp-sky'>
+            {props.points === null || props.points === undefined ? null : `+${props.points}`}
+          </span>
+        ) : null}
       </RowLine>
       {inputsPerTeam ? <MemberInputs count={inputsPerTeam} props={props} /> : null}
       {rowsEditable && !inlineInput && !memberInputs ? (

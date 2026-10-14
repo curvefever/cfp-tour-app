@@ -1,5 +1,6 @@
 import { detectTieBreaks, getAllTies, isTieResolved } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
+import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -7,6 +8,7 @@ import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
+import { roomPoints } from './room-points';
 import { KingsValleyDisclaimer, LuckyLoserDisclaimer, LuckyLoserStandingsPanel } from './RoundNotes';
 
 function tieResolutionListSafe(state: TournamentState, key: string): string[] {
@@ -61,6 +63,11 @@ export function RoundBody({
       />
     );
   const exitRule = roundExitRule(state, roundIndex);
+  // Pooling rooms of a round that counts toward the standings show the points each place earned.
+  const countsForPoints =
+    (exitRule.kind === 'standings' && exitRule.counted) ||
+    (exitRule.kind === 'standings-cutoff' && !round.excludeFromStandings);
+  const points = countsForPoints ? roomPoints(describeStandings(state), roundIndex) : null;
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
   const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
@@ -90,6 +97,7 @@ export function RoundBody({
           roundIndex={roundIndex}
           rowsEditable={rowsEditable}
           state={state}
+          points={points}
           teamMap={teamMap}
         />
       ))}
