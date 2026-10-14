@@ -13,12 +13,12 @@ import { LoneUnitRow, RoomRow } from './RoomRow';
 import { roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 
-/** The small header of a pooling room that shows points: PLAYER, SCORE, PTS. */
+/** The small header of a pooling room that shows points: SCORE and PTS. */
 function PointsHeader() {
   return (
     <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
       <span className='w-4.5 shrink-0' />
-      <span className='flex-1'>PLAYER</span>
+      <span className='flex-1' />
       <span className='w-11.5 shrink-0 text-right'>SCORE</span>
       <span className='w-9 shrink-0 text-right'>PTS</span>
     </div>

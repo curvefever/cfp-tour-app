@@ -71,7 +71,7 @@ function FinalScoreEntry({
   );
 }
 
-/** The Final's header row: PLAYER, one column per game, then the total (or the games won in the race Grand Final). */
+/** The Final's header row: one column per game, then the total (or the games won in the race Grand Final). */
 export function FinalHeaderRow({ games, isGrandFinal }: { games: number; isGrandFinal: boolean }) {
   return (
     <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>

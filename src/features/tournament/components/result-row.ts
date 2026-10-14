@@ -1,4 +1,4 @@
-import type { StandingsDisplay } from '../../../domain/tournament/standings-display';
+import type { StandingsDisplay, StandingsDisplayTable } from '../../../domain/tournament/standings-display';
 import { cn } from '../../../components/ui';
 
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
@@ -17,7 +17,6 @@ export type RowResult =
   | 'promote'
   | 'stay'
   | 'demote'
-  | 'below-cut'
   | '';
 
 /** The colour of a result stripe; `dashed` is the empty, outlined stripe of an undecided row. */
@@ -40,7 +39,6 @@ export function stripeTone(result: RowResult): StripeTone | null {
     case 'advance-third':
       return 'purple';
     case 'eliminate':
-    case 'below-cut':
       return 'red';
     case 'pending':
     case 'candidate':
@@ -62,12 +60,39 @@ export function rowSurfaceClasses(index: number, followed: boolean) {
   );
 }
 
-/** How a standings row reads: through the cut, or past it (the red bar of an eliminated row only once the standings are final). */
+/**
+ * How a row of a standings table reads: through (green; with a Qual source's bands the first destination is green,
+ * the second yellow, the third and later purple) or out (red: past the cut, or in an "out" band). Live or final,
+ * the same: the TEMPORARY badge says the table may still change. Nothing before the standings start.
+ */
 export function standingsRowResult(
   index: number,
-  cut: number | null,
+  table: Pick<StandingsDisplayTable, 'bands' | 'cut'>,
   phase: StandingsDisplay['phase'],
 ): RowResult {
-  if (cut === null || index < cut) return 'advance';
-  return phase === 'final' ? 'eliminate' : 'below-cut';
+  if (phase === 'upcoming') return '';
+  if (table.bands && table.bands.length > 0) {
+    const bands = table.bands;
+    const band = [...bands].reverse().find((candidate) => candidate.start <= index) ?? bands[0];
+    if (band.destination === 'out') return 'eliminate';
+    const destinations = [
+      ...new Set(bands.filter((entry) => entry.destination !== 'out').map((entry) => entry.destination)),
+    ];
+    const position = destinations.indexOf(band.destination);
+    return position <= 0 ? 'advance' : position === 1 ? 'advance-second' : 'advance-third';
+  }
+  return table.cut === null || index < table.cut ? 'advance' : 'eliminate';
+}
+
+/**
+ * The rows where a new group of the table begins (a group of equal destination: the rows through and the rows
+ * out, or each run of a Qual source's bands), for the gap drawn between groups. The first row is never one.
+ */
+export function standingsGroupStarts(
+  table: Pick<StandingsDisplayTable, 'bands' | 'cut' | 'entries'>,
+): number[] {
+  if (table.bands && table.bands.length > 0) {
+    return table.bands.map((band) => band.start).filter((start) => start > 0);
+  }
+  return table.cut !== null && table.cut > 0 && table.cut < table.entries.length ? [table.cut] : [];
 }

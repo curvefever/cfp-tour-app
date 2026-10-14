@@ -141,7 +141,7 @@ function StandingsRows({
   placed: boolean;
   pending: boolean;
 }) {
-  const result = standingsRowResult(index, table.cut, display.phase);
+  const result = standingsRowResult(index, table, display.phase);
   const band = table.bands?.find((candidate) => candidate.start === index);
   return (
     <>
