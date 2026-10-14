@@ -58,6 +58,11 @@ export function RoundColumn({
   );
 }
 
+/** A small caps sub-label inside a wave box ("WINNERS BRACKET", "LOSERS BRACKET"). */
+function WaveLabel({ children }: { children: ReactNode }) {
+  return <div className='text-xs font-extrabold tracking-[0.05em] text-muted uppercase'>{children}</div>;
+}
+
 /**
  * A `wave` box's content: the winners-bracket (WB) round's own rooms,
  * followed -- only when this wave actually has losers-bracket (LB) rounds
@@ -89,31 +94,24 @@ function WaveBoxBody({
   const hasLosers = box.losersRoundIndices.length > 0;
   return (
     <>
+      <div className='flex flex-col gap-4.5'>
+        {hasLosers ? <WaveLabel>Winners bracket</WaveLabel> : null}
+        <RoundBody
+          state={state}
+          roundIndex={box.winnersRoundIndex}
+          editable={editable}
+          followKey={followKey}
+          projected={projectedSlots[box.winnersRoundIndex] ?? null}
+          labels={labels}
+        />
+      </div>
       {hasLosers ? (
-        <div className='mb-1.5 text-[0.68rem] font-bold tracking-[0.05em] text-success uppercase'>
-          Winners bracket
-        </div>
-      ) : null}
-      <RoundBody
-        state={state}
-        roundIndex={box.winnersRoundIndex}
-        editable={editable}
-        followKey={followKey}
-        projected={projectedSlots[box.winnersRoundIndex] ?? null}
-        labels={labels}
-      />
-      {hasLosers ? (
-        <>
-          <div className='my-2.5 h-px bg-warning' />
-          <div className='mb-1.5 text-[0.68rem] font-bold tracking-[0.05em] text-warning uppercase'>
-            Losers bracket
-          </div>
-          {box.losersRoundIndices.map((roundIndex, index) => (
-            <div className={index > 0 ? 'mt-2.5' : undefined} key={roundIndex}>
+        <div className='flex flex-col gap-4.5'>
+          <WaveLabel>Losers bracket</WaveLabel>
+          {box.losersRoundIndices.map((roundIndex) => (
+            <div className='flex flex-col gap-4.5' key={roundIndex}>
               {box.losersRoundIndices.length > 1 ? (
-                <div className='mb-1 text-[0.65rem] font-semibold text-muted'>
-                  Round {state.rounds[roundIndex]?.roundNum}
-                </div>
+                <div className='text-xs font-bold text-muted'>Round {state.rounds[roundIndex]?.roundNum}</div>
               ) : null}
               <RoundBody
                 state={state}
@@ -125,7 +123,7 @@ function WaveBoxBody({
               />
             </div>
           ))}
-        </>
+        </div>
       ) : null}
     </>
   );
