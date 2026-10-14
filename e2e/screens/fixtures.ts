@@ -175,7 +175,7 @@ function generate(count: number, setup: SetupOverrides, teamSize = 0): Tournamen
       title: 'Fixture Cup',
     }),
     createDefaultSetup(setup),
-    createTournamentRuntime(),
+    createTournamentRuntime({ random: { next: seededRandom(2026) } }),
   );
   if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
   return { ...result.state, started: true, tournamentId: 'fixture' };

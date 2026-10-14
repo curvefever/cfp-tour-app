@@ -65,15 +65,36 @@ async function open(page: Page, path: string): Promise<void> {
   await page.waitForSelector('main[data-hydrated="true"]');
 }
 
-async function capture(page: Page, fixtureId: string, tab: string, width: number): Promise<void> {
+async function capture(page: Page, fixtureId: string, name: string): Promise<void> {
   const directory = `${OUTPUT_DIR}/${fixtureId}`;
   mkdirSync(directory, { recursive: true });
   // Let the views settle (fonts, effects that run after hydration).
   await page.waitForTimeout(400);
   await page.screenshot({
-    path: `${directory}/${tab.toLowerCase().replace(/\W+/g, '-')}-${width}.png`,
+    path: `${directory}/${name}.png`,
     fullPage: true,
   });
+}
+
+function fileName(tab: string, suffix: string): string {
+  return `${tab.toLowerCase().replace(/\W+/g, '-')}-${suffix}`;
+}
+
+/**
+ * The rounds row of the Bracket scrolls sideways inside the page (whose content is capped at 1280 px), so a plain
+ * capture cuts it at the viewport's edge. This lifts the cap, widens the viewport to the whole row plus the page
+ * padding, captures it and puts everything back.
+ */
+async function captureFullBracket(page: Page, fixtureId: string, width: number): Promise<void> {
+  const rounds = page.locator('#br-rounds');
+  const padding = await rounds.evaluate((element) => window.innerWidth - element.clientWidth);
+  const height = page.viewportSize()?.height ?? 900;
+  const uncap = await page.addStyleTag({ content: 'main { max-width: none !important; }' });
+  const rowWidth = await rounds.evaluate((element) => element.scrollWidth);
+  await page.setViewportSize({ width: rowWidth + padding, height });
+  await capture(page, fixtureId, `bracket-full-${width}`);
+  await uncap.evaluate((element) => (element as Element).remove());
+  await page.setViewportSize({ width, height });
 }
 
 function servedFor(fixture: FixtureTournament): ServedPage {
@@ -114,7 +135,8 @@ test.describe('screenshots of the viewer tabs', () => {
 
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
-          await capture(page, fixture.id, tab, width);
+          await capture(page, fixture.id, fileName(tab, String(width)));
+          if (tab === 'Bracket' && width === WIDTHS[0]) await captureFullBracket(page, fixture.id, width);
         }
       });
     }
@@ -135,7 +157,7 @@ test.describe('screenshots of the viewer tabs', () => {
         .getByRole('navigation', { name: 'Tournament sections' })
         .getByRole('button', { name: /Tournaments/ })
         .click();
-      await capture(page, 'tournament-list', 'Tournaments', width);
+      await capture(page, 'tournament-list', fileName('Tournaments', String(width)));
     });
   }
 });
