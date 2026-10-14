@@ -2,26 +2,63 @@ import type { StandingsDisplay } from '../../../domain/tournament/standings-disp
 import { cn } from '../../../components/ui';
 
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
-export const bracketRowBase = 'rounded-sm border-l-[3px] border-l-transparent px-2 py-1 text-xs';
+export const bracketRowBase = 'px-3 py-1 text-xs';
 
 export type RowResult =
-  'advance' | 'drop' | 'eliminate' | 'lucky' | 'pending' | 'promote' | 'stay' | 'demote' | 'below-cut' | '';
+  | 'advance'
+  | 'advance-second'
+  | 'advance-third'
+  | 'drop'
+  | 'eliminate'
+  | 'lucky'
+  | 'candidate'
+  | 'pending'
+  | 'undecided'
+  | 'promote'
+  | 'stay'
+  | 'demote'
+  | 'below-cut'
+  | '';
 
-export function resultClasses(result: RowResult, followed: boolean) {
+/** The colour of a result stripe; `dashed` is the empty, outlined stripe of an undecided row. */
+export type StripeTone = 'green' | 'yellow' | 'orange' | 'purple' | 'red' | 'dashed';
+
+/** The stripe a result gets: the stripe alone carries a row's status (names never change colour). `null`: no stripe at all. */
+export function stripeTone(result: RowResult): StripeTone | null {
+  switch (result) {
+    case 'advance':
+    case 'promote':
+    case 'lucky':
+      return 'green';
+    case 'advance-second':
+    case 'stay':
+      return 'yellow';
+    case 'demote':
+      return 'orange';
+    // A drop to the losers bracket, or a third destination group, is purple: a real result, not an elimination.
+    case 'drop':
+    case 'advance-third':
+      return 'purple';
+    case 'eliminate':
+    case 'below-cut':
+      return 'red';
+    case 'pending':
+    case 'candidate':
+    case 'undecided':
+      return 'dashed';
+    case '':
+      return null;
+  }
+}
+
+/** A row's surface: alternating grounds, flush against each other; a followed row gets the lighter ground and a ring. */
+export function rowSurfaceClasses(index: number, followed: boolean) {
   return cn(
-    result === 'advance' && 'border-l-success text-success',
-    // A drop (double-elim: to the losers bracket) is a real, ongoing result,
-    // not an elimination -- amber like a Kings Valley demote, never the red
-    // bar of an eliminated row.
-    result === 'drop' && 'border-l-warning text-warning',
-    result === 'eliminate' && 'border-l-danger text-muted',
-    result === 'lucky' && 'border-l-accent text-accent',
-    result === 'pending' && 'border-l-danger text-danger no-underline opacity-85',
-    result === 'promote' && 'border-l-success text-success',
-    result === 'demote' && 'border-l-warning text-warning',
-    // Below a live standings cut: a projection, muted, without the red bar of an eliminated row.
-    result === 'below-cut' && 'text-muted',
-    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_var(--app-primary-ring)]',
+    followed
+      ? 'bg-cfp-followed shadow-[inset_0_0_0_2px_var(--color-cfp-followed-ring)]'
+      : index % 2 === 0
+        ? 'bg-cfp-row-a'
+        : 'bg-cfp-row-b',
   );
 }
 

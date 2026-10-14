@@ -8,7 +8,8 @@ import {
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { standingsContextLine } from '../standings/standings-text';
-import { bracketRowBase, resultClasses, standingsRowResult } from '../tournament/components/result-row';
+import { ResultStripe } from '../tournament/components/ResultStripe';
+import { bracketRowBase, rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
 
 const headerClass =
   'flex w-full cursor-pointer items-center gap-1 border-b border-muted bg-surface-low px-3 py-2.5 text-left text-xs font-bold tracking-[0.08em] text-primary uppercase';
@@ -41,7 +42,7 @@ function StandingsBlock({
       {display.perGroup ? (
         <div className='mb-1 text-[0.68rem] font-bold text-muted'>{table.label}</div>
       ) : null}
-      <div className='flex flex-col gap-0.5'>
+      <div className='flex flex-col'>
         {table.entries.map((entry, index) => {
           const band = table.bands?.find((candidate) => candidate.start === index);
           return (
@@ -52,13 +53,11 @@ function StandingsBlock({
                 className={cn(
                   bracketRowBase,
                   'flex items-center gap-1.5',
-                  resultClasses(
-                    standingsRowResult(index, table.cut, display.phase),
-                    followKey === entry.name,
-                  ),
+                  rowSurfaceClasses(index, followKey === entry.name),
                 )}
               >
                 <span className='w-5 shrink-0 text-right tabular-nums'>{entry.rank ?? '—'}</span>
+                <ResultStripe compact result={standingsRowResult(index, table.cut, display.phase)} />
                 <span className='min-w-0 flex-1 truncate'>{unitDisplay(state, entry.name).label}</span>
                 <span className='shrink-0 text-muted tabular-nums'>
                   {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}

@@ -19,7 +19,8 @@ import {
   TableScroll,
   cn,
 } from '../../components/ui';
-import { resultClasses, standingsRowResult } from '../tournament/components/result-row';
+import { ResultStripe } from '../tournament/components/ResultStripe';
+import { rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
 import { formatTieBreak, roundCells } from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
@@ -150,11 +151,16 @@ function StandingsRows({
       {!table.bands && table.cut !== null && index === table.cut ? (
         <CutLine columnCount={roundIndexes.length * 3 + 4} />
       ) : null}
-      <TableRow className={cn('border-l-[3px] border-l-transparent', resultClasses(result, followed))}>
+      <TableRow className={rowSurfaceClasses(index, followed)}>
         <TableCell>{entry.rank ?? '—'}</TableCell>
         <TableCell>
-          <TournamentUnit state={state} name={entry.name} />
-          <TieMark placed={placed} pending={pending} />
+          <div className='flex items-center gap-2'>
+            <ResultStripe result={result} />
+            <div>
+              <TournamentUnit state={state} name={entry.name} />
+              <TieMark placed={placed} pending={pending} />
+            </div>
+          </div>
         </TableCell>
         {roundIndexes.map((roundIndex) => (
           <RoundResultCells

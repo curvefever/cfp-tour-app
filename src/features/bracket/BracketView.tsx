@@ -80,7 +80,9 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { formatTieBreak } from '../standings/standings-text';
 import { StandingsColumn } from './StandingsColumn';
-import { bracketRowBase, resultClasses, type RowResult } from '../tournament/components/result-row';
+import { LuckyStar } from '../tournament/components/LuckyStar';
+import { ResultStripe } from '../tournament/components/ResultStripe';
+import { bracketRowBase, rowSurfaceClasses, type RowResult } from '../tournament/components/result-row';
 
 const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
 
@@ -1050,7 +1052,7 @@ function RoundBody({
                 (1)
               </RoomLabel>
               <RoomExitChips bands={bands} labels={labels} />
-              <div className={cn(bracketRowBase, resultClasses('', followKey === units[0].name))}>
+              <div className={cn(bracketRowBase, rowSurfaceClasses(0, followKey === units[0].name))}>
                 <span className='block truncate' title={unitDisplay(state, units[0].name).label}>
                   {unitDisplay(state, units[0].name).label}
                 </span>
@@ -1135,7 +1137,7 @@ function RoundBody({
                   : null;
               const badges = (
                 <>
-                  {showResults && lucky ? '★ ' : ''}
+                  {showResults && lucky ? <LuckyStar /> : null}
                   {units.find((unit) => unit.name === entry.name)?.manual ? <ManualMarker /> : null}
                   {kvLabel ? (
                     <Badge
@@ -1168,8 +1170,9 @@ function RoundBody({
               if (teamSize) {
                 const team = teamMap[entry.name];
                 return (
-                  <div className={cn(bracketRowBase, resultClasses(result, followed))} key={entry.name}>
+                  <div className={cn(bracketRowBase, rowSurfaceClasses(index, followed))} key={entry.name}>
                     <div className='flex items-center gap-1.5'>
+                      <ResultStripe result={result} />
                       <span className='min-w-0 flex-1'>
                         {badges}
                         <span>{unitDisplay(state, entry.name).label}</span>
@@ -1257,8 +1260,9 @@ function RoundBody({
               }
               if (rowsEditable && games > 1) {
                 return (
-                  <div className={cn(bracketRowBase, resultClasses(result, followed))} key={entry.name}>
+                  <div className={cn(bracketRowBase, rowSurfaceClasses(index, followed))} key={entry.name}>
                     <div className='flex items-center gap-1.5'>
+                      <ResultStripe result={result} />
                       <span className='min-w-0 flex-1 truncate' title={entry.name}>
                         {badges}
                         {entry.name}
@@ -1276,9 +1280,14 @@ function RoundBody({
               }
               return (
                 <div
-                  className={cn(bracketRowBase, 'flex items-center gap-1.5', resultClasses(result, followed))}
+                  className={cn(
+                    bracketRowBase,
+                    'flex items-center gap-1.5',
+                    rowSurfaceClasses(index, followed),
+                  )}
                   key={entry.name}
                 >
+                  <ResultStripe result={result} />
                   <span className='min-w-0 flex-1 truncate' title={entry.name}>
                     {badges}
                     {entry.name}
