@@ -1,9 +1,4 @@
-import {
-  computeStandingsCutoffAdvancing,
-  detectTieBreaks,
-  getAllTies,
-  isTieResolved,
-} from '../../domain/tournament/advancement';
+import { detectTieBreaks, getAllTies, isTieResolved } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
@@ -69,14 +64,6 @@ export function RoundBody({
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
   const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
-  let cutoffAdvancing: Set<string> | null = null;
-  if (!round.bracket && !round.isKingsValley) {
-    try {
-      cutoffAdvancing = computeStandingsCutoffAdvancing(state, roundIndex);
-    } catch (error) {
-      console.error(`Standings-cutoff computation failed for round ${round.roundNum}`, error);
-    }
-  }
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
     Object.entries(roomTies)
@@ -93,7 +80,6 @@ export function RoundBody({
       <RoundExitSummary rule={exitRule} labels={labels} rankedUnits={state.players.length} />
       {round.rooms.map((_, roomIndex) => (
         <RoomCard
-          cutoffAdvancing={cutoffAdvancing}
           exitRule={exitRule}
           followKey={followKey}
           key={roomIndex}

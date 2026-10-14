@@ -9,7 +9,7 @@ import type { TournamentRound, TournamentState } from '../../domain/tournament/t
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
 import { ResultStripe } from '../tournament/components/ResultStripe';
-import { type RowResult, bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
+import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
 import { DestinationTag, RoomExitChips } from './RoomExits';
 import { ManualMarker } from './RowMarks';
 import {
@@ -21,6 +21,7 @@ import {
   memberLabel,
 } from './ScoreFields';
 import { exitBandDestination } from './exit-text';
+import { roomRowResult } from './room-row-result';
 
 /**
  * Whether a lone unit's room reads as "treated as a bye": true for rounds
@@ -52,7 +53,6 @@ export function RoomCard({
   followKey,
   labels,
   luckyNames,
-  cutoffAdvancing,
   resolvedTieNames,
   pendingTieNames,
   teamMap,
@@ -65,7 +65,6 @@ export function RoomCard({
   followKey: string | null;
   labels: ReturnType<typeof bracketRoundLabels>;
   luckyNames: string[];
-  cutoffAdvancing: Set<string> | null;
   resolvedTieNames: Set<string>;
   pendingTieNames: Set<string>;
   teamMap: ReturnType<typeof buildTeamMap>;
@@ -134,26 +133,15 @@ export function RoomCard({
         // 'per-room' exit rule); standings-cutoff and no-elim rounds
         // keep their own existing paths below, unchanged.
         const band = exitBandAtRank(bands, index + 1);
-        const perRoomResult: RowResult = !band
-          ? 'eliminate'
-          : band.kind === 'lucky-chance'
-            ? lucky
-              ? 'lucky'
-              : band.otherwise === 'eliminate'
-                ? 'eliminate'
-                : 'drop'
-            : band.kind;
-        const result: RowResult = pending
-          ? 'pending'
-          : !showResults
-            ? ''
-            : cutoffAdvancing
-              ? cutoffAdvancing.has(entry.name)
-                ? 'advance'
-                : 'eliminate'
-              : round.isNoElim
-                ? 'advance'
-                : perRoomResult;
+        const { result, star } = roomRowResult({
+          rule: exitRule,
+          bands,
+          rank: index + 1,
+          lucky,
+          pendingTie: pending,
+          roomComplete: showResults,
+          roundDecided: roundIndex < state.curRound,
+        });
         const destination =
           showDestinationTags && showResults ? exitBandDestination(band, lucky, advanceDestination) : null;
         const followed = followKey === entry.name;
@@ -169,7 +157,7 @@ export function RoomCard({
             : null;
         const badges = (
           <>
-            {showResults && lucky ? <LuckyStar /> : null}
+            {star ? <LuckyStar candidate={star === 'candidate'} /> : null}
             {units.find((unit) => unit.name === entry.name)?.manual ? <ManualMarker /> : null}
             {kvLabel ? (
               <Badge
