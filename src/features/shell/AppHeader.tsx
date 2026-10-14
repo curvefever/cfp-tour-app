@@ -1,5 +1,5 @@
 import type { ActiveTab } from '../../domain/tournament/types';
-import logoUrl from '../../assets/cfp-logo.png';
+import logoUrl from '../../assets/cfp-logo.svg';
 import { cn } from '../../components/ui';
 import { AccountMenu } from './AccountMenu';
 
@@ -75,7 +75,7 @@ export function AppHeader({
           className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           onClick={onHome}
         >
-          <img alt='' aria-hidden='true' className='size-7 rounded-md' height={28} src={logoUrl} width={28} />
+          <img alt='' aria-hidden='true' className='h-7 w-auto' height={28} src={logoUrl} width={26} />
           CFP Tournament Hub
         </button>
         <nav
