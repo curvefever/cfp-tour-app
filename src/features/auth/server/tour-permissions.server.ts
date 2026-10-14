@@ -15,7 +15,7 @@ export async function requireTourAdminPermission(): Promise<AuthSnapshot> {
     token,
   });
   if (!canAdminTour(snapshot.roles)) {
-    throw new Error("Your CFP account does not have Tour Hub admin access.");
+    throw new Error("Your CFP account does not have Tournament Hub admin access.");
   }
   return snapshot;
 }

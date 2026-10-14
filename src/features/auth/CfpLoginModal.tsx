@@ -36,7 +36,7 @@ export function CfpLoginModal({
     <Modal title="Sign in with CFP" titleId="admin-dialog-title">
       <form onSubmit={(event) => void submit(event)}>
         <p className="mb-4 text-sm leading-relaxed text-muted">
-          Tour Hub administration is available to CFP tour hosts, moderators, developers, and administrators.
+          Tournament Hub administration is available to CFP tour hosts, moderators, developers, and administrators.
         </p>
         <Field htmlFor="cfp-email" label="Email">
           <Input

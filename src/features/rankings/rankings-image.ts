@@ -51,7 +51,7 @@ export async function buildRankingsImage(state: TournamentState): Promise<Blob |
   context.fillStyle = '#00E5FF';
   context.fillText('CFP', 32, 36);
   context.fillStyle = '#E8EDF5';
-  context.fillText('TOUR HUB', 82, 36);
+  context.fillText('TOURNAMENT HUB', 82, 36);
   context.font = '600 17px ' + FONT;
   context.fillText(state.title.trim() || 'Unnamed Tournament', 32, 68);
   context.font = '600 11px ' + FONT;

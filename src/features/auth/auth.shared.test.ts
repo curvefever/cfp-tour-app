@@ -10,7 +10,7 @@ import {
   getUsernameFromPayload,
 } from './auth.shared';
 
-describe('Tour Hub admin roles', () => {
+describe('Tournament Hub admin roles', () => {
   it('allows the configured CFP roles', () => {
     expect(TOUR_ADMIN_ROLE_IDS).toEqual([
       Role.ADMIN,

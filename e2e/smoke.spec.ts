@@ -84,7 +84,7 @@ test.describe('visitor smoke test', () => {
     await serveTournaments(page, []);
     await gotoHydrated(page);
 
-    await expect(page.getByText('CFP Tour Hub')).toBeVisible();
+    await expect(page.getByText('CFP Tournament Hub')).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
     await expect(nav.getByRole('button')).toHaveCount(1);
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
@@ -152,7 +152,7 @@ test.describe('visitor smoke test', () => {
     await expect(page.locator('#view-info')).toBeVisible();
 
     await nav.getByRole('button', { name: /Players/ }).click();
-    await page.getByRole('button', { name: 'CFP Tour Hub' }).click();
+    await page.getByRole('button', { name: 'CFP Tournament Hub' }).click();
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
     // The title only opens the list: the tournament stays loaded, and its Info (the only place with Exit) is still there.
     await expect(page.getByRole('button', { name: 'Exit tournament view' })).toHaveCount(0);

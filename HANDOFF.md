@@ -1,4 +1,4 @@
-# Curve Fever Pro Tour Hub — Handoff
+# Curve Fever Pro Tournament Hub — Handoff
 
 Current state only, kept short: read it at the start of any real work session. History and the reasoning behind decisions live in `HANDOFF_LOG.md`.
 

@@ -1,4 +1,5 @@
 import type { ActiveTab } from '../../domain/tournament/types';
+import logoUrl from '../../assets/cfp-logo.png';
 import { cn } from '../../components/ui';
 import { AccountMenu } from './AccountMenu';
 
@@ -40,7 +41,7 @@ function TabButton({
 }
 
 /**
- * The top bar (always the middle look): "CFP Tour Hub", the tabs and the signed-in admin. Tournaments stands apart;
+ * The top bar (always the middle look): the logo and "CFP Tournament Hub", the tabs and the signed-in admin. Tournaments stands apart;
  * the loaded tournament's tabs sit together on a lighter band. With no tournament loaded, a divider sets Admin apart.
  */
 export function AppHeader({
@@ -71,10 +72,11 @@ export function AppHeader({
     >
       <div className='mx-auto flex min-h-15 max-w-310 flex-wrap items-center gap-x-6 gap-y-2'>
         <button
-          className='cursor-pointer text-xl font-bold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           onClick={onHome}
         >
-          CFP Tour Hub
+          <img alt='' aria-hidden='true' className='size-7 rounded-md' height={28} src={logoUrl} width={28} />
+          CFP Tournament Hub
         </button>
         <nav
           aria-label='Tournament sections'

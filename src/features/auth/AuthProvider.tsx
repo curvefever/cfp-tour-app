@@ -181,7 +181,7 @@ export function AuthProvider({
       try {
         const response = await requestTokenLogin(token);
         const roles = extractAccountRoles(response);
-        if (!canAdminTour(roles)) throw new Error("Your CFP account does not have Tour Hub admin access.");
+        if (!canAdminTour(roles)) throw new Error("Your CFP account does not have Tournament Hub admin access.");
         const username = getUsernameFromPayload(response.username, fallbackUsername);
         const nextToken = response.accessToken?.trim() || token;
         saveAccessToken(nextToken);
@@ -210,7 +210,7 @@ export function AuthProvider({
     try {
       const response = await requestLogin(email, password);
       const roles = extractAccountRoles(response);
-      if (!canAdminTour(roles)) throw new Error("Your CFP account does not have Tour Hub admin access.");
+      if (!canAdminTour(roles)) throw new Error("Your CFP account does not have Tournament Hub admin access.");
       const token = response.accessToken?.trim();
       if (!token) throw new Error("CFP did not return a login token.");
       const username = getUsernameFromPayload(response.username);

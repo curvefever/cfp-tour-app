@@ -1,6 +1,6 @@
-# Curve Fever Pro Tour Hub
+# Curve Fever Pro Tournament Hub
 
-The Tour Hub is a web app for setting up and running Curve Fever Pro tournaments. Organisers can load a roster, generate rounds, enter scores, resolve ties, and manage players or teams during an event. A shareable live view lets everyone follow the scoreboard, bracket, and rankings.
+The Tournament Hub is a web app for setting up and running Curve Fever Pro tournaments. Organisers can load a roster, generate rounds, enter scores, resolve ties, and manage players or teams during an event. A shareable live view lets everyone follow the scoreboard, bracket, and rankings.
 
 The app supports individual and team formats, single and double elimination, qualification tables, Swiss rounds, and group stages. Tournament snapshots are stored in the browser and can be imported or exported as JSON.
 
