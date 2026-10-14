@@ -7,7 +7,6 @@ import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
-import { RoundExitSummary } from './RoomExits';
 import { KingsValleyDisclaimer, LuckyLoserDisclaimer, LuckyLoserStandingsPanel } from './RoundNotes';
 
 function tieResolutionListSafe(state: TournamentState, key: string): string[] {
@@ -78,7 +77,6 @@ export function RoundBody({
   );
   return (
     <>
-      <RoundExitSummary rule={exitRule} labels={labels} rankedUnits={state.players.length} />
       {round.rooms.map((_, roomIndex) => (
         <RoomCard
           exitRule={exitRule}

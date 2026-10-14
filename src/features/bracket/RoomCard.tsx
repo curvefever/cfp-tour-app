@@ -2,14 +2,14 @@ import { type ReactNode } from 'react';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
-import { type RoundExitRule, exitBandAtRank } from '../../domain/tournament/room-exits';
+import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
 import { getUnitScore, orderRoomByScore, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
-import { RoomExitChips } from './RoomExits';
+import { ExitIcon } from './ExitIcon';
+import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { LoneUnitRow, RoomRow } from './RoomRow';
-import { exitBandDestination } from './exit-text';
 import { roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 
@@ -30,14 +30,17 @@ function isByeLikeRound(round: TournamentRound): boolean {
 export function RoomFrame({
   children,
   future = false,
+  lines = [],
   title,
 }: {
   children: ReactNode;
   future?: boolean;
+  /** Where the room's places go: shown by the arrow icon at the right of the header (no icon without lines). */
+  lines?: ExitLine[];
   title: string;
 }) {
   return (
-    <div className='rounded-xs bg-surface outline-2 outline-cfp-game-frame'>
+    <div className='relative rounded-xs bg-surface outline-2 outline-cfp-game-frame'>
       <div
         className={cn(
           'flex h-9.5 items-center pr-1.5 pl-3',
@@ -45,6 +48,8 @@ export function RoomFrame({
         )}
       >
         <h3 className={roomHeaderClassName}>{title}</h3>
+        <span className='flex-1' />
+        <ExitIcon label={`Where players go from ${title}`} lines={lines} />
       </div>
       {children}
     </div>
@@ -81,19 +86,18 @@ export function RoomCard({
   const units = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
   const bands = exitRule.kind === 'per-room' ? exitRule.rooms[roomIndex] : [];
   const title = roomTitle(round, roomIndex);
+  const lines =
+    exitRule.kind === 'per-room'
+      ? roomExitLines(bands, labels)
+      : poolingExitLines(state, roundIndex, units.length);
   // Only Kings Valley has a band for a lone room ("1 stay"); roundExitRule gives every other bye-like round none here.
   if (isByeLikeRound(round) && isUncontestedRoom(state, roundIndex, room)) {
     return (
-      <RoomFrame title={title}>
-        <RoomExitChips bands={bands} labels={labels} />
+      <RoomFrame lines={lines} title={title}>
         <LoneUnitRow followed={followKey === units[0].name} name={units[0].name} state={state} />
       </RoomFrame>
     );
   }
-  const advanceDestination = bands.find((band) => band.kind === 'advance')?.destination;
-  // A destination tag is only meaningful where "which round" isn't already obvious from a single fixed next
-  // round -- waterfall (a band can point several rounds ahead) and double-elimination (WB vs LB).
-  const showDestinationTags = round.isWaterfall || Boolean(round.bracket);
   const scored = units.map((entry, position) => ({
     name: entry.name,
     position,
@@ -112,13 +116,10 @@ export function RoomCard({
     : scored;
   const memberInputs = scoredTeamSize(state);
   return (
-    <RoomFrame title={title}>
-      <RoomExitChips bands={bands} labels={labels} />
+    <RoomFrame lines={lines} title={title}>
       {display.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
-        // The room's own band for this rank: the single source both the row's stripe and its destination tag read from.
-        const band = exitBandAtRank(bands, index + 1);
         const { result, star } = roomRowResult({
           rule: exitRule,
           bands,
@@ -130,15 +131,11 @@ export function RoomCard({
         });
         return (
           <RoomRow
-            destination={
-              showDestinationTags && showResults ? exitBandDestination(band, lucky, advanceDestination) : null
-            }
             followed={followKey === entry.name}
             games={round.numGames ?? 1}
             index={index}
             inputsPerTeam={rowsEditable ? memberInputs : undefined}
             key={entry.name}
-            labels={labels}
             manual={Boolean(units.find((unit) => unit.name === entry.name)?.manual)}
             memberInputs={memberInputs}
             name={entry.name}

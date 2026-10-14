@@ -29,6 +29,8 @@ export interface FixtureTournament {
   screenshotIds?: string[];
   /** A unit to follow in the Bracket: the spec types it into the follow box and captures that too. */
   follow?: string;
+  /** Which exit icons (by position in the Bracket, counting every open room) the spec hovers to capture their pop-up. */
+  exitPopups?: number[];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -374,7 +376,7 @@ function titleOf(id: string): string {
 export function fixtureTournaments(): FixtureTournament[] {
   return [
     entry('ffa37-pooling', ffaPooling(37)),
-    entry('ffa37-quarters', ffaQuarters(37), { follow: 'Player 14' }),
+    entry('ffa37-quarters', ffaQuarters(37), { follow: 'Player 14', exitPopups: [0, 5] }),
     entry('ffa37-final-complete', ffa37FinalComplete()),
     entry('ffa37-finished', ffa37FinalComplete(), { status: 'finished' }),
     entry('ffa31-pooling', ffaPooling(31)),

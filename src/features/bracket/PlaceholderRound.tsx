@@ -12,7 +12,7 @@ import { ResultStripe } from '../tournament/components/ResultStripe';
 import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ByeCard } from './ByeCard';
 import { RoomFrame } from './RoomCard';
-import { RoomExitChips, RoundExitSummary } from './RoomExits';
+import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { KingsValleyDisclaimer, LuckyLoserDisclaimer } from './RoundNotes';
 import { roomTitle } from './room-title';
 
@@ -32,18 +32,17 @@ function SlotRow({ index, known, label }: { index: number; known: boolean; label
 /** A room of a round that is not played yet: a lighter header, then one row per slot. */
 function FutureRoom({
   children,
-  chips,
+  lines,
   round,
   roomIndex,
 }: {
   children: ReactNode;
-  chips?: ReactNode;
+  lines: ExitLine[];
   round: TournamentRound;
   roomIndex: number;
 }) {
   return (
-    <RoomFrame future title={roomTitle(round, roomIndex)}>
-      {chips}
+    <RoomFrame future lines={lines} title={roomTitle(round, roomIndex)}>
       {children}
     </RoomFrame>
   );
@@ -64,7 +63,11 @@ export function PlaceholderRound({
 }) {
   if (!round.rooms.length) return <div className='text-sm text-muted'>Not yet seeded</div>;
   const rule = roundExitRule(state, roundIndex);
-  const summary = <RoundExitSummary rule={rule} labels={labels} rankedUnits={state.players.length} />;
+  // Where the places of a room go: its bands for a bracket round, what a place earns for a pooling round.
+  const linesOf = (roomIndex: number) =>
+    rule.kind === 'per-room'
+      ? roomExitLines(rule.rooms[roomIndex] ?? [], labels)
+      : poolingExitLines(state, roundIndex, round.rooms[roomIndex]);
   const knownRow = (name: string, index: number) => (
     <SlotRow index={index} key={name} known label={unitDisplay(state, name).label} />
   );
@@ -82,9 +85,8 @@ export function PlaceholderRound({
     }
     return (
       <>
-        {summary}
         {round.rooms.map((_, roomIndex) => (
-          <FutureRoom key={roomIndex} round={round} roomIndex={roomIndex}>
+          <FutureRoom key={roomIndex} lines={linesOf(roomIndex)} round={round} roomIndex={roomIndex}>
             {(byRoom.get(roomIndex + 1) ?? []).map(knownRow)}
           </FutureRoom>
         ))}
@@ -97,9 +99,8 @@ export function PlaceholderRound({
   if (round.isGroupStage) {
     return (
       <>
-        {summary}
         {(round.matches ?? []).map((match, roomIndex) => (
-          <FutureRoom key={roomIndex} round={round} roomIndex={roomIndex}>
+          <FutureRoom key={roomIndex} lines={linesOf(roomIndex)} round={round} roomIndex={roomIndex}>
             {match.pair.map(knownRow)}
           </FutureRoom>
         ))}
@@ -111,17 +112,10 @@ export function PlaceholderRound({
   }
   return (
     <>
-      {summary}
       {round.rooms.map((slots, roomIndex) => {
         const roomLabels = projected?.[roomIndex] ?? null;
-        const bands = rule.kind === 'per-room' ? rule.rooms[roomIndex] : [];
         return (
-          <FutureRoom
-            chips={<RoomExitChips bands={bands} labels={labels} />}
-            key={roomIndex}
-            round={round}
-            roomIndex={roomIndex}
-          >
+          <FutureRoom lines={linesOf(roomIndex)} key={roomIndex} round={round} roomIndex={roomIndex}>
             {Array.from({ length: slots }, (_, slot) => (
               <SlotRow
                 index={slot}

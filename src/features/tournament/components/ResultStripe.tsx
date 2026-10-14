@@ -10,6 +10,25 @@ const TONE_CLASSES: Record<StripeTone, string> = {
   dashed: 'border border-dashed border-cfp-text-dim',
 };
 
+/** A stripe of a given tone: the result stripe of a row, and the colour key of an exit pop-up. */
+export function Stripe({
+  className,
+  compact = false,
+  tone,
+}: {
+  className?: string;
+  /** The shorter stripe of the standings column. */
+  compact?: boolean;
+  tone: StripeTone;
+}) {
+  return (
+    <span
+      aria-hidden='true'
+      className={cn('inline-block w-1 shrink-0 rounded-xs', compact ? 'h-4.5' : 'h-5.5', TONE_CLASSES[tone], className)}
+    />
+  );
+}
+
 /** The small stripe between a row's place and its name, coloured by the row's result. Renders nothing for a row without one. */
 export function ResultStripe({
   className,
@@ -17,21 +36,9 @@ export function ResultStripe({
   result,
 }: {
   className?: string;
-  /** The shorter stripe of the standings column. */
   compact?: boolean;
   result: RowResult;
 }) {
   const tone = stripeTone(result);
-  if (tone === null) return null;
-  return (
-    <span
-      aria-hidden='true'
-      className={cn(
-        'inline-block w-1 shrink-0 rounded-xs',
-        compact ? 'h-4.5' : 'h-5.5',
-        TONE_CLASSES[tone],
-        className,
-      )}
-    />
-  );
+  return tone === null ? null : <Stripe className={className} compact={compact} tone={tone} />;
 }

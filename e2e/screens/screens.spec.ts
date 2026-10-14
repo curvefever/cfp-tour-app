@@ -103,6 +103,23 @@ async function captureFullBracket(page: Page, fixtureId: string, name: string, w
   await page.setViewportSize({ width, height });
 }
 
+/** Hovers the n-th exit icon of the Bracket and saves the area around its pop-up. */
+async function captureExitPopup(page: Page, fixtureId: string, nth: number, width: number): Promise<void> {
+  const icon = page.getByRole('button', { name: /Where players go from/ }).nth(nth);
+  await icon.scrollIntoViewIfNeeded();
+  await icon.hover();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  const box = await icon.boundingBox();
+  if (!box) throw new Error('the exit icon has no box');
+  const x = Math.max(0, box.x - 300);
+  const y = Math.max(0, box.y - 6);
+  await page.screenshot({
+    path: `${OUTPUT_DIR}/${fixtureId}/exit-popup-${nth}-${width}.png`,
+    clip: { x, y, width: Math.min(width - x, 380), height: 260 },
+  });
+  await page.mouse.move(0, 0);
+}
+
 function servedFor(fixture: FixtureTournament): ServedPage {
   const started = fixture.state.started;
   return {
@@ -146,6 +163,7 @@ test.describe('screenshots of the viewer tabs', () => {
           await capture(page, fixture.id, fileName(tab, String(width)));
           if (tab === 'Bracket' && width === WIDTHS[0]) {
             await captureFullBracket(page, fixture.id, 'bracket-full', width);
+            for (const nth of fixture.exitPopups ?? []) await captureExitPopup(page, fixture.id, nth, width);
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);
               await captureFullBracket(page, fixture.id, 'bracket-follow-full', width);

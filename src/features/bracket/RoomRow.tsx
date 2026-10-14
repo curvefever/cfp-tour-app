@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { getUnitScore } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
@@ -7,7 +6,6 @@ import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { type RowResult, bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
-import { DestinationTag } from './RoomExits';
 import { ManualMarker } from './RowMarks';
 import {
   BracketScoreInput,
@@ -120,8 +118,6 @@ export interface RoomRowProps {
   manual: boolean;
   pendingTie: boolean;
   resolvedTie: boolean;
-  destination: number | null;
-  labels: ReturnType<typeof bracketRoundLabels>;
   /** The team behind a team row, to label its member inputs. */
   team: TournamentTeam | undefined;
   teamSize: number;
@@ -183,14 +179,11 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
 export function RoomRow(props: RoomRowProps) {
   const { state, roundIndex, room, position, name, index, score, result, star, showResults, rowsEditable } =
     props;
-  const { followed, manual, pendingTie, resolvedTie, destination, labels, teamSize, inputsPerTeam } = props;
+  const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games } = props;
   const label = teamSize ? unitDisplay(state, name).label : name;
   const scoreText = showResults ? (
-    <span className='ml-auto flex shrink-0 items-center text-[17px] font-extrabold'>
-      {score}
-      <DestinationTag destination={destination} labels={labels} />
-    </span>
+    <span className='ml-auto flex shrink-0 items-center text-[17px] font-extrabold'>{score}</span>
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
