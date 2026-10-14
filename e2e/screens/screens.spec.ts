@@ -91,14 +91,14 @@ function fileName(tab: string, suffix: string): string {
  * capture cuts it at the viewport's edge. This lifts the cap, widens the viewport to the whole row plus the page
  * padding, captures it and puts everything back.
  */
-async function captureFullBracket(page: Page, fixtureId: string, width: number): Promise<void> {
+async function captureFullBracket(page: Page, fixtureId: string, name: string, width: number): Promise<void> {
   const rounds = page.locator('#br-rounds');
   const padding = await rounds.evaluate((element) => window.innerWidth - element.clientWidth);
   const height = page.viewportSize()?.height ?? 900;
   const uncap = await page.addStyleTag({ content: 'main { max-width: none !important; }' });
   const rowWidth = await rounds.evaluate((element) => element.scrollWidth);
   await page.setViewportSize({ width: rowWidth + padding, height });
-  await capture(page, fixtureId, `bracket-full-${width}`);
+  await capture(page, fixtureId, `${name}-${width}`);
   await uncap.evaluate((element) => (element as Element).remove());
   await page.setViewportSize({ width, height });
 }
@@ -144,7 +144,14 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
-          if (tab === 'Bracket' && width === WIDTHS[0]) await captureFullBracket(page, fixture.id, width);
+          if (tab === 'Bracket' && width === WIDTHS[0]) {
+            await captureFullBracket(page, fixture.id, 'bracket-full', width);
+            if (fixture.follow) {
+              await page.locator('#br-follow-input').fill(fixture.follow);
+              await captureFullBracket(page, fixture.id, 'bracket-follow-full', width);
+              await page.locator('#br-follow-input').fill('');
+            }
+          }
         }
       });
     }

@@ -8,6 +8,7 @@ import {
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { standingsContextLine } from '../standings/standings-text';
+import { FoldedBox } from './FoldedBox';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { bracketRowBase, rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
 
@@ -91,63 +92,56 @@ export function StandingsColumn({
   onToggle?: () => void;
   onOpenFullTable?: () => void;
 }) {
-  const folded = collapsed && onToggle !== undefined;
-  const followed = followKey ? standingFor(display, followKey) !== null : false;
+  const followedStanding = followKey ? standingFor(display, followKey) : null;
+  if (collapsed && onToggle !== undefined) {
+    return (
+      <div className='shrink-0' data-standings-column>
+        <FoldedBox onUnfold={onToggle} title='Standings'>
+          {followedStanding ? (
+            <div className='text-base font-bold text-cfp-sky'>#{followedStanding.rank}</div>
+          ) : null}
+        </FoldedBox>
+      </div>
+    );
+  }
   return (
     <div
       className={cn(
-        folded ? 'w-8.5 min-w-8.5' : 'w-52.5 min-w-52.5',
-        'shrink-0 overflow-hidden rounded-lg border-2 border-muted bg-surface-low',
-        followed && 'border-primary',
+        'w-52.5 min-w-52.5 shrink-0 overflow-hidden rounded-lg border-2 border-muted bg-surface-low',
+        followedStanding && 'border-primary',
       )}
       data-standings-column
     >
       {onToggle ? (
-        <button
-          className={cn(
-            headerClass,
-            folded && 'h-45 border-b-0 py-2 pr-0 pl-0.5 whitespace-nowrap [writing-mode:vertical-rl]',
-          )}
-          aria-expanded={!folded}
-          onClick={onToggle}
-        >
-          <span
-            className={cn(
-              'shrink-0 rotate-90 text-[0.68rem]',
-              folded && 'rotate-180 [writing-mode:horizontal-tb]',
-            )}
-          >
-            ▸
-          </span>
+        <button aria-expanded='true' className={headerClass} onClick={onToggle}>
+          <span className='shrink-0 rotate-90 text-[0.68rem]'>▸</span>
           Standings
         </button>
       ) : (
         <div className={cn(headerClass, 'cursor-default')}>Standings</div>
       )}
-      {!folded ? (
-        <div className='p-2.5'>
-          <p className='text-xs text-muted'>{standingsContextLine(display)}</p>
-          {display.phase !== 'upcoming'
-            ? display.tables.map((table) => (
-                <StandingsBlock
-                  key={table.key}
-                  table={table}
-                  display={display}
-                  state={state}
-                  followKey={followKey}
-                />
-              ))
-            : null}
-          {onOpenFullTable ? (
-            <button
-              className='mt-2.5 cursor-pointer text-xs font-semibold text-primary hover:underline'
-              onClick={onOpenFullTable}
-            >
-              Full table →
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+      <div className='p-2.5'>
+        <p className='text-xs text-muted'>{standingsContextLine(display)}</p>
+        {display.phase !== 'upcoming'
+          ? display.tables.map((table) => (
+              <StandingsBlock
+                key={table.key}
+                table={table}
+                display={display}
+                state={state}
+                followKey={followKey}
+              />
+            ))
+          : null}
+        {onOpenFullTable ? (
+          <button
+            className='mt-2.5 cursor-pointer text-xs font-semibold text-primary hover:underline'
+            onClick={onOpenFullTable}
+          >
+            Full table →
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

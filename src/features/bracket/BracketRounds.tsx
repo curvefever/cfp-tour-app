@@ -2,7 +2,6 @@ import { Fragment, type ReactNode, useMemo, useState } from 'react';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import {
   type BracketBox,
-  type BracketFollowStatus,
   type RoundGameCount,
   bracketBoxes,
   bracketRoundDefaultCollapsed,
@@ -16,44 +15,13 @@ import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
 import { AnonymousFinalCard } from './FinalColumn';
 import { ColumnTitleBar } from './ColumnTitleBar';
+import { FoldedBox, FoldedRoundBody } from './FoldedBox';
+import { type FoldedRoundSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
 
-/** The width-affecting classes for a round column at a given collapsed state. */
-export function roundColumnWidthClass(collapsed: boolean) {
-  return cn(collapsed ? 'w-8.5 min-w-8.5' : 'w-82.5 min-w-82.5', 'shrink-0');
-}
-
-/** A folded column: for now still the slim vertical strip (the folded box replaces it). */
-function CollapsedColumn({
-  current,
-  followed,
-  label,
-  onToggle,
-}: {
-  current: boolean;
-  followed: boolean;
-  label: string;
-  onToggle?: () => void;
-}) {
-  const className = cn(
-    roundColumnWidthClass(true),
-    'flex h-45 items-center gap-1 overflow-hidden rounded-lg border border-surface-hover bg-surface-low py-2 pr-0 pl-0.5 text-left text-xs font-bold tracking-[0.08em] whitespace-nowrap text-muted uppercase [writing-mode:vertical-rl]',
-    onToggle && 'cursor-pointer',
-    (current || followed) && 'text-primary',
-  );
-  const content = (
-    <>
-      <span className='shrink-0 rotate-180 text-[0.68rem] [writing-mode:horizontal-tb]'>▸</span>
-      {label}
-    </>
-  );
-  return onToggle ? (
-    <button aria-label={`Show ${label}`} className={className} onClick={onToggle}>
-      {content}
-    </button>
-  ) : (
-    <div className={className}>{content}</div>
-  );
+/** The width-affecting classes of an open round column. */
+export function roundColumnWidthClass() {
+  return 'w-82.5 min-w-82.5 shrink-0';
 }
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
@@ -61,7 +29,7 @@ export function RoundColumn({
   children,
   collapsed = false,
   current = false,
-  followed = false,
+  folded,
   gameCount,
   label,
   onToggle,
@@ -69,16 +37,21 @@ export function RoundColumn({
   children: ReactNode;
   collapsed?: boolean;
   current?: boolean;
-  followed?: boolean;
+  /** What the folded box shows when the column is collapsed. */
+  folded: FoldedRoundSummary;
   gameCount?: RoundGameCount | null;
   label: string;
   onToggle?: () => void;
 }) {
   if (collapsed) {
-    return <CollapsedColumn current={current} followed={followed} label={label} onToggle={onToggle} />;
+    return (
+      <FoldedBox done={folded.done} onUnfold={onToggle} title={label}>
+        <FoldedRoundBody summary={folded} />
+      </FoldedBox>
+    );
   }
   return (
-    <div className={cn(roundColumnWidthClass(false), 'flex flex-col gap-4.5')}>
+    <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
       <ColumnTitleBar gameCount={gameCount} now={current} onToggle={onToggle} title={label} />
       <div>{children}</div>
     </div>
@@ -180,7 +153,6 @@ export function BracketRounds({
   followKey,
   collapse,
   onToggleCollapse,
-  followedRounds,
   standingsCollapsed = false,
   onToggleStandings,
   onOpenFullTable,
@@ -192,7 +164,6 @@ export function BracketRounds({
   followKey: string | null;
   collapse?: Record<number, boolean>;
   onToggleCollapse?: (roundIndex: number, collapsed: boolean) => void;
-  followedRounds?: BracketFollowStatus['rounds'];
   standingsCollapsed?: boolean;
   onToggleStandings?: () => void;
   onOpenFullTable?: () => void;
@@ -210,7 +181,7 @@ export function BracketRounds({
       <RoundColumn
         collapsed={collapsed}
         current={roundIndex === state.curRound}
-        followed={Boolean(followedRounds?.[roundIndex])}
+        folded={foldedRoundSummary(state, roundIndex, followKey)}
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
         label={labels[roundIndex]?.label ?? ''}
@@ -251,7 +222,10 @@ export function BracketRounds({
       <RoundColumn
         collapsed={collapsed}
         current={constituents.includes(state.curRound)}
-        followed={constituents.some((roundIndex) => Boolean(followedRounds?.[roundIndex]))}
+        folded={{
+          ...foldedRoundSummary(state, box.winnersRoundIndex, followKey),
+          done: lastIndex < state.curRound,
+        }}
         gameCount={roundGameCount(state, box.winnersRoundIndex)}
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
@@ -269,7 +243,7 @@ export function BracketRounds({
     );
   }
   return (
-    <div className='flex max-w-full gap-3.5 overflow-x-auto pb-3' id='br-rounds'>
+    <div className='flex max-w-full items-start gap-3.5 overflow-x-auto pb-3' id='br-rounds'>
       {boxes.map((box) => {
         if (box.kind !== 'single') return renderWave(box);
         if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)

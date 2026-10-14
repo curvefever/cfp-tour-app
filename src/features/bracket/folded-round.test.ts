@@ -1,0 +1,91 @@
+import { describe, expect, it } from 'vitest';
+import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import { removeRosterUnit } from '../../domain/tournament/mutations';
+import { advanceTournamentRound } from '../../domain/tournament/transitions';
+import type { TournamentState } from '../../domain/tournament/types';
+import { foldedRoundSummary } from './folded-round';
+
+const FFA = {
+  gameFormat: 'ffa-individual',
+  scheduleLogic: 'single-elimination',
+  poolingPhase: 'qual-table',
+  qualAdv: '24',
+} as const;
+
+function started(count: number, setup: Parameters<typeof buildState>[0]['setup'] = FFA): TournamentState {
+  const state = buildState({ label: `${count}`, count, teams: false, setup });
+  if (!state) throw new Error('generation failed');
+  return state;
+}
+
+function advanced(state: TournamentState): TournamentState {
+  const result = advanceTournamentRound(scoreCurrentRound(state, 0));
+  if (result.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(result)}`);
+  return result.state;
+}
+
+const firstSeated = (state: TournamentState, roundIndex: number, room: number) =>
+  (state.assignments[roundIndex] ?? []).find((entry) => entry.room === room)?.name ?? '';
+
+describe.each([37, 43])('foldedRoundSummary with %i players', (count) => {
+  const first = started(count);
+  const second = advanced(first);
+
+  it('counts the occupied rooms of the round, whether or not it is done', () => {
+    const rooms = new Set((first.assignments[0] ?? []).map((entry) => entry.room)).size;
+    expect(foldedRoundSummary(second, 0, null)).toEqual({ rooms, done: true, followed: null });
+    expect(foldedRoundSummary(second, 1, null).done).toBe(false);
+  });
+
+  it('marks only rounds before the current one as done', () => {
+    expect(foldedRoundSummary(second, 0, null).done).toBe(true);
+    expect(foldedRoundSummary(second, second.curRound, null).done).toBe(false);
+    expect(foldedRoundSummary(second, second.curRound + 1, null).done).toBe(false);
+  });
+
+  it('gives a followed unit its room and place once the room is scored', () => {
+    const name = firstSeated(second, 0, 2);
+    const summary = foldedRoundSummary(second, 0, name).followed;
+    expect(summary?.room).toBe(2);
+    expect(summary?.place).toBeGreaterThanOrEqual(1);
+    expect(summary?.detail).toMatch(/^Room B · \d+(st|nd|rd|th)$/);
+  });
+
+  it('shows the room alone while the room is still being scored', () => {
+    const name = firstSeated(first, 0, 1);
+    expect(foldedRoundSummary(first, 0, name).followed).toMatchObject({
+      room: 1,
+      place: null,
+      detail: 'Room A',
+    });
+  });
+
+  it('shows nothing for a unit that did not play the round, or that nobody follows', () => {
+    expect(foldedRoundSummary(second, 0, 'Nobody At All').followed).toBeNull();
+    expect(foldedRoundSummary(second, 0, null).followed).toBeNull();
+  });
+
+  it('keeps a unit that was removed after the round out of the folded box without failing', () => {
+    const name = firstSeated(second, 0, 1);
+    const removed = removeRosterUnit(second, name);
+    expect(() => foldedRoundSummary(removed, 0, name)).not.toThrow();
+  });
+});
+
+describe('foldedRoundSummary: a bye', () => {
+  it('reads "Bye" for a unit sitting a round out (33 head-to-head players, odd count)', () => {
+    const state = started(33, {
+      gameFormat: 'individual-1v1',
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'none',
+      oddCountStrategy: 'bye',
+    });
+    const byeName = state.byes[0]?.[0];
+    expect(byeName).toBeTruthy();
+    expect(foldedRoundSummary(state, 0, byeName ?? '').followed).toMatchObject({
+      room: null,
+      place: null,
+      detail: 'Bye',
+    });
+  });
+});

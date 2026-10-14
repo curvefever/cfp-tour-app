@@ -255,7 +255,7 @@ export function AnonymousFinalCard({
   return (
     <div
       className={cn(
-        roundColumnWidthClass(false),
+        roundColumnWidthClass(),
         'overflow-hidden rounded-lg border border-warning/40 bg-surface',
       )}
     >

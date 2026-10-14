@@ -128,7 +128,6 @@ export function BracketView() {
         onToggleCollapse={(roundIndex, collapsed) =>
           setCollapse((current) => ({ ...current, [roundIndex]: !collapsed }))
         }
-        followedRounds={follow?.rounds}
         standingsCollapsed={standingsCollapsed}
         onToggleStandings={() => setStandingsCollapsed((current) => !current)}
         onOpenFullTable={() => app.setActiveTab('standings')}
