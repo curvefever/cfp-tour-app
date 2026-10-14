@@ -28,7 +28,7 @@ export interface RoomRowResult {
  * The first destination of a room's advance bands reads green, the second yellow, the third and later purple
  * (the same colours as the standings column's destination groups).
  */
-function advanceResult(bands: RoomExitBand[], destination: number): RowResult {
+export function advanceResult(bands: RoomExitBand[], destination: number): RowResult {
   const destinations: number[] = [];
   for (const band of bands) {
     if (band.kind === 'advance' && !destinations.includes(band.destination))

@@ -21,7 +21,7 @@ export function standingsContextLine(display: StandingsDisplay): string {
 }
 
 /** Points earned by each place, 1st first: the organiser's table under Custom points, else the largest room size down to 1. */
-function pointsPerPlace(state: TournamentState): number[] {
+export function pointsPerPlace(state: TournamentState): number[] {
   if (state.gamemodeConfig.scoring === 'positional-points')
     return state.gamemodeConfig.positionalPointsTable ?? [];
   const largestRoom = largestRoomSize(state);
