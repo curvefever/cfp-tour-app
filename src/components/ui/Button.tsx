@@ -6,17 +6,17 @@ type ButtonSize = "sm" | "md";
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-primary text-on-primary hover:bg-primary-hover",
-  secondary: "border border-surface-hover bg-surface-low text-foreground hover:border-primary/50 hover:bg-surface-hover",
+  secondary: "bg-cfp-game-fold text-foreground hover:brightness-125",
   success: "bg-success text-on-primary hover:brightness-110",
-  danger: "bg-danger text-white hover:brightness-110",
+  danger: "bg-cfp-danger-ground text-cfp-danger-text hover:brightness-125",
   warning: "bg-warning text-on-primary hover:brightness-110",
-  accent: "bg-accent text-on-primary hover:brightness-110",
-  ghost: "bg-transparent text-muted hover:bg-surface-low hover:text-foreground",
+  accent: "bg-cfp-teal text-on-primary hover:brightness-110",
+  ghost: "bg-transparent text-muted shadow-none hover:bg-surface-low hover:text-foreground",
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: "min-h-8 px-2.5 py-1 text-xs",
-  md: "min-h-10 px-4 py-2 text-sm",
+  sm: "h-8 px-3.5 text-[13px]",
+  md: "h-11 px-5 text-[15px]",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -28,7 +28,7 @@ export function Button({ className, size = "md", type = "button", variant = "sec
   return (
     <button
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[5px] font-semibold tracking-[0.02em] transition duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35",
+        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-(--app-radius-button) border-0 font-bold shadow-[inset_0_-4px_0_var(--app-button-edge)] transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35",
         variants[variant],
         sizes[size],
         className,

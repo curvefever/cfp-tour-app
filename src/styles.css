@@ -55,6 +55,10 @@
   --color-cfp-game-fold: #1d3a5a;
   --color-cfp-game-banner: #014560;
 
+  /* Danger button */
+  --color-cfp-danger-ground: #4a1f27;
+  --color-cfp-danger-text: #ffb3b6;
+
   /* Middle look grounds */
   --color-cfp-mid-page: #0b1d2e;
   --color-cfp-mid-panel: #10263a;
@@ -86,6 +90,8 @@
     --app-warning: var(--color-cfp-orange);
     --app-accent: var(--color-cfp-purple);
     --app-on-primary: var(--color-cfp-brand-ink);
+    --app-radius-button: 4px;
+    --app-button-edge: rgb(0 0 0 / 30%);
     --app-primary-soft: rgb(52 163 206 / 12%);
     --app-primary-ring: rgb(52 163 206 / 27%);
     --app-primary-glow: rgb(52 163 206 / 40%);
@@ -105,6 +111,7 @@
     --app-surface-low: var(--color-cfp-game-title);
     --app-surface-hover: var(--color-cfp-game-frame);
     --app-muted: var(--color-cfp-text-game-muted);
+    --app-radius-button: 2px;
   }
 
   html,
