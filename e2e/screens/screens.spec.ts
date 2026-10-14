@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   fixtureTournaments,
   indexEntry,
+  scheduledAtOf,
   storedState,
   tournamentListIndex,
   type FixtureTournament,
@@ -18,10 +19,17 @@ import {
 const WIDTHS = [1280, 390] as const;
 const OUTPUT_DIR = 'e2e-screens';
 
-// A plain picture standing in for a lobby screenshot; the page reads it from the browser cache.
-const SCREENSHOT_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#1d3a5a"/><rect x="40" y="40" width="560" height="280" fill="#102e44"/></svg>',
-)}`;
+// A bright, recognisable picture standing in for a lobby screenshot (the page reads it from the browser cache).
+const LOBBY_COLOURS = ['#e8b923', '#48e271', '#e0353d', '#6ed2ff', '#9b6be0', '#fc8a14'];
+
+function lobbyPicture(seed: number): string {
+  const slots = LOBBY_COLOURS.map(
+    (colour, index) =>
+      `<rect x="${40 + index * 96}" y="${150 + ((index + seed) % 2) * 40}" width="80" height="110" rx="8" fill="${colour}"/>`,
+  ).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#0f1a2b"/><rect width="640" height="60" fill="${LOBBY_COLOURS[seed % LOBBY_COLOURS.length]}"/>${slots}</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
 
 function collectConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -35,29 +43,27 @@ function collectConsoleErrors(page: Page): string[] {
 interface ServedPage {
   index: Record<string, unknown>;
   stored: Record<string, unknown>;
-  screenshotIds: string[];
+  screenshots: Record<string, string>;
 }
 
 /** Stands in for the database: the tournament list, each stored tournament and the cached lobby screenshots. */
 async function serve(page: Page, served: ServedPage): Promise<void> {
-  await page.addInitScript(
-    ({ index, stored, screenshotIds, screenshot }) => {
-      window.__CURVE_TOUR_INDEX__ = index;
-      window.__CURVE_TOUR_SYNC_TRANSPORT__ = {
-        update: () => Promise.resolve(),
-        subscribe(tournamentId, onValue) {
-          if (tournamentId in stored) onValue(stored[tournamentId]);
-          return () => {};
-        },
-      };
-      try {
-        for (const id of screenshotIds) window.localStorage.setItem(`curveFFA_img_${id}`, screenshot);
-      } catch {
-        // Without storage the screenshots simply do not show.
-      }
-    },
-    { ...served, screenshot: SCREENSHOT_DATA_URL },
-  );
+  await page.addInitScript(({ index, stored, screenshots }) => {
+    window.__CURVE_TOUR_INDEX__ = index;
+    window.__CURVE_TOUR_SYNC_TRANSPORT__ = {
+      update: () => Promise.resolve(),
+      subscribe(tournamentId, onValue) {
+        if (tournamentId in stored) onValue(stored[tournamentId]);
+        return () => {};
+      },
+    };
+    try {
+      for (const [id, picture] of Object.entries(screenshots))
+        window.localStorage.setItem(`curveFFA_img_${id}`, picture);
+    } catch {
+      // Without storage the screenshots simply do not show.
+    }
+  }, served);
 }
 
 async function open(page: Page, path: string): Promise<void> {
@@ -104,11 +110,13 @@ function servedFor(fixture: FixtureTournament): ServedPage {
       [fixture.id]: indexEntry(fixture.state.title, {
         status: fixture.status,
         started,
-        scheduledAt: Date.now() + (started ? -2 : 100) * 60 * 60 * 1000,
+        scheduledAt: scheduledAtOf(fixture),
       }),
     },
     stored: { [fixture.id]: storedState(fixture) },
-    screenshotIds: fixture.screenshotIds ?? [],
+    screenshots: Object.fromEntries(
+      (fixture.screenshotIds ?? []).map((id, index) => [id, lobbyPicture(index)]),
+    ),
   };
 }
 
@@ -150,7 +158,7 @@ test.describe('screenshots of the viewer tabs', () => {
       await serve(page, {
         index: tournamentListIndex(Date.now()),
         stored: { 'live-cup': storedState(live) },
-        screenshotIds: [],
+        screenshots: {},
       });
       await open(page, '/');
       await page

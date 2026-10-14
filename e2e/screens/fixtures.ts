@@ -30,6 +30,31 @@ export interface FixtureTournament {
 }
 
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+const TIME_ZONE = 'Europe/Paris';
+
+/** Hours that Paris is ahead of UTC at `instant` (1 or 2). */
+function parisOffsetHours(instant: number): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TIME_ZONE,
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(instant);
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value);
+  return (hour - new Date(instant).getUTCHours() + 24) % 24;
+}
+
+/** `hour`:00 Paris time, `daysAhead` calendar days from today, so a screen's date line only changes with the day. */
+export function parisTime(daysAhead: number, hour = 20): number {
+  const day = new Date(Date.now() + daysAhead * DAY);
+  const utc = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), hour);
+  return utc - parisOffsetHours(utc) * HOUR;
+}
+
+/** When a fixture's scheduled start is: an ongoing one began a while ago, an upcoming one is at 20:00 a few days ahead. */
+export function scheduledAtOf(fixture: Pick<FixtureTournament, 'state'>): number {
+  return fixture.state.started ? Date.now() - 2 * HOUR : parisTime(4);
+}
 
 // ---------- deterministic scoring ----------
 
@@ -356,7 +381,7 @@ export function storedState(fixture: FixtureTournament): unknown {
       finishedAt: finished ? Date.now() - 24 * HOUR : null,
     },
     info: {
-      scheduledAt: fixture.state.started ? Date.now() - 2 * HOUR : Date.now() + 4 * 24 * HOUR + 3 * HOUR,
+      scheduledAt: scheduledAtOf(fixture),
       rulesText: fixture.rulesText ?? '',
       screenshots: fixture.screenshotIds ?? [],
     },
@@ -395,23 +420,23 @@ export function tournamentListIndex(now: number): Record<string, unknown> {
     'later-cup': indexEntry('Later Cup', {
       status: 'published',
       started: false,
-      scheduledAt: now + 6 * 24 * HOUR,
+      scheduledAt: parisTime(6),
     }),
     'rehearsal-cup': indexEntry('Rehearsal Cup', {
       status: 'published',
       started: false,
-      scheduledAt: now + 9 * 24 * HOUR,
+      scheduledAt: parisTime(9),
       testRun: true,
     }),
     'old-cup': indexEntry('Summer Cup', {
       status: 'finished',
       started: true,
-      scheduledAt: now - 30 * 24 * HOUR,
+      scheduledAt: parisTime(-30),
     }),
     'older-cup': indexEntry('Spring Cup', {
       status: 'finished',
       started: true,
-      scheduledAt: now - 70 * 24 * HOUR,
+      scheduledAt: parisTime(-70),
     }),
   };
 }
