@@ -37,8 +37,7 @@ export function roundGameCount(
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
   return state.rounds.map((round) => {
     if (round.customLabel) {
-      const label = round.isFinal ? `🏆 ${round.customLabel}` : round.customLabel;
-      return { label, accent: '', roundNumber: round.roundNum };
+      return { label: round.customLabel, accent: '', roundNumber: round.roundNum };
     }
     if (round.bracket === 'winners') {
       return { label: `WB Round ${round.roundNum}`, accent: 'wb', roundNumber: round.roundNum };
@@ -47,21 +46,9 @@ export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): Brac
       return { label: `LB Round ${round.roundNum}`, accent: 'lb', roundNumber: round.roundNum };
     }
     if (round.bracket === 'grand-final') {
-      return { label: '🏆 Grand Final', accent: 'gf', roundNumber: round.roundNum };
+      return { label: 'Grand Final', accent: 'gf', roundNumber: round.roundNum };
     }
-    const label = round.isFinal
-      ? '🏆 Final'
-      : round.isSemis
-        ? '⚔ Semis'
-        : round.isQual
-          ? `Round ${round.roundNum} (Qual)`
-          : round.isSwiss
-            ? `Round ${round.roundNum} (Swiss)`
-            : round.isGroupStage
-              ? `Round ${round.roundNum} (Group)`
-              : round.isKingsValley
-                ? `Round ${round.roundNum} (Kings Valley)`
-                : `Round ${round.roundNum}`;
+    const label = round.isFinal ? 'Final' : round.isSemis ? 'Semis' : `Round ${round.roundNum}`;
     return { label, accent: '', roundNumber: round.roundNum };
   });
 }

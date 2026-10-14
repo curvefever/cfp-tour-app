@@ -32,7 +32,7 @@ describe('bracketRoundLabels', () => {
     expect(labels[3]).toEqual({ label: 'LB Round 4', accent: 'lb', roundNumber: 4 });
   });
 
-  it('reads a waterfall round\'s own customLabel instead of a synthetic "Round N" label, prefixing the trophy emoji when it\'s also the Final', () => {
+  it('reads a waterfall round\'s own customLabel instead of a synthetic "Round N" label, as typed, also for the Final', () => {
     const rounds = [
       buildRound({ roundNum: 3, rooms: [8], players: 8, isWaterfall: true, customLabel: 'SemiA' }),
       buildRound({
@@ -46,7 +46,36 @@ describe('bracketRoundLabels', () => {
     ];
     const labels = bracketRoundLabels({ rounds });
     expect(labels[0]).toEqual({ label: 'SemiA', accent: '', roundNumber: 3 });
-    expect(labels[1]).toEqual({ label: '🏆 Final', accent: '', roundNumber: 4 });
+    expect(labels[1]).toEqual({ label: 'Final', accent: '', roundNumber: 4 });
+  });
+
+  it('names every round kind plainly: no emoji and no format suffix', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 4, isQual: true }),
+      buildRound({ roundNum: 2, rooms: [4], players: 4, isSwiss: true }),
+      buildRound({ roundNum: 3, rooms: [4], players: 4, isGroupStage: true }),
+      buildRound({ roundNum: 4, rooms: [4], players: 4, isKingsValley: true }),
+      buildRound({ roundNum: 5, rooms: [4], players: 4, isNoElim: true }),
+      buildRound({ roundNum: 6, rooms: [4], players: 4 }),
+      buildRound({ roundNum: 7, rooms: [4], players: 4, isSemis: true }),
+      buildRound({ roundNum: 8, rooms: [4], players: 4, isFinal: true }),
+      buildRound({ roundNum: 9, rooms: [2], players: 2, bracket: 'winners' }),
+      buildRound({ roundNum: 10, rooms: [2], players: 2, bracket: 'losers' }),
+      buildRound({ roundNum: 11, rooms: [2], players: 2, bracket: 'grand-final', isFinal: true }),
+    ];
+    expect(bracketRoundLabels({ rounds }).map((entry) => entry.label)).toEqual([
+      'Round 1',
+      'Round 2',
+      'Round 3',
+      'Round 4',
+      'Round 5',
+      'Round 6',
+      'Semis',
+      'Final',
+      'WB Round 9',
+      'LB Round 10',
+      'Grand Final',
+    ]);
   });
 });
 

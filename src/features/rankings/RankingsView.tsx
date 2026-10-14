@@ -51,9 +51,9 @@ function RoundLabel({ round }: { round: TournamentRound }) {
   return (
     <>
       {round.isFinal
-        ? '🏆 Final'
+        ? 'Final'
         : round.isSemis
-          ? '⚔ Semis'
+          ? 'Semis'
           : round.isQual
             ? `Qual R${round.roundNum}`
             : round.isSwiss
