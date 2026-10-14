@@ -8,6 +8,8 @@
   --color-surface-hover: var(--app-surface-hover);
   --color-primary: var(--app-primary);
   --color-primary-hover: var(--app-primary-hover);
+  --color-input: var(--app-input);
+  --color-input-border: var(--app-input-border);
   --color-foreground: var(--app-foreground);
   --color-muted: var(--app-muted);
   --color-danger: var(--app-danger);
@@ -59,6 +61,11 @@
   --color-cfp-danger-ground: #4a1f27;
   --color-cfp-danger-text: #ffb3b6;
 
+  /* Readable text colours for tinted pills and banners */
+  --color-cfp-green-text: #7bf0a0;
+  --color-cfp-orange-text: #ffb164;
+  --color-cfp-purple-text: #c9b0f2;
+
   /* Middle look grounds */
   --color-cfp-mid-page: #0b1d2e;
   --color-cfp-mid-panel: #10263a;
@@ -92,6 +99,7 @@
     --app-on-primary: var(--color-cfp-brand-ink);
     --app-radius-button: 4px;
     --app-button-edge: rgb(0 0 0 / 30%);
+    --app-button-weight: 700;
     --app-primary-soft: rgb(52 163 206 / 12%);
     --app-primary-ring: rgb(52 163 206 / 27%);
     --app-primary-glow: rgb(52 163 206 / 40%);
@@ -112,6 +120,7 @@
     --app-surface-hover: var(--color-cfp-game-frame);
     --app-muted: var(--color-cfp-text-game-muted);
     --app-radius-button: 2px;
+    --app-button-weight: 800;
   }
 
   html,

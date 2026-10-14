@@ -18,7 +18,7 @@ export function TableHeadCell({ className, ...props }: ThHTMLAttributes<HTMLTabl
   return (
     <th
       className={cn(
-        'border-b border-surface-hover bg-surface-low px-3.5 py-2 text-left text-[0.68rem] font-semibold tracking-[0.08em] text-muted uppercase',
+        'border-b border-surface-hover bg-surface-low px-3.5 py-2 text-left text-xs font-extrabold tracking-[0.06em] text-muted uppercase',
         className,
       )}
       {...props}

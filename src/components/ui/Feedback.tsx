@@ -3,10 +3,10 @@ import { cn } from './cn';
 
 type AlertTone = 'info' | 'success' | 'danger' | 'warning';
 const alertTone: Record<AlertTone, string> = {
-  info: 'border-primary/20 bg-primary-soft text-muted',
-  success: 'border-success/30 bg-success-soft text-success',
-  danger: 'border-danger/35 bg-danger-soft text-danger',
-  warning: 'border-warning/35 bg-warning/10 text-warning',
+  info: 'border-primary/55 bg-primary-soft text-foreground',
+  success: 'border-success/55 bg-success/10 text-cfp-green-text',
+  danger: 'border-danger/55 bg-danger-soft text-cfp-danger-text',
+  warning: 'border-warning/55 bg-warning/10 text-cfp-orange-text',
 };
 
 export function Alert({
@@ -16,7 +16,7 @@ export function Alert({
 }: HTMLAttributes<HTMLDivElement> & { tone?: AlertTone }) {
   return (
     <div
-      className={cn('rounded-[5px] border px-3.5 py-2.5 text-sm leading-relaxed', alertTone[tone], className)}
+      className={cn('rounded-(--app-radius-button) border-2 px-3.5 py-2.5 text-sm leading-relaxed', alertTone[tone], className)}
       {...props}
     />
   );
@@ -42,7 +42,7 @@ export function Modal({
         aria-labelledby={titleId}
         aria-modal='true'
         className={cn(
-          'w-full max-w-110 rounded-lg border border-surface-hover bg-surface p-5.5 shadow-[0_20px_80px_var(--shadow-floating)]',
+          'w-full max-w-110 rounded-md border border-surface-hover bg-surface p-5.5 shadow-[0_20px_80px_var(--shadow-floating)]',
           className,
         )}
         role='dialog'

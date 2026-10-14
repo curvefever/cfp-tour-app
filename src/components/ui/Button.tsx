@@ -28,7 +28,7 @@ export function Button({ className, size = "md", type = "button", variant = "sec
   return (
     <button
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-(--app-radius-button) border-0 font-bold shadow-[inset_0_-4px_0_var(--app-button-edge)] transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35",
+        "inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-(--app-radius-button) border-0 font-(weight:--app-button-weight) shadow-[inset_0_-4px_0_var(--app-button-edge)] transition duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-35",
         variants[variant],
         sizes[size],
         className,
