@@ -15,8 +15,8 @@ import {
   TeamScoreFields,
   UnitScoreFields,
   compactScoreClass,
-  memberLabel,
 } from './ScoreFields';
+import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
 
@@ -208,7 +208,12 @@ export function RoomRow(props: RoomRowProps) {
             {label}
           </NameWithMarks>
           {teamSize && !inputsPerTeam ? (
-            <TeamMembers name={name} roundIndex={roundIndex} state={state} />
+            <TeamMembers
+              name={name}
+              roundIndex={roundIndex}
+              seat={showResults ? { room, position } : undefined}
+              state={state}
+            />
           ) : null}
         </span>
         {inlineInput ? (

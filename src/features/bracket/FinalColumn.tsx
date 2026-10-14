@@ -18,7 +18,8 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { bracketRowBase } from '../tournament/components/result-row';
 import { roundColumnWidthClass } from './BracketRounds';
 import { ManualMarker } from './RowMarks';
-import { TeamMembers, TeamScoreFields, compactScoreClass, memberLabel } from './ScoreFields';
+import { TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
+import { memberLabel } from './team-member-line';
 
 /** The Final's score input for one unit that takes a single score per game. */
 function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scoreKey: string }) {

@@ -1,48 +1,28 @@
 import { type ReactNode } from 'react';
 import { setRoundScore } from '../../domain/tournament/mutations';
-import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
-import { getDefenderIndex, getUnitScore } from '../../domain/tournament/scoring';
+import { getUnitScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { teamMemberLine } from './team-member-line';
 
 export const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
-
-export function memberLabel(
-  state: TournamentState,
-  name: string,
-  roundIndex: number,
-  rawIndex: number,
-  memberName: string,
-) {
-  const defender =
-    state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-    getDefenderIndex(state, name, roundIndex) === rawIndex;
-  return `${memberName}${defender ? ' 🛡' : ''}`;
-}
 
 export function TeamMembers({
   state,
   name,
   roundIndex,
+  seat,
 }: {
   state: TournamentState;
   name: string;
   roundIndex: number;
+  /** Where the team sits, once its room is complete: each member's own score then follows the name. */
+  seat?: { room: number; position: number };
 }) {
-  const info = unitDisplay(state, name);
-  const team = buildTeamMap(state)[name];
-  if (!info.members?.length) return null;
-  return (
-    <span className='block truncate text-sm text-muted'>
-      {info.members
-        .map((member, index) => {
-          const rawIndex = team?.members.findIndex((entry) => entry?.name === member) ?? index;
-          return memberLabel(state, name, roundIndex, rawIndex, member);
-        })
-        .join(', ')}
-    </span>
-  );
+  const line = teamMemberLine(state, name, roundIndex, seat ?? null);
+  if (!line) return null;
+  return <span className='block truncate text-sm text-muted'>{line}</span>;
 }
 
 export function BracketScoreInput({
