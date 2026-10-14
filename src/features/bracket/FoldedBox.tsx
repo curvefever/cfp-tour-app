@@ -57,18 +57,7 @@ export function FoldedBox({
 
 function RoomsLine({ rooms }: { rooms: number }) {
   return (
-    <div className='flex items-center gap-1.5 text-[13px] text-muted'>
-      <svg aria-hidden='true' height='14' viewBox='0 0 16 16' width='14'>
-        <circle className='fill-cfp-green' cx='8' cy='8' r='8' />
-        <path
-          className='stroke-cfp-brand-ink'
-          d='M4.5 8.2 L7 10.5 L11.5 5.5'
-          fill='none'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-          strokeWidth='2'
-        />
-      </svg>
+    <div className='text-[13px] text-muted'>
       {rooms} {rooms === 1 ? 'room' : 'rooms'}
     </div>
   );

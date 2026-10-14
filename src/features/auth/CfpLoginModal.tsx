@@ -67,7 +67,7 @@ export function CfpLoginModal({
         </Field>
         {auth.error ? <Alert tone="danger">{auth.error}</Alert> : null}
         <ModalActions>
-          <Button variant="success" type="submit" disabled={submitting}>
+          <Button variant="primary" type="submit" disabled={submitting}>
             {submitting ? "Signing in…" : "Sign in"}
           </Button>
           <Button disabled={submitting} onClick={onCancel}>Cancel</Button>
