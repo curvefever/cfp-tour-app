@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test --project=chromium",
+    "test:screens": "playwright test --project=screens"
   },
   "dependencies": {
     "@tanstack/react-router": "1.168.19",

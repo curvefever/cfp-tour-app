@@ -23,6 +23,13 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: 'screens/**',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // Screenshots of the viewer tabs for the visual redesign (`pnpm run test:screens`); not part of the smoke run.
+    {
+      name: 'screens',
+      testDir: './e2e/screens',
       use: { ...devices['Desktop Chrome'] },
     },
   ],

@@ -11,6 +11,7 @@ coverage/
 playwright-report/
 test-results/
 test-results-app/
+e2e-screens/
 
 # Local environment files
 .env
