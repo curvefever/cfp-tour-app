@@ -12,14 +12,14 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Curve Fever Pro Tour Hub" },
-      { name: "theme-color", content: "#0D0F14" },
+      { name: "theme-color", content: "#0B1D2E" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Asap:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Asap:wght@400;500;600;700;800&display=swap",
       },
     ],
   }),

@@ -22,30 +22,87 @@
   --color-accent-soft: var(--app-accent-soft);
 }
 
+/* The brand's raw palette (brief section 2). Components read the semantic --app-* tokens below, never these. */
+@theme static {
+  --color-cfp-brand: #34a3ce;
+  --color-cfp-brand-ink: #0b1a2c;
+  --color-cfp-sky: #6ed2ff;
+  --color-cfp-green: #48e271;
+  --color-cfp-red: #e0353d;
+  --color-cfp-yellow: #f2cf3a;
+  --color-cfp-orange: #fc8a14;
+  --color-cfp-purple: #9b6be0;
+  --color-cfp-violet: #5850ec;
+  --color-cfp-teal: #02ada7;
+  --color-cfp-gold: #e8b923;
+  --color-cfp-silver: #b8c4cc;
+  --color-cfp-bronze: #c27c3e;
+  --color-cfp-text: #cce6f7;
+  --color-cfp-text-game-muted: #8fb3cc;
+  --color-cfp-text-middle-muted: #8fa9bb;
+  --color-cfp-text-dim: #6f8da1;
+  --color-cfp-row-a: #113148;
+  --color-cfp-row-b: #0b253a;
+  --color-cfp-followed: #16405e;
+  --color-cfp-followed-ring: #34a3ce;
+
+  /* Game look grounds */
+  --color-cfp-game-page: #11233b;
+  --color-cfp-game-card: #102e44;
+  --color-cfp-game-deep: #0f1526;
+  --color-cfp-game-frame: #014560;
+  --color-cfp-game-title: #0f1a2b;
+  --color-cfp-game-fold: #1d3a5a;
+  --color-cfp-game-banner: #014560;
+
+  /* Middle look grounds */
+  --color-cfp-mid-page: #0b1d2e;
+  --color-cfp-mid-panel: #10263a;
+  --color-cfp-mid-panel-border: #22405a;
+  --color-cfp-mid-panel-head: #0d2234;
+  --color-cfp-mid-input: #0a1826;
+  --color-cfp-mid-input-border: #2a4a62;
+  --color-cfp-mid-header-border: #1b3550;
+}
+
 @layer base {
-  :root {
+  /* The middle look (header, tab bar, Admin) is the default; a wrapper with data-look="game" switches the viewer tabs. */
+  :root,
+  [data-look="middle"] {
     color-scheme: dark;
-    --app-background: #0d0f14;
-    --app-background-alt: #111620;
-    --app-surface: #161b24;
-    --app-surface-low: #1e2535;
-    --app-surface-hover: #2b3548;
-    --app-primary: #00e5ff;
-    --app-primary-hover: #4deeff;
-    --app-foreground: #e8edf5;
-    --app-muted: #8090ad;
-    --app-danger: #ff4d6a;
-    --app-success: #00e096;
-    --app-warning: #ffb830;
-    --app-accent: #b57bff;
-    --app-on-primary: #0d0f14;
-    --app-primary-soft: rgb(0 229 255 / 9%);
-    --app-danger-soft: rgb(255 77 106 / 9%);
-    --app-success-soft: rgb(0 224 150 / 7%);
-    --app-warning-soft: rgb(255 184 48 / 9%);
-    --app-accent-soft: rgb(181 123 255 / 7%);
+    --app-background: var(--color-cfp-mid-page);
+    --app-background-alt: var(--color-cfp-mid-page);
+    --app-surface: var(--color-cfp-mid-panel);
+    --app-surface-low: var(--color-cfp-mid-panel-head);
+    --app-surface-hover: var(--color-cfp-mid-panel-border);
+    --app-input: var(--color-cfp-mid-input);
+    --app-input-border: var(--color-cfp-mid-input-border);
+    --app-primary: var(--color-cfp-brand);
+    --app-primary-hover: #4fb4d8;
+    --app-foreground: var(--color-cfp-text);
+    --app-muted: var(--color-cfp-text-middle-muted);
+    --app-danger: var(--color-cfp-red);
+    --app-success: var(--color-cfp-green);
+    --app-warning: var(--color-cfp-orange);
+    --app-accent: var(--color-cfp-purple);
+    --app-on-primary: var(--color-cfp-brand-ink);
+    --app-primary-soft: rgb(52 163 206 / 12%);
+    --app-danger-soft: rgb(224 53 61 / 12%);
+    --app-success-soft: rgb(72 226 113 / 10%);
+    --app-warning-soft: rgb(252 138 20 / 12%);
+    --app-accent-soft: rgb(155 107 224 / 12%);
     --shadow-card: rgb(0 0 0 / 28%);
     --shadow-floating: rgb(0 0 0 / 66%);
+  }
+
+  /* The game look: surface = card, surface-low = column title bar, surface-hover = the 2 px frame. */
+  [data-look="game"] {
+    --app-background: var(--color-cfp-game-page);
+    --app-background-alt: var(--color-cfp-game-page);
+    --app-surface: var(--color-cfp-game-card);
+    --app-surface-low: var(--color-cfp-game-title);
+    --app-surface-hover: var(--color-cfp-game-frame);
+    --app-muted: var(--color-cfp-text-game-muted);
   }
 
   html,
@@ -56,7 +113,7 @@
 
   body {
     margin: 0;
-    background: linear-gradient(180deg, var(--app-background), var(--app-background-alt) 58%, var(--app-background));
+    background: var(--app-background);
     color: var(--app-foreground);
     font-family: "Asap", "Segoe UI", sans-serif;
     font-size: 0.875rem;
@@ -73,7 +130,7 @@
   }
 
   ::selection {
-    background: rgb(0 229 255 / 24%);
+    background: rgb(52 163 206 / 30%);
     color: var(--app-foreground);
   }
 }

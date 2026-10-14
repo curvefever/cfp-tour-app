@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ActiveTab } from '../../domain/tournament/types';
 import { hasStandingsPhase } from '../../domain/tournament/standings-display';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
@@ -13,6 +14,11 @@ import { TournamentsView } from '../tournaments/TournamentsView';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { effectiveTab, loadedPhase, visibleTabs } from './tabs';
 import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
+
+/** Admin is the organiser's screen (middle look); every viewer tab is the game look. */
+function lookOf(tab: ActiveTab): 'game' | 'middle' {
+  return tab === 'admin' ? 'middle' : 'game';
+}
 
 export function AppShell() {
   const app = useTournamentApp();
@@ -31,8 +37,11 @@ export function AppShell() {
   const activeTab = effectiveTab(app.activeTab, tabContext);
 
   return (
-    <div className='min-h-screen bg-background text-foreground'>
-      <header className='sticky top-0 z-50 flex h-14 items-center justify-between border-b border-surface-hover bg-background/95 px-6 backdrop-blur-md max-[700px]:px-3.5'>
+    <div className='min-h-screen bg-background text-foreground' data-look={lookOf(activeTab)}>
+      <header
+        data-look='middle'
+        className='sticky top-0 z-50 flex h-14 items-center justify-between border-b border-surface-hover bg-background/95 px-6 backdrop-blur-md max-[700px]:px-3.5'
+      >
         <button
           className='cursor-pointer whitespace-nowrap text-lg font-bold tracking-[0.16em] text-primary uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:text-base max-[700px]:tracking-[0.12em]'
           onClick={() => app.setActiveTab('tournaments')}
@@ -70,6 +79,7 @@ export function AppShell() {
       </header>
       <nav
         aria-label='Tournament sections'
+        data-look='middle'
         className='sticky top-14 z-40 flex flex-wrap gap-0.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
       >
         {tabs.map((tab) => (
