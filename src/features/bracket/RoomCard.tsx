@@ -26,14 +26,6 @@ function isByeLikeRound(round: TournamentRound): boolean {
   return !round.isWaterfall && !round.bracket && !round.isFinal;
 }
 
-export function RoomLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className='mb-1 pl-0.5 text-[0.68rem] font-bold tracking-[0.05em] text-muted uppercase'>
-      {children}
-    </div>
-  );
-}
-
 /** A room's card: a header with its title (brand blue; the lighter fold ground for a room not drawn yet), then its content. */
 export function RoomFrame({
   children,

@@ -218,8 +218,32 @@ function ffaPooling(count: number): TournamentState {
   return scoreCurrentRound(atLastQual, { seed: 9, rooms: [1, 2] });
 }
 
-function ffa37Like(count: number): TournamentState {
-  return generate(count, { poolingPhase: 'qual-table', qualAdv: '24', scheduleLogic: 'single-elimination' });
+function ffa37Like(count: number, overrides: SetupOverrides = {}): TournamentState {
+  return generate(count, {
+    poolingPhase: 'qual-table',
+    qualAdv: '24',
+    scheduleLogic: 'single-elimination',
+    ...overrides,
+  });
+}
+
+/** A qualification table whose later rounds are published up front: future cards show their unit names. */
+function ffaFixedDraws(): TournamentState {
+  const first = ffa37Like(37, { drawPublication: 'fixed' });
+  return scoreCurrentRound(first, { seed: 11, rooms: [1, 2] });
+}
+
+/** A 13-player 1v1 group stage: an odd count, so groups have byes; the first group round is drawn, the next ones are not. */
+function groupStage(): TournamentState {
+  const start = generate(13, {
+    gameFormat: 'individual-1v1',
+    poolingPhase: 'group-stage',
+    groupSize: '4',
+    qualifiersPerGroup: '2',
+    oddCountStrategy: 'bye',
+    scheduleLogic: 'single-elimination',
+  });
+  return scoreCurrentRound(start, { seed: 12, rooms: [1, 2] });
 }
 
 function ffaQuarters(count: number): TournamentState {
@@ -354,6 +378,8 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa37-final-complete', ffa37FinalComplete()),
     entry('ffa37-finished', ffa37FinalComplete(), { status: 'finished' }),
     entry('ffa31-pooling', ffaPooling(31)),
+    entry('fixed-draws-ffa-37', ffaFixedDraws()),
+    entry('groups-1v1-13', groupStage()),
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2()),
