@@ -6,6 +6,42 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Visual redesign, phase A: foundation (done — 2026-10-14)
+
+First of eight phases of the visual redesign (plan `plans/2026-10-14-visual-redesign.md`, design brief `plans/2026-10-14-visual-redesign-brief.md`, boards on the canvas "Tour Hub Split Look"). Planned and reviewed by a second session (the planner/reviewer), built here in small chunks, one commit and one report each, with a review between chunks. Phase A changes the shared foundation and the chrome; the Bracket, Standings, Rankings, Tournaments, Info and organiser screens keep their layouts and are restyled in later phases, so they look half-way for now. No rule changed: nothing in `src/domain/tournament/` was touched.
+
+### What was built (commits `53e75d1` … `e863ac1` on `test`)
+- **A0 Screenshot spec** (`e2e/screens/`, `pnpm run test:screens`, own Playwright project; `test:e2e` now runs the `chromium` project only). Fixture tournaments built with the real domain code and a seeded random source and seeded per-room-distinct scores, so every run gives byte-identical PNGs: ffa37 (pooling, quarters, final complete, finished), ffa31, ffa43, ffa53, 2v2v2v2 with 13 teams (two notes), Kings Valley with 12 teams, 1v1 double elimination with 16, a 37-player waterfall with a Qual source, an upcoming tournament with rules text and two lobby pictures, and the Tournaments list. Two follow-ups: a `bracket-full-1280.png` (the rounds row scrolls inside the page, which is also capped at 1280 px, so the spec lifts the cap and widens the viewport), and visible lobby pictures plus a fixed 20:00 Paris start for the upcoming fixture. The fixtures turned out not to be deterministic at first (generation used `Math.random`); seeding it fixed that.
+- **A1 Tokens and the two looks** (`styles.css`): the brief's palette as `--color-cfp-*` (`@theme static`); the semantic `--app-*` tokens keep their names and point at it. `:root` and `[data-look='middle']` are the middle look, `[data-look='game']` overrides background, surface (card), surface-low (title bar), surface-hover (the frame) and muted. `AppShell` sets `data-look` from the active tab; the header and tab bar are always middle. Body background is solid.
+- **A2** Hard-coded colours replaced by tokens (new `--app-primary-ring`, `--app-primary-glow`); the waterfall editor's round colours are now palette colours. `rankings-image.ts` keeps its canvas colours until D6.
+- **A3** Weights 400/600/700/800 (500 dropped from the font link, the one `font-medium` is `font-semibold`); `components/ui/typography.ts` holds the recurring text styles as class strings.
+- **A4 Buttons**: no border, darker bottom edge, per-look radius (4 px middle, 2 px game) and weight (700 middle, 800 game), 44 px (`md`) and 32 px (`sm`), board variants (secondary `#1d3a5a`, danger `#4a1f27`/`#ffb3b6`, accent teal). The `ButtonRow` audit found no row mixing sizes. Callers that override the look (round icon buttons, the tie-break pick buttons) are left for B9b, B11, B13 and D5.
+- **A5 Panels, badges, tables, inputs, alerts**: 6 px panels with a 1 px border and no shadow; badges are 4 px tinted pills with a new `now` tone; inputs on the input ground, 40 px high, 15 px; `Field` labels sentence case 14/700; alerts with a 2 px tinted outline.
+- **A6 Header** (`AppHeader.tsx`, `AccountMenu.tsx`): wordmark only (no logo, Q1), plain tab labels, Tournaments apart and the loaded tournament's tabs on a band, "Signed in · <role>" opening a "Sign out (<name>)" menu (Q2, the Admin Access panel is gone), no tournament name and no round counter (Q3). On the phone the tabs wrap onto their own row and scroll sideways (a stop-gap until phase G).
+- **A7 / A8** The Exit ✕ left the header: "✕ Exit tournament view" is on Info only. Every page opens with `PageHeading` (name, view label underneath, an actions slot); `useTournamentTitle` gives the name.
+- **A9 Result stripe and rows**: `stripeTone()` (green advance/promote/lucky, yellow second destination/stay, orange demote, purple drop/third destination, red eliminate, dashed undecided/pending/candidate), `ResultStripe`, `LuckyStar`, and `rowSurfaceClasses(index, followed)` (alternating `#113148`/`#0b253a`, followed `#16405e` with a 2 px ring) replacing `resultClasses`. Names never change colour. The new `RowResult` values are produced from phase B on.
+
+### Planner decisions during the phase
+Game-look buttons weigh 800 and middle-look ones 700 (the boards), through `--app-button-weight`; `Field` labels are sentence case 14/700 and inputs 40 px high at 15 px (the Setup board); the view label is `.06em` with line height 1.1 (every board); the waterfall editor's round colours map to purple, yellow, green, sky, orange, teal with red for "out"; the lighter `#4fb4d8` hover blue and `#c9b0f2` purple pill text are the implementer's own picks (the boards have no such colours).
+
+### Testing
+- Per chunk: eslint, prettier (see below), types on the changed paths, `vitest related`, `pnpm run test:e2e` (7 of 7 throughout) and the screens spec for the fixtures the plan named. New tests: `tabs.test.ts` (plain labels), `result-row.test.ts` (18: the stripe tone of every result, the row surfaces, the standings row result). `smoke.spec.ts` changed with A6, A7 and A8 (the tournament name moved from the header to the page heading, Exit moved to Info).
+- Counts: the screens fixtures cover 31, 37, 43 and 53 players and a 13-team 2v2v2v2 (one pass each, no rule logic involved).
+- Prettier's `--check` fails on many files in the Windows working copy only because of CRLF line endings (the committed LF content passes); `prettier --write` was run only on files that were already formatted.
+
+### Live check on test (2026-10-14, after the push of `c1c4262`)
+Made in the built-in browser, which happened to hold a signed-in session ("Lead Mod"), so the signed-in states were seen after all; nothing was edited and no field was focused. Tournaments (heading, three sections, the TEST RUN card, the Admin divider with nothing loaded), the account menu ("Sign out (Conchord)", closes with Escape), the upcoming test tournament's Info (heading, "INFO" label, Exit tournament view at the right, the "This tournament" band with Info, Admin and Players, the lobby picture, the rules link), Players and the Setup page (heading with the "SETUP" label, status pills, chunky buttons, inputs and labels) all render as the screens spec shows, with no console error. Not seen live: Bracket, Standings and Rankings of a running tournament (the test site has none; the fixtures cover them) and the phone layout.
+
+### Pending
+- **The header band** (the loaded tournament's tabs on `#10263a`) is built as proposed; the brief asks the organiser to confirm it once seen. Pending the organiser.
+- The waterfall editor's new colours have not been looked at (no waterfall tournament on the test site); to be seen in the phase F live check.
+- The Info page shows the tournament name twice (heading and the old title panel) until E4.
+
+### Out of scope (parked, as planned)
+The Bracket, Standings, Rankings, Tournaments, Info and organiser layouts (phases B to F); the phone designs (phase G, with the header's phone layout); the canvas-drawn Rankings PNG (D6); the hover/type steps for the screens spec (added when B6b and B9b need them).
+
+---
+
 ## Tournaments hub: shared tournaments, statuses, the Tournaments page and the Info tab (done — 2026-10-13)
 
 Built in nine stages on `test`, planned and reviewed by a second session (the planner/reviewer) and implemented by this one, one stage at a time with a review between stages. It was built on `test` and went to `main` on 2026-10-13, after the final review.
