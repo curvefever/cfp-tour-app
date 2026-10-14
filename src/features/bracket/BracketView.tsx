@@ -128,15 +128,15 @@ export function BracketView() {
         onOpenFullTable={() => app.setActiveTab('standings')}
       />
       {editable && drawnAhead !== 'none' ? (
-        <Alert className='mt-2.5'>
+        <div className='mt-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>
           {destinationLabel(app.state.curRound + 1, labels)}{' '}
           {drawnAhead === 'redraw'
             ? "is already drawn. Next Round re-draws it from this round's results."
             : "is already drawn and locked. Next Round returns to it unchanged; a correction here won't change its draw."}
-        </Alert>
+        </div>
       ) : null}
       {editable ? (
-        <ButtonRow className='sticky bottom-2.5 z-20 rounded-lg border border-surface-hover bg-background/90 p-2.5 backdrop-blur-md'>
+        <ButtonRow className='sticky bottom-2.5 z-20 mt-4.5 rounded-xs bg-cfp-game-deep p-2.5 outline-2 outline-cfp-game-frame'>
           {!isLastRound ? (
             <Button
               variant='success'

@@ -28,14 +28,21 @@ export function TieBanners({ state }: { state: TournamentState }) {
       return (
         <div
           className={cn(
-            'mb-4 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border px-4.5 py-3.5',
-            isCutoff ? 'border-warning bg-warning-soft' : 'border-danger bg-danger-soft',
+            'mb-4.5 flex flex-wrap items-center justify-between gap-2.5 rounded-xs px-4 py-3 outline-2',
+            isCutoff ? 'bg-warning/10 outline-warning/55' : 'bg-danger/12 outline-danger/55',
           )}
           key={key}
         >
           <div>
-            <div className={cn('font-semibold', isCutoff ? 'text-warning' : 'text-danger')}>{heading}</div>
-            <div className='mt-1 text-xs text-muted'>
+            <div
+              className={cn(
+                'text-base font-bold',
+                isCutoff ? 'text-cfp-orange-text' : 'text-cfp-danger-text',
+              )}
+            >
+              {heading}
+            </div>
+            <div className='mt-1 text-[13px] text-cfp-text-soft'>
               {resolved.length
                 ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
                 : ''}
