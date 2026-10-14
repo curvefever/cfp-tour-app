@@ -17,24 +17,9 @@ import {
 } from '../tournament/components/result-row';
 import { ColumnTitleBar } from './ColumnTitleBar';
 import { ExitIcon } from './ExitIcon';
+import { PhaseBadge } from './PhaseBadge';
 import { FoldedBox } from './FoldedBox';
 import { standingsExitLines } from './exit-lines';
-
-/** TEMPORARY while the standings can still change, FINAL once the last pooling round is over; nothing before they start. */
-function PhaseBadge({ phase }: { phase: StandingsDisplay['phase'] }) {
-  if (phase === 'upcoming') return null;
-  const live = phase === 'live';
-  return (
-    <span
-      className={cn(
-        'rounded-xs px-1.75 py-0.75 text-[11px] leading-none font-extrabold tracking-[0.05em]',
-        live ? 'bg-warning/18 text-cfp-orange-text' : 'bg-success/18 text-cfp-green-text',
-      )}
-    >
-      {live ? 'TEMPORARY' : 'FINAL'}
-    </span>
-  );
-}
 
 function StandingsRows({
   display,

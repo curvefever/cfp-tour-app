@@ -10,15 +10,18 @@ import {
 import type { TournamentState } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import {
-  Panel,
-  PanelTitle,
   Table,
   TableCell,
   TableHeadCell,
   TableRow,
   TableScroll,
   cn,
+  columnTitleClassName,
 } from '../../components/ui';
+import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { ExitIcon } from '../bracket/ExitIcon';
+import { standingsExitLines } from '../bracket/exit-lines';
+import { PhaseBadge } from '../bracket/PhaseBadge';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
 import { formatTieBreak, roundCells } from './standings-text';
@@ -181,6 +184,32 @@ function StandingsRows({
   );
 }
 
+/** A table's title row: its name, TEMPORARY or FINAL, and the exit icon saying where each run of standings goes. */
+function TableTitle({
+  display,
+  labels,
+  table,
+}: {
+  display: StandingsDisplay;
+  labels: ReturnType<typeof bracketRoundLabels>;
+  table: StandingsDisplayTable;
+}) {
+  return (
+    <div className='flex min-h-8 items-center gap-2.5'>
+      <h2 className={columnTitleClassName}>{table.label}</h2>
+      <PhaseBadge phase={display.phase} />
+      <div className='relative'>
+        <ExitIcon
+          buttonClassName='rounded-xs bg-foreground/10'
+          label={`Where players go from ${table.label}`}
+          lines={standingsExitLines(table, display, labels)}
+          popupClassName='top-9 right-auto left-0'
+        />
+      </div>
+    </div>
+  );
+}
+
 export function TournamentStandings({
   state,
   display,
@@ -193,13 +222,14 @@ export function TournamentStandings({
   marks: Record<string, CutTieMarks>;
 }) {
   const unitLabel = getGameFormat(state.gameFormat)?.unitLabel ?? 'Player';
+  const labels = bracketRoundLabels(state);
   return (
     <div className='grid grid-cols-[repeat(auto-fit,minmax(310px,1fr))] gap-3.5'>
       {display.tables.map((table) => {
         const roundIndexes = tableRoundIndexes(state, table);
         return (
-          <Panel className='min-w-0' key={table.key}>
-            <PanelTitle>{table.label}</PanelTitle>
+          <section className='flex min-w-0 flex-col gap-3' key={table.key}>
+            <TableTitle display={display} labels={labels} table={table} />
             <TableScroll>
               <Table>
                 <StandingsHead state={state} roundIndexes={roundIndexes} unitLabel={unitLabel} />
@@ -221,7 +251,7 @@ export function TournamentStandings({
                 </tbody>
               </Table>
             </TableScroll>
-          </Panel>
+          </section>
         );
       })}
     </div>

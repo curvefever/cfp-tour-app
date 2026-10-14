@@ -45,9 +45,12 @@ export function ExitIcon({
   label,
   lines,
   popupClassName,
+  buttonClassName,
 }: {
   label: string;
   lines: ExitLine[];
+  /** Extra classes of the icon button (a ground behind it, for instance). */
+  buttonClassName?: string;
   /** Where the pop-up sits, when not under a 38 px room header. */
   popupClassName?: string;
 }) {
@@ -80,7 +83,10 @@ export function ExitIcon({
       <button
         aria-expanded={open}
         aria-label={label}
-        className='flex size-7 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current'
+        className={cn(
+          'flex size-7 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current',
+          buttonClassName,
+        )}
         onClick={touch ? () => setOpen((current) => !current) : undefined}
         type='button'
       >

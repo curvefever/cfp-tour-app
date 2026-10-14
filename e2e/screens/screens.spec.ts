@@ -203,6 +203,11 @@ test.describe('screenshots of the viewer tabs', () => {
                 // The follow is stored per browser, so the Standings tab shows the same banner.
                 await nav.getByRole('button', { name: /Standings/ }).click();
                 await capture(page, fixture.id, fileName('Standings follow', String(width)));
+                await page
+                  .getByRole('button', { name: /Where players go from/ })
+                  .first()
+                  .focus();
+                await capture(page, fixture.id, fileName('Standings exit popup', String(width)));
                 await nav.getByRole('button', { name: /Bracket/ }).click();
               }
               await page.locator('#br-follow-input').fill('');
