@@ -199,6 +199,12 @@ test.describe('screenshots of the viewer tabs', () => {
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);
               await captureFullBracket(page, fixture.id, 'bracket-follow-full', width);
+              if (fixture.tabs.includes('Standings')) {
+                // The follow is stored per browser, so the Standings tab shows the same banner.
+                await nav.getByRole('button', { name: /Standings/ }).click();
+                await capture(page, fixture.id, fileName('Standings follow', String(width)));
+                await nav.getByRole('button', { name: /Bracket/ }).click();
+              }
               await page.locator('#br-follow-input').fill('');
             }
           }

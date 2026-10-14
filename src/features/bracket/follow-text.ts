@@ -124,6 +124,15 @@ export function standingsFollowText(display: StandingsDisplay, key: string, labe
   return null;
 }
 
+/**
+ * What the Standings tab's follow banner says after the name: "#14 · → Round 4", nothing while the unit has no rank
+ * yet, "Not in these standings" when it is in no table (for instance a unit followed in another tournament).
+ */
+export function standingsFollowDetail(display: StandingsDisplay, key: string, labels: Labels): string {
+  const listed = display.tables.some((table) => table.entries.some((entry) => entry.name === key));
+  return standingsFollowText(display, key, labels) ?? (listed ? '' : 'Not in these standings');
+}
+
 function standingsDestination(
   table: StandingsDisplayTable,
   display: StandingsDisplay,

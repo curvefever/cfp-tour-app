@@ -8,7 +8,7 @@ import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { followBannerText, standingsFollowText } from './follow-text';
+import { followBannerText, standingsFollowDetail, standingsFollowText } from './follow-text';
 import { roomTitle } from './room-title';
 
 function start(count: number, setup: Partial<PersistedSetup> = {}, teams = false): TournamentState {
@@ -97,7 +97,9 @@ describe.each([31, 37, 43, 53])('followBannerText in the first bracket round wit
   it('adds the place and where it leads once the room is complete', () => {
     const scored = scoreCurrentRound(state, 0);
     const detail = textFor(scored, name).detail;
-    expect(detail).toMatch(new RegExp(`^${label} · Room A · (1st|2nd|3rd|\\dth) (→ .+|out|· lucky loser\\?)$`));
+    expect(detail).toMatch(
+      new RegExp(`^${label} · Room A · (1st|2nd|3rd|\\dth) (→ .+|out|· lucky loser\\?)$`),
+    );
     expect(detail).toContain('1st →');
   });
 
@@ -182,6 +184,13 @@ describe.each([31, 37, 43, 53])('standingsFollowText with %i players and a cut o
     if (!display) throw new Error('no standings');
     expect(standingsFollowText(display, 'Nobody', labels)).toBeNull();
   });
+
+  it('detail: the same text for a ranked unit, a note for a unit that is in no table', () => {
+    if (!display) throw new Error('no standings');
+    const names = display.tables[0].entries.map((entry) => entry.name);
+    expect(standingsFollowDetail(display, names[count - 1], labels)).toBe(`#${count} · out`);
+    expect(standingsFollowDetail(display, 'Nobody', labels)).toBe('Not in these standings');
+  });
 });
 
 describe('standingsFollowText: a Qual source', () => {
@@ -194,5 +203,15 @@ describe('standingsFollowText: a Qual source', () => {
     expect(standingsFollowText(display, names[0], labels)).toBe('#1 · → R1');
     expect(standingsFollowText(display, names[16], labels)).toBe('#17 · → R1C');
     expect(standingsFollowText(display, names[30], labels)).toBe('#31 · out');
+  });
+});
+
+describe('standingsFollowDetail: before any round is scored', () => {
+  it('is empty for a listed unit without a rank, not the "not in" note', () => {
+    const state = start(37);
+    const display = describeStandings(state);
+    if (!display) throw new Error('no standings');
+    const name = display.tables[0].entries[0].name;
+    expect(standingsFollowDetail(display, name, bracketRoundLabels(state))).toBe('');
   });
 });

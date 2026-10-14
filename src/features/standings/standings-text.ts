@@ -4,20 +4,11 @@ import type { StandingsDisplay } from '../../domain/tournament/standings-display
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
 
-/** Context line shared by the Standings tab and the Bracket column: where the standings are and what they decide. */
-export function standingsContextLine(display: StandingsDisplay): string {
-  const cut = display.tables[0]?.cut ?? null;
+/** Where the standings are: how many rounds are in, that they are final, or when they start. */
+export function standingsProgressSentence(display: StandingsDisplay): string {
   if (display.phase === 'upcoming') return `Standings start after Round ${display.firstCountedRoundNum}.`;
-  const perGroup = display.perGroup ? 'per group ' : '';
-  if (display.phase === 'final') {
-    return cut === null
-      ? 'Final standings · everyone qualified'
-      : `Final standings · top ${cut} ${perGroup}qualified`;
-  }
-  const progress = `After ${display.roundsDone} of ${display.roundsTotal} rounds`;
-  return cut === null
-    ? `${progress} · everyone goes through`
-    : `${progress} · top ${cut} ${perGroup}go through`;
+  if (display.phase === 'final') return 'These are the final standings.';
+  return `After ${display.roundsDone} of ${display.roundsTotal} rounds.`;
 }
 
 /** Points earned by each place, 1st first: the organiser's table under Custom points, else the largest room size down to 1. */
@@ -58,11 +49,12 @@ function cutSentence(display: StandingsDisplay): string {
 }
 
 /**
- * The written explanation of the Standings table, one string per paragraph. Every figure (points per place, the
- * cut, the non-counting rounds) comes from the tournament's own settings.
+ * The written explanation of the Standings table, one string per paragraph, starting with where the standings are.
+ * Every figure (points per place, the cut, the non-counting rounds) comes from the tournament's own settings.
  */
 export function standingsExplanation(state: TournamentState, display: StandingsDisplay): string[] {
   return [
+    standingsProgressSentence(display),
     pointsSentence(state),
     ['A bye counts as a win; a missed round earns 0.', nonCountingSentence(state)].filter(Boolean).join(' '),
     `Points are added up; most points ranks first. ${cutSentence(display)}`,
