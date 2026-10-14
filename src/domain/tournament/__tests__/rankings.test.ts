@@ -334,6 +334,33 @@ describe('computeRankings -- pool rank badge', () => {
   });
 });
 
+function finalCompleteState(): TournamentState {
+  const state = createDefaultTournamentState({
+    gameFormat: 'ffa-individual',
+    players: ['P1', 'P2', 'P3', 'P4'],
+    curRound: 1,
+    rounds: [
+      buildRound({ roundNum: 1, rooms: [4], players: 4, advPerRoom: 2 }),
+      buildRound({ roundNum: 2, rooms: [2], players: 2, isFinal: true, numGames: 1 }),
+    ],
+    assignments: [
+      [
+        { name: 'P1', room: 1, isLucky: false },
+        { name: 'P2', room: 1, isLucky: false },
+        { name: 'P3', room: 1, isLucky: false },
+        { name: 'P4', room: 1, isLucky: false },
+      ],
+      [
+        { name: 'P1', room: 1, isLucky: false },
+        { name: 'P2', room: 1, isLucky: false },
+      ],
+    ],
+    scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
+    finalScores: { 'game1-P1': 50, 'game1-P2': 80 },
+  });
+  return state;
+}
+
 describe('computeRankings -- eliminated at a standings cut', () => {
   function advance(state: TournamentState): TournamentState {
     const result = advanceTournamentRound(state);
@@ -480,29 +507,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
   );
 
   it('with the Final complete the ranks are unchanged: finalists 1…n, then the eliminated', () => {
-    const state = createDefaultTournamentState({
-      gameFormat: 'ffa-individual',
-      players: ['P1', 'P2', 'P3', 'P4'],
-      curRound: 1,
-      rounds: [
-        buildRound({ roundNum: 1, rooms: [4], players: 4, advPerRoom: 2 }),
-        buildRound({ roundNum: 2, rooms: [2], players: 2, isFinal: true, numGames: 1 }),
-      ],
-      assignments: [
-        [
-          { name: 'P1', room: 1, isLucky: false },
-          { name: 'P2', room: 1, isLucky: false },
-          { name: 'P3', room: 1, isLucky: false },
-          { name: 'P4', room: 1, isLucky: false },
-        ],
-        [
-          { name: 'P1', room: 1, isLucky: false },
-          { name: 'P2', room: 1, isLucky: false },
-        ],
-      ],
-      scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },
-      finalScores: { 'game1-P1': 50, 'game1-P2': 80 },
-    });
+    const state = finalCompleteState();
     const rankings = computeRankings(state);
     expect(rankings?.finalComplete).toBe(true);
     expect(rankings?.finalists.map((entry) => [entry.name, entry.rank])).toEqual([
@@ -512,6 +517,22 @@ describe('computeRankings -- eliminated at a standings cut', () => {
     expect(rankings?.eliminatedList.map((entry) => [entry.name, entry.rank])).toEqual([
       ['P3', 3],
       ['P4', 4],
+    ]);
+  });
+
+  it('tells where each eliminated unit went out (room, place, not at a cut) without changing the order', () => {
+    const rankings = computeRankings(finalCompleteState());
+    expect(
+      rankings?.eliminatedList.map((entry) => [
+        entry.name,
+        entry.seat,
+        entry.place,
+        entry.atCut,
+        entry.poolRank,
+      ]),
+    ).toEqual([
+      ['P3', 1, 3, false, null],
+      ['P4', 1, 4, false, null],
     ]);
   });
 });

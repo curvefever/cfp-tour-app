@@ -23,7 +23,7 @@ export interface RankingDisplay {
   members: string[] | null;
 }
 
-interface ActiveRanking extends RankingDisplay {
+export interface ActiveRanking extends RankingDisplay {
   room: number | null;
   isLucky: boolean;
   poolRank: { rank: number; fp: number | null; groupLabel?: string } | null;
@@ -31,16 +31,25 @@ interface ActiveRanking extends RankingDisplay {
   waitingFor?: number;
 }
 
-interface FinalistRanking extends RankingDisplay {
+export interface FinalistRanking extends RankingDisplay {
   total: number;
   rank: number;
 }
 
-interface EliminatedRanking extends RankingDisplay {
+export interface EliminatedRanking extends RankingDisplay {
   ri: number;
   round: TournamentRound;
+  /** The Kings Valley room (the ranking orders by it); undefined in every other round. */
   room?: number;
   rank: number;
+  /** The room (1-based) it played the round that eliminated it in. */
+  seat: number;
+  /** Its place in that room by score; units with level scores share a place. */
+  place: number;
+  /** A standings cut eliminated it (the last pooling round), so its standing says more than its room. */
+  atCut: boolean;
+  /** Its place in the pooling standings (in its group's table, for a Group Stage); null when it has none. */
+  poolRank: { rank: number; groupLabel?: string } | null;
 }
 
 interface TournamentRankings {
@@ -92,6 +101,8 @@ interface RoundElimination {
   /** Score relative to the room average (1 = average); an all-zero room gives everyone 1. */
   share: number;
   room?: number;
+  /** The room it played in, 1-based, whatever the round. */
+  seat: number;
 }
 
 interface EliminatedEntry extends RoundElimination {
@@ -224,6 +235,7 @@ function eliminationsInRound(state: TournamentState, roundIndex: number): Array<
           place: 1 + scored.filter((other) => other.score > score).length,
           share: relativeRoomShare(score, scored),
           room: round.isKingsValley ? room : undefined,
+          seat: room,
         },
       ]);
     }
@@ -341,7 +353,16 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const rankedEliminated = eliminatedValues.map((entry, index) => {
     const previous = eliminatedValues[index - 1];
     if (!previous || !sharesRank(previous, entry, perGroup)) rank = index + 1 + offset;
-    return { name: entry.name, ri: entry.ri, round: entry.round, room: entry.room, rank };
+    return {
+      name: entry.name,
+      ri: entry.ri,
+      round: entry.round,
+      room: entry.room,
+      rank,
+      seat: entry.seat,
+      place: entry.place,
+      atCut: Boolean(entry.cut),
+    };
   });
 
   let finalRank = 0;
@@ -388,6 +409,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     eliminatedList: rankedEliminated.map((entry) => ({
       ...entry,
       ...display(entry.name),
+      poolRank: poolRanks.get(entry.name) ?? null,
     })),
     dnfList,
     noShows,
