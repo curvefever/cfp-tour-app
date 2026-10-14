@@ -4,7 +4,6 @@ import type { TournamentRound, TournamentState } from './types';
 
 interface BracketRoundLabel {
   label: string;
-  accent: '' | 'wb' | 'lb' | 'gf';
   roundNumber: number;
 }
 
@@ -37,19 +36,19 @@ export function roundGameCount(
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
   return state.rounds.map((round) => {
     if (round.customLabel) {
-      return { label: round.customLabel, accent: '', roundNumber: round.roundNum };
+      return { label: round.customLabel, roundNumber: round.roundNum };
     }
     if (round.bracket === 'winners') {
-      return { label: `WB Round ${round.roundNum}`, accent: 'wb', roundNumber: round.roundNum };
+      return { label: `WB Round ${round.roundNum}`, roundNumber: round.roundNum };
     }
     if (round.bracket === 'losers') {
-      return { label: `LB Round ${round.roundNum}`, accent: 'lb', roundNumber: round.roundNum };
+      return { label: `LB Round ${round.roundNum}`, roundNumber: round.roundNum };
     }
     if (round.bracket === 'grand-final') {
-      return { label: 'Grand Final', accent: 'gf', roundNumber: round.roundNum };
+      return { label: 'Grand Final', roundNumber: round.roundNum };
     }
     const label = round.isFinal ? 'Final' : round.isSemis ? 'Semis' : `Round ${round.roundNum}`;
-    return { label, accent: '', roundNumber: round.roundNum };
+    return { label, roundNumber: round.roundNum };
   });
 }
 

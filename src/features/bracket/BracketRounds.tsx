@@ -15,15 +15,49 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
 import { AnonymousFinalCard } from './FinalColumn';
+import { ColumnTitleBar } from './ColumnTitleBar';
 import { RoundBody } from './RoundBody';
 
 /** The width-affecting classes for a round column at a given collapsed state. */
 export function roundColumnWidthClass(collapsed: boolean) {
-  return cn(collapsed ? 'w-8.5 min-w-8.5' : 'w-52.5 min-w-52.5', 'shrink-0');
+  return cn(collapsed ? 'w-8.5 min-w-8.5' : 'w-82.5 min-w-82.5', 'shrink-0');
 }
 
+/** A folded column: for now still the slim vertical strip (the folded box replaces it). */
+function CollapsedColumn({
+  current,
+  followed,
+  label,
+  onToggle,
+}: {
+  current: boolean;
+  followed: boolean;
+  label: string;
+  onToggle?: () => void;
+}) {
+  const className = cn(
+    roundColumnWidthClass(true),
+    'flex h-45 items-center gap-1 overflow-hidden rounded-lg border border-surface-hover bg-surface-low py-2 pr-0 pl-0.5 text-left text-xs font-bold tracking-[0.08em] whitespace-nowrap text-muted uppercase [writing-mode:vertical-rl]',
+    onToggle && 'cursor-pointer',
+    (current || followed) && 'text-primary',
+  );
+  const content = (
+    <>
+      <span className='shrink-0 rotate-180 text-[0.68rem] [writing-mode:horizontal-tb]'>▸</span>
+      {label}
+    </>
+  );
+  return onToggle ? (
+    <button aria-label={`Show ${label}`} className={className} onClick={onToggle}>
+      {content}
+    </button>
+  ) : (
+    <div className={className}>{content}</div>
+  );
+}
+
+/** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
 export function RoundColumn({
-  accent,
   children,
   collapsed = false,
   current = false,
@@ -32,65 +66,21 @@ export function RoundColumn({
   label,
   onToggle,
 }: {
-  accent?: string;
   children: ReactNode;
   collapsed?: boolean;
   current?: boolean;
   followed?: boolean;
   gameCount?: RoundGameCount | null;
-  label: ReactNode;
+  label: string;
   onToggle?: () => void;
 }) {
-  const accentClass =
-    accent === 'wb'
-      ? 'border-t-2 border-t-success'
-      : accent === 'lb'
-        ? 'border-t-2 border-t-warning'
-        : accent === 'gf'
-          ? 'border-t-2 border-t-accent'
-          : '';
-  const headerClass = cn(
-    'flex w-full items-center gap-1 border-b border-surface-hover bg-surface-low px-3 py-2.5 text-left text-xs font-bold tracking-[0.08em] text-muted uppercase',
-    onToggle && 'cursor-pointer',
-    (current || followed) && 'text-primary',
-    accentClass,
-    collapsed && 'h-45 border-b-0 py-2 pr-0 pl-0.5 whitespace-nowrap [writing-mode:vertical-rl]',
-  );
-  const labelWithGameCount = (
-    <>
-      {label}
-      {gameCount ? (
-        <span className='ml-auto font-normal tracking-normal text-muted normal-case'>
-          {gameCount.upTo ? 'up to ' : ''}
-          {gameCount.games} games
-        </span>
-      ) : null}
-    </>
-  );
+  if (collapsed) {
+    return <CollapsedColumn current={current} followed={followed} label={label} onToggle={onToggle} />;
+  }
   return (
-    <div
-      className={cn(
-        roundColumnWidthClass(collapsed),
-        'overflow-hidden rounded-lg border border-surface-hover bg-surface',
-        current && 'border-primary shadow-[0_0_0_1px_var(--app-primary-soft)]',
-      )}
-    >
-      {onToggle ? (
-        <button className={headerClass} onClick={onToggle}>
-          <span
-            className={cn(
-              'shrink-0 rotate-90 text-[0.68rem]',
-              collapsed && 'rotate-180 [writing-mode:horizontal-tb]',
-            )}
-          >
-            ▸
-          </span>
-          {labelWithGameCount}
-        </button>
-      ) : (
-        <div className={headerClass}>{labelWithGameCount}</div>
-      )}
-      {!collapsed ? <div className='p-2.5'>{children}</div> : null}
+    <div className={cn(roundColumnWidthClass(false), 'flex flex-col gap-4.5')}>
+      <ColumnTitleBar gameCount={gameCount} now={current} onToggle={onToggle} title={label} />
+      <div>{children}</div>
     </div>
   );
 }
@@ -218,13 +208,12 @@ export function BracketRounds({
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
     const column = (
       <RoundColumn
-        accent={labels[roundIndex]?.accent}
         collapsed={collapsed}
         current={roundIndex === state.curRound}
         followed={Boolean(followedRounds?.[roundIndex])}
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
-        label={labels[roundIndex]?.label}
+        label={labels[roundIndex]?.label ?? ''}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
       >
         <RoundBody
@@ -260,7 +249,6 @@ export function BracketRounds({
       collapse?.[box.winnersRoundIndex] ?? bracketRoundDefaultCollapsed(lastIndex, state.curRound);
     return (
       <RoundColumn
-        accent={labels[box.winnersRoundIndex]?.accent}
         collapsed={collapsed}
         current={constituents.includes(state.curRound)}
         followed={constituents.some((roundIndex) => Boolean(followedRounds?.[roundIndex]))}

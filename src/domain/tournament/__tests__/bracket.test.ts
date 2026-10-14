@@ -28,8 +28,8 @@ describe('bracketRoundLabels', () => {
       buildRound({ roundNum: 4, rooms: [2], players: 2, bracket: 'losers' }), // 1st LB round, but roundNum 4
     ];
     const labels = bracketRoundLabels({ rounds });
-    expect(labels[2]).toEqual({ label: 'WB Round 3', accent: 'wb', roundNumber: 3 });
-    expect(labels[3]).toEqual({ label: 'LB Round 4', accent: 'lb', roundNumber: 4 });
+    expect(labels[2]).toEqual({ label: 'WB Round 3', roundNumber: 3 });
+    expect(labels[3]).toEqual({ label: 'LB Round 4', roundNumber: 4 });
   });
 
   it('reads a waterfall round\'s own customLabel instead of a synthetic "Round N" label, as typed, also for the Final', () => {
@@ -45,8 +45,8 @@ describe('bracketRoundLabels', () => {
       }),
     ];
     const labels = bracketRoundLabels({ rounds });
-    expect(labels[0]).toEqual({ label: 'SemiA', accent: '', roundNumber: 3 });
-    expect(labels[1]).toEqual({ label: 'Final', accent: '', roundNumber: 4 });
+    expect(labels[0]).toEqual({ label: 'SemiA', roundNumber: 3 });
+    expect(labels[1]).toEqual({ label: 'Final', roundNumber: 4 });
   });
 
   it('names every round kind plainly: no emoji and no format suffix', () => {
