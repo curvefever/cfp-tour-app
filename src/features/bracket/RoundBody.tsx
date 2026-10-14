@@ -9,7 +9,7 @@ import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
-import { KingsValleyDisclaimer, LuckyLoserDisclaimer, LuckyLoserStandingsPanel } from './RoundNotes';
+import { LuckyLoserStandingsPanel } from './RoundNotes';
 
 function tieResolutionListSafe(state: TournamentState, key: string): string[] {
   const value = state.tieResolutions[key];
@@ -101,11 +101,9 @@ export function RoundBody({
           teamMap={teamMap}
         />
       ))}
-      {round.luckyCount > 0 && !round.isNoElim ? <LuckyLoserDisclaimer round={round} /> : null}
       {round.luckyCount > 0 && !round.isNoElim && roundIndex === state.curRound ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}
-      {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
       {(state.byes[roundIndex] ?? []).map((name) => (
         <ByeCard followed={followKey === name} key={name} name={unitDisplay(state, name).label} />
       ))}

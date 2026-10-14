@@ -169,6 +169,15 @@ test.describe('screenshots of the viewer tabs', () => {
               const fits = await standingsTitle.evaluate((title) => title.scrollWidth <= title.clientWidth);
               expect(fits, 'the standings title fits').toBe(true);
             }
+            if (fixture.infoBox) {
+              await page.getByRole('button', { name: 'How to read the bracket' }).click();
+              await expect(page.getByRole('dialog', { name: 'How to read the bracket' })).toBeVisible();
+              await page.screenshot({
+                path: `${OUTPUT_DIR}/${fixture.id}/info-box-${width}.png`,
+                clip: { x: 0, y: 0, width, height: 760 },
+              });
+              await page.getByRole('button', { name: 'Close' }).click();
+            }
             for (const nth of fixture.exitPopups ?? []) await captureExitPopup(page, fixture.id, nth, width);
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);

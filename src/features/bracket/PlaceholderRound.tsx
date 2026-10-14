@@ -13,7 +13,6 @@ import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/resu
 import { ByeCard } from './ByeCard';
 import { RoomFrame } from './RoomCard';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
-import { KingsValleyDisclaimer, LuckyLoserDisclaimer } from './RoundNotes';
 import { roomTitle } from './room-title';
 
 /** One slot of a room that is not drawn yet: an empty dashed stripe, and what will fill it (or the unit already known). */
@@ -127,8 +126,6 @@ export function PlaceholderRound({
           </FutureRoom>
         );
       })}
-      {round.luckyCount > 0 && !round.isNoElim ? <LuckyLoserDisclaimer round={round} /> : null}
-      {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
       {round.pairingTBD ? <div className='text-[0.68rem] text-muted'>Pairings determined live</div> : null}
     </>
   );

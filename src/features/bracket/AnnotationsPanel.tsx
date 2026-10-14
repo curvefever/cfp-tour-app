@@ -23,7 +23,7 @@ export function AnnotationsToggle({ open, onToggle }: { open: boolean; onToggle(
       aria-expanded={open}
       aria-label='Notes about this tournament'
       className={cn(
-        'ml-auto flex size-11 cursor-pointer items-center justify-center hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
+        'flex size-11 cursor-pointer items-center justify-center hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
         open ? 'text-cfp-sky' : 'text-muted',
       )}
       onClick={onToggle}

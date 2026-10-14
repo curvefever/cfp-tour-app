@@ -31,6 +31,8 @@ export interface FixtureTournament {
   follow?: string;
   /** Which exit icons (by position in the Bracket, counting every open room) the spec hovers to capture their pop-up. */
   exitPopups?: number[];
+  /** The spec opens the "?" box of the Bracket and captures it. */
+  infoBox?: boolean;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -376,7 +378,7 @@ function titleOf(id: string): string {
 export function fixtureTournaments(): FixtureTournament[] {
   return [
     entry('ffa37-pooling', ffaPooling(37)),
-    entry('ffa37-quarters', ffaQuarters(37), { follow: 'Player 14', exitPopups: [0, 5] }),
+    entry('ffa37-quarters', ffaQuarters(37), { follow: 'Player 14', exitPopups: [0, 5], infoBox: true }),
     entry('ffa37-final-complete', ffa37FinalComplete()),
     entry('ffa37-finished', ffa37FinalComplete(), { status: 'finished' }),
     entry('ffa31-pooling', ffaPooling(31)),
@@ -385,9 +387,9 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2()),
-    entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS }),
-    entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS }),
-    entry('waterfall-qual-37', waterfallQual()),
+    entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
+    entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
+    entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('upcoming-info', upcoming(), {
       tabs: ['Info', 'Players'],
       rulesText: RULES_TEXT,

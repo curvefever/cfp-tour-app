@@ -12,6 +12,7 @@ import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/stor
 import { Alert, Button, ButtonRow, Input, PageHeading } from '../../components/ui';
 import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
 import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
+import { BracketInfoBox, InfoToggle } from './BracketInfoBox';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { BracketRounds } from './BracketRounds';
@@ -26,6 +27,7 @@ export function BracketView() {
   const [standingsCollapsed, setStandingsCollapsed] = useState(false);
   const [query, setQuery] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {
@@ -94,7 +96,11 @@ export function BracketView() {
           onChange={(event) => chooseFollow(event.target.value)}
         />
         <FollowBanner state={app.state} followKey={followKey} follow={follow} />
-        <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
+        <div className='ml-auto flex'>
+          <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
+          <InfoToggle open={infoOpen} onToggle={() => setInfoOpen((open) => !open)} />
+        </div>
+        {infoOpen ? <BracketInfoBox onClose={() => setInfoOpen(false)} state={app.state} /> : null}
       </div>
       {notesOpen ? <AnnotationsPanel /> : null}
       {editable ? <TieBanners state={app.state} /> : null}
