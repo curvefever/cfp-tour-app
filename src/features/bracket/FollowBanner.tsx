@@ -1,66 +1,32 @@
 import { useMemo } from 'react';
-import {
-  type StandingsDisplay,
-  describeStandings,
-  standingFor,
-} from '../../domain/tournament/standings-display';
-import { type BracketFollowStatus, bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
-import { unitDisplay } from '../../domain/tournament/roster';
+import { type BracketFollowStatus } from '../../domain/tournament/bracket';
+import { describeStandings } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
-import { Button, cn } from '../../components/ui';
+import { followBannerText } from './follow-text';
 
-/** " · #6 in standings" (or "in Group A") while the standings are still being decided; nothing after pooling. */
-function standingsSuffix(standings: StandingsDisplay | null, followKey: string): string {
-  if (!standings || standings.phase === 'final') return '';
-  const standing = standingFor(standings, followKey);
-  if (!standing) return '';
-  return ` · #${standing.rank} in ${standing.groupLabel ? `Group ${standing.groupLabel}` : 'standings'}`;
-}
-
+/**
+ * The follow banner: who is followed and where they are ("Following Dune · Quarters · Room B · 4th → Semi B").
+ * No close button: emptying the follow box stops following.
+ */
 export function FollowBanner({
   state,
   followKey,
   follow,
-  clear,
 }: {
   state: TournamentState;
   followKey: string | null;
   follow: BracketFollowStatus | null;
-  clear(): void;
 }) {
   const standings = useMemo(() => describeStandings(state), [state]);
   if (!followKey) return null;
-  const label = unitDisplay(state, followKey).label;
-  const out = !follow || follow.eliminated;
-  const roundName = follow
-    ? (bracketRoundLabels(state)[follow.lastRi]?.label ?? `Round ${follow.lastRi + 1}`)
-    : '';
-  const where = !follow
-    ? 'not in this bracket'
-    : follow.eliminated
-      ? `out in ${roundName}`
-      : follow.isBye || follow.room === null
-        ? `${roundName} · BYE, advances automatically`
-        : `${roundName} · Room ${roomLetter(follow.room)}`;
+  const { name, detail } = followBannerText(state, follow, standings, followKey);
   return (
     <div
-      className={cn(
-        'inline-flex items-center gap-2 rounded-full border border-surface-hover bg-primary-soft py-1 pr-1.5 pl-3 text-xs',
-        out && 'bg-danger/10',
-      )}
+      className='flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xs bg-cfp-game-banner px-3.5 py-1'
+      role='status'
     >
-      <strong className={out ? 'text-muted' : 'text-primary'}>Following {label}</strong> — {where}
-      {standingsSuffix(standings, followKey)}
-      <Button
-        aria-label='Stop following'
-        className='size-6 min-h-0 rounded-full p-0'
-        onClick={clear}
-        size='sm'
-        title='Stop following'
-        variant='ghost'
-      >
-        ✕
-      </Button>
+      <span className='text-[15px] font-extrabold tracking-[0.03em] uppercase'>Following {name}</span>
+      <span className='text-[15px] text-cfp-text-soft'>{detail}</span>
     </div>
   );
 }

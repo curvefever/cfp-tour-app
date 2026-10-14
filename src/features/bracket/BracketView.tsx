@@ -9,7 +9,7 @@ import { resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import { drawnAheadStatus } from '../../domain/tournament/redraw';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
-import { Alert, Badge, Button, ButtonRow, Input, PageHeading } from '../../components/ui';
+import { Alert, Button, ButtonRow, Input, PageHeading } from '../../components/ui';
 import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
 import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -81,33 +81,22 @@ export function BracketView() {
   return (
     <div id='br-content'>
       <PageHeading label='Bracket' title={title} />
-      <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
+      <div className='relative mb-4.5 flex flex-wrap items-center gap-2.5'>
+        <label className='sr-only' htmlFor='br-follow-input'>
+          Follow a player
+        </label>
         <Input
-          className='max-w-65'
+          className='h-11 w-60 rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep text-[15px] font-semibold'
           id='br-follow-input'
           placeholder='Follow a player or team…'
           type='text'
           value={query}
           onChange={(event) => chooseFollow(event.target.value)}
         />
-        <FollowBanner
-          state={app.state}
-          followKey={followKey}
-          follow={follow}
-          clear={() => {
-            setQuery('');
-            setFollowKey(null);
-            saveBracketFollow(window.localStorage, null);
-          }}
-        />
+        <FollowBanner state={app.state} followKey={followKey} follow={follow} />
         <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
       </div>
       {notesOpen ? <AnnotationsPanel /> : null}
-      <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
-        <Badge tone='success'>Advanced</Badge>
-        <Badge tone='accent'>Lucky loser</Badge>
-        <Badge tone='danger'>Eliminated</Badge>
-      </div>
       {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (

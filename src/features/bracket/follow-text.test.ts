@@ -9,6 +9,7 @@ import { describeStandings } from '../../domain/tournament/standings-display';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
 import { followBannerText, standingsFollowText } from './follow-text';
+import { roomTitle } from './room-title';
 
 function start(count: number, setup: Partial<PersistedSetup> = {}, teams = false): TournamentState {
   const state = buildState({
@@ -69,7 +70,7 @@ describe('followBannerText: pooling rounds', () => {
     });
     const scored = scoreCurrentRound(state, 0);
     const name = seated(scored, 0, 1)[0];
-    expect(textFor(scored, name).detail).toMatch(/^Round 1 · Group \w · Room \w · #\d+ in Group \w$/);
+    expect(textFor(scored, name).detail).toMatch(/^Round 1 · Group \w · Room \w · #\d+ in group$/);
   });
 
   it('says a unit sitting a round out has a bye', () => {
@@ -96,18 +97,31 @@ describe.each([31, 37, 43, 53])('followBannerText in the first bracket round wit
   it('adds the place and where it leads once the room is complete', () => {
     const scored = scoreCurrentRound(state, 0);
     const detail = textFor(scored, name).detail;
-    expect(detail).toMatch(new RegExp(`^${label} · Room A · (1st|2nd|3rd|\\dth) (→ .+|out|lucky loser\\?)$`));
+    expect(detail).toMatch(new RegExp(`^${label} · Room A · (1st|2nd|3rd|\\dth) (→ .+|out|· lucky loser\\?)$`));
     expect(detail).toContain('1st →');
   });
 
-  it('keeps the round and place and names the next room once the next round is drawn', () => {
-    const scored = scoreCurrentRound(state, 0);
+  it('keeps the round and place and names the own next room of the unit once the next round is drawn', () => {
     const next = advanced(state);
     // "← Previous": the next round is drawn but the current round is the one just played.
     const back: TournamentState = { ...next, curRound: state.curRound };
-    const detail = textFor(back, name).detail;
-    expect(detail).toMatch(new RegExp(`^${label} · Room A · 1st → (Room|Semi) [A-Z]$`));
-    expect(scored.curRound).toBe(state.curRound);
+    const nextRound = state.curRound + 1;
+    const winners = (state.assignments[state.curRound] ?? [])
+      .filter((entry) => entry.room === 1)
+      .map((entry) => entry.name)
+      .filter((candidate) => (next.assignments[nextRound] ?? []).some((entry) => entry.name === candidate));
+    expect(winners.length).toBeGreaterThan(0);
+    // Every unit that went on says exactly the room the next round drew it into.
+    for (const unit of winners) {
+      const room = (next.assignments[nextRound] ?? []).find((entry) => entry.name === unit)?.room ?? 0;
+      const expected = roomTitle(next.rounds[nextRound], room - 1);
+      expect(textFor(back, unit).detail).toMatch(
+        new RegExp(`^${label} · Room A · \\d+(st|nd|rd|th) → ${expected}$`),
+      );
+    }
+    // And the rooms really differ, so the check cannot pass by accident.
+    const titles = new Set(winners.map((unit) => textFor(back, unit).detail.split('→ ')[1]));
+    expect(titles.size).toBeGreaterThan(1);
   });
 
   it('says "Out in ..." with the place for a unit that did not go on', () => {

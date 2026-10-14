@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Panel, PanelTitle, Textarea } from '../../components/ui';
+import { Button, Panel, PanelTitle, Textarea, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import {
   addAnnotation,
@@ -19,17 +19,36 @@ export function AnnotationsToggle({ open, onToggle }: { open: boolean; onToggle(
   const visible = useCanSeeNotes();
   if (!visible) return null;
   return (
-    <Button
+    <button
       aria-expanded={open}
       aria-label='Notes about this tournament'
-      className='size-8 min-h-0 rounded-full p-0'
+      className={cn(
+        'ml-auto flex size-11 cursor-pointer items-center justify-center hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
+        open ? 'text-cfp-sky' : 'text-muted',
+      )}
       onClick={onToggle}
-      size='sm'
       title='Notes about this tournament'
-      variant='ghost'
+      type='button'
     >
-      📝
-    </Button>
+      <svg aria-hidden='true' height='28' viewBox='0 0 28 28' width='28'>
+        <rect
+          fill='none'
+          height='21'
+          rx='2.5'
+          stroke='currentColor'
+          strokeWidth='2.2'
+          width='17'
+          x='5.5'
+          y='3.5'
+        />
+        <path
+          d='M9.5 10 H18.5 M9.5 14 H18.5 M9.5 18 H15'
+          stroke='currentColor'
+          strokeLinecap='round'
+          strokeWidth='2.2'
+        />
+      </svg>
+    </button>
   );
 }
 

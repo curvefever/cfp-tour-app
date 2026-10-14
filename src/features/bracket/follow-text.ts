@@ -25,12 +25,16 @@ function isPooling(round: TournamentRound | undefined): boolean {
   return Boolean(round?.isQual || round?.isSwiss || round?.isGroupStage);
 }
 
-/** " · #6 in standings" (or "#2 in Group B") while the standings can still change. */
-function standingsSuffix(standings: StandingsDisplay | null, key: string): string {
+/**
+ * " · #6 in standings" while the standings can still change; in a group stage "#2 in Group B", or "#2 in group"
+ * when the room's title already names the group.
+ */
+function standingsSuffix(standings: StandingsDisplay | null, key: string, groupNamed: boolean): string {
   if (!standings || standings.phase === 'final') return '';
   const standing = standingFor(standings, key);
   if (!standing) return '';
-  return ` · #${standing.rank} in ${standing.groupLabel ? `Group ${standing.groupLabel}` : 'standings'}`;
+  const where = !standing.groupLabel ? 'standings' : groupNamed ? 'group' : `Group ${standing.groupLabel}`;
+  return ` · #${standing.rank} in ${where}`;
 }
 
 /** Where the place `place` of a room of a bracket round leads, as a short phrase ("→ Semis", "out"); null if unknown. */
@@ -56,7 +60,7 @@ function placeDestination(
     case 'eliminate':
       return 'out';
     case 'lucky-chance':
-      return roundIndex < state.curRound ? null : 'lucky loser?';
+      return roundIndex < state.curRound ? null : '· lucky loser?';
   }
 }
 
@@ -94,7 +98,7 @@ export function followBannerText(
       const standing = standings ? standingFor(standings, key) : null;
       return { name, detail: standing ? `Out in standings · #${standing.rank}` : `Out in ${where}` };
     }
-    return { name, detail: `${where}${standingsSuffix(standings, key)}` };
+    return { name, detail: `${where}${standingsSuffix(standings, key, Boolean(round.isGroupStage))}` };
   }
   const place = placeInRoom(state, roundIndex, entry.room, key);
   const placeText = place === null ? '' : ` · ${ordinal(place)}`;
