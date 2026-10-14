@@ -63,14 +63,17 @@ export function rowSurfaceClasses(index: number, followed: boolean) {
 /**
  * How a row of a standings table reads: through (green; with a Qual source's bands the first destination is green,
  * the second yellow, the third and later purple) or out (red: past the cut, or in an "out" band). Live or final,
- * the same: the TEMPORARY badge says the table may still change. Nothing before the standings start.
+ * the same: the TEMPORARY badge says the table may still change. Nothing before the standings start, and nothing
+ * for a row that has no rank yet (`ranked` false): a result nobody has earned. `ranked` defaults to true because
+ * the exit pop-ups ask for the colour of a place, not of a unit.
  */
 export function standingsRowResult(
   index: number,
   table: Pick<StandingsDisplayTable, 'bands' | 'cut'>,
   phase: StandingsDisplay['phase'],
+  ranked = true,
 ): RowResult {
-  if (phase === 'upcoming') return '';
+  if (phase === 'upcoming' || !ranked) return '';
   if (table.bands && table.bands.length > 0) {
     const bands = table.bands;
     const band = [...bands].reverse().find((candidate) => candidate.start <= index) ?? bands[0];

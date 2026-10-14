@@ -134,7 +134,7 @@ function StandingsRow({
         <div className='flex items-center gap-3'>
           <span className='w-5.5 text-right text-[15px] font-bold text-muted'>{entry.rank ?? '—'}</span>
           <span className='flex w-1 shrink-0'>
-            <ResultStripe result={standingsRowResult(index, table, display.phase)} />
+            <ResultStripe result={standingsRowResult(index, table, display.phase, entry.rank !== null)} />
           </span>
         </div>
       </TableCell>

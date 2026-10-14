@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildState } from '../../../domain/tournament/__tests__/play-through';
+import { buildState, scoreCurrentRound } from '../../../domain/tournament/__tests__/play-through';
 import {
   buildQualWaterfall,
   playToQualificationExit,
@@ -165,5 +165,81 @@ describe('standingsRowResult: a group stage', () => {
       );
       expect(results.slice(2).every((result) => result === 'eliminate')).toBe(true);
     }
+  });
+
+  it('gives a row without a rank no stripe, inside the cut and past it, and a ranked row its result', () => {
+    const state = buildState({
+      label: 'groups',
+      count: 13,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'single-elimination',
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    const table = describeStandings(state)?.tables[0];
+    if (!table) throw new Error('no table');
+    expect(standingsRowResult(0, table, 'live', false)).toBe('');
+    expect(standingsRowResult(3, table, 'live', false)).toBe('');
+    expect(standingsRowResult(0, table, 'live', true)).toBe('advance');
+    expect(standingsRowResult(3, table, 'live', true)).toBe('eliminate');
+    expect(standingsRowResult(0, table, 'final', false)).toBe('');
+  });
+
+  it('13 units: only the unit on a bye has a rank before a group round is scored, so only it gets a stripe', () => {
+    const state = buildState({
+      label: 'groups',
+      count: 13,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'single-elimination',
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    const results = (describeStandings(state)?.tables ?? []).map((table) =>
+      table.entries.map((entry, index) => standingsRowResult(index, table, 'live', entry.rank !== null)),
+    );
+    expect(results[0]).toEqual(['advance', '', '', '', '']);
+    expect(
+      results
+        .slice(1)
+        .flat()
+        .every((result) => result === ''),
+    ).toBe(true);
+  });
+});
+
+describe('standingsRowResult: a live FFA table with every row ranked', () => {
+  it.each([37, 43])('%i players: ranked rows keep green through and red out', (count) => {
+    const state = buildState({
+      label: `${count}`,
+      count,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '24',
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    const { display, table } = tableOf(scoreCurrentRound(state, 0));
+    expect(display.phase).toBe('live');
+    expect(table.entries.every((entry) => entry.rank !== null)).toBe(true);
+    const results = table.entries.map((entry, index) =>
+      standingsRowResult(index, table, display.phase, entry.rank !== null),
+    );
+    expect(results.slice(0, 24).every((result) => result === 'advance')).toBe(true);
+    expect(results.slice(24).every((result) => result === 'eliminate')).toBe(true);
   });
 });

@@ -4,7 +4,6 @@ import {
   describeStandings,
   hasStandingsPhase,
   standingFor,
-  standingsBandLabel,
   type StandingsDisplay,
   type StandingsDisplayTable,
   tableRoundIndexes,
@@ -557,12 +556,5 @@ describe('a qualification table feeding a waterfall graph (Qual source)', () => 
     // The four picked units now hold four different ranks (13-16), not one shared rank.
     const ranks = after.tables[0].entries.slice(12, 16).map((entry) => entry.rank);
     expect(new Set(ranks).size).toBe(4);
-  });
-});
-
-describe('standingsBandLabel', () => {
-  it('names a run going to a round with an arrow and an eliminated run "out"', () => {
-    expect(standingsBandLabel('R1C')).toBe('→ R1C');
-    expect(standingsBandLabel('out')).toBe('out');
   });
 });

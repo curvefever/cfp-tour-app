@@ -55,7 +55,10 @@ function StandingsRows({
               <span className='w-6 shrink-0 text-right text-sm font-bold text-muted tabular-nums'>
                 {entry.rank ?? '—'}
               </span>
-              <ResultStripe compact result={standingsRowResult(index, table, display.phase)} />
+              <ResultStripe
+                compact
+                result={standingsRowResult(index, table, display.phase, entry.rank !== null)}
+              />
               <span className='flex min-w-0 flex-1 flex-col'>
                 <span className='truncate text-[15px] font-bold'>{info.label}</span>
                 {info.members?.length ? (

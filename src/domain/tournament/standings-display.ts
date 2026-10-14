@@ -81,11 +81,6 @@ function countRoundsDone(state: TournamentState, countedIndexes: number[]): numb
   ).length;
 }
 
-/** How a band of final standings is named wherever bands are shown: "→ R1C", or "out" for an eliminated run. */
-export function standingsBandLabel(destination: string): string {
-  return destination === 'out' ? 'out' : `→ ${destination}`;
-}
-
 /** The runs of consecutive standings that share a destination, in table order. */
 function standingsBands(
   state: TournamentState,

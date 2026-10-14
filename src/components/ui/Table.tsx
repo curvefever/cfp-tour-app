@@ -1,18 +1,5 @@
-import type { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react';
+import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react';
 import { cn } from './cn';
-
-export function TableScroll({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('max-w-full overflow-x-auto', className)} {...props} />;
-}
-
-export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return (
-    <table
-      className={cn('w-full border-collapse border border-surface-hover bg-surface', className)}
-      {...props}
-    />
-  );
-}
 
 export function TableHeadCell({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
