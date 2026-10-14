@@ -11,7 +11,7 @@ export function TimelineItem({ children, label, state = "upcoming" }: { children
       <div className={cn(
         "grid size-8 place-items-center rounded-full border-2 text-xs font-bold",
         state === "done" && "border-success bg-success-soft text-success",
-        state === "current" && "border-primary bg-primary-soft text-primary shadow-[0_0_10px_rgb(0_229_255_/_27%)]",
+        state === "current" && "border-primary bg-primary-soft text-primary shadow-[0_0_10px_var(--app-primary-ring)]",
         state === "upcoming" && "border-surface-hover text-muted",
       )}>{children}</div>
       <div className="max-w-17.5 text-center text-[0.65rem] text-muted">{label}</div>

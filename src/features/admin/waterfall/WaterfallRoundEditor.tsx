@@ -224,7 +224,7 @@ function SlotGrid({
             'flex min-h-13 w-14 flex-col items-center justify-center rounded-md border-2 px-0.5 leading-tight',
             isPicked && 'ring-2 ring-foreground',
           );
-          const style = { borderColor: color, backgroundColor: `${color}22` };
+          const style = { borderColor: color, backgroundColor: `color-mix(in srgb, ${color} 13%, transparent)` };
           const content = (
             <>
               <span className='text-base font-semibold tabular-nums'>{rank}</span>

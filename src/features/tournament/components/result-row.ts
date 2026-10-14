@@ -21,7 +21,7 @@ export function resultClasses(result: RowResult, followed: boolean) {
     result === 'demote' && 'border-l-warning text-warning',
     // Below a live standings cut: a projection, muted, without the red bar of an eliminated row.
     result === 'below-cut' && 'text-muted',
-    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
+    followed && 'bg-primary-soft shadow-[inset_0_0_0_1px_var(--app-primary-ring)]',
   );
 }
 

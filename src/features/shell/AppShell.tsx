@@ -60,7 +60,7 @@ export function AppShell() {
           {app.state.started ? (
             <>
               <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
-              <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_rgb(0_229_255_/_40%)]'>
+              <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_var(--app-primary-glow)]'>
                 {currentRound?.roundNum ?? '—'}
               </div>
             </>

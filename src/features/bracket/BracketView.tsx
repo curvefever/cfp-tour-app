@@ -404,7 +404,7 @@ function FinalColumn({
             className={cn(
               bracketRowBase,
               progress.complete && 'border-l-success text-success',
-              followed === name && 'bg-primary-soft shadow-[inset_0_0_0_1px_rgb(0_229_255_/_27%)]',
+              followed === name && 'bg-primary-soft shadow-[inset_0_0_0_1px_var(--app-primary-ring)]',
             )}
             key={name}
           >
@@ -1310,7 +1310,7 @@ function RoundBody({
         <div
           className={cn(
             'mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning',
-            followKey === name && 'border-solid shadow-[0_0_0_1px_rgb(0_229_255_/_27%)]',
+            followKey === name && 'border-solid shadow-[0_0_0_1px_var(--app-primary-ring)]',
           )}
           key={name}
         >

@@ -87,6 +87,8 @@
     --app-accent: var(--color-cfp-purple);
     --app-on-primary: var(--color-cfp-brand-ink);
     --app-primary-soft: rgb(52 163 206 / 12%);
+    --app-primary-ring: rgb(52 163 206 / 27%);
+    --app-primary-glow: rgb(52 163 206 / 40%);
     --app-danger-soft: rgb(224 53 61 / 12%);
     --app-success-soft: rgb(72 226 113 / 10%);
     --app-warning-soft: rgb(252 138 20 / 12%);

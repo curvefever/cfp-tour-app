@@ -8,10 +8,17 @@ import {
   type WaterfallSlot,
 } from '../../../domain/tournament/waterfall-draft';
 
-const ROUND_COLORS = ['#b57bff', '#ffb830', '#00e096', '#00e5ff', '#ff7ab8', '#7aa8ff'];
-const ELIMINATED_COLOR = '#ff4d6a';
+const ROUND_COLORS = [
+  'var(--color-cfp-purple)',
+  'var(--color-cfp-yellow)',
+  'var(--color-cfp-green)',
+  'var(--color-cfp-sky)',
+  'var(--color-cfp-orange)',
+  'var(--color-cfp-teal)',
+];
+const ELIMINATED_COLOR = 'var(--color-cfp-red)';
 
-/** A slot's colour follows where it goes: one colour per round, red for out (eliminated, or no destination). */
+/** A slot's colour (a CSS colour value from the palette) follows where it goes: one per round, red for out (eliminated, or no destination). */
 export function destinationColor(draft: WaterfallDraft, destination: string | null): string {
   if (destination === null || destination === ELIMINATED) return ELIMINATED_COLOR;
   const index = draft.rounds.findIndex((round) => round.label === destination);
