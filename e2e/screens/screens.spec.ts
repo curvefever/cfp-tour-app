@@ -194,3 +194,42 @@ test.describe('screenshots of the viewer tabs', () => {
     });
   }
 });
+
+test.describe('screenshots with touch', () => {
+  test.use({
+    locale: 'en-GB',
+    timezoneId: 'Europe/Paris',
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 390, height: 844 },
+  });
+
+  test('the exit pop-up of a room opens on tap and has a close button', async ({ page }) => {
+    const errors = collectConsoleErrors(page);
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
+    await serve(page, servedFor(fixture));
+    await open(page, `/?t=${fixture.id}`);
+    // Round 4's Room A is the sixth exit icon (Round 3 has five rooms).
+    const icon = page.getByRole('button', { name: /Where players go from/ }).nth(5);
+    // Bring the whole column to the left edge, so the pop-up (as wide as a card) is fully on the screen.
+    await icon.evaluate((element) =>
+      element.closest('.relative')?.scrollIntoView({ inline: 'start', block: 'center' }),
+    );
+    await icon.tap();
+    await expect(page.getByRole('tooltip')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+    const box = await icon.boundingBox();
+    if (!box) throw new Error('the exit icon has no box');
+    const x = Math.max(0, box.x - 300);
+    const y = Math.max(0, box.y - 6);
+    mkdirSync(`${OUTPUT_DIR}/${fixture.id}`, { recursive: true });
+    await page.screenshot({
+      path: `${OUTPUT_DIR}/${fixture.id}/exit-popup-touch-390.png`,
+      clip: { x, y, width: Math.min(390 - x, 390), height: 260 },
+    });
+    await page.getByRole('button', { name: 'Close' }).tap();
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    expect(errors, 'expected zero console errors').toEqual([]);
+  });
+});
