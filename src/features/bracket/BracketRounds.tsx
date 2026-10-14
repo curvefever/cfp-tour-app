@@ -13,7 +13,7 @@ import { finalsProgressState } from '../../domain/tournament/finals';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
-import { AnonymousFinalCard } from './FinalColumn';
+import { AnonymousFinalCard } from './AnonymousFinalCard';
 import { ColumnTitleBar } from './ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedRoundSummary } from './folded-round';
