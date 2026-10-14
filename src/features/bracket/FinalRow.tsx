@@ -76,7 +76,7 @@ export function FinalHeaderRow({ games, isGrandFinal }: { games: number; isGrand
   return (
     <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
       <span className='w-4.5 shrink-0' />
-      <span className='flex-1'>PLAYER</span>
+      <span className='flex-1' />
       {Array.from({ length: games }, (_, game) => (
         <span className='w-9.5 shrink-0 text-right' key={game}>
           G{game + 1}
@@ -92,7 +92,7 @@ export interface FinalRowProps {
   roundIndex: number;
   name: string;
   index: number;
-  /** Every game is scored: places show, and the winner is marked. */
+  /** Every game is scored: the places show. */
   complete: boolean;
   perGame: Array<number | null>;
   /** The cumulative score, or the games won in the race Grand Final. */
@@ -112,13 +112,10 @@ export interface FinalRowProps {
 export function FinalRow(props: FinalRowProps) {
   const { state, roundIndex, name, index, complete, perGame, total, isGrandFinal, followed, manual } = props;
   const { teamSize, team, entryGame, entryAnonymous, inputsPerTeam } = props;
-  const winner = complete && index === 0;
   return (
     <div className={cn(bracketRowBase, 'min-h-9.5', rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2'>
-        <span className='w-4.5 shrink-0 text-sm font-bold text-muted' title={winner ? 'Winner' : undefined}>
-          {winner ? '🏆' : complete ? index + 1 : null}
-        </span>
+        <span className='w-4.5 shrink-0 text-sm font-bold text-muted'>{complete ? index + 1 : null}</span>
         <span className='flex min-w-0 flex-1 flex-col gap-px'>
           <span className='truncate text-base font-bold'>
             {unitDisplay(state, name).label}
