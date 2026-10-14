@@ -6,7 +6,7 @@ import { type RoundExitRule, exitBandAtRank } from '../../domain/tournament/room
 import { type buildTeamMap } from '../../domain/tournament/roster';
 import { getUnitScore, orderRoomByScore, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
-import { roomHeaderClassName } from '../../components/ui';
+import { cn, roomHeaderClassName } from '../../components/ui';
 import { RoomExitChips } from './RoomExits';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { exitBandDestination } from './exit-text';
@@ -34,11 +34,24 @@ export function RoomLabel({ children }: { children: ReactNode }) {
   );
 }
 
-/** A room's card: a brand-blue header with its title, then the exit chips and the unit rows. */
-function RoomFrame({ children, title }: { children: ReactNode; title: string }) {
+/** A room's card: a header with its title (brand blue; the lighter fold ground for a room not drawn yet), then its content. */
+export function RoomFrame({
+  children,
+  future = false,
+  title,
+}: {
+  children: ReactNode;
+  future?: boolean;
+  title: string;
+}) {
   return (
     <div className='rounded-xs bg-surface outline-2 outline-cfp-game-frame'>
-      <div className='flex h-9.5 items-center bg-primary pr-1.5 pl-3 text-on-primary'>
+      <div
+        className={cn(
+          'flex h-9.5 items-center pr-1.5 pl-3',
+          future ? 'bg-cfp-game-fold text-foreground' : 'bg-primary text-on-primary',
+        )}
+      >
         <h3 className={roomHeaderClassName}>{title}</h3>
       </div>
       {children}

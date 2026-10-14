@@ -1,17 +1,53 @@
+import type { ReactNode } from 'react';
 import {
   type ProjectedSlotLabel,
   bracketRoundLabels,
   projectedSlotLabelText,
-  roomLetter,
 } from '../../domain/tournament/bracket';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
-import { bracketRowBase } from '../tournament/components/result-row';
-import { RoomLabel } from './RoomCard';
+import { ResultStripe } from '../tournament/components/ResultStripe';
+import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
+import { ByeCard } from './ByeCard';
+import { RoomFrame } from './RoomCard';
 import { RoomExitChips, RoundExitSummary } from './RoomExits';
 import { KingsValleyDisclaimer, LuckyLoserDisclaimer } from './RoundNotes';
+import { roomTitle } from './room-title';
+
+/** One slot of a room that is not drawn yet: an empty dashed stripe, and what will fill it (or the unit already known). */
+function SlotRow({ index, known, label }: { index: number; known: boolean; label: string }) {
+  return (
+    <div className={cn(bracketRowBase, 'flex min-h-9.5 items-center gap-2', rowSurfaceClasses(index, false))}>
+      <span className='w-4.5 shrink-0' />
+      <ResultStripe result='undecided' />
+      <span className={cn('min-w-0 truncate', known ? 'text-base font-bold' : 'text-sm text-muted')}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/** A room of a round that is not played yet: a lighter header, then one row per slot. */
+function FutureRoom({
+  children,
+  chips,
+  round,
+  roomIndex,
+}: {
+  children: ReactNode;
+  chips?: ReactNode;
+  round: TournamentRound;
+  roomIndex: number;
+}) {
+  return (
+    <RoomFrame future title={roomTitle(round, roomIndex)}>
+      {chips}
+      {children}
+    </RoomFrame>
+  );
+}
 
 export function PlaceholderRound({
   round,
@@ -26,14 +62,15 @@ export function PlaceholderRound({
   projected: ProjectedSlotLabel[][] | null;
   labels: ReturnType<typeof bracketRoundLabels>;
 }) {
-  if (!round.rooms.length) return <div className='text-muted'>Not yet seeded</div>;
+  if (!round.rooms.length) return <div className='text-sm text-muted'>Not yet seeded</div>;
   const rule = roundExitRule(state, roundIndex);
   const summary = <RoundExitSummary rule={rule} labels={labels} rankedUnits={state.players.length} />;
+  const knownRow = (name: string, index: number) => (
+    <SlotRow index={index} key={name} known label={unitDisplay(state, name).label} />
+  );
   if (round.fixedRoomAssignments) {
-    // A pre-published draw -- the real room assignment is already fully
-    // decided at generation time (see fixed-draws.ts / docs/seeding.md), so
-    // show it directly instead of a projected/TBD placeholder, matching the
-    // whole point of publishing a draw upfront.
+    // A pre-published draw -- the real room assignment is already fully decided at generation time (see
+    // fixed-draws.ts / docs/seeding.md), so show it directly instead of a projected/TBD placeholder.
     const byRoom = new Map<number, string[]>();
     const byes: string[] = [];
     for (const entry of round.fixedRoomAssignments) {
@@ -46,29 +83,13 @@ export function PlaceholderRound({
     return (
       <>
         {summary}
-        {round.rooms.map((slots, roomIndex) => (
-          <div className='mb-2' key={roomIndex}>
-            <RoomLabel>
-              Room {roomLetter(roomIndex + 1)} ({slots})
-            </RoomLabel>
-            {(byRoom.get(roomIndex + 1) ?? []).map((name) => (
-              <div
-                className={cn(bracketRowBase, 'border-l-surface-hover border-l-dashed text-muted opacity-65')}
-                key={name}
-              >
-                {unitDisplay(state, name).label}
-              </div>
-            ))}
-          </div>
+        {round.rooms.map((_, roomIndex) => (
+          <FutureRoom key={roomIndex} round={round} roomIndex={roomIndex}>
+            {(byRoom.get(roomIndex + 1) ?? []).map(knownRow)}
+          </FutureRoom>
         ))}
         {byes.map((name) => (
-          <div
-            className='mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning'
-            key={name}
-          >
-            <span className='mr-1.5 font-bold tracking-[0.05em]'>BYE</span>
-            {unitDisplay(state, name).label}
-          </div>
+          <ByeCard key={name} name={unitDisplay(state, name).label} />
         ))}
       </>
     );
@@ -78,28 +99,12 @@ export function PlaceholderRound({
       <>
         {summary}
         {(round.matches ?? []).map((match, roomIndex) => (
-          <div className='mb-2' key={roomIndex}>
-            <RoomLabel>
-              Group {match.group} · Room {roomLetter(roomIndex + 1)} ({round.rooms[roomIndex]})
-            </RoomLabel>
-            {match.pair.map((name) => (
-              <div
-                className={cn(bracketRowBase, 'border-l-surface-hover border-l-dashed text-muted opacity-65')}
-                key={name}
-              >
-                {unitDisplay(state, name).label}
-              </div>
-            ))}
-          </div>
+          <FutureRoom key={roomIndex} round={round} roomIndex={roomIndex}>
+            {match.pair.map(knownRow)}
+          </FutureRoom>
         ))}
         {(round.groupByes ?? []).map((name) => (
-          <div
-            className='mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning'
-            key={name}
-          >
-            <span className='mr-1.5 font-bold tracking-[0.05em]'>BYE</span>
-            {unitDisplay(state, name).label}
-          </div>
+          <ByeCard key={name} name={unitDisplay(state, name).label} />
         ))}
       </>
     );
@@ -111,27 +116,26 @@ export function PlaceholderRound({
         const roomLabels = projected?.[roomIndex] ?? null;
         const bands = rule.kind === 'per-room' ? rule.rooms[roomIndex] : [];
         return (
-          <div className='mb-2' key={roomIndex}>
-            <RoomLabel>
-              Room {roomLetter(roomIndex + 1)} ({slots})
-            </RoomLabel>
-            <RoomExitChips bands={bands} labels={labels} />
+          <FutureRoom
+            chips={<RoomExitChips bands={bands} labels={labels} />}
+            key={roomIndex}
+            round={round}
+            roomIndex={roomIndex}
+          >
             {Array.from({ length: slots }, (_, slot) => (
-              <div
-                className={cn(bracketRowBase, 'border-l-surface-hover border-l-dashed text-muted opacity-65')}
+              <SlotRow
+                index={slot}
                 key={slot}
-              >
-                {roomLabels?.[slot] ? projectedSlotLabelText(roomLabels[slot]) : '—'}
-              </div>
+                known={false}
+                label={roomLabels?.[slot] ? projectedSlotLabelText(roomLabels[slot]) : '—'}
+              />
             ))}
-          </div>
+          </FutureRoom>
         );
       })}
       {round.luckyCount > 0 && !round.isNoElim ? <LuckyLoserDisclaimer round={round} /> : null}
       {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
-      {round.pairingTBD ? (
-        <div className='mt-1.5 text-[0.68rem] text-warning'>Pairings determined live</div>
-      ) : null}
+      {round.pairingTBD ? <div className='text-[0.68rem] text-muted'>Pairings determined live</div> : null}
     </>
   );
 }

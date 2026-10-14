@@ -3,7 +3,7 @@ import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tourna
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
-import { cn } from '../../components/ui';
+import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
@@ -38,7 +38,8 @@ export function RoundBody({
   const assignments = state.assignments[roundIndex] ?? [];
   if (!assignments.length) {
     // A round already reached with nobody in it (a removal left it no units).
-    if (roundIndex <= state.curRound) return <div className='text-muted'>Nobody reached this round.</div>;
+    if (roundIndex <= state.curRound)
+      return <div className='text-sm text-muted'>Nobody reached this round.</div>;
     return (
       <PlaceholderRound
         round={round}
@@ -100,16 +101,7 @@ export function RoundBody({
       ) : null}
       {round.isKingsValley ? <KingsValleyDisclaimer /> : null}
       {(state.byes[roundIndex] ?? []).map((name) => (
-        <div
-          className={cn(
-            'mb-2.5 rounded-lg border border-dashed border-warning bg-surface-low px-2.5 py-2 text-xs text-warning',
-            followKey === name && 'border-solid shadow-[0_0_0_1px_var(--app-primary-ring)]',
-          )}
-          key={name}
-        >
-          <span className='mr-1.5 font-bold tracking-[0.05em]'>BYE</span>
-          {unitDisplay(state, name).label}
-        </div>
+        <ByeCard followed={followKey === name} key={name} name={unitDisplay(state, name).label} />
       ))}
     </>
   );

@@ -1,5 +1,5 @@
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
-import { getDefenderIndex, scoredTeamSize } from '../../domain/tournament/scoring';
+import { getDefenderIndex, scoreKeysForPosition, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 
 /** A member's name, with a shield after the designated defender's (Save your Buddy). */
@@ -22,12 +22,20 @@ function memberTotal(
   roundIndex: number,
   seat: { room: number; position: number },
   memberIndex: number,
+  teamSize: number,
 ): number | null {
-  const games = state.rounds[roundIndex]?.numGames ?? 1;
+  const numGames = state.rounds[roundIndex]?.numGames ?? 1;
+  // The keys come game by game, each game holding one key per member.
+  const keys = scoreKeysForPosition({
+    roundIndex,
+    room: seat.room,
+    position: seat.position,
+    numGames,
+    teamSize,
+  });
   let total: number | null = null;
-  for (let game = 1; game <= games; game += 1) {
-    const suffix = games > 1 ? `-g${game}` : '';
-    const value = state.scores[`r${roundIndex}-rm${seat.room}-p${seat.position}${suffix}-m${memberIndex}`];
+  for (let game = 0; game < numGames; game += 1) {
+    const value = state.scores[keys[game * teamSize + memberIndex]];
     if (typeof value === 'number') total = (total ?? 0) + value;
   }
   return total;
@@ -47,13 +55,16 @@ export function teamMemberLine(
   const info = unitDisplay(state, name);
   if (!info.members?.length) return '';
   const team = buildTeamMap(state)[name];
-  const withScores = seat !== null && scoredTeamSize(state) !== undefined;
+  const teamSize = scoredTeamSize(state);
   return info.members
     .map((member, index) => {
       const found = team?.members.findIndex((entry) => entry?.name === member) ?? -1;
       const rawIndex = found === -1 ? index : found;
       const label = memberLabel(state, name, roundIndex, rawIndex, member);
-      const total = withScores ? memberTotal(state, roundIndex, seat, rawIndex) : null;
+      const total =
+        seat !== null && teamSize !== undefined
+          ? memberTotal(state, roundIndex, seat, rawIndex, teamSize)
+          : null;
       return total === null ? label : `${label} ${total}`;
     })
     .join(' · ');
