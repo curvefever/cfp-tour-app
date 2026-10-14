@@ -193,6 +193,33 @@ describe('the where line of a group stage with 13 players', () => {
   });
 });
 
+describe('the where line of a unit on a bye', () => {
+  it('reads "Round 1 · Bye" for the one unit of a 13-player group stage that sits the first round out', () => {
+    const state = buildState({
+      label: 'groups',
+      count: 13,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'single-elimination',
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    const { stillIn, rankings } = wheres(state);
+    expect(stillIn.filter((where) => where.endsWith('Bye'))).toEqual(['Round 1 · Bye']);
+    expect(rankings.stillActive.filter((entry) => entry.room === null)).toHaveLength(1);
+    expect(
+      stillIn
+        .filter((where) => !where.endsWith('Bye'))
+        .every((where) => /^Round 1 · Group [A-C] · Room [A-Z]$/.test(where)),
+    ).toBe(true);
+  });
+});
+
 describe('the where line of a withdrawn unit', () => {
   it('is "Withdrawn", for a unit that played before it left', () => {
     const state = createDefaultTournamentState({
