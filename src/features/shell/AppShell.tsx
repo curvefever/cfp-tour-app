@@ -12,8 +12,9 @@ import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
 import { TournamentsView } from '../tournaments/TournamentsView';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { AppHeader } from './AppHeader';
 import { effectiveTab, loadedPhase, visibleTabs } from './tabs';
-import { Alert, Button, ButtonRow, Modal, Panel, PanelTitle, cn } from '../../components/ui';
+import { Alert, Modal } from '../../components/ui';
 
 /** Admin is the organiser's screen (middle look); every viewer tab is the game look. */
 function lookOf(tab: ActiveTab): 'game' | 'middle' {
@@ -24,7 +25,6 @@ export function AppShell() {
   const app = useTournamentApp();
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
-  const currentRound = app.state.rounds[app.state.curRound];
   const showStandings = hasStandingsPhase(app.state);
   const phase = loadedPhase({
     state: app.state,
@@ -38,64 +38,23 @@ export function AppShell() {
 
   return (
     <div className='min-h-screen bg-background text-foreground' data-look={lookOf(activeTab)}>
-      <header
-        data-look='middle'
-        className='sticky top-0 z-50 flex h-14 items-center justify-between border-b border-surface-hover bg-background/95 px-6 backdrop-blur-md max-[700px]:px-3.5'
-      >
-        <button
-          className='cursor-pointer whitespace-nowrap text-lg font-bold tracking-[0.16em] text-primary uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:text-base max-[700px]:tracking-[0.12em]'
-          onClick={() => app.setActiveTab('tournaments')}
-        >
-          CFP <span className='text-foreground'>Tour Hub</span>
-        </button>
-        <div className='flex min-w-0 items-center gap-2.5'>
-          {app.state.title ? (
-            <div
-              className='max-w-55 overflow-hidden px-2 py-1 text-ellipsis whitespace-nowrap text-sm font-semibold text-foreground max-[700px]:max-w-31'
-              title={app.state.title}
-            >
-              {app.state.title}
-            </div>
-          ) : null}
-          {app.state.started ? (
-            <>
-              <div className='text-[0.68rem] tracking-[0.1em] text-muted uppercase'>Round</div>
-              <div className='text-3xl leading-none font-bold text-primary drop-shadow-[0_0_9px_var(--app-primary-glow)]'>
-                {currentRound?.roundNum ?? '—'}
-              </div>
-            </>
-          ) : null}
-          {app.state.tournamentId ? (
-            <button
-              className='cursor-pointer rounded px-1.5 py-0.5 text-sm text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-              aria-label='Exit tournament'
-              title='Exit tournament'
-              onClick={() => void app.exitTournament()}
-            >
-              ✕
-            </button>
-          ) : null}
-        </div>
-      </header>
-      <nav
-        aria-label='Tournament sections'
-        data-look='middle'
-        className='sticky top-14 z-40 flex flex-wrap gap-0.5 border-b border-surface-hover bg-background/95 px-6 pt-2.5 backdrop-blur-md max-[700px]:px-2.5 max-[700px]:pt-2'
-      >
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            className={cn(
-              'cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-muted transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary max-[700px]:flex-auto max-[700px]:px-2',
-              activeTab === tab.key && 'border-primary text-primary',
-            )}
-            aria-current={activeTab === tab.key ? 'page' : undefined}
-            onClick={() => app.setActiveTab(tab.key)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </nav>
+      <AppHeader
+        account={
+          app.unlocked
+            ? {
+                name: auth.username,
+                role: auth.roles.map(formatAccountRole).join(', '),
+                onSignOut: app.lockAdmin,
+              }
+            : null
+        }
+        activeTab={activeTab}
+        onExit={app.state.tournamentId ? () => void app.exitTournament() : null}
+        onHome={() => app.setActiveTab('tournaments')}
+        onSelectTab={app.setActiveTab}
+        tabs={tabs}
+        tournamentLoaded={phase !== null}
+      />
       {app.isViewer && app.syncStatus.kind === 'stale' ? (
         <Alert className='mx-auto mt-2.5 w-[min(1100px,calc(100%-24px))]' tone='danger'>
           ⚠ Live connection lost — what you&apos;re seeing may be out of date. Reload to try reconnecting.
@@ -125,18 +84,6 @@ export function AppShell() {
         ) : null}
         {activeTab === 'admin' ? (
           <section id='view-admin'>
-            <Panel>
-              <PanelTitle>Admin Access</PanelTitle>
-              <Alert tone='success'>
-                Signed in as <strong>{auth.username}</strong>
-                {auth.roles.length ? ` · ${auth.roles.map(formatAccountRole).join(', ')}` : ''}
-              </Alert>
-              <ButtonRow>
-                <Button size='sm' variant='warning' onClick={app.lockAdmin}>
-                  Sign out
-                </Button>
-              </ButtonRow>
-            </Panel>
             {app.state.tournamentId ? <LoadedTournamentAdmin /> : <AdminTournamentList />}
           </section>
         ) : null}

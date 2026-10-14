@@ -190,7 +190,8 @@ test.describe('visitor smoke test', () => {
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
     await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByText('Live Cup').first()).toBeVisible();
+    // The tournament's tabs sit together on their own band; its name returns as the page heading (A8).
+    await expect(page.getByRole('group', { name: 'This tournament' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Exit tournament' }).click();
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');

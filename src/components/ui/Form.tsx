@@ -1,15 +1,14 @@
 import { forwardRef, useEffect, useRef, useState, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { cn } from "./cn";
-import { panelLabelClassName } from "./typography";
 
-export const controlClassName = "w-full rounded border border-input-border bg-input px-3 py-2 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-70";
+export const controlClassName = "w-full h-10 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-70";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
   return <input ref={ref} className={cn(controlClassName, className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
-  return <textarea ref={ref} className={cn(controlClassName, "min-h-28 resize-y leading-7", className)} {...props} />;
+  return <textarea ref={ref} className={cn(controlClassName, "h-auto min-h-28 resize-y py-2 leading-7", className)} {...props} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, ...props }, ref) {
@@ -19,7 +18,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
 export function Field({ children, className, htmlFor, label }: { children: ReactNode; className?: string; htmlFor?: string; label: ReactNode }) {
   return (
     <div className={cn("mb-3", className)}>
-      <label className={cn("mb-1 block", panelLabelClassName)} htmlFor={htmlFor}>{label}</label>
+      <label className="mb-1 block text-sm font-bold" htmlFor={htmlFor}>{label}</label>
       {children}
     </div>
   );

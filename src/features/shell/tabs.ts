@@ -3,12 +3,12 @@ import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 
 export const TABS: Array<{ key: ActiveTab; label: string }> = [
-  { key: 'tournaments', label: '🗓 Tournaments' },
-  { key: 'info', label: 'ℹ Info' },
-  { key: 'admin', label: '⚙ Admin' },
-  { key: 'bracket', label: '🗂 Bracket' },
-  { key: 'standings', label: '📊 Standings' },
-  { key: 'rankings', label: '🏆 Rankings' },
+  { key: 'tournaments', label: 'Tournaments' },
+  { key: 'info', label: 'Info' },
+  { key: 'admin', label: 'Admin' },
+  { key: 'bracket', label: 'Bracket' },
+  { key: 'standings', label: 'Standings' },
+  { key: 'rankings', label: 'Rankings' },
 ];
 
 export interface TabContext {
@@ -41,7 +41,7 @@ function isAvailable(tab: ActiveTab, { canAdmin, phase, showStandings }: TabCont
 
 /** The players, listed before the tournament starts, become the rankings from Confirm & Start. */
 function labelFor(tab: { key: ActiveTab; label: string }, phase: TournamentPhase | null): string {
-  return tab.key === 'rankings' && !hasStarted(phase) ? '👥 Players' : tab.label;
+  return tab.key === 'rankings' && !hasStarted(phase) ? 'Players' : tab.label;
 }
 
 export function visibleTabs(context: TabContext): Array<{ key: ActiveTab; label: string }> {

@@ -53,13 +53,20 @@ describe('visibleTabs', () => {
     ]);
   });
 
+  it('labels every tab with plain words, no emoji', () => {
+    const labels = visibleTabs(context({ canAdmin: true, phase: 'ongoing', showStandings: true })).map(
+      (tab) => tab.label,
+    );
+    expect(labels).toEqual(['Tournaments', 'Info', 'Admin', 'Bracket', 'Standings', 'Rankings']);
+  });
+
   it('labels the rankings tab Players before the start and Rankings from the start', () => {
     const label = (phase: TournamentPhase) =>
       visibleTabs(context({ phase })).find((tab) => tab.key === 'rankings')?.label;
-    expect(label('upcoming')).toMatch(/Players/);
-    expect(label('draft')).toMatch(/Players/);
-    expect(label('ongoing')).toMatch(/Rankings/);
-    expect(label('finished')).toMatch(/Rankings/);
+    expect(label('upcoming')).toBe('Players');
+    expect(label('draft')).toBe('Players');
+    expect(label('ongoing')).toBe('Rankings');
+    expect(label('finished')).toBe('Rankings');
   });
 });
 
