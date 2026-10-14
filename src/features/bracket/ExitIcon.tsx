@@ -41,7 +41,16 @@ function ArrowGlyph() {
  * opens on hover and on keyboard focus and closes on leaving, on blur and on Escape; where there is no hover it
  * opens on tap and has a close button. The pop-up is positioned against the nearest `relative` ancestor (the card).
  */
-export function ExitIcon({ label, lines }: { label: string; lines: ExitLine[] }) {
+export function ExitIcon({
+  label,
+  lines,
+  popupClassName,
+}: {
+  label: string;
+  lines: ExitLine[];
+  /** Where the pop-up sits, when not under a 38 px room header. */
+  popupClassName?: string;
+}) {
   const [open, setOpen] = useState(false);
   const touch = useTouchOnly();
   const container = useRef<HTMLSpanElement>(null);
@@ -71,7 +80,7 @@ export function ExitIcon({ label, lines }: { label: string; lines: ExitLine[] })
       <button
         aria-expanded={open}
         aria-label={label}
-        className='flex size-8 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current'
+        className='flex size-7 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current'
         onClick={touch ? () => setOpen((current) => !current) : undefined}
         type='button'
       >
@@ -82,6 +91,7 @@ export function ExitIcon({ label, lines }: { label: string; lines: ExitLine[] })
           className={cn(
             'absolute top-10 right-[-8px] z-20 flex w-62.5 flex-col gap-1.5 rounded-xs bg-cfp-game-deep px-3 py-2.5 text-sm font-normal tracking-normal text-foreground normal-case',
             'shadow-[0_10px_30px_var(--shadow-floating)] outline-2 outline-primary',
+            popupClassName,
           )}
           role='tooltip'
         >

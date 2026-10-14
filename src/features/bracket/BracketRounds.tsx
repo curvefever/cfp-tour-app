@@ -254,6 +254,7 @@ export function BracketRounds({
             <StandingsColumn
               display={standings}
               state={state}
+              labels={labels}
               followKey={followKey}
               collapsed={standingsCollapsed}
               onToggle={onToggleStandings}

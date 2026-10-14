@@ -24,7 +24,12 @@ export function Stripe({
   return (
     <span
       aria-hidden='true'
-      className={cn('inline-block w-1 shrink-0 rounded-xs', compact ? 'h-4.5' : 'h-5.5', TONE_CLASSES[tone], className)}
+      className={cn(
+        'inline-block w-1 shrink-0 rounded-xs',
+        compact ? 'h-4.5' : 'h-5.5',
+        TONE_CLASSES[tone],
+        className,
+      )}
     />
   );
 }

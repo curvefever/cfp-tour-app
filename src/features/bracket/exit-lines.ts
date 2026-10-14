@@ -4,7 +4,7 @@ import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tourn
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
 import { pointsPerPlace } from '../standings/standings-text';
-import { stripeTone, type StripeTone } from '../tournament/components/result-row';
+import { standingsRowResult, stripeTone, type StripeTone } from '../tournament/components/result-row';
 import { destinationLabel } from './exit-text';
 import { advanceResult } from './room-row-result';
 
@@ -99,19 +99,6 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
   return [];
 }
 
-/** Green for the first destination of a standings table, yellow for the second, purple from the third on; red for out. */
-function standingsTones(destinations: string[]): Map<string, StripeTone> {
-  const tones = new Map<string, StripeTone>([['out', 'red']]);
-  const order: StripeTone[] = ['green', 'yellow', 'purple'];
-  let next = 0;
-  for (const destination of destinations) {
-    if (tones.has(destination)) continue;
-    tones.set(destination, order[Math.min(next, order.length - 1)]);
-    next += 1;
-  }
-  return tones;
-}
-
 /**
  * The exit pop-up of a standings table: each run of standings with its destination ("1–16 → R1", "17–24 → R1C",
  * "25–37 out"), or the single cut into the first bracket round. A group stage's table repeats per group, so
@@ -123,31 +110,30 @@ export function standingsExitLines(
   labels: Labels,
 ): ExitLine[] {
   const total = table.entries.length;
+  // The stripe of a line is the stripe of its first row, so the pop-up and the table can never disagree.
+  const toneAt = (index: number) => stripeTone(standingsRowResult(index, table, 'live'));
   if (table.bands && table.bands.length > 0) {
-    const tones = standingsTones(table.bands.map((band) => band.destination));
     return table.bands.map((band, index) => {
       const next = table.bands?.[index + 1];
-      const from = band.start + 1;
-      const to = next ? next.start : total;
       return {
-        tone: tones.get(band.destination) ?? 'red',
-        places: rankRange(from, to),
+        tone: toneAt(band.start),
+        places: rankRange(band.start + 1, next ? next.start : total),
         where: band.destination === 'out' ? 'out' : `→ ${band.destination}`,
       };
     });
   }
   const destination = destinationLabel(display.lastStandingsRoundIndex + 1, labels);
   if (table.cut === null || table.cut >= total) {
-    return [{ tone: 'green', places: 'All', where: `→ ${destination}` }];
+    return [{ tone: toneAt(0), places: 'All', where: `→ ${destination}` }];
   }
   if (display.perGroup) {
     return [
-      { tone: 'green', places: `${rankRange(1, table.cut)} (each group)`, where: `→ ${destination}` },
-      { tone: 'red', places: `${table.cut + 1}+`, where: 'out' },
+      { tone: toneAt(0), places: `${rankRange(1, table.cut)} (each group)`, where: `→ ${destination}` },
+      { tone: toneAt(table.cut), places: `${table.cut + 1}+`, where: 'out' },
     ];
   }
   return [
-    { tone: 'green', places: rankRange(1, table.cut), where: `→ ${destination}` },
-    { tone: 'red', places: rankRange(table.cut + 1, total), where: 'out' },
+    { tone: toneAt(0), places: rankRange(1, table.cut), where: `→ ${destination}` },
+    { tone: toneAt(table.cut), places: rankRange(table.cut + 1, total), where: 'out' },
   ];
 }

@@ -12,7 +12,7 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
     <button
       aria-expanded='true'
       aria-label={`Fold ${title}`}
-      className='flex size-8.5 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
+      className='flex size-8 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
       onClick={onToggle}
     >
       <svg aria-hidden='true' height='18' viewBox='0 0 16 16' width='18'>
@@ -70,9 +70,10 @@ export function ColumnTitleBar({
         </span>
       ) : null}
       {badge}
-      <div className='flex-1' />
-      {extra}
-      {onToggle ? <FoldButton onToggle={onToggle} title={title} /> : null}
+      <div className='ml-auto flex shrink-0 items-center'>
+        {extra}
+        {onToggle ? <FoldButton onToggle={onToggle} title={title} /> : null}
+      </div>
     </div>
   );
 }
