@@ -34,7 +34,7 @@ export function TeamMembers({
   const team = buildTeamMap(state)[name];
   if (!info.members?.length) return null;
   return (
-    <span className='mt-0.5 block text-[0.68rem] text-muted [overflow-wrap:anywhere]'>
+    <span className='block truncate text-sm text-muted'>
       {info.members
         .map((member, index) => {
           const rawIndex = team?.members.findIndex((entry) => entry?.name === member) ?? index;

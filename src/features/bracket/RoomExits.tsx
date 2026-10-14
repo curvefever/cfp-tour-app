@@ -14,7 +14,7 @@ export function RoomExitChips({
 }) {
   if (!bands.length) return null;
   return (
-    <div className='mb-1 flex flex-wrap gap-1'>
+    <div className='flex flex-wrap gap-1 px-3 py-2'>
       {bands.map((band, index) => (
         <Badge
           className='rounded-md px-1.5 py-px text-[0.62rem] leading-snug normal-case tracking-normal whitespace-normal'

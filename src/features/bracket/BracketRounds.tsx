@@ -53,7 +53,7 @@ export function RoundColumn({
   return (
     <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
       <ColumnTitleBar gameCount={gameCount} now={current} onToggle={onToggle} title={label} />
-      <div>{children}</div>
+      <div className='flex flex-col gap-4.5'>{children}</div>
     </div>
   );
 }
