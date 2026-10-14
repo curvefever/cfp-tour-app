@@ -163,11 +163,28 @@ test.describe('screenshots of the viewer tabs', () => {
           await capture(page, fixture.id, fileName(tab, String(width)));
           if (tab === 'Bracket' && width === WIDTHS[0]) {
             await captureFullBracket(page, fixture.id, 'bracket-full', width);
+            // The "?" (and the notes icon before it) sit at the far right of the follow row.
+            const rightGap = await page.locator('#br-follow-input').evaluate((input) => {
+              const row = input.parentElement?.getBoundingClientRect();
+              const help = input.parentElement?.querySelector('[aria-label="How to read the bracket"]');
+              return row && help ? row.right - help.getBoundingClientRect().right : null;
+            });
+            expect(rightGap, 'the "?" is at the right edge of the follow row').not.toBeNull();
+            expect(rightGap ?? 99).toBeLessThanOrEqual(4);
             // The standings column's title is never cut, even beside the longest tag (TEMPORARY) and both icons.
             const standingsTitle = page.locator('[data-standings-column] h2');
             if ((await standingsTitle.count()) > 0) {
               const fits = await standingsTitle.evaluate((title) => title.scrollWidth <= title.clientWidth);
               expect(fits, 'the standings title fits').toBe(true);
+            }
+            if (fixture.notesPanel) {
+              await page.getByRole('button', { name: 'Notes about this tournament' }).click();
+              await expect(page.getByRole('dialog', { name: 'Notes' })).toBeVisible();
+              await page.screenshot({
+                path: `${OUTPUT_DIR}/${fixture.id}/notes-panel-${width}.png`,
+                clip: { x: 0, y: 0, width, height: 640 },
+              });
+              await page.getByRole('button', { name: 'Close' }).click();
             }
             if (fixture.infoBox) {
               await page.getByRole('button', { name: 'How to read the bracket' }).click();

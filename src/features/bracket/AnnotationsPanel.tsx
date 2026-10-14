@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Panel, PanelTitle, Textarea, cn } from '../../components/ui';
+import { Button, Textarea, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import {
   addAnnotation,
@@ -53,10 +53,11 @@ export function AnnotationsToggle({ open, onToggle }: { open: boolean; onToggle(
 }
 
 /**
- * The notes of the tournament, newest first. Admins add and delete them, during the tournament and after it has
- * finished (the one thing a finished tournament still takes); viewers only read them.
+ * The notes of the tournament, newest first, in a panel under the follow row. Admins add and delete them, during
+ * the tournament and after it has finished (the one thing a finished tournament still takes); viewers only read
+ * them.
  */
-export function AnnotationsPanel() {
+export function AnnotationsPanel({ onClose }: { onClose(): void }) {
   const app = useTournamentApp();
   const [note, setNote] = useState('');
   const canEdit = app.unlocked && !app.isViewer;
@@ -80,40 +81,63 @@ export function AnnotationsPanel() {
   }
 
   return (
-    <Panel className='mb-2.5'>
-      <PanelTitle>Notes</PanelTitle>
-      {!annotations.length ? <p className='text-xs text-muted'>No notes yet.</p> : null}
+    <div
+      aria-label='Notes'
+      className='absolute top-14 right-0 z-20 flex w-100 max-w-[calc(100vw-40px)] flex-col gap-3 rounded-xs bg-cfp-game-deep px-4.5 py-4 shadow-[0_14px_40px_var(--shadow-floating)] outline-2 outline-primary'
+      role='dialog'
+    >
+      <div className='flex items-center justify-between'>
+        <h2 className='text-[15px] font-extrabold tracking-[0.04em] uppercase'>Notes</h2>
+        <button
+          aria-label='Close'
+          className='flex size-7 cursor-pointer items-center justify-center rounded-xs bg-foreground/12 text-base font-bold'
+          onClick={onClose}
+          type='button'
+        >
+          ×
+        </button>
+      </div>
+      {!annotations.length ? <p className='text-sm text-muted'>No notes yet.</p> : null}
       {annotationsNewestFirst(annotations).map((entry) => (
         <div
-          className='mb-2 flex min-w-0 flex-col items-start gap-2 whitespace-pre-wrap rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2'
+          className='flex gap-2.5 rounded-xs bg-surface px-3 py-2.5'
           key={`${entry.timestamp}-${entry.position}`}
         >
-          <div className='flex w-full items-start justify-between gap-2.5 text-sm'>
-            <div>{entry.text}</div>
-            {canEdit ? (
-              <Button size='sm' title='Delete' onClick={() => remove(entry.position)}>
-                ✕
-              </Button>
-            ) : null}
+          <div className='flex min-w-0 flex-1 flex-col gap-1'>
+            <div className='text-[15px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]'>
+              {entry.text}
+            </div>
+            <div className='text-xs text-muted'>{new Date(entry.timestamp).toLocaleString()}</div>
           </div>
-          <small className='text-[0.68rem] text-muted'>{new Date(entry.timestamp).toLocaleString()}</small>
+          {canEdit ? (
+            <button
+              aria-label='Delete note'
+              className='size-6.5 shrink-0 cursor-pointer text-sm text-cfp-danger-text'
+              onClick={() => remove(entry.position)}
+              type='button'
+            >
+              ✕
+            </button>
+          ) : null}
         </div>
       ))}
       {canEdit ? (
-        <div className='flex items-start gap-2 max-[700px]:flex-col'>
+        <div className='flex flex-col gap-2 border-t border-cfp-game-fold pt-3'>
+          <label className='text-[13px] font-bold text-muted' htmlFor='annotation-input'>
+            Add a note
+          </label>
           <Textarea
-            className='min-h-19 flex-1 max-[700px]:w-full'
+            className='min-h-16 rounded-xs border-2 border-cfp-game-frame bg-cfp-game-title text-sm'
             id='annotation-input'
             maxLength={MAX_ANNOTATION_CHARS}
-            value={note}
-            placeholder='Add a note about this tournament…'
             onChange={(event) => setNote(event.target.value)}
+            value={note}
           />
-          <Button disabled={!note.trim()} onClick={add}>
+          <Button className='self-end' disabled={!note.trim()} onClick={add} size='sm' variant='primary'>
             Add note
           </Button>
         </div>
       ) : null}
-    </Panel>
+    </div>
   );
 }

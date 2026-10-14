@@ -100,9 +100,9 @@ export function BracketView() {
           <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
           <InfoToggle open={infoOpen} onToggle={() => setInfoOpen((open) => !open)} />
         </div>
+        {notesOpen ? <AnnotationsPanel onClose={() => setNotesOpen(false)} /> : null}
         {infoOpen ? <BracketInfoBox onClose={() => setInfoOpen(false)} state={app.state} /> : null}
       </div>
-      {notesOpen ? <AnnotationsPanel /> : null}
       {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (

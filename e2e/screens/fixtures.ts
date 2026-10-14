@@ -33,6 +33,8 @@ export interface FixtureTournament {
   exitPopups?: number[];
   /** The spec opens the "?" box of the Bracket and captures it. */
   infoBox?: boolean;
+  /** The spec opens the notes panel of the Bracket and captures it. */
+  notesPanel?: boolean;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -386,7 +388,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('groups-1v1-13', groupStage()),
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
-    entry('teams2v2-13', teams2v2()),
+    entry('teams2v2-13', teams2v2(), { notesPanel: true }),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
