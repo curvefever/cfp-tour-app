@@ -6,7 +6,8 @@ import { CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamMemberLine } from './team-member-line';
 
-export const compactScoreClass = 'w-13 shrink-0 rounded-sm px-1.5 py-0.5 text-xs';
+/** A score box in a room row: compact, numbers right-aligned, a comfortable touch height on the phone. */
+export const compactScoreClass = 'h-8 w-14 shrink-0 px-2 text-right text-[15px] font-bold max-[700px]:h-11';
 
 export function TeamMembers({
   state,
@@ -55,7 +56,7 @@ export function BracketScoreInput({
 
 export function TeamScoreFields({ children }: { children: ReactNode }) {
   return (
-    <div className='mt-1 flex flex-wrap gap-1.5 [&>label]:flex [&>label]:items-center [&>label]:gap-1 [&>label]:text-[0.68rem] [&>label]:text-muted'>
+    <div className='mt-1.5 flex flex-wrap items-center gap-2 [&>label]:flex [&>label]:items-center [&>label]:gap-1.5 [&>label]:text-[13px] [&>label]:text-muted'>
       {children}
     </div>
   );
@@ -95,7 +96,7 @@ export function UnitScoreFields({
           </label>
         );
       })}
-      <span className='text-[0.68rem] font-bold text-foreground'>
+      <span className='text-sm font-bold text-foreground'>
         Total {getUnitScore(state, roundIndex, room, position, 0)}
       </span>
     </TeamScoreFields>

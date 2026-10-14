@@ -56,7 +56,7 @@ export function AnonymousFinalCard({
           </div>
           {editable && !entry.connected && anonymousGames.includes(activeTab) ? (
             <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-              <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
+              <span className='text-[13px] text-muted'>G{activeTab}</span>
               <CommitScoreInput
                 className={compactScoreClass}
                 min='0'

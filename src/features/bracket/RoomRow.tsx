@@ -172,7 +172,7 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
         );
       })}
       {games > 1 ? (
-        <span className='text-[0.68rem] font-bold text-foreground'>
+        <span className='text-sm font-bold text-foreground'>
           Total {getUnitScore(state, roundIndex, room, position, 0)}
         </span>
       ) : null}

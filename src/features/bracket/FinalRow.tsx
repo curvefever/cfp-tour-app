@@ -41,7 +41,7 @@ function FinalScoreEntry({
   const app = useTournamentApp();
   return (
     <div className='mt-1 flex flex-wrap items-center gap-1.5'>
-      <span className='text-[0.68rem] text-muted'>G{activeTab}</span>
+      <span className='text-[13px] text-muted'>G{activeTab}</span>
       {inputsPerTeam ? (
         <TeamScoreFields>
           {Array.from({ length: inputsPerTeam }, (_, memberIndex) => {
