@@ -10,9 +10,10 @@ import { drawnAheadStatus } from '../../domain/tournament/redraw';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
 import { Alert, Button, ButtonRow, Input, PageHeading } from '../../components/ui';
-import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
+import { finishReminderFor } from '../tournaments/admin-actions';
 import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
 import { BracketInfoBox, InfoToggle } from './BracketInfoBox';
+import { FinishReminder } from './FinishReminder';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { BracketRounds } from './BracketRounds';
@@ -106,12 +107,9 @@ export function BracketView() {
       {editable ? <TieBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (
-        <Alert tone='warning' className='mb-2.5'>
-          {FINISH_REMINDER}{' '}
-          <button className='cursor-pointer underline' onClick={() => app.setActiveTab('admin')}>
-            Open Admin
-          </button>
-        </Alert>
+        <div className='mb-4.5'>
+          <FinishReminder />
+        </div>
       ) : null}
       <BracketRounds
         state={app.state}

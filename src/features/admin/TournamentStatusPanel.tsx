@@ -5,6 +5,7 @@ import { adminActions, FINISH_REMINDER, stateSubject, type StatusButton } from '
 import { PHASE_LABELS, PHASE_TONES } from '../tournaments/phase-display';
 import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { useStatusAction } from './useStatusAction';
 
 const BUTTON_LABELS: Record<StatusButton, string> = {
   publish: 'Publish',
@@ -24,8 +25,7 @@ const BUTTON_VARIANTS: Partial<Record<StatusButton, 'success' | 'danger'>> = {
 export function TournamentStatusPanel() {
   const app = useTournamentApp();
   const { state } = app;
-  const [working, setWorking] = useState<StatusButton | null>(null);
-  const [error, setError] = useState('');
+  const { working, error, run: runStatusAction } = useStatusAction();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const subject = stateSubject(state);
   // A tournament stored before statuses existed has no status to show.
@@ -34,12 +34,8 @@ export function TournamentStatusPanel() {
   const phase = tournamentPhase(subject, Date.now());
 
   async function run(action: StatusButton) {
-    setError('');
-    setWorking(action);
-    const message = await app.changeStatus(action);
-    setWorking(null);
+    await runStatusAction(action);
     setConfirmingDelete(false);
-    if (message) setError(message);
   }
 
   return (
