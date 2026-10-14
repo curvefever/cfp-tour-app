@@ -92,7 +92,7 @@ test.describe('visitor smoke test', () => {
     await expect(page.getByText('No tournament currently ongoing')).toBeVisible();
     await expect(page.getByText('New tournaments coming out soon!')).toBeVisible();
     await expect(page.getByText('No tournament completed yet')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toHaveCount(0);
   });
 
   test('the Log in as admin link on Tournaments opens the CFP login modal without navigating away', async ({
@@ -131,7 +131,7 @@ test.describe('visitor smoke test', () => {
     await expect(nav.getByRole('button', { name: /Players/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveCount(0);
     await expect(nav.getByRole('button', { name: /Standings/ })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Exit tournament' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toBeVisible();
   });
 
   test('switching between the tabs of a tournament works, and Tournaments lists it', async ({ page }) => {
@@ -154,8 +154,10 @@ test.describe('visitor smoke test', () => {
     await nav.getByRole('button', { name: /Players/ }).click();
     await page.getByRole('button', { name: 'CFP Tour Hub' }).click();
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
-    // The title only opens the list: the tournament stays loaded.
-    await expect(page.getByRole('button', { name: 'Exit tournament' })).toBeVisible();
+    // The title only opens the list: the tournament stays loaded, and its Info (the only place with Exit) is still there.
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toHaveCount(0);
+    await nav.getByRole('button', { name: /Info/ }).click();
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toBeVisible();
   });
 
   test('a reload returns to the tab the visitor was last on in that tournament', async ({ page }) => {
@@ -176,7 +178,7 @@ test.describe('visitor smoke test', () => {
 
     await expect(page.getByText("This tournament isn't available.")).toBeVisible();
     await expect(page.locator('#view-tournaments')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toHaveCount(0);
   });
 
   test('a visit without a link loads the only ongoing tournament, and Exit sticks across a reload', async ({
@@ -193,13 +195,14 @@ test.describe('visitor smoke test', () => {
     // The tournament's tabs sit together on their own band; its name returns as the page heading (A8).
     await expect(page.getByRole('group', { name: 'This tournament' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'Exit tournament' }).click();
+    await nav.getByRole('button', { name: /Info/ }).click();
+    await page.getByRole('button', { name: 'Exit tournament view' }).click();
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
     await expect(nav.getByRole('button')).toHaveCount(1);
 
     await gotoHydrated(page);
     await expect(nav.getByRole('button', { name: /Tournaments/ })).toHaveAttribute('aria-current', 'page');
     await expect(nav.getByRole('button')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: 'Exit tournament' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Exit tournament view' })).toHaveCount(0);
   });
 });

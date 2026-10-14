@@ -49,7 +49,6 @@ export function AppShell() {
             : null
         }
         activeTab={activeTab}
-        onExit={app.state.tournamentId ? () => void app.exitTournament() : null}
         onHome={() => app.setActiveTab('tournaments')}
         onSelectTab={app.setActiveTab}
         tabs={tabs}

@@ -46,7 +46,6 @@ function TabButton({
 export function AppHeader({
   account,
   activeTab,
-  onExit,
   onHome,
   onSelectTab,
   tabs,
@@ -54,8 +53,6 @@ export function AppHeader({
 }: {
   account: HeaderAccount | null;
   activeTab: ActiveTab;
-  /** Leaves the loaded tournament; null when none is loaded. */
-  onExit: (() => void) | null;
   onHome: () => void;
   onSelectTab: (tab: ActiveTab) => void;
   tabs: HeaderTab[];
@@ -106,16 +103,6 @@ export function AppHeader({
         <div className='flex items-center gap-3 max-[700px]:ml-auto'>
           {account ? (
             <AccountMenu name={account.name} onSignOut={account.onSignOut} role={account.role} />
-          ) : null}
-          {onExit ? (
-            <button
-              aria-label='Exit tournament'
-              className='cursor-pointer rounded px-1.5 py-0.5 text-sm text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-              onClick={onExit}
-              title='Exit tournament'
-            >
-              ✕
-            </button>
           ) : null}
         </div>
       </div>

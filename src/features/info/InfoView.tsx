@@ -20,9 +20,24 @@ function useScheduledText(scheduledAt: number | null): string | null {
   return scheduledAt === null ? null : text;
 }
 
+/** Leaves the loaded tournament. Only here: a player could read "Exit tournament" as unregistering. */
+function ExitTournamentButton({ onExit }: { onExit: () => void }) {
+  return (
+    <button
+      className='flex h-10 cursor-pointer items-center gap-2 rounded border border-input-border px-3.5 text-sm font-bold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+      onClick={onExit}
+    >
+      <span aria-hidden='true' className='text-[15px]'>
+        ✕
+      </span>
+      Exit tournament view
+    </button>
+  );
+}
+
 /** The Info tab: what a visitor needs to know before and during the tournament. */
 export function InfoView() {
-  const { state, tournaments } = useTournamentApp();
+  const { exitTournament, state, tournaments } = useTournamentApp();
   const summary = tournaments.summaries.find((entry) => entry.id === state.tournamentId);
   const scheduledAt = state.info?.scheduledAt ?? null;
   const scheduledText = useScheduledText(scheduledAt);
@@ -36,6 +51,9 @@ export function InfoView() {
   const imageIds = state.info?.screenshots ?? [];
   return (
     <>
+      <div className='mb-4 flex justify-end'>
+        <ExitTournamentButton onExit={() => void exitTournament()} />
+      </div>
       <Panel>
         <PanelTitle>{title}</PanelTitle>
         <p className='mb-1 text-lg font-semibold' suppressHydrationWarning>
