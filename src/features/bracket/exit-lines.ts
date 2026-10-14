@@ -65,9 +65,9 @@ export function roomExitLines(bands: RoomExitBand[], labels: Labels): ExitLine[]
   return bands.map((band) => roomBandLine(band, bands, labels));
 }
 
-/** "1st +8", then "2nd +7 … 8th +1 points": the points of a counted round, from the tournament's own scoring. */
-function pointsLines(state: TournamentState): ExitLine[] {
-  const points = pointsPerPlace(state);
+/** "1st +8", then "2nd +7 … 7th +2 points": what the places of a room of `roomSize` earn, from the tournament's own scoring. */
+function pointsLines(state: TournamentState, roomSize: number): ExitLine[] {
+  const points = pointsPerPlace(state).slice(0, roomSize);
   if (points.length === 0) return [];
   const at = (index: number) => `${ordinal(index + 1)} +${points[index]}`;
   const first = at(0);
@@ -77,11 +77,11 @@ function pointsLines(state: TournamentState): ExitLine[] {
 }
 
 /**
- * The exit pop-up of a pooling room: what a place earns in a counted round and that everyone goes to the
- * standings; a round that does not count is seeding only; a warm-up round sends everyone on. Empty for rounds
- * that have a stripe of their own (bracket rooms, the Final).
+ * The exit pop-up of a pooling room of `roomSize` units: what each of its places earns in a counted round and
+ * that everyone goes to the standings; a round that does not count is seeding only; a warm-up round sends
+ * everyone on. Empty for rounds that have a stripe of their own (bracket rooms, the Final).
  */
-export function poolingExitLines(state: TournamentState, roundIndex: number): ExitLine[] {
+export function poolingExitLines(state: TournamentState, roundIndex: number, roomSize: number): ExitLine[] {
   const rule = roundExitRule(state, roundIndex);
   const counted =
     rule.kind === 'standings'
@@ -89,7 +89,7 @@ export function poolingExitLines(state: TournamentState, roundIndex: number): Ex
       : rule.kind === 'standings-cutoff' && !state.rounds[roundIndex]?.excludeFromStandings;
   if (rule.kind === 'standings' || rule.kind === 'standings-cutoff') {
     return counted
-      ? [...pointsLines(state), { tone: null, places: 'All', where: '→ standings' }]
+      ? [...pointsLines(state, roomSize), { tone: null, places: 'All', where: '→ standings' }]
       : [{ tone: null, places: 'All', where: 'seeding only, not counted' }];
   }
   if (rule.kind === 'all-advance') {

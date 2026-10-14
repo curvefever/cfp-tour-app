@@ -95,12 +95,35 @@ function pooling(
   return state;
 }
 
-describe('poolingExitLines: what a place earns in a counted round', () => {
-  it('37 FFA players (rooms of up to 8)', () => {
-    expect(poolingExitLines(pooling(37, {}), 0)).toEqual([
+/** The room sizes of a round, as seated. */
+function roomSizes(state: TournamentState, roundIndex: number): number[] {
+  return state.rounds[roundIndex].rooms;
+}
+
+describe('poolingExitLines: what the places of a room earn in a counted round', () => {
+  it('a room of 8 reads to 8th, a room of 7 to 7th (37 FFA players: rooms of 8, 8, 7, 7, 7)', () => {
+    const state = pooling(37, {});
+    expect(roomSizes(state, 0)).toEqual([8, 8, 7, 7, 7]);
+    expect(poolingExitLines(state, 0, 8)).toEqual([
       { tone: null, places: '1st +8', where: '2nd +7 … 8th +1 points' },
       { tone: null, places: 'All', where: '→ standings' },
     ]);
+    expect(poolingExitLines(state, 0, 7)).toEqual([
+      { tone: null, places: '1st +8', where: '2nd +7 … 7th +2 points' },
+      { tone: null, places: 'All', where: '→ standings' },
+    ]);
+  });
+
+  it.each([31, 43, 53])('%i FFA players: each room reads to its own last place', (count) => {
+    const state = pooling(count, {});
+    for (const size of new Set(roomSizes(state, 0))) {
+      expect(poolingExitLines(state, 0, size)[0]).toEqual({
+        tone: null,
+        places: '1st +8',
+        where: `2nd +7 … ${size}th +${9 - size} points`,
+      });
+    }
+    expect(new Set(roomSizes(state, 0)).size).toBeGreaterThan(0);
   });
 
   it('a 3v3v3 tournament with 13 teams (rooms of up to 3)', () => {
@@ -116,14 +139,14 @@ describe('poolingExitLines: what a place earns in a counted round', () => {
       },
     });
     expect(state).not.toBeNull();
-    expect(poolingExitLines(state as TournamentState, 0)[0]).toEqual({
+    expect(poolingExitLines(state as TournamentState, 0, 3)[0]).toEqual({
       tone: null,
       places: '1st +3',
       where: '2nd +2 … 3rd +1 points',
     });
   });
 
-  it('a 2v2v2v2 tournament with 13 teams (rooms of up to 4)', () => {
+  it('a 2v2v2v2 tournament with 13 teams: rooms of 4 and of 3', () => {
     const state = buildState({
       label: 'teams',
       count: 13,
@@ -136,43 +159,72 @@ describe('poolingExitLines: what a place earns in a counted round', () => {
       },
     });
     expect(state).not.toBeNull();
-    const lines = poolingExitLines(state as TournamentState, 0);
-    expect(lines[0]).toEqual({ tone: null, places: '1st +4', where: '2nd +3 … 4th +1 points' });
+    const teams = state as TournamentState;
+    expect(poolingExitLines(teams, 0, 4)[0]).toEqual({
+      tone: null,
+      places: '1st +4',
+      where: '2nd +3 … 4th +1 points',
+    });
+    expect(poolingExitLines(teams, 0, 3)[0]).toEqual({
+      tone: null,
+      places: '1st +4',
+      where: '2nd +3 … 3rd +2 points',
+    });
   });
 
-  it('a head-to-head tournament reads "1st +2", "2nd +1", without an ellipsis or the word points', () => {
-    const lines = poolingExitLines(pooling(33, { oddCountStrategy: 'bye' }, 'individual-1v1'), 0);
+  it('a head-to-head room of 2 reads "1st +2", "2nd +1", without an ellipsis or the word points', () => {
+    const lines = poolingExitLines(pooling(33, { oddCountStrategy: 'bye' }, 'individual-1v1'), 0, 2);
     expect(lines).toEqual([
       { tone: null, places: '1st +2', where: '2nd +1' },
       { tone: null, places: 'All', where: '→ standings' },
     ]);
   });
 
-  it('a Custom points table lists its own values', () => {
-    const lines = poolingExitLines(
-      pooling(37, { scoring: 'positional-points', positionalPointsTable: '10,7,5,4,3,2,1,0' }),
-      0,
-    );
-    expect(lines[0]).toEqual({ tone: null, places: '1st +10', where: '2nd +7 … 8th +0 points' });
+  it('a Custom points table shows the first entries up to the room size', () => {
+    const state = pooling(37, { scoring: 'positional-points', positionalPointsTable: '10,7,5,4,3,2,1,0' });
+    expect(poolingExitLines(state, 0, 8)[0]).toEqual({
+      tone: null,
+      places: '1st +10',
+      where: '2nd +7 … 8th +0 points',
+    });
+    // A table longer than the room: the room's own places only.
+    expect(poolingExitLines(state, 0, 7)[0]).toEqual({
+      tone: null,
+      places: '1st +10',
+      where: '2nd +7 … 7th +1 points',
+    });
+  });
+
+  it('a Custom table shorter than the room stops at its own last entry', () => {
+    const state = pooling(37, { scoring: 'positional-points', positionalPointsTable: '10,7,5,4,3,2,1,0' });
+    const shorter: TournamentState = {
+      ...state,
+      gamemodeConfig: { ...state.gamemodeConfig, positionalPointsTable: [5, 3, 1] },
+    };
+    expect(poolingExitLines(shorter, 0, 8)[0]).toEqual({
+      tone: null,
+      places: '1st +5',
+      where: '2nd +3 … 3rd +1 points',
+    });
   });
 
   it('a round that does not count is seeding only', () => {
     const state = pooling(37, { nonCountingRounds: '1' });
-    expect(poolingExitLines(state, 0)).toEqual([
+    expect(poolingExitLines(state, 0, 8)).toEqual([
       { tone: null, places: 'All', where: 'seeding only, not counted' },
     ]);
-    expect(poolingExitLines(state, 1)[0].places).toBe('1st +8');
+    expect(poolingExitLines(state, 1, 8)[0].places).toBe('1st +8');
   });
 
   it('a warm-up round sends everyone to the next round', () => {
     const state = pooling(37, { poolingPhase: 'none', scheduleLogic: 'single-elimination' });
     const label = bracketRoundLabels(state)[1].label;
-    expect(poolingExitLines(state, 0)).toEqual([{ tone: null, places: 'All', where: `→ ${label}` }]);
+    expect(poolingExitLines(state, 0, 8)).toEqual([{ tone: null, places: 'All', where: `→ ${label}` }]);
   });
 
   it('gives nothing for a round that has its own stripes (the Final)', () => {
     const state = pooling(37, {});
-    expect(poolingExitLines(state, state.rounds.length - 1)).toEqual([]);
+    expect(poolingExitLines(state, state.rounds.length - 1, 8)).toEqual([]);
   });
 });
 
