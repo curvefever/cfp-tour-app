@@ -70,12 +70,14 @@ import {
   ButtonRow,
   CommitScoreInput,
   Input,
+  PageHeading,
   ScoreInput,
   cn,
 } from '../../components/ui';
 import { FINISH_REMINDER, finishReminderFor } from '../tournaments/admin-actions';
 import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { formatTieBreak } from '../standings/standings-text';
 import { StandingsColumn } from './StandingsColumn';
 import { bracketRowBase, resultClasses, type RowResult } from '../tournament/components/result-row';
@@ -1616,6 +1618,7 @@ function BracketRounds({
 
 export function BracketView() {
   const app = useTournamentApp();
+  const title = useTournamentTitle();
   const [collapse, setCollapse] = useState<Record<number, boolean>>({});
   const [standingsCollapsed, setStandingsCollapsed] = useState(false);
   const [query, setQuery] = useState('');
@@ -1635,7 +1638,14 @@ export function BracketView() {
   const follow = useMemo(() => bracketFollowStatus(app.state, followKey), [app.state, followKey]);
   const labels = bracketRoundLabels(app.state);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
-  if (!app.state.rounds.length) return <Alert>No tournament has started yet.</Alert>;
+  if (!app.state.rounds.length) {
+    return (
+      <>
+        <PageHeading label='Bracket' title={title} />
+        <Alert>No tournament has started yet.</Alert>
+      </>
+    );
+  }
   const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
   const pendingTies = hasPendingTies(app.state, app.state.curRound);
   const currentRound = app.state.rounds[app.state.curRound];
@@ -1667,6 +1677,7 @@ export function BracketView() {
   }
   return (
     <div id='br-content'>
+      <PageHeading label='Bracket' title={title} />
       <div className='mb-2.5 flex flex-wrap items-center gap-2.5'>
         <Input
           className='max-w-65'

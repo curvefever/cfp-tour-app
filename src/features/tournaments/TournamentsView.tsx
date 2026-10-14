@@ -1,4 +1,4 @@
-import { Badge, Panel, PanelTitle } from '../../components/ui';
+import { Badge, PageHeading, Panel, PanelTitle } from '../../components/ui';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { PHASE_TONES } from './phase-display';
@@ -75,6 +75,7 @@ export function TournamentsView({ onLogIn }: { onLogIn: () => void }) {
   const open = (card: TournamentCard) => void app.openTournament(card.summary);
   return (
     <>
+      <PageHeading title='Tournaments' />
       {ready ? (
         <>
           <Section

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Panel, PanelTitle } from '../../components/ui';
+import { PageHeading, Panel, PanelTitle } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { formatScheduledAt, tournamentFormatLine } from '../tournaments/tournament-info';
 import { RulesText } from './RulesText';
 import { ScreenshotGallery } from './ScreenshotGallery';
@@ -46,14 +47,16 @@ export function InfoView() {
     poolingPhase: state.cfg.poolingPhase ?? 'none',
     scheduleLogic: state.scheduleLogic,
   };
-  const title = state.title.trim() || summary?.title.trim() || 'Unnamed Tournament';
+  const title = useTournamentTitle();
   const rulesText = state.info?.rulesText.trim() ?? '';
   const imageIds = state.info?.screenshots ?? [];
   return (
     <>
-      <div className='mb-4 flex justify-end'>
-        <ExitTournamentButton onExit={() => void exitTournament()} />
-      </div>
+      <PageHeading
+        actions={<ExitTournamentButton onExit={() => void exitTournament()} />}
+        label='Info'
+        title={title}
+      />
       <Panel>
         <PanelTitle>{title}</PanelTitle>
         <p className='mb-1 text-lg font-semibold' suppressHydrationWarning>

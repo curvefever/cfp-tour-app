@@ -122,7 +122,7 @@ test.describe('visitor smoke test', () => {
 
     await expect(nav.getByRole('button', { name: /Info/ })).toHaveAttribute('aria-current', 'page');
     await expect(page.locator('#view-info')).toBeVisible();
-    await expect(page.locator('#view-info').getByText('Autumn Cup')).toBeVisible();
+    await expect(page.locator('#view-info').getByRole('heading', { name: 'Autumn Cup' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'General tournament rules' })).toHaveAttribute(
       'href',
       'https://info.curvefever.pro/tournaments/tournament-rules',
@@ -192,7 +192,8 @@ test.describe('visitor smoke test', () => {
     const nav = page.getByRole('navigation', { name: 'Tournament sections' });
 
     await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveAttribute('aria-current', 'page');
-    // The tournament's tabs sit together on their own band; its name returns as the page heading (A8).
+    await expect(page.getByRole('heading', { name: 'Live Cup' })).toBeVisible();
+    // The tournament's tabs sit together on their own band.
     await expect(page.getByRole('group', { name: 'This tournament' })).toBeVisible();
 
     await nav.getByRole('button', { name: /Info/ }).click();

@@ -5,10 +5,11 @@ import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { formatStandingValue } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { downloadRankingsImage } from './rankings-image';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
 import { Position } from '../../components/tournament/TournamentUnit';
-import { Alert, Badge, Button, ButtonRow, cn } from '../../components/ui';
+import { Alert, Badge, Button, ButtonRow, PageHeading, cn } from '../../components/ui';
 
 function Unit({ entry }: { entry: RankingDisplay }) {
   return (
@@ -250,5 +251,11 @@ export function RankingsContent({ state, editable = false }: { state: Tournament
 
 export function RankingsView() {
   const app = useTournamentApp();
-  return <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer && !app.readOnly} />;
+  const title = useTournamentTitle();
+  return (
+    <>
+      <PageHeading label={app.state.started ? 'Rankings' : 'Players'} title={title} />
+      <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer && !app.readOnly} />
+    </>
+  );
 }

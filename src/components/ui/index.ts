@@ -3,6 +3,7 @@ export * from "./Button";
 export * from "./cn";
 export * from "./Feedback";
 export * from "./Form";
+export * from "./PageHeading";
 export * from "./Stats";
 export * from "./Surface";
 export * from "./Table";
