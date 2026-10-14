@@ -24,7 +24,12 @@ export interface FoldedRoundSummary {
 }
 
 /** The place of the unit seated at `position` of `room`, ordered by score as the room card orders its rows. */
-function placeInRoom(state: TournamentState, roundIndex: number, room: number, name: string): number | null {
+export function placeInRoom(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  name: string,
+): number | null {
   const units = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
   const scored = units.map((entry, position) => ({
     name: entry.name,

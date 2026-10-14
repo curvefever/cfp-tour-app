@@ -163,6 +163,12 @@ test.describe('screenshots of the viewer tabs', () => {
           await capture(page, fixture.id, fileName(tab, String(width)));
           if (tab === 'Bracket' && width === WIDTHS[0]) {
             await captureFullBracket(page, fixture.id, 'bracket-full', width);
+            // The standings column's title is never cut, even beside the longest tag (TEMPORARY) and both icons.
+            const standingsTitle = page.locator('[data-standings-column] h2');
+            if ((await standingsTitle.count()) > 0) {
+              const fits = await standingsTitle.evaluate((title) => title.scrollWidth <= title.clientWidth);
+              expect(fits, 'the standings title fits').toBe(true);
+            }
             for (const nth of fixture.exitPopups ?? []) await captureExitPopup(page, fixture.id, nth, width);
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);

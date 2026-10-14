@@ -12,7 +12,7 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
     <button
       aria-expanded='true'
       aria-label={`Fold ${title}`}
-      className='flex size-8 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
+      className='flex size-7 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
       onClick={onToggle}
     >
       <svg aria-hidden='true' height='18' viewBox='0 0 16 16' width='18'>
@@ -54,7 +54,7 @@ export function ColumnTitleBar({
   return (
     <div
       className={cn(
-        'flex h-11.5 items-center gap-2 rounded bg-cfp-game-title pr-1.5 pl-3.5 whitespace-nowrap',
+        'flex h-11.5 items-center gap-1.5 rounded bg-cfp-game-title pr-1.5 pl-3.5 whitespace-nowrap',
         className,
       )}
     >
