@@ -6,6 +6,31 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket room density, rows centred, names that wrap (done — 2026-10-15)
+
+After the redesign the organiser found Bracket room cards chunky and the text in the coloured rows sitting slightly above the middle. Planned in this session (option mockups shared as a private artifact, "Bracket Room Density"), then built solo in three stages without waiting between them (the organiser was away and asked for two screenshots at the end). Local commits on `test`; not pushed until the organiser says so.
+
+**Size history.** The mockups' first sizes (names 14 px / 700 on 30 px rows, member line 12 px, 34 px room headers) drew "names are too small" on 2026-10-11 and were raised to 16 px / 700 on 38 px rows with 14 px members. This build lands between the two. Options shown: A (15 px / 700, 34 px rows), B (15 px / 600, 31 px rows, as the standings column), C (14 px, 29 px rows: almost the size called too small, dropped). The organiser chose B with three changes: room titles stay 16 px but at 600 (they were 800), the member line stays 14 px, columns stay 330 px (B's 300 px cut "Wigglemaster 355" short in a team room).
+
+**1. Rows centred** (`321db5d`). Measured on the screens PNGs (ink of a capital and of digit-only score columns against the row ground): Bracket room rows were off, names 2.5 px and scores 4 px above the middle; the Standings tab, Rankings and the Bracket's standings column were within ±0.5 px, so the organiser's "all views" came down to the room rows. Cause: the row was a block with `min-h-9.5`; its content sat at the top and the spare height collected underneath. One shared `roomRowClass` (`result-row.ts`: `flex min-h-… flex-col justify-center`) for `RoomRow`, `LoneUnitRow`, `FinalRow` and `AnonymousFinalCard`; score inputs below the line stack as before. No typeface change was needed (the earlier entry parked this item to go with one).
+
+**2. Option B** (`e473835`): names 15 px / 600, scores 15 px, points 14 px, places 13 px, room stripes 18 px (`compact`), room header 34 px with `roomHeaderClassName` at 600 (also the anonymous Final card's header), SCORE/PTS header 20 px; 28 px between columns, 22 px between rooms (title bar to first room stays 18 px). Two pixel decisions, made while measuring: rows are **32 px, not 31**: a 20 px line in 31 px starts at y = 5.5 and Chrome rounds the text a pixel up (−1 to −1.5 px measured; 32 px gives −0.5, the closest an 11 px capital can sit in an even row). The gap under a team name is **2 px, not 1**, so a team block is an even height and the score beside it lands on a whole pixel (−1 → −0.5).
+
+**3. Names wrap** (`91c2f2e`). `truncate` is gone from every viewer name row: Bracket rooms, Final, bye, placeholder and lucky-loser rows, the Bracket's standings column, both Rankings lists (the Standings tab already shows names in full in its sideways-scrolling table). `joinMembers` (`member-line.ts`, also used by `teamMemberLine`) puts no-break spaces inside each member's "name score" and joins with a no-break space + "· ", so a member line breaks only after a dot and a member never parts from their score; a single word wider than the line still breaks (`wrap-break-word`). `NO_BREAK_SPACE` is `String.fromCharCode(0xa0)`: written as a ` ` escape, the character ended up invisible in the source. The stripe grows with the row, keeping today's margins (organiser's rule): `Stripe` / `ResultStripe` take `stretch` (`self-stretch` with the usual height as a minimum) and the caller passes a margin per row kind, measured so the unwrapped row is unchanged: rooms `my-px` (one 20 px line) or `my-3` (team name + member line, 20 + 2 + 20 px); standings column `my-px` or `my-2.5` (its member line set to an 18 px line height so the block is whole pixels); Rankings `my-px` or `my-2.75` (22 px stripe; member line 20 px). A room row with an inline score input keeps a fixed stripe. Placeholder stripes became 18 px like room stripes. The `title` tooltips that showed cut names are gone.
+
+### Testing
+- Ink measurements on the screens PNGs after each stage (scratch PIL script; not kept): room names and scores, Final and Semis rows, team rows all at −0.5 px from the row's middle at 1280 px; stripe lengths in the long-name fixtures: unwrapped team rows 18 px with 13 px above and below, rows grown by 18 px and 38 px have 36 px and 56 px stripes with the same 13 px margins.
+- New screens fixtures (`e2e/screens/fixtures.ts`): `long-names-ffa37` (quarters at 37 with five long names, one without spaces) and `long-names-teams3-13` (+ `-finished`; 13 teams of three in 3v3v3, long team and member names). Screens at 1280 and 390 px for these and for ffa37/43/53 quarters, the ffa37 Final, teams2v2-13, double elimination, Kings Valley, waterfall and group stage (rooms of 6, 7 and 8; Semis, Final, byes, placeholders).
+- `team-member-line.test.ts`: expectations show no-break spaces as "_"; a new case asserts the line splits only after a " · ".
+- Lint, Prettier, types clean on every changed file; related tests per stage; full suite 2096 passed.
+- Code review (one review subagent, low effort) found that a stretching stripe placed directly in a row with its own minimum height fills that minimum, not the text: one-line rows in the standings column and placeholder slots got 22 px stripes instead of 18, Rankings rows without members 32 px instead of 22 (team rows, taller than the minimum, were right, which is all the first measurements covered). Fixed as `RowLine` already did it: the stripe and the name sit in an inner flex box with no minimum height. Remeasured: one-line standings rows 18 px, two-line 38 px (the text grew by 20 px), team rows 18 px with 13 px margins; Rankings 22 px, slots 18 px. It also found a team with an empty member list would take the team-row margin; `RoomRow` now keys the member line on the unit having members.
+
+### Out of scope
+- The Rankings download image still cuts long names with "…" (canvas layout): `docs/open-items.md`, "Known gaps".
+- Sizes on the Standings tab, in Rankings and in the Bracket's standings column (only their wrapping and stripes changed); column title bars (still cut long round names); organiser screens and score inputs; the 2 px room frame.
+
+---
+
 ## Bracket scrollbar pinned to the screen, unjoined reserves out of Rankings (done — 2026-10-15)
 
 Three organiser items, assessed together in a solo session; the organiser chose to build two and park the third. Each was reported and approved before the next.
@@ -20,7 +45,7 @@ Three organiser items, assessed together in a solo session; the organiser chose 
 - No awkward-count cases apply: neither item touches room distribution or advancement.
 
 ### Out of scope
-- **Item 2, text centred in the coloured rows** (Bracket, Rankings, Standings): parked by the organiser to be done with a possible small typeface change; written in `docs/open-items.md`, "Known gaps".
+- **Item 2, text centred in the coloured rows** (Bracket, Rankings, Standings): parked by the organiser to be done with a possible small typeface change; written in `docs/open-items.md`, "Known gaps". *Note:* done the same day without a typeface change, see "Bracket room density, rows centred, names that wrap".
 - Overlay scrollbars (macOS, some touchpads) still auto-hide the pinned bar; the organiser's problem was the bar's position, not that.
 
 ---
