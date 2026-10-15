@@ -220,8 +220,8 @@ export function LineupSection({ state }: { state: TournamentState }) {
     .map((entry) => `${entry.name}@${entry.room}`)
     .join('|');
   return (
-    <div>
-      <h3 className='mb-2 text-sm font-semibold'>Correct line-up — Round {round.roundNum} (no scores yet)</h3>
+    <div className='rounded bg-surface-low p-3.5'>
+      <h4 className='mb-2.5 text-sm font-bold'>Correct line-up — Round {round.roundNum} (no scores yet)</h4>
       <LineupEditor key={`${scope.roundIndex}:${signature}`} scope={scope} />
     </div>
   );

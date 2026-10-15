@@ -103,8 +103,8 @@ export function AdvancementSection({ state }: { state: TournamentState }) {
       ? `pooling:${scope.qualAdv}:${scope.targetsText}`
       : scope.rounds.map((round) => `${round.index}:${round.advTotal}`).join('|');
   return (
-    <div>
-      <h3 className='mb-2 text-sm font-semibold'>Advancement targets</h3>
+    <div className='rounded bg-surface-low p-3.5'>
+      <h4 className='mb-2.5 text-sm font-bold'>Advancement targets</h4>
       {scope.kind === 'pooling' ? (
         <PoolingFields key={key} scope={scope} />
       ) : (

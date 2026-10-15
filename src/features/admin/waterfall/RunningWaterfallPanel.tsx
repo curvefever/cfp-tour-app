@@ -9,8 +9,9 @@ import {
   applyWaterfallGraphEdit,
   type WaterfallGraphEditResult,
 } from '../../../domain/tournament/waterfall-live-edit';
-import { Alert, Button, ButtonRow, Panel, PanelTitle } from '../../../components/ui';
+import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { ProgressSubsection } from '../ProgressSubsection';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
 
 const CAUTION_MESSAGE =
@@ -103,8 +104,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
 
   if (!editing) {
     return (
-      <Panel>
-        <PanelTitle>Waterfall bracket graph</PanelTitle>
+      <ProgressSubsection title='WATERFALL BRACKET GRAPH'>
         {success ? (
           <Alert className='mb-3' tone='success'>
             {success}
@@ -123,13 +123,12 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         <ButtonRow className='mt-3'>
           <Button onClick={startEdit}>Edit graph</Button>
         </ButtonRow>
-      </Panel>
+      </ProgressSubsection>
     );
   }
 
   return (
-    <Panel>
-      <PanelTitle>Waterfall bracket graph</PanelTitle>
+    <ProgressSubsection title='WATERFALL BRACKET GRAPH'>
       <Alert className='mb-3' tone='info'>
         {CAUTION_MESSAGE}
       </Alert>
@@ -172,6 +171,6 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           <Button onClick={cancelEdit}>Cancel</Button>
         </ButtonRow>
       )}
-    </Panel>
+    </ProgressSubsection>
   );
 }

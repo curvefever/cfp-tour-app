@@ -1,21 +1,10 @@
 import { useState } from 'react';
-import {
-  Alert,
-  Button,
-  ButtonRow,
-  Field,
-  Input,
-  Panel,
-  PanelTitle,
-  Timeline,
-  TimelineItem,
-} from '../../components/ui';
+import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
 import { TournamentSettingsRecap } from './RunningAdminStatus';
 import { InfoContentPanel } from './InfoContentPanel';
+import { ProgressSection } from './ProgressSection';
 import { ScheduledTimeField } from './ScheduledTimeField';
-import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
 
 export function RunningAdmin() {
   const app = useTournamentApp();
@@ -33,7 +22,7 @@ export function RunningAdmin() {
     if (message) setResetError(message);
   }
   return (
-    <div id='panel-running'>
+    <div className='flex flex-col gap-5 [&>*]:mb-0' id='panel-running'>
       <Panel className='pb-1.5'>
         <PanelTitle>Tournament running</PanelTitle>
         <Field htmlFor='running-title' label='Tournament name'>
@@ -50,25 +39,8 @@ export function RunningAdmin() {
       </Panel>
       <InfoContentPanel />
       <TournamentSettingsRecap state={state} />
-      {state.rounds.some((entry) => entry.isWaterfall) && !app.readOnly ? (
-        <RunningWaterfallPanel state={state} />
-      ) : null}
+      <ProgressSection state={state} />
       {resetError ? <Alert tone='danger'>{resetError}</Alert> : null}
-      {app.readOnly ? null : <CorrectCurrentRoundPanel state={state} />}
-      <Panel>
-        <PanelTitle>Tournament progress</PanelTitle>
-        <Timeline>
-          {state.rounds.map((entry, index) => (
-            <TimelineItem
-              key={index}
-              label={entry.isFinal ? 'Final' : entry.isSemis ? 'Semis' : `R${entry.roundNum}`}
-              state={index < state.curRound ? 'done' : index === state.curRound ? 'current' : 'upcoming'}
-            >
-              {index < state.curRound ? '✓' : entry.isFinal ? '🏆' : entry.isSemis ? 'S' : entry.roundNum}
-            </TimelineItem>
-          ))}
-        </Timeline>
-      </Panel>
       {app.readOnly ? null : (
         <ButtonRow className='rounded-lg border border-surface-hover p-2.5'>
           <Button
