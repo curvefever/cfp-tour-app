@@ -12,6 +12,12 @@ import { Alert, Button, ButtonRow, Input, SectionPanel, Select } from '../../../
 import { EditingTag } from '../../presence/EditingTag';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import {
+  DRAW_PUBLICATION_LABELS,
+  ROUND_ROBIN_LABELS,
+  gamesLabel,
+  visibleFormatFields,
+} from './format-fields';
 import { setupDerived } from './setup-derived';
 import { useSetupChange } from './useSetupChange';
 
@@ -49,7 +55,7 @@ export function FormatPanel({
   const { state, setup, updateSetup } = useTournamentApp();
   const change = useSetupChange();
   const format = getGameFormat(setup.gameFormat);
-  const teamSize = format?.teamSize;
+  const shown = visibleFormatFields(setup);
   const raceCompatible = format?.idealRoomSize === 2 && setup.oddCountStrategy !== 'flex';
   const scheduleOptions = useMemo(
     () =>
@@ -115,16 +121,8 @@ export function FormatPanel({
     }));
   }
 
-  const {
-    derivedAdvance,
-    isGroup,
-    isRace,
-    isShared,
-    isSingle,
-    sharedFinalShare,
-    totalPoolingRounds,
-    waterfallStandingsSource,
-  } = setupDerived(setup, state, lbQualifiers);
+  const { derivedAdvance, isShared, sharedFinalShare, totalPoolingRounds, waterfallStandingsSource } =
+    setupDerived(setup, state, lbQualifiers);
   return (
     <SectionPanel title='FORMAT'>
       <div className='grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-4'>
@@ -157,7 +155,7 @@ export function FormatPanel({
             <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
           </Select>
         </PresenceField>
-        {teamSize ? (
+        {shown.has('teamScoringRule') ? (
           <PresenceField htmlFor='cfg-team-scoring-rule' label='Team scoring'>
             <Select
               id='cfg-team-scoring-rule'
@@ -185,15 +183,15 @@ export function FormatPanel({
             ))}
           </Select>
         </PresenceField>
-        {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' ? (
+        {shown.has('drawPublication') ? (
           <PresenceField htmlFor='cfg-draw-publication' label='Draw publication'>
             <Select
               id='cfg-draw-publication'
               value={setup.drawPublication}
               onChange={(e) => change('drawPublication', e.target.value)}
             >
-              <option value='adaptive'>Adaptive — reseeded live from real results each round</option>
-              <option value='fixed'>Fixed — full schedule published upfront, no live reseeding</option>
+              <option value='adaptive'>{DRAW_PUBLICATION_LABELS.adaptive}</option>
+              <option value='fixed'>{DRAW_PUBLICATION_LABELS.fixed}</option>
             </Select>
             {setup.drawPublication === 'fixed' ? (
               <p className='mt-1 text-xs text-muted'>
@@ -204,7 +202,7 @@ export function FormatPanel({
             ) : null}
           </PresenceField>
         ) : null}
-        {isGroup ? (
+        {shown.has('groupSize') ? (
           <>
             <PresenceField htmlFor='cfg-group-size' label='Group size'>
               <Input
@@ -222,8 +220,8 @@ export function FormatPanel({
                 value={setup.roundRobinMode}
                 onChange={(e) => change('roundRobinMode', e.target.value)}
               >
-                <option value='single'>Single — every pair meets once</option>
-                <option value='double'>Double — every pair meets twice</option>
+                <option value='single'>{ROUND_ROBIN_LABELS.single}</option>
+                <option value='double'>{ROUND_ROBIN_LABELS.double}</option>
               </Select>
             </PresenceField>
             <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
@@ -236,7 +234,8 @@ export function FormatPanel({
               />
             </PresenceField>
           </>
-        ) : setup.poolingPhase !== 'none' ? (
+        ) : null}
+        {shown.has('qualAdv') ? (
           <>
             {waterfallStandingsSource ? (
               <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
@@ -269,7 +268,7 @@ export function FormatPanel({
             </PresenceField>
           </>
         ) : null}
-        {format?.supportedOddCountStrategies && format.supportedOddCountStrategies.length > 1 ? (
+        {format?.supportedOddCountStrategies && shown.has('oddCountStrategy') ? (
           <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
             <Select
               id='cfg-odd-count-strategy'
@@ -296,7 +295,7 @@ export function FormatPanel({
                 <option value='positional-points'>{SCORING_SYSTEM_OPTION_LABELS['positional-points']}</option>
               </Select>
             </PresenceField>
-            {setup.scoring === 'positional-points' ? (
+            {shown.has('positionalPointsTable') ? (
               <PresenceField
                 htmlFor='cfg-positional-points-table'
                 label={
@@ -329,7 +328,7 @@ export function FormatPanel({
             </Select>
           </PresenceField>
         )}
-        {!isRace ? (
+        {shown.has('finalsGames') ? (
           <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
             <Select
               id='cfg-finals-games'
@@ -338,7 +337,7 @@ export function FormatPanel({
             >
               {[1, 2, 3, 4].map((n) => (
                 <option key={n} value={n}>
-                  {n === 1 ? 'Single game' : `${n} games (sum)`}
+                  {gamesLabel(n)}
                 </option>
               ))}
             </Select>
@@ -373,7 +372,7 @@ export function FormatPanel({
             </div>
           </PresenceField>
         )}
-        {isSingle ? (
+        {shown.has('semisGames') ? (
           <>
             <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
               <Input
@@ -393,14 +392,14 @@ export function FormatPanel({
               >
                 {[1, 2, 3, 4].map((n) => (
                   <option key={n} value={n}>
-                    {n === 1 ? 'Single game' : `${n} games (sum)`}
+                    {gamesLabel(n)}
                   </option>
                 ))}
               </Select>
             </PresenceField>
           </>
         ) : null}
-        {isShared ? (
+        {shown.has('lbQualifiers') ? (
           <PresenceField htmlFor='cfg-lb-qualifiers' label='LB qualifiers into the Final'>
             <Input
               id='cfg-lb-qualifiers'
@@ -411,7 +410,7 @@ export function FormatPanel({
             />
           </PresenceField>
         ) : null}
-        {isSingle || isShared ? (
+        {shown.has('finalOverride') ? (
           <PresenceField htmlFor='cfg-final-override' label='Final size override (optional)'>
             <Input
               id='cfg-final-override'
@@ -424,13 +423,15 @@ export function FormatPanel({
           </PresenceField>
         ) : null}
       </div>
-      {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' || isSingle || isShared ? (
+      {shown.has('qualRoundsOverride') ||
+      shown.has('swissRoundsOverride') ||
+      shown.has('eliminationRoundTargets') ? (
         <details className='group'>
           <summary className='w-fit cursor-pointer list-none text-sm font-bold text-cfp-sky select-none hover:underline [&::-webkit-details-marker]:hidden'>
             Advanced round overrides <span className='inline-block transition group-open:rotate-90'>›</span>
           </summary>
           <div className='mt-3'>
-            {setup.poolingPhase === 'qual-table' ? (
+            {shown.has('qualRoundsOverride') ? (
               <PresenceField
                 htmlFor='cfg-qual-rounds-override'
                 label='Qualification Table round count override'
@@ -446,7 +447,7 @@ export function FormatPanel({
                 />
               </PresenceField>
             ) : null}
-            {setup.poolingPhase === 'swiss' ? (
+            {shown.has('swissRoundsOverride') ? (
               <PresenceField htmlFor='cfg-swiss-rounds-override' label='Swiss round count override'>
                 <Input
                   id='cfg-swiss-rounds-override'
@@ -459,7 +460,7 @@ export function FormatPanel({
                 />
               </PresenceField>
             ) : null}
-            {isSingle || isShared ? (
+            {shown.has('eliminationRoundTargets') ? (
               <>
                 <PresenceField
                   htmlFor='cfg-elimination-round-targets'
