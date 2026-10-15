@@ -1,5 +1,5 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { Panel, PanelTitle } from '../../../components/ui';
+import { SectionPanel } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
 import { setupDerived } from './setup-derived';
@@ -14,10 +14,10 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
     setupDerived(setup, state, lbQualifiers);
   if (!isWaterfallBracket || !format) return null;
   return (
-    <Panel>
-      <PanelTitle hint='— route the ranks of every room that go on; the rest are out'>
-        Waterfall bracket graph
-      </PanelTitle>
+    <SectionPanel
+      hint='route the ranks of every room that go on; the rest are out'
+      title='WATERFALL BRACKET GRAPH'
+    >
       <WaterfallGraphEditor
         entrantCount={waterfallEntrantCount}
         onChange={(text) => change('waterfallGraph', text)}
@@ -30,6 +30,6 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
         Admin tab while the tournament is running. There's no automatic reseeding beyond that, no automatic
         bye/lucky-loser handling, and reserves can't be added once a tournament starts on this schedule logic.
       </p>
-    </Panel>
+    </SectionPanel>
   );
 }

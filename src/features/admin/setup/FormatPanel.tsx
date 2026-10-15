@@ -8,7 +8,7 @@ import {
 } from '../../../domain/tournament/formats';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { PersistedSetup } from '../../../domain/tournament/types';
-import { Alert, Button, ButtonRow, Input, Panel, PanelTitle, Select } from '../../../components/ui';
+import { Alert, Button, ButtonRow, Input, SectionPanel, Select } from '../../../components/ui';
 import { EditingTag } from '../../presence/EditingTag';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
@@ -126,266 +126,215 @@ export function FormatPanel({
     waterfallStandingsSource,
   } = setupDerived(setup, state, lbQualifiers);
   return (
-    <Panel>
-      <PanelTitle>Tournament Settings</PanelTitle>
-      <PresenceField htmlFor='cfg-game-format' label='Game format'>
-        <Select id='cfg-game-format' value={setup.gameFormat} onChange={(e) => changeFormat(e.target.value)}>
-          {Object.values(GAME_FORMATS).map((entry) => (
-            <option key={entry.key} value={entry.key}>
-              {entry.label}
-            </option>
-          ))}
-        </Select>
-      </PresenceField>
-      <PresenceField htmlFor='cfg-schedule-logic' label='Schedule logic'>
-        <Select
-          id='cfg-schedule-logic'
-          value={setup.scheduleLogic}
-          onChange={(e) => change('scheduleLogic', e.target.value)}
-        >
-          <option value='single-elimination'>Single elimination</option>
-          {scheduleOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-          {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
-          <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
-        </Select>
-      </PresenceField>
-      {teamSize ? (
-        <PresenceField htmlFor='cfg-team-scoring-rule' label='Team scoring'>
+    <SectionPanel title='FORMAT'>
+      <div className='grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-4'>
+        <PresenceField htmlFor='cfg-game-format' label='Game format'>
           <Select
-            id='cfg-team-scoring-rule'
-            value={setup.teamScoringRule || 'sum-members'}
-            onChange={(e) => change('teamScoringRule', e.target.value)}
+            id='cfg-game-format'
+            value={setup.gameFormat}
+            onChange={(e) => changeFormat(e.target.value)}
           >
-            {Object.entries(TEAM_SCORING_RULE_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
+            {Object.values(GAME_FORMATS).map((entry) => (
+              <option key={entry.key} value={entry.key}>
+                {entry.label}
               </option>
             ))}
           </Select>
         </PresenceField>
-      ) : null}
-      <PresenceField htmlFor='cfg-pooling-phase' label='Pooling phase'>
-        <Select
-          id='cfg-pooling-phase'
-          value={setup.poolingPhase}
-          onChange={(e) => change('poolingPhase', e.target.value)}
-        >
-          {poolingPhaseOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </PresenceField>
-      {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' ? (
-        <PresenceField htmlFor='cfg-draw-publication' label='Draw publication'>
+        <PresenceField htmlFor='cfg-schedule-logic' label='Schedule logic'>
           <Select
-            id='cfg-draw-publication'
-            value={setup.drawPublication}
-            onChange={(e) => change('drawPublication', e.target.value)}
+            id='cfg-schedule-logic'
+            value={setup.scheduleLogic}
+            onChange={(e) => change('scheduleLogic', e.target.value)}
           >
-            <option value='adaptive'>Adaptive — reseeded live from real results each round</option>
-            <option value='fixed'>Fixed — full schedule published upfront, no live reseeding</option>
+            <option value='single-elimination'>Single elimination</option>
+            {scheduleOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
+            <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
           </Select>
-          {setup.drawPublication === 'fixed' ? (
-            <p className='mt-1 text-xs text-muted'>
-              Every round's room assignment is fixed at generation time from roster order, with rematch
-              avoidance where mathematically possible — never adjusted based on live scores. Reserves can't be
-              added once a tournament starts in this mode.
-            </p>
-          ) : null}
         </PresenceField>
-      ) : null}
-      {isGroup ? (
-        <>
-          <PresenceField htmlFor='cfg-group-size' label='Group size'>
-            <Input
-              id='cfg-group-size'
-              type='number'
-              min='3'
-              max='5'
-              value={setup.groupSize}
-              onChange={(e) => change('groupSize', e.target.value)}
-            />
-          </PresenceField>
-          <PresenceField htmlFor='cfg-round-robin-mode' label='Round-robin'>
+        {teamSize ? (
+          <PresenceField htmlFor='cfg-team-scoring-rule' label='Team scoring'>
             <Select
-              id='cfg-round-robin-mode'
-              value={setup.roundRobinMode}
-              onChange={(e) => change('roundRobinMode', e.target.value)}
+              id='cfg-team-scoring-rule'
+              value={setup.teamScoringRule || 'sum-members'}
+              onChange={(e) => change('teamScoringRule', e.target.value)}
             >
-              <option value='single'>Single — every pair meets once</option>
-              <option value='double'>Double — every pair meets twice</option>
+              {Object.entries(TEAM_SCORING_RULE_LABELS).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
             </Select>
           </PresenceField>
-          <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
-            <Input
-              id='cfg-qualifiers-per-group'
-              type='number'
-              min='1'
-              value={setup.qualifiersPerGroup}
-              onChange={(e) => change('qualifiersPerGroup', e.target.value)}
-            />
-          </PresenceField>
-        </>
-      ) : setup.poolingPhase !== 'none' ? (
-        <>
-          {waterfallStandingsSource ? (
-            <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
-              <p className='text-sm' id='cfg-qual-adv'>
-                {derivedAdvance > 0
-                  ? `${derivedAdvance}, set by the waterfall graph`
-                  : 'not set yet — route ranks of the qualification table in the waterfall graph below'}
+        ) : null}
+        <PresenceField htmlFor='cfg-pooling-phase' label='Pooling phase'>
+          <Select
+            id='cfg-pooling-phase'
+            value={setup.poolingPhase}
+            onChange={(e) => change('poolingPhase', e.target.value)}
+          >
+            {poolingPhaseOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </PresenceField>
+        {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' ? (
+          <PresenceField htmlFor='cfg-draw-publication' label='Draw publication'>
+            <Select
+              id='cfg-draw-publication'
+              value={setup.drawPublication}
+              onChange={(e) => change('drawPublication', e.target.value)}
+            >
+              <option value='adaptive'>Adaptive — reseeded live from real results each round</option>
+              <option value='fixed'>Fixed — full schedule published upfront, no live reseeding</option>
+            </Select>
+            {setup.drawPublication === 'fixed' ? (
+              <p className='mt-1 text-xs text-muted'>
+                Every round's room assignment is fixed at generation time from roster order, with rematch
+                avoidance where mathematically possible — never adjusted based on live scores. Reserves can't
+                be added once a tournament starts in this mode.
               </p>
-            </PresenceField>
-          ) : (
-            <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
+            ) : null}
+          </PresenceField>
+        ) : null}
+        {isGroup ? (
+          <>
+            <PresenceField htmlFor='cfg-group-size' label='Group size'>
               <Input
-                id='cfg-qual-adv'
+                id='cfg-group-size'
+                type='number'
+                min='3'
+                max='5'
+                value={setup.groupSize}
+                onChange={(e) => change('groupSize', e.target.value)}
+              />
+            </PresenceField>
+            <PresenceField htmlFor='cfg-round-robin-mode' label='Round-robin'>
+              <Select
+                id='cfg-round-robin-mode'
+                value={setup.roundRobinMode}
+                onChange={(e) => change('roundRobinMode', e.target.value)}
+              >
+                <option value='single'>Single — every pair meets once</option>
+                <option value='double'>Double — every pair meets twice</option>
+              </Select>
+            </PresenceField>
+            <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
+              <Input
+                id='cfg-qualifiers-per-group'
                 type='number'
                 min='1'
-                value={setup.qualAdv}
-                onChange={(e) => change('qualAdv', e.target.value)}
+                value={setup.qualifiersPerGroup}
+                onChange={(e) => change('qualifiersPerGroup', e.target.value)}
               />
             </PresenceField>
-          )}
-          <PresenceField htmlFor='cfg-non-counting-rounds' label='Non-counting rounds (optional)'>
-            <Input
-              id='cfg-non-counting-rounds'
-              type='number'
-              min='0'
-              max={Math.max(0, totalPoolingRounds - 1)}
-              value={setup.nonCountingRounds}
-              onChange={(e) => change('nonCountingRounds', e.target.value)}
-            />
-          </PresenceField>
-        </>
-      ) : null}
-      {format?.supportedOddCountStrategies && format.supportedOddCountStrategies.length > 1 ? (
-        <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
-          <Select
-            id='cfg-odd-count-strategy'
-            value={resolveOddCountStrategy(format, setup.oddCountStrategy)}
-            onChange={(e) => changeOddCountStrategy(e.target.value)}
-          >
-            {format.supportedOddCountStrategies.map((key) => (
-              <option key={key} value={key}>
-                {ODD_COUNT_STRATEGY_LABELS[key]}
-              </option>
-            ))}
-          </Select>
-        </PresenceField>
-      ) : null}
-      {setup.poolingPhase !== 'none' ? (
-        <>
-          <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
+          </>
+        ) : setup.poolingPhase !== 'none' ? (
+          <>
+            {waterfallStandingsSource ? (
+              <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
+                <p className='text-sm' id='cfg-qual-adv'>
+                  {derivedAdvance > 0
+                    ? `${derivedAdvance}, set by the waterfall graph`
+                    : 'not set yet — route ranks of the qualification table in the waterfall graph below'}
+                </p>
+              </PresenceField>
+            ) : (
+              <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
+                <Input
+                  id='cfg-qual-adv'
+                  type='number'
+                  min='1'
+                  value={setup.qualAdv}
+                  onChange={(e) => change('qualAdv', e.target.value)}
+                />
+              </PresenceField>
+            )}
+            <PresenceField htmlFor='cfg-non-counting-rounds' label='Non-counting rounds (optional)'>
+              <Input
+                id='cfg-non-counting-rounds'
+                type='number'
+                min='0'
+                max={Math.max(0, totalPoolingRounds - 1)}
+                value={setup.nonCountingRounds}
+                onChange={(e) => change('nonCountingRounds', e.target.value)}
+              />
+            </PresenceField>
+          </>
+        ) : null}
+        {format?.supportedOddCountStrategies && format.supportedOddCountStrategies.length > 1 ? (
+          <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
             <Select
-              id='cfg-scoring'
-              value={setup.scoring}
-              onChange={(e) => change('scoring', e.target.value)}
+              id='cfg-odd-count-strategy'
+              value={resolveOddCountStrategy(format, setup.oddCountStrategy)}
+              onChange={(e) => changeOddCountStrategy(e.target.value)}
             >
-              <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
-              <option value='positional-points'>{SCORING_SYSTEM_OPTION_LABELS['positional-points']}</option>
+              {format.supportedOddCountStrategies.map((key) => (
+                <option key={key} value={key}>
+                  {ODD_COUNT_STRATEGY_LABELS[key]}
+                </option>
+              ))}
             </Select>
           </PresenceField>
-          {setup.scoring === 'positional-points' ? (
-            <PresenceField
-              htmlFor='cfg-positional-points-table'
-              label={
-                <>
-                  Custom points table{' '}
-                  <span className='font-normal normal-case tracking-normal text-muted'>
-                    — one entry per rank, highest rank first, e.g. "10,8,6,5,4,3,2,1"
-                  </span>
-                </>
-              }
-            >
-              <Input
-                id='cfg-positional-points-table'
-                type='text'
-                placeholder='e.g. 10,8,6,5,4,3,2,1'
-                value={setup.positionalPointsTable}
-                onChange={(e) => change('positionalPointsTable', e.target.value)}
-              />
-              <p className='mt-1 text-xs text-muted'>
-                Points must not increase from rank to rank, and the table needs at least one entry per unit in
-                the largest room this format can produce — points are summed across every counted round.
-              </p>
+        ) : null}
+        {setup.poolingPhase !== 'none' ? (
+          <>
+            <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
+              <Select
+                id='cfg-scoring'
+                value={setup.scoring}
+                onChange={(e) => change('scoring', e.target.value)}
+              >
+                <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
+                <option value='positional-points'>{SCORING_SYSTEM_OPTION_LABELS['positional-points']}</option>
+              </Select>
             </PresenceField>
-          ) : null}
-        </>
-      ) : (
-        <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
-          <Select id='cfg-scoring' value='fairpoints' disabled>
-            <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
-          </Select>
-        </PresenceField>
-      )}
-      {!isRace ? (
-        <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
-          <Select
-            id='cfg-finals-games'
-            value={setup.finalsGames}
-            onChange={(e) => change('finalsGames', e.target.value)}
-          >
-            {[1, 2, 3, 4].map((n) => (
-              <option key={n} value={n}>
-                {n === 1 ? 'Single game' : `${n} games (sum)`}
-              </option>
-            ))}
-          </Select>
-        </PresenceField>
-      ) : (
-        <PresenceField
-          htmlFor='cfg-grand-final-wb-target'
-          label={
-            <>
-              Grand Final — wins needed to take the title
-              <EditingTag field='grandFinalLbTarget' />
-            </>
-          }
-        >
-          <div className='flex gap-2.5'>
-            <Input
-              id='cfg-grand-final-wb-target'
-              aria-label='Winners bracket target'
-              type='number'
-              min='1'
-              value={setup.grandFinalWbTarget}
-              onChange={(e) => change('grandFinalWbTarget', e.target.value)}
-            />
-            <Input
-              id='cfg-grand-final-lb-target'
-              aria-label='Losers bracket target'
-              type='number'
-              min='1'
-              value={setup.grandFinalLbTarget}
-              onChange={(e) => change('grandFinalLbTarget', e.target.value)}
-            />
-          </div>
-        </PresenceField>
-      )}
-      {isSingle ? (
-        <>
-          <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
-            <Input
-              id='cfg-semis-override'
-              type='number'
-              min='1'
-              placeholder='derived'
-              value={setup.semisOverride}
-              onChange={(e) => change('semisOverride', e.target.value)}
-            />
+            {setup.scoring === 'positional-points' ? (
+              <PresenceField
+                htmlFor='cfg-positional-points-table'
+                label={
+                  <>
+                    Custom points table{' '}
+                    <span className='font-normal normal-case tracking-normal text-muted'>
+                      — one entry per rank, highest rank first, e.g. "10,8,6,5,4,3,2,1"
+                    </span>
+                  </>
+                }
+              >
+                <Input
+                  id='cfg-positional-points-table'
+                  type='text'
+                  placeholder='e.g. 10,8,6,5,4,3,2,1'
+                  value={setup.positionalPointsTable}
+                  onChange={(e) => change('positionalPointsTable', e.target.value)}
+                />
+                <p className='mt-1 text-xs text-muted'>
+                  Points must not increase from rank to rank, and the table needs at least one entry per unit
+                  in the largest room this format can produce — points are summed across every counted round.
+                </p>
+              </PresenceField>
+            ) : null}
+          </>
+        ) : (
+          <PresenceField htmlFor='cfg-scoring' label='Scoring system'>
+            <Select id='cfg-scoring' value='fairpoints' disabled>
+              <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
+            </Select>
           </PresenceField>
-          <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
+        )}
+        {!isRace ? (
+          <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
             <Select
-              id='cfg-semis-games'
-              value={setup.semisGames}
-              onChange={(e) => change('semisGames', e.target.value)}
+              id='cfg-finals-games'
+              value={setup.finalsGames}
+              onChange={(e) => change('finalsGames', e.target.value)}
             >
               {[1, 2, 3, 4].map((n) => (
                 <option key={n} value={n}>
@@ -394,35 +343,91 @@ export function FormatPanel({
               ))}
             </Select>
           </PresenceField>
-        </>
-      ) : null}
-      {isShared ? (
-        <PresenceField htmlFor='cfg-lb-qualifiers' label='LB qualifiers into the Final'>
-          <Input
-            id='cfg-lb-qualifiers'
-            type='number'
-            min='1'
-            value={lbQualifiers}
-            onChange={(e) => setLbQualifiers(e.target.value)}
-          />
-        </PresenceField>
-      ) : null}
-      {isSingle || isShared ? (
-        <PresenceField htmlFor='cfg-final-override' label='Final size override (optional)'>
-          <Input
-            id='cfg-final-override'
-            type='number'
-            min='1'
-            placeholder='derived'
-            value={setup.finalOverride}
-            onChange={(e) => change('finalOverride', e.target.value)}
-          />
-        </PresenceField>
-      ) : null}
+        ) : (
+          <PresenceField
+            htmlFor='cfg-grand-final-wb-target'
+            label={
+              <>
+                Grand Final — wins needed to take the title
+                <EditingTag field='grandFinalLbTarget' />
+              </>
+            }
+          >
+            <div className='flex gap-2.5'>
+              <Input
+                id='cfg-grand-final-wb-target'
+                aria-label='Winners bracket target'
+                type='number'
+                min='1'
+                value={setup.grandFinalWbTarget}
+                onChange={(e) => change('grandFinalWbTarget', e.target.value)}
+              />
+              <Input
+                id='cfg-grand-final-lb-target'
+                aria-label='Losers bracket target'
+                type='number'
+                min='1'
+                value={setup.grandFinalLbTarget}
+                onChange={(e) => change('grandFinalLbTarget', e.target.value)}
+              />
+            </div>
+          </PresenceField>
+        )}
+        {isSingle ? (
+          <>
+            <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
+              <Input
+                id='cfg-semis-override'
+                type='number'
+                min='1'
+                placeholder='derived'
+                value={setup.semisOverride}
+                onChange={(e) => change('semisOverride', e.target.value)}
+              />
+            </PresenceField>
+            <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
+              <Select
+                id='cfg-semis-games'
+                value={setup.semisGames}
+                onChange={(e) => change('semisGames', e.target.value)}
+              >
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n === 1 ? 'Single game' : `${n} games (sum)`}
+                  </option>
+                ))}
+              </Select>
+            </PresenceField>
+          </>
+        ) : null}
+        {isShared ? (
+          <PresenceField htmlFor='cfg-lb-qualifiers' label='LB qualifiers into the Final'>
+            <Input
+              id='cfg-lb-qualifiers'
+              type='number'
+              min='1'
+              value={lbQualifiers}
+              onChange={(e) => setLbQualifiers(e.target.value)}
+            />
+          </PresenceField>
+        ) : null}
+        {isSingle || isShared ? (
+          <PresenceField htmlFor='cfg-final-override' label='Final size override (optional)'>
+            <Input
+              id='cfg-final-override'
+              type='number'
+              min='1'
+              placeholder='derived'
+              value={setup.finalOverride}
+              onChange={(e) => change('finalOverride', e.target.value)}
+            />
+          </PresenceField>
+        ) : null}
+      </div>
       {setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss' || isSingle || isShared ? (
-        <details className='mb-3 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2.5'>
-          <summary className='cursor-pointer select-none text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase'>
-            Advanced round overrides (optional)
+        <details className='group'>
+          <summary className='w-fit cursor-pointer list-none text-sm font-bold text-cfp-sky select-none hover:underline [&::-webkit-details-marker]:hidden'>
+            Advanced round overrides <span className='inline-block transition group-open:rotate-90'>›</span>
           </summary>
           <div className='mt-3'>
             {setup.poolingPhase === 'qual-table' ? (
@@ -527,6 +532,6 @@ export function FormatPanel({
           ▶ Generate Schedule
         </Button>
       </ButtonRow>
-    </Panel>
+    </SectionPanel>
   );
 }
