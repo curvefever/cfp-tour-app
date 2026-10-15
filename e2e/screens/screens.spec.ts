@@ -235,6 +235,14 @@ test.describe('screenshots of the viewer tabs', () => {
         .click();
       await capture(page, 'tournament-list', fileName('Tournaments', String(width)));
     });
+
+    test(`the unavailable-link notice at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await serve(page, { index: tournamentListIndex(Date.now()), stored: {}, screenshots: {} });
+      await open(page, '/?t=missing-cup');
+      await expect(page.getByText("This tournament isn't available.")).toBeVisible();
+      await capture(page, 'tournament-list', fileName('Unavailable', String(width)));
+    });
   }
 });
 

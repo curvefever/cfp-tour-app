@@ -5,6 +5,8 @@ import { isVisibleToViewers, tournamentPhase } from './tournament-lifecycle';
 import type { TournamentSummary } from './tournament-summary';
 
 export const UNAVAILABLE_NOTICE = "This tournament isn't available.";
+/** What the banner adds after it: why, and what the page shows instead. */
+export const UNAVAILABLE_DETAIL = "It may be a draft, or it was removed. Here is what's on.";
 
 /** How long after it finished the most recent tournament still opens by itself, on Rankings. */
 export const RECENTLY_FINISHED_MS = 24 * 60 * 60 * 1000;

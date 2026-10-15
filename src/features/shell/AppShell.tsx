@@ -11,6 +11,7 @@ import { LoadedTournamentAdmin } from '../admin/LoadedTournamentAdmin';
 import { RankingsView } from '../rankings/RankingsView';
 import { StandingsView } from '../standings/StandingsView';
 import { TournamentsView } from '../tournaments/TournamentsView';
+import { UNAVAILABLE_DETAIL, UNAVAILABLE_NOTICE } from '../tournaments/visit';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { AppHeader } from './AppHeader';
 import { effectiveTab, loadedPhase, visibleTabs } from './tabs';
@@ -66,9 +67,16 @@ export function AppShell() {
         {activeTab === 'tournaments' ? (
           <section id='view-tournaments'>
             {app.visitNotice ? (
-              <Alert className='mb-2.5' tone='info'>
-                {app.visitNotice}{' '}
-                <button className='cursor-pointer underline' onClick={app.dismissVisitNotice}>
+              <Alert
+                className='mb-6.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-4.5 py-3.5 text-base'
+                role='status'
+                tone='warning'
+              >
+                <span className='font-bold text-cfp-orange-text'>{app.visitNotice}</span>
+                {app.visitNotice === UNAVAILABLE_NOTICE ? (
+                  <span className='text-foreground'>{UNAVAILABLE_DETAIL}</span>
+                ) : null}
+                <button className='ml-auto cursor-pointer underline' onClick={app.dismissVisitNotice}>
                   Dismiss
                 </button>
               </Alert>
