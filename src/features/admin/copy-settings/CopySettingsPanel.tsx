@@ -5,7 +5,7 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { copyScreenshots } from '../../tournaments/screenshots.server-fns';
 import { copyableTournaments } from '../../tournaments/tournament-index';
 import { useTournamentIndex, type TournamentIndexState } from '../../tournaments/useTournamentIndex';
-import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle, Select } from '../../../components/ui';
+import { Alert, Button, ButtonRow, Field, Input, Select } from '../../../components/ui';
 import {
   parseTournamentReference,
   settingsFromSnapshot,
@@ -14,7 +14,7 @@ import {
   TOURNAMENT_REFERENCE_INVALID_MESSAGE,
 } from './past-tournament-settings';
 
-export interface CopySettingsPanelProps {
+export interface CopySettingsProps {
   /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
   onApply(settings: TournamentSettings, sourceTitle: string, rulesText: string): string;
 }
@@ -56,7 +56,8 @@ function TournamentPicker({ disabled, onCopy }: { disabled: boolean; onCopy(tour
   );
 }
 
-export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
+/** "Copy settings from another tournament": the part of the Tournament panel that fills the form from a past tournament. */
+export function CopySettings({ onApply }: CopySettingsProps) {
   const app = useTournamentApp();
   const [expanded, setExpanded] = useState(false);
   const [linkInput, setLinkInput] = useState('');
@@ -115,8 +116,8 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
   }
 
   return (
-    <Panel>
-      <PanelTitle>Copy settings from a past tournament</PanelTitle>
+    <div className='flex flex-col gap-2'>
+      <div className='text-sm font-bold'>Copy settings from another tournament</div>
       {!expanded ? (
         <ButtonRow>
           <Button onClick={() => setExpanded(true)}>Choose…</Button>
@@ -152,6 +153,6 @@ export function CopySettingsPanel({ onApply }: CopySettingsPanelProps) {
           ) : null}
         </>
       )}
-    </Panel>
+    </div>
   );
 }

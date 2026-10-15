@@ -1,17 +1,22 @@
-import { Input, Panel, PanelTitle } from '../../../components/ui';
+import { Input, SectionPanel } from '../../../components/ui';
+import type { TournamentSettings } from '../../../domain/tournament/types';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { CopySettings } from '../copy-settings/CopySettingsPanel';
 import { ScheduledTimeField } from '../ScheduledTimeField';
 import { usePublishMissing } from '../usePublishMissing';
 
-/** The tournament's name and scheduled time. */
-export function TournamentPanel() {
+/** The tournament's name and scheduled time, and the way to copy the settings of a past tournament. */
+export function TournamentPanel({
+  onApplyCopiedSettings,
+}: {
+  onApplyCopiedSettings: (settings: TournamentSettings, sourceTitle: string, rulesText: string) => string;
+}) {
   const { state, updateState } = useTournamentApp();
   const publishMissing = usePublishMissing();
   return (
-    <Panel>
-      <PanelTitle>Tournament Name</PanelTitle>
-      <PresenceField htmlFor='cfg-title' label='Tournament name'>
+    <SectionPanel title='TOURNAMENT'>
+      <PresenceField className='mb-0' htmlFor='cfg-title' label='Name'>
         <Input
           aria-invalid={publishMissing.includes('title') || undefined}
           id='cfg-title'
@@ -22,6 +27,7 @@ export function TournamentPanel() {
         />
       </PresenceField>
       <ScheduledTimeField id='cfg-scheduled-at' />
-    </Panel>
+      <CopySettings onApply={onApplyCopiedSettings} />
+    </SectionPanel>
   );
 }

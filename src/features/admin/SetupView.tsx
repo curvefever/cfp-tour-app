@@ -3,9 +3,7 @@ import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { generateTournament } from '../../domain/tournament/generation';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings } from '../../domain/tournament/types';
-import { TwoColumnGrid } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { CopySettingsPanel } from './copy-settings/CopySettingsPanel';
 import { InfoContentPanel } from './InfoContentPanel';
 import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
@@ -49,21 +47,22 @@ export function SetupView() {
   }
 
   return (
-    <div id='panel-setup'>
-      <TournamentPanel />
-      <InfoContentPanel />
-      <CopySettingsPanel onApply={applyCopiedSettings} />
-      <TwoColumnGrid>
+    <div className='flex flex-wrap items-start gap-5' id='panel-setup'>
+      <div className='flex min-w-0 flex-[999_1_560px] flex-col gap-4.5 [&>*]:mb-0'>
+        <TournamentPanel onApplyCopiedSettings={applyCopiedSettings} />
         <FormatPanel
           error={error}
           lbQualifiers={lbQualifiers}
           onGenerate={generate}
           setLbQualifiers={setLbQualifiers}
         />
+        <WaterfallPanel lbQualifiers={lbQualifiers} />
+        <InfoContentPanel />
         <RosterPanel onLoaded={() => setError('')} />
-      </TwoColumnGrid>
-      <WaterfallPanel lbQualifiers={lbQualifiers} />
-      <SchedulePreviewPanel />
+      </div>
+      <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
+        <SchedulePreviewPanel />
+      </aside>
     </div>
   );
 }

@@ -6,7 +6,7 @@ export function EditingTag({ field }: { field: string }) {
   const names = usePresence().editors[field];
   if (!names?.length) return null;
   return (
-    <span className='ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[0.65rem] font-semibold tracking-normal text-primary normal-case'>
+    <span className='ml-2 rounded-full bg-cfp-editing/18 px-2 py-0.5 text-xs font-bold tracking-normal text-cfp-editing-text normal-case'>
       {editingText(names)}
     </span>
   );

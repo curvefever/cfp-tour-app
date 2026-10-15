@@ -12,7 +12,15 @@ export function ScheduledTimeField({ id }: { id: string }) {
   const zone = timeZoneLabel(scheduledAt ?? Date.now());
   const missing = usePublishMissing().includes('date');
   return (
-    <PresenceField label={`Scheduled date and time (your time, ${zone})`} htmlFor={id}>
+    <PresenceField
+      className='mb-0'
+      label={
+        <>
+          Scheduled date and time <span className='font-normal text-muted'>(your time, {zone})</span>
+        </>
+      }
+      htmlFor={id}
+    >
       <Input
         aria-invalid={missing || undefined}
         id={id}
