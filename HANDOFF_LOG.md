@@ -54,6 +54,9 @@ Sixth of eight phases of the visual redesign (the organiser's design brief of 20
 ### Test tournaments on the test site
 "F15 live check FFA 20" (id 1792064662477, test run, started, with rules text), "F15 live check waterfall draft" (id 1792064878851, test run, draft with the 16-player example graph, not started). "B16 live check teams 13" and the phase D and E ones are still there.
 
+### Final review of phases A–F (reviewer, 2026-10-15)
+Before the organiser's test drive on the test site; phase G (phone layouts) comes after it. Full suite 88 files / 2088 tests pass; ESLint and the typecheck are clean over all 165 `.ts`/`.tsx` files changed since A0; smoke e2e 7 of 7. Prettier: the redesign had left `ui/Feedback.tsx` and `admin/waterfall/WaterfallRoundEditor.tsx` unformatted (line wrapping only, fixed in "Final review: prettier on two files the redesign touched"); the other 8 files Prettier flags (`ui/Badge`, `ui/Button`, `ui/Surface`, `AuthProvider`, `CfpLoginModal`, `tour-permissions.server`, `__root`, `styles.css`) were already unformatted before the redesign and are left as they are.
+
 ---
 
 ## Visual redesign, phase E: Tournaments and Info (done — 2026-10-15)
