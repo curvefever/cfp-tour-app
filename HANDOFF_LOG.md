@@ -6,6 +6,49 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Visual redesign, phase E: Tournaments and Info (done — 2026-10-15)
+
+Fifth of eight phases of the visual redesign (the organiser's design brief of 2026-10-14 and the boards on the canvas "Tour Hub Split Look"; phases A to D are the entries below). Planned and reviewed by a second session (the planner/reviewer), built here in small chunks, one commit and one report each. Phase E puts the Tournaments page and the Info tab in the game look and adds the winner of a finished tournament to its card. The one change to data and server code is the winners (E2); no rule changed. Pushed to `test` with the live check (head `888710d`).
+
+### What was built (commits `04371c4` … `888710d` on `test`)
+- **Tail of phase D, `a342353` "Phase D review: Manage players in natural order".** The Manage players / teams grid sorts through `naturalByLabel` by the label shown (teams by team name), like the lists, the Players roster and the image. It closes the open item found at the phase D live check.
+- **E1 Tournaments page** (`TournamentsView.tsx`, `AppShell.tsx`, `visit.ts`). h1 "Tournaments"; ONGOING / UPCOMING / FINISHED on dark title bars (`ColumnTitleBar`); cards in `auto-fill, minmax(min(460px, 100%), 1fr)` (two per row at 1280, one on a phone), each a game card with a 2 px frame (violet for an ongoing one); title 19/700; marks NOW (violet, ongoing only; new), STARTING SOON (orange tint) and TEST RUN (grey tint); the format line with the unit count, muted. Empty texts unchanged. The unavailable link ("?t=" of a draft, a removed or an unknown tournament) shows an orange banner above the h1: "This tournament isn't available." plus "It may be a draft, or it was removed. Here is what's on." (`UNAVAILABLE_DETAIL`, new beside `UNAVAILABLE_NOTICE`) and Dismiss.
+- **E2 Winner in the list data.** `tournamentWinners(state)` (`rankings.ts`) gives the units ranked first once the Final is complete (a tie for first gives several), `[]` before. `TournamentSummary.winners?` (`tournament-summary.ts`), `parseWinners` (`tournament-index.ts`: valid entries only, nothing for none, a bad value never drops the list entry), `planFinish(paths, facts, now, winners)` writes `index/{id}/winners`, `planReopen` and `planReturnToDraft` write an empty list (how "none" is stored, through `marshalForFirebase`), `finishTournament` reads the stored tournament (`readStoredState`, normalised by `normalizeLiveTournamentState`) and computes the winners on the server, never from the client. No backfill (Q16): an older finished tournament gets its winner by Reopen + Finish.
+- **E3 Winner row** (`TournamentsView.tsx`). At the bottom of a finished card with winners: a top border, a 5 px green marker, "WINNER" (11/800, tracked, muted, centred on the marker and the name), the name 16/700 and the members on a wrapping line under it (a team of 4 fits); a tie shows each winner, side by side and wrapping. No row for a card without winners.
+- **E4a `scheduledParts`** (`tournament-info.ts`) gives `{ date, relative }`; `formatScheduledAt` is built on it with the same output. The cards show the date in bold and the relative part in light blue (`ScheduledLine`).
+- **E4b Info page** (`InfoView.tsx`, `ScreenshotGallery.tsx`, `RulesText.tsx`). Page heading with the Exit button (phase A); a WHEN card (label, date 26/800, relative part in light blue, "Your time zone"; "Date to be announced" alone without a date) and a FORMAT card (22/800) side by side, stacked on a phone; LOBBY and RULES on title bars; the thumbnails in a 16:10 grid, a click still opens the full size; the rules in a 17 px panel with the existing light formatting; "General tournament rules →" under it as a plain link.
+- **E5 "Log in as admin" below the cards** (organiser decision, see below).
+
+### Decisions
+- **"Log in as admin" is part of the page at every width, right-aligned after the Finished section** (organiser, 2026-10-15, after seeing the link over the cards in a capture). It replaces "fixed bottom-right as today" on desktop; a fixed link floated over whatever card was at the bottom of the viewport while scrolling. The list's bottom padding added at E3 is gone.
+- The winner is computed by the server at Finish from the stored state; the list stores `winners` only for finished tournaments, and Reopen and Back to draft clear it (Q16).
+- Ongoing cards get the NOW mark (the board's), upcoming ones STARTING SOON from one hour before the start.
+- The date line moved from the plain "date · relative" string to bold date and light-blue relative part at E4a, once `scheduledParts` existed.
+- The format line keeps the app's capitalisation ("FFA · Qualification table · Single elimination"); the board's lower case is not followed.
+
+### Testing
+- Per chunk: eslint, prettier, types on the changed paths, `vitest related`, `pnpm run test:e2e` (7 of 7 throughout) and the screens spec (list at 1280 and 390, the unavailable banner, `upcoming-info`). The screens fixtures gained winners (a team of 4, a tie of two teams, a solo winner, a finished card with none).
+- New tests: `tournamentWinners` (a 37-player FFA gives one winner; empty while the Final is not complete, with half the scores in, and while the Final is not reached; a 13-team tie for 1st gives both teams with their members), `planFinish` / `planReopen` / `planReturnToDraft` write the winners and clear them, `parseWinners` (with, without, an empty list, bad values), `scheduledParts` (the split, no relative part, equals the join).
+- **Guard in `tournamentWinners`:** `if (!rankings?.finalComplete) return []` survives a mutation to `if (!rankings) return []`. That is expected: no state gives finalists a rank before the Final is complete (`finalistValues` is only filled then). A 3-game Final with only game 1 scored (37 players) is a test that pins it: `computeRankings(...).finalists` is `[]` and so are the winners. The guard stays as a defensive check.
+- **Guard for the Log in link** (screens spec): in page coordinates the link's top is at or below the bottom of every card, and it is not `position: fixed`, at 1280 and 390, so it holds in a full-page capture too. It replaces the first version (a 16 px gap above a fixed link at the end of the page), which the organiser's decision made obsolete.
+- **Live check on test (2026-10-15, organiser signed in as "Lead Mod", the new build confirmed by the changed asset).**
+  - Tournaments: ONGOING / UPCOMING / FINISHED bars, NOW on the ongoing test run, TEST RUN marks, bold date with the relative part in light blue; `?t=does-not-exist` shows the orange banner with both sentences, and Dismiss removes it.
+  - Winner, FFA: "D7 live check FFA 13" (finished before E2, so no winner row) was reopened (card shows NOW, no row) and finished again: "WINNER · Player 11", the unit that won the 3-game Final; reopen again: no row; finish again: the row is back.
+  - Winner, team, with a tie: a 2v2v2v2 test run "E5 live check teams 20" (20 teams) to a 3-team Final tied 1080–1080 for 1st: the card shows both winners, "Crew 11 · Ann11 · Bob11" and "Crew 20 · Ann20 · Bob20".
+  - Info: an upcoming test run shows WHEN (date, relative "in 14 days", "Your time zone"), FORMAT, the lobby and the rules link; a run with no date shows "Date to be announced". The rules block was not seen live (see below).
+  - Method: scores were typed by page script. Setting the value and dispatching an event was not enough for the team inputs in this run (nothing was stored; the Final's totals stayed 0); focusing the field, selecting it and `document.execCommand('insertText', …)` before blur works when the browser pane has focus (`document.hasFocus()`), as typing does. The earlier rounds of the team run were therefore played with no stored scores; only the Final, which decided the winners, was scored.
+- Not seen live: the rules text on the Info page (the test run that had rules text was finished when the rules were typed, and a finished tournament refuses the edit; the page is covered by the `upcoming-info` fixture); "Log in as admin" (hidden while signed in; covered by the screens guard and the smoke test).
+
+### Out of scope (parked)
+- A backfill of winners for tournaments finished before this build (Q16): Reopen + Finish gives one.
+- The phone layouts of Tournaments and Info: phase G.
+- Admin and Setup (F); the rest of the polish (G, H).
+
+### Test tournaments left on the test site (for the organiser to delete)
+"E5 live check teams 20" (id 1792050495124, TEST RUN, finished). "D7 live check FFA 13" (id 1792048014717, finished again, with its winner) from phase D is still there.
+
+---
+
 ## Visual redesign, phase D: Rankings and Players (done — 2026-10-15)
 
 Fourth of eight phases of the visual redesign (the organiser's design brief of 2026-10-14 and the boards on the canvas "Tour Hub Split Look"; phases A to C are the entries below). Planned and reviewed by a second session (the planner/reviewer), built here in small chunks, one commit and one report each. Phase D puts the Rankings tab (and the Players tab before the start) in the game look, gives every unit a "where" line, adds the podium after the Final, and redraws the downloadable image. No rule changed: `computeRankings` gained read-only fields and an exported type, its ordering is untouched. Pushed to `test` with the live check (head `256c8bf`).

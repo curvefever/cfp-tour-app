@@ -18,7 +18,7 @@ Per-user login against real Curve Fever Pro accounts.
   | Path | Holds | Written by |
   |---|---|---|
   | `tournaments/{id}` | the `TournamentState`, plus the server-owned `lifecycle` (`status` draft/published/finished, `testRun`, `createdAt`, `finishedAt`) and `started`, `info` (`scheduledAt`, `rulesText`, `screenshots`: image ids) and `annotations` | patch writes; status changes by the lifecycle server functions |
-  | `index/{id}` | `TournamentSummary` (`tournament-summary.ts`: title, status, started, test run, scheduled time, created/finished time, format, pooling phase, schedule logic, unit count), a few hundred bytes, read as a whole by the Tournaments page and the Admin list | descriptive fields ride along with each patch; status fields by the lifecycle server functions |
+  | `index/{id}` | `TournamentSummary` (`tournament-summary.ts`: title, status, started, test run, scheduled time, created/finished time, format, pooling phase, schedule logic, unit count, and the winners of a finished tournament: `winners` [{ label, members }], written by `finishTournament` from the stored state and cleared by Reopen and Back to draft), a few hundred bytes, read as a whole by the Tournaments page and the Admin list | descriptive fields ride along with each patch; status fields by the lifecycle server functions |
   | `setups/{id}` | the Setup form (`PersistedSetup`), one key per field | per-field patch writes |
   | `presence/{id}/{userKey}` | `{ name, field, at }`: who is in which Setup field | `setSetupPresence` |
   | `media/{id}/{imageId}` | one lobby screenshot as a data URL | the screenshot server functions |
