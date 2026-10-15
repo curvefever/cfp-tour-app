@@ -76,6 +76,7 @@
   --color-cfp-mid-input: #0a1826;
   --color-cfp-mid-input-border: #2a4a62;
   --color-cfp-mid-header-border: #1b3550;
+  --color-cfp-mid-row-line: #16324a;
 }
 
 @layer base {

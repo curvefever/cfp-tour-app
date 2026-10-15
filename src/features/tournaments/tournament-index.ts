@@ -1,4 +1,5 @@
 import type { GameFormatKey, PoolingPhaseKey, ScheduleLogicKey } from '../../domain/tournament/types';
+import { tournamentPhase } from './tournament-lifecycle';
 import type { TournamentWinner } from '../../domain/tournament/rankings';
 import type { TournamentSummary } from './tournament-summary';
 
@@ -70,4 +71,24 @@ export function adminListEntries(summaries: TournamentSummary[]): TournamentSumm
 /** What Copy settings offers: every tournament that is not a draft, newest first. */
 export function copyableTournaments(summaries: TournamentSummary[]): TournamentSummary[] {
   return summaries.filter((summary) => summary.status !== 'draft').sort(newestFirst);
+}
+
+export interface AdminListGroup {
+  title: 'Ongoing' | 'Published' | 'Drafts';
+  summaries: TournamentSummary[];
+}
+
+/** The Admin list in its three groups, newest first inside each; a group with nothing in it is left out. */
+export function adminListGroups(summaries: TournamentSummary[], nowMs: number): AdminListGroup[] {
+  const entries = adminListEntries(summaries);
+  const phaseOf = (summary: TournamentSummary) => tournamentPhase(summary, nowMs);
+  const groups: AdminListGroup[] = [
+    { title: 'Ongoing', summaries: entries.filter((summary) => phaseOf(summary) === 'ongoing') },
+    {
+      title: 'Published',
+      summaries: entries.filter((summary) => ['upcoming', 'starting-soon'].includes(phaseOf(summary))),
+    },
+    { title: 'Drafts', summaries: entries.filter((summary) => phaseOf(summary) === 'draft') },
+  ];
+  return groups.filter((group) => group.summaries.length);
 }

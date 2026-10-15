@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   adminListEntries,
+  adminListGroups,
   copyableTournaments,
   parseTournamentIndex,
   parseWinners,
@@ -117,5 +118,36 @@ describe('winners in the list entry', () => {
     ]);
     // The list stays readable whatever the winners hold.
     expect(parseOne({ status: 'finished', winners: 5 })?.title).toBe('Cup');
+  });
+});
+
+describe('adminListGroups', () => {
+  const NOW = 1_790_000_000_000;
+  const HOUR = 60 * 60 * 1000;
+  const group = (overrides: Partial<TournamentSummary>) => summary({ createdAt: 1, ...overrides });
+
+  it('puts ongoing, published (upcoming and starting soon) and draft tournaments in their own group, finished ones nowhere', () => {
+    const groups = adminListGroups(
+      [
+        group({ id: 'live', started: true, scheduledAt: NOW - HOUR, createdAt: 5 }),
+        group({ id: 'soon', scheduledAt: NOW + HOUR / 2, createdAt: 4 }),
+        group({ id: 'later', scheduledAt: NOW + 48 * HOUR, createdAt: 3 }),
+        group({ id: 'draft', status: 'draft', scheduledAt: null, createdAt: 2 }),
+        group({ id: 'old', status: 'finished', finishedAt: NOW - HOUR, createdAt: 1 }),
+      ],
+      NOW,
+    );
+    expect(groups.map((entry) => [entry.title, entry.summaries.map((item) => item.id)])).toEqual([
+      ['Ongoing', ['live']],
+      ['Published', ['soon', 'later']],
+      ['Drafts', ['draft']],
+    ]);
+  });
+
+  it('leaves out an empty group, and gives nothing when there is nothing to list', () => {
+    expect(
+      adminListGroups([group({ id: 'draft', status: 'draft' })], NOW).map((entry) => entry.title),
+    ).toEqual(['Drafts']);
+    expect(adminListGroups([], NOW)).toEqual([]);
   });
 });

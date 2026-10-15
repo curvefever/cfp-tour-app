@@ -29,9 +29,9 @@ export function SectionPanel({
   return (
     <section
       aria-label={label ?? title}
-      className={cn('min-w-0 overflow-hidden rounded-md border border-surface-hover bg-surface', className)}
+      className={cn('min-w-0 rounded-md border border-surface-hover bg-surface', className)}
     >
-      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-surface-hover bg-surface-low px-4.5 py-3'>
+      <div className='flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-t-[5px] border-b border-surface-hover bg-surface-low px-4.5 py-3'>
         <h2 className={panelLabelClassName}>{title}</h2>
         {hint ? <div className='text-[13px] text-muted'>{hint}</div> : null}
         {actions}
