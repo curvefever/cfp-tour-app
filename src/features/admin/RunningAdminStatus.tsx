@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   ODD_COUNT_STRATEGY_LABELS,
   POOLING_PHASE_LABELS,
@@ -8,17 +7,7 @@ import {
 } from '../../domain/tournament/formats';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
-import {
-  Button,
-  ButtonRow,
-  Field,
-  FieldDisplay,
-  Input,
-  Panel,
-  PanelTitle,
-  TwoColumnGrid,
-} from '../../components/ui';
-import { useTournamentApp } from '../tournament/TournamentProvider';
+import { Field, FieldDisplay, Panel, PanelTitle, TwoColumnGrid } from '../../components/ui';
 
 function gamesLabel(n: number) {
   return n === 1 ? 'Single game' : `${n} games (sum)`;
@@ -94,50 +83,6 @@ export function TournamentSettingsRecap({ state }: { state: TournamentState }) {
           </Field>
         ) : null}
       </TwoColumnGrid>
-    </Panel>
-  );
-}
-
-export function LiveSyncCard() {
-  const app = useTournamentApp();
-  const [copied, setCopied] = useState(false);
-  if (!app.state.tournamentId) return null;
-  const url = `${window.location.origin}${window.location.pathname}?t=${encodeURIComponent(app.state.tournamentId)}`;
-  const status =
-    app.syncStatus.kind === 'unavailable' ? (
-      <span className='text-danger'>
-        ⚪ Live sync unavailable (couldn&apos;t reach the sync service) — viewers need to refresh manually,
-        same as before.
-      </span>
-    ) : app.syncStatus.kind === 'error' ? (
-      <span className='text-danger'>
-        🔴 Sync error — viewers may be seeing stale data ({app.syncStatus.message})
-      </span>
-    ) : app.syncStatus.kind === 'active' ? (
-      <span className='text-success'>🟢 Live sync active</span>
-    ) : (
-      <span className='text-muted'>🔄 Connecting…</span>
-    );
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2_000);
-    } catch {
-      window.prompt('Copy this link:', url);
-    }
-  }
-  return (
-    <Panel id='sync-status-panel'>
-      <PanelTitle>Live Sync — viewer link</PanelTitle>
-      <Field className='mb-2' label='Viewer link'>
-        <Input type='text' readOnly value={url} onClick={(event) => event.currentTarget.select()} />
-      </Field>
-      <ButtonRow className='items-center gap-2.5'>
-        <Button onClick={() => void copy()}>📋 Copy Live Link</Button>
-        {copied ? <span className='text-xs text-success'>Copied!</span> : null}
-      </ButtonRow>
-      <div className='mt-2 text-xs'>{status}</div>
     </Panel>
   );
 }

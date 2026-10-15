@@ -2,8 +2,10 @@ import { Alert, PageHeading } from '../../components/ui';
 import { PresenceProvider } from '../presence/PresenceProvider';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
+import { CopyViewerLink } from './CopyViewerLink';
 import { RunningAdmin } from './RunningAdmin';
 import { SetupView } from './SetupView';
+import { SyncStatusLine } from './SyncStatusLine';
 import { TournamentStatusPanel } from './TournamentStatusPanel';
 
 /** The Admin tab for the loaded tournament: its Setup or running controls, once its stored state has arrived. */
@@ -19,7 +21,12 @@ export function LoadedTournamentAdmin() {
       >
         ← All tournaments
       </button>
-      <PageHeading className='mb-0' label={app.state.started ? 'Admin' : 'Setup'} title={title} />
+      <PageHeading
+        actions={app.state.started ? <CopyViewerLink /> : undefined}
+        className='mb-0 items-end'
+        label={app.state.started ? 'Admin' : 'Setup'}
+        title={title}
+      />
       {kind === 'connecting' ? <Alert tone='info'>Loading the tournament…</Alert> : null}
       {kind === 'waiting' ? <Alert tone='danger'>This tournament does not exist (any more).</Alert> : null}
       {kind === 'unavailable' ? (
@@ -30,6 +37,7 @@ export function LoadedTournamentAdmin() {
       {kind === 'connecting' || kind === 'waiting' || kind === 'unavailable' ? null : (
         <PresenceProvider tournamentId={app.state.tournamentId ?? ''}>
           <div className='flex flex-col gap-5'>
+            {app.state.started ? <SyncStatusLine /> : null}
             <TournamentStatusPanel />
             {app.state.started ? <RunningAdmin /> : <SetupView />}
           </div>

@@ -12,7 +12,7 @@ import {
 } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { CorrectCurrentRoundPanel } from './live-corrections/CorrectCurrentRoundPanel';
-import { LiveSyncCard, TournamentSettingsRecap } from './RunningAdminStatus';
+import { TournamentSettingsRecap } from './RunningAdminStatus';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ScheduledTimeField } from './ScheduledTimeField';
 import { RunningWaterfallPanel } from './waterfall/RunningWaterfallPanel';
@@ -54,7 +54,6 @@ export function RunningAdmin() {
         <RunningWaterfallPanel state={state} />
       ) : null}
       {resetError ? <Alert tone='danger'>{resetError}</Alert> : null}
-      <LiveSyncCard />
       {app.readOnly ? null : <CorrectCurrentRoundPanel state={state} />}
       <Panel>
         <PanelTitle>Tournament progress</PanelTitle>
