@@ -3,7 +3,7 @@ import { setFinalScore } from '../../domain/tournament/mutations';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { CommitScoreInput, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
+import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
 import { TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
 import { memberLabel } from './team-member-line';
@@ -113,7 +113,7 @@ export function FinalRow(props: FinalRowProps) {
   const { state, roundIndex, name, index, complete, perGame, total, isGrandFinal, followed, manual } = props;
   const { teamSize, team, entryGame, entryAnonymous, inputsPerTeam } = props;
   return (
-    <div className={cn(bracketRowBase, 'min-h-9.5', rowSurfaceClasses(index, followed))}>
+    <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2'>
         <span className='w-4.5 shrink-0 text-sm font-bold text-muted'>{complete ? index + 1 : null}</span>
         <span className='flex min-w-0 flex-1 flex-col gap-px'>

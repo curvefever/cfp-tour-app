@@ -4,7 +4,7 @@ import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { Button, CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
+import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { compactScoreClass } from './ScoreFields';
 
 /**
@@ -38,7 +38,7 @@ export function AnonymousFinalCard({
         🎭 Anonymous matches
       </div>
       {progress.map((entry, index) => (
-        <div className={cn(bracketRowBase, 'min-h-9.5', rowSurfaceClasses(index, false))} key={entry.alias}>
+        <div className={cn(roomRowClass, rowSurfaceClasses(index, false))} key={entry.alias}>
           <div className='flex items-center gap-2'>
             <span className='min-w-0 flex-1 truncate text-base font-bold'>
               {entry.connected && entry.realKey

@@ -4,6 +4,9 @@ import { cn } from '../../../components/ui';
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
 export const bracketRowBase = 'px-3 py-1 text-xs';
 
+/** A row of a Bracket card: at least the row height, its content centred vertically (score inputs below the line stack as before). */
+export const roomRowClass = cn(bracketRowBase, 'flex min-h-9.5 flex-col justify-center');
+
 export type RowResult =
   | 'advance'
   | 'advance-second'

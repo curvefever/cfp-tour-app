@@ -5,7 +5,7 @@ import type { TournamentState, TournamentTeam } from '../../domain/tournament/ty
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
 import { ResultStripe } from '../tournament/components/ResultStripe';
-import { type RowResult, bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
+import { type RowResult, roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
 import {
   BracketScoreInput,
@@ -86,7 +86,7 @@ export function LoneUnitRow({
 }) {
   const label = unitDisplay(state, name).label;
   return (
-    <div className={cn(bracketRowBase, 'min-h-9.5', rowSurfaceClasses(0, followed))}>
+    <div className={cn(roomRowClass, rowSurfaceClasses(0, followed))}>
       <RowLine place={null} result=''>
         <span className='flex min-w-0 flex-1 flex-col'>
           <span className='truncate text-base font-bold' title={label}>
@@ -200,7 +200,7 @@ export function RoomRow(props: RoomRowProps) {
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
   return (
-    <div className={cn(bracketRowBase, 'min-h-9.5', rowSurfaceClasses(index, followed))}>
+    <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <RowLine place={showResults ? index + 1 : null} result={result}>
         <span className='flex min-w-0 flex-1 flex-col gap-px'>
           <NameWithMarks
