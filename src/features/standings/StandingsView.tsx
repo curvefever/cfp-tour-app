@@ -9,6 +9,7 @@ import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { FollowBar } from '../bracket/FollowBanner';
 import { standingsFollowDetail } from '../bracket/follow-text';
 import { TournamentStandings } from './TournamentStandings';
+import { standingsNames } from './standings-names';
 import { standingsExplanation } from './standings-text';
 
 export function StandingsView() {
@@ -23,9 +24,10 @@ export function StandingsView() {
   if (!display || !marks) {
     return <Alert>No standings table for this tournament format — check Bracket for live results.</Alert>;
   }
+  const names = standingsNames(display.kind);
   return (
     <>
-      <PageHeading label='Standings' title={title} />
+      <PageHeading label={names.title} title={title} />
       <div className='flex flex-col gap-5' id='st-content'>
         {followKey ? (
           <div className='flex'>
@@ -36,9 +38,7 @@ export function StandingsView() {
           </div>
         ) : null}
         <section className='flex flex-col gap-1.5 rounded-xs bg-cfp-game-deep px-5 py-4 outline-2 outline-cfp-game-frame'>
-          <h2 className='text-sm font-extrabold tracking-[0.05em] text-muted uppercase'>
-            How the standings work
-          </h2>
+          <h2 className='text-sm font-extrabold tracking-[0.05em] text-muted uppercase'>{names.explainer}</h2>
           <div className='flex max-w-225 flex-col gap-1.5 text-base leading-[1.55]'>
             {standingsExplanation(state, display).map((sentence) => (
               <p key={sentence}>{sentence}</p>

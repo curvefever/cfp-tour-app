@@ -3,6 +3,7 @@ import {
   cutTieMarks,
   describeStandings,
   hasStandingsPhase,
+  standingsKind,
   standingFor,
   type StandingsDisplay,
   type StandingsDisplayTable,
@@ -380,6 +381,27 @@ describe('describeStandings availability', () => {
     });
     expect(kings).not.toBeNull();
     expect(describeStandings({ ...(kings as TournamentState), started: true })).toBeNull();
+  });
+
+  it('names the kind of standings after the pooling phase, at awkward counts', () => {
+    const kindOf = (count: number, setup: Parameters<typeof buildState>[0]['setup']) => {
+      const state = buildState({ label: 'kind', count, teams: false, setup }) as TournamentState;
+      return { kind: standingsKind(state), display: describeStandings(state)?.kind ?? null };
+    };
+    const ffa = { gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' } as const;
+    expect(kindOf(37, { ...ffa, poolingPhase: 'qual-table' })).toEqual({
+      kind: 'qualification',
+      display: 'qualification',
+    });
+    expect(kindOf(43, { ...H2H, poolingPhase: 'swiss', scheduleLogic: 'single-elimination' })).toEqual({
+      kind: 'swiss',
+      display: 'swiss',
+    });
+    expect(kindOf(31, { ...H2H, poolingPhase: 'group-stage', scheduleLogic: 'single-elimination' })).toEqual({
+      kind: 'groups',
+      display: 'groups',
+    });
+    expect(kindOf(53, { ...ffa, poolingPhase: 'none' })).toEqual({ kind: null, display: null });
   });
 
   it('exists from schedule generation: before start every entry is unranked and the phase is upcoming', () => {

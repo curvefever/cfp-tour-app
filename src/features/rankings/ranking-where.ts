@@ -1,7 +1,9 @@
 import type { bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ActiveRanking, EliminatedRanking, FinalistRanking } from '../../domain/tournament/rankings';
+import { standingsKind } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
+import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from '../bracket/exit-text';
 import { placeInRoom } from '../bracket/folded-round';
 import { roomTitle } from '../bracket/room-title';
@@ -38,12 +40,15 @@ export function stillInWhere(
 
 /**
  * Where an eliminated unit went out: the room and its place there ("Quarters · Room B · 7th"), or, when the cut of
- * the standings sent it out, its place in them ("Standings · #25", "Standings · #3 in Group B").
+ * the standings sent it out, its place in them, named as the standings tab is ("Qualification · #25", "Swiss · #25")
+ * or by its group ("Group B · #3").
  */
 export function eliminatedWhere(state: TournamentState, entry: EliminatedRanking, labels: Labels): string {
   if (entry.atCut && entry.poolRank) {
-    const group = entry.poolRank.groupLabel ? ` in Group ${entry.poolRank.groupLabel}` : '';
-    return `Standings · #${entry.poolRank.rank}${group}`;
+    const { groupLabel, rank } = entry.poolRank;
+    const kind = standingsKind(state);
+    const table = groupLabel ? `Group ${groupLabel}` : kind ? standingsNames(kind).title : 'Standings';
+    return `${table} · #${rank}`;
   }
   return `${roundAndRoom(state, entry.ri, entry.seat, labels)} · ${ordinal(entry.place)}`;
 }

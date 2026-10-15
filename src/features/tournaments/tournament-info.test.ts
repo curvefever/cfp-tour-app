@@ -60,13 +60,13 @@ describe('formatScheduledAt', () => {
 
   it('shows the date and time in the time zone of the viewer', () => {
     expect(formatScheduledAt(SCHEDULED, SCHEDULED - 3 * HOUR, inZone('UTC'))).toMatch(
-      /^Sun 18 Oct, 18:00 · /,
+      /^Sun 18 Oct, 18:00 UTC · /,
     );
     expect(formatScheduledAt(SCHEDULED, SCHEDULED - 3 * HOUR, inZone('Europe/Paris'))).toMatch(
-      /^Sun 18 Oct, 20:00 · /,
+      /^Sun 18 Oct, 20:00 CEST · /,
     );
     expect(formatScheduledAt(SCHEDULED, SCHEDULED - 3 * HOUR, inZone('Pacific/Auckland'))).toMatch(
-      /^Mon 19 Oct, 07:00 · /,
+      /^Mon 19 Oct, 07:00 GMT\+13 · /,
     );
   });
 
@@ -89,7 +89,7 @@ describe('formatScheduledAt', () => {
 
   it('can leave out the relative part', () => {
     expect(formatScheduledAt(SCHEDULED, SCHEDULED + 3 * HOUR, { timeZone: 'UTC', relative: false })).toBe(
-      'Sun 18 Oct, 18:00',
+      'Sun 18 Oct, 18:00 UTC',
     );
   });
 
@@ -108,18 +108,18 @@ describe('scheduledParts', () => {
 
   it('splits the date from how far away it is', () => {
     expect(scheduledParts(SCHEDULED, SCHEDULED - 2 * HOUR, { timeZone: 'Europe/Paris' })).toEqual({
-      date: 'Sun 18 Oct, 20:00',
+      date: 'Sun 18 Oct, 20:00 CEST',
       relative: 'in 2 h',
     });
     expect(scheduledParts(SCHEDULED, SCHEDULED + 3 * HOUR, { timeZone: 'UTC' })).toEqual({
-      date: 'Sun 18 Oct, 18:00',
+      date: 'Sun 18 Oct, 18:00 UTC',
       relative: 'started 3 h ago',
     });
   });
 
   it('has no relative part when it is left out', () => {
     expect(scheduledParts(SCHEDULED, SCHEDULED - HOUR, { timeZone: 'UTC', relative: false })).toEqual({
-      date: 'Sun 18 Oct, 18:00',
+      date: 'Sun 18 Oct, 18:00 UTC',
       relative: null,
     });
   });

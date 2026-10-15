@@ -15,8 +15,23 @@ export function fromDateTimeLocalValue(value: string): number | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-/** The short name of the time zone of the browser at `ms` ("CEST", "GMT+2"), for labelling a time an admin types. */
-export function timeZoneLabel(ms: number, locale?: string): string {
-  const parts = new Intl.DateTimeFormat(locale, { timeZoneName: 'short' }).formatToParts(new Date(ms));
+/** A name that is only an offset ("GMT+2", "GMT-4"), not a lettered zone name. */
+const OFFSET_NAME = /^(GMT|UTC)[+-]/;
+
+function zoneName(ms: number, locale: string, style: 'short' | 'shortOffset', timeZone?: string): string {
+  const parts = new Intl.DateTimeFormat(locale, { timeZone, timeZoneName: style }).formatToParts(
+    new Date(ms),
+  );
   return parts.find((part) => part.type === 'timeZoneName')?.value ?? '';
+}
+
+/**
+ * The short name of a time zone at `ms`, the browser's own by default: a lettered name when British or American English
+ * has one ("CEST", "BST", "EDT"), else the GMT offset ("GMT+5:30"). The browser's language doesn't change it.
+ */
+export function timeZoneLabel(ms: number, timeZone?: string): string {
+  const lettered = ['en-GB', 'en-US']
+    .map((locale) => zoneName(ms, locale, 'short', timeZone))
+    .find((name) => name !== '' && !OFFSET_NAME.test(name));
+  return lettered ?? zoneName(ms, 'en-GB', 'shortOffset', timeZone);
 }

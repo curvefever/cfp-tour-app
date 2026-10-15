@@ -19,6 +19,7 @@ import { ColumnTitleBar } from './ColumnTitleBar';
 import { ExitIcon } from './ExitIcon';
 import { PhaseBadge } from './PhaseBadge';
 import { FoldedBox } from './FoldedBox';
+import { standingsNames } from '../standings/standings-names';
 import { standingsExitLines } from './exit-lines';
 
 function StandingsRows({
@@ -99,11 +100,12 @@ export function StandingsColumn({
   onToggle?: () => void;
   onOpenFullTable?: () => void;
 }) {
+  const names = standingsNames(display.kind);
   const followedStanding = followKey ? standingFor(display, followKey) : null;
   if (collapsed && onToggle !== undefined) {
     return (
       <div className='shrink-0' data-standings-column>
-        <FoldedBox onUnfold={onToggle} title='Standings'>
+        <FoldedBox onUnfold={onToggle} title={names.title}>
           {followedStanding ? (
             <div className='text-base font-bold text-cfp-sky'>#{followedStanding.rank}</div>
           ) : null}
@@ -118,13 +120,13 @@ export function StandingsColumn({
         badge={<PhaseBadge phase={display.phase} />}
         extra={
           <ExitIcon
-            label='Where players go from the standings'
+            label={`Where players go from ${names.inline}`}
             lines={exitLines}
             popupClassName='top-12.5 right-0'
           />
         }
         onToggle={onToggle}
-        title='Standings'
+        title={names.title}
       />
       <div className='overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame'>
         {display.phase !== 'upcoming' ? (

@@ -127,10 +127,10 @@ test.describe('visitor smoke test', () => {
       'href',
       'https://info.curvefever.pro/tournaments/tournament-rules',
     );
-    // Not started: the roster is shown as Players, and there is no Bracket or Standings yet.
+    // Not started: the roster is shown as Players, and there is no Bracket or standings tab yet.
     await expect(nav.getByRole('button', { name: /Players/ })).toBeVisible();
     await expect(nav.getByRole('button', { name: /Bracket/ })).toHaveCount(0);
-    await expect(nav.getByRole('button', { name: /Standings/ })).toHaveCount(0);
+    await expect(nav.getByRole('button', { name: /Qualification|Swiss|Groups|Standings/ })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Exit tournament view' })).toBeVisible();
   });
 

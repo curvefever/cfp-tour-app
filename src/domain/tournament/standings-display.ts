@@ -49,9 +49,13 @@ export interface StandingsDisplay {
   firstCountedRoundNum: number;
   /** The Bracket column goes right after this round. */
   lastStandingsRoundIndex: number;
+  kind: StandingsKind;
   perGroup: boolean;
   tables: StandingsDisplayTable[];
 }
+
+/** The pooling phase that keeps standings: a qualification table, Swiss, or a group stage. */
+export type StandingsKind = 'qualification' | 'swiss' | 'groups';
 
 function isStandingsRound(round: TournamentRound): boolean {
   return Boolean(round.isQual || round.isSwiss || round.isGroupStage);
@@ -61,8 +65,16 @@ function isCountedRound(round: TournamentRound): boolean {
   return isStandingsRound(round) && !round.excludeFromStandings;
 }
 
+/** Which kind of standings the schedule has; null without a standings phase (no pooling: warm-ups only). */
+export function standingsKind(state: Pick<TournamentState, 'rounds'>): StandingsKind | null {
+  if (state.rounds.some((round) => round.isGroupStage)) return 'groups';
+  if (state.rounds.some((round) => round.isSwiss)) return 'swiss';
+  if (state.rounds.some((round) => round.isQual)) return 'qualification';
+  return null;
+}
+
 export function hasStandingsPhase(state: TournamentState): boolean {
-  return state.rounds.some(isStandingsRound);
+  return standingsKind(state) !== null;
 }
 
 /** A round is complete once it has contested rooms and every one is fully scored. */
@@ -137,11 +149,12 @@ function groupTables(state: TournamentState): StandingsDisplayTable[] {
 }
 
 export function describeStandings(state: TournamentState): StandingsDisplay | null {
-  if (!hasStandingsPhase(state)) return null;
+  const kind = standingsKind(state);
+  if (kind === null) return null;
   const standingsIndexes = state.rounds.flatMap((round, index) => (isStandingsRound(round) ? [index] : []));
   const countedIndexes = state.rounds.flatMap((round, index) => (isCountedRound(round) ? [index] : []));
   const lastStandingsRoundIndex = standingsIndexes[standingsIndexes.length - 1];
-  const perGroup = state.rounds.some((round) => round.isGroupStage);
+  const perGroup = kind === 'groups';
   const tables = perGroup ? groupTables(state) : [qualificationTable(state)];
   const nothingPlayed = tables.every((table) => table.entries.every((entry) => entry.totalFP === null));
   const phase = state.curRound > lastStandingsRoundIndex ? 'final' : nothingPlayed ? 'upcoming' : 'live';
@@ -151,6 +164,7 @@ export function describeStandings(state: TournamentState): StandingsDisplay | nu
     roundsTotal: countedIndexes.length,
     firstCountedRoundNum: state.rounds[countedIndexes[0] ?? standingsIndexes[0]].roundNum,
     lastStandingsRoundIndex,
+    kind,
     perGroup,
     tables,
   };

@@ -20,7 +20,27 @@ describe('toDateTimeLocalValue / fromDateTimeLocalValue', () => {
 });
 
 describe('timeZoneLabel', () => {
+  const OCTOBER = Date.UTC(2026, 9, 18, 18, 0);
+  const DECEMBER = Date.UTC(2026, 11, 5, 19, 0);
+
   it('names the time zone at the given moment', () => {
-    expect(timeZoneLabel(Date.UTC(2026, 9, 18, 18, 0), 'en-GB')).not.toBe('');
+    expect(timeZoneLabel(OCTOBER, 'Europe/Stockholm')).toBe('CEST');
+    expect(timeZoneLabel(DECEMBER, 'Europe/Stockholm')).toBe('CET');
+    expect(timeZoneLabel(OCTOBER, 'UTC')).toBe('UTC');
+  });
+
+  it('takes a lettered name from British or American English, whichever has one', () => {
+    expect(timeZoneLabel(OCTOBER, 'Europe/London')).toBe('BST');
+    expect(timeZoneLabel(DECEMBER, 'Europe/London')).toBe('GMT');
+    expect(timeZoneLabel(OCTOBER, 'America/New_York')).toBe('EDT');
+  });
+
+  it('falls back to the GMT offset when no lettered name exists', () => {
+    expect(timeZoneLabel(OCTOBER, 'Asia/Kolkata')).toBe('GMT+5:30');
+    expect(timeZoneLabel(OCTOBER, 'America/Sao_Paulo')).toBe('GMT-3');
+  });
+
+  it('names the browser zone without a zone given', () => {
+    expect(timeZoneLabel(OCTOBER)).not.toBe('');
   });
 });

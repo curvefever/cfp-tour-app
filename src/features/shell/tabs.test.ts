@@ -6,7 +6,8 @@ import { effectiveTab, loadedPhase, visibleTabs, type TabContext } from './tabs'
 const context = (overrides: Partial<TabContext> = {}): TabContext => ({
   canAdmin: false,
   phase: null,
-  showStandings: false,
+  standingsTitle: null,
+  scheduleDrawn: false,
   ...overrides,
 });
 
@@ -21,15 +22,38 @@ describe('visibleTabs', () => {
     expect(keys({ canAdmin: true })).toEqual(['tournaments', 'admin']);
   });
 
-  it('shows Info and Players, but no Bracket or Standings, before the tournament starts', () => {
+  it('shows a viewer Info and Players, but no Bracket or Standings, before the start, even with a drawn schedule', () => {
     for (const phase of ['draft', 'upcoming', 'starting-soon'] as TournamentPhase[]) {
-      expect(keys({ phase, showStandings: true })).toEqual(['tournaments', 'info', 'rankings']);
+      for (const scheduleDrawn of [false, true]) {
+        expect(keys({ phase, standingsTitle: 'Qualification', scheduleDrawn })).toEqual([
+          'tournaments',
+          'info',
+          'rankings',
+        ]);
+      }
+    }
+  });
+
+  it('shows an admin Bracket and Standings from schedule generation, before the start, drafts included', () => {
+    for (const phase of ['draft', 'upcoming', 'starting-soon'] as TournamentPhase[]) {
+      const admin = { canAdmin: true, phase, standingsTitle: 'Qualification' };
+      expect(keys({ ...admin, scheduleDrawn: true })).toEqual([
+        'tournaments',
+        'info',
+        'admin',
+        'bracket',
+        'standings',
+        'rankings',
+      ]);
+      expect(keys({ ...admin, scheduleDrawn: false })).toEqual(['tournaments', 'info', 'admin', 'rankings']);
+      expect(keys({ ...admin, standingsTitle: null, scheduleDrawn: true })).toContain('bracket');
+      expect(keys({ ...admin, standingsTitle: null, scheduleDrawn: true })).not.toContain('standings');
     }
   });
 
   it('shows Bracket and Rankings once it is ongoing, and Standings only in a standings phase', () => {
     expect(keys({ phase: 'ongoing' })).toEqual(['tournaments', 'info', 'bracket', 'rankings']);
-    expect(keys({ phase: 'ongoing', showStandings: true })).toEqual([
+    expect(keys({ phase: 'ongoing', standingsTitle: 'Qualification' })).toEqual([
       'tournaments',
       'info',
       'bracket',
@@ -43,7 +67,7 @@ describe('visibleTabs', () => {
   });
 
   it('puts the Admin tab after Info for an admin with a tournament loaded', () => {
-    expect(keys({ canAdmin: true, phase: 'ongoing', showStandings: true })).toEqual([
+    expect(keys({ canAdmin: true, phase: 'ongoing', standingsTitle: 'Qualification' })).toEqual([
       'tournaments',
       'info',
       'admin',
@@ -54,10 +78,18 @@ describe('visibleTabs', () => {
   });
 
   it('labels every tab with plain words, no emoji', () => {
-    const labels = visibleTabs(context({ canAdmin: true, phase: 'ongoing', showStandings: true })).map(
-      (tab) => tab.label,
-    );
-    expect(labels).toEqual(['Tournaments', 'Info', 'Admin', 'Bracket', 'Standings', 'Rankings']);
+    const labels = visibleTabs(
+      context({ canAdmin: true, phase: 'ongoing', standingsTitle: 'Qualification' }),
+    ).map((tab) => tab.label);
+    expect(labels).toEqual(['Tournaments', 'Info', 'Admin', 'Bracket', 'Qualification', 'Rankings']);
+  });
+
+  it('names the standings tab after the pooling phase', () => {
+    const label = (standingsTitle: string) =>
+      visibleTabs(context({ phase: 'ongoing', standingsTitle })).find((tab) => tab.key === 'standings')
+        ?.label;
+    expect(label('Swiss')).toBe('Swiss');
+    expect(label('Groups')).toBe('Groups');
   });
 
   it('labels the rankings tab Players before the start and Rankings from the start', () => {
@@ -84,6 +116,14 @@ describe('effectiveTab', () => {
 
   it('shows Info for a stored Bracket tab before the tournament starts', () => {
     expect(effectiveTab('bracket', context({ phase: 'starting-soon' }))).toBe('info');
+    expect(effectiveTab('bracket', context({ phase: 'starting-soon', scheduleDrawn: true }))).toBe('info');
+  });
+
+  it('keeps a stored Bracket or Standings tab for an admin once the schedule is drawn', () => {
+    const admin = context({ canAdmin: true, phase: 'draft', standingsTitle: 'Swiss', scheduleDrawn: true });
+    expect(effectiveTab('bracket', admin)).toBe('bracket');
+    expect(effectiveTab('standings', admin)).toBe('standings');
+    expect(effectiveTab('bracket', { ...admin, scheduleDrawn: false })).toBe('info');
   });
 
   it('shows Bracket for a stored Standings tab without a standings phase', () => {
@@ -93,7 +133,9 @@ describe('effectiveTab', () => {
 
   it('passes every available tab through', () => {
     expect(effectiveTab('admin', context({ canAdmin: true }))).toBe('admin');
-    expect(effectiveTab('standings', context({ phase: 'ongoing', showStandings: true }))).toBe('standings');
+    expect(effectiveTab('standings', context({ phase: 'ongoing', standingsTitle: 'Qualification' }))).toBe(
+      'standings',
+    );
     expect(effectiveTab('tournaments', context({ phase: 'ongoing' }))).toBe('tournaments');
     expect(effectiveTab('rankings', context({ phase: 'upcoming' }))).toBe('rankings');
   });

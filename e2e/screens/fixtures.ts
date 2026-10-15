@@ -381,8 +381,10 @@ Be in the lobby 15 minutes before the start. Use your Curve Fever Pro name. Ques
 
 // ---------- the catalogue ----------
 
-const STARTED_TABS = ['Bracket', 'Standings', 'Rankings', 'Info'];
-// A format without a qualification table has no Standings tab.
+const STARTED_TABS = ['Bracket', 'Qualification', 'Rankings', 'Info'];
+// The standings tab is named after the pooling phase.
+export const STANDINGS_TABS = ['Qualification', 'Swiss', 'Groups'];
+// A format without a pooling phase that keeps standings has no standings tab.
 const NO_STANDINGS_TABS = ['Bracket', 'Rankings', 'Info'];
 
 function entry(
@@ -408,7 +410,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa37-finished', ffa37FinalComplete(), { status: 'finished' }),
     entry('ffa31-pooling', ffaPooling(31)),
     entry('fixed-draws-ffa-37', ffaFixedDraws()),
-    entry('groups-1v1-13', groupStage()),
+    entry('groups-1v1-13', groupStage(), { tabs: ['Bracket', 'Groups', 'Rankings', 'Info'] }),
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2(), { notesPanel: true }),

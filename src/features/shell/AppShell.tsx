@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ActiveTab } from '../../domain/tournament/types';
-import { hasStandingsPhase } from '../../domain/tournament/standings-display';
+import { standingsKind } from '../../domain/tournament/standings-display';
+import { standingsNames } from '../standings/standings-names';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
@@ -26,14 +27,20 @@ export function AppShell() {
   const app = useTournamentApp();
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
-  const showStandings = hasStandingsPhase(app.state);
+  const kind = standingsKind(app.state);
+  const standingsTitle = kind === null ? null : standingsNames(kind).title;
   const phase = loadedPhase({
     state: app.state,
     summary: app.tournaments.summaries.find((entry) => entry.id === app.state.tournamentId),
     stateReceived: !['idle', 'connecting', 'waiting', 'unavailable'].includes(app.syncStatus.kind),
     nowMs: Date.now(),
   });
-  const tabContext = { canAdmin: app.unlocked, phase, showStandings };
+  const tabContext = {
+    canAdmin: app.unlocked,
+    phase,
+    standingsTitle,
+    scheduleDrawn: app.state.rounds.length > 0,
+  };
   const tabs = visibleTabs(tabContext);
   const activeTab = effectiveTab(app.activeTab, tabContext);
 

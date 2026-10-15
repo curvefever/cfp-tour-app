@@ -1,3 +1,4 @@
+import { timeZoneLabel } from './scheduled-time';
 import type { GameFormatKey, PoolingPhaseKey, ScheduleLogicKey } from '../../domain/tournament/types';
 
 const FORMAT_NAMES: Record<GameFormatKey, string> = {
@@ -64,15 +65,15 @@ function relativePart(scheduledMs: number, nowMs: number): string {
 }
 
 export interface ScheduledParts {
-  /** Weekday, date and time: "Sat 18 Oct, 20:00". */
+  /** Weekday, date, time and time zone: "Sat 18 Oct, 20:00 CEST". */
   date: string;
   /** How far away it is ("in 2 days", "started 3 h ago"); null when the options leave it out. */
   relative: string | null;
 }
 
 /**
- * The scheduled time as the viewer reads it, in two parts: weekday, date and time in their own time zone, in English
- * like the rest of the app, and how far away it is. It depends on the browser and the clock, so render it after
+ * The scheduled time as the viewer reads it, in two parts: weekday, date and time in their own time zone, named so it
+ * isn't taken for a fixed zone (`timeZoneLabel`), in English like the rest of the app, and how far away it is. It depends on the browser and the clock, so render it after
  * hydration only.
  */
 export function scheduledParts(
@@ -91,11 +92,12 @@ export function scheduledParts(
   }).formatToParts(new Date(scheduledMs));
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((entry) => entry.type === type)?.value ?? '';
-  const date = `${part('weekday')} ${part('day')} ${part('month')}, ${part('hour')}:${part('minute')}`;
+  const zone = timeZoneLabel(scheduledMs, options.timeZone);
+  const date = `${part('weekday')} ${part('day')} ${part('month')}, ${part('hour')}:${part('minute')} ${zone}`;
   return { date, relative: options.relative === false ? null : relativePart(scheduledMs, nowMs) };
 }
 
-/** The two parts in one line: "Sat 18 Oct, 20:00 · in 2 days" (just the date without the relative part). */
+/** The two parts in one line: "Sat 18 Oct, 20:00 CEST · in 2 days" (just the date without the relative part). */
 export function formatScheduledAt(
   scheduledMs: number,
   nowMs: number,

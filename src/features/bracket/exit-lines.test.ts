@@ -106,11 +106,11 @@ describe('poolingExitLines: what the places of a room earn in a counted round', 
     expect(roomSizes(state, 0)).toEqual([8, 8, 7, 7, 7]);
     expect(poolingExitLines(state, 0, 8)).toEqual([
       { tone: null, places: '1st +8', where: '2nd +7 … 8th +1 points' },
-      { tone: null, places: 'All', where: '→ standings' },
+      { tone: null, places: 'All', where: '→ qualification' },
     ]);
     expect(poolingExitLines(state, 0, 7)).toEqual([
       { tone: null, places: '1st +8', where: '2nd +7 … 7th +2 points' },
-      { tone: null, places: 'All', where: '→ standings' },
+      { tone: null, places: 'All', where: '→ qualification' },
     ]);
   });
 
@@ -176,7 +176,7 @@ describe('poolingExitLines: what the places of a room earn in a counted round', 
     const lines = poolingExitLines(pooling(33, { oddCountStrategy: 'bye' }, 'individual-1v1'), 0, 2);
     expect(lines).toEqual([
       { tone: null, places: '1st +2', where: '2nd +1' },
-      { tone: null, places: 'All', where: '→ standings' },
+      { tone: null, places: 'All', where: '→ qualification' },
     ]);
   });
 

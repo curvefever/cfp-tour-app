@@ -54,7 +54,7 @@ describe('followBannerText: pooling rounds', () => {
     const name = seated(state, 2, 2)[0];
     const standings = describeStandings(state);
     const text = textFor(state, name);
-    expect(text.detail).toMatch(/^Round 3 · Room B · #\d+ in standings$/);
+    expect(text.detail).toMatch(/^Round 3 · Room B · #\d+ in qualification$/);
     expect(text.detail).toContain(
       `#${standings?.tables[0].entries.find((entry) => entry.name === name)?.rank}`,
     );

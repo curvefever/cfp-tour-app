@@ -40,7 +40,7 @@ function ExitTournamentButton({ onExit }: { onExit: () => void }) {
 const CARD = 'rounded-xs bg-cfp-game-card outline-2 outline-cfp-game-frame';
 const CARD_LABEL = 'text-xs font-extrabold tracking-[0.08em] text-muted uppercase';
 
-/** When it starts, in the viewer's own time zone ("Date to be announced" without a date). */
+/** When it starts, in the viewer's own time zone, named after the time ("Date to be announced" without a date). */
 function WhenCard({ scheduledAt }: { scheduledAt: number | null }) {
   const parts = useScheduledParts(scheduledAt);
   return (
@@ -50,7 +50,6 @@ function WhenCard({ scheduledAt }: { scheduledAt: number | null }) {
         {scheduledAt === null ? 'Date to be announced' : (parts?.date ?? ' ')}
       </div>
       {parts?.relative ? <div className='text-base font-bold text-cfp-sky'>{parts.relative}</div> : null}
-      {scheduledAt === null ? null : <div className='text-[13px] text-muted'>Your time zone</div>}
     </div>
   );
 }

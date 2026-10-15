@@ -6,6 +6,32 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Five organiser items after the redesign: tab icon, time zones, notes icon, standings tab names, admins see the draw from Generate (done — 2026-10-15)
+
+Five small items the organiser raised after phase F, taken one at a time in a solo session, each reported and approved before the next. Not committed or pushed in the session; the organiser test-drives the test site at 20:00.
+
+### What was built
+- **1. Browser-tab icon.** The organiser's logo on its navy background (`plans/assets/cfp-logo-540.png`, git-ignored) resized to `public/favicon-32.png`, `public/favicon-192.png` and `public/apple-touch-icon.png` (180 px), linked in the head of `routes/__root.tsx`. `public/` is the Vite/TanStack Start folder served at the site root, no config. A first version put the transparent `cfp-logo.svg` on a navy SVG tile (its white "C" vanishes on a light tab bar); dropped once the organiser pointed to their own image. `__root.tsx` was off-format before the change (double quotes) and was formatted whole.
+- **2. Time zones named.** Every scheduled time now ends with the viewer's zone: "Sat 18 Oct, 20:00 CEST" on the Tournaments cards, the Info WHEN card, the Players line, the Admin list and status panel (`scheduledParts` adds it). `timeZoneLabel(ms, timeZone?)` in `scheduled-time.ts` takes a lettered name when British or American English has one (CEST, CET, BST, GMT, EDT), else the GMT offset (GMT+5:30, GMT+11), whatever the browser language (an en-US browser in Stockholm used to say GMT+2); Setup's "(your time, …)" label uses the same rule. The Info card's small "Your time zone" line is gone (organiser: the zone in the big line), so the WHEN card is the FORMAT card's height.
+- **3. Notes icon.** Checked, not changed: the rule (`useCanSeeNotes`: an admin, or at least one note) holds. Every test-site tournament stores the empty-array marker, which unmarshals to `[]`; deleting the last note writes the whole key (`buildTournamentPatch`); a signed-out fixture render without notes shows no icon. Admins always see it, which is what a signed-in browser shows. The organiser closed the item.
+- **4. The standings tab named after the pooling phase.** `standingsKind(state)` (`standings-display.ts`; `describeStandings` carries it as `kind`, `perGroup` is derived from it) and `standings-names.ts` (title, inline word, explainer). Tab, page heading label and Bracket column title: **Qualification** / **Swiss** / **Groups**; explanation box "How qualification works" / "How the Swiss stage works" / "How the group stage works"; Rankings where-line "Qualification · #25", "Swiss · #25", "Group B · #3"; follow banner "#14 in qualification", "Out in qualification · #25", "Out in Group B · #3"; room exit pop-up "All → qualification" / "→ Swiss" / "→ groups". The tab key and `#view-standings` are unchanged; `TabContext.showStandings` became `standingsTitle`.
+- **5. Admins see the draw from Generate.** The Tournaments hub build (2026-10-13, `993fcf9`) made Bracket and Standings appear only once a tournament has started, for everyone; before it Bracket was always listed. The views were never the problem (Bracket draws any generated schedule and is editable only once started). `tabs.ts` now has `showsDraw()`: started, or an admin with `scheduleDrawn` (the loaded state has rounds), drafts included (organiser's choice); viewers unchanged.
+
+### Decisions
+- Zone naming: lettered names from en-GB, then en-US, else the offset; no en-AU or en-IN names (Sydney reads GMT+11). The browser's own zone is still the one shown; no second "CET" time for viewers elsewhere.
+- Standings names short, per case (organiser), and every text that said "Standings" follows; "Full table →" keeps its words. On a phone the tab bar already scrolled with "Standings"; "Qualification" adds a little.
+- Item 5 includes drafts (organiser); before Generate there is no Bracket tab even for admins, so no "No tournament has started yet." page.
+
+### Testing
+- Per item: eslint, prettier, types on the changed paths, `vitest related`. Full suite once at the end: 88 files, 2095 tests passed. `pnpm run test:e2e`: 7 of 7 (after items 4 and 5).
+- New tests: `timeZoneLabel` (Stockholm in October and December, London BST/GMT, New York, Kolkata, São Paulo, UTC); dates with the zone in `tournament-info.test.ts`; `standingsKind` on generated tournaments at awkward counts (qual-table FFA 37, Swiss 1v1 43, group stage 1v1 31, none FFA 53; Swiss is head-to-head only); the standings tab label; admin tabs before the start with and without a schedule, a viewer with a drawn schedule (still hidden), stored tabs.
+- Screens: Tournaments list, Info and Players of `upcoming-info`, `ffa37-quarters` (1280 and 390) and `groups-1v1-13`; a throw-away spec with the `__FAKE_ADMIN__` change (restored, never committed) rendered `ffa37-pooling` unstarted as draft and published: admin tabs "Info | Admin | Bracket | Qualification | Players", viewer "Info | Players" (the draft not shown to a viewer at all).
+- Not checked live: the production build serving `public/` (first push to `test` shows it), production tournaments' notes (a read was not needed, organiser).
+
+### Out of scope
+- Before Confirm & Start the admin's Bracket marks Round 1 "NOW" (`docs/open-items.md`).
+- A second time in CET for viewers in other zones; lettered zone names beyond British and American English.
+
 ## Visual redesign, phase F: organiser screens (done — 2026-10-15)
 
 Sixth of eight phases of the visual redesign (the organiser's design brief of 2026-10-14 and the boards on the canvas "Tour Hub Split Look"; phases A to E are the entries below). Planned and reviewed by a second session (the planner/reviewer), built here in small chunks, one commit and one report each. Phase F puts the Admin tab in the middle look: the tournament list, the status header, Setup in panels and two columns, and the running Admin in sections. No rule changed; the one new domain-facing piece is a pure helper that Setup and the running recap share (F11). Pushed to `test` with the live check (head `da5c8b2`, plus this entry).

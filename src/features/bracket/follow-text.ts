@@ -8,6 +8,7 @@ import {
 } from '../../domain/tournament/standings-display';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
+import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from './exit-text';
 import { placeInRoom } from './folded-round';
 import { roomTitle } from './room-title';
@@ -25,15 +26,27 @@ function isPooling(round: TournamentRound | undefined): boolean {
   return Boolean(round?.isQual || round?.isSwiss || round?.isGroupStage);
 }
 
+/** Where a unit cut at the standings went out: "qualification · #25", "Swiss · #25", "Group B · #3"; null if unranked. */
+function outAtStandings(standings: StandingsDisplay | null, key: string): string | null {
+  const standing = standings ? standingFor(standings, key) : null;
+  if (!standings || !standing) return null;
+  const table = standing.groupLabel ? `Group ${standing.groupLabel}` : standingsNames(standings.kind).inline;
+  return `${table} · #${standing.rank}`;
+}
+
 /**
- * " · #6 in standings" while the standings can still change; in a group stage "#2 in Group B", or "#2 in group"
- * when the room's title already names the group.
+ * " · #6 in qualification" (or "in Swiss") while the standings can still change; in a group stage "#2 in Group B",
+ * or "#2 in group" when the room's title already names the group.
  */
 function standingsSuffix(standings: StandingsDisplay | null, key: string, groupNamed: boolean): string {
   if (!standings || standings.phase === 'final') return '';
   const standing = standingFor(standings, key);
   if (!standing) return '';
-  const where = !standing.groupLabel ? 'standings' : groupNamed ? 'group' : `Group ${standing.groupLabel}`;
+  const where = !standing.groupLabel
+    ? standingsNames(standings.kind).inline
+    : groupNamed
+      ? 'group'
+      : `Group ${standing.groupLabel}`;
   return ` · #${standing.rank} in ${where}`;
 }
 
@@ -95,8 +108,7 @@ export function followBannerText(
   const where = `${roundName} · ${roomTitle(round, entry.room - 1)}`;
   if (isPooling(round)) {
     if (follow.eliminated && !drawnAhead) {
-      const standing = standings ? standingFor(standings, key) : null;
-      return { name, detail: standing ? `Out in standings · #${standing.rank}` : `Out in ${where}` };
+      return { name, detail: `Out in ${outAtStandings(standings, key) ?? where}` };
     }
     return { name, detail: `${where}${standingsSuffix(standings, key, Boolean(round.isGroupStage))}` };
   }

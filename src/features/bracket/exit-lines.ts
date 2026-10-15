@@ -1,8 +1,13 @@
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
-import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
+import {
+  standingsKind,
+  type StandingsDisplay,
+  type StandingsDisplayTable,
+} from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
+import { standingsNames } from '../standings/standings-names';
 import { pointsPerPlace } from '../standings/standings-text';
 import { standingsRowResult, stripeTone, type StripeTone } from '../tournament/components/result-row';
 import { destinationLabel } from './exit-text';
@@ -76,10 +81,16 @@ function pointsLines(state: TournamentState, roomSize: number): ExitLine[] {
   return [{ tone: null, places: first, where: `${at(1)} … ${at(points.length - 1)} points` }];
 }
 
+/** The standings named as their tab is, inside a line: "qualification", "Swiss", "groups". */
+function standingsInline(state: TournamentState): string {
+  const kind = standingsKind(state);
+  return kind === null ? 'standings' : standingsNames(kind).inline;
+}
+
 /**
  * The exit pop-up of a pooling room of `roomSize` units: what each of its places earns in a counted round and
- * that everyone goes to the standings; a round that does not count is seeding only; a warm-up round sends
- * everyone on. Empty for rounds that have a stripe of their own (bracket rooms, the Final).
+ * that everyone goes to the standings ("All → qualification"); a round that does not count is seeding only; a
+ * warm-up round sends everyone on. Empty for rounds that have a stripe of their own (bracket rooms, the Final).
  */
 export function poolingExitLines(state: TournamentState, roundIndex: number, roomSize: number): ExitLine[] {
   const rule = roundExitRule(state, roundIndex);
@@ -89,7 +100,7 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
       : rule.kind === 'standings-cutoff' && !state.rounds[roundIndex]?.excludeFromStandings;
   if (rule.kind === 'standings' || rule.kind === 'standings-cutoff') {
     return counted
-      ? [...pointsLines(state, roomSize), { tone: null, places: 'All', where: '→ standings' }]
+      ? [...pointsLines(state, roomSize), { tone: null, places: 'All', where: `→ ${standingsInline(state)}` }]
       : [{ tone: null, places: 'All', where: 'seeding only, not counted' }];
   }
   if (rule.kind === 'all-advance') {

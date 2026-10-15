@@ -4,6 +4,7 @@ import {
   fixtureTournaments,
   indexEntry,
   scheduledAtOf,
+  STANDINGS_TABS,
   storedState,
   tournamentListIndex,
   type FixtureTournament,
@@ -199,9 +200,10 @@ test.describe('screenshots of the viewer tabs', () => {
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);
               await captureFullBracket(page, fixture.id, 'bracket-follow-full', width);
-              if (fixture.tabs.includes('Standings')) {
-                // The follow is stored per browser, so the Standings tab shows the same banner.
-                await nav.getByRole('button', { name: /Standings/ }).click();
+              const standingsTab = fixture.tabs.find((tab) => STANDINGS_TABS.includes(tab));
+              if (standingsTab) {
+                // The follow is stored per browser, so the standings tab shows the same banner.
+                await nav.getByRole('button', { name: new RegExp(standingsTab) }).click();
                 await capture(page, fixture.id, fileName('Standings follow', String(width)));
                 await page
                   .getByRole('button', { name: /Where players go from/ })

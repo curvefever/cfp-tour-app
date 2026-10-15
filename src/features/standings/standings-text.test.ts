@@ -17,6 +17,7 @@ function display(overrides: Partial<StandingsDisplay>, cut: number | null): Stan
     roundsTotal: 3,
     firstCountedRoundNum: 2,
     lastStandingsRoundIndex: 2,
+    kind: 'qualification',
     perGroup: false,
     tables: [{ key: 'qual-cutoff', label: 'Qualification Table', entries: [], cut }],
     ...overrides,

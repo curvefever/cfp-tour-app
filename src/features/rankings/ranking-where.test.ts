@@ -60,11 +60,11 @@ describe.each([31, 37, 43, 53])(
   (count) => {
     const afterPooling = advanceWhile(qualTournament(count), (round) => Boolean(round.isQual));
 
-    it('puts every unit the cut sent out at "Standings · #N", N from the standings', () => {
+    it('puts every unit the cut sent out at "Qualification · #N", N from the standings', () => {
       const { rankings, eliminated } = wheres(afterPooling);
       expect(rankings.eliminatedList).toHaveLength(count - 24);
       rankings.eliminatedList.forEach((entry, index) => {
-        expect(eliminated[index]).toBe(`Standings · #${entry.poolRank?.rank}`);
+        expect(eliminated[index]).toBe(`Qualification · #${entry.poolRank?.rank}`);
         expect(entry.poolRank?.rank).toBeGreaterThanOrEqual(24);
       });
     });
@@ -96,7 +96,7 @@ describe('the where line at 37 players after the Quarters', () => {
         /^Round 4 · Room [A-C] · \d+(st|nd|rd|th)$/,
       );
     }
-    expect(eliminated.filter((where) => where.startsWith('Standings')).length).toBe(13);
+    expect(eliminated.filter((where) => where.startsWith('Qualification · #')).length).toBe(13);
   });
 });
 
@@ -166,7 +166,7 @@ describe('the where line of a unit waiting in a waterfall', () => {
     for (const name of order.slice(0, 16)) expect(where.get(name)).toMatch(/^R1 · Room [A-B]$/);
     const out = rankings.eliminatedList.map((entry) => eliminatedWhere(state, entry, labels));
     expect(out).toHaveLength(13);
-    expect(out.every((text) => /^Standings · #\d+$/.test(text))).toBe(true);
+    expect(out.every((text) => /^Qualification · #\d+$/.test(text))).toBe(true);
   });
 });
 
@@ -189,7 +189,7 @@ describe('the where line of a group stage with 13 players', () => {
     const state = advanceWhile(start, (round) => Boolean(round.isGroupStage));
     const { rankings, eliminated } = wheres(state);
     expect(rankings.eliminatedList.length).toBeGreaterThan(0);
-    expect(eliminated.every((text) => /^Standings · #[3-5] in Group [A-C]$/.test(text))).toBe(true);
+    expect(eliminated.every((text) => /^Group [A-C] · #[3-5]$/.test(text))).toBe(true);
   });
 });
 
