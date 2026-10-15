@@ -30,6 +30,8 @@ export interface FinishRow {
 export interface FinalStanding {
   /** In the order they stand on the podium: second, first, third (fewer when the tournament had fewer units). */
   podium: PodiumCard[];
+  /** The same first three entries in order of place: first, second, third. */
+  top: PodiumCard[];
   rest: FinishRow[];
 }
 
@@ -103,5 +105,5 @@ export function finalStanding(state: TournamentState, data: Rankings): FinalStan
       where: WITHDRAWN_WHERE,
     })),
   ];
-  return { podium, rest };
+  return { podium, top: cards, rest };
 }

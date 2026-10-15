@@ -61,6 +61,15 @@ describe('finalStanding', () => {
     ]);
   });
 
+  it('gives the first three again in order of place', () => {
+    const { top } = standingOf(finalState(threeGames, 3));
+    expect(top.map((card) => [card.rank, card.label])).toEqual([
+      [1, 'P2'],
+      [2, 'P1'],
+      [3, 'P3'],
+    ]);
+  });
+
   it('lists the rest from the fourth entry down, ranked, with where each stood', () => {
     const { rest } = standingOf(finalState(threeGames, 3));
     expect(rest.map((row) => [row.rank, row.label, row.where])).toEqual([

@@ -276,3 +276,30 @@ test.describe('screenshots with touch', () => {
     expect(errors, 'expected zero console errors').toEqual([]);
   });
 });
+
+test.describe('the rankings image', () => {
+  test.use({ locale: 'en-GB', timezoneId: 'Europe/Paris' });
+
+  // A finished tournament (podium colours) and a running one (those still in, the label "LIVE").
+  for (const id of ['ffa37-finished', 'ffa37-quarters', 'teams2v2-13-finished']) {
+    test(`${id}: Download image saves a PNG`, async ({ page }) => {
+      const fixture = fixtureTournaments().find((candidate) => candidate.id === id);
+      if (!fixture) throw new Error(`no fixture ${id}`);
+      const errors = collectConsoleErrors(page);
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await serve(page, servedFor(fixture));
+      await open(page, `/?t=${id}`);
+      await page
+        .getByRole('navigation', { name: 'Tournament sections' })
+        .getByRole('button', { name: /Rankings/ })
+        .click();
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download image' }).click();
+      const file = await download;
+      expect(file.suggestedFilename()).toMatch(/-rankings\.png$/);
+      mkdirSync(`${OUTPUT_DIR}/${id}`, { recursive: true });
+      await file.saveAs(`${OUTPUT_DIR}/${id}/rankings-image.png`);
+      expect(errors, 'expected zero console errors').toEqual([]);
+    });
+  }
+});
