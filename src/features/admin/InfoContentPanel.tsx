@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
-import { Alert, Button, Field, Panel, PanelTitle, Textarea } from '../../components/ui';
+import { Alert, SectionPanel, Textarea } from '../../components/ui';
 import { PresenceField } from '../presence/PresenceField';
 import { shrinkImageFile } from '../info/image-shrink';
 import { ScreenshotThumb } from '../info/ScreenshotThumb';
@@ -9,7 +9,7 @@ import { deleteScreenshot, uploadScreenshot } from '../tournaments/screenshots.s
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 const FORMATTING_HINT =
-  'A blank line starts a new paragraph. Start a line with "- " for a list. **bold**, [link text](https://address).';
+  'A blank line starts a paragraph, "- " a list, **bold** for bold, [text](https://address) for a link. Saved when you leave the box.';
 
 function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
@@ -33,8 +33,9 @@ function RulesTextField() {
     }));
   }
   return (
-    <PresenceField label='Rules for this tournament' htmlFor='info-rules-text'>
+    <PresenceField className='mb-0' label='Rules for this tournament' htmlFor='info-rules-text'>
       <Textarea
+        className='text-sm leading-normal'
         id='info-rules-text'
         disabled={readOnly}
         value={draft}
@@ -45,7 +46,7 @@ function RulesTextField() {
         }}
         onBlur={save}
       />
-      <p className='mt-1 text-xs text-muted'>{FORMATTING_HINT}</p>
+      <p className='mt-1.5 text-[13px] text-muted'>{FORMATTING_HINT}</p>
     </PresenceField>
   );
 }
@@ -88,53 +89,68 @@ function ScreenshotsControl() {
   }
 
   return (
-    <Field
-      label={`Lobby screenshots (${imageIds.length} of ${MAX_SCREENSHOTS})`}
-      htmlFor='info-screenshot-file'
-    >
+    <div className='flex flex-col gap-2'>
+      <div className='text-sm font-bold'>
+        Lobby screenshots{' '}
+        <span className='font-normal text-muted'>
+          {imageIds.length} of {MAX_SCREENSHOTS}
+        </span>
+      </div>
       <div className='flex flex-wrap gap-2.5'>
         {imageIds.map((imageId) => (
-          <div key={imageId} className='flex flex-col items-start gap-1'>
-            <ScreenshotThumb tournamentId={id} imageId={imageId} />
-            <Button disabled={busy || readOnly} size='sm' onClick={() => void remove(imageId)}>
-              Delete
-            </Button>
+          <div className='relative' key={imageId}>
+            <ScreenshotThumb
+              className='h-22.5 w-37.5 rounded-sm border border-input-border'
+              imageId={imageId}
+              tournamentId={id}
+            />
+            <button
+              aria-label='Delete screenshot'
+              className='absolute top-1 right-1 size-6.5 cursor-pointer rounded-sm border-0 bg-background/85 text-sm text-cfp-danger-text hover:bg-background disabled:cursor-not-allowed disabled:opacity-50'
+              disabled={busy || readOnly}
+              onClick={() => void remove(imageId)}
+              type='button'
+            >
+              ✕
+            </button>
           </div>
         ))}
+        {room > 0 ? (
+          <label
+            className={`flex h-22.5 w-37.5 items-center justify-center rounded-sm border border-dashed border-cfp-text-dim text-sm font-bold text-muted ${busy || readOnly ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:text-foreground'} focus-within:outline-2 focus-within:outline-primary`}
+            htmlFor='info-screenshot-file'
+          >
+            + Upload
+            <input
+              id='info-screenshot-file'
+              accept='image/*'
+              className='sr-only'
+              disabled={busy || readOnly}
+              multiple
+              onChange={(event) => {
+                void upload([...(event.target.files ?? [])]);
+                event.target.value = '';
+              }}
+              type='file'
+            />
+          </label>
+        ) : null}
       </div>
-      {room > 0 ? (
-        <input
-          id='info-screenshot-file'
-          accept='image/*'
-          className='mt-2 block text-sm'
-          disabled={busy || readOnly}
-          multiple
-          onChange={(event) => {
-            void upload([...(event.target.files ?? [])]);
-            event.target.value = '';
-          }}
-          type='file'
-        />
-      ) : (
-        <p className='mt-2 text-xs text-muted'>The limit is reached: delete one to add another.</p>
+      {room > 0 ? null : (
+        <p className='text-xs text-muted'>The limit is reached: delete one to add another.</p>
       )}
-      {busy ? <p className='mt-1 text-xs text-muted'>Working…</p> : null}
-      {error ? (
-        <Alert tone='danger' className='mt-2'>
-          {error}
-        </Alert>
-      ) : null}
-    </Field>
+      {busy ? <p className='text-xs text-muted'>Working…</p> : null}
+      {error ? <Alert tone='danger'>{error}</Alert> : null}
+    </div>
   );
 }
 
 /** What visitors read on the Info tab besides the date: the specific rules and the lobby screenshots. */
 export function InfoContentPanel() {
   return (
-    <Panel>
-      <PanelTitle>Info for visitors</PanelTitle>
+    <SectionPanel title='INFO FOR VISITORS'>
       <RulesTextField />
       <ScreenshotsControl />
-    </Panel>
+    </SectionPanel>
   );
 }
