@@ -6,6 +6,25 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket scrollbar pinned to the screen, unjoined reserves out of Rankings (done — 2026-10-15)
+
+Three organiser items, assessed together in a solo session; the organiser chose to build two and park the third. Each was reported and approved before the next.
+
+**1. The Bracket's horizontal scrollbar is always on screen.** The rounds strip (`#br-rounds`, `BracketRounds.tsx`) scrolled sideways with its own bar under its last row, so on a bracket taller than the screen a viewer had to scroll the page down to reach it. Asked what went wrong (auto-hiding bar or bar below the fold), the organiser answered "below the fold". `StickyScrollbar.tsx` draws a copy of the bar: a `sticky bottom-0` band after the strip, with an inner `h-px` div as wide as the strip's `scrollWidth`, hidden while nothing overflows. The two scroll positions are copied both ways; `copyScroll()` skips the scroll event a copy causes, so a copy can't bounce back and pull smooth scrolling to an older position. The strip's own bar is hidden (`hiddenScrollbarClass`), so there is one bar: pinned while the strip runs past the screen, right under the strip once its end is in view. Size is re-measured on every render of `BracketRounds` (folding a round changes the width) and by a `ResizeObserver` on the strip. The same for admins and viewers (no role check involved). Committed `4f9e7e8`, pushed to `test`.
+
+**3. Reserves who never joined are not in Rankings.** After the start, `RankingsContent` showed viewers (not admins) a RESERVES section under the lists, every reserve still waiting with a Reserve badge, a leftover the docs did not describe. Removed with its now-unused helpers (`Unit`, `RankingGrid`, `RankingRow`, `SectionTitle`). Nothing else needed to change: a reserve who joins is moved onto the roster and ranked like any unit, and `computeRankings` only ranks the roster; the Rankings image never drew reserves. Admins still see the waiting reserves in the RESERVES tool. The Players tab before the start keeps its RESERVES list (that is the registration list, not a ranking). Committed `d2e5d67`.
+
+### Testing
+- Item 1, on localhost in the built-in browser (a finished 20-team tournament, viewport 1280 × 420 so the bracket runs past the screen): the band sat at the bottom of the screen (its bottom at 420 px, the strip's at 543 px), the strip's own bar measured 0 px; dragging the pinned bar's thumb scrolled the strip to the same position (745 px both), and a sideways wheel scroll over the strip moved the bar with it (445 px both). Scripted `scrollLeft` changes fire no scroll events in that pane, so only real input proves the syncing. Lint, Prettier, types clean; no tests cover the component (`vitest related` found none).
+- Item 3: lint, Prettier, types clean; Rankings renders with no console errors on localhost. Not checked live as a signed-out viewer with waiting reserves (the change only deletes the section).
+- No awkward-count cases apply: neither item touches room distribution or advancement.
+
+### Out of scope
+- **Item 2, text centred in the coloured rows** (Bracket, Rankings, Standings): parked by the organiser to be done with a possible small typeface change; written in `docs/open-items.md`, "Known gaps".
+- Overlay scrollbars (macOS, some touchpads) still auto-hide the pinned bar; the organiser's problem was the bar's position, not that.
+
+---
+
 ## Five organiser items after the redesign: tab icon, time zones, notes icon, standings tab names, admins see the draw from Generate (done — 2026-10-15)
 
 Five small items the organiser raised after phase F, taken one at a time in a solo session, each reported and approved before the next. Not committed or pushed in the session; the organiser test-drives the test site at 20:00.
