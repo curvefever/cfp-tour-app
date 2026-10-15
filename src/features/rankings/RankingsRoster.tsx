@@ -20,6 +20,7 @@ import type { TournamentState, TournamentTeam } from '../../domain/tournament/ty
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { Button, Input, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 
 function handleReserveResult(
@@ -222,6 +223,9 @@ export function ManageRoster({ state }: { state: TournamentState }) {
   const swapsOpen = swapWindowOpen(state);
   const swapTitle = (open: string) => (swapsOpen ? open : SWAPS_CLOSED_TITLE);
   if (!format?.teamSize) {
+    const names = naturalByLabel((state.players as string[]).map((name) => ({ label: name }))).map(
+      (unit) => unit.label,
+    );
     return (
       <ToolPanel
         className='flex-[2_1_520px]'
@@ -229,7 +233,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
         title='Manage players'
       >
         <div className='[columns:2_260px] gap-x-0'>
-          {[...(state.players as string[])].sort().map((name) => (
+          {names.map((name) => (
             <ToolRow
               className='break-inside-avoid'
               controls={
@@ -266,272 +270,271 @@ export function ManageRoster({ state }: { state: TournamentState }) {
     );
   }
   const teams = state.players as TournamentTeam[];
+  const sortedTeams = naturalByLabel(teams.map((team) => ({ label: team.teamName, team }))).map(
+    (unit) => unit.team,
+  );
   return (
     <ToolPanel className='flex-[2_1_520px]' note={swapsOpen ? null : SWAPS_CLOSED_TITLE} title='Manage teams'>
       <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5 p-3'>
-        {[...teams]
-          .sort((a, b) => a.teamName.localeCompare(b.teamName))
-          .map((team) => {
-            const defender = getDefenderIndex(state, team.teamId, state.curRound);
-            return (
-              <div
-                className='flex min-w-0 flex-col items-stretch gap-2 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2'
-                key={team.teamId}
-              >
-                <div className='flex items-center justify-between gap-2'>
-                  <strong>{team.teamName}</strong>
-                  <span className='flex gap-1'>
-                    <Button
-                      aria-label={`Rename team ${team.teamName}`}
-                      className='w-8.5 px-0'
-                      size='sm'
-                      title='Rename team'
-                      onClick={() => {
-                        const value = window.prompt(`Rename team "${team.teamName}" to:`, team.teamName);
-                        if (!value?.trim()) return;
-                        if (isDisplayNameTaken(state, value, team.teamId)) {
-                          window.alert(
-                            `A team called "${value.trim()}" is already registered — pick a different name.`,
-                          );
-                          return;
-                        }
-                        app.updateState((current) =>
-                          updateTeam(current, team.teamId, (entry) => ({
-                            ...entry,
-                            teamName: value.trim(),
-                          })),
+        {sortedTeams.map((team) => {
+          const defender = getDefenderIndex(state, team.teamId, state.curRound);
+          return (
+            <div
+              className='flex min-w-0 flex-col items-stretch gap-2 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2'
+              key={team.teamId}
+            >
+              <div className='flex items-center justify-between gap-2'>
+                <strong>{team.teamName}</strong>
+                <span className='flex gap-1'>
+                  <Button
+                    aria-label={`Rename team ${team.teamName}`}
+                    className='w-8.5 px-0'
+                    size='sm'
+                    title='Rename team'
+                    onClick={() => {
+                      const value = window.prompt(`Rename team "${team.teamName}" to:`, team.teamName);
+                      if (!value?.trim()) return;
+                      if (isDisplayNameTaken(state, value, team.teamId)) {
+                        window.alert(
+                          `A team called "${value.trim()}" is already registered — pick a different name.`,
                         );
-                      }}
-                    >
-                      ✎
-                    </Button>
-                    <Button
-                      aria-label={`Swap team ${team.teamName}`}
-                      className='w-8.5 px-0'
-                      size='sm'
-                      disabled={!swapsOpen}
-                      title={swapTitle('Swap team')}
-                      onClick={() => {
-                        const reserves = state.reserves as TournamentTeam[];
-                        let replacement: TournamentTeam | undefined;
-                        if (reserves.length) {
-                          const menu = `Swap out "${team.teamName}".\n\n  0 — type a brand-new walk-up team\n${reserves.map((entry, index) => `  ${index + 1} — ${entry.teamName}`).join('\n')}\n\nEnter a number:`;
-                          const choice = window.prompt(menu);
-                          if (choice === null || !choice.trim()) return;
-                          const selected = Number.parseInt(choice, 10);
-                          if (
-                            String(selected) !== choice.trim() ||
-                            selected < 0 ||
-                            selected > reserves.length
-                          ) {
-                            window.alert(`"${choice}" isn't one of the listed numbers.`);
-                            return;
-                          }
-                          if (selected > 0) replacement = reserves[selected - 1];
-                        }
-                        if (!replacement) {
-                          const placeholders = Array.from(
-                            { length: format.teamSize ?? 0 },
-                            (_, index) => `Player${index + 1}`,
-                          ).join(', ');
-                          const line = window.prompt(
-                            `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
-                            `Team name, ${placeholders}`,
-                          );
-                          if (!line?.trim()) return;
-                          replacement = parseTeamLines({
-                            value: line,
-                            idPrefix: 'team',
-                            teamSize: format.teamSize ?? 0,
-                            ids: app.runtime.ids,
-                          })[0];
-                          if (!replacement || replacement.members.every((member) => !member)) {
-                            window.alert(
-                              `"${replacement?.teamName ?? 'Team'}" has no players listed — add at least one member.`,
-                            );
-                            return;
-                          }
-                        }
-                        if (isDisplayNameTaken(state, replacement.teamName, team.teamId)) {
-                          window.alert(
-                            `A team called "${replacement.teamName}" is already registered — pick a different name.`,
-                          );
-                          return;
-                        }
-                        applySwap(
-                          state,
-                          app.updateState,
-                          (current) => swapTeam(current, team.teamId, replacement),
-                          team.teamName,
-                        );
-                      }}
-                    >
-                      ⇄
-                    </Button>
-                    <Button
-                      aria-label={`Remove team ${team.teamName}`}
-                      className='w-8.5 px-0'
-                      size='sm'
-                      title='Remove team'
-                      variant='danger'
-                      onClick={() => {
+                        return;
+                      }
+                      app.updateState((current) =>
+                        updateTeam(current, team.teamId, (entry) => ({
+                          ...entry,
+                          teamName: value.trim(),
+                        })),
+                      );
+                    }}
+                  >
+                    ✎
+                  </Button>
+                  <Button
+                    aria-label={`Swap team ${team.teamName}`}
+                    className='w-8.5 px-0'
+                    size='sm'
+                    disabled={!swapsOpen}
+                    title={swapTitle('Swap team')}
+                    onClick={() => {
+                      const reserves = state.reserves as TournamentTeam[];
+                      let replacement: TournamentTeam | undefined;
+                      if (reserves.length) {
+                        const menu = `Swap out "${team.teamName}".\n\n  0 — type a brand-new walk-up team\n${reserves.map((entry, index) => `  ${index + 1} — ${entry.teamName}`).join('\n')}\n\nEnter a number:`;
+                        const choice = window.prompt(menu);
+                        if (choice === null || !choice.trim()) return;
+                        const selected = Number.parseInt(choice, 10);
                         if (
-                          state.gamemodeConfig.oddCountStrategy === 'none' &&
-                          (state.assignments[state.curRound] ?? []).some(
-                            (entry) => entry.name === team.teamId,
-                          )
+                          String(selected) !== choice.trim() ||
+                          selected < 0 ||
+                          selected > reserves.length
                         ) {
-                          const ideal = state.gamemodeConfig.roomSize?.ideal ?? 1;
-                          const remaining = (state.assignments[state.curRound] ?? []).length - 1;
-                          if (remaining % ideal !== 0) {
-                            window.alert(
-                              `Can't remove "${team.teamName}" — the strict odd-count strategy requires rooms of ${ideal} teams.`,
-                            );
-                            return;
-                          }
+                          window.alert(`"${choice}" isn't one of the listed numbers.`);
+                          return;
                         }
-                        if (
-                          window.confirm(
-                            `Remove team "${team.teamName}" from the tournament? This cannot be undone.`,
-                          )
+                        if (selected > 0) replacement = reserves[selected - 1];
+                      }
+                      if (!replacement) {
+                        const placeholders = Array.from(
+                          { length: format.teamSize ?? 0 },
+                          (_, index) => `Player${index + 1}`,
+                        ).join(', ');
+                        const line = window.prompt(
+                          `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
+                          `Team name, ${placeholders}`,
+                        );
+                        if (!line?.trim()) return;
+                        replacement = parseTeamLines({
+                          value: line,
+                          idPrefix: 'team',
+                          teamSize: format.teamSize ?? 0,
+                          ids: app.runtime.ids,
+                        })[0];
+                        if (!replacement || replacement.members.every((member) => !member)) {
+                          window.alert(
+                            `"${replacement?.teamName ?? 'Team'}" has no players listed — add at least one member.`,
+                          );
+                          return;
+                        }
+                      }
+                      if (isDisplayNameTaken(state, replacement.teamName, team.teamId)) {
+                        window.alert(
+                          `A team called "${replacement.teamName}" is already registered — pick a different name.`,
+                        );
+                        return;
+                      }
+                      applySwap(
+                        state,
+                        app.updateState,
+                        (current) => swapTeam(current, team.teamId, replacement),
+                        team.teamName,
+                      );
+                    }}
+                  >
+                    ⇄
+                  </Button>
+                  <Button
+                    aria-label={`Remove team ${team.teamName}`}
+                    className='w-8.5 px-0'
+                    size='sm'
+                    title='Remove team'
+                    variant='danger'
+                    onClick={() => {
+                      if (
+                        state.gamemodeConfig.oddCountStrategy === 'none' &&
+                        (state.assignments[state.curRound] ?? []).some((entry) => entry.name === team.teamId)
+                      ) {
+                        const ideal = state.gamemodeConfig.roomSize?.ideal ?? 1;
+                        const remaining = (state.assignments[state.curRound] ?? []).length - 1;
+                        if (remaining % ideal !== 0) {
+                          window.alert(
+                            `Can't remove "${team.teamName}" — the strict odd-count strategy requires rooms of ${ideal} teams.`,
+                          );
+                          return;
+                        }
+                      }
+                      if (
+                        window.confirm(
+                          `Remove team "${team.teamName}" from the tournament? This cannot be undone.`,
                         )
-                          app.updateState((current) => removeRosterUnit(current, team.teamId));
-                      }}
-                    >
-                      ✕
-                    </Button>
-                  </span>
-                </div>
-                {Array.from({ length: format.teamSize ?? 0 }, (_, memberIndex) => {
-                  const member = team.members[memberIndex];
-                  if (!member)
-                    return (
-                      <div
-                        className='flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs'
-                        key={memberIndex}
-                      >
-                        <span className='text-muted'>Vacant slot</span>
-                        {state.reserveOpen ? (
-                          <span className='flex gap-1'>
-                            {state.reserveIndividuals.length ? (
-                              <Select
-                                className='py-1 text-xs'
-                                aria-label={`Reserve for ${team.teamName} slot ${memberIndex + 1}`}
-                                defaultValue=''
-                                onChange={(event) => {
-                                  const reserveIndex = Number.parseInt(event.target.value, 10);
-                                  const reserve = state.reserveIndividuals[reserveIndex];
-                                  if (reserve)
-                                    app.updateState((current) =>
-                                      fillTeamSlot(current, team.teamId, memberIndex, reserve, reserveIndex),
-                                    );
-                                }}
-                              >
-                                <option value=''>— pick a reserve —</option>
-                                {state.reserveIndividuals.map((reserve, index) => (
-                                  <option key={`${reserve.name}-${index}`} value={index}>
-                                    {reserve.name}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : null}
-                            <Button
-                              size='sm'
-                              variant='warning'
-                              onClick={() => {
-                                const value = window.prompt(
-                                  'Name of the new/walk-up player filling this slot:',
-                                );
-                                if (value?.trim())
-                                  app.updateState((current) =>
-                                    fillTeamSlot(current, team.teamId, memberIndex, { name: value.trim() }),
-                                  );
-                              }}
-                            >
-                              ＋ New
-                            </Button>
-                          </span>
-                        ) : null}
-                      </div>
-                    );
+                      )
+                        app.updateState((current) => removeRosterUnit(current, team.teamId));
+                    }}
+                  >
+                    ✕
+                  </Button>
+                </span>
+              </div>
+              {Array.from({ length: format.teamSize ?? 0 }, (_, memberIndex) => {
+                const member = team.members[memberIndex];
+                if (!member)
                   return (
                     <div
                       className='flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs'
                       key={memberIndex}
                     >
-                      <span>
-                        {member.name}
-                        {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-                        defender === memberIndex
-                          ? ' 🛡 Defender'
-                          : ''}
-                      </span>
-                      <span className='flex gap-1'>
-                        {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-                        defender !== memberIndex ? (
+                      <span className='text-muted'>Vacant slot</span>
+                      {state.reserveOpen ? (
+                        <span className='flex gap-1'>
+                          {state.reserveIndividuals.length ? (
+                            <Select
+                              className='py-1 text-xs'
+                              aria-label={`Reserve for ${team.teamName} slot ${memberIndex + 1}`}
+                              defaultValue=''
+                              onChange={(event) => {
+                                const reserveIndex = Number.parseInt(event.target.value, 10);
+                                const reserve = state.reserveIndividuals[reserveIndex];
+                                if (reserve)
+                                  app.updateState((current) =>
+                                    fillTeamSlot(current, team.teamId, memberIndex, reserve, reserveIndex),
+                                  );
+                              }}
+                            >
+                              <option value=''>— pick a reserve —</option>
+                              {state.reserveIndividuals.map((reserve, index) => (
+                                <option key={`${reserve.name}-${index}`} value={index}>
+                                  {reserve.name}
+                                </option>
+                              ))}
+                            </Select>
+                          ) : null}
                           <Button
-                            aria-label={`Make ${member.name} defender`}
-                            className='w-8.5 px-0'
                             size='sm'
-                            title='Make defender'
-                            onClick={() =>
-                              app.updateState((current) => setTeamDefender(current, team.teamId, memberIndex))
-                            }
+                            variant='warning'
+                            onClick={() => {
+                              const value = window.prompt(
+                                'Name of the new/walk-up player filling this slot:',
+                              );
+                              if (value?.trim())
+                                app.updateState((current) =>
+                                  fillTeamSlot(current, team.teamId, memberIndex, { name: value.trim() }),
+                                );
+                            }}
                           >
-                            🛡
+                            ＋ New
                           </Button>
-                        ) : null}
-                        <Button
-                          aria-label={`Rename ${member.name}`}
-                          className='w-8.5 px-0'
-                          size='sm'
-                          title='Rename member'
-                          onClick={() => {
-                            const value = window.prompt(`Rename "${member.name}" to:`, member.name);
-                            if (value?.trim())
-                              app.updateState((current) =>
-                                updateTeam(current, team.teamId, (entry) => ({
-                                  ...entry,
-                                  members: entry.members.map((item, index) =>
-                                    index === memberIndex && item ? { ...item, name: value.trim() } : item,
-                                  ),
-                                })),
-                              );
-                          }}
-                        >
-                          ✎
-                        </Button>
-                        <Button
-                          aria-label={`Remove ${member.name}`}
-                          className='w-8.5 px-0'
-                          size='sm'
-                          title='Remove member'
-                          variant='danger'
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Remove "${member.name}" from team "${team.teamName}"? This cannot be undone.`,
-                              )
-                            )
-                              app.updateState((current) =>
-                                updateTeam(current, team.teamId, (entry) => ({
-                                  ...entry,
-                                  members: entry.members.map((item, index) =>
-                                    index === memberIndex ? null : item,
-                                  ),
-                                })),
-                              );
-                          }}
-                        >
-                          ✕
-                        </Button>
-                      </span>
+                        </span>
+                      ) : null}
                     </div>
                   );
-                })}
-              </div>
-            );
-          })}
+                return (
+                  <div
+                    className='flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs'
+                    key={memberIndex}
+                  >
+                    <span>
+                      {member.name}
+                      {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
+                      defender === memberIndex
+                        ? ' 🛡 Defender'
+                        : ''}
+                    </span>
+                    <span className='flex gap-1'>
+                      {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
+                      defender !== memberIndex ? (
+                        <Button
+                          aria-label={`Make ${member.name} defender`}
+                          className='w-8.5 px-0'
+                          size='sm'
+                          title='Make defender'
+                          onClick={() =>
+                            app.updateState((current) => setTeamDefender(current, team.teamId, memberIndex))
+                          }
+                        >
+                          🛡
+                        </Button>
+                      ) : null}
+                      <Button
+                        aria-label={`Rename ${member.name}`}
+                        className='w-8.5 px-0'
+                        size='sm'
+                        title='Rename member'
+                        onClick={() => {
+                          const value = window.prompt(`Rename "${member.name}" to:`, member.name);
+                          if (value?.trim())
+                            app.updateState((current) =>
+                              updateTeam(current, team.teamId, (entry) => ({
+                                ...entry,
+                                members: entry.members.map((item, index) =>
+                                  index === memberIndex && item ? { ...item, name: value.trim() } : item,
+                                ),
+                              })),
+                            );
+                        }}
+                      >
+                        ✎
+                      </Button>
+                      <Button
+                        aria-label={`Remove ${member.name}`}
+                        className='w-8.5 px-0'
+                        size='sm'
+                        title='Remove member'
+                        variant='danger'
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              `Remove "${member.name}" from team "${team.teamName}"? This cannot be undone.`,
+                            )
+                          )
+                            app.updateState((current) =>
+                              updateTeam(current, team.teamId, (entry) => ({
+                                ...entry,
+                                members: entry.members.map((item, index) =>
+                                  index === memberIndex ? null : item,
+                                ),
+                              })),
+                            );
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </ToolPanel>
   );
