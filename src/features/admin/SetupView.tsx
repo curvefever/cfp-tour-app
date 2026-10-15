@@ -31,6 +31,7 @@ import { EditingTag } from '../presence/EditingTag';
 import { PresenceField } from '../presence/PresenceField';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ScheduledTimeField } from './ScheduledTimeField';
+import { usePublishMissing } from './usePublishMissing';
 import { WaterfallGraphEditor } from './waterfall/WaterfallGraphEditor';
 import {
   Alert,
@@ -70,6 +71,7 @@ function reconcileScheduleLogicForFormat(
 
 export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState, startTournamentNow } = useTournamentApp();
+  const publishMissing = usePublishMissing();
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState('');
@@ -288,6 +290,7 @@ export function SetupView() {
         <PanelTitle>Tournament Name</PanelTitle>
         <PresenceField htmlFor='cfg-title' label='Tournament name'>
           <Input
+            aria-invalid={publishMissing.includes('title') || undefined}
             id='cfg-title'
             type='text'
             placeholder='Unnamed Tournament — click to name'

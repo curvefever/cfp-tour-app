@@ -40,6 +40,7 @@ export function adminActions(subject: LifecycleSubject, finalComplete: boolean):
 /** What a draft still lacks before it can be published, in the order the Setup form asks for it. */
 export type PublishMissing = 'title' | 'date';
 
+// The same two conditions as `transitionRefusal('publish')`; a test keeps them in step.
 export function publishMissing(subject: LifecycleSubject): PublishMissing[] {
   const missing: PublishMissing[] = [];
   if (!subject.title.trim()) missing.push('title');

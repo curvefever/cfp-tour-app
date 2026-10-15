@@ -1,24 +1,61 @@
-import { forwardRef, useEffect, useRef, useState, type HTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { cn } from "./cn";
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  type HTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
+import { cn } from './cn';
 
-export const controlClassName = "w-full h-10 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-70";
+export const controlClassName =
+  'w-full h-10 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 aria-invalid:border-warning disabled:cursor-not-allowed disabled:opacity-70';
 
-export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
+export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
+  { className, ...props },
+  ref,
+) {
   return <input ref={ref} className={cn(controlClassName, className)} {...props} />;
 });
 
-export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
-  return <textarea ref={ref} className={cn(controlClassName, "h-auto min-h-28 resize-y py-2 leading-7", className)} {...props} />;
-});
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  function Textarea({ className, ...props }, ref) {
+    return (
+      <textarea
+        ref={ref}
+        className={cn(controlClassName, 'h-auto min-h-28 resize-y py-2 leading-7', className)}
+        {...props}
+      />
+    );
+  },
+);
 
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, ...props }, ref) {
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select(
+  { className, ...props },
+  ref,
+) {
   return <select ref={ref} className={cn(controlClassName, className)} {...props} />;
 });
 
-export function Field({ children, className, htmlFor, label }: { children: ReactNode; className?: string; htmlFor?: string; label: ReactNode }) {
+export function Field({
+  children,
+  className,
+  htmlFor,
+  label,
+}: {
+  children: ReactNode;
+  className?: string;
+  htmlFor?: string;
+  label: ReactNode;
+}) {
   return (
-    <div className={cn("mb-3", className)}>
-      <label className="mb-1 block text-sm font-bold" htmlFor={htmlFor}>{label}</label>
+    <div className={cn('mb-3', className)}>
+      <label className='mb-1 block text-sm font-bold' htmlFor={htmlFor}>
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -29,10 +66,16 @@ export function FieldDisplay({ className, ...props }: HTMLAttributes<HTMLDivElem
 }
 
 export function ScoreInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <Input className={cn("w-22.5 px-2 py-1 text-center text-lg font-bold", className)} type="number" {...props} />;
+  return (
+    <Input
+      className={cn('w-22.5 px-2 py-1 text-center text-lg font-bold', className)}
+      type='number'
+      {...props}
+    />
+  );
 }
 
-type CommitScoreInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur"> & {
+type CommitScoreInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur'> & {
   /** The committed value from state ('' when unset). */
   value: string;
   onCommit: (value: string) => void;
@@ -67,7 +110,7 @@ export function CommitScoreInput({ value, onCommit, onFocus, onKeyDown, ...props
         dirty.current = false;
       }}
       onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur();
+        if (event.key === 'Enter') event.currentTarget.blur();
         onKeyDown?.(event);
       }}
     />

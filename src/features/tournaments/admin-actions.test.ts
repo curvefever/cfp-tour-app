@@ -11,7 +11,7 @@ import {
   stateSubject,
   statusExplanation,
 } from './admin-actions';
-import type { LifecycleSubject } from './tournament-lifecycle';
+import { transitionRefusal, type LifecycleSubject } from './tournament-lifecycle';
 
 const draft: LifecycleSubject = {
   status: 'draft',
@@ -155,6 +155,17 @@ describe('statusExplanation', () => {
 });
 
 describe('publishMissing', () => {
+  it('is empty exactly when the draft can be published', () => {
+    for (const subject of [
+      draft,
+      { ...draft, title: '' },
+      { ...draft, scheduledAt: null },
+      { ...draft, title: ' ', scheduledAt: null },
+    ]) {
+      expect(publishMissing(subject).length === 0).toBe(transitionRefusal('publish', subject) === null);
+    }
+  });
+
   it('lists what a draft lacks, name first', () => {
     expect(publishMissing(draft)).toEqual([]);
     expect(publishMissing({ ...draft, scheduledAt: null })).toEqual(['date']);
