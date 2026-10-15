@@ -165,18 +165,30 @@ describe('publish and unpublish', () => {
 describe('finish and reopen', () => {
   const ongoing = facts({ lifecycle: lifecycle('published'), started: true });
 
-  it('stamps the finish time on the lifecycle and the list entry', () => {
-    expect(updatesOf(planFinish(paths, ongoing, NOW))).toEqual({
+  const WINNERS = [
+    { label: 'Team 1', members: ['a1', 'b1'] },
+    { label: 'Team 2', members: ['a2', 'b2'] },
+  ];
+
+  it('stamps the finish time on the lifecycle and the list entry, and writes the winners', () => {
+    expect(updatesOf(planFinish(paths, ongoing, NOW, WINNERS))).toEqual({
       [`${paths.tournament}/lifecycle/status`]: 'finished',
       [`${paths.index}/status`]: 'finished',
       [`${paths.tournament}/lifecycle/finishedAt`]: NOW,
       [`${paths.index}/finishedAt`]: NOW,
+      [`${paths.index}/winners`]: marshalForFirebase(WINNERS),
     });
   });
 
+  it('writes an empty list when nobody has won (finished before the Final)', () => {
+    expect(updatesOf(planFinish(paths, ongoing, NOW, []))[`${paths.index}/winners`]).toEqual(
+      marshalForFirebase([]),
+    );
+  });
+
   it('refuses to finish a draft or a finished tournament', () => {
-    expect(messageOf(planFinish(paths, facts(), NOW))).toMatch(/not started/);
-    expect(messageOf(planFinish(paths, { ...ongoing, lifecycle: lifecycle('finished') }, NOW))).toMatch(
+    expect(messageOf(planFinish(paths, facts(), NOW, []))).toMatch(/not started/);
+    expect(messageOf(planFinish(paths, { ...ongoing, lifecycle: lifecycle('finished') }, NOW, []))).toMatch(
       /already finished/,
     );
   });
@@ -185,6 +197,7 @@ describe('finish and reopen', () => {
     const updates = updatesOf(planReopen(paths, { ...ongoing, lifecycle: lifecycle('finished') }));
     expect(updates[`${paths.tournament}/lifecycle/status`]).toBe('published');
     expect(updates[`${paths.tournament}/lifecycle/finishedAt`]).toEqual(marshalForFirebase(null));
+    expect(updates[`${paths.index}/winners`]).toEqual(marshalForFirebase([]));
     expect(messageOf(planReopen(paths, ongoing))).toMatch(/finished/);
   });
 });
@@ -198,6 +211,7 @@ describe('planReturnToDraft', () => {
     expect(updates[`${paths.tournament}/started`]).toBe(false);
     expect(updates[`${paths.index}/started`]).toBe(false);
     expect(updates[`${paths.index}/status`]).toBe('draft');
+    expect(updates[`${paths.index}/winners`]).toEqual(marshalForFirebase([]));
     expect(updates[`${paths.tournament}/rounds`]).toEqual(patch.rounds);
     expect(updates[`${paths.tournament}/assignments/0`]).toEqual(['x']);
   });

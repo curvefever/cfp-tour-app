@@ -1,3 +1,4 @@
+import type { TournamentWinner } from '../../domain/tournament/rankings';
 import type {
   GameFormatKey,
   PersistedSetup,
@@ -23,6 +24,8 @@ export interface TournamentSummary {
   scheduleLogic: ScheduleLogicKey;
   /** Players, or teams in a team format. */
   unitCount: number;
+  /** Who won, written when the tournament is finished (a tie for first lists several); absent before that and for older ones. */
+  winners?: TournamentWinner[];
 }
 
 /** The summary fields that follow what an admin types; the status fields belong to the lifecycle server functions. */

@@ -1,3 +1,4 @@
+import type { TournamentWinner } from '../../domain/tournament/rankings';
 import { createDefaultInfo, createDefaultLifecycle } from '../../domain/tournament/state-defaults';
 import type { PersistedSetup, TournamentLifecycle, TournamentState } from '../../domain/tournament/types';
 import type { TournamentPaths } from '../sync/firebase-paths';
@@ -141,11 +142,23 @@ export function planUnpublish(paths: TournamentPaths, facts: StoredFacts): Updat
   return { ok: true, updates };
 }
 
-export function planFinish(paths: TournamentPaths, facts: StoredFacts, now: number): UpdatePlan {
+/** The list entry's winners; an empty list is how "none" is stored, so Reopen and Back to draft clear it. */
+function putWinners(updates: Record<string, unknown>, paths: TournamentPaths, winners: TournamentWinner[]) {
+  put(updates, `${paths.index}/winners`, winners);
+}
+
+/** `winners` are the units ranked first, worked out by the server from the stored state. */
+export function planFinish(
+  paths: TournamentPaths,
+  facts: StoredFacts,
+  now: number,
+  winners: TournamentWinner[],
+): UpdatePlan {
   const subject = checked('finish', facts);
   if (typeof subject === 'string') return refuse(subject);
   const updates: Record<string, unknown> = {};
   putStatusFields(updates, paths, { status: 'finished', finishedAt: now });
+  putWinners(updates, paths, winners);
   return { ok: true, updates };
 }
 
@@ -154,6 +167,7 @@ export function planReopen(paths: TournamentPaths, facts: StoredFacts): UpdatePl
   if (typeof subject === 'string') return refuse(subject);
   const updates: Record<string, unknown> = {};
   putStatusFields(updates, paths, { status: 'published', finishedAt: null });
+  putWinners(updates, paths, []);
   return { ok: true, updates };
 }
 
@@ -167,6 +181,7 @@ export function planReturnToDraft(
   if (typeof subject === 'string') return refuse(subject);
   const updates: Record<string, unknown> = {};
   putStatusFields(updates, paths, { status: 'draft' });
+  putWinners(updates, paths, []);
   put(updates, `${paths.tournament}/started`, false);
   put(updates, `${paths.index}/started`, false);
   putPatch(updates, paths, patch);

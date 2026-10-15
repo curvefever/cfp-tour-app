@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { adminListEntries, copyableTournaments, parseTournamentIndex } from './tournament-index';
+import {
+  adminListEntries,
+  copyableTournaments,
+  parseTournamentIndex,
+  parseWinners,
+} from './tournament-index';
 import type { TournamentSummary } from './tournament-summary';
 
 const entry = (overrides: Record<string, unknown> = {}) => ({
@@ -72,5 +77,45 @@ describe('copyableTournaments', () => {
       summary({ id: 'b', status: 'published', createdAt: 7 }),
     ]);
     expect(listed.map((item) => item.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('winners in the list entry', () => {
+  const parseOne = (overrides: Record<string, unknown>) => parseTournamentIndex({ a: entry(overrides) })[0];
+
+  it('reads the winners of a finished tournament, a team with its members', () => {
+    const parsed = parseOne({
+      status: 'finished',
+      winners: [
+        { label: 'Team 1', members: ['a1', 'b1'] },
+        { label: 'Solo', members: null },
+      ],
+    });
+    expect(parsed?.winners).toEqual([
+      { label: 'Team 1', members: ['a1', 'b1'] },
+      { label: 'Solo', members: null },
+    ]);
+  });
+
+  it('has none for an older tournament, or an empty list', () => {
+    expect(parseOne({ status: 'finished' })).not.toHaveProperty('winners');
+    expect(parseOne({ status: 'finished', winners: [] })).not.toHaveProperty('winners');
+  });
+
+  it('drops bad winners and keeps the valid ones', () => {
+    expect(parseWinners('Team 1')).toBeUndefined();
+    expect(parseWinners({ label: 'Team 1' })).toBeUndefined();
+    expect(parseWinners([null, 'x', { label: 3 }, { label: '  ' }])).toBeUndefined();
+    expect(
+      parseWinners([
+        { label: 'Team 1', members: 'a1' },
+        { label: 'Team 2', members: ['a2', 7, 'b2'] },
+      ]),
+    ).toEqual([
+      { label: 'Team 1', members: null },
+      { label: 'Team 2', members: ['a2', 'b2'] },
+    ]);
+    // The list stays readable whatever the winners hold.
+    expect(parseOne({ status: 'finished', winners: 5 })?.title).toBe('Cup');
   });
 });

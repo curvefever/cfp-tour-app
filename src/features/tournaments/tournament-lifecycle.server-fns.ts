@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
+import { tournamentWinners } from '../../domain/tournament/rankings';
 import { requireTourAdminPermission } from '../auth/server/tour-permissions.server';
 import { claimFirebaseFlag, readFirebaseOnce } from '../sync/firebase-admin.server';
 import {
@@ -11,6 +12,7 @@ import {
   applyPlan,
   isTestEnvironment,
   readStoredFacts,
+  readStoredState,
   requestPaths,
   serverNow,
 } from './tournament-store.server';
@@ -62,7 +64,9 @@ export const finishTournament = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<void> => {
     await requireTourAdminPermission();
     const paths = requestPaths(data.tournamentId);
-    await applyPlan(planFinish(paths, await readStoredFacts(paths), serverNow()));
+    // The winners are worked out here from the stored tournament, never taken from the client.
+    const winners = tournamentWinners(await readStoredState(paths, data.tournamentId));
+    await applyPlan(planFinish(paths, await readStoredFacts(paths), serverNow(), winners));
   });
 
 export const reopenTournament = createServerFn({ method: 'POST' })

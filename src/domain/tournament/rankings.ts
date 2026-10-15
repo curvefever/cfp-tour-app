@@ -417,3 +417,18 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     lastRi,
   };
 }
+
+/** A tournament's winner, as the Tournaments list shows it: the name, with a team's members. */
+export interface TournamentWinner {
+  label: string;
+  members: string[] | null;
+}
+
+/** The units ranked first once the Final is complete (a tie for first gives several); nobody before that. */
+export function tournamentWinners(state: TournamentState): TournamentWinner[] {
+  const rankings = computeRankings(state);
+  if (!rankings?.finalComplete) return [];
+  return rankings.finalists
+    .filter((unit) => unit.rank === 1)
+    .map((unit) => ({ label: unit.label, members: unit.members }));
+}

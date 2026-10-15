@@ -1,6 +1,8 @@
 import { getRequest } from '@tanstack/react-start/server';
 import { ServerValue } from 'firebase-admin/database';
 import { readFirebaseOnce, updateFirebase } from '../sync/firebase-admin.server';
+import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
+import type { TournamentState } from '../../domain/tournament/types';
 import { unmarshalFromFirebase } from '../sync/firebase-marshal';
 import { getTourEnvironment, getTournamentPaths, type TournamentPaths } from '../sync/firebase-paths';
 import { parseLifecycle, type StoredFacts, type UpdatePlan } from './tournament-updates';
@@ -41,6 +43,16 @@ export async function readStoredFacts(paths: TournamentPaths): Promise<StoredFac
     title: typeof title === 'string' ? title : '',
     scheduledAt: typeof scheduledAt === 'number' ? scheduledAt : null,
   };
+}
+
+/** The whole stored tournament, read once (when it is finished, to find its winners). */
+export async function readStoredState(
+  paths: TournamentPaths,
+  tournamentId: string,
+): Promise<TournamentState> {
+  return normalizeLiveTournamentState(await readDecoded(paths.tournament), {
+    tournamentId: () => tournamentId,
+  });
 }
 
 /** Applies a plan in one atomic update, or throws the plan's refusal message. */

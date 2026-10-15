@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compareStandings, isStandingsCutoffRound, orderedQualificationTable } from '../advancement';
-import { computeRankings } from '../rankings';
+import { computeRankings, tournamentWinners } from '../rankings';
 import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -968,5 +968,94 @@ describe('computeRankings -- units waiting in a pending pool are still in the to
     const inR1c = active.filter((entry) => r1c.has(entry.name));
     expect(inR1c).toHaveLength(8);
     expect(inR1c.every((entry) => entry.room !== null && entry.waitingFor === undefined)).toBe(true);
+  });
+});
+
+describe('tournamentWinners', () => {
+  const nameOf = (index: number) => `P${String(index + 1).padStart(2, '0')}`;
+
+  /** `count` players in rooms of up to 10, the first four of them in a Final of one game scored by `finalScores`. */
+  function ffaWithFinal(count: number, finalScores: Record<string, number>): TournamentState {
+    const names = Array.from({ length: count }, (_, index) => nameOf(index));
+    const rooms = Array.from({ length: Math.ceil(count / 10) }, (_, index) =>
+      Math.min(10, count - index * 10),
+    );
+    return createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: names,
+      curRound: 1,
+      rounds: [
+        buildRound({ roundNum: 1, rooms, players: count, advPerRoom: 1 }),
+        buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true, numGames: 1 }),
+      ],
+      assignments: [
+        names.map((name, index) => ({ name, room: Math.floor(index / 10) + 1, isLucky: false })),
+        names.slice(0, 4).map((name) => ({ name, room: 1, isLucky: false })),
+      ],
+      scores: Object.fromEntries(
+        names.map((_, index) => [`r0-rm${Math.floor(index / 10) + 1}-p${index % 10}`, 900 - index]),
+      ),
+      finalScores,
+    });
+  }
+
+  it('gives the unit ranked first of a 37-player tournament', () => {
+    const state = ffaWithFinal(37, { 'game1-P01': 50, 'game1-P02': 90, 'game1-P03': 60, 'game1-P04': 10 });
+    expect(tournamentWinners(state)).toEqual([{ label: 'P02', members: null }]);
+  });
+
+  it('is empty until the Final is complete', () => {
+    expect(tournamentWinners(ffaWithFinal(37, {}))).toEqual([]);
+    expect(tournamentWinners(ffaWithFinal(37, { 'game1-P01': 50, 'game1-P02': 90 }))).toEqual([]);
+  });
+
+  it('is empty while the Final has not been reached', () => {
+    const state = ffaWithFinal(37, {});
+    expect(
+      tournamentWinners({
+        ...state,
+        curRound: 0,
+        rounds: state.rounds.slice(0, 1),
+        assignments: state.assignments.slice(0, 1),
+      }),
+    ).toEqual([]);
+  });
+
+  it('gives both teams of a tie for 1st, with their members (13 teams)', () => {
+    const teams = Array.from({ length: 13 }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index + 1}` }, { name: `b${index + 1}` }],
+    }));
+    const ids = teams.map((team) => team.teamId);
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: teams,
+      curRound: 1,
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [4, 3, 3, 3], players: 13, advPerRoom: 1 }),
+        buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true, numGames: 1 }),
+      ],
+      assignments: [
+        ids.map((name, index) => ({
+          name,
+          room: index < 4 ? 1 : index < 7 ? 2 : index < 10 ? 3 : 4,
+          isLucky: false,
+        })),
+        ids.slice(0, 4).map((name) => ({ name, room: 1, isLucky: false })),
+      ],
+      scores: {},
+      // A team's score is its members' scores summed: 40 + 40 each for the tied teams.
+      finalScores: Object.fromEntries(
+        [80, 80, 60, 10].flatMap((total, index) => [
+          [`game1-t${index + 1}-m0`, total / 2],
+          [`game1-t${index + 1}-m1`, total / 2],
+        ]),
+      ),
+    });
+    expect(tournamentWinners(state)).toEqual([
+      { label: 'Team 1', members: ['a1', 'b1'] },
+      { label: 'Team 2', members: ['a2', 'b2'] },
+    ]);
   });
 });
