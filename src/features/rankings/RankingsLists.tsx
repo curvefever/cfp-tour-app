@@ -4,11 +4,13 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { Podium } from './Podium';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { rowSurfaceClasses, type RowResult } from '../tournament/components/result-row';
 import { naturalByLabel } from './ranking-order';
 import { stillInResults } from './ranking-results';
-import { eliminatedWhere, finalistWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
+import { finalStanding } from './ranking-podium';
+import { eliminatedWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
 
 type Rankings = NonNullable<ReturnType<typeof computeRankings>>;
 
@@ -119,21 +121,38 @@ function stillInRows(state: TournamentState, data: Rankings): ListRow[] {
   }));
 }
 
-/** Once the Final is played: one list, finalists first, then those eliminated (latest out first), the withdrawn last. */
-function finalRows(state: TournamentState, data: Rankings): ListRow[] {
-  const labels = bracketRoundLabels(state);
-  return [
-    ...data.finalists.map((unit) => ({
-      key: unit.name,
-      rank: String(unit.rank),
-      result: '' as const,
-      label: unit.label,
-      members: unit.members,
-      where: finalistWhere(data.lastRi, unit, labels),
-    })),
-    ...eliminatedRows(state, data).map((row) => ({ ...row, result: '' as const })),
-    ...withdrawnRows(data),
-  ];
+/** After the Final: the podium, then everyone from the fourth entry down in three columns (no stripes, no tags). */
+function FinishedRankings({ data, state }: { data: Rankings; state: TournamentState }) {
+  const { podium, rest } = finalStanding(state, data);
+  return (
+    <div className='flex flex-col gap-5.5'>
+      <Podium cards={podium} />
+      {rest.length ? (
+        <ol className='[columns:3_320px] gap-x-4.5'>
+          {rest.map((row, index) => (
+            <li
+              className={cn(
+                'mb-0.75 flex min-h-10.5 break-inside-avoid items-center gap-2.5 rounded-xs px-3 py-1',
+                rowSurfaceClasses(index, false),
+              )}
+              key={row.key}
+            >
+              <span className='w-7.5 shrink-0 text-right text-[15px] font-extrabold text-muted'>
+                {row.rank}
+              </span>
+              <span className='flex min-w-0 flex-1 flex-col'>
+                <span className='truncate text-base font-bold'>{row.label}</span>
+                {row.members?.length ? (
+                  <span className='truncate text-[13px] text-muted'>{row.members.join(' · ')}</span>
+                ) : null}
+              </span>
+              <span className='shrink-0 text-sm text-muted'>{row.where}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </div>
+  );
 }
 
 /**
@@ -142,15 +161,7 @@ function finalRows(state: TournamentState, data: Rankings): ListRow[] {
  */
 export function RankingsLists({ data, state }: { data: Rankings; state: TournamentState }) {
   const unit = unitLabelPluralLower(state.gameFormat).toUpperCase();
-  if (data.finalComplete) {
-    const rows = finalRows(state, data);
-    return (
-      <section className='flex flex-col gap-3.5'>
-        <ColumnTitleBar badge={<CountTag>{`${rows.length} ${unit}`}</CountTag>} title='Final standings' />
-        <RowList empty='' rows={rows} />
-      </section>
-    );
-  }
+  if (data.finalComplete) return <FinishedRankings data={data} state={state} />;
   const out = [...eliminatedRows(state, data), ...withdrawnRows(data)];
   const still = stillInRows(state, data);
   return (

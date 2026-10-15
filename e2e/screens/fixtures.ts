@@ -265,8 +265,8 @@ function ffa37FinalComplete(): TournamentState {
   return scoreFinal(ffaFinal(37), 3);
 }
 
-function teams2v2(): TournamentState {
-  const start = generate(
+function teams2v2Start(): TournamentState {
+  return generate(
     13,
     {
       gameFormat: 'team-2v2v2v2',
@@ -276,6 +276,18 @@ function teams2v2(): TournamentState {
     },
     2,
   );
+}
+
+/** The 13-team tournament with its Final played: a podium of teams, for Rankings. */
+function teams2v2FinalComplete(): TournamentState {
+  return scoreFinal(
+    playUntil(teams2v2Start(), (round) => round.isFinal, 1),
+    3,
+  );
+}
+
+function teams2v2(): TournamentState {
+  const start = teams2v2Start();
   const semis = playUntil(start, (round) => round.isSemis, 1);
   return {
     ...scoreCurrentRound(semis, { seed: 4, rooms: [1] }),
@@ -389,6 +401,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2(), { notesPanel: true }),
+    entry('teams2v2-13-finished', teams2v2FinalComplete(), { status: 'finished' }),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
