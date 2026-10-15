@@ -450,7 +450,13 @@ export function storedState(fixture: FixtureTournament): unknown {
 /** One index entry (`TournamentSummary` without its id) for the Tournaments list. */
 export function indexEntry(
   title: string,
-  fields: { status: 'published' | 'finished'; started: boolean; scheduledAt: number; testRun?: boolean },
+  fields: {
+    status: 'published' | 'finished';
+    started: boolean;
+    scheduledAt: number;
+    testRun?: boolean;
+    winners?: Array<{ label: string; members: string[] | null }>;
+  },
 ): Record<string, unknown> {
   return {
     title,
@@ -464,6 +470,7 @@ export function indexEntry(
     poolingPhase: 'qual-table',
     scheduleLogic: 'single-elimination',
     unitCount: 37,
+    ...(fields.winners ? { winners: fields.winners } : {}),
   };
 }
 
@@ -491,11 +498,27 @@ export function tournamentListIndex(now: number): Record<string, unknown> {
       status: 'finished',
       started: true,
       scheduledAt: parisTime(-30),
+      winners: [{ label: 'Paper Planes', members: ['Halcyon', 'Marlowe', 'Pixelwolf', 'Saffron'] }],
     }),
     'older-cup': indexEntry('Spring Cup', {
       status: 'finished',
       started: true,
       scheduledAt: parisTime(-70),
+    }),
+    'oldest-cup': indexEntry('Winter Cup', {
+      status: 'finished',
+      started: true,
+      scheduledAt: parisTime(-110),
+      winners: [
+        { label: 'Static', members: ['Cobalt', 'Wren', 'Ivo'] },
+        { label: 'Mint Condition', members: ['Orrin', 'Gale'] },
+      ],
+    }),
+    'ancient-cup': indexEntry('Autumn Cup', {
+      status: 'finished',
+      started: true,
+      scheduledAt: parisTime(-150),
+      winners: [{ label: 'Juniper', members: null }],
     }),
   };
 }

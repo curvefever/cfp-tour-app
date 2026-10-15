@@ -236,6 +236,30 @@ test.describe('screenshots of the viewer tabs', () => {
       await capture(page, 'tournament-list', fileName('Tournaments', String(width)));
     });
 
+    test(`the Log in link does not cover the last card at the end of the list at ${width}px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 600 });
+      await serve(page, { index: tournamentListIndex(Date.now()), stored: {}, screenshots: {} });
+      await open(page, '/');
+      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+      const link = await page.getByRole('button', { name: 'Log in as admin' }).boundingBox();
+      // At least this much clear space between the link and the card above it.
+      const BREATHING_ROOM = 16;
+      const boxes = await page
+        .locator('#view-tournaments ul li button')
+        .evaluateAll((cards) => cards.map((card) => card.getBoundingClientRect().toJSON() as DOMRect));
+      if (!link || !boxes.length) throw new Error('the link or the cards have no box');
+      const covered = boxes.filter(
+        (box) =>
+          link.y < box.y + box.height + BREATHING_ROOM &&
+          link.y + link.height > box.y &&
+          link.x + link.width > box.x &&
+          link.x < box.x + box.width,
+      );
+      expect(covered, 'cards under the Log in link').toEqual([]);
+    });
+
     test(`the unavailable-link notice at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await serve(page, { index: tournamentListIndex(Date.now()), stored: {}, screenshots: {} });

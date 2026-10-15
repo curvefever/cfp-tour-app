@@ -1,5 +1,6 @@
 import { Badge, PageHeading, Panel, cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import type { TournamentWinner } from '../../domain/tournament/rankings';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { PHASE_TONES } from './phase-display';
@@ -10,6 +11,28 @@ import {
   type TournamentCard,
   type TournamentSections,
 } from './tournaments-list';
+
+/** The bottom of a finished card: a green marker, "WINNER", and the name with a team's members under it (a tie shows each). */
+function WinnerRow({ winners }: { winners: TournamentWinner[] }) {
+  return (
+    <span className='mt-1.5 flex w-full items-center gap-3 border-t border-cfp-game-fold pt-3'>
+      <span aria-hidden='true' className='min-h-6 w-1.25 shrink-0 self-stretch rounded-xs bg-cfp-green' />
+      <span className='shrink-0 text-[11px] leading-none font-extrabold tracking-[0.08em] text-muted'>
+        WINNER
+      </span>
+      <span className='flex min-w-0 flex-1 flex-wrap gap-x-8 gap-y-2'>
+        {winners.map((winner) => (
+          <span className='flex min-w-0 flex-col gap-0.5' key={winner.label}>
+            <span className='text-base font-bold'>{winner.label}</span>
+            {winner.members?.length ? (
+              <span className='text-sm leading-snug text-muted'>{winner.members.join(' · ')}</span>
+            ) : null}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
 
 function TournamentCardButton({ card, onOpen }: { card: TournamentCard; onOpen(): void }) {
   const { summary } = card;
@@ -37,6 +60,9 @@ function TournamentCardButton({ card, onOpen }: { card: TournamentCard; onOpen()
         <span className='text-sm text-muted'>
           {tournamentFormatLine(summary)} · {card.unitLabel}
         </span>
+        {card.phase === 'finished' && summary.winners?.length ? (
+          <WinnerRow winners={summary.winners} />
+        ) : null}
       </button>
     </li>
   );
@@ -83,7 +109,7 @@ export function TournamentsView({ onLogIn }: { onLogIn: () => void }) {
     <>
       <PageHeading title='Tournaments' />
       {ready ? (
-        <div className='flex flex-col gap-6.5'>
+        <div className='flex flex-col gap-6.5 pb-10'>
           <Section
             title='Ongoing'
             emptyText={EMPTY_SECTION_TEXTS.ongoing}

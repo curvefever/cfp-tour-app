@@ -975,7 +975,7 @@ describe('tournamentWinners', () => {
   const nameOf = (index: number) => `P${String(index + 1).padStart(2, '0')}`;
 
   /** `count` players in rooms of up to 10, the first four of them in a Final of one game scored by `finalScores`. */
-  function ffaWithFinal(count: number, finalScores: Record<string, number>): TournamentState {
+  function ffaWithFinal(count: number, finalScores: Record<string, number>, numGames = 1): TournamentState {
     const names = Array.from({ length: count }, (_, index) => nameOf(index));
     const rooms = Array.from({ length: Math.ceil(count / 10) }, (_, index) =>
       Math.min(10, count - index * 10),
@@ -986,7 +986,7 @@ describe('tournamentWinners', () => {
       curRound: 1,
       rounds: [
         buildRound({ roundNum: 1, rooms, players: count, advPerRoom: 1 }),
-        buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true, numGames: 1 }),
+        buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true, numGames }),
       ],
       assignments: [
         names.map((name, index) => ({ name, room: Math.floor(index / 10) + 1, isLucky: false })),
@@ -1007,6 +1007,13 @@ describe('tournamentWinners', () => {
   it('is empty until the Final is complete', () => {
     expect(tournamentWinners(ffaWithFinal(37, {}))).toEqual([]);
     expect(tournamentWinners(ffaWithFinal(37, { 'game1-P01': 50, 'game1-P02': 90 }))).toEqual([]);
+  });
+
+  it('is empty while a 3-game Final has only its first game played (37 players)', () => {
+    const state = ffaWithFinal(37, { 'game1-P01': 50, 'game1-P02': 90, 'game1-P03': 60, 'game1-P04': 10 }, 3);
+    // Nobody is ranked before the last game is in: the finalists list is empty, so there is no first place yet.
+    expect(computeRankings(state)?.finalists).toEqual([]);
+    expect(tournamentWinners(state)).toEqual([]);
   });
 
   it('is empty while the Final has not been reached', () => {
