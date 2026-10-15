@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatScheduledAt, tournamentFormatLine } from './tournament-info';
+import { formatScheduledAt, scheduledParts, tournamentFormatLine } from './tournament-info';
 
 describe('tournamentFormatLine', () => {
   it('joins the game format, the pooling phase and the bracket', () => {
@@ -99,5 +99,38 @@ describe('formatScheduledAt', () => {
     expect(near(-20_000)).toBe('starting now');
     expect(near(0)).toBe('starting now');
     expect(near(20_000)).toBe('just started');
+  });
+});
+
+describe('scheduledParts', () => {
+  const SCHEDULED = Date.UTC(2026, 9, 18, 18, 0); // Sunday 18 Oct 2026, 18:00 UTC
+  const HOUR = 60 * 60 * 1000;
+
+  it('splits the date from how far away it is', () => {
+    expect(scheduledParts(SCHEDULED, SCHEDULED - 2 * HOUR, { timeZone: 'Europe/Paris' })).toEqual({
+      date: 'Sun 18 Oct, 20:00',
+      relative: 'in 2 h',
+    });
+    expect(scheduledParts(SCHEDULED, SCHEDULED + 3 * HOUR, { timeZone: 'UTC' })).toEqual({
+      date: 'Sun 18 Oct, 18:00',
+      relative: 'started 3 h ago',
+    });
+  });
+
+  it('has no relative part when it is left out', () => {
+    expect(scheduledParts(SCHEDULED, SCHEDULED - HOUR, { timeZone: 'UTC', relative: false })).toEqual({
+      date: 'Sun 18 Oct, 18:00',
+      relative: null,
+    });
+  });
+
+  it('is what formatScheduledAt joins', () => {
+    for (const relative of [true, false]) {
+      const options = { timeZone: 'Pacific/Auckland', relative };
+      const { date, relative: far } = scheduledParts(SCHEDULED, SCHEDULED - 30 * HOUR, options);
+      expect(formatScheduledAt(SCHEDULED, SCHEDULED - 30 * HOUR, options)).toBe(
+        far === null ? date : `${date} · ${far}`,
+      );
+    }
   });
 });

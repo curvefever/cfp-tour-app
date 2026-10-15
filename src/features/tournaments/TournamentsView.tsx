@@ -4,7 +4,7 @@ import type { TournamentWinner } from '../../domain/tournament/rankings';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { PHASE_TONES } from './phase-display';
-import { formatScheduledAt, tournamentFormatLine } from './tournament-info';
+import { scheduledParts, tournamentFormatLine } from './tournament-info';
 import {
   EMPTY_SECTION_TEXTS,
   tournamentSections,
@@ -34,6 +34,24 @@ function WinnerRow({ winners }: { winners: TournamentWinner[] }) {
   );
 }
 
+/** The card's date in bold, and how far away it is in light blue ("Sat 18 Oct, 20:00 · in 5 days"). */
+function ScheduledLine({
+  phase,
+  scheduledAt,
+}: {
+  phase: TournamentCard['phase'];
+  scheduledAt: number | null;
+}) {
+  if (scheduledAt === null) return <span className='text-[15px] font-bold'>Date to be announced</span>;
+  const { date, relative } = scheduledParts(scheduledAt, Date.now(), { relative: phase !== 'finished' });
+  return (
+    <span className='text-[15px]'>
+      <span className='font-bold'>{date}</span>
+      {relative ? <span className='text-cfp-sky'> · {relative}</span> : null}
+    </span>
+  );
+}
+
 function TournamentCardButton({ card, onOpen }: { card: TournamentCard; onOpen(): void }) {
   const { summary } = card;
   const ongoing = card.phase === 'ongoing';
@@ -52,11 +70,7 @@ function TournamentCardButton({ card, onOpen }: { card: TournamentCard; onOpen()
           {card.startingSoon ? <Badge tone={PHASE_TONES[card.phase]}>Starting soon</Badge> : null}
           {summary.testRun ? <Badge className='text-muted'>Test run</Badge> : null}
         </span>
-        <span className='text-[15px]'>
-          {summary.scheduledAt === null
-            ? 'Date to be announced'
-            : formatScheduledAt(summary.scheduledAt, Date.now(), { relative: card.phase !== 'finished' })}
-        </span>
+        <ScheduledLine phase={card.phase} scheduledAt={summary.scheduledAt} />
         <span className='text-sm text-muted'>
           {tournamentFormatLine(summary)} · {card.unitLabel}
         </span>

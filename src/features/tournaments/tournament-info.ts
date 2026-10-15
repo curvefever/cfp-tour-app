@@ -63,15 +63,23 @@ function relativePart(scheduledMs: number, nowMs: number): string {
   return gap > 0 ? `in ${describeGap(gap)}` : `started ${describeGap(-gap)} ago`;
 }
 
+export interface ScheduledParts {
+  /** Weekday, date and time: "Sat 18 Oct, 20:00". */
+  date: string;
+  /** How far away it is ("in 2 days", "started 3 h ago"); null when the options leave it out. */
+  relative: string | null;
+}
+
 /**
- * The scheduled time as the viewer reads it: weekday, date and time in their own time zone, in English like the rest
- * of the app, then how far away it is ("Sat 18 Oct, 20:00 · in 2 days"). It depends on the browser and the clock, so render it after hydration only.
+ * The scheduled time as the viewer reads it, in two parts: weekday, date and time in their own time zone, in English
+ * like the rest of the app, and how far away it is. It depends on the browser and the clock, so render it after
+ * hydration only.
  */
-export function formatScheduledAt(
+export function scheduledParts(
   scheduledMs: number,
   nowMs: number,
   options: DateFormatOptions = {},
-): string {
+): ScheduledParts {
   const parts = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
     day: 'numeric',
@@ -84,5 +92,15 @@ export function formatScheduledAt(
   const part = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((entry) => entry.type === type)?.value ?? '';
   const date = `${part('weekday')} ${part('day')} ${part('month')}, ${part('hour')}:${part('minute')}`;
-  return options.relative === false ? date : `${date} · ${relativePart(scheduledMs, nowMs)}`;
+  return { date, relative: options.relative === false ? null : relativePart(scheduledMs, nowMs) };
+}
+
+/** The two parts in one line: "Sat 18 Oct, 20:00 · in 2 days" (just the date without the relative part). */
+export function formatScheduledAt(
+  scheduledMs: number,
+  nowMs: number,
+  options: DateFormatOptions = {},
+): string {
+  const { date, relative } = scheduledParts(scheduledMs, nowMs, options);
+  return relative === null ? date : `${date} · ${relative}`;
 }
