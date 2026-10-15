@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useMemo, useRef, useState } from 'react';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import {
   type BracketBox,
@@ -18,6 +18,7 @@ import { ColumnTitleBar } from './ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
+import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 
 /** The width-affecting classes of an open round column. */
 export function roundColumnWidthClass() {
@@ -172,6 +173,7 @@ export function BracketRounds({
   const finalRound = finalRoundIndex >= 0 ? state.rounds[finalRoundIndex] : null;
   const finalProgress = finalRound ? finalsProgressState(state, finalRoundIndex, finalRound) : null;
   const [finalTabOverride, setFinalTabOverride] = useState<number | null>(null);
+  const strip = useRef<HTMLDivElement>(null);
   const finalTab = finalTabOverride ?? finalProgress?.nextGame ?? 1;
   function renderSingle(roundIndex: number) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
@@ -241,26 +243,33 @@ export function BracketRounds({
     );
   }
   return (
-    <div className='flex max-w-full items-start gap-3.5 overflow-x-auto pb-3' id='br-rounds'>
-      {boxes.map((box) => {
-        if (box.kind !== 'single') return renderWave(box);
-        if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)
-          return renderSingle(box.roundIndex);
-        return (
-          <Fragment key={box.roundIndex}>
-            {renderSingle(box.roundIndex)}
-            <StandingsColumn
-              display={standings}
-              state={state}
-              labels={labels}
-              followKey={followKey}
-              collapsed={standingsCollapsed}
-              onToggle={onToggleStandings}
-              onOpenFullTable={onOpenFullTable}
-            />
-          </Fragment>
-        );
-      })}
+    <div>
+      <div
+        className={cn('flex max-w-full items-start gap-3.5 overflow-x-auto pb-3', hiddenScrollbarClass)}
+        id='br-rounds'
+        ref={strip}
+      >
+        {boxes.map((box) => {
+          if (box.kind !== 'single') return renderWave(box);
+          if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)
+            return renderSingle(box.roundIndex);
+          return (
+            <Fragment key={box.roundIndex}>
+              {renderSingle(box.roundIndex)}
+              <StandingsColumn
+                display={standings}
+                state={state}
+                labels={labels}
+                followKey={followKey}
+                collapsed={standingsCollapsed}
+                onToggle={onToggleStandings}
+                onOpenFullTable={onOpenFullTable}
+              />
+            </Fragment>
+          );
+        })}
+      </div>
+      <StickyScrollbar target={strip} />
     </div>
   );
 }
