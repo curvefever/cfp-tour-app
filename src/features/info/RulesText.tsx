@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { cn } from '../../components/ui';
 import { parseRulesText, type RulesInline } from './rules-text';
 
 function Inline({ part }: { part: RulesInline }) {
@@ -24,9 +25,9 @@ function Inlines({ parts }: { parts: RulesInline[] }) {
 }
 
 /** A tournament's rules text, built as React elements from the parsed text: nothing in it is ever treated as HTML. */
-export function RulesText({ text }: { text: string }) {
+export function RulesText({ className, text }: { className?: string; text: string }) {
   return (
-    <div className='flex flex-col gap-3 text-sm leading-relaxed'>
+    <div className={cn('flex flex-col gap-3 text-sm leading-relaxed', className)}>
       {parseRulesText(text).map((block, index) =>
         block.kind === 'list' ? (
           <ul key={index} className='list-disc pl-5'>

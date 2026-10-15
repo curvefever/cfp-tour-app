@@ -8,9 +8,15 @@ export function ScreenshotGallery({ tournamentId, imageIds }: { tournamentId: st
   if (!imageIds.length) return null;
   return (
     <>
-      <div className='flex flex-wrap gap-2.5'>
+      <div className='grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-3'>
         {imageIds.map((imageId) => (
-          <ScreenshotThumb key={imageId} tournamentId={tournamentId} imageId={imageId} onOpen={setOpenSrc} />
+          <ScreenshotThumb
+            className='aspect-[16/10] h-auto w-full rounded-xs border-0 bg-cfp-game-fold outline-2 outline-cfp-game-frame'
+            imageId={imageId}
+            key={imageId}
+            onOpen={setOpenSrc}
+            tournamentId={tournamentId}
+          />
         ))}
       </div>
       {openSrc ? (
