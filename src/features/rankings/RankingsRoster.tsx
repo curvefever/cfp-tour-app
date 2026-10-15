@@ -136,7 +136,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
     );
   return (
     <ToolPanel title='Reserves'>
-      <div className='flex flex-col gap-2.5 px-4 py-3.5'>
+      <div className='flex flex-col gap-2.5 px-4.5 py-3.5'>
         {!state.reserveOpen ? (
           <ClosedReserves state={state} />
         ) : (

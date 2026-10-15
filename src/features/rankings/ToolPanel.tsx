@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Button, cn, panelLabelClassName } from '../../components/ui';
+import { Button, SectionPanel, cn } from '../../components/ui';
 
-/** A middle-look panel of the Organiser tools block: a small title bar (with an optional note at the right) over the body. */
+/** A panel of the Organiser tools block: the shared section panel, with an optional orange note at the right of its header. */
 export function ToolPanel({
   children,
   className,
@@ -17,16 +17,15 @@ export function ToolPanel({
   title: string;
 }) {
   return (
-    <section
-      aria-label={label ?? title}
-      className={cn('min-w-0 overflow-hidden rounded-md border border-surface-hover bg-surface', className)}
+    <SectionPanel
+      actions={note ? <div className='text-[13px] text-cfp-orange-text'>{note}</div> : null}
+      className={className}
+      label={label}
+      padded={false}
+      title={title}
     >
-      <div className='flex flex-wrap items-center justify-between gap-2 border-b border-surface-hover bg-surface-low px-4 py-3'>
-        <h3 className={panelLabelClassName}>{title}</h3>
-        {note ? <div className='text-[13px] text-cfp-orange-text'>{note}</div> : null}
-      </div>
       {children}
-    </section>
+    </SectionPanel>
   );
 }
 
@@ -43,7 +42,7 @@ export function ToolRow({
   return (
     <div
       className={cn(
-        'flex min-h-11 items-center gap-2 border-b border-surface-hover px-4 py-1 last:border-b-0',
+        'flex min-h-11 items-center gap-2 border-b border-surface-hover px-4.5 py-1 last:border-b-0',
         className,
       )}
     >
