@@ -6,6 +6,7 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { downloadRankingsImage } from './rankings-image';
+import { PlayersList } from './PlayersList';
 import { RankingsLists } from './RankingsLists';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
 import { Alert, Badge, Button, PageHeading, cn } from '../../components/ui';
@@ -77,26 +78,7 @@ function RosterOnly({ state, editable }: { state: TournamentState; editable: boo
       </>
     );
   }
-  const rows = [
-    ...rosterKeys(state.players).map((name) => ({ name, badge: 'Registered' })),
-    ...rosterKeys(state.reserves).map((name) => ({ name, badge: 'Reserve' })),
-  ].sort((a, b) => unitDisplay(state, a.name).label.localeCompare(unitDisplay(state, b.name).label));
-  return (
-    <RankingGrid>
-      {rows.map(({ name, badge }) => {
-        const info = unitDisplay(state, name);
-        return (
-          <RankingRow key={`${badge}-${name}`}>
-            <span className='text-center text-lg font-bold text-muted'>—</span>
-            <span className='min-w-0'>
-              <Unit entry={{ name, ...info }} />
-            </span>
-            <Badge>{badge}</Badge>
-          </RankingRow>
-        );
-      })}
-    </RankingGrid>
-  );
+  return <PlayersList state={state} />;
 }
 
 export function RankingsContent({

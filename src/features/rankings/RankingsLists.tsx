@@ -4,6 +4,7 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { ColumnRows } from './ColumnRows';
 import { Podium } from './Podium';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { rowSurfaceClasses, type RowResult } from '../tournament/components/result-row';
@@ -128,28 +129,16 @@ function FinishedRankings({ data, state }: { data: Rankings; state: TournamentSt
     <div className='flex flex-col gap-5.5'>
       <Podium cards={podium} />
       {rest.length ? (
-        <ol className='[columns:3_320px] gap-x-4.5'>
-          {rest.map((row, index) => (
-            <li
-              className={cn(
-                'mb-0.75 flex min-h-10.5 break-inside-avoid items-center gap-2.5 rounded-xs px-3 py-1',
-                rowSurfaceClasses(index, false),
-              )}
-              key={row.key}
-            >
-              <span className='w-7.5 shrink-0 text-right text-[15px] font-extrabold text-muted'>
-                {row.rank}
-              </span>
-              <span className='flex min-w-0 flex-1 flex-col'>
-                <span className='truncate text-base font-bold'>{row.label}</span>
-                {row.members?.length ? (
-                  <span className='truncate text-[13px] text-muted'>{row.members.join(' · ')}</span>
-                ) : null}
-              </span>
-              <span className='shrink-0 text-sm text-muted'>{row.where}</span>
-            </li>
-          ))}
-        </ol>
+        <ColumnRows
+          label='Standings from fourth place'
+          rows={rest.map((row) => ({
+            key: row.key,
+            number: row.rank,
+            label: row.label,
+            members: row.members,
+            note: row.where,
+          }))}
+        />
       ) : null}
     </div>
   );

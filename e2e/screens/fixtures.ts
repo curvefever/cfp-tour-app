@@ -352,11 +352,22 @@ function waterfallQual(): TournamentState {
   );
 }
 
+/** A tournament before Confirm & Start: the roster and its settings, no schedule drawn yet. */
+function beforeStart(state: TournamentState, reserves: string[]): TournamentState {
+  return { ...state, started: false, rounds: [], assignments: [], scores: {}, curRound: 0, reserves };
+}
+
 function upcoming(): TournamentState {
   return {
-    ...generate(37, { poolingPhase: 'qual-table', qualAdv: '24' }),
-    started: false,
+    ...beforeStart(generate(37, { poolingPhase: 'qual-table', qualAdv: '24' }), ['Larch', 'Nimbus']),
     title: 'Autumn Cup',
+  };
+}
+
+function upcomingTeams(): TournamentState {
+  return {
+    ...beforeStart(teams2v2Start(), []),
+    title: 'Team Cup',
   };
 }
 
@@ -410,6 +421,7 @@ export function fixtureTournaments(): FixtureTournament[] {
       rulesText: RULES_TEXT,
       screenshotIds: ['shot1', 'shot2'],
     }),
+    entry('upcoming-teams-13', upcomingTeams(), { tabs: ['Info', 'Players'] }),
   ];
 }
 
