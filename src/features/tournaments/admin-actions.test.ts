@@ -3,7 +3,14 @@ import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { setFinalScore } from '../../domain/tournament/mutations';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import type { TournamentState } from '../../domain/tournament/types';
-import { adminActions, finishReminderFor, stateSubject } from './admin-actions';
+import {
+  adminActions,
+  FINISH_REMINDER,
+  finishReminderFor,
+  publishMissing,
+  stateSubject,
+  statusExplanation,
+} from './admin-actions';
 import type { LifecycleSubject } from './tournament-lifecycle';
 
 const draft: LifecycleSubject = {
@@ -107,5 +114,50 @@ describe('finishReminderFor a played 37-player tournament', () => {
     const { lifecycle: _lifecycle, ...legacy } = atTheFinal();
     expect(stateSubject(legacy)).toBeNull();
     expect(finishReminderFor(legacy)).toBe(false);
+  });
+});
+
+describe('statusExplanation', () => {
+  const explain = (subject: LifecycleSubject, finalComplete = false, startedText: string | null = null) =>
+    statusExplanation(subject, { finalComplete, startedText });
+
+  it('says a draft is visible to admins only, and what it still lacks to be published', () => {
+    expect(explain(draft)).toEqual({ text: 'Visible to admins only.', hint: null, reminder: false });
+    expect(explain({ ...draft, scheduledAt: null }).hint).toBe('To publish, add a scheduled date and time.');
+    expect(explain({ ...draft, title: ' ' }).hint).toBe('To publish, give it a name.');
+    expect(explain({ ...draft, title: '', scheduledAt: null }).hint).toBe(
+      'To publish, give it a name and add a scheduled date and time.',
+    );
+  });
+
+  it('says where a published tournament shows and when it is starting soon', () => {
+    expect(explain(upcoming).text).toBe(
+      'On the Tournaments page. "Starting soon" from 1 hour before the scheduled time.',
+    );
+  });
+
+  it('says when an ongoing tournament started, and to finish it once the Final is checked', () => {
+    expect(explain(ongoing, false, 'Sat 20 Sep, 20:00').text).toBe(
+      'Started Sat 20 Sep, 20:00. Finish it once the Final is complete and its scores are checked.',
+    );
+    expect(explain(ongoing).text).toMatch(/^Started\. Finish it/);
+  });
+
+  it('replaces that with the reminder once the Final is complete, never for a finished tournament', () => {
+    expect(explain(ongoing, true)).toEqual({ text: FINISH_REMINDER, hint: null, reminder: true });
+    expect(explain(finished, true).reminder).toBe(false);
+    expect(explain(upcoming, true).reminder).toBe(false);
+  });
+
+  it('says a finished tournament is read-only and can be reopened', () => {
+    expect(explain(finished).text).toMatch(/Read-only.*Reopen/);
+  });
+});
+
+describe('publishMissing', () => {
+  it('lists what a draft lacks, name first', () => {
+    expect(publishMissing(draft)).toEqual([]);
+    expect(publishMissing({ ...draft, scheduledAt: null })).toEqual(['date']);
+    expect(publishMissing({ ...draft, title: '', scheduledAt: null })).toEqual(['title', 'date']);
   });
 });

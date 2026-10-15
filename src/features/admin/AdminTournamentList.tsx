@@ -3,23 +3,14 @@ import { Alert, Badge, Button, PageHeading, SectionPanel } from '../../component
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { scheduledParts } from '../tournaments/tournament-info';
 import { adminListGroups } from '../tournaments/tournament-index';
-import { tournamentPhase, type TournamentPhase } from '../tournaments/tournament-lifecycle';
+import { ADMIN_STATUS_PILLS } from '../tournaments/phase-display';
+import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { useTournamentIndex } from '../tournaments/useTournamentIndex';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
-type PillTone = 'now' | 'warning' | 'success' | 'neutral';
-
-/** What a row's status pill says, by phase (a published tournament that has not started reads "Published"). */
-const STATUS_PILLS: Partial<Record<TournamentPhase, { label: string; tone: PillTone }>> = {
-  ongoing: { label: 'Ongoing', tone: 'now' },
-  'starting-soon': { label: 'Starting soon', tone: 'warning' },
-  upcoming: { label: 'Published', tone: 'success' },
-  draft: { label: 'Draft', tone: 'neutral' },
-};
-
 function TournamentRow({ summary, onOpen }: { summary: TournamentSummary; onOpen(): void }) {
-  const pill = STATUS_PILLS[tournamentPhase(summary, Date.now())];
+  const pill = ADMIN_STATUS_PILLS[tournamentPhase(summary, Date.now())];
   return (
     <li>
       <button
@@ -27,11 +18,9 @@ function TournamentRow({ summary, onOpen }: { summary: TournamentSummary; onOpen
         onClick={onOpen}
       >
         <span className='w-30 shrink-0'>
-          {pill ? (
-            <Badge className='px-2 py-1' tone={pill.tone}>
-              {pill.label}
-            </Badge>
-          ) : null}
+          <Badge className='px-2 py-1' tone={pill.tone}>
+            {pill.label}
+          </Badge>
         </span>
         <span className='flex min-w-0 flex-[1_1_260px] items-center gap-2'>
           <span className='truncate text-base font-bold'>{summary.title.trim() || 'Unnamed Tournament'}</span>

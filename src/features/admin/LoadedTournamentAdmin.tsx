@@ -1,4 +1,4 @@
-import { Alert, Button, ButtonRow, PageHeading } from '../../components/ui';
+import { Alert, PageHeading } from '../../components/ui';
 import { PresenceProvider } from '../presence/PresenceProvider';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
@@ -12,13 +12,14 @@ export function LoadedTournamentAdmin() {
   const kind = app.syncStatus.kind;
   const title = useTournamentTitle();
   return (
-    <>
-      <ButtonRow>
-        <Button size='sm' onClick={() => void app.unloadTournament()}>
-          ← All tournaments
-        </Button>
-      </ButtonRow>
-      <PageHeading label={app.state.started ? 'Admin' : 'Setup'} title={title} />
+    <div className='mx-auto flex max-w-295 flex-col gap-5'>
+      <button
+        className='w-fit cursor-pointer text-[15px] font-bold text-cfp-sky hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+        onClick={() => void app.unloadTournament()}
+      >
+        ← All tournaments
+      </button>
+      <PageHeading className='mb-0' label={app.state.started ? 'Admin' : 'Setup'} title={title} />
       {kind === 'connecting' ? <Alert tone='info'>Loading the tournament…</Alert> : null}
       {kind === 'waiting' ? <Alert tone='danger'>This tournament does not exist (any more).</Alert> : null}
       {kind === 'unavailable' ? (
@@ -28,10 +29,12 @@ export function LoadedTournamentAdmin() {
       ) : null}
       {kind === 'connecting' || kind === 'waiting' || kind === 'unavailable' ? null : (
         <PresenceProvider tournamentId={app.state.tournamentId ?? ''}>
-          <TournamentStatusPanel />
-          {app.state.started ? <RunningAdmin /> : <SetupView />}
+          <div className='flex flex-col gap-5'>
+            <TournamentStatusPanel />
+            {app.state.started ? <RunningAdmin /> : <SetupView />}
+          </div>
         </PresenceProvider>
       )}
-    </>
+    </div>
   );
 }

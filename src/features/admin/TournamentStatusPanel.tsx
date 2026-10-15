@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { computeRankings } from '../../domain/tournament/rankings';
-import { Alert, Badge, Button, ButtonRow, Modal, ModalActions, Panel, PanelTitle } from '../../components/ui';
-import { adminActions, FINISH_REMINDER, stateSubject, type StatusButton } from '../tournaments/admin-actions';
-import { PHASE_LABELS, PHASE_TONES } from '../tournaments/phase-display';
+import { Alert, Badge, Button, Modal, ModalActions } from '../../components/ui';
+import {
+  adminActions,
+  stateSubject,
+  statusExplanation,
+  type StatusButton,
+} from '../tournaments/admin-actions';
+import { ADMIN_STATUS_PILLS } from '../tournaments/phase-display';
+import { scheduledParts } from '../tournaments/tournament-info';
 import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useStatusAction } from './useStatusAction';
@@ -15,13 +21,14 @@ const BUTTON_LABELS: Record<StatusButton, string> = {
   delete: 'Delete tournament',
 };
 
-const BUTTON_VARIANTS: Partial<Record<StatusButton, 'success' | 'danger'>> = {
-  publish: 'success',
-  finish: 'success',
-  delete: 'danger',
-};
+/** Publish and Finish are the step the tournament is waiting for; Publish reads as plain while it is refused. */
+function buttonVariant(action: StatusButton, refused: boolean): 'primary' | 'secondary' | 'danger' {
+  if (action === 'delete') return 'danger';
+  if (action === 'finish') return 'primary';
+  return action === 'publish' && !refused ? 'primary' : 'secondary';
+}
 
-/** The status of the loaded tournament, the buttons its status allows and the reminder to finish it. */
+/** The status of the loaded tournament: its pill, what it means, and the buttons its status allows. */
 export function TournamentStatusPanel() {
   const app = useTournamentApp();
   const { state } = app;
@@ -30,8 +37,17 @@ export function TournamentStatusPanel() {
   const subject = stateSubject(state);
   // A tournament stored before statuses existed has no status to show.
   if (!subject) return null;
-  const { actions, finishReminder } = adminActions(subject, computeRankings(state)?.finalComplete ?? false);
-  const phase = tournamentPhase(subject, Date.now());
+  const finalComplete = computeRankings(state)?.finalComplete ?? false;
+  const { actions } = adminActions(subject, finalComplete);
+  const nowMs = Date.now();
+  const pill = ADMIN_STATUS_PILLS[tournamentPhase(subject, nowMs)];
+  const explanation = statusExplanation(subject, {
+    finalComplete,
+    startedText:
+      subject.scheduledAt === null
+        ? null
+        : scheduledParts(subject.scheduledAt, nowMs, { relative: false }).date,
+  });
 
   async function run(action: StatusButton) {
     await runStatusAction(action);
@@ -39,41 +55,39 @@ export function TournamentStatusPanel() {
   }
 
   return (
-    <Panel>
-      <PanelTitle>Status</PanelTitle>
-      <div className='mb-3 flex flex-wrap items-center gap-2'>
-        <Badge tone={PHASE_TONES[phase]}>{PHASE_LABELS[phase]}</Badge>
-        {subject.testRun ? <Badge>Test run</Badge> : null}
-      </div>
-      {finishReminder ? (
-        <Alert tone='warning' className='mb-3'>
-          {FINISH_REMINDER}
-        </Alert>
-      ) : null}
-      {error ? (
-        <Alert tone='danger' className='mb-3'>
-          {error}
-        </Alert>
-      ) : null}
-      <ButtonRow>
+    <section
+      aria-label='Tournament status'
+      className='flex flex-col gap-3 rounded-md border border-surface-hover bg-surface px-4.5 py-3.5'
+    >
+      <div className='flex flex-wrap items-center gap-x-4.5 gap-y-3'>
+        <div className='flex items-center gap-2'>
+          <Badge className='px-2.25 py-1 text-xs' tone={pill.tone}>
+            {pill.label}
+          </Badge>
+          {subject.testRun ? <Badge className='px-2.25 py-1 text-xs text-muted'>Test run</Badge> : null}
+        </div>
+        <p
+          className={
+            explanation.reminder
+              ? 'flex-[1_1_300px] text-[15px] font-bold text-cfp-green-text'
+              : 'flex-[1_1_260px] text-sm text-cfp-text-soft'
+          }
+        >
+          {explanation.text}
+          {explanation.hint ? <span className='text-cfp-orange-text'> {explanation.hint}</span> : null}
+        </p>
         {actions.map(({ action, refusal }) => (
           <Button
             key={action}
-            variant={BUTTON_VARIANTS[action]}
+            variant={buttonVariant(action, Boolean(refusal))}
             disabled={Boolean(refusal) || working !== null}
             onClick={() => (action === 'delete' ? setConfirmingDelete(true) : void run(action))}
           >
             {working === action ? 'Working…' : BUTTON_LABELS[action]}
           </Button>
         ))}
-      </ButtonRow>
-      {actions.map(({ action, refusal }) =>
-        refusal ? (
-          <p key={action} className='mt-2 text-xs text-muted'>
-            {refusal}
-          </p>
-        ) : null,
-      )}
+      </div>
+      {error ? <Alert tone='danger'>{error}</Alert> : null}
       {confirmingDelete ? (
         <Modal titleId='delete-tournament-title' title='Delete tournament'>
           <p>
@@ -90,6 +104,6 @@ export function TournamentStatusPanel() {
           </ModalActions>
         </Modal>
       ) : null}
-    </Panel>
+    </section>
   );
 }
