@@ -16,7 +16,11 @@ export function Alert({
 }: HTMLAttributes<HTMLDivElement> & { tone?: AlertTone }) {
   return (
     <div
-      className={cn('rounded-(--app-radius-button) border-2 px-3.5 py-2.5 text-sm leading-relaxed', alertTone[tone], className)}
+      className={cn(
+        'rounded-(--app-radius-button) border-2 px-3.5 py-2.5 text-sm leading-relaxed',
+        alertTone[tone],
+        className,
+      )}
       {...props}
     />
   );
