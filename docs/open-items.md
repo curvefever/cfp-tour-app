@@ -26,7 +26,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 - **The followed player or team is stored once per browser**, not per tournament, so it carries over to another tournament, where the Bracket reads "Not in this bracket" until the box is emptied.
 
 ## Awaiting organiser feedback
-- **Three levels of "where do I stand"** — Rankings' pool-rank badge (`#rank · N pts`), the Bracket standings column and the Standings tab. The Bracket's "Top N in standings →" badge is gone (the standings column's exit icon says where the standings lead); Rankings still shows its badge. Open until the organiser judges whether the two that remain are one too many.
+- **Two levels of "where do I stand"** — the Bracket standings column and the Standings tab. The Bracket's "Top N in standings →" badge and Rankings' pool-rank badge are gone (the standings column's exit icon says where the standings lead; Rankings says where each unit stands in the tournament). Open until the organiser judges whether both remaining levels are needed.
 - **Waterfall depth in Rankings.** Units eliminated in a waterfall are ordered like any other round (later round in play order first, then place, relative share, pooling standings); neither room depth nor graph level is used. A waterfall graph can take any shape, so no single depth order fits every graph (e.g. two parallel rounds such as R6B and R6C in the 32-player example, played one after the other only because rounds run in sequence). Open until the organiser settles a rule.
 
 ## UX ideas, organiser-interested but not requested

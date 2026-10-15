@@ -1,15 +1,14 @@
+import { useMemo } from 'react';
 import { unitLabelPluralLower } from '../../domain/tournament/formats';
-import { roomLetter } from '../../domain/tournament/bracket';
 import { computeRankings, type RankingDisplay } from '../../domain/tournament/rankings';
 import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
-import { formatStandingValue } from '../../domain/tournament/scoring';
-import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
+import type { TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { downloadRankingsImage } from './rankings-image';
+import { RankingsLists } from './RankingsLists';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
-import { Position } from '../../components/tournament/TournamentUnit';
-import { Alert, Badge, Button, ButtonRow, PageHeading, cn } from '../../components/ui';
+import { Alert, Badge, Button, PageHeading, cn } from '../../components/ui';
 
 function Unit({ entry }: { entry: RankingDisplay }) {
   return (
@@ -44,24 +43,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <div className='mt-4.5 mb-2 text-[0.72rem] font-semibold tracking-[0.1em] text-muted uppercase'>
       {children}
     </div>
-  );
-}
-
-function RoundLabel({ round }: { round: TournamentRound }) {
-  return (
-    <>
-      {round.isFinal
-        ? 'Final'
-        : round.isSemis
-          ? 'Semis'
-          : round.isQual
-            ? `Qual R${round.roundNum}`
-            : round.isSwiss
-              ? `Swiss R${round.roundNum}`
-              : round.isGroupStage
-                ? `Group R${round.roundNum}`
-                : `Round ${round.roundNum}`}
-    </>
   );
 }
 
@@ -118,7 +99,15 @@ function RosterOnly({ state, editable }: { state: TournamentState; editable: boo
   );
 }
 
-export function RankingsContent({ state, editable = false }: { state: TournamentState; editable?: boolean }) {
+export function RankingsContent({
+  data,
+  editable = false,
+  state,
+}: {
+  data: ReturnType<typeof computeRankings>;
+  editable?: boolean;
+  state: TournamentState;
+}) {
   if (!state.players.length && !state.reserves.length) {
     return (
       <Alert>
@@ -127,60 +116,10 @@ export function RankingsContent({ state, editable = false }: { state: Tournament
       </Alert>
     );
   }
-  const data = computeRankings(state);
   if (!data) return <RosterOnly state={state} editable={editable} />;
   return (
     <div id='rk-content'>
-      <p className='text-muted'>
-        Live tournament ranking. Active entrants remain unranked until eliminated or the Final is complete.
-      </p>
-      <ButtonRow>
-        <Button size='sm' onClick={() => void downloadRankingsImage(state)}>
-          ⬇ Download rankings PNG
-        </Button>
-      </ButtonRow>
-      {data.stillActive.length ? (
-        <>
-          <SectionTitle>Still in tournament</SectionTitle>
-          <RankingGrid>
-            {data.stillActive.map((unit) => (
-              <RankingRow key={unit.name}>
-                <span className='text-center text-lg font-bold text-muted'>—</span>
-                <span className='min-w-0'>
-                  <Unit entry={unit} />
-                  <small className='mt-1 block text-xs text-muted'>
-                    {unit.waitingFor !== undefined ? (
-                      <>
-                        Waiting for <RoundLabel round={state.rounds[unit.waitingFor]} />
-                      </>
-                    ) : (
-                      <>
-                        <RoundLabel round={data.lastRound} /> —{' '}
-                        {unit.room === null ? (
-                          <strong className='text-warning'>BYE — advances automatically</strong>
-                        ) : (
-                          <>
-                            Room <strong className='text-primary'>{roomLetter(unit.room)}</strong>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </small>
-                </span>
-                <span className='flex flex-col items-end gap-1 text-[0.68rem] text-warning'>
-                  <Badge>Still in tournament</Badge>
-                  {unit.poolRank ? (
-                    <small>
-                      #{unit.poolRank.rank}
-                      {unit.poolRank.fp !== null ? ` · ${formatStandingValue(unit.poolRank.fp)} pts` : ''}
-                    </small>
-                  ) : null}
-                </span>
-              </RankingRow>
-            ))}
-          </RankingGrid>
-        </>
-      ) : null}
+      <RankingsLists data={data} state={state} />
       {editable ? (
         <ReservePanel state={state} />
       ) : state.reserves.length ? (
@@ -202,42 +141,6 @@ export function RankingsContent({ state, editable = false }: { state: Tournament
           </RankingGrid>
         </>
       ) : null}
-      {data.finalComplete || data.eliminatedList.length || data.dnfList.length ? (
-        <>
-          <SectionTitle>Final standings</SectionTitle>
-          <RankingGrid>
-            {data.finalists.map((unit) => (
-              <RankingRow champion={unit.rank === 1} key={unit.name}>
-                <Position highlighted={unit.rank === 1}>{unit.rank}</Position>
-                <span className='min-w-0'>
-                  <Unit entry={unit} />
-                </span>
-                <Badge tone='primary'>🏆 Reached Final</Badge>
-              </RankingRow>
-            ))}
-            {data.eliminatedList.map((unit) => (
-              <RankingRow key={unit.name}>
-                <Position>{unit.rank}</Position>
-                <span className='min-w-0'>
-                  <Unit entry={unit} />
-                </span>
-                <Badge>
-                  <RoundLabel round={unit.round} />
-                </Badge>
-              </RankingRow>
-            ))}
-            {data.dnfList.map((unit) => (
-              <RankingRow key={`dnf-${unit.name}`}>
-                <Position>DNF</Position>
-                <span className='min-w-0'>
-                  <Unit entry={unit} />
-                </span>
-                <Badge>DNF — did not finish</Badge>
-              </RankingRow>
-            ))}
-          </RankingGrid>
-        </>
-      ) : null}
       {editable ? (
         <>
           <SectionTitle>Manage roster</SectionTitle>
@@ -249,13 +152,40 @@ export function RankingsContent({ state, editable = false }: { state: Tournament
   );
 }
 
+function DownloadImageButton({ state }: { state: TournamentState }) {
+  return (
+    <Button className='gap-2' onClick={() => void downloadRankingsImage(state)}>
+      <svg aria-hidden='true' height='16' viewBox='0 0 16 16' width='16'>
+        <path
+          d='M8 2 V10 M4.5 6.8 L8 10.2 L11.5 6.8 M2.5 13.5 H13.5'
+          fill='none'
+          stroke='currentColor'
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          strokeWidth='2'
+        />
+      </svg>
+      Download image
+    </Button>
+  );
+}
+
 export function RankingsView() {
   const app = useTournamentApp();
   const title = useTournamentTitle();
+  const data = useMemo(() => computeRankings(app.state), [app.state]);
   return (
     <>
-      <PageHeading label={app.state.started ? 'Rankings' : 'Players'} title={title} />
-      <RankingsContent state={app.state} editable={app.unlocked && !app.isViewer && !app.readOnly} />
+      <PageHeading
+        actions={data ? <DownloadImageButton state={app.state} /> : null}
+        label={app.state.started ? 'Rankings' : 'Players'}
+        title={title}
+      />
+      <RankingsContent
+        data={data}
+        editable={app.unlocked && !app.isViewer && !app.readOnly}
+        state={app.state}
+      />
     </>
   );
 }
