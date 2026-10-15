@@ -109,6 +109,26 @@ describe('settingsRecapGroups', () => {
     expect(items['Scoring system']).toBe('Standard points (1st = largest room size, −1 per place)');
   });
 
+  it('shows Standard points with no pooling phase, whatever scoring an earlier choice left behind', () => {
+    const items = itemsOf(
+      settingsRecapGroups(
+        stateOf({ poolingPhase: 'none', scoring: 'positional-points', positionalPointsTable: '3,2,1' }),
+      ),
+    );
+    expect(items['Scoring system']).toBe('Standard points (1st = largest room size, −1 per place)');
+    expect(items['Points table']).toBeUndefined();
+  });
+
+  it('shows the custom points table with a pooling phase', () => {
+    const items = itemsOf(
+      settingsRecapGroups(
+        stateOf({ poolingPhase: 'qual-table', scoring: 'positional-points', positionalPointsTable: '3,2,1' }),
+      ),
+    );
+    expect(items['Scoring system']).toBe('Custom points table');
+    expect(items['Points table']).toBe('3,2,1');
+  });
+
   it('reads the advancing count of a waterfall with a Qual source off its graph', () => {
     const items = itemsOf(
       settingsRecapGroups(
