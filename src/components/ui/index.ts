@@ -8,5 +8,4 @@ export * from './SectionPanel';
 export * from './Stats';
 export * from './Surface';
 export * from './Table';
-export * from './Timeline';
 export * from './typography';

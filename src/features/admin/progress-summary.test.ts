@@ -80,6 +80,23 @@ describe('progressSummary', () => {
     expect(summary.rooms[0]).toMatchObject({ hasScores: true });
   });
 
+  it('does not count a partly scored room as scored, and shows its scores in', () => {
+    const bracket = playUntil(ffa37(), (round) => !round.isQual && !round.isNoElim);
+    const rooms = bracket.rounds[bracket.curRound].rooms.length;
+    const scored = scoreCurrentRound(bracket, 0);
+    // Room B keeps its first five of eight scores.
+    const scores = Object.fromEntries(
+      Object.entries(scored.scores).filter(([key]) => {
+        const prefix = `r${bracket.curRound}-rm2-p`;
+        return !key.startsWith(prefix) || Number(key.slice(prefix.length)) < 5;
+      }),
+    );
+    const summary = progressSummary(withoutRoom({ ...scored, scores }, rooms));
+    expect(summary.text).toBe(`${summary.roundName} · 1 of ${rooms} rooms scored`);
+    expect(summary.rooms[1]).toMatchObject({ name: 'Room B', players: 8, scored: 5, hasScores: true });
+    expect(summary.fraction).toBeCloseTo(1 / rooms);
+  });
+
   it('counts the scores in of the Final, a single room', () => {
     const final = playUntil(ffa37(), (round) => round.isFinal);
     expect(progressSummary(final).text).toBe('Final · 0 of 8 scores in');

@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { Alert, Button, ButtonRow, Field, Input, Panel, PanelTitle } from '../../components/ui';
+import { Alert, Button } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { TournamentSettingsRecap } from './RunningAdminStatus';
-import { InfoContentPanel } from './InfoContentPanel';
 import { ProgressSection } from './ProgressSection';
-import { ScheduledTimeField } from './ScheduledTimeField';
+import { RunningInfoPanel } from './RunningInfoPanel';
 
 export function RunningAdmin() {
   const app = useTournamentApp();
@@ -22,27 +21,13 @@ export function RunningAdmin() {
     if (message) setResetError(message);
   }
   return (
-    <div className='flex flex-col gap-5 [&>*]:mb-0' id='panel-running'>
-      <Panel className='pb-1.5'>
-        <PanelTitle>Tournament running</PanelTitle>
-        <Field htmlFor='running-title' label='Tournament name'>
-          <Input
-            id='running-title'
-            type='text'
-            value={state.title}
-            placeholder='Unnamed Tournament'
-            disabled={app.readOnly}
-            onChange={(event) => app.updateState((current) => ({ ...current, title: event.target.value }))}
-          />
-        </Field>
-        <ScheduledTimeField id='running-scheduled-at' />
-      </Panel>
-      <InfoContentPanel />
+    <div className='flex flex-col gap-5' id='panel-running'>
       <TournamentSettingsRecap state={state} />
       <ProgressSection state={state} />
+      <RunningInfoPanel />
       {resetError ? <Alert tone='danger'>{resetError}</Alert> : null}
       {app.readOnly ? null : (
-        <ButtonRow className='rounded-lg border border-surface-hover p-2.5'>
+        <div className='flex flex-wrap items-center gap-x-4 gap-y-2.5 pt-0.5'>
           <Button
             disabled={resetting}
             onClick={() => {
@@ -53,10 +38,12 @@ export function RunningAdmin() {
               )
                 void backToDraftNow();
             }}
+            variant='danger'
           >
-            {resetting ? 'Resetting…' : '↩ Back to draft'}
+            {resetting ? 'Resetting…' : 'Back to draft'}
           </Button>
-        </ButtonRow>
+          <div className='text-sm text-muted'>Keeps the roster and settings, clears the played rounds.</div>
+        </div>
       )}
     </div>
   );

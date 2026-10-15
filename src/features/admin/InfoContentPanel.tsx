@@ -16,7 +16,7 @@ function errorText(error: unknown): string {
 }
 
 /** The rules text, typed here and saved when the box is left, so what comes back from the database never cuts into it. */
-function RulesTextField() {
+export function RulesTextField() {
   const { state, updateState, readOnly } = useTournamentApp();
   const stored = state.info?.rulesText ?? '';
   const [draft, setDraft] = useState(stored);
@@ -51,7 +51,7 @@ function RulesTextField() {
   );
 }
 
-function ScreenshotsControl() {
+export function ScreenshotsControl() {
   const { state, readOnly } = useTournamentApp();
   const tournamentId = state.tournamentId;
   const imageIds = state.info?.screenshots ?? [];
