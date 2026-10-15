@@ -9,7 +9,8 @@ import { downloadRankingsImage } from './rankings-image';
 import { PlayersList } from './PlayersList';
 import { RankingsLists } from './RankingsLists';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
-import { Alert, Badge, Button, PageHeading, cn } from '../../components/ui';
+import { ToolPanel, ToolRow } from './ToolPanel';
+import { Alert, Badge, Button, PageHeading, cn, columnTitleClassName } from '../../components/ui';
 
 function Unit({ entry }: { entry: RankingDisplay }) {
   return (
@@ -51,34 +52,39 @@ function NoShowsPanel({ state }: { state: TournamentState }) {
   const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
   if (!noShows.length) return null;
   return (
-    <>
-      <SectionTitle>No-shows (admin only)</SectionTitle>
-      <RankingGrid>
-        {noShows.map((unit) => (
-          <RankingRow key={`noshow-${unit.name}`}>
-            <span className='text-center text-lg font-bold text-muted'>—</span>
-            <span className='min-w-0'>
-              <Unit entry={unit} />
-            </span>
-            <Badge>No-show</Badge>
-          </RankingRow>
-        ))}
-      </RankingGrid>
-    </>
+    <ToolPanel title='No-shows'>
+      {noShows.map((unit) => (
+        <ToolRow controls={<Badge>No-show</Badge>} key={`noshow-${unit.name}`}>
+          {unit.label}
+        </ToolRow>
+      ))}
+    </ToolPanel>
+  );
+}
+
+/** Admins only, below the lists: manage the roster, the reserves and the no-shows, in the middle look. */
+function OrganiserTools({ state }: { state: TournamentState }) {
+  return (
+    <section aria-labelledby='organiser-tools' className='mt-2 flex flex-col gap-3.5' data-look='middle'>
+      <div className='flex h-11.5 flex-wrap items-center gap-2.5 rounded-xs bg-cfp-game-title px-3.5'>
+        <h2 className={columnTitleClassName} id='organiser-tools'>
+          Organiser tools
+        </h2>
+        <div className='text-[13px] text-muted'>Only admins see this part</div>
+      </div>
+      <div className='flex flex-wrap items-start gap-4'>
+        <ManageRoster state={state} />
+        <div className='flex min-w-0 flex-[1_1_300px] flex-col gap-4'>
+          <ReservePanel state={state} />
+          <NoShowsPanel state={state} />
+        </div>
+      </div>
+    </section>
   );
 }
 
 function RosterOnly({ state, editable }: { state: TournamentState; editable: boolean }) {
-  if (editable) {
-    return (
-      <>
-        <ReservePanel state={state} />
-        <ManageRoster state={state} />
-        <NoShowsPanel state={state} />
-      </>
-    );
-  }
-  return <PlayersList state={state} />;
+  return editable ? <OrganiserTools state={state} /> : <PlayersList state={state} />;
 }
 
 export function RankingsContent({
@@ -102,9 +108,7 @@ export function RankingsContent({
   return (
     <div id='rk-content'>
       <RankingsLists data={data} state={state} />
-      {editable ? (
-        <ReservePanel state={state} />
-      ) : state.reserves.length ? (
+      {editable ? null : state.reserves.length ? (
         <>
           <SectionTitle>Reserves</SectionTitle>
           <RankingGrid>
@@ -123,13 +127,7 @@ export function RankingsContent({
           </RankingGrid>
         </>
       ) : null}
-      {editable ? (
-        <>
-          <SectionTitle>Manage roster</SectionTitle>
-          <ManageRoster state={state} />
-          <NoShowsPanel state={state} />
-        </>
-      ) : null}
+      {editable ? <OrganiserTools state={state} /> : null}
     </div>
   );
 }

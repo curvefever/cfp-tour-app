@@ -14,12 +14,13 @@ import {
   updateTeam,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
-import { isDisplayNameTaken, parseTeamLines } from '../../domain/tournament/roster';
+import { isDisplayNameTaken, parseTeamLines, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
-import { Button, Input, Panel, PanelTitle, Select } from '../../components/ui';
+import { Button, Input, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 
 function handleReserveResult(
   result: ReserveAddResult,
@@ -68,6 +69,58 @@ function applySwap(
   apply(swap);
 }
 
+/** What the Reserves panel says once eliminations have started: the window is closed; the waiting list stays visible. */
+function ClosedReserves({ state }: { state: TournamentState }) {
+  const format = getGameFormat(state.gameFormat);
+  const waiting = rosterKeys(state.reserves).map((key) => unitDisplay(state, key).label);
+  return (
+    <>
+      <div className='text-sm text-danger'>Reserve window closed — eliminations have started.</div>
+      {format?.teamSize ? null : (
+        <Input
+          aria-label='Name of a new or walk-up player'
+          disabled
+          placeholder='Name of a new/walk-up player'
+          type='text'
+        />
+      )}
+      {waiting.length ? (
+        <div className='text-sm text-cfp-text-soft'>Waiting: {waiting.join(', ')}</div>
+      ) : null}
+    </>
+  );
+}
+
+type UpdateState = (updater: (current: TournamentState) => TournamentState) => void;
+
+function renamePlayer(state: TournamentState, name: string, apply: UpdateState) {
+  const value = window.prompt(`Rename "${name}" to:`, name);
+  if (value === null || !value.trim() || value.trim() === name) return;
+  if (isDisplayNameTaken(state, value, name)) {
+    window.alert(`"${value.trim()}" is already registered — pick a different name.`);
+    return;
+  }
+  apply((current) => renameIndividual(current, name, value));
+}
+
+function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
+  const value = window.prompt(`Swap out "${name}". Enter the replacement's name:`);
+  if (value === null || !value.trim()) return;
+  // Only the active roster is a real conflict here -- a name matching an existing reserve is legitimately
+  // consumed by swapIndividual() (it promotes that reserve), matching the "+" reserve-add button's own
+  // effect, so that case is not blocked.
+  if ((state.players as string[]).includes(value.trim())) {
+    window.alert(`"${value.trim()}" is already registered — pick a different name.`);
+    return;
+  }
+  applySwap(state, apply, (current) => swapIndividual(current, name, value), name);
+}
+
+function removePlayer(name: string, apply: UpdateState) {
+  if (window.confirm(`Remove "${name}" from the tournament? This cannot be undone.`))
+    apply((current) => removeRosterUnit(current, name));
+}
+
 export function ReservePanel({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const [walkup, setWalkup] = useState('');
@@ -81,84 +134,84 @@ export function ReservePanel({ state }: { state: TournamentState }) {
       app.updateState,
     );
   return (
-    <div className='mb-4.5 rounded-lg border border-dashed border-warning bg-surface px-4.5 py-3.5'>
-      <div className='mb-2.5 text-[0.72rem] font-semibold tracking-[0.12em] text-warning uppercase'>
-        Reserves
-      </div>
-      {!state.reserveOpen ? (
-        <div className='mt-1 text-xs text-danger'>⛔ Reserve window closed — eliminations have started.</div>
-      ) : (
-        <>
-          {!format?.teamSize ? (
-            <div className='flex items-center gap-2'>
-              <Input
-                className='max-w-75'
-                type='text'
-                placeholder='Name of a new/walk-up player'
-                value={walkup}
-                onChange={(event) => setWalkup(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  handleReserveResult(
-                    addWalkUpIndividual(state, walkup),
-                    () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
-                    app.updateState,
-                  );
-                  setWalkup('');
-                }}
-              />
-              <Button
-                size='sm'
-                variant='warning'
-                onClick={() => {
-                  handleReserveResult(
-                    addWalkUpIndividual(state, walkup),
-                    () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
-                    app.updateState,
-                  );
-                  setWalkup('');
-                }}
-              >
-                ＋ Add new player
-              </Button>
-            </div>
-          ) : null}
-          <div className='my-2.5 flex flex-wrap gap-2'>
-            {keys.map((key) => (
-              <div
-                className='flex items-center gap-2 rounded-full border border-surface-hover bg-surface-low px-3 py-1 text-xs'
-                key={key}
-              >
-                <TournamentUnit state={state} name={key} />
+    <ToolPanel title='Reserves'>
+      <div className='flex flex-col gap-2.5 px-4 py-3.5'>
+        {!state.reserveOpen ? (
+          <ClosedReserves state={state} />
+        ) : (
+          <>
+            {!format?.teamSize ? (
+              <div className='flex items-center gap-2'>
+                <Input
+                  className='min-w-0 flex-1'
+                  type='text'
+                  placeholder='Name of a new/walk-up player'
+                  value={walkup}
+                  onChange={(event) => setWalkup(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    handleReserveResult(
+                      addWalkUpIndividual(state, walkup),
+                      () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
+                      app.updateState,
+                    );
+                    setWalkup('');
+                  }}
+                />
                 <Button
-                  aria-label={`Add ${key}`}
-                  className='size-6 min-h-0 p-0 text-warning'
-                  onClick={() => add(key)}
+                  className='shrink-0 whitespace-nowrap'
                   size='sm'
-                  variant='ghost'
+                  variant='warning'
+                  onClick={() => {
+                    handleReserveResult(
+                      addWalkUpIndividual(state, walkup),
+                      () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
+                      app.updateState,
+                    );
+                    setWalkup('');
+                  }}
                 >
-                  ＋
-                </Button>
-                <Button
-                  aria-label={`Remove ${key}`}
-                  className='size-6 min-h-0 p-0 text-warning'
-                  onClick={() => app.updateState((current) => removeReserveUnit(current, key))}
-                  size='sm'
-                  variant='ghost'
-                >
-                  ✕
+                  ＋ Add new player
                 </Button>
               </div>
-            ))}
-          </div>
-          <div className='mt-1 text-xs text-muted'>
-            {keys.length
-              ? 'Click ＋ to add a reserve to the smallest available room.'
-              : `No ${format?.teamSize ? 'reserve teams' : 'reserves'} on the bench.`}
-          </div>
-        </>
-      )}
-    </div>
+            ) : null}
+            <div className='my-2.5 flex flex-wrap gap-2'>
+              {keys.map((key) => (
+                <div
+                  className='flex items-center gap-2 rounded-full border border-surface-hover bg-surface-low px-3 py-1 text-xs'
+                  key={key}
+                >
+                  <TournamentUnit state={state} name={key} />
+                  <Button
+                    aria-label={`Add ${key}`}
+                    className='size-6 min-h-0 p-0 text-warning'
+                    onClick={() => add(key)}
+                    size='sm'
+                    variant='ghost'
+                  >
+                    ＋
+                  </Button>
+                  <Button
+                    aria-label={`Remove ${key}`}
+                    className='size-6 min-h-0 p-0 text-warning'
+                    onClick={() => app.updateState((current) => removeReserveUnit(current, key))}
+                    size='sm'
+                    variant='ghost'
+                  >
+                    ✕
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className='mt-1 text-xs text-muted'>
+              {keys.length
+                ? 'Click ＋ to add a reserve to the smallest available room.'
+                : `No ${format?.teamSize ? 'reserve teams' : 'reserves'} on the bench.`}
+            </div>
+          </>
+        )}
+      </div>
+    </ToolPanel>
   );
 }
 
@@ -170,79 +223,52 @@ export function ManageRoster({ state }: { state: TournamentState }) {
   const swapTitle = (open: string) => (swapsOpen ? open : SWAPS_CLOSED_TITLE);
   if (!format?.teamSize) {
     return (
-      <Panel>
-        <PanelTitle hint='— rename, swap, or remove'>Manage Players</PanelTitle>
-        <div className='grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2'>
+      <ToolPanel
+        className='flex-[2_1_520px]'
+        note={swapsOpen ? null : SWAPS_CLOSED_TITLE}
+        title='Manage players'
+      >
+        <div className='[columns:2_260px] gap-x-0'>
           {[...(state.players as string[])].sort().map((name) => (
-            <div
-              className='flex min-w-0 items-center justify-between gap-2 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2'
+            <ToolRow
+              className='break-inside-avoid'
+              controls={
+                <>
+                  <ToolIconButton
+                    glyph='✎'
+                    label={`Rename ${name}`}
+                    onClick={() => renamePlayer(state, name, app.updateState)}
+                    title='Rename'
+                  />
+                  <ToolIconButton
+                    disabled={!swapsOpen}
+                    glyph='⇄'
+                    label={`Swap ${name}`}
+                    onClick={() => swapPlayer(state, name, app.updateState)}
+                    title={swapTitle('Swap')}
+                  />
+                  <ToolIconButton
+                    danger
+                    glyph='✕'
+                    label={`Remove ${name}`}
+                    onClick={() => removePlayer(name, app.updateState)}
+                    title='Remove'
+                  />
+                </>
+              }
               key={name}
             >
-              <span className='min-w-0 flex-1 truncate text-sm font-semibold'>{name}</span>
-              <span className='flex gap-1'>
-                <Button
-                  size='sm'
-                  title='Rename'
-                  onClick={() => {
-                    const value = window.prompt(`Rename "${name}" to:`, name);
-                    if (value === null || !value.trim() || value.trim() === name) return;
-                    if (isDisplayNameTaken(state, value, name)) {
-                      window.alert(`"${value.trim()}" is already registered — pick a different name.`);
-                      return;
-                    }
-                    app.updateState((current) => renameIndividual(current, name, value));
-                  }}
-                >
-                  ✎
-                </Button>
-                <Button
-                  size='sm'
-                  disabled={!swapsOpen}
-                  title={swapTitle('Swap')}
-                  onClick={() => {
-                    const value = window.prompt(`Swap out "${name}". Enter the replacement's name:`);
-                    if (value === null || !value.trim()) return;
-                    // Only the active roster is a real conflict here -- a
-                    // name matching an existing reserve is legitimately
-                    // consumed by swapIndividual() (it promotes that
-                    // reserve), matching the "+" reserve-add button's own
-                    // effect, so that case is not blocked.
-                    if ((state.players as string[]).includes(value.trim())) {
-                      window.alert(`"${value.trim()}" is already registered — pick a different name.`);
-                      return;
-                    }
-                    applySwap(
-                      state,
-                      app.updateState,
-                      (current) => swapIndividual(current, name, value),
-                      name,
-                    );
-                  }}
-                >
-                  ⇄
-                </Button>
-                <Button
-                  size='sm'
-                  title='Remove'
-                  onClick={() => {
-                    if (window.confirm(`Remove "${name}" from the tournament? This cannot be undone.`))
-                      app.updateState((current) => removeRosterUnit(current, name));
-                  }}
-                >
-                  ✕
-                </Button>
-              </span>
-            </div>
+              {name}
+            </ToolRow>
           ))}
         </div>
-      </Panel>
+      </ToolPanel>
     );
   }
   const teams = state.players as TournamentTeam[];
   return (
-    <Panel>
-      <PanelTitle hint='— rename/remove teams and manage members'>Manage Teams</PanelTitle>
-      <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2'>
+    <ToolPanel className='flex-[2_1_520px]' note={swapsOpen ? null : SWAPS_CLOSED_TITLE} title='Manage teams'>
+      <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5 p-3'>
         {[...teams]
           .sort((a, b) => a.teamName.localeCompare(b.teamName))
           .map((team) => {
@@ -256,6 +282,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                   <strong>{team.teamName}</strong>
                   <span className='flex gap-1'>
                     <Button
+                      aria-label={`Rename team ${team.teamName}`}
+                      className='w-8.5 px-0'
                       size='sm'
                       title='Rename team'
                       onClick={() => {
@@ -278,6 +306,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       ✎
                     </Button>
                     <Button
+                      aria-label={`Swap team ${team.teamName}`}
+                      className='w-8.5 px-0'
                       size='sm'
                       disabled={!swapsOpen}
                       title={swapTitle('Swap team')}
@@ -339,8 +369,11 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       ⇄
                     </Button>
                     <Button
+                      aria-label={`Remove team ${team.teamName}`}
+                      className='w-8.5 px-0'
                       size='sm'
                       title='Remove team'
+                      variant='danger'
                       onClick={() => {
                         if (
                           state.gamemodeConfig.oddCountStrategy === 'none' &&
@@ -437,6 +470,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
                         defender !== memberIndex ? (
                           <Button
+                            aria-label={`Make ${member.name} defender`}
+                            className='w-8.5 px-0'
                             size='sm'
                             title='Make defender'
                             onClick={() =>
@@ -447,6 +482,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           </Button>
                         ) : null}
                         <Button
+                          aria-label={`Rename ${member.name}`}
+                          className='w-8.5 px-0'
                           size='sm'
                           title='Rename member'
                           onClick={() => {
@@ -465,8 +502,11 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           ✎
                         </Button>
                         <Button
+                          aria-label={`Remove ${member.name}`}
+                          className='w-8.5 px-0'
                           size='sm'
                           title='Remove member'
+                          variant='danger'
                           onClick={() => {
                             if (
                               window.confirm(
@@ -493,6 +533,6 @@ export function ManageRoster({ state }: { state: TournamentState }) {
             );
           })}
       </div>
-    </Panel>
+    </ToolPanel>
   );
 }
