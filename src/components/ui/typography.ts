@@ -14,7 +14,7 @@ export const viewLabelClassName =
 export const columnTitleClassName = 'text-[19px] leading-tight font-extrabold tracking-[0.02em] uppercase';
 
 /** A room's header in the game look ("ROOM A", "SEMI B"). */
-export const roomHeaderClassName = 'text-base font-extrabold tracking-[0.04em] uppercase';
+export const roomHeaderClassName = 'text-base font-semibold tracking-[0.04em] uppercase';
 
 /** A small section label inside a middle-look panel ("TOURNAMENT", "ROSTER"). */
 export const panelLabelClassName = 'text-[11px] font-extrabold tracking-[0.1em] text-muted uppercase';

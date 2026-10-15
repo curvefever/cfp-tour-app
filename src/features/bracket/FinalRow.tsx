@@ -115,9 +115,9 @@ export function FinalRow(props: FinalRowProps) {
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2'>
-        <span className='w-4.5 shrink-0 text-sm font-bold text-muted'>{complete ? index + 1 : null}</span>
-        <span className='flex min-w-0 flex-1 flex-col gap-px'>
-          <span className='truncate text-base font-bold'>
+        <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>{complete ? index + 1 : null}</span>
+        <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
+          <span className='truncate text-[15px] font-semibold'>
             {unitDisplay(state, name).label}
             {manual ? <ManualMarker /> : null}
           </span>
@@ -131,7 +131,7 @@ export function FinalRow(props: FinalRowProps) {
           </span>
         ))}
         <span
-          className='w-12 shrink-0 text-right text-[17px] font-extrabold'
+          className='w-12 shrink-0 text-right text-[15px] font-extrabold'
           title={isGrandFinal ? 'Games won' : 'Cumulative Final score'}
         >
           {total}

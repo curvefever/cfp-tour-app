@@ -18,10 +18,10 @@ import { roomTitle } from './room-title';
 /** One slot of a room that is not drawn yet: an empty dashed stripe, and what will fill it (or the unit already known). */
 function SlotRow({ index, known, label }: { index: number; known: boolean; label: string }) {
   return (
-    <div className={cn(bracketRowBase, 'flex min-h-9.5 items-center gap-2', rowSurfaceClasses(index, false))}>
+    <div className={cn(bracketRowBase, 'flex min-h-8 items-center gap-2', rowSurfaceClasses(index, false))}>
       <span className='w-4.5 shrink-0' />
       <ResultStripe result='undecided' />
-      <span className={cn('min-w-0 truncate', known ? 'text-base font-bold' : 'text-sm text-muted')}>
+      <span className={cn('min-w-0 truncate', known ? 'text-[15px] font-semibold' : 'text-sm text-muted')}>
         {label}
       </span>
     </div>

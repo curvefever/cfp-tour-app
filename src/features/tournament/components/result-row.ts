@@ -5,7 +5,7 @@ import { cn } from '../../../components/ui';
 export const bracketRowBase = 'px-3 py-1 text-xs';
 
 /** A row of a Bracket card: at least the row height, its content centred vertically (score inputs below the line stack as before). */
-export const roomRowClass = cn(bracketRowBase, 'flex min-h-9.5 flex-col justify-center');
+export const roomRowClass = cn(bracketRowBase, 'flex min-h-8 flex-col justify-center');
 
 export type RowResult =
   | 'advance'

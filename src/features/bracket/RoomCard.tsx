@@ -16,7 +16,7 @@ import { roomTitle } from './room-title';
 /** The small header of a pooling room that shows points: SCORE and PTS. */
 function PointsHeader() {
   return (
-    <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
+    <div className='flex h-5 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
       <span className='w-4.5 shrink-0' />
       <span className='flex-1' />
       <span className='w-11.5 shrink-0 text-right'>SCORE</span>
@@ -55,7 +55,7 @@ export function RoomFrame({
     <div className='relative rounded-xs bg-surface outline-2 outline-cfp-game-frame'>
       <div
         className={cn(
-          'flex h-9.5 items-center pr-1.5 pl-3',
+          'flex h-8.5 items-center pr-1.5 pl-3',
           future ? 'bg-cfp-game-fold text-foreground' : 'bg-primary text-on-primary',
         )}
       >

@@ -17,7 +17,7 @@ export function Stripe({
   tone,
 }: {
   className?: string;
-  /** The shorter stripe of the standings column. */
+  /** The shorter stripe of room cards and the standings column. */
   compact?: boolean;
   tone: StripeTone;
 }) {

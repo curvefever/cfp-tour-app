@@ -54,7 +54,7 @@ export function RoundColumn({
   return (
     <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
       <ColumnTitleBar gameCount={gameCount} now={current} onToggle={onToggle} title={label} />
-      <div className='flex flex-col gap-4.5'>{children}</div>
+      <div className='flex flex-col gap-5.5'>{children}</div>
     </div>
   );
 }
@@ -95,7 +95,7 @@ function WaveBoxBody({
   const hasLosers = box.losersRoundIndices.length > 0;
   return (
     <>
-      <div className='flex flex-col gap-4.5'>
+      <div className='flex flex-col gap-5.5'>
         {hasLosers ? <WaveLabel>Winners bracket</WaveLabel> : null}
         <RoundBody
           state={state}
@@ -107,10 +107,10 @@ function WaveBoxBody({
         />
       </div>
       {hasLosers ? (
-        <div className='flex flex-col gap-4.5'>
+        <div className='flex flex-col gap-5.5'>
           <WaveLabel>Losers bracket</WaveLabel>
           {box.losersRoundIndices.map((roundIndex) => (
-            <div className='flex flex-col gap-4.5' key={roundIndex}>
+            <div className='flex flex-col gap-5.5' key={roundIndex}>
               {box.losersRoundIndices.length > 1 ? (
                 <div className='text-xs font-bold text-muted'>Round {state.rounds[roundIndex]?.roundNum}</div>
               ) : null}
@@ -245,7 +245,7 @@ export function BracketRounds({
   return (
     <div>
       <div
-        className={cn('flex max-w-full items-start gap-3.5 overflow-x-auto pb-3', hiddenScrollbarClass)}
+        className={cn('flex max-w-full items-start gap-7 overflow-x-auto pb-3', hiddenScrollbarClass)}
         id='br-rounds'
         ref={strip}
       >

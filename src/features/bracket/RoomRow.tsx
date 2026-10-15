@@ -30,8 +30,8 @@ function RowLine({
 }) {
   return (
     <div className='flex items-center gap-2'>
-      <span className='w-4.5 shrink-0 text-sm font-bold text-muted'>{place}</span>
-      <ResultStripe result={result} />
+      <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>{place}</span>
+      <ResultStripe compact result={result} />
       {children}
     </div>
   );
@@ -55,7 +55,7 @@ function NameWithMarks({
 }) {
   return (
     <span className='flex min-w-0 items-center gap-1.5'>
-      <span className='truncate text-base font-bold' title={title}>
+      <span className='truncate text-[15px] font-semibold' title={title}>
         {children}
       </span>
       {star ? <LuckyStar candidate={star === 'candidate'} /> : null}
@@ -89,7 +89,7 @@ export function LoneUnitRow({
     <div className={cn(roomRowClass, rowSurfaceClasses(0, followed))}>
       <RowLine place={null} result=''>
         <span className='flex min-w-0 flex-1 flex-col'>
-          <span className='truncate text-base font-bold' title={label}>
+          <span className='truncate text-[15px] font-semibold' title={label}>
             {label}
           </span>
           <span className='text-sm text-muted'>No opponent — treated as a bye, no score needed</span>
@@ -188,7 +188,7 @@ export function RoomRow(props: RoomRowProps) {
   const scoreText = showResults ? (
     <span
       className={cn(
-        'ml-auto flex shrink-0 items-center justify-end text-[17px] font-extrabold',
+        'ml-auto flex shrink-0 items-center justify-end text-[15px] font-extrabold',
         pointsColumn && 'w-11.5',
       )}
     >
@@ -202,7 +202,7 @@ export function RoomRow(props: RoomRowProps) {
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <RowLine place={showResults ? index + 1 : null} result={result}>
-        <span className='flex min-w-0 flex-1 flex-col gap-px'>
+        <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
           <NameWithMarks
             manual={manual}
             pendingTie={pendingTie}
@@ -227,7 +227,7 @@ export function RoomRow(props: RoomRowProps) {
           scoreText
         )}
         {pointsColumn ? (
-          <span className='w-9 shrink-0 text-right text-[15px] font-bold text-cfp-sky'>
+          <span className='w-9 shrink-0 text-right text-sm font-bold text-cfp-sky'>
             {props.points === null || props.points === undefined ? null : `+${props.points}`}
           </span>
         ) : null}

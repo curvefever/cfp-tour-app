@@ -34,13 +34,13 @@ export function AnonymousFinalCard({
   const anonymousGames = round.anonymousGames ?? [];
   return (
     <div className='w-82.5 min-w-82.5 shrink-0 rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame'>
-      <div className='flex h-9.5 items-center bg-cfp-game-fold pl-3 text-base font-extrabold tracking-[0.04em] uppercase'>
+      <div className='flex h-8.5 items-center bg-cfp-game-fold pl-3 text-base font-semibold tracking-[0.04em] uppercase'>
         🎭 Anonymous matches
       </div>
       {progress.map((entry, index) => (
         <div className={cn(roomRowClass, rowSurfaceClasses(index, false))} key={entry.alias}>
           <div className='flex items-center gap-2'>
-            <span className='min-w-0 flex-1 truncate text-base font-bold'>
+            <span className='min-w-0 flex-1 truncate text-[15px] font-semibold'>
               {entry.connected && entry.realKey
                 ? `${entry.alias} → ${unitDisplay(state, entry.realKey).label}`
                 : entry.alias}
