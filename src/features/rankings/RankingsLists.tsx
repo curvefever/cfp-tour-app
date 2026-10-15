@@ -6,6 +6,7 @@ import { cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { rowSurfaceClasses, type RowResult } from '../tournament/components/result-row';
+import { naturalByLabel } from './ranking-order';
 import { stillInResults } from './ranking-results';
 import { eliminatedWhere, finalistWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
 
@@ -108,7 +109,7 @@ function eliminatedRows(state: TournamentState, data: Rankings): ListRow[] {
 function stillInRows(state: TournamentState, data: Rankings): ListRow[] {
   const labels = bracketRoundLabels(state);
   const results = stillInResults(state, data.lastRi, data.stillActive);
-  return data.stillActive.map((unit) => ({
+  return naturalByLabel(data.stillActive).map((unit) => ({
     key: unit.name,
     rank: '',
     result: results.get(unit.name) ?? '',

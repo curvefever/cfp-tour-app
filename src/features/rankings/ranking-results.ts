@@ -1,19 +1,10 @@
-import { getAllTies, isTieResolved } from '../../domain/tournament/advancement';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import type { ActiveRanking } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { placeInRoom } from '../bracket/folded-round';
+import { luckyLoserNames, pendingTieNames } from '../bracket/room-row-inputs';
 import { roomRowResult } from '../bracket/room-row-result';
 import type { RowResult } from '../tournament/components/result-row';
-
-/** Names in a tie of the round that the organiser has not resolved yet. */
-function pendingTieNames(state: TournamentState, roundIndex: number): Set<string> {
-  return new Set(
-    Object.entries(getAllTies(state, roundIndex))
-      .filter(([key, tie]) => !isTieResolved(key, tie, state))
-      .flatMap(([, tie]) => tie.players.map((entry) => entry.name)),
-  );
-}
 
 /**
  * The stripe of every unit still in, as its row in the Bracket would draw it in the last drawn round: green once
@@ -27,8 +18,7 @@ export function stillInResults(
   active: ActiveRanking[],
 ): Map<string, RowResult> {
   const rule = roundExitRule(state, lastRoundIndex);
-  const round = state.rounds[lastRoundIndex];
-  const luckyNames = state.luckyLosers[round.winnersTo ?? lastRoundIndex + 1] ?? [];
+  const luckyNames = luckyLoserNames(state, lastRoundIndex);
   const pending = pendingTieNames(state, lastRoundIndex);
   const results = new Map<string, RowResult>();
   for (const entry of active) {

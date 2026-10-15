@@ -1,4 +1,4 @@
-import { detectTieBreaks, getAllTies, isTieResolved } from '../../domain/tournament/advancement';
+import { detectTieBreaks } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
@@ -9,6 +9,7 @@ import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
+import { luckyLoserNames, pendingTieNames } from './room-row-inputs';
 import { LuckyLoserStandingsPanel } from './RoundNotes';
 
 function tieResolutionListSafe(state: TournamentState, key: string): string[] {
@@ -70,18 +71,14 @@ export function RoundBody({
   const points = countsForPoints ? roomPoints(describeStandings(state), roundIndex) : null;
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && roundIndex === state.curRound;
-  const luckyNames = state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
+  const luckyNames = luckyLoserNames(state, roundIndex);
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
     Object.entries(roomTies)
       .filter(([key]) => tieResolutionListSafe(state, key).length > 0)
       .flatMap(([, tie]) => tie.players.map((entry) => entry.name)),
   );
-  const pendingTieNames = new Set(
-    Object.entries(getAllTies(state, roundIndex))
-      .filter(([key, tie]) => !isTieResolved(key, tie, state))
-      .flatMap(([, tie]) => tie.players.map((entry) => entry.name)),
-  );
+  const pendingTies = pendingTieNames(state, roundIndex);
   return (
     <>
       {round.rooms.map((_, roomIndex) => (
@@ -91,7 +88,7 @@ export function RoundBody({
           key={roomIndex}
           labels={labels}
           luckyNames={luckyNames}
-          pendingTieNames={pendingTieNames}
+          pendingTieNames={pendingTies}
           resolvedTieNames={resolvedTieNames}
           roomIndex={roomIndex}
           roundIndex={roundIndex}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderedQualificationTable } from '../../domain/tournament/advancement';
+import { getAllTies, orderedQualificationTable } from '../../domain/tournament/advancement';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import {
   buildQualWaterfall,
@@ -75,5 +75,34 @@ describe('the stripe of a unit waiting in a waterfall', () => {
     const results = resultsOf(next.state);
     for (const name of order.slice(16, 24)) expect(results.get(name)).toBe('advance');
     for (const name of order.slice(0, 16)) expect(results.get(name)).toBe('undecided');
+  });
+});
+
+describe('the stripe of units in an unresolved tie', () => {
+  /** Round 4 of 37 players with every room scored, and room 1's 6th and 7th placed units on the same score. */
+  function tiedAtTheEdge() {
+    let state = qualTournament(37);
+    while (state.rounds[state.curRound].isQual) state = advance(state);
+    const scored = { ...state, scores: scoreCurrentRound(state, 0).scores };
+    const ri = scored.curRound;
+    const seats = (scored.assignments[ri] ?? [])
+      .filter((entry) => entry.room === 1)
+      .map((entry, position) => ({ entry, key: `r${ri}-rm1-p${position}` }));
+    const ordered = [...seats].sort((a, b) => (scored.scores[b.key] ?? 0) - (scored.scores[a.key] ?? 0));
+    const tied = { ...scored, scores: { ...scored.scores, [ordered[6].key]: scored.scores[ordered[5].key] } };
+    return { state: tied, names: [ordered[5].entry.name, ordered[6].entry.name], ri };
+  }
+
+  it('reads pending for the tied units until the organiser resolves it, then their normal result', () => {
+    const { state, names, ri } = tiedAtTheEdge();
+    const tie = Object.entries(getAllTies(state, ri));
+    expect(tie).toHaveLength(1);
+    const before = resultsOf(state);
+    expect(names.map((name) => before.get(name))).toEqual(['pending', 'pending']);
+    const [key] = tie[0];
+    const resolved = { ...state, tieResolutions: { ...state.tieResolutions, [key]: [names[0]] } };
+    const after = resultsOf(resolved);
+    expect(names.map((name) => after.get(name))).not.toContain('pending');
+    expect(after.get(names[0])).toBe('advance');
   });
 });
