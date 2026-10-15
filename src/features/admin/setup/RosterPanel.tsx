@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getGameFormat, unitLabelPluralLower } from '../../../domain/tournament/formats';
+import { getGameFormat } from '../../../domain/tournament/formats';
 import { resetRoster } from '../../../domain/tournament/mutations';
 import {
   findDuplicateDisplayNames,
@@ -7,11 +7,18 @@ import {
   parseMemberLine,
   parseTeamLines,
 } from '../../../domain/tournament/roster';
-import { Button, ButtonRow, FieldDisplay, PanelTitle, Panel, Textarea } from '../../../components/ui';
-import { EditingTag } from '../../presence/EditingTag';
+import type { TournamentState } from '../../../domain/tournament/types';
+import { Button, ButtonRow, SectionPanel, Textarea } from '../../../components/ui';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { useSetupChange } from './useSetupChange';
+
+/** The header count of the roster: "37 players · 2 reserves", or a nudge while none is loaded. */
+function rosterCount(state: TournamentState, unit: string): string {
+  if (state.confirmedCount === null) return 'No roster loaded yet';
+  const reserves = state.reserves.length;
+  return `${state.confirmedCount} ${unit}${reserves ? ` · ${reserves} reserve${reserves === 1 ? '' : 's'}` : ''}`;
+}
 
 /** The roster, reserves and individual reserves as typed, and the buttons that load or clear them. */
 export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
@@ -20,6 +27,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   const [status, setStatus] = useState('');
   const format = getGameFormat(setup.gameFormat);
   const teamSize = format?.teamSize;
+  const unit = teamSize ? 'teams' : 'players';
 
   function loadRoster() {
     if (!format) return;
@@ -83,54 +91,46 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   }
 
   return (
-    <Panel>
-      <PresenceField htmlFor='cfg-n-display' label={`Registered ${unitLabelPluralLower(setup.gameFormat)}`}>
-        <FieldDisplay id='cfg-n-display'>
-          {state.confirmedCount ?? '—'}
-          {state.reserves.length ? ` (+ ${state.reserves.length} reserves)` : ''}
-        </FieldDisplay>
+    <SectionPanel hint={rosterCount(state, unit)} title='ROSTER'>
+      <PresenceField className='mb-0' htmlFor='cfg-roster' label={`Roster — confirmed ${unit}, one per line`}>
+        <Textarea
+          id='cfg-roster'
+          className='min-h-40'
+          value={setup.roster}
+          onChange={(e) => change('roster', e.target.value)}
+          placeholder={
+            teamSize
+              ? `Team Rocket, ${Array.from({ length: teamSize }, (_, i) => `Player${i + 1}`).join(', ')}`
+              : 'Harald\nLagtop\nArisu\n...'
+          }
+        />
       </PresenceField>
-      <PanelTitle hint={<>— confirmed {teamSize ? 'teams' : 'players'}, one per line</>}>
-        Roster
-        <EditingTag field='roster' />
-      </PanelTitle>
-      <Textarea
-        id='cfg-roster'
-        value={setup.roster}
-        onChange={(e) => change('roster', e.target.value)}
-        placeholder={
-          teamSize
-            ? `Team Rocket, ${Array.from({ length: teamSize }, (_, i) => `Player${i + 1}`).join(', ')}`
-            : 'Harald\nLagtop\nArisu\n...'
-        }
-      />
-      <PanelTitle className='mt-4' hint='— one per line'>
-        Reserves
-        <EditingTag field='reserves' />
-      </PanelTitle>
-      <Textarea
-        id='cfg-reserves'
-        className='min-h-15'
-        value={setup.reserves}
-        onChange={(e) => change('reserves', e.target.value)}
-      />
+      <PresenceField className='mb-0' htmlFor='cfg-reserves' label='Reserves — one per line'>
+        <Textarea
+          id='cfg-reserves'
+          className='min-h-15'
+          value={setup.reserves}
+          onChange={(e) => change('reserves', e.target.value)}
+        />
+      </PresenceField>
       {teamSize ? (
-        <>
-          <PanelTitle className='mt-4' hint='— substitutes for one member'>
-            Individual reserves
-            <EditingTag field='reserveIndividuals' />
-          </PanelTitle>
+        <PresenceField
+          className='mb-0'
+          htmlFor='cfg-reserve-individuals'
+          label='Individual reserves — substitutes for one member'
+        >
           <Textarea
             id='cfg-reserve-individuals'
             className='min-h-15'
             value={setup.reserveIndividuals}
             onChange={(e) => change('reserveIndividuals', e.target.value)}
           />
-        </>
+        </PresenceField>
       ) : null}
       <ButtonRow>
         <Button onClick={loadRoster}>Load roster & reserves</Button>
         <Button
+          variant='danger'
           disabled={!state.players.length && !state.reserves.length}
           onClick={() => {
             if (
@@ -145,6 +145,6 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         </Button>
         <span className='self-center text-xs text-muted'>{status}</span>
       </ButtonRow>
-    </Panel>
+    </SectionPanel>
   );
 }
