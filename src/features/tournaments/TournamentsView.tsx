@@ -123,7 +123,7 @@ export function TournamentsView({ onLogIn }: { onLogIn: () => void }) {
     <>
       <PageHeading title='Tournaments' />
       {ready ? (
-        <div className='flex flex-col gap-6.5 pb-10'>
+        <div className='flex flex-col gap-6.5'>
           <Section
             title='Ongoing'
             emptyText={EMPTY_SECTION_TEXTS.ongoing}
@@ -150,7 +150,7 @@ export function TournamentsView({ onLogIn }: { onLogIn: () => void }) {
       )}
       {app.unlocked ? null : (
         <button
-          className='fixed right-5 bottom-4.5 cursor-pointer text-sm font-bold text-muted hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary max-[700px]:static max-[700px]:mt-8 max-[700px]:block'
+          className='mt-8 ml-auto block cursor-pointer text-sm font-bold text-muted hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           onClick={onLogIn}
         >
           Log in as admin
