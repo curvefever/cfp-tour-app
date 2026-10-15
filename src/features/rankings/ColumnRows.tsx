@@ -1,4 +1,5 @@
 import { cn } from '../../components/ui';
+import { joinMembers } from '../tournament/components/member-line';
 import { rowSurfaceClasses } from '../tournament/components/result-row';
 
 /** One line of a list that flows down three columns: a number, a name (with its members) and, optionally, a note. */
@@ -38,9 +39,9 @@ export function ColumnRows({
             {row.number}
           </span>
           <span className='flex min-w-0 flex-1 flex-col'>
-            <span className='truncate text-base font-bold'>{row.label}</span>
+            <span className='wrap-break-word text-base font-bold'>{row.label}</span>
             {row.members?.length ? (
-              <span className='truncate text-[13px] text-muted'>{row.members.join(' · ')}</span>
+              <span className='wrap-break-word text-[13px] text-muted'>{joinMembers(row.members)}</span>
             ) : null}
           </span>
           {row.note ? <span className='shrink-0 text-sm text-muted'>{row.note}</span> : null}

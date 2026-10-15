@@ -29,7 +29,9 @@ export function LuckyLoserStandingsPanel({
       {standings.map((entry, index) => (
         <div className='flex items-center gap-2 text-[15px]' key={entry.name}>
           <span className='w-4 shrink-0 font-bold text-muted'>{index + 1}</span>
-          <span className='min-w-0 flex-1 truncate font-bold'>{unitDisplay(state, entry.name).label}</span>
+          <span className='min-w-0 flex-1 wrap-break-word font-bold'>
+            {unitDisplay(state, entry.name).label}
+          </span>
           <span className='shrink-0 text-muted'>Room {roomLetter(entry.room)}</span>
           <span className='w-11 shrink-0 text-right font-extrabold'>{formatTieBreak(entry.share)}</span>
         </div>

@@ -18,20 +18,35 @@ import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
 
+/**
+ * How a row's stripe sits: fixed beside a score input, or growing with the text. The margin leaves the usual 18 px
+ * beside one 20 px line, or beside a team name and its member line (20 + 2 + 20 px); wrapped lines lengthen it.
+ */
+type StripeFit = 'fixed' | 'line' | 'member-line';
+
+const STRIPE_MARGIN: Record<Exclude<StripeFit, 'fixed'>, string> = { line: 'my-px', 'member-line': 'my-3' };
+
 /** One row of a room card: place, result stripe, name with its marks, and the score (or the score inputs). */
 function RowLine({
   children,
   place,
   result,
+  stripe = 'line',
 }: {
   children: ReactNode;
   place: number | null;
   result: RowResult;
+  stripe?: StripeFit;
 }) {
   return (
     <div className='flex items-center gap-2'>
       <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>{place}</span>
-      <ResultStripe compact result={result} />
+      <ResultStripe
+        className={stripe === 'fixed' ? undefined : STRIPE_MARGIN[stripe]}
+        compact
+        result={result}
+        stretch={stripe !== 'fixed'}
+      />
       {children}
     </div>
   );
@@ -44,20 +59,16 @@ function NameWithMarks({
   pendingTie,
   resolvedTie,
   star,
-  title,
 }: {
   children: ReactNode;
   manual: boolean;
   pendingTie: boolean;
   resolvedTie: boolean;
   star: 'lucky' | 'candidate' | null;
-  title?: string;
 }) {
   return (
     <span className='flex min-w-0 items-center gap-1.5'>
-      <span className='truncate text-[15px] font-semibold' title={title}>
-        {children}
-      </span>
+      <span className='min-w-0 wrap-break-word text-[15px] font-semibold'>{children}</span>
       {star ? <LuckyStar candidate={star === 'candidate'} /> : null}
       {manual ? <ManualMarker /> : null}
       {resolvedTie ? (
@@ -89,9 +100,7 @@ export function LoneUnitRow({
     <div className={cn(roomRowClass, rowSurfaceClasses(0, followed))}>
       <RowLine place={null} result=''>
         <span className='flex min-w-0 flex-1 flex-col'>
-          <span className='truncate text-[15px] font-semibold' title={label}>
-            {label}
-          </span>
+          <span className='wrap-break-word text-[15px] font-semibold'>{label}</span>
           <span className='text-sm text-muted'>No opponent — treated as a bye, no score needed</span>
         </span>
       </RowLine>
@@ -199,20 +208,24 @@ export function RoomRow(props: RoomRowProps) {
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
+  const memberLine = Boolean(teamSize) && !inputsPerTeam;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
-      <RowLine place={showResults ? index + 1 : null} result={result}>
+      <RowLine
+        place={showResults ? index + 1 : null}
+        result={result}
+        stripe={inlineInput ? 'fixed' : memberLine ? 'member-line' : 'line'}
+      >
         <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
           <NameWithMarks
             manual={manual}
             pendingTie={pendingTie}
             resolvedTie={showResults && resolvedTie}
             star={star}
-            title={teamSize ? undefined : name}
           >
             {label}
           </NameWithMarks>
-          {teamSize && !inputsPerTeam ? (
+          {memberLine ? (
             <TeamMembers
               name={name}
               roundIndex={roundIndex}

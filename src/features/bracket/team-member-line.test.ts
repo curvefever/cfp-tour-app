@@ -3,7 +3,13 @@ import { generateTournament } from '../../domain/tournament/generation';
 import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
+import { NO_BREAK_SPACE } from '../tournament/components/member-line';
 import { teamMemberLine } from './team-member-line';
+
+/** The line with each no-break space shown as "_": a line may wrap only at the plain spaces left. */
+function shown(line: string): string {
+  return line.replaceAll(NO_BREAK_SPACE, '_');
+}
 
 function teams(count: number): TournamentTeam[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -44,27 +50,36 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
   it('joins the members with " · " and shows names only before the room is complete', () => {
     const { state, name } = scoredFirstSeat(start('sum-members'));
     const line = teamMemberLine(state, name, 0);
-    expect(line).toMatch(/^Ana\d+ · Ben\d+$/);
+    expect(shown(line)).toMatch(/^Ana\d+_· Ben\d+$/);
   });
 
   it("adds each member's own score after the name once the room is complete (sum of members)", () => {
     const { state, name } = scoredFirstSeat(start('sum-members'));
     const number = name.replace('t', '');
-    expect(teamMemberLine(state, name, 0, { room: 1, position: 0 })).toBe(
-      `Ana${number} 23 · Ben${number} 18`,
+    expect(shown(teamMemberLine(state, name, 0, { room: 1, position: 0 }))).toBe(
+      `Ana${number}_23_· Ben${number}_18`,
     );
+  });
+
+  it('wraps only after a " · ": a member never parts from their score', () => {
+    const { state, name } = scoredFirstSeat(start('sum-members'));
+    const number = name.replace('t', '');
+    const line = teamMemberLine(state, name, 0, { room: 1, position: 0 });
+    expect(shown(line).split(' ')).toEqual([`Ana${number}_23_·`, `Ben${number}_18`]);
   });
 
   it('keeps the shield on the designated defender under Save your Buddy, with the scores', () => {
     const { state, name } = scoredFirstSeat(start('designated-player'));
     const line = teamMemberLine(state, name, 0, { room: 1, position: 0 });
-    expect(line).toMatch(/^Ana\d+ 23 · Ben\d+ 18$|^Ana\d+ 🛡 23 · Ben\d+ 18$|^Ana\d+ 23 · Ben\d+ 🛡 18$/);
+    expect(shown(line)).toMatch(
+      /^Ana\d+_23_· Ben\d+_18$|^Ana\d+_🛡_23_· Ben\d+_18$|^Ana\d+_23_· Ben\d+_🛡_18$/,
+    );
     expect(line.match(/🛡/g)).toHaveLength(1);
   });
 
   it('shows names only under Survival Teams (one score per team), even when the room is complete', () => {
     const { state, name } = scoredFirstSeat(start('survival-teams'));
-    expect(teamMemberLine(state, name, 0, { room: 1, position: 0 })).toMatch(/^Ana\d+ · Ben\d+$/);
+    expect(shown(teamMemberLine(state, name, 0, { room: 1, position: 0 }))).toMatch(/^Ana\d+_· Ben\d+$/);
   });
 
   it("sums a member's scores over the games of a multi-game round", () => {
@@ -81,8 +96,8 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
       },
     };
     const number = name.replace('t', '');
-    expect(teamMemberLine(twoGames, name, 0, { room: 1, position: 0 })).toBe(
-      `Ana${number} 23 · Ben${number} 18`,
+    expect(shown(teamMemberLine(twoGames, name, 0, { room: 1, position: 0 }))).toBe(
+      `Ana${number}_23_· Ben${number}_18`,
     );
   });
 

@@ -23,7 +23,7 @@ export function TeamMembers({
 }) {
   const line = teamMemberLine(state, name, roundIndex, seat ?? null);
   if (!line) return null;
-  return <span className='block truncate text-sm text-muted'>{line}</span>;
+  return <span className='block wrap-break-word text-sm text-muted'>{line}</span>;
 }
 
 export function BracketScoreInput({

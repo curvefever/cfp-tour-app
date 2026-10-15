@@ -20,8 +20,10 @@ function SlotRow({ index, known, label }: { index: number; known: boolean; label
   return (
     <div className={cn(bracketRowBase, 'flex min-h-8 items-center gap-2', rowSurfaceClasses(index, false))}>
       <span className='w-4.5 shrink-0' />
-      <ResultStripe result='undecided' />
-      <span className={cn('min-w-0 truncate', known ? 'text-[15px] font-semibold' : 'text-sm text-muted')}>
+      <ResultStripe className='my-px' compact result='undecided' stretch />
+      <span
+        className={cn('min-w-0 wrap-break-word', known ? 'text-[15px] font-semibold' : 'text-sm text-muted')}
+      >
         {label}
       </span>
     </div>

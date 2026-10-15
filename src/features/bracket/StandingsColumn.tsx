@@ -8,6 +8,7 @@ import {
 } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
+import { joinMembers } from '../tournament/components/member-line';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import {
   bracketRowBase,
@@ -56,14 +57,19 @@ function StandingsRows({
               <span className='w-6 shrink-0 text-right text-sm font-bold text-muted tabular-nums'>
                 {entry.rank ?? '—'}
               </span>
+              {/* Its margin leaves 18 px beside one 20 px line, or beside a name and member line (20 + 18 px). */}
               <ResultStripe
+                className={info.members?.length ? 'my-2.5' : 'my-px'}
                 compact
                 result={standingsRowResult(index, table, display.phase, entry.rank !== null)}
+                stretch
               />
               <span className='flex min-w-0 flex-1 flex-col'>
-                <span className='truncate text-[15px] font-bold'>{info.label}</span>
+                <span className='wrap-break-word text-[15px] font-bold'>{info.label}</span>
                 {info.members?.length ? (
-                  <span className='truncate text-[13px] text-muted'>{info.members.join(' · ')}</span>
+                  <span className='wrap-break-word text-[13px] leading-4.5 text-muted'>
+                    {joinMembers(info.members)}
+                  </span>
                 ) : null}
               </span>
               <span className='shrink-0 text-[15px] font-extrabold tabular-nums'>

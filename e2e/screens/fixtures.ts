@@ -200,11 +200,53 @@ function teams(count: number, teamSize: number): TournamentTeam[] {
   }));
 }
 
-function generate(count: number, setup: SetupOverrides, teamSize = 0): TournamentState {
+/** Long names, to check that rows wrap instead of cutting names off (players by roster index). */
+const LONG_PLAYER_NAMES: Record<number, string> = {
+  2: 'Xx_TheUnstoppableCurveMaster_xX',
+  7: 'Kurvenkönig von Wolfsburg',
+  13: 'AnExtremelyLongNameWithoutAnySpacesAtAll',
+  20: 'Sir Wiggles the Third of Curveshire',
+  29: 'Mellow Yellow Submarine',
+};
+
+function longNamedIndividuals(count: number): string[] {
+  return individuals(count).map((name, index) => LONG_PLAYER_NAMES[index] ?? name);
+}
+
+const LONG_TEAMS: Array<[string, string[]]> = [
+  ['Gap Hunters International', ['Sideswipe', 'Mellow Yellow', 'Kurvenkönig']],
+  ['Night Owls Esports', ['Vortex_Kid', 'Mellowdrama', 'NoBrakesJustCurves']],
+  ['The Unbreakable Wall of Curves', ['Wigglemaster_99', 'Ace of Curves', 'Pinkman']],
+  ['Owls', ['Ace', 'Bo', 'Cy']],
+  ['Holes in One', ['Ace of Spades', 'Wiggles', 'Pink']],
+  ['Curve Crusaders', ['Pinkman_the_Great', 'Zigzagger', 'Sloth']],
+  ['TheLongestTeamNameWithoutAnySpaces', ['Xx_CurveLord_xX', 'Drift', 'Nova']],
+  ['Last Line', ['Slothy', 'Rook', 'Kite']],
+  ['Slithering Snakes of Doom', ['Basilisk', 'Cobra Commander', 'Viper']],
+  ['Team 10', ['Tm10a', 'Tm10b', 'Tm10c']],
+  ['Drift Kings', ['Mario Kurvenstein', 'Luigi', 'Peach']],
+  ['Zig & Zag', ['Zig', 'Zag', 'Zog']],
+  ['Midnight Curve Collective', ['Moonwalker', 'Starlight Express', 'Comet']],
+];
+
+function longNamedTeams(): TournamentTeam[] {
+  return LONG_TEAMS.map(([teamName, members], index) => ({
+    teamId: `t${index + 1}`,
+    teamName,
+    members: members.map((name) => ({ name })),
+  }));
+}
+
+function generate(
+  count: number,
+  setup: SetupOverrides,
+  teamSize = 0,
+  players: string[] | TournamentTeam[] = teamSize ? teams(count, teamSize) : individuals(count),
+): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({
       confirmedCount: count,
-      players: teamSize ? teams(count, teamSize) : individuals(count),
+      players,
       title: 'Fixture Cup',
     }),
     createDefaultSetup(setup),
@@ -224,13 +266,18 @@ function ffaPooling(count: number): TournamentState {
   return scoreCurrentRound(atLastQual, { seed: 9, rooms: [1, 2] });
 }
 
-function ffa37Like(count: number, overrides: SetupOverrides = {}): TournamentState {
-  return generate(count, {
-    poolingPhase: 'qual-table',
-    qualAdv: '24',
-    scheduleLogic: 'single-elimination',
-    ...overrides,
-  });
+function ffa37Like(count: number, overrides: SetupOverrides = {}, players?: string[]): TournamentState {
+  return generate(
+    count,
+    {
+      poolingPhase: 'qual-table',
+      qualAdv: '24',
+      scheduleLogic: 'single-elimination',
+      ...overrides,
+    },
+    0,
+    players,
+  );
 }
 
 /** A qualification table whose later rounds are published up front: future cards show their unit names. */
@@ -252,8 +299,8 @@ function groupStage(): TournamentState {
   return scoreCurrentRound(start, { seed: 12, rooms: [1, 2] });
 }
 
-function ffaQuarters(count: number): TournamentState {
-  const first = playUntil(ffa37Like(count), (round) => isFirstLuckyRound(round), 1);
+function ffaQuarters(count: number, players?: string[]): TournamentState {
+  const first = playUntil(ffa37Like(count, {}, players), (round) => isFirstLuckyRound(round), 1);
   return scoreCurrentRound(first, { seed: 5, rooms: [1, 2] });
 }
 
@@ -282,6 +329,37 @@ function teams2v2Start(): TournamentState {
 function teams2v2FinalComplete(): TournamentState {
   return scoreFinal(
     playUntil(teams2v2Start(), (round) => round.isFinal, 1),
+    3,
+  );
+}
+
+/** 13 teams of three with long names, after the qualification table: the first bracket round has one room complete. */
+function teams3LongStart(): TournamentState {
+  return generate(
+    13,
+    {
+      gameFormat: 'team-3v3v3',
+      poolingPhase: 'qual-table',
+      qualAdv: '6',
+      scheduleLogic: 'single-elimination',
+    },
+    3,
+    longNamedTeams(),
+  );
+}
+
+function teams3Long(): TournamentState {
+  const first = playUntil(
+    teams3LongStart(),
+    (round) => isFirstLuckyRound(round) || Boolean(round.isFinal),
+    1,
+  );
+  return scoreCurrentRound(first, { seed: 6, rooms: [1] });
+}
+
+function teams3LongFinished(): TournamentState {
+  return scoreFinal(
+    playUntil(teams3LongStart(), (round) => round.isFinal, 1),
     3,
   );
 }
@@ -415,6 +493,9 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2(), { notesPanel: true }),
     entry('teams2v2-13-finished', teams2v2FinalComplete(), { status: 'finished' }),
+    entry('long-names-ffa37', ffaQuarters(37, longNamedIndividuals(37))),
+    entry('long-names-teams3-13', teams3Long()),
+    entry('long-names-teams3-13-finished', teams3LongFinished(), { status: 'finished' }),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),

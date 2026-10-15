@@ -40,7 +40,7 @@ export function AnonymousFinalCard({
       {progress.map((entry, index) => (
         <div className={cn(roomRowClass, rowSurfaceClasses(index, false))} key={entry.alias}>
           <div className='flex items-center gap-2'>
-            <span className='min-w-0 flex-1 truncate text-[15px] font-semibold'>
+            <span className='min-w-0 flex-1 wrap-break-word text-[15px] font-semibold'>
               {entry.connected && entry.realKey
                 ? `${entry.alias} → ${unitDisplay(state, entry.realKey).label}`
                 : entry.alias}

@@ -10,15 +10,27 @@ const TONE_CLASSES: Record<StripeTone, string> = {
   dashed: 'border border-dashed border-cfp-text-dim',
 };
 
+/** A stripe's height: fixed, or (stretching) at least that height. */
+const STRIPE_HEIGHT = {
+  fixed: { regular: 'h-5.5', compact: 'h-4.5' },
+  stretch: { regular: 'self-stretch min-h-5.5', compact: 'self-stretch min-h-4.5' },
+};
+
 /** A stripe of a given tone: the result stripe of a row, and the colour key of an exit pop-up. */
 export function Stripe({
   className,
   compact = false,
+  stretch = false,
   tone,
 }: {
   className?: string;
   /** The shorter stripe of room cards and the standings column. */
   compact?: boolean;
+  /**
+   * Grow with the row's text: the stripe fills the row's height less its vertical margin (passed in `className`,
+   * chosen so the unwrapped row gets the usual height), so names that wrap lengthen it by the height they add.
+   */
+  stretch?: boolean;
   tone: StripeTone;
 }) {
   return (
@@ -26,7 +38,7 @@ export function Stripe({
       aria-hidden='true'
       className={cn(
         'inline-block w-1 shrink-0 rounded-xs',
-        compact ? 'h-4.5' : 'h-5.5',
+        STRIPE_HEIGHT[stretch ? 'stretch' : 'fixed'][compact ? 'compact' : 'regular'],
         TONE_CLASSES[tone],
         className,
       )}
@@ -38,12 +50,16 @@ export function Stripe({
 export function ResultStripe({
   className,
   compact = false,
+  stretch = false,
   result,
 }: {
   className?: string;
   compact?: boolean;
+  stretch?: boolean;
   result: RowResult;
 }) {
   const tone = stripeTone(result);
-  return tone === null ? null : <Stripe className={className} compact={compact} tone={tone} />;
+  return tone === null ? null : (
+    <Stripe className={className} compact={compact} stretch={stretch} tone={tone} />
+  );
 }

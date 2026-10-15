@@ -117,7 +117,7 @@ export function FinalRow(props: FinalRowProps) {
       <div className='flex items-center gap-2'>
         <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>{complete ? index + 1 : null}</span>
         <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
-          <span className='truncate text-[15px] font-semibold'>
+          <span className='wrap-break-word text-[15px] font-semibold'>
             {unitDisplay(state, name).label}
             {manual ? <ManualMarker /> : null}
           </span>

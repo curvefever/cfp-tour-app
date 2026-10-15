@@ -7,7 +7,7 @@ export function ByeCard({ followed = false, name }: { followed?: boolean; name: 
     <div className='rounded-xs bg-surface outline-2 outline-cfp-game-frame'>
       <div className={cn('flex min-h-8 items-center gap-2 px-3 py-1', rowSurfaceClasses(0, followed))}>
         <Badge tone='warning'>BYE</Badge>
-        <span className='truncate text-[15px] font-semibold'>{name}</span>
+        <span className='min-w-0 wrap-break-word text-[15px] font-semibold'>{name}</span>
       </div>
     </div>
   );

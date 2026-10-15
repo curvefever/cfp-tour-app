@@ -6,6 +6,7 @@ import { cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
 import { ColumnRows } from './ColumnRows';
 import { Podium } from './Podium';
+import { joinMembers } from '../tournament/components/member-line';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { rowSurfaceClasses, type RowResult } from '../tournament/components/result-row';
 import { naturalByLabel } from './ranking-order';
@@ -29,13 +30,14 @@ function RankingRow({ index, row }: { index: number; row: ListRow }) {
   return (
     <li className={cn('flex min-h-10.5 items-center gap-2.5 px-3 py-1', rowSurfaceClasses(index, false))}>
       <span className='w-7.5 shrink-0 text-right text-[15px] font-extrabold text-muted'>{row.rank}</span>
-      <span className='flex w-1 shrink-0'>
-        <ResultStripe result={row.result} />
+      {/* The stripe's margin leaves 22 px beside one 24 px line, or beside a name and member line (24 + 20 px). */}
+      <span className='flex w-1 shrink-0 self-stretch'>
+        <ResultStripe className={row.members?.length ? 'my-2.75' : 'my-px'} result={row.result} stretch />
       </span>
       <span className='flex min-w-0 flex-1 flex-col'>
-        <span className='truncate text-base font-bold'>{row.label}</span>
+        <span className='wrap-break-word text-base font-bold'>{row.label}</span>
         {row.members?.length ? (
-          <span className='truncate text-[13px] text-muted'>{row.members.join(' · ')}</span>
+          <span className='wrap-break-word text-[13px] leading-5 text-muted'>{joinMembers(row.members)}</span>
         ) : null}
       </span>
       <span className='shrink-0 text-sm text-muted'>{row.where}</span>
