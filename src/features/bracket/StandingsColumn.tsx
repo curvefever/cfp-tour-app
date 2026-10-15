@@ -57,20 +57,23 @@ function StandingsRows({
               <span className='w-6 shrink-0 text-right text-sm font-bold text-muted tabular-nums'>
                 {entry.rank ?? '—'}
               </span>
-              {/* Its margin leaves 18 px beside one 20 px line, or beside a name and member line (20 + 18 px). */}
-              <ResultStripe
-                className={info.members?.length ? 'my-2.5' : 'my-px'}
-                compact
-                result={standingsRowResult(index, table, display.phase, entry.rank !== null)}
-                stretch
-              />
-              <span className='flex min-w-0 flex-1 flex-col'>
-                <span className='wrap-break-word text-[15px] font-bold'>{info.label}</span>
-                {info.members?.length ? (
-                  <span className='wrap-break-word text-[13px] leading-4.5 text-muted'>
-                    {joinMembers(info.members)}
-                  </span>
-                ) : null}
+              {/* The stripe grows with the text, not the row's minimum height: its margin leaves 18 px beside one
+                  20 px line, or beside a name and member line (20 + 18 px). */}
+              <span className='flex min-w-0 flex-1 items-center gap-1.75'>
+                <ResultStripe
+                  className={info.members?.length ? 'my-2.5' : 'my-px'}
+                  compact
+                  result={standingsRowResult(index, table, display.phase, entry.rank !== null)}
+                  stretch
+                />
+                <span className='flex min-w-0 flex-1 flex-col'>
+                  <span className='wrap-break-word text-[15px] font-bold'>{info.label}</span>
+                  {info.members?.length ? (
+                    <span className='wrap-break-word text-[13px] leading-4.5 text-muted'>
+                      {joinMembers(info.members)}
+                    </span>
+                  ) : null}
+                </span>
               </span>
               <span className='shrink-0 text-[15px] font-extrabold tabular-nums'>
                 {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}

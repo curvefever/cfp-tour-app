@@ -192,7 +192,8 @@ export function RoomRow(props: RoomRowProps) {
     props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games } = props;
-  const label = teamSize ? unitDisplay(state, name).label : name;
+  const unit = teamSize ? unitDisplay(state, name) : null;
+  const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
   const scoreText = showResults ? (
     <span
@@ -208,7 +209,8 @@ export function RoomRow(props: RoomRowProps) {
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
-  const memberLine = Boolean(teamSize) && !inputsPerTeam;
+  // The member line shows for a team with members, unless their score inputs take its place.
+  const memberLine = Boolean(unit?.members?.length) && !inputsPerTeam;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <RowLine

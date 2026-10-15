@@ -20,11 +20,17 @@ function SlotRow({ index, known, label }: { index: number; known: boolean; label
   return (
     <div className={cn(bracketRowBase, 'flex min-h-8 items-center gap-2', rowSurfaceClasses(index, false))}>
       <span className='w-4.5 shrink-0' />
-      <ResultStripe className='my-px' compact result='undecided' stretch />
-      <span
-        className={cn('min-w-0 wrap-break-word', known ? 'text-[15px] font-semibold' : 'text-sm text-muted')}
-      >
-        {label}
+      {/* The stripe grows with the text (18 px beside one 20 px line), not with the row's minimum height. */}
+      <span className='flex min-w-0 flex-1 items-center gap-2'>
+        <ResultStripe className='my-px' compact result='undecided' stretch />
+        <span
+          className={cn(
+            'min-w-0 wrap-break-word',
+            known ? 'text-[15px] font-semibold' : 'text-sm text-muted',
+          )}
+        >
+          {label}
+        </span>
       </span>
     </div>
   );
