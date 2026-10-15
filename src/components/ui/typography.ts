@@ -7,7 +7,8 @@
 export const pageTitleClassName = 'text-[28px] leading-tight font-bold';
 
 /** The view name under the page title ("BRACKET", "ADMIN", "SETUP"). */
-export const viewLabelClassName = 'text-lg leading-[1.1] font-extrabold tracking-[0.06em] text-muted uppercase';
+export const viewLabelClassName =
+  'text-lg leading-[1.1] font-extrabold tracking-[0.06em] text-muted uppercase';
 
 /** A column or table title in the game look ("ROUND 4", "STANDINGS"). */
 export const columnTitleClassName = 'text-[19px] leading-tight font-extrabold tracking-[0.02em] uppercase';
@@ -17,3 +18,6 @@ export const roomHeaderClassName = 'text-base font-extrabold tracking-[0.04em] u
 
 /** A small section label inside a middle-look panel ("TOURNAMENT", "ROSTER"). */
 export const panelLabelClassName = 'text-[11px] font-extrabold tracking-[0.1em] text-muted uppercase';
+
+/** The title of a large section of the running Admin ("Settings", "Tournament progress"). */
+export const sectionTitleClassName = 'text-xl leading-tight font-bold';
