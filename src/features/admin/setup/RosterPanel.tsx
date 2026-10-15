@@ -11,13 +11,15 @@ import type { TournamentState } from '../../../domain/tournament/types';
 import { Button, ButtonRow, SectionPanel, Textarea } from '../../../components/ui';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { plural } from './plural';
+import { rosterLoadStatus } from './roster-status';
 import { useSetupChange } from './useSetupChange';
 
 /** The header count of the roster: "37 players · 2 reserves", or a nudge while none is loaded. */
 function rosterCount(state: TournamentState, unit: string): string {
   if (state.confirmedCount === null) return 'No roster loaded yet';
   const reserves = state.reserves.length;
-  return `${state.confirmedCount} ${unit}${reserves ? ` · ${reserves} reserve${reserves === 1 ? '' : 's'}` : ''}`;
+  return `${state.confirmedCount} ${unit}${reserves ? ` · ${plural(reserves, 'reserve')}` : ''}`;
 }
 
 /** The roster, reserves and individual reserves as typed, and the buttons that load or clear them. */
@@ -65,9 +67,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         reserveIndividuals,
         confirmedCount: players.length,
       });
-      setStatus(
-        `${players.length} confirmed, ${reserves.length} reserves, ${reserveIndividuals.length} individual reserves`,
-      );
+      setStatus(rosterLoadStatus(players.length, reserves.length, reserveIndividuals.length));
     } else {
       const players = parseIndividualLines(setup.roster.trim());
       const reserves = parseIndividualLines(setup.reserves.trim());
@@ -85,7 +85,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         reserveIndividuals: [],
         confirmedCount: players.length,
       });
-      setStatus(`${players.length} confirmed, ${reserves.length} reserves`);
+      setStatus(rosterLoadStatus(players.length, reserves.length));
     }
     onLoaded();
   }

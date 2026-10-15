@@ -1,5 +1,6 @@
 import { bracketRoundLabels, roundGameCount } from '../../../domain/tournament/bracket';
 import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
+import { plural } from './plural';
 
 export interface SchedulePreviewRow {
   name: string;
@@ -7,10 +8,6 @@ export interface SchedulePreviewRow {
   meta: string;
   /** The room sizes, the byes and what advances; empty when there is nothing to add. */
   detail: string;
-}
-
-function plural(count: number, noun: string, many = `${noun}s`): string {
-  return `${count} ${count === 1 ? noun : many}`;
 }
 
 function metaOf(state: TournamentState, round: TournamentRound, index: number): string {
