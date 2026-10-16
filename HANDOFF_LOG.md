@@ -6,6 +6,43 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Semis shrinks to who advances, refusal below the floor, readable score boxes, tie-break decimals on hover (done — 2026-10-16)
+
+Plan: `plans/2026-10-16-quick-fixes.md` (planner/reviewer and implementer sessions, five commits on `test`).
+
+**Diagnosis.** Organiser report on test tournament `1792070697535` (FFA, 16 registered, qualification table, single elimination, "Advance to bracket" 14): the bracket kept 16 after qualification and again 16 in Semis. Firebase REST read of the tournament and its `setups/` entry: (1) Setup held `qualAdv: "14"` but the generated `cfg.qualAdv` was 16, because `generation.ts` clamped the request *up* to `floorMin` = `getMinimumBracketUnits` = 2 × ideal room, silently; (2) with 16 entering and a Semis of 16, `computeEliminationRoundCount` returned 0 but `computeCleanTargets` forces `Math.max(1, requestedRounds)`, so round 4 was 16 → 16, an elimination round in which nobody is eliminated. Two smaller items rode along: Firefox draws spin arrows inside `type='number'` inputs and a score of "352" lost its "3" in the 40 px content width of `compactScoreClass`; and tie-break cells showed only whole percents, so four players level on 3 points all read "1%" (test tournament `1792087808730`).
+
+**Organiser decisions (2026-10-16).**
+- Semis shrinks to who advances, single elimination only: the size is `min(2 × ideal room, units entering the bracket)`, down to 2 × the format's *smallest* room (FFA 12: 14 → [7, 7], 13 → [7, 6], 12 → [6, 6]); the Final stays 8. Flexible FFA room sizes (4–10, other Final sizes) are a later build: `docs/roadmap.md`.
+- Below the floor generation refuses with a message naming it; it never raises the request silently. After the stage 1 review the organiser extended this to **every bracket format** (Kings Valley FFA 14 → refused naming 16; race double elimination 3 → refused naming 4; shared-Final 2 × ideal); waterfall is unaffected. A request above the registered count still clamps down to everyone.
+- Group Stage sending fewer units to the bracket than the single-elimination floor is refused at Generate, naming both numbers and the floor. Group Stage ignores the hidden "Advance to bracket" field (its entry is groups × qualifiers), so a leftover value there never refuses generation (reviewer's catch after stage 1b).
+- A live "Advance to bracket" edit re-derives the stored Semis size when the tournament has no Semis size override (also for tournaments generated before this build): correct as built, no change.
+- Tie-break decimals: planner decision, open to correction: the page keeps the whole percent; every tie-break cell has a `title` with two decimals; a dotted underline marks a cell where another unit on equal points shows the same whole percent.
+
+**Commits.**
+1. `8923574` Semis floor and the empty elimination round (domain). `getMinimumBracketUnits` returns 2 × `roomSize.min` for single elimination; `defaultSemisSize` (`single-elimination.ts`); `automaticTargets` returns no elimination round when `seedTotal <= semisSize` (fixed in `singleEliminationBracketPhase`, not in `computeCleanTargets`, which double elimination also calls); `generation.ts` takes the floor from `deriveRoomSize(format)` and uses one `semisDefault` at both call sites and in the Final-override check; `live-advancement-edit.ts` re-derives `semisSize` (`followsEntryCount`). The Setup preview renders generated rounds, so it needed no change. Fixtures that relied on the silent raise (`qualAdv '8'` on FFA single elimination) got the value they effectively had (`'16'`; `'12'` in the 13-team follow-text case and `'24'` in the 43-player fixed-draw redraw case, which need an elimination round).
+2. `4b40e8e` Every bracket format refuses a too-low "Advance to bracket" (`belowFloorReason`, `generation.ts`); `clampAdvanceToBracket(requested, confirmedCount)` only caps now (`bracket-entry.ts`); the Group Stage entry-count refusal for single elimination. The 9-player Group Stage tests send 2 qualifiers per group (expected entrants 6 instead of 3); shared-Final FFA fixtures got `qualAdv '16'`.
+3. `c4b52cf` The refusal skips Group Stage (`poolingPhase !== 'group-stage'`).
+4. `e571f99` Score boxes: `ScoreInput` hides the spin arrows (`[appearance:textfield]` plus the two webkit rules); `compactScoreClass` `w-14` → `w-16` (about 46 px of content against four 15 px bold digits).
+5. `8ba95b0` Tie-break decimals: `formatTieBreakPrecise` and `sharesWholePercent` (`standings-text.ts`); `StandingsTable.tsx` and the lucky-loser race in `RoundNotes.tsx` carry the `title` and the dotted underline.
+
+A sixth commit holds these docs.
+
+### Testing
+- Awkward counts, in `generation.test.ts`: FFA 16 registered with 14/13/12/16 advancing → Semis [7, 7], [7, 6], [6, 6], [8, 8], no elimination round, Final 8; 11 refused naming 12; 37 registered, 14 advancing → [7, 7]; 43 and 53 with 31 advancing → elimination rounds as before, Semis [8, 8]; no pooling: 14 confirmed → [7, 7], 31 → [8, 8], 11 refused; 2v2v2v2 13 teams: 7 advancing → [4, 3], 5 refused; Semis size override still wins. Refusals: Kings Valley FFA 14 → 16, race double elimination 3 → 4, shared-Final FFA 12 → 16, an above-count request clamps (qualAdv 40 for 20 registered gives 20), Group Stage 3 entering refused naming 4, the same with 2 qualifiers generates, and a hidden `qualAdv '3'` in Group Stage generates. The early gate (floor 12, Kings Valley's wording unchanged) and `getMinimumBracketUnits` are updated.
+- `single-elimination.test.ts`: 16 entering a Semis of 16 → no elimination round; 17 entering → one; `defaultSemisSize`. `live-advancement-edit.test.ts`: lowering to 13 → Semis [7, 6] with no elimination round, 11 refused, raising back restores 16, bounds now 12. `bracket-entry.test.ts`: the clamp only caps. `standings-text.test.ts`: `formatTieBreakPrecise` (0.0137 → "1.37%", 1.4725 → "147.25%", 0 → "0.00%", null/undefined → "—"); `sharesWholePercent` (five units on 3 points with 0.0112, 0.0137, 0.0149, 0.0051, 0.004 → the first four flagged, the fifth not; the same percent on different points not flagged; no share not flagged).
+- `vitest related`: 41 files / 1449 tests after stage 1 (1430 before), 42 / 1476 after 1b, 36 / 1306 after the fix-up, stage 3 files 51; full suite before the push: 88 files, 2125 tests. Lint, Prettier and types clean on every changed file. Reviewer's mutation checks: stage 1 five (`<=` → `<` in `automaticTargets` 9 failures, no shrink in `defaultSemisSize` 9, refusal removed 2, `followsEntryCount` → false 1, floor back to 2 × ideal 15); stage 1b three (refusal limited to single elimination 3, Group Stage refusal disabled 1, floor back into the clamp 7); the fix-up one; stage 3 two (flagging every unit 2, one decimal instead of two 1).
+- Live check on the test site (after the push, new bundle): throwaway FFA 16 players, qual table, single elimination, Advance to bracket 14: the Setup preview and the Bracket show Rounds 1–3, Semis [7, 7], Final 8, no elimination round; 11: Generate shows the refusal naming 12. On `1792087808730` all 16 tie-break cells carry a two-decimal `title`; the dotted underline is on the four players on 3 points (0.88, 0.87, 0.82, 0.75 → all "1%") and on Venture/focus (111.67, 111.66 → "112%"), on no one else. A 352 score in a Round 1 box reads in full (Chromium, box 64 px, no clipping, `appearance: textfield` computed); at 390 px the page does not overflow and nothing leaves the 330 px column.
+
+### Out of scope
+- Flexible FFA room sizes (4–10) and Final sizes other than 8: `docs/roadmap.md`.
+- Double elimination and Kings Valley floors and target logic beyond the shared refusal; `computeCleanTargets` itself.
+- The precise tie-break in the Rankings download image.
+- Firefox confirmation of the score box: still open with the organiser (the built-in browser is Chromium).
+- Late joiners, name validation (plan B), re-routing after score corrections (plan C), the Rankings export (plan D).
+
+---
+
 ## Bracket room density, rows centred, names that wrap (done — 2026-10-15)
 
 After the redesign the organiser found Bracket room cards chunky and the text in the coloured rows sitting slightly above the middle. Planned in this session (option mockups shared as a private artifact, "Bracket Room Density"), then built solo in three stages without waiting between them (the organiser was away and asked for two screenshots at the end). Local commits on `test`; not pushed until the organiser says so.
