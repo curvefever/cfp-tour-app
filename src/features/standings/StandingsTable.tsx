@@ -14,7 +14,7 @@ import {
   standingsGroupStarts,
   standingsRowResult,
 } from '../tournament/components/result-row';
-import { formatTieBreak, roundCells } from './standings-text';
+import { formatTieBreak, formatTieBreakPrecise, roundCells, sharesWholePercent } from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 
@@ -117,6 +117,7 @@ function StandingsRow({
   followed,
   placed,
   pending,
+  sharesPercent,
 }: {
   index: number;
   table: StandingsDisplayTable;
@@ -127,6 +128,8 @@ function StandingsRow({
   followed: boolean;
   placed: boolean;
   pending: boolean;
+  /** Another unit on the same points shows the same whole percent. */
+  sharesPercent: boolean;
 }) {
   return (
     <TableRow className={cn('h-10', rowSurfaceClasses(index, followed))}>
@@ -153,7 +156,13 @@ function StandingsRow({
       <TableCell className='w-21 border-0 py-0 pr-2 text-right text-lg font-extrabold tabular-nums'>
         {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
       </TableCell>
-      <TableCell className='w-24 border-0 py-0 pr-4 text-right text-sm text-muted tabular-nums'>
+      <TableCell
+        className={cn(
+          'w-24 border-0 py-0 pr-4 text-right text-sm text-muted tabular-nums',
+          sharesPercent && 'underline decoration-dotted',
+        )}
+        title={formatTieBreakPrecise(entry.roomShare)}
+      >
         {formatTieBreak(entry.roomShare)}
       </TableCell>
     </TableRow>
@@ -190,6 +199,9 @@ export function StandingsTable({
 }) {
   const roundIndexes = tableRoundIndexes(state, table);
   const groupStarts = standingsGroupStarts(table);
+  const sharesPercent = sharesWholePercent(
+    table.entries.map((entry) => ({ points: entry.totalFP, share: entry.roomShare })),
+  );
   return (
     <div className='max-w-full overflow-x-auto rounded-xs bg-cfp-game-card outline-2 outline-cfp-game-frame'>
       <table className='w-full border-collapse'>
@@ -208,6 +220,7 @@ export function StandingsTable({
               pending={marks?.pending.includes(entry.name) ?? false}
               placed={marks?.placed.includes(entry.name) ?? false}
               roundIndexes={roundIndexes}
+              sharesPercent={sharesPercent[index]}
               state={state}
               table={table}
             />,

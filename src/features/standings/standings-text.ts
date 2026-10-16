@@ -82,6 +82,31 @@ export function roundCells(result: StandingRoundResult | undefined, roundOver: b
   };
 }
 
+/** The tie-break to two decimals ("1.37%"), for the hover on the whole percent; "—" without a played round. */
+export function formatTieBreakPrecise(roomShare: number | null | undefined): string {
+  return roomShare === null || roomShare === undefined ? '—' : `${(roomShare * 100).toFixed(2)}%`;
+}
+
+/**
+ * Which units show the same points and the same whole tie-break percent as another unit of the list: for them
+ * the whole percent does not tell the order, so the cell hints that the hover holds more.
+ */
+export function sharesWholePercent(
+  units: Array<{ points: number | null; share: number | null | undefined }>,
+): boolean[] {
+  const keyOf = (unit: (typeof units)[number]) =>
+    unit.share === null || unit.share === undefined ? null : `${unit.points}|${formatTieBreak(unit.share)}`;
+  const counts = new Map<string, number>();
+  for (const unit of units) {
+    const key = keyOf(unit);
+    if (key !== null) counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return units.map((unit) => {
+    const key = keyOf(unit);
+    return key !== null && (counts.get(key) ?? 0) > 1;
+  });
+}
+
 /** The tie-break as a whole percent of the room average ("147%"); "—" when the unit has no played round. */
 export function formatTieBreak(roomShare: number | null | undefined): string {
   return roomShare === null || roomShare === undefined ? '—' : `${Math.round(roomShare * 100)}%`;

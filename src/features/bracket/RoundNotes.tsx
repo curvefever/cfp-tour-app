@@ -1,8 +1,9 @@
 import { computeLuckyLoserStandings } from '../../domain/tournament/advancement';
 import { roomLetter } from '../../domain/tournament/bracket';
+import { cn } from '../../components/ui';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
-import { formatTieBreak } from '../standings/standings-text';
+import { formatTieBreak, formatTieBreakPrecise, sharesWholePercent } from '../standings/standings-text';
 import { roomsStillPlaying, stillPlayingText } from './still-playing';
 
 /**
@@ -20,6 +21,7 @@ export function LuckyLoserStandingsPanel({
   const standings = computeLuckyLoserStandings(state, roundIndex);
   if (!standings?.length) return null;
   const spots = state.rounds[roundIndex].luckyCount;
+  const sharesPercent = sharesWholePercent(standings.map((entry) => ({ points: null, share: entry.share })));
   const playing = stillPlayingText(roomsStillPlaying(state, roundIndex));
   return (
     <div className='flex flex-col gap-1.5 rounded-xs bg-cfp-game-deep px-3 py-2.5 outline-2 outline-dashed outline-cfp-green-dim'>
@@ -33,7 +35,15 @@ export function LuckyLoserStandingsPanel({
             {unitDisplay(state, entry.name).label}
           </span>
           <span className='shrink-0 text-muted'>Room {roomLetter(entry.room)}</span>
-          <span className='w-11 shrink-0 text-right font-extrabold'>{formatTieBreak(entry.share)}</span>
+          <span
+            className={cn(
+              'w-11 shrink-0 text-right font-extrabold',
+              sharesPercent[index] && 'underline decoration-dotted',
+            )}
+            title={formatTieBreakPrecise(entry.share)}
+          >
+            {formatTieBreak(entry.share)}
+          </span>
         </div>
       ))}
       {playing ? <div className='text-[13px] text-muted'>{playing}</div> : null}

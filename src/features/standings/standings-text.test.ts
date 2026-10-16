@@ -5,9 +5,11 @@ import { createDefaultTournamentState } from '../../domain/tournament/state-defa
 import type { TournamentState } from '../../domain/tournament/types';
 import {
   formatTieBreak,
+  formatTieBreakPrecise,
   roundCells,
   standingsExplanation,
   standingsProgressSentence,
+  sharesWholePercent,
 } from './standings-text';
 
 function display(overrides: Partial<StandingsDisplay>, cut: number | null): StandingsDisplay {
@@ -191,5 +193,41 @@ describe('formatTieBreak', () => {
     expect(formatTieBreak(1.4666)).toBe('147%');
     expect(formatTieBreak(null)).toBe('—');
     expect(formatTieBreak(undefined)).toBe('—');
+  });
+});
+
+describe('formatTieBreakPrecise', () => {
+  it('is the tie-break to two decimals, or a dash without a played round', () => {
+    expect(formatTieBreakPrecise(0.0137)).toBe('1.37%');
+    expect(formatTieBreakPrecise(1.4725)).toBe('147.25%');
+    expect(formatTieBreakPrecise(0)).toBe('0.00%');
+    expect(formatTieBreakPrecise(null)).toBe('—');
+    expect(formatTieBreakPrecise(undefined)).toBe('—');
+  });
+});
+
+describe('sharesWholePercent', () => {
+  it('flags the units on equal points that show the same whole percent', () => {
+    const shares = [0.0112, 0.0137, 0.0149, 0.0051, 0.004];
+    const flags = sharesWholePercent(shares.map((share) => ({ points: 3, share })));
+    expect(flags).toEqual([true, true, true, true, false]);
+  });
+
+  it('does not flag an equal whole percent on different points', () => {
+    expect(
+      sharesWholePercent([
+        { points: 4, share: 1.01 },
+        { points: 3, share: 1.012 },
+      ]),
+    ).toEqual([false, false]);
+  });
+
+  it('does not flag units without a tie-break', () => {
+    expect(
+      sharesWholePercent([
+        { points: 0, share: null },
+        { points: 0, share: undefined },
+      ]),
+    ).toEqual([false, false]);
   });
 });
