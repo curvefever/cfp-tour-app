@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import {
   addReserveUnit,
@@ -12,30 +13,56 @@ import {
   swapTeam,
   swapWindowOpen,
   updateTeam,
+  type ReserveAddOptions,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
 import { isDisplayNameTaken, parseTeamLines, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
+import { destinationLabel } from '../bracket/exit-text';
 import { Button, Input, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 
-function handleReserveResult(
+/** The confirm a reserve add can ask for, with the option that answers it; null when the add needs none. */
+function reserveConfirmation(
+  state: TournamentState,
+  label: string,
   result: ReserveAddResult,
-  retry: () => ReserveAddResult,
+): { text: string; options: ReserveAddOptions } | null {
+  if (result.status === 'confirm-over-cap') {
+    return {
+      text: `All rooms are full. Adding this reserve will create an over-cap room. Proceed?`,
+      options: { allowOverCap: true },
+    };
+  }
+  if (result.status !== 'confirm-late-join') return null;
+  const joinsFrom = destinationLabel(state.curRound + 1, bracketRoundLabels(state));
+  return {
+    text: `"${label}" joins from ${joinsFrom} and misses ${result.missedRounds} qualifying rounds, which count as 0 points. Add anyway?`,
+    options: { allowLateJoin: true },
+  };
+}
+
+function handleReserveResult(
+  state: TournamentState,
+  label: string,
+  result: ReserveAddResult,
+  retry: (options: ReserveAddOptions) => ReserveAddResult,
   apply: (state: TournamentState) => void,
 ) {
   if (result.status === 'added') return apply(result.state);
-  if (result.status === 'confirm-over-cap') {
-    if (window.confirm(`All rooms are full. Adding this reserve will create an over-cap room. Proceed?`)) {
-      const retried = retry();
+  const confirmation = reserveConfirmation(state, label, result);
+  if (confirmation) {
+    if (window.confirm(confirmation.text)) {
+      const retried = retry(confirmation.options);
       if (retried.status === 'added') apply(retried.state);
     }
     return;
   }
+  if (result.status !== 'blocked') return;
   const messages = {
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
@@ -43,11 +70,9 @@ function handleReserveResult(
     'fixed-draw':
       "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
     'waterfall-bracket':
-      "Reserves can't be added to a waterfall bracket — its room-by-room routing table is built for the exact entrant count, so an extra unit has no place in it. To replace a no-show with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
-    'qualification-in-progress':
-      "Can't add a reserve now — more than one qualifying round has already been played, so a new entrant could never earn a fair standing.",
+      "Players can't be added to a waterfall bracket without a pooling phase — its routing is built for the exact entrant count. To replace a no-show, use ⇄ Swap until the first elimination.",
     'strict-room':
-      "Can't add this reserve — the selected strict odd-count strategy requires every room to remain even.",
+      'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",
     'duplicate-name': 'A player with that name is already registered — pick a different name.',
   };
@@ -130,10 +155,22 @@ export function ReservePanel({ state }: { state: TournamentState }) {
   const keys = state.reserves.map((entry) => (typeof entry === 'string' ? entry : entry.teamId));
   const add = (key: string) =>
     handleReserveResult(
+      state,
+      unitDisplay(state, key).label,
       addReserveUnit(state, key),
-      () => addReserveUnit(state, key, { allowOverCap: true }),
+      (options) => addReserveUnit(state, key, options),
       app.updateState,
     );
+  const addWalkUp = () => {
+    handleReserveResult(
+      state,
+      walkup.trim(),
+      addWalkUpIndividual(state, walkup),
+      (options) => addWalkUpIndividual(state, walkup, options),
+      app.updateState,
+    );
+    setWalkup('');
+  };
   return (
     <ToolPanel title='Reserves'>
       <div className='flex flex-col gap-2.5 px-4.5 py-3.5'>
@@ -150,27 +187,14 @@ export function ReservePanel({ state }: { state: TournamentState }) {
                   value={walkup}
                   onChange={(event) => setWalkup(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return;
-                    handleReserveResult(
-                      addWalkUpIndividual(state, walkup),
-                      () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
-                      app.updateState,
-                    );
-                    setWalkup('');
+                    if (event.key === 'Enter') addWalkUp();
                   }}
                 />
                 <Button
                   className='shrink-0 whitespace-nowrap'
                   size='sm'
                   variant='warning'
-                  onClick={() => {
-                    handleReserveResult(
-                      addWalkUpIndividual(state, walkup),
-                      () => addWalkUpIndividual(state, walkup, { allowOverCap: true }),
-                      app.updateState,
-                    );
-                    setWalkup('');
-                  }}
+                  onClick={addWalkUp}
                 >
                   ＋ Add new player
                 </Button>
@@ -206,7 +230,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
             </div>
             <div className='mt-1 text-xs text-muted'>
               {keys.length
-                ? 'Click ＋ to add a reserve to the smallest available room.'
+                ? 'Click ＋ to add a reserve. They join from the next round (during the first bracket round of a tournament without pooling: the least-full room).'
                 : `No ${format?.teamSize ? 'reserve teams' : 'reserves'} on the bench.`}
             </div>
           </>

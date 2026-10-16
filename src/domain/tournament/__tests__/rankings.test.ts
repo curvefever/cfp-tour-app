@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { compareStandings, isStandingsCutoffRound, orderedQualificationTable } from '../advancement';
+import { addWalkUpIndividual } from '../mutations';
 import { computeRankings, tournamentWinners } from '../rankings';
 import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -968,6 +969,44 @@ describe('computeRankings -- units waiting in a pending pool are still in the to
     const inR1c = active.filter((entry) => r1c.has(entry.name));
     expect(inR1c).toHaveLength(8);
     expect(inR1c.every((entry) => entry.room !== null && entry.waitingFor === undefined)).toBe(true);
+  });
+});
+
+describe('computeRankings -- a late joiner waiting for the next pooling round', () => {
+  function atRound2() {
+    const start = buildState({
+      label: 'FFA qual 37',
+      count: 37,
+      setup: { poolingPhase: 'qual-table', qualAdv: '16' },
+      teams: false,
+    });
+    if (!start) throw new Error('expected a generated tournament');
+    const next = advanceTournamentRound(scoreCurrentRound(start, 0));
+    if (next.status !== 'advanced') throw new Error('expected round 1 to advance');
+    return next.state;
+  }
+
+  it('is listed once as still in, with no room, waiting for the round after the one in play', () => {
+    const joined = addWalkUpIndividual(atRound2(), 'Late', { allowLateJoin: true });
+    if (joined.status !== 'added') throw new Error('expected the joiner to be added');
+    const active = computeRankings(joined.state)?.stillActive ?? [];
+    expect(active).toHaveLength(38);
+    const entries = active.filter((entry) => entry.name === 'Late');
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({ room: null, waitingFor: 2 });
+    expect(active.filter((entry) => entry.waitingFor !== undefined)).toHaveLength(1);
+    expect(computeRankings(joined.state)?.eliminatedList).toHaveLength(0);
+  });
+
+  it('has a room and no waitingFor once Next Round draws them in', () => {
+    const joined = addWalkUpIndividual(atRound2(), 'Late', { allowLateJoin: true });
+    if (joined.status !== 'added') throw new Error('expected the joiner to be added');
+    const next = advanceTournamentRound(scoreCurrentRound(joined.state, 0));
+    if (next.status !== 'advanced') throw new Error('expected round 2 to advance');
+    const entries = (computeRankings(next.state)?.stillActive ?? []).filter((entry) => entry.name === 'Late');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].room).not.toBeNull();
+    expect(entries[0].waitingFor).toBeUndefined();
   });
 });
 

@@ -268,6 +268,22 @@ function waitingUnits(
   return waiting;
 }
 
+/**
+ * Units added to the roster while a pooling round is in play: the round stays as drawn, so they sit it
+ * out and are drawn in by the next round. Still in the tournament, listed as waiting for that round.
+ */
+function undrawnJoiners(
+  state: TournamentState,
+  roster: readonly string[],
+  placed: ReadonlySet<string>,
+): Array<{ name: string; isLucky: boolean; waitingFor: number }> {
+  const inPlay = state.rounds[state.curRound];
+  if (!inPlay?.isNoElim || inPlay.isGroupStage) return [];
+  return roster
+    .filter((name) => !placed.has(name))
+    .map((name) => ({ name, isLucky: false, waitingFor: state.curRound + 1 }));
+}
+
 export function computeRankings(state: TournamentState): TournamentRankings | null {
   if (!state.rounds.length || !state.assignments.length) return null;
   const lastRi = lastAssignedRound(state);
@@ -328,7 +344,12 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   // they never appear as "still in tournament".
   const rosterSet = new Set(rosterKeys(state.players));
   active = active.filter((entry) => rosterSet.has(entry.name));
-  const waiting = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
+  const pooled = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
+  const placed = new Set([...active, ...pooled].map(({ name }) => name));
+  const waiting = [
+    ...pooled,
+    ...(lastRi === state.curRound && !finalComplete ? undrawnJoiners(state, [...rosterSet], placed) : []),
+  ];
 
   const activeNames = new Set([...active.map(({ name }) => name), ...waiting.map(({ name }) => name)]);
   const finalistNames = new Set(finalistValues.map(({ name }) => name));

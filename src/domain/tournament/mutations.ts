@@ -261,7 +261,7 @@ export type ReserveAddResult =
   | { status: 'confirm-over-cap'; room: number; count: number }
   | { status: 'confirm-late-join'; missedRounds: number };
 
-interface ReserveAddOptions {
+export interface ReserveAddOptions {
   allowOverCap?: boolean;
   allowLateJoin?: boolean;
 }
