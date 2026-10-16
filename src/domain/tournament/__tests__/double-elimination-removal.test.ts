@@ -18,6 +18,7 @@ const sharedFinal = (count: number, poolingPhase: 'none' | 'qual-table'): SweepC
     gameFormat: 'ffa-individual',
     scheduleLogic: 'double-elimination-shared-final',
     poolingPhase,
+    qualAdv: '16',
   },
 });
 

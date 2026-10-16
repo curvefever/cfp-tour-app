@@ -26,10 +26,10 @@ describe('parseAdvanceToBracket', () => {
 });
 
 describe('clampAdvanceToBracket', () => {
-  it('holds the request between the floor and the confirmed count', () => {
-    expect(clampAdvanceToBracket(16, 1, 24)).toBe(16);
-    expect(clampAdvanceToBracket(40, 1, 24)).toBe(24);
-    expect(clampAdvanceToBracket(2, 6, 24)).toBe(6);
+  it('caps the request at the confirmed count and never raises it', () => {
+    expect(clampAdvanceToBracket(16, 24)).toBe(16);
+    expect(clampAdvanceToBracket(40, 24)).toBe(24);
+    expect(clampAdvanceToBracket(2, 24)).toBe(2);
   });
 });
 

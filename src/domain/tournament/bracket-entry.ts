@@ -13,9 +13,9 @@ export function parseAdvanceToBracket(raw: string): number | null {
   return Number.isFinite(value) && value >= 1 ? value : null;
 }
 
-/** Keeps the requested count between the format's minimum and the number of confirmed units. */
-export function clampAdvanceToBracket(requested: number, floor: number, confirmedCount: number): number {
-  return Math.min(Math.max(requested, floor), confirmedCount);
+/** A request above the number of confirmed units means everyone advances. */
+export function clampAdvanceToBracket(requested: number, confirmedCount: number): number {
+  return Math.min(requested, confirmedCount);
 }
 
 /**
@@ -67,7 +67,7 @@ export function bracketEntryCountFromSetup(
   if (setup.poolingPhase !== 'none') {
     const requested = parseAdvanceToBracket(setup.qualAdv);
     if (requested === null) return null;
-    qualAdv = clampAdvanceToBracket(requested, floor, confirmedCount);
+    qualAdv = clampAdvanceToBracket(requested, confirmedCount);
   }
   return resolveBracketEntryCount({
     poolingPhase: setup.poolingPhase,

@@ -913,7 +913,7 @@ describe('real tournament states survive the Firebase round trip', () => {
       oneVsOne(9, 'single-elimination', 'bye', {
         poolingPhase: 'group-stage',
         groupSize: '3',
-        qualifiersPerGroup: '1',
+        qualifiersPerGroup: '2',
       }),
     );
   });

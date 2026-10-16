@@ -25,6 +25,7 @@ function sharedFinalConfigs(): SweepConfig[] {
           gameFormat: 'ffa-individual',
           scheduleLogic: 'double-elimination-shared-final',
           poolingPhase,
+          qualAdv: '16',
         },
       });
     }
@@ -160,6 +161,7 @@ describe('two removals in winners-bracket rounds still play through', () => {
           gameFormat: 'ffa-individual',
           scheduleLogic: 'double-elimination-shared-final',
           poolingPhase: 'qual-table',
+          qualAdv: '16',
         },
       },
       'FFA 37 shared Final, Qualification Table',

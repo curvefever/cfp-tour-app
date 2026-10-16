@@ -1814,6 +1814,68 @@ SemiB: 1-2->Final, 3-8->eliminated
   });
 });
 
+describe('Advance to bracket below the bracket floor is refused, not raised', () => {
+  type Setup = Parameters<typeof createDefaultSetup>[0];
+
+  function refusal(count: number, setup: Setup) {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count }),
+      createDefaultSetup(setup),
+      createTournamentRuntime(),
+    );
+    return result.status === 'invalid' ? result.message : null;
+  }
+
+  it('Kings Valley FFA with 14 advancing names the floor of 16', () => {
+    const message = refusal(24, {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'kings-valley',
+      poolingPhase: 'qual-table',
+      qualAdv: '14',
+    });
+    expect(message).toContain('(14)');
+    expect(message).toContain('minimum of 16');
+    expect(message).toContain('Kings Valley');
+  });
+
+  it('double elimination 1v1 with 3 advancing names the floor of 4', () => {
+    const message = refusal(12, {
+      gameFormat: 'individual-1v1',
+      oddCountStrategy: 'bye',
+      scheduleLogic: 'double-elimination',
+      poolingPhase: 'qual-table',
+      qualAdv: '3',
+    });
+    expect(message).toContain('(3)');
+    expect(message).toContain('minimum of 4');
+  });
+
+  it('shared-Final double elimination FFA with 12 advancing names the floor of 16', () => {
+    const message = refusal(24, {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'double-elimination-shared-final',
+      poolingPhase: 'qual-table',
+      qualAdv: '12',
+    });
+    expect(message).toContain('minimum of 16');
+  });
+
+  it('a request above the registered count still clamps down to everyone', () => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 20 }),
+      createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'kings-valley',
+        poolingPhase: 'qual-table',
+        qualAdv: '40',
+      }),
+      createTournamentRuntime(),
+    );
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated') expect(result.state.cfg.qualAdv).toBe(20);
+  });
+});
+
 describe('single elimination: Semis shrinks to who advances', () => {
   type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -1904,6 +1966,30 @@ describe('single elimination: Semis shrinks to who advances', () => {
     expect(eliminations).toEqual([]);
     expect(semis?.rooms).toEqual([4, 3]);
     expect(generate(13, setup(5)).status).toBe('invalid');
+  });
+
+  it('Group Stage sending fewer units than the floor is refused, naming both numbers', () => {
+    const result = generate(9, {
+      gameFormat: 'individual-1v1',
+      oddCountStrategy: 'bye',
+      poolingPhase: 'group-stage',
+      groupSize: '3',
+      qualifiersPerGroup: '1',
+    });
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('sends 3 players to the bracket');
+      expect(result.message).toContain('at least 4');
+    }
+    expect(
+      generate(9, {
+        gameFormat: 'individual-1v1',
+        oddCountStrategy: 'bye',
+        poolingPhase: 'group-stage',
+        groupSize: '3',
+        qualifiersPerGroup: '2',
+      }).status,
+    ).toBe('generated');
   });
 
   it('a Semis size override still wins over the shrunken default', () => {

@@ -28,6 +28,8 @@ import type {
   GeneratedTournamentConfig,
   MaterializedGamemodeConfig,
   PersistedSetup,
+  RoomSize,
+  ScheduleLogicKey,
   TournamentState,
 } from './types';
 
@@ -101,6 +103,22 @@ function resolvePoolingRoundsOverride(
     };
   }
   return { ok: true, value: parsedValue };
+}
+
+/** Why a bracket format needs `getMinimumBracketUnits` units, for the "Advance to bracket" refusal. */
+function belowFloorReason(schedule: ScheduleLogicKey, roomSize: RoomSize): string {
+  switch (schedule) {
+    case 'single-elimination':
+      return ` for single elimination (Semis needs 2 rooms of at least ${roomSize.min})`;
+    case 'kings-valley':
+      return ` for Kings Valley (it needs 2 rooms of ${roomSize.ideal})`;
+    case 'double-elimination':
+      return ' for double elimination (a bracket needs at least 4 units)';
+    case 'double-elimination-shared-final':
+      return ` for shared-Final double elimination (it needs 2 rooms of ${roomSize.ideal})`;
+    default:
+      return '';
+  }
 }
 
 export function generateTournament(
@@ -199,12 +217,12 @@ export function generateTournament(
     if (requestedQualAdv === null) {
       return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
     }
-    if (schedule === 'single-elimination' && requestedQualAdv < floorMin) {
+    if (requestedQualAdv < floorMin) {
       return generationError(
-        `Advance to bracket (${requestedQualAdv}) is below the minimum of ${floorMin} for single elimination (Semis needs 2 rooms of at least ${roomSize.min}).`,
+        `Advance to bracket (${requestedQualAdv}) is below the minimum of ${floorMin}${belowFloorReason(schedule, roomSize)}.`,
       );
     }
-    config.qualAdv = clampAdvanceToBracket(requestedQualAdv, floorMin, config.n);
+    config.qualAdv = clampAdvanceToBracket(requestedQualAdv, config.n);
   }
 
   // Total pooling-phase round count for Qualification Table / Swiss --
@@ -400,6 +418,15 @@ export function generateTournament(
   const overrideEntryCount = bracketEntryCount;
   const semisDefault =
     schedule === 'single-elimination' ? defaultSemisSize(roomSize, bracketEntryCount) : 2 * roomSize.ideal;
+  if (
+    schedule === 'single-elimination' &&
+    config.poolingPhase === 'group-stage' &&
+    bracketEntryCount < floorMin
+  ) {
+    return generationError(
+      `Group stage sends ${bracketEntryCount} ${unitPlural} to the bracket; single elimination needs at least ${floorMin} (Semis needs 2 rooms of at least ${roomSize.min}). Increase the group count or qualifiers per group.`,
+    );
+  }
   if (semisOverride && finalOverride && finalOverride > semisOverride) {
     return generationError(
       `Final size override (${finalOverride}) can't exceed the Semis size override (${semisOverride}) — there can't be more finalists than Semis participants.`,

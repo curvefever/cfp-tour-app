@@ -113,7 +113,12 @@ const DE_AFTER_QUAL: SweepConfig = {
   label: 'de shared final 37 qual-table',
   count: 37,
   teams: false,
-  setup: { ...FFA, scheduleLogic: 'double-elimination-shared-final', poolingPhase: 'qual-table' },
+  setup: {
+    ...FFA,
+    scheduleLogic: 'double-elimination-shared-final',
+    poolingPhase: 'qual-table',
+    qualAdv: '16',
+  },
 };
 
 describe('Next Round after Previous re-draws like a first advance', () => {

@@ -128,7 +128,7 @@ describe('Group Stage, 1v1: bye units do not skip the group cut-off', () => {
   }
 
   it.each([
-    [9, '3', '1', 3],
+    [9, '3', '2', 6],
     [15, '5', '2', 6],
   ])(
     '%i players in groups of %s, %s qualifier(s) each: exactly %i enter the bracket',
