@@ -6,6 +6,44 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A late joiner is seeded as an average unit and shown before Next Round (done — 2026-10-16)
+
+Plan: `plans/2026-10-16-adding-players.md`, "Plan B2" (stages 5–7, same planner/reviewer and implementer sessions; follows the late-joiner build above).
+
+**Why (organiser, after a live check of test tournament `1792146614367`, a waterfall with a Qual source, qualifying rounds 19 → 20 → 21).** After a join, the next round looked "entirely recalculated": (1) a waterfall did not re-plan its pooling rounds on a join (stage 1 skips `rebuildFutureRounds` to protect live graph edits, which also skipped the pooling rounds, which are not part of the graph), so the Bracket showed [7,6,6] for 19 and Next Round drew [7,7,6] for 20; removals had the same gap; (2) the joiner was invisible until Next Round; (3) a joiner's first-round seeding assumed a level: `buildAdvancementTiers` put every unit with no room, byes and joiners alike, in tier 0 with share 1 (the strongest winner), and `swissFoldPair` paired a 0-point joiner as the lowest-ranked unit and could give them the bye.
+
+**Organiser decisions (2026-10-16).**
+- A joiner is seeded as an average unit in the round they enter only; from then on their own results seed them, and their standings keep counting the missed rounds as 0.
+- Today's recalculation of the next round stays, so there is one seating rule for everyone. A fixed seat in the least-full room was considered and rejected: it silently fills a weak slot.
+- A joiner never gets a bye in their first round (a bye counts as a win).
+- A waterfall's pooling rounds refit to the roster at once on a join or a removal.
+- A discreet "JOINING THIS ROUND" panel on the next round before Next Round; a joiner's Rankings line reads "Joining Round N" ("Waiting for" stays for pending-pool units); Standings shows "—", not 0, in a round a unit missed.
+- Swiss: after review the organiser chose joiners **last** in the fold, so each meets a middle-ranked unit (index k pairs with k + half). The first version spliced them in at the median, which pairs them with the lowest-ranked unit (the median index is in the top half of the fold).
+
+**Planner decisions, open to correction.** Who is a joiner: a roster unit neither seated in the pooling round nor on its bye (`lateJoinersOf`, one helper for the advance, Rankings, seeding and the panel; empty for any round that is not a no-elimination pooling round, which is also what keeps double elimination's pending pools from counting as joiners). "Average" in the room-based reseed: tier `floor(s / 2)`, `s` the largest room of the round they missed, with the mean share `rooms / units seated`. The panel shows only while the round in play is a pooling round and the next round is not drawn.
+
+**Commits.**
+1. `b07349e` Average-unit seeding and no first-round bye. `late-joiners.ts` (`lateJoinersOf`); `buildAdvancementTiers` (byes tier 0 share 1, joiners the middle tier); `swissFoldPair`; `byeCandidates` in the advance (no joiner takes a pooling bye unless nobody else is left).
+2. `93a6089` Swiss joiners last in the fold (the median splice was reviewed out); a test with an odd largest room (19 registered, rooms [7,6,6], tier 3, share 3/19) that kills the `Math.ceil` mutation.
+3. `ee491d1` Room sizes at once, the panel, "Joining Round N", "—". `refitPoolingRound` (`pooling.ts`) and `refitFuturePoolingRounds` (`mutations.ts`, used by the waterfall branch of `addReserveUnit` and by `replanFutureRounds`); `JoiningPanel` (`RoundNotes.tsx`, rendered under the next round's placeholder in `RoundBody.tsx`); `joining: true` in `computeRankings` and "Joining Round N" in `stillInWhere` (the Rankings image uses it); `roundCells(result)` returns "—" for a missed round (the `roundOver` parameter is gone).
+4. The docs commit (this entry, `rules.md`, `seeding.md`, `views.md`).
+
+**Existing tests that changed outcome (reviewer-approved, both intended by stage 6).** `mutations.test.ts` "does not rebuild a waterfall bracket" asserted the very same `rounds` array after a removal; it now asserts the graph rounds are deep-equal and the pooling rounds fit 15. `waterfall-qual-source.test.ts` "takes a late reserve … without touching its rounds" now asserts the graph rounds are deep-equal and the pooling rounds fit 32. The `roundCells` test asserting `0` for a missed round now asserts "—", as the plan listed.
+
+### Testing
+- `late-joiners.test.ts` (39 tests in all): `lateJoinersOf` lists joiners in add order and nobody once the round is drawn; tiers at 37 (rooms [8,8,7,7,7]: tier 4, share 5/37), 43 and 53 (one and two joiners, in add order) and 19 (rooms [7,6,6]: tier 3, share 3/19); head-to-head qual table at 37 (a bye keeps tier 0 share 1, the joiner the losers tier share 1/2) and at 36 + 1 (the bye goes to a regular unit even when only the joiner has had none); Swiss 1v1 at 31 (the joiner meets fold index half − 1), at 30 with two joiners (half − 2 and half − 1), at 30 + 1 (one bye, a regular unit, also when the old fewest-byes rule would have picked the joiner); warm-ups into the first bracket round at 31; from the joiner's second round on, their real room place; waterfall Qual source at 37 and 53: a join fits rounds 2 and 3 for 38 and 54, a removal for 36 and 52, graph rounds and `standingsRoutes` untouched; FFA qual at 43 rebuilt for 44, as before. `ranking-where.test.ts`: "Joining Round 2" at 37 and a double-elimination pending-pool unit still "Waiting for". `rankings.test.ts`: only the joiner is marked `joining`. `standings-text.test.ts`: `roundCells(undefined)` is "—".
+- Reviewer's mutation checks: joiners as byes in the tiers (5 fail), no Swiss joiner placement and the median splice back (fail), Swiss and pooling bye taken from everyone (fail), `Math.ceil` for `Math.floor` (fails), the waterfall refit disabled (the Qual-37 and Qual-53 tests fail).
+- Full suite before the push and the live check: see the line added to this entry after the push.
+
+### Out of scope
+- Seating a joiner in a fixed room before Next Round (considered, decided against).
+- Showing the joiner's projected room: the panel names them without one.
+- A "joined in Round N" mark in the Standings tab: "—" in the skipped rounds says it.
+- Seeding strength for a swapped-in replacement: it takes the outgoing unit's seat, unchanged.
+- A component test for `JoiningPanel` (no `RoundNotes` test exists); the live check covers it.
+
+---
+
 ## Late joiners during pooling, and names the database can store (done — 2026-10-16)
 
 Plan: `plans/2026-10-16-adding-players.md` ("Plan B"; planner/reviewer and implementer sessions, five commits on `test`).
