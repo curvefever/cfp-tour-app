@@ -766,7 +766,7 @@ describe('connectAnonymousFinalist', () => {
   });
 });
 
-describe('addReserveUnit -- qualifying-round restriction', () => {
+describe('addReserveUnit -- which tournaments take a reserve', () => {
   function workingRoundState(overrides: Partial<Parameters<typeof createDefaultTournamentState>[0]> = {}) {
     return createDefaultTournamentState({
       gameFormat: 'ffa-individual',
@@ -810,30 +810,30 @@ describe('addReserveUnit -- qualifying-round restriction', () => {
     expect(result.status).toBe('added');
   });
 
-  it('blocks a reserve once 2 qualifying rounds are completed, for qual-table', () => {
+  it('asks before adding a reserve who would miss 2 or more counted qualifying rounds, for qual-table', () => {
     const state = createDefaultTournamentState({
       cfg: { poolingPhase: 'qual-table' },
       rounds: [
-        buildRound({ roundNum: 1, isQual: true, rooms: [2], players: 2 }),
-        buildRound({ roundNum: 2, isQual: true, rooms: [2], players: 2 }),
-        buildRound({ roundNum: 3, isQual: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 1, isQual: true, isNoElim: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isQual: true, isNoElim: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 3, isQual: true, isNoElim: true, rooms: [2], players: 2 }),
       ],
       curRound: 2,
     });
-    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'qualification-in-progress' });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'confirm-late-join', missedRounds: 3 });
   });
 
-  it('blocks a reserve once 2 qualifying rounds are completed, for swiss too (same standings engine)', () => {
+  it('asks before adding a reserve who would miss 2 or more counted rounds, for swiss too (same standings engine)', () => {
     const state = createDefaultTournamentState({
       cfg: { poolingPhase: 'swiss' },
       rounds: [
-        buildRound({ roundNum: 1, isSwiss: true, rooms: [2], players: 2 }),
-        buildRound({ roundNum: 2, isSwiss: true, rooms: [2], players: 2 }),
-        buildRound({ roundNum: 3, isSwiss: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 1, isSwiss: true, isNoElim: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 2, isSwiss: true, isNoElim: true, rooms: [2], players: 2 }),
+        buildRound({ roundNum: 3, isSwiss: true, isNoElim: true, rooms: [2], players: 2 }),
       ],
       curRound: 2,
     });
-    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'qualification-in-progress' });
+    expect(addReserveUnit(state, 'P3')).toEqual({ status: 'confirm-late-join', missedRounds: 3 });
   });
 
   it('still blocks Group Stage with its own reason, regardless of round count (regression)', () => {
@@ -856,8 +856,8 @@ describe('addReserveUnit -- qualifying-round restriction', () => {
     expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'fixed-draw' });
   });
 
-  it('blocks a reserve for a waterfall bracket -- its routing table is validated against the exact entrant count at generation time, with no mechanism to fold in a late arrival', () => {
-    const state = workingRoundState({ scheduleLogic: 'waterfall-bracket' });
+  it('blocks a reserve for a waterfall bracket without a pooling phase -- its routing table is validated against the exact entrant count at generation time, with no mechanism to fold in a late arrival', () => {
+    const state = workingRoundState({ scheduleLogic: 'waterfall-bracket', cfg: { poolingPhase: 'none' } });
     expect(addReserveUnit(state, 'P3')).toEqual({ status: 'blocked', reason: 'waterfall-bracket' });
   });
 

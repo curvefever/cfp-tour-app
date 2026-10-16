@@ -254,51 +254,75 @@ export type ReserveAddResult =
         | 'group-stage'
         | 'fixed-draw'
         | 'waterfall-bracket'
-        | 'qualification-in-progress'
         | 'strict-room'
         | 'room-cap'
         | 'duplicate-name';
     }
-  | { status: 'confirm-over-cap'; room: number; count: number };
+  | { status: 'confirm-over-cap'; room: number; count: number }
+  | { status: 'confirm-late-join'; missedRounds: number };
 
-export function addReserveUnit(
+interface ReserveAddOptions {
+  allowOverCap?: boolean;
+  allowLateJoin?: boolean;
+}
+
+/**
+ * Counted pooling rounds a unit added now would miss: the qualification/Swiss
+ * rounds up to and including the one in play. Warm-ups (`excludeFromStandings`)
+ * are played but earn nothing, so they don't count.
+ */
+export function missedCountedRounds(state: Pick<TournamentState, 'rounds' | 'curRound'>): number {
+  return state.rounds
+    .slice(0, state.curRound + 1)
+    .filter((round) => (round.isQual || round.isSwiss) && !round.excludeFromStandings).length;
+}
+
+// The count after one more unit would leave a unit out of every pooling round
+// when "None" (pair everyone, no byes) is the odd-count strategy -- the same
+// condition generation refuses at the start.
+function breaksStrictPooling(state: TournamentState): boolean {
+  const format = getGameFormat(state.gameFormat);
+  const poolingPhase = state.cfg.poolingPhase ?? 'none';
+  return Boolean(
+    format?.supportedOddCountStrategies &&
+    state.gamemodeConfig.oddCountStrategy === 'none' &&
+    poolingPhase !== 'none' &&
+    poolingPhase !== 'group-stage' &&
+    (state.players.length + 1) % (format.idealRoomSize as number) !== 0,
+  );
+}
+
+function moveReserveToPlayers(state: TournamentState, key: string): TournamentState | null {
+  const format = getGameFormat(state.gameFormat);
+  if (!format) return null;
+  if (!format.teamSize) {
+    return {
+      ...state,
+      players: [...(state.players as string[]), key] as TournamentRoster,
+      reserves: (state.reserves as string[]).filter((entry) => entry !== key),
+    };
+  }
+  const team = (state.reserves as TournamentTeam[]).find((entry) => entry.teamId === key);
+  if (!team) return null;
+  return {
+    ...state,
+    players: [...(state.players as TournamentTeam[]), team] as TournamentRoster,
+    reserves: (state.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key),
+  };
+}
+
+// A tournament without a pooling phase: the reserve window ends with its first
+// bracket round, and a unit added during it is seated in that round, in the
+// least-full room.
+function seatInRoundInPlay(
   state: TournamentState,
   key: string,
-  options: { allowOverCap?: boolean } = {},
+  options: ReserveAddOptions,
 ): ReserveAddResult {
-  if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
-  if (state.cfg.poolingPhase === 'group-stage') {
-    return { status: 'blocked', reason: 'group-stage' };
-  }
-  // A fixed-draw tournament's whole schedule (this round and every round
-  // after it) was already published at generation time -- there's no
-  // mechanism to fold a newly-joined reserve into an already-decided future
-  // round (unlike adaptive reseeding, which naturally picks up anyone in the
-  // live "advancing" pool each round). Blocking here is far lower risk than
-  // silently rewriting a draw players may have already seen.
-  if (state.gamemodeConfig.drawPublication === 'fixed') {
-    return { status: 'blocked', reason: 'fixed-draw' };
-  }
-  // A waterfall bracket's whole room-by-room routing table is a hand-authored,
-  // exact-headcount graph (waterfall-bracket.ts) -- every band is validated
-  // against the real entrant count at generation time, with no bye/remainder
-  // concept to fold a late arrival into. Same posture as fixed-draw above.
-  if (state.scheduleLogic === 'waterfall-bracket') {
-    return { status: 'blocked', reason: 'waterfall-bracket' };
-  }
-  // A reserve joining a qualification-table/Swiss standings phase must still
-  // get to play at least two of the remaining rounds themselves -- otherwise
-  // a single lucky round could win a real qualifying spot outright.
-  const completedQualRounds = state.rounds
-    .slice(0, state.curRound)
-    .filter((round) => round.isQual || round.isSwiss).length;
-  if (completedQualRounds > 1) {
-    return { status: 'blocked', reason: 'qualification-in-progress' };
-  }
-  const format = getGameFormat(state.gameFormat);
   const roomSize = state.gamemodeConfig.roomSize;
   const round = state.rounds[state.curRound];
-  if (!format || !roomSize || !round) return { status: 'blocked', reason: 'room-cap' };
+  if (!getGameFormat(state.gameFormat) || !roomSize || !round)
+    return { status: 'blocked', reason: 'room-cap' };
   const assignments = state.assignments[state.curRound] ?? [];
   let room = 1;
   let count = assignments.filter((entry) => entry.room === room).length;
@@ -315,35 +339,67 @@ export function addReserveUnit(
   if (count >= roomSize.max && !options.allowOverCap) {
     return { status: 'confirm-over-cap', room, count };
   }
-  const team = format.teamSize
-    ? (state.reserves as TournamentTeam[]).find((entry) => entry.teamId === key)
-    : undefined;
-  if (format.teamSize && !team) return { status: 'blocked', reason: 'room-cap' };
+  const moved = moveReserveToPlayers(state, key);
+  if (!moved) return { status: 'blocked', reason: 'room-cap' };
   const nextAssignments = state.assignments.map((entries) => entries.map((entry) => ({ ...entry })));
   nextAssignments[state.curRound] = [
     ...(nextAssignments[state.curRound] ?? []),
     { name: key, room, isLucky: false },
   ];
-  let next: TournamentState = {
-    ...state,
-    assignments: nextAssignments,
-    players: format.teamSize
-      ? ([...(state.players as TournamentTeam[]), team as TournamentTeam] as TournamentRoster)
-      : ([...(state.players as string[]), key] as TournamentRoster),
-    reserves: format.teamSize
-      ? (state.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key)
-      : (state.reserves as string[]).filter((entry) => entry !== key),
-  };
-  const rebuilt = rebuildFutureRounds(next);
+  const rebuilt = rebuildFutureRounds({ ...moved, assignments: nextAssignments });
   if (!rebuilt) return { status: 'blocked', reason: 'room-cap' };
-  next = rebuilt;
-  return { status: 'added', state: next };
+  return { status: 'added', state: rebuilt };
+}
+
+export function addReserveUnit(
+  state: TournamentState,
+  key: string,
+  options: ReserveAddOptions = {},
+): ReserveAddResult {
+  if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
+  if (state.cfg.poolingPhase === 'group-stage') {
+    return { status: 'blocked', reason: 'group-stage' };
+  }
+  // A fixed-draw tournament's whole schedule (this round and every round
+  // after it) was already published at generation time -- there's no
+  // mechanism to fold a newly-joined reserve into an already-decided future
+  // round (unlike adaptive reseeding, which naturally picks up anyone in the
+  // live "advancing" pool each round). Blocking here is far lower risk than
+  // silently rewriting a draw players may have already seen.
+  if (state.gamemodeConfig.drawPublication === 'fixed') {
+    return { status: 'blocked', reason: 'fixed-draw' };
+  }
+  const isWaterfall = state.scheduleLogic === 'waterfall-bracket';
+  // Without a pooling phase a waterfall's routing is an exact-headcount graph
+  // with nothing to absorb a late arrival. With one, the pooling exit refits
+  // the first waterfall round to whoever arrives.
+  if (isWaterfall && state.cfg.poolingPhase === 'none') {
+    return { status: 'blocked', reason: 'waterfall-bracket' };
+  }
+  const round = state.rounds[state.curRound];
+  if (!round?.isNoElim || round.isGroupStage) return seatInRoundInPlay(state, key, options);
+
+  // A pooling round in play stays as drawn: the joiner sits it out and is
+  // drawn in, with everyone else, when the round advances.
+  if (breaksStrictPooling(state)) return { status: 'blocked', reason: 'strict-room' };
+  const missedRounds = missedCountedRounds(state);
+  if (missedRounds >= 2 && !options.allowLateJoin) {
+    return { status: 'confirm-late-join', missedRounds };
+  }
+  const moved = moveReserveToPlayers(state, key);
+  if (!moved) return { status: 'blocked', reason: 'room-cap' };
+  // A waterfall keeps its rounds: they are fitted to the real head count at
+  // each advance, and re-planning would discard live edits to its graph.
+  if (isWaterfall) return { status: 'added', state: moved };
+  const rebuilt = rebuildFutureRounds(moved);
+  if (!rebuilt) return { status: 'blocked', reason: 'room-cap' };
+  return { status: 'added', state: rebuilt };
 }
 
 export function addWalkUpIndividual(
   state: TournamentState,
   name: string,
-  options: { allowOverCap?: boolean } = {},
+  options: ReserveAddOptions = {},
 ): ReserveAddResult {
   const trimmed = name.trim();
   if (!trimmed || getGameFormat(state.gameFormat)?.teamSize) {

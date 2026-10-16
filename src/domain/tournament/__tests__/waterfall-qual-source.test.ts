@@ -299,9 +299,11 @@ describe('a withdrawal during qualification', () => {
     expect(play.outcome.message).toContain('Edit graph');
   });
 
-  it('does not take a late reserve into a waterfall tournament (addReserveUnit blocks it), so the routing never has to absorb one', () => {
+  it('takes a late reserve during qualification without touching its rounds: the exit routing fits whoever arrives', () => {
     const state = { ...buildQualWaterfall(31), reserves: ['Late'], reserveOpen: true };
-    expect(addReserveUnit(state, 'Late')).toEqual({ status: 'blocked', reason: 'waterfall-bracket' });
+    const result = addReserveUnit(state, 'Late');
+    expect(result.status).toBe('added');
+    if (result.status === 'added') expect(result.state.rounds).toEqual(state.rounds);
   });
 });
 

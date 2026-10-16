@@ -13,6 +13,7 @@ import { kingsValleyBracketPhase } from './kings-valley';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
+import { rosterKeys } from './roster';
 import {
   avoidSameGroupInFirstBracketRound,
   recordRoomHistory,
@@ -96,6 +97,17 @@ function uniqueKeepingLast(candidates: SeedCandidate[]): SeedCandidate[] {
     output.unshift(candidate);
   }
   return output;
+}
+
+/**
+ * A no-elimination pooling round advances everyone, but only the units seated in
+ * its rooms (and byes) reach `advancing`. A unit added to the roster while the
+ * round was in play was never seated, so it is drawn in with the others here.
+ */
+function withUndrawnRosterUnits(advancing: SeedCandidate[], roster: string[]): SeedCandidate[] {
+  const present = new Set(advancing.map((entry) => entry.name));
+  const joiners = roster.filter((name) => !present.has(name));
+  return [...advancing, ...joiners.map((name) => ({ name, isLucky: false }))];
 }
 
 /** The state mutation performed indirectly by legacy renderAdminRound(). */
@@ -682,6 +694,9 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       })),
       ...advancing,
     ];
+  }
+  if (round.isNoElim && !round.isGroupStage && !isStandingsCutoffRound(state, roundIndex)) {
+    advancing = withUndrawnRosterUnits(advancing, rosterKeys(state.players));
   }
   advancing = uniqueKeepingLast(advancing);
 
