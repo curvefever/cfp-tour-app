@@ -65,10 +65,14 @@ export function FieldDisplay({ className, ...props }: HTMLAttributes<HTMLDivElem
   return <div className={cn(controlClassName, className)} {...props} />;
 }
 
+/** Spin arrows sit inside a number box in Firefox and eat the width a long score needs. */
+const noSpinArrowsClass =
+  '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
+
 export function ScoreInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <Input
-      className={cn('w-22.5 px-2 py-1 text-center text-lg font-bold', className)}
+      className={cn('w-22.5 px-2 py-1 text-center text-lg font-bold', noSpinArrowsClass, className)}
       type='number'
       {...props}
     />

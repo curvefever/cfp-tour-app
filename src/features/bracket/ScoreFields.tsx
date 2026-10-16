@@ -7,7 +7,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamMemberLine } from './team-member-line';
 
 /** A score box in a room row: compact, numbers right-aligned, a comfortable touch height on the phone. */
-export const compactScoreClass = 'h-8 w-14 shrink-0 px-2 text-right text-[15px] font-bold max-[700px]:h-11';
+export const compactScoreClass = 'h-8 w-16 shrink-0 px-2 text-right text-[15px] font-bold max-[700px]:h-11';
 
 export function TeamMembers({
   state,
