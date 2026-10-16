@@ -20,9 +20,10 @@ describe('getMinimumBracketUnits', () => {
     expect(getMinimumBracketUnits('double-elimination', { min: 6, max: 8, ideal: 8 })).toBe(4);
   });
 
-  it('returns 2 * roomSize.ideal for single-elimination', () => {
+  it('returns 2 * roomSize.min for single-elimination', () => {
     expect(getMinimumBracketUnits('single-elimination', { min: 2, max: 2, ideal: 2 })).toBe(4);
-    expect(getMinimumBracketUnits('single-elimination', { min: 6, max: 8, ideal: 8 })).toBe(16);
+    expect(getMinimumBracketUnits('single-elimination', { min: 6, max: 8, ideal: 8 })).toBe(12);
+    expect(getMinimumBracketUnits('single-elimination', { min: 3, max: 4, ideal: 4 })).toBe(6);
   });
 
   it('returns 2 * roomSize.ideal for double-elimination-shared-final -- NOT the flat 4 plain double-elimination gets (exact key match, not "any double-elim variant")', () => {
@@ -51,9 +52,19 @@ describe('generateTournament -- validation failures', () => {
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') {
-      expect(result.message).toContain('needs at least 16 confirmed players');
-      expect(result.message).toContain('Semis is fixed at 16 players in 2 rooms of 8');
+      expect(result.message).toContain('needs at least 12 confirmed players');
+      expect(result.message).toContain('Semis needs 2 rooms of at least 6');
     }
+  });
+
+  it('refuses a Kings Valley count below its floor with the unchanged wording', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'kings-valley' });
+    const result = generateTournament(state, form, createTournamentRuntime());
+    expect(result).toMatchObject({
+      status: 'invalid',
+      message: 'This format needs at least 16 confirmed players. Confirmed: 10.',
+    });
   });
 
   it('refuses a "None" odd-count strategy when config.n and the actual bracket-entry count disagree', () => {
@@ -1800,5 +1811,103 @@ SemiB: 1-2->Final, 3-8->eliminated
     expect(result.status).toBe('invalid');
     if (result.status !== 'invalid') return;
     expect(result.message).toContain(fragment);
+  });
+});
+
+describe('single elimination: Semis shrinks to who advances', () => {
+  type Setup = Parameters<typeof createDefaultSetup>[0];
+
+  function generate(count: number, setup: Setup) {
+    return generateTournament(
+      createDefaultTournamentState({ confirmedCount: count }),
+      createDefaultSetup({ scheduleLogic: 'single-elimination', ...setup }),
+      createTournamentRuntime(),
+    );
+  }
+
+  function bracketRounds(count: number, setup: Setup) {
+    const result = generate(count, setup);
+    if (result.status !== 'generated') throw new Error(`not generated: ${JSON.stringify(result)}`);
+    const rounds = result.state.rounds.filter((round) => !round.isQual && !round.isNoElim);
+    return {
+      eliminations: rounds.filter((round) => !round.isSemis && !round.isFinal),
+      semis: rounds.find((round) => round.isSemis),
+      final: rounds.find((round) => round.isFinal),
+    };
+  }
+
+  const ffaQual = (qualAdv: number): Setup => ({
+    gameFormat: 'ffa-individual',
+    poolingPhase: 'qual-table',
+    qualAdv: String(qualAdv),
+  });
+
+  it.each([
+    [14, [7, 7]],
+    [13, [7, 6]],
+    [12, [6, 6]],
+    [16, [8, 8]],
+  ])('FFA, 16 registered, %i advancing: Semis %j, no elimination round, Final of 8', (qualAdv, rooms) => {
+    const { eliminations, semis, final } = bracketRounds(16, ffaQual(qualAdv));
+    expect(eliminations).toEqual([]);
+    expect(semis?.rooms).toEqual(rooms);
+    expect(final?.players).toBe(8);
+  });
+
+  it('refuses 11 advancing and names the floor of 12', () => {
+    const result = generate(16, ffaQual(11));
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') {
+      expect(result.message).toContain('(11)');
+      expect(result.message).toContain('minimum of 12');
+    }
+  });
+
+  it('37 registered, 14 advancing: Semis [7, 7] straight after qualification', () => {
+    const { eliminations, semis } = bracketRounds(37, ffaQual(14));
+    expect(eliminations).toEqual([]);
+    expect(semis?.rooms).toEqual([7, 7]);
+  });
+
+  it.each([43, 53])('%i registered, 31 advancing: elimination rounds as before, Semis [8, 8]', (count) => {
+    const { eliminations, semis } = bracketRounds(count, ffaQual(31));
+    expect(eliminations.length).toBeGreaterThan(0);
+    expect(eliminations[0].players).toBe(31);
+    expect(semis?.rooms).toEqual([8, 8]);
+  });
+
+  it('a request above the registered count still clamps down to everyone', () => {
+    const { semis } = bracketRounds(14, ffaQual(40));
+    expect(semis?.rooms).toEqual([7, 7]);
+  });
+
+  it('with no pooling, 14 confirmed go straight to Semis [7, 7]; 31 are cut to 16 as before', () => {
+    const small = bracketRounds(14, { gameFormat: 'ffa-individual', poolingPhase: 'none' });
+    expect(small.eliminations).toEqual([]);
+    expect(small.semis?.rooms).toEqual([7, 7]);
+    const large = bracketRounds(31, { gameFormat: 'ffa-individual', poolingPhase: 'none' });
+    expect(large.eliminations.length).toBeGreaterThan(0);
+    expect(large.semis?.rooms).toEqual([8, 8]);
+  });
+
+  it('with no pooling, 11 confirmed are refused', () => {
+    expect(generate(11, { gameFormat: 'ffa-individual', poolingPhase: 'none' }).status).toBe('invalid');
+  });
+
+  it('2v2v2v2: 7 teams advancing give Semis [4, 3]; 5 are refused', () => {
+    const setup = (qualAdv: number): Setup => ({
+      gameFormat: 'team-2v2v2v2',
+      poolingPhase: 'qual-table',
+      qualAdv: String(qualAdv),
+    });
+    const { eliminations, semis } = bracketRounds(13, setup(7));
+    expect(eliminations).toEqual([]);
+    expect(semis?.rooms).toEqual([4, 3]);
+    expect(generate(13, setup(5)).status).toBe('invalid');
+  });
+
+  it('a Semis size override still wins over the shrunken default', () => {
+    const { semis } = bracketRounds(16, { ...ffaQual(14), semisOverride: '12' });
+    expect(semis?.players).toBe(12);
   });
 });

@@ -115,19 +115,27 @@ export function eliminationRound(
   };
 }
 
+/** Two rooms of the ideal size, or everyone who enters the bracket when that is fewer. */
+export function defaultSemisSize(roomSize: RoomSize, bracketEntryCount: number): number {
+  return Math.min(2 * roomSize.ideal, bracketEntryCount);
+}
+
+function automaticTargets(seedTotal: number, config: SingleEliminationConfig): number[] {
+  if (seedTotal <= config.semisSize) return [];
+  return computeCleanTargets(
+    seedTotal,
+    config.semisSize,
+    computeEliminationRoundCount(seedTotal, config.semisSize, config.roomSize),
+    config.roomSize,
+  );
+}
+
 export function singleEliminationBracketPhase(
   seedTotal: number,
   startRoundNum: number,
   config: SingleEliminationConfig,
 ): TournamentRound[] {
-  const targets =
-    config.explicitTargets ??
-    computeCleanTargets(
-      seedTotal,
-      config.semisSize,
-      computeEliminationRoundCount(seedTotal, config.semisSize, config.roomSize),
-      config.roomSize,
-    );
+  const targets = config.explicitTargets ?? automaticTargets(seedTotal, config);
   const rounds: TournamentRound[] = targets.map((target, index) =>
     eliminationRound(
       index === 0 ? seedTotal : targets[index - 1],

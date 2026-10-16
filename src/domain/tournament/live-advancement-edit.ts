@@ -5,7 +5,7 @@ import { getGameFormat } from './formats';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { buildTournamentProgression, getMinimumBracketUnits } from './schedule-generation';
-import { eliminationRound } from './single-elimination';
+import { defaultSemisSize, eliminationRound } from './single-elimination';
 import type { MaterializedGamemodeConfig, TournamentRound, TournamentState } from './types';
 import type { TournamentProgressionInput } from './schedule-generation';
 
@@ -126,6 +126,11 @@ function syncSettings(
   return { gamemodeConfig, settings };
 }
 
+/** Single elimination's Semis shrinks with the number entering the bracket unless the organiser set its size. */
+function followsEntryCount(state: TournamentState): boolean {
+  return state.scheduleLogic === 'single-elimination' && !state.settings?.semisOverride?.trim();
+}
+
 function parseQualAdv(text: string, bounds: { min: number; max: number }): number | string {
   const value = parseAdvanceToBracket(text);
   if (value === null || String(value) !== text.trim()) {
@@ -155,12 +160,15 @@ function applyPoolingEdit(
   const poolingPhase = state.cfg.poolingPhase ?? 'none';
   const entryCount = poolingPhase === 'none' ? scope.maxQualAdv : qualAdv;
   const lbQualifiers = config.lbQualifiers ?? 0;
+  const semisSize = followsEntryCount(state)
+    ? defaultSemisSize(config.roomSize, entryCount)
+    : config.semisSize;
   const parsedTargets = parseEliminationTargets(input.targetsText, {
     schedule: state.scheduleLogic,
     bracketEntryCount: entryCount,
     entryLabel:
       poolingPhase === 'none' ? 'number of units in the tournament' : 'number advancing to the bracket',
-    semisSize: config.semisSize,
+    semisSize,
     winnersQualifiers: config.finalSize - lbQualifiers,
     finalSize: config.finalSize,
     lbQualifiers,
@@ -176,7 +184,11 @@ function applyPoolingEdit(
   }
 
   const cfg = { ...state.cfg, qualAdv };
-  const synced = syncSettings({ ...state, cfg }, targets, scope.qualAdvEditable ? qualAdv : undefined);
+  const synced = syncSettings(
+    { ...state, cfg, gamemodeConfig: { ...config, semisSize } },
+    targets,
+    scope.qualAdvEditable ? qualAdv : undefined,
+  );
   const gamemodeConfig = synced.gamemodeConfig as MaterializedGamemodeConfig;
   const roster = rosterKeys(state.players);
   let progression;

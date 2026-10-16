@@ -87,7 +87,7 @@ function pooling(
       gameFormat,
       scheduleLogic: 'single-elimination',
       poolingPhase: 'qual-table',
-      qualAdv: '8',
+      qualAdv: '16',
       ...setup,
     },
   });

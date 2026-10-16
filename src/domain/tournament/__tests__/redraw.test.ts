@@ -185,6 +185,7 @@ describe('Next Round after Previous re-draws like a first advance', () => {
         ...FFA,
         scheduleLogic: 'single-elimination',
         poolingPhase: 'qual-table',
+        qualAdv: '24',
         drawPublication: 'fixed',
       },
     };

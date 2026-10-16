@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeCleanTargets,
   computeEliminationRoundCount,
+  defaultSemisSize,
   singleEliminationBracketPhase,
   type SingleEliminationConfig,
 } from '../single-elimination';
@@ -56,6 +57,21 @@ describe('singleEliminationBracketPhase', () => {
     semisGames: 1,
     finalsGames: 3,
   };
+
+  it('goes straight to Semis when everyone entering already fits it: no empty elimination round', () => {
+    const rounds = singleEliminationBracketPhase(16, 1, ffaConfig);
+    expect(rounds.map((round) => [round.isSemis, round.isFinal])).toEqual([
+      [true, false],
+      [false, true],
+    ]);
+    expect(rounds[0].roundNum).toBe(1);
+  });
+
+  it('keeps one elimination round for 17 entering a Semis of 16', () => {
+    const rounds = singleEliminationBracketPhase(17, 1, ffaConfig);
+    expect(rounds).toHaveLength(3);
+    expect(rounds[0].advTotal).toBe(16);
+  });
 
   it('produces the full N=37 FFA round count: 4 elimination + 1 semis + 1 final = 6', () => {
     const rounds = singleEliminationBracketPhase(37, 1, ffaConfig);
@@ -124,5 +140,13 @@ describe('singleEliminationBracketPhase', () => {
     expect(final.advPerRoom).toBe(1);
     expect(final.advTotal).toBe(1);
     expect(final.numGames).toBe(3);
+  });
+});
+
+describe('defaultSemisSize', () => {
+  it('is two ideal rooms, or everyone entering when that is fewer', () => {
+    expect(defaultSemisSize(FFA_ROOM_SIZE, 31)).toBe(16);
+    expect(defaultSemisSize(FFA_ROOM_SIZE, 14)).toBe(14);
+    expect(defaultSemisSize(HEAD_TO_HEAD_ROOM_SIZE, 3)).toBe(3);
   });
 });

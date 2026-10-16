@@ -88,9 +88,28 @@ describe('advancement edit: pooling', () => {
   it('refuses an out-of-range qualAdv rather than clamping it', () => {
     const state = start();
     const high = applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '38', targetsText: '' });
-    expect(high).toEqual({ ok: false, error: expect.stringContaining('between 16 and 37') });
-    expect(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '15', targetsText: '' }).ok).toBe(false);
+    expect(high).toEqual({ ok: false, error: expect.stringContaining('between 12 and 37') });
+    expect(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '11', targetsText: '' }).ok).toBe(false);
     expect(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: 'abc', targetsText: '' }).ok).toBe(false);
+  });
+
+  it('lowering qualAdv to 13 shrinks Semis to [7, 6] with no elimination round; 11 is refused', () => {
+    const edited = unwrap(applyAdvancementEdit(start(), { kind: 'pooling', qualAdv: '13', targetsText: '' }));
+    expect(eliminationAdvTotals(edited)).toEqual([]);
+    const semis = edited.rounds.find((round) => round.isSemis);
+    expect(semis?.players).toBe(13);
+    expect(semis?.rooms).toEqual([7, 6]);
+    expect(edited.gamemodeConfig.semisSize).toBe(13);
+    expect(applyAdvancementEdit(start(), { kind: 'pooling', qualAdv: '11', targetsText: '' }).ok).toBe(false);
+  });
+
+  it('raising qualAdv back above 16 restores the full Semis of 16', () => {
+    const lowered = unwrap(
+      applyAdvancementEdit(start(), { kind: 'pooling', qualAdv: '13', targetsText: '' }),
+    );
+    const raised = unwrap(applyAdvancementEdit(lowered, { kind: 'pooling', qualAdv: '24', targetsText: '' }));
+    expect(raised.gamemodeConfig.semisSize).toBe(16);
+    expect(eliminationAdvTotals(raised)).toEqual([20, 16]);
   });
 
   it('validates targets against the new qualAdv', () => {
@@ -150,7 +169,7 @@ describe('advancement edit: pooling', () => {
       kind: 'pooling',
       qualAdvEditable: true,
       qualAdv: 24,
-      minQualAdv: 16,
+      minQualAdv: 12,
       maxQualAdv: 37,
     });
   });

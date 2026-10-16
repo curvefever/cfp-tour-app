@@ -2085,6 +2085,7 @@ describe('a score entered in the last qualification round is seen by the tie che
         gameFormat: 'ffa-individual',
         scheduleLogic: 'single-elimination',
         poolingPhase: 'qual-table',
+        qualAdv: '16',
       },
     })!;
     while (!isLastStandingsRound(state, state.curRound)) {

@@ -237,7 +237,7 @@ describe('cut', () => {
       label: 'all',
       count: 16,
       teams: false,
-      setup: { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '4' },
+      setup: { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '16' },
     }) as TournamentState;
     expect(
       describeStandings({ ...everyone, started: true, cfg: { ...everyone.cfg, qualAdv: 16 } })?.tables[0].cut,
@@ -389,7 +389,7 @@ describe('describeStandings availability', () => {
       return { kind: standingsKind(state), display: describeStandings(state)?.kind ?? null };
     };
     const ffa = { gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' } as const;
-    expect(kindOf(37, { ...ffa, poolingPhase: 'qual-table' })).toEqual({
+    expect(kindOf(37, { ...ffa, poolingPhase: 'qual-table', qualAdv: '16' })).toEqual({
       kind: 'qualification',
       display: 'qualification',
     });

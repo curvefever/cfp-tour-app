@@ -62,7 +62,9 @@ export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize:
   // -- this early, generic gate only needs to let any positive count through
   // so that later, more specific error reaches the organiser instead.
   if (bracketPhase === 'waterfall-bracket') return 1;
-  return bracketPhase === 'double-elimination' ? 4 : 2 * roomSize.ideal;
+  if (bracketPhase === 'double-elimination') return 4;
+  // Single elimination's Semis shrinks to who advances, down to two rooms of the smallest size.
+  return 2 * (bracketPhase === 'single-elimination' ? roomSize.min : roomSize.ideal);
 }
 
 function buildPoolingPhase(

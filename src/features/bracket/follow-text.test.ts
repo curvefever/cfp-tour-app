@@ -157,7 +157,7 @@ describe('followBannerText: other cases', () => {
 });
 
 function atFirstBracketRoundTeams(): TournamentState {
-  let state = start(13, { qualAdv: '8' }, true);
+  let state = start(13, { qualAdv: '12' }, true);
   for (let guard = 0; guard < 10 && state.rounds[state.curRound].isQual; guard += 1)
     state = advanced(state, 3);
   return state;

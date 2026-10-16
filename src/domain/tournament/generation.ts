@@ -11,6 +11,7 @@ import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley'
 import { validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
+import { defaultSemisSize } from './single-elimination';
 import {
   buildTournamentProgression,
   getMinimumBracketUnits,
@@ -115,19 +116,15 @@ export function generateTournament(
   const format = getGameFormat(form.gameFormat);
   if (!format) return generationError('This game format is not available yet.');
   const schedule = form.scheduleLogic;
-  const floorIdeal = format.defaultRoomSize?.ideal ?? format.idealRoomSize;
-  if (!floorIdeal) return generationError('This game format has no room size.');
-  const floorMin = getMinimumBracketUnits(schedule, {
-    min: floorIdeal,
-    max: floorIdeal,
-    ideal: floorIdeal,
-  });
+  if (!format.defaultRoomSize && !format.idealRoomSize) {
+    return generationError('This game format has no room size.');
+  }
+  const formatRoomSize = deriveRoomSize(format);
+  const floorMin = getMinimumBracketUnits(schedule, formatRoomSize);
   const unitPlural = format.unitLabelPlural.toLowerCase();
   if (current.confirmedCount < floorMin) {
     const reason =
-      schedule === 'single-elimination'
-        ? ` (Semis is fixed at ${floorMin} ${unitPlural} in 2 rooms of ${floorIdeal})`
-        : '';
+      schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${formatRoomSize.min})` : '';
     return generationError(
       `This format needs at least ${floorMin} confirmed ${unitPlural}${reason}. Confirmed: ${current.confirmedCount}.`,
     );
@@ -201,6 +198,11 @@ export function generateTournament(
     const requestedQualAdv = parseAdvanceToBracket(form.qualAdv);
     if (requestedQualAdv === null) {
       return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
+    }
+    if (schedule === 'single-elimination' && requestedQualAdv < floorMin) {
+      return generationError(
+        `Advance to bracket (${requestedQualAdv}) is below the minimum of ${floorMin} for single elimination (Semis needs 2 rooms of at least ${roomSize.min}).`,
+      );
     }
     config.qualAdv = clampAdvanceToBracket(requestedQualAdv, floorMin, config.n);
   }
@@ -396,6 +398,8 @@ export function generateTournament(
     return generationError(`Final size override must be a positive number — got ${finalOverride}.`);
   }
   const overrideEntryCount = bracketEntryCount;
+  const semisDefault =
+    schedule === 'single-elimination' ? defaultSemisSize(roomSize, bracketEntryCount) : 2 * roomSize.ideal;
   if (semisOverride && finalOverride && finalOverride > semisOverride) {
     return generationError(
       `Final size override (${finalOverride}) can't exceed the Semis size override (${semisOverride}) — there can't be more finalists than Semis participants.`,
@@ -411,10 +415,9 @@ export function generateTournament(
   // slipped through unchecked. Compare against the derived default Semis size
   // instead in that case.
   if (schedule === 'single-elimination' && finalOverride && !semisOverride) {
-    const defaultSemisSize = 2 * roomSize.ideal;
-    if (finalOverride > defaultSemisSize) {
+    if (finalOverride > semisDefault) {
       return generationError(
-        `Final size override (${finalOverride}) can't exceed the default Semis size (${defaultSemisSize}, 2 rooms of ${roomSize.ideal}) — there'd be nothing left to eliminate down to it. Set a Semis size override too if you want a larger Semis.`,
+        `Final size override (${finalOverride}) can't exceed the default Semis size (${semisDefault}) — there'd be nothing left to eliminate down to it. Set a Semis size override too if you want a larger Semis.`,
       );
     }
   }
@@ -486,7 +489,7 @@ export function generateTournament(
     bracketEntryCount,
     entryLabel:
       config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`,
-    semisSize: semisOverride || 2 * roomSize.ideal,
+    semisSize: semisOverride || semisDefault,
     winnersQualifiers: winnersQualifiers ?? 0,
     finalSize: prospectiveFinalSize,
     lbQualifiers: lbQualifiers ?? 0,
@@ -529,7 +532,7 @@ export function generateTournament(
     teamScoringRule: format.teamSize ? form.teamScoringRule || 'sum-members' : 'sum-members',
     ...(oddCountStrategy ? { oddCountStrategy } : {}),
     roomSize,
-    semisSize: semisOverride || 2 * roomSize.ideal,
+    semisSize: semisOverride || semisDefault,
     finalSize: finalOverride || roomSize.ideal,
     scoring: config.scoring,
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
