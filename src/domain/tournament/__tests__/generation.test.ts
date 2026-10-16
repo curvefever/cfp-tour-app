@@ -1992,6 +1992,18 @@ describe('single elimination: Semis shrinks to who advances', () => {
     ).toBe('generated');
   });
 
+  it('Group Stage ignores a leftover hidden Advance to bracket below the floor', () => {
+    const result = generate(9, {
+      gameFormat: 'individual-1v1',
+      oddCountStrategy: 'bye',
+      poolingPhase: 'group-stage',
+      groupSize: '3',
+      qualifiersPerGroup: '2',
+      qualAdv: '3',
+    });
+    expect(result.status).toBe('generated');
+  });
+
   it('a Semis size override still wins over the shrunken default', () => {
     const { semis } = bracketRounds(16, { ...ffaQual(14), semisOverride: '12' });
     expect(semis?.players).toBe(12);

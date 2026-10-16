@@ -217,7 +217,9 @@ export function generateTournament(
     if (requestedQualAdv === null) {
       return generationError(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
     }
-    if (requestedQualAdv < floorMin) {
+    // Group Stage ignores qualAdv (its entry is groups x qualifiers, checked below) and Setup hides
+    // the field, so a leftover value there must not refuse generation.
+    if (config.poolingPhase !== 'group-stage' && requestedQualAdv < floorMin) {
       return generationError(
         `Advance to bracket (${requestedQualAdv}) is below the minimum of ${floorMin}${belowFloorReason(schedule, roomSize)}.`,
       );
