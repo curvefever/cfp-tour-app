@@ -29,7 +29,7 @@ Units with no room in the round just played are not tiered by a result. A bye ke
 The same wave/cost/taper approach for double elimination, where a target round can pool units from several source rounds (a losers-bracket round mixes fresh winners-bracket drops with the previous losers-bracket round's survivors). Each contribution is tagged with its room-rank tier when pushed, so the pooled entries are directly comparable. The taper (`doubleEliminationApproachProgress`) is computed per bracket side, with the terminal round at 1.
 
 ## `swissFoldPair` and late joiners
-A joiner added during a Swiss round is appended last in the fold order (in add order), so index k pairs them with index k + half, a middle-ranked unit; they never get the bye. (A first version spliced them in at the median, which paired them with the lowest-ranked unit.)
+A joiner added during a Swiss round is appended last in the fold order (in add order), so index k pairs them with index k + half, a middle-ranked unit; they never get the bye.
 
 ## Fixed draws (`fixed-draws.ts`)
 Computed once from roster order, never from results. Swiss uses `circleMethodSchedule` (zero repeat pairings); qual-table uses a greedy wave fill with `assignWaveToRooms` and all tiers equal. Stored per round on `TournamentRound.fixedRoomAssignments` (not in `state.assignments`, which means "round reached"); `transitions.ts` uses it directly. `roomHistory`/`poolingByeCounts` for the whole schedule are folded in at generation, and rebuilt after a removal or swap patches the unreached rounds.
