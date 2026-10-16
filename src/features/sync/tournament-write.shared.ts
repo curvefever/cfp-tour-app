@@ -1,3 +1,4 @@
+import { UNSTORABLE_NAME_CHARACTERS } from '../../domain/tournament/roster';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { parseDescriptionFields, type TournamentDescription } from '../tournaments/tournament-summary';
 
@@ -10,12 +11,9 @@ export type TournamentPatchInput = {
 
 export const TOURNAMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
-// Characters Firebase refuses in a key (`. # $ [ ] /`) and ASCII control characters.
-const INVALID_SEGMENT_CHARACTERS = /[.#$[\]/\u0000-\u001f\u007f]/;
-
 /** Whether `segment` can be one step of a Firebase path. */
 export function isValidPathSegment(segment: string): boolean {
-  return segment.length > 0 && !INVALID_SEGMENT_CHARACTERS.test(segment);
+  return segment.length > 0 && !UNSTORABLE_NAME_CHARACTERS.test(segment);
 }
 
 export function validateTournamentId(value: unknown): string {

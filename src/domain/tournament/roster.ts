@@ -51,6 +51,36 @@ export function findDuplicateDisplayNames(entries: TournamentRoster): string[] {
   return [...duplicates];
 }
 
+/** Characters a Firebase key refuses (`. # $ [ ] /`) and ASCII control characters: names are used as keys. */
+export const UNSTORABLE_NAME_CHARACTERS = /[.#$[\]/\u0000-\u001f\u007f]/;
+
+/** The names (trimmed, each once, in input order) that contain a character the database can't store. */
+export function findUnstorableNames(names: readonly string[]): string[] {
+  const offenders = names.map((name) => name.trim()).filter((name) => UNSTORABLE_NAME_CHARACTERS.test(name));
+  return [...new Set(offenders)];
+}
+
+/** What the organiser is told when typed names can't be stored; `names` is the non-empty result of findUnstorableNames. */
+export function unstorableNamesMessage(names: readonly string[]): string {
+  if (names.length === 1) {
+    return `"${names[0]}" contains a character that can't be used (. # $ / [ ]) — pick a different name.`;
+  }
+  return `These name(s) contain a character that can't be used (. # $ / [ ]):\n\n${names.join('\n')}`;
+}
+
+/** A team's own name and its members' names; an unfilled slot has none. */
+export function teamNames(team: TournamentTeam): string[] {
+  return [
+    team.teamName,
+    ...team.members.filter((member): member is TeamMember => member !== null).map((member) => member.name),
+  ];
+}
+
+/** Every name typed for a roster: an individual's name, or a team's name and its members'. */
+export function rosterNames(entries: TournamentRoster): string[] {
+  return entries.flatMap((entry) => (isTournamentTeam(entry) ? teamNames(entry) : [entry]));
+}
+
 export function buildTeamMap(
   state: Pick<TournamentState, 'players' | 'reserves'>,
 ): Record<string, TournamentTeam> {

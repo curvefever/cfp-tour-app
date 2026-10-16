@@ -4,9 +4,12 @@ import { rebuildFixedDrawHistory } from '../fixed-draws';
 import { generateTournament } from '../generation';
 import {
   addReserveUnit,
+  addWalkUpIndividual,
   connectAnonymousFinalist,
+  fillTeamSlot,
   flagFinalGameAnonymous,
   removeRosterUnit,
+  renameIndividual,
   resetRoster,
   resetTournamentState,
   setFinalScore,
@@ -15,6 +18,7 @@ import {
   swapTeam,
   swapWindowOpen,
   unflagFinalGameAnonymous,
+  updateTeam,
 } from '../mutations';
 import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
@@ -1544,5 +1548,93 @@ describe('removeRosterUnit -- a unit waiting in a pending pool', () => {
     const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
     const seated = atR1.assignments[atR1.curRound][0].name;
     expect(removeRosterUnit(atR1, seated).pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
+  });
+});
+
+describe('names the database cannot store are refused by the domain', () => {
+  const individuals = () =>
+    createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: ROOM_SIZE },
+      players: ['P1', 'P2'],
+      reserves: ['Sub'],
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+    });
+  const teams = () =>
+    createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [
+        { teamId: 't1', teamName: 'Team One', members: [{ name: 'Alice' }, { name: 'Bob' }] },
+        { teamId: 't2', teamName: 'Team Two', members: [{ name: 'Carl' }, { name: 'Dave' }] },
+      ],
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 't1', room: 1, isLucky: false },
+          { name: 't2', room: 1, isLucky: false },
+        ],
+      ],
+    });
+
+  it('renameIndividual leaves the state unchanged for "A.B" and renames to a clean name', () => {
+    const state = individuals();
+    expect(renameIndividual(state, 'P1', 'A.B')).toBe(state);
+    expect(renameIndividual(state, 'P1', 'Ann').players).toEqual(['Ann', 'P2']);
+  });
+
+  it('addWalkUpIndividual refuses "x#1" with its own reason, before anything else', () => {
+    const state = individuals();
+    expect(addWalkUpIndividual(state, 'x#1')).toEqual({ status: 'blocked', reason: 'unstorable-name' });
+    expect(addWalkUpIndividual(state, 'x1').status).toBe('added');
+  });
+
+  it('swapIndividual leaves the state unchanged for a replacement called "a/b"', () => {
+    const state = individuals();
+    expect(swapIndividual(state, 'P1', 'a/b')).toBe(state);
+    expect(swapIndividual(state, 'P1', 'Sub')).not.toBe(state);
+  });
+
+  it('swapTeam leaves the state unchanged for a replacement with a member called "m[1]"', () => {
+    const state = teams();
+    const clean: TournamentTeam = {
+      teamId: 't3',
+      teamName: 'Team Three',
+      members: [{ name: 'm1' }, { name: 'm2' }],
+    };
+    expect(swapTeam(state, 't1', { ...clean, members: [{ name: 'm[1]' }, { name: 'm2' }] })).toBe(state);
+    expect(swapTeam(state, 't1', { ...clean, teamName: 'Team.Three' })).toBe(state);
+    expect(swapTeam(state, 't1', clean)).not.toBe(state);
+  });
+
+  it('updateTeam and fillTeamSlot refuse a new name with a forbidden character but accept a clean one', () => {
+    const state = teams();
+    const rename = (teamName: string) => updateTeam(state, 't1', (team) => ({ ...team, teamName }));
+    expect(rename('Team#1')).toBe(state);
+    expect(rename('Team 1')).not.toBe(state);
+    const roomy = {
+      ...state,
+      players: [{ teamId: 't1', teamName: 'Team One', members: [{ name: 'Alice' }, null] }, state.players[1]],
+    } as TournamentState;
+    expect(fillTeamSlot(roomy, 't1', 1, { name: 'Bo$b' })).toBe(roomy);
+    expect(fillTeamSlot(roomy, 't1', 1, { name: 'Bob' })).not.toBe(roomy);
+  });
+
+  it('a name stored before names were checked does not lock its team: only newly introduced names are refused', () => {
+    const state = createDefaultTournamentState({
+      gameFormat: 'team-2v2v2v2',
+      players: [{ teamId: 't1', teamName: 'Old.Team', members: [{ name: 'Alice' }, { name: 'Bob' }] }],
+    });
+    const renamedMember = updateTeam(state, 't1', (team) => ({
+      ...team,
+      members: [{ name: 'Alicia' }, team.members[1]],
+    }));
+    expect(renamedMember).not.toBe(state);
+    expect((renamedMember.players[0] as TournamentTeam).teamName).toBe('Old.Team');
   });
 });

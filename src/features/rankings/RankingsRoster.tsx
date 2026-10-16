@@ -16,13 +16,21 @@ import {
   type ReserveAddOptions,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
-import { isDisplayNameTaken, parseTeamLines, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
+import {
+  isDisplayNameTaken,
+  parseTeamLines,
+  rosterKeys,
+  teamNames,
+  unitDisplay,
+  unstorableNamesMessage,
+} from '../../domain/tournament/roster';
 import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { destinationLabel } from '../bracket/exit-text';
 import { Button, Input, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 
@@ -75,6 +83,7 @@ function handleReserveResult(
       'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",
     'duplicate-name': 'A player with that name is already registered — pick a different name.',
+    'unstorable-name': unstorableNamesMessage([label]),
   };
   window.alert(messages[result.reason]);
 }
@@ -122,6 +131,7 @@ type UpdateState = (updater: (current: TournamentState) => TournamentState) => v
 function renamePlayer(state: TournamentState, name: string, apply: UpdateState) {
   const value = window.prompt(`Rename "${name}" to:`, name);
   if (value === null || !value.trim() || value.trim() === name) return;
+  if (refuseUnstorableNames([value])) return;
   if (isDisplayNameTaken(state, value, name)) {
     window.alert(`"${value.trim()}" is already registered — pick a different name.`);
     return;
@@ -132,6 +142,7 @@ function renamePlayer(state: TournamentState, name: string, apply: UpdateState) 
 function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
   const value = window.prompt(`Swap out "${name}". Enter the replacement's name:`);
   if (value === null || !value.trim()) return;
+  if (refuseUnstorableNames([value])) return;
   // Only the active roster is a real conflict here -- a name matching an existing reserve is legitimately
   // consumed by swapIndividual() (it promotes that reserve), matching the "+" reserve-add button's own
   // effect, so that case is not blocked.
@@ -318,6 +329,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     onClick={() => {
                       const value = window.prompt(`Rename team "${team.teamName}" to:`, team.teamName);
                       if (!value?.trim()) return;
+                      if (refuseUnstorableNames([value])) return;
                       if (isDisplayNameTaken(state, value, team.teamId)) {
                         window.alert(
                           `A team called "${value.trim()}" is already registered — pick a different name.`,
@@ -381,6 +393,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           return;
                         }
                       }
+                      if (refuseUnstorableNames(teamNames(replacement))) return;
                       if (isDisplayNameTaken(state, replacement.teamName, team.teamId)) {
                         window.alert(
                           `A team called "${replacement.teamName}" is already registered — pick a different name.`,
@@ -469,7 +482,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                               const value = window.prompt(
                                 'Name of the new/walk-up player filling this slot:',
                               );
-                              if (value?.trim())
+                              if (value?.trim() && !refuseUnstorableNames([value]))
                                 app.updateState((current) =>
                                   fillTeamSlot(current, team.teamId, memberIndex, { name: value.trim() }),
                                 );
@@ -515,7 +528,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         title='Rename member'
                         onClick={() => {
                           const value = window.prompt(`Rename "${member.name}" to:`, member.name);
-                          if (value?.trim())
+                          if (value?.trim() && !refuseUnstorableNames([value]))
                             app.updateState((current) =>
                               updateTeam(current, team.teamId, (entry) => ({
                                 ...entry,

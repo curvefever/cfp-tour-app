@@ -4,7 +4,7 @@ import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-dra
 import { getGameFormat } from './formats';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
-import { isDisplayNameTaken, rosterKeys, unitDisplay } from './roster';
+import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import {
   getFinalUnitScore,
@@ -162,6 +162,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
   const players = state.players as string[];
   const reserves = state.reserves as string[];
   if (players.includes(trimmed) || reserves.includes(trimmed)) return state;
+  if (findUnstorableNames([trimmed]).length) return state;
   const rename = (name: string) => (name === oldName ? trimmed : name);
   const finalScores: TournamentState['finalScores'] = {};
   for (const [key, score] of Object.entries(state.finalScores)) {
@@ -256,7 +257,8 @@ export type ReserveAddResult =
         | 'waterfall-bracket'
         | 'strict-room'
         | 'room-cap'
-        | 'duplicate-name';
+        | 'duplicate-name'
+        | 'unstorable-name';
     }
   | { status: 'confirm-over-cap'; room: number; count: number }
   | { status: 'confirm-late-join'; missedRounds: number };
@@ -408,6 +410,7 @@ export function addWalkUpIndividual(
   if ((state.players as string[]).includes(trimmed) || (state.reserves as string[]).includes(trimmed)) {
     return { status: 'blocked', reason: 'duplicate-name' };
   }
+  if (findUnstorableNames([trimmed]).length) return { status: 'blocked', reason: 'unstorable-name' };
   return addReserveUnit({ ...state, reserves: [...(state.reserves as string[]), trimmed] }, trimmed, options);
 }
 
@@ -740,7 +743,14 @@ export function swapWindowOpen(state: TournamentState): boolean {
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
   const trimmed = newName.trim();
   const players = state.players as string[];
-  if (!trimmed || players.includes(trimmed) || !swapWindowOpen(state)) return state;
+  if (
+    !trimmed ||
+    players.includes(trimmed) ||
+    findUnstorableNames([trimmed]).length ||
+    !swapWindowOpen(state)
+  ) {
+    return state;
+  }
 
   const replaced = replaceUnitInPlay(state, oldName, trimmed);
   if (!replaced) return state;
@@ -779,6 +789,7 @@ export function swapTeam(
   // The outgoing team (oldTeamId) is excluded -- it's being removed by this
   // same swap, so a replacement sharing its exact name is not a collision.
   if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
+  if (findUnstorableNames(teamNames(replacement)).length) return state;
   const replaced = replaceUnitInPlay(state, oldTeamId, replacement.teamId);
   if (!replaced) return state;
   const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped', replacement.teamId);
@@ -815,6 +826,7 @@ export function fillTeamSlot(
     members[memberIndex] = member;
     return { ...team, members };
   });
+  if (next === state) return state;
   return reserveIndex === undefined
     ? next
     : {
@@ -828,12 +840,16 @@ export function updateTeam(
   teamId: string,
   updater: (team: TournamentTeam) => TournamentTeam,
 ): TournamentState {
-  return {
-    ...state,
-    players: (state.players as TournamentTeam[]).map((team) =>
-      team.teamId === teamId ? updater({ ...team, members: [...team.members] }) : team,
-    ),
-  };
+  let refused = false;
+  const players = (state.players as TournamentTeam[]).map((team) => {
+    if (team.teamId !== teamId) return team;
+    const updated = updater({ ...team, members: [...team.members] });
+    // Only names the update introduced: a name stored before names were checked doesn't lock its team.
+    const added = teamNames(updated).filter((name) => !teamNames(team).includes(name));
+    refused = findUnstorableNames(added).length > 0;
+    return updated;
+  });
+  return refused ? state : { ...state, players };
 }
 
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
