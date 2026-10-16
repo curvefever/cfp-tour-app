@@ -10,10 +10,10 @@ import {
 } from './advancement';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
+import { lateJoinersOf } from './late-joiners';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
-import { rosterKeys } from './roster';
 import {
   avoidSameGroupInFirstBracketRound,
   recordRoomHistory,
@@ -100,14 +100,20 @@ function uniqueKeepingLast(candidates: SeedCandidate[]): SeedCandidate[] {
 }
 
 /**
- * A no-elimination pooling round advances everyone, but only the units seated in
- * its rooms (and byes) reach `advancing`. A unit added to the roster while the
- * round was in play was never seated, so it is drawn in with the others here.
+ * A no-elimination pooling round advances everyone, but only the units seated in its rooms (and byes)
+ * reach `advancing`. A unit added to the roster while the round was in play was never seated, so it is
+ * drawn in with the others here.
  */
-function withUndrawnRosterUnits(advancing: SeedCandidate[], roster: string[]): SeedCandidate[] {
+function withLateJoiners(advancing: SeedCandidate[], joiners: string[]): SeedCandidate[] {
   const present = new Set(advancing.map((entry) => entry.name));
-  const joiners = roster.filter((name) => !present.has(name));
-  return [...advancing, ...joiners.map((name) => ({ name, isLucky: false }))];
+  const absent = joiners.filter((name) => !present.has(name));
+  return [...advancing, ...absent.map((name) => ({ name, isLucky: false }))];
+}
+
+/** Candidates for a bye: never a late joiner in their first round (a bye counts as a win), unless nobody else is left. */
+function byeCandidates(advancing: SeedCandidate[], joiners: ReadonlySet<string>): SeedCandidate[] {
+  const regular = advancing.filter((entry) => !joiners.has(entry.name));
+  return regular.length ? regular : advancing;
 }
 
 /** The state mutation performed indirectly by legacy renderAdminRound(). */
@@ -696,7 +702,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
     ];
   }
   if (round.isNoElim && !round.isGroupStage && !isStandingsCutoffRound(state, roundIndex)) {
-    advancing = withUndrawnRosterUnits(advancing, rosterKeys(state.players));
+    advancing = withLateJoiners(advancing, lateJoinersOf(state, roundIndex));
   }
   advancing = uniqueKeepingLast(advancing);
 
@@ -772,6 +778,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       };
     }
     const newByes: SeedCandidate[] = [];
+    const joiners = new Set(lateJoinersOf(state, roundIndex));
     if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {
       let needed = 0;
       if (nextRound.bracketPhaseFirstRound) {
@@ -789,15 +796,16 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
           };
         }
         if (nextRound.isNoElim && needed === 1) {
-          const chosen = selectPoolingBye(advancing, state.poolingByeCounts);
+          const chosen = selectPoolingBye(byeCandidates(advancing, joiners), state.poolingByeCounts);
           if (chosen) {
             newByes.push(chosen);
             advancing = advancing.filter((entry) => entry !== chosen);
             state.poolingByeCounts[chosen.name] = (state.poolingByeCounts[chosen.name] ?? 0) + 1;
           }
         } else {
-          newByes.push(...advancing.slice(0, needed));
-          advancing = advancing.slice(needed);
+          const taken = byeCandidates(advancing, joiners).slice(0, needed);
+          newByes.push(...taken);
+          advancing = advancing.filter((entry) => !taken.includes(entry));
         }
       }
     }

@@ -1,4 +1,5 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
+import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
 import type { RandomSource } from './runtime';
 import type {
@@ -199,18 +200,25 @@ export function swissFoldPair(options: {
     );
   }
   const standings = computeQualificationStandings(state);
-  const sorted = standings.filter((entry) => activeNames.includes(entry.name)).map((entry) => entry.name);
+  // A late joiner's level is unknown: they sit at the median of the standings, not at 0 points, and never get the bye.
+  const joiners = lateJoinersOf(state, throughRoundIndex).filter((name) => activeNames.includes(name));
+  const sorted = standings
+    .filter((entry) => activeNames.includes(entry.name) && !joiners.includes(entry.name))
+    .map((entry) => entry.name);
   for (const name of activeNames) {
-    if (!sorted.includes(name)) sorted.push(name);
+    if (!sorted.includes(name) && !joiners.includes(name)) sorted.push(name);
   }
+  sorted.splice(Math.floor(sorted.length / 2), 0, ...joiners);
 
   const poolingByeCounts = { ...state.poolingByeCounts };
   let byeName: string | null = null;
   if (sorted.length % 2 !== 0) {
-    const minimum = Math.min(...sorted.map((name) => poolingByeCounts[name] ?? 0));
+    const regular = sorted.filter((name) => !joiners.includes(name));
+    const eligible = regular.length ? regular : sorted;
+    const minimum = Math.min(...eligible.map((name) => poolingByeCounts[name] ?? 0));
     const median = Math.floor(sorted.length / 2);
     let bestDistance = Number.POSITIVE_INFINITY;
-    for (const name of sorted.filter((candidate) => (poolingByeCounts[candidate] ?? 0) === minimum)) {
+    for (const name of eligible.filter((candidate) => (poolingByeCounts[candidate] ?? 0) === minimum)) {
       const distance = Math.abs(sorted.indexOf(name) - median);
       if (distance < bestDistance) {
         bestDistance = distance;

@@ -1,4 +1,5 @@
 import { kingsValleyRoundMoves } from './kings-valley';
+import { lateJoinersOf } from './late-joiners';
 import {
   getUnitScore,
   groupByScore,
@@ -754,13 +755,23 @@ export function buildAdvancementTiers(
     }
   }
 
-  if (remaining.size > 0) {
-    const byeMembers: AdvancementTierMember[] = [...remaining].map((name) => ({
+  // Units with no room: a bye counts as a win (tier 0, share 1); a late joiner is an unknown, seeded as an average unit.
+  const joiners = lateJoinersOf(state, roundIndex).filter((name) => remaining.has(name));
+  const joinerSet = new Set(joiners);
+  const byeMembers = [...remaining]
+    .filter((name) => !joinerSet.has(name))
+    .map((name): AdvancementTierMember => ({ name, pct: 1, sourceRoom: 0 }));
+  if (byeMembers.length > 0) byRank.set(0, [...(byRank.get(0) ?? []), ...byeMembers]);
+  if (joiners.length > 0 && round) {
+    const averageRank = Math.floor(Math.max(0, ...round.rooms) / 2);
+    const seated = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room !== null).length;
+    const averageShare = seated > 0 ? round.rooms.length / seated : 1;
+    const joinerMembers = joiners.map((name): AdvancementTierMember => ({
       name,
-      pct: 1,
+      pct: averageShare,
       sourceRoom: 0,
     }));
-    byRank.set(0, [...(byRank.get(0) ?? []), ...byeMembers]);
+    byRank.set(averageRank, [...(byRank.get(averageRank) ?? []), ...joinerMembers]);
   }
 
   return [...byRank.entries()]

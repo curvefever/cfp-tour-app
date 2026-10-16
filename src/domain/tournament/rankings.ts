@@ -7,6 +7,7 @@ import {
 } from './advancement';
 import { describeStandings, type StandingsDisplay } from './standings-display';
 import { computeGrandFinalRaceState } from './finals';
+import { lateJoinersOf } from './late-joiners';
 import { getFinalUnitScore, getUnitScore, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import type {
@@ -274,13 +275,10 @@ function waitingUnits(
  */
 function undrawnJoiners(
   state: TournamentState,
-  roster: readonly string[],
-  placed: ReadonlySet<string>,
+  pooled: ReadonlySet<string>,
 ): Array<{ name: string; isLucky: boolean; waitingFor: number }> {
-  const inPlay = state.rounds[state.curRound];
-  if (!inPlay?.isNoElim || inPlay.isGroupStage) return [];
-  return roster
-    .filter((name) => !placed.has(name))
+  return lateJoinersOf(state, state.curRound)
+    .filter((name) => !pooled.has(name))
     .map((name) => ({ name, isLucky: false, waitingFor: state.curRound + 1 }));
 }
 
@@ -345,10 +343,11 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const rosterSet = new Set(rosterKeys(state.players));
   active = active.filter((entry) => rosterSet.has(entry.name));
   const pooled = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
-  const placed = new Set([...active, ...pooled].map(({ name }) => name));
   const waiting = [
     ...pooled,
-    ...(lastRi === state.curRound && !finalComplete ? undrawnJoiners(state, [...rosterSet], placed) : []),
+    ...(lastRi === state.curRound && !finalComplete
+      ? undrawnJoiners(state, new Set(pooled.map(({ name }) => name)))
+      : []),
   ];
 
   const activeNames = new Set([...active.map(({ name }) => name), ...waiting.map(({ name }) => name)]);

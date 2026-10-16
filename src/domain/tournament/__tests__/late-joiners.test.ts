@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { buildAdvancementTiers, computeQualificationStandings } from '../advancement';
 import { generateTournament } from '../generation';
+import { lateJoinersOf } from '../late-joiners';
 import {
   addReserveUnit,
   addWalkUpIndividual,
@@ -348,5 +350,141 @@ describe('what stays blocked', () => {
       oddCountStrategy: 'none',
     });
     expect(addWalkUpIndividual(start, 'Late')).toEqual({ status: 'blocked', reason: 'strict-room' });
+  });
+});
+
+describe('a late joiner is seeded as an average unit, and never given a bye, in their first round', () => {
+  const tierOf = (state: TournamentState, roundIndex: number, name: string) => {
+    const names = (state.players as string[]).slice();
+    for (const tier of buildAdvancementTiers(state, roundIndex, names)) {
+      const member = tier.members.find((entry) => entry.name === name);
+      if (member) return { rank: tier.rank, pct: member.pct, sourceRoom: member.sourceRoom };
+    }
+    throw new Error(`${name} is in no tier`);
+  };
+  const joinAndScore = (state: TournamentState, names: string[]) => {
+    const joined = names.reduce((current, name) => join(current, name), state);
+    return scoreCurrentRound(joined, 0);
+  };
+
+  it('lateJoinersOf lists the roster units neither seated nor on a bye, in add order; nobody for a later round', () => {
+    const start = build(37, FFA_QUAL);
+    const joined = join(join(start, 'Late1'), 'Late2');
+    expect(lateJoinersOf(joined, 0)).toEqual(['Late1', 'Late2']);
+    expect(lateJoinersOf(playRound(joined), 0)).toEqual(['Late1', 'Late2']);
+    expect(lateJoinersOf(playRound(joined), 1)).toEqual([]);
+  });
+
+  it('FFA qual table at 37 (rooms [8,8,7,7,7]): the joiner is in tier 4 with share 5/37, not tier 0', () => {
+    const state = joinAndScore(build(37, FFA_QUAL), ['Late']);
+    expect(state.rounds[0].rooms).toEqual([8, 8, 7, 7, 7]);
+    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 4, pct: 5 / 37, sourceRoom: 0 });
+  });
+
+  it.each([
+    [43, 1],
+    [53, 2],
+  ])(
+    'at %i registered the %i joiner(s) sit in tier floor(largest room / 2), in add order',
+    (registered, joiners) => {
+      const names = ['Late1', 'Late2'].slice(0, joiners);
+      const state = joinAndScore(build(registered, FFA_QUAL), names);
+      const largest = Math.max(...state.rounds[0].rooms);
+      const tiers = buildAdvancementTiers(state, 0, state.players as string[]);
+      const tier = tiers.find((entry) => entry.rank === Math.floor(largest / 2));
+      const inTier = (tier?.members ?? [])
+        .filter((member) => member.sourceRoom === 0)
+        .map((member) => member.name);
+      expect(inTier).toEqual(names);
+      for (const name of names) expect(tierOf(state, 0, name).rank).toBe(Math.floor(largest / 2));
+    },
+  );
+
+  describe('head-to-head qualification table at 37, byes', () => {
+    const setup = {
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'qual-table',
+      qualAdv: '16',
+      oddCountStrategy: 'bye',
+    } as const;
+
+    it('a bye unit keeps tier 0 with share 1; the joiner goes to the losers tier with share 1/2', () => {
+      const start = build(37, setup);
+      const bye = start.byes[0][0];
+      const state = joinAndScore(start, ['Late']);
+      expect(tierOf(state, 0, bye)).toEqual({ rank: 0, pct: 1, sourceRoom: 0 });
+      expect(tierOf(state, 0, 'Late')).toEqual({ rank: 1, pct: 18 / 36, sourceRoom: 0 });
+    });
+
+    it('36 registered plus a joiner is 37: the bye goes to a regular unit, never the joiner, even when only the joiner has had none', () => {
+      const start = build(36, setup);
+      const joined = join(start);
+      const everyoneElseHadOne = Object.fromEntries((start.players as string[]).map((name) => [name, 1]));
+      const withCounts = { ...joined, poolingByeCounts: everyoneElseHadOne };
+      const next = playRound(withCounts);
+      expect(next.byes[1]).toHaveLength(1);
+      expect(next.byes[1]).not.toContain('Late');
+      expect(seated(next, 1, 'Late')).toBe(1);
+    });
+  });
+
+  describe('Swiss 1v1', () => {
+    const setup = {
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      qualAdv: '16',
+      oddCountStrategy: 'bye',
+    } as const;
+
+    it('31 registered: the joiner takes the median place of the fold, so they meet the lowest-ranked unit, and there is no bye', () => {
+      const atRound2 = playRound(build(31, setup));
+      const joined = join(atRound2);
+      const scored = scoreCurrentRound(joined, 0);
+      const ranked = computeQualificationStandings(scored)
+        .map((entry) => entry.name)
+        .filter((name) => name !== 'Late');
+      const next = playRound(joined);
+      expect(next.byes[2] ?? []).toEqual([]);
+      const room = next.assignments[2].find((entry) => entry.name === 'Late')?.room;
+      const opponent = next.assignments[2].find((entry) => entry.room === room && entry.name !== 'Late');
+      expect(opponent?.name).toBe(ranked.at(-1));
+    });
+
+    it('30 registered plus a joiner is 31: the bye goes to a regular unit', () => {
+      const next = playRound(join(playRound(build(30, setup))));
+      expect(next.byes[2]).toHaveLength(1);
+      expect(next.byes[2]).not.toContain('Late');
+      expect(seated(next, 2, 'Late')).toBe(1);
+    });
+
+    it('30 registered, everyone else already had a bye: the old rule (fewest byes) would pick the joiner, the bye still goes to a regular unit', () => {
+      const atRound2 = playRound(build(30, setup));
+      const joined = join(atRound2);
+      const everyoneElseHadOne = Object.fromEntries((atRound2.players as string[]).map((name) => [name, 1]));
+      const next = playRound({ ...joined, poolingByeCounts: everyoneElseHadOne });
+      expect(next.byes[2]).toHaveLength(1);
+      expect(next.byes[2]).not.toContain('Late');
+      expect(next.poolingByeCounts.Late ?? 0).toBe(0);
+    });
+  });
+
+  it('warm-ups into the first bracket round (single elimination FFA, 31): a joiner in warm-up 2 is in the middle tier', () => {
+    const setup = { poolingPhase: 'none', nonCountingRounds: '2' } as const;
+    const atWarmUp2 = playRound(build(31, setup));
+    const state = joinAndScore(atWarmUp2, ['Late']);
+    const largest = Math.max(...state.rounds[1].rooms);
+    expect(tierOf(state, 1, 'Late').rank).toBe(Math.floor(largest / 2));
+    expect(tierOf(state, 1, 'Late').sourceRoom).toBe(0);
+    const next = playRound(join(atWarmUp2));
+    expect(seated(next, 2, 'Late')).toBe(1);
+  });
+
+  it("from the joiner's second round on, their own result seeds them: their real room place", () => {
+    const joined = playRound(join(build(37, FFA_QUAL)));
+    const scored = scoreCurrentRound(joined, 0);
+    const entries = scored.assignments[1];
+    const room = entries.find((entry) => entry.name === 'Late')?.room as number;
+    const place = entries.filter((entry) => entry.room === room).findIndex((entry) => entry.name === 'Late');
+    expect(tierOf(scored, 1, 'Late')).toMatchObject({ rank: place, sourceRoom: room });
   });
 });
