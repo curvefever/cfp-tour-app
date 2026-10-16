@@ -400,6 +400,12 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     },
   );
 
+  it('FFA qual table at 19 (rooms [7,6,6]): the joiner is in tier 3, the 4th place of the largest room, with share 3/19', () => {
+    const state = joinAndScore(build(19, FFA_QUAL), ['Late']);
+    expect(state.rounds[0].rooms).toEqual([7, 6, 6]);
+    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 3, pct: 3 / 19, sourceRoom: 0 });
+  });
+
   describe('head-to-head qualification table at 37, byes', () => {
     const setup = {
       gameFormat: 'individual-1v1',
@@ -436,18 +442,30 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
       oddCountStrategy: 'bye',
     } as const;
 
-    it('31 registered: the joiner takes the median place of the fold, so they meet the lowest-ranked unit, and there is no bye', () => {
-      const atRound2 = playRound(build(31, setup));
-      const joined = join(atRound2);
-      const scored = scoreCurrentRound(joined, 0);
-      const ranked = computeQualificationStandings(scored)
+    const rankedWithout = (state: TournamentState, joiners: string[]) =>
+      computeQualificationStandings(state)
         .map((entry) => entry.name)
-        .filter((name) => name !== 'Late');
+        .filter((name) => !joiners.includes(name));
+    const opponentOf = (state: TournamentState, roundIndex: number, name: string) => {
+      const room = state.assignments[roundIndex].find((entry) => entry.name === name)?.room;
+      return state.assignments[roundIndex].find((entry) => entry.room === room && entry.name !== name)?.name;
+    };
+
+    it('31 registered: the joiner goes last in the fold, so they meet the middle-ranked unit (fold index half - 1), and there is no bye', () => {
+      const joined = join(playRound(build(31, setup)));
+      const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late']);
       const next = playRound(joined);
       expect(next.byes[2] ?? []).toEqual([]);
-      const room = next.assignments[2].find((entry) => entry.name === 'Late')?.room;
-      const opponent = next.assignments[2].find((entry) => entry.room === room && entry.name !== 'Late');
-      expect(opponent?.name).toBe(ranked.at(-1));
+      expect(opponentOf(next, 2, 'Late')).toBe(ranked[15]);
+    });
+
+    it('30 registered and two joiners: they meet the units at fold index half - 2 and half - 1, in add order', () => {
+      const joined = join(join(playRound(build(30, setup)), 'Late1'), 'Late2');
+      const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late1', 'Late2']);
+      const next = playRound(joined);
+      expect(next.byes[2] ?? []).toEqual([]);
+      expect(opponentOf(next, 2, 'Late1')).toBe(ranked[14]);
+      expect(opponentOf(next, 2, 'Late2')).toBe(ranked[15]);
     });
 
     it('30 registered plus a joiner is 31: the bye goes to a regular unit', () => {

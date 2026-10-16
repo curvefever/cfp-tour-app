@@ -200,7 +200,7 @@ export function swissFoldPair(options: {
     );
   }
   const standings = computeQualificationStandings(state);
-  // A late joiner's level is unknown: they sit at the median of the standings, not at 0 points, and never get the bye.
+  // A late joiner's level is unknown: they go last in the fold order, so each meets a middle-ranked unit (index k pairs with k + half), not the weakest; and they never get the bye.
   const joiners = lateJoinersOf(state, throughRoundIndex).filter((name) => activeNames.includes(name));
   const sorted = standings
     .filter((entry) => activeNames.includes(entry.name) && !joiners.includes(entry.name))
@@ -208,7 +208,7 @@ export function swissFoldPair(options: {
   for (const name of activeNames) {
     if (!sorted.includes(name) && !joiners.includes(name)) sorted.push(name);
   }
-  sorted.splice(Math.floor(sorted.length / 2), 0, ...joiners);
+  sorted.push(...joiners);
 
   const poolingByeCounts = { ...state.poolingByeCounts };
   let byeName: string | null = null;
