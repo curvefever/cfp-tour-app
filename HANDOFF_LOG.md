@@ -6,6 +6,52 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Late joiners during pooling, and names the database can store (done — 2026-10-16)
+
+Plan: `plans/2026-10-16-adding-players.md` ("Plan B"; planner/reviewer and implementer sessions, five commits on `test`).
+
+**Why.** (1) Players sometimes arrive during qualification and must still be able to join. `addReserveUnit` refused every waterfall, a qual-table/Swiss phase once more than one qualifying round was complete (`'qualification-in-progress'`), and seated a joiner in the least-full room of the round in play, which needed an over-full room (a 3-unit room in 1v1/3v3) when every room was full. (2) Names are Firebase keys, so a name containing `.`, `#`, `$`, `/`, `[` or `]` broke things after generation, and nothing stopped one from being entered.
+
+**Findings (planner).** Scoring already handles a late joiner: points are summed and a missed counted round earns 0, so a joiner only lowers their own total (the old "plays at least two counted rounds" rule dates from Fair Points averaging). Double elimination had no block of its own during pooling. A waterfall with a pooling phase can take a joiner: at each advance the next pooling round is refitted to the real head count (`fitNextRound`), and with a Qual source the exit routes the standings by rank and eliminates every unrouted rank, so an extra unit only lengthens the eliminated tail; the bracket rounds must not be re-planned (`rebuildFutureRounds` would lose live graph edits, as `replanFutureRounds` already knows).
+
+**Organiser decisions (2026-10-16).**
+- A late joiner plays from the next round: the round in play stays as drawn, the joiner sits it out (0 points if it counts), and Next Round draws them in. No over-full room is ever created.
+- A confirm with a warning from 2 missed counted rounds, the round in play included; non-counting rounds and warm-ups don't count. Fewer than 2: no prompt.
+- Group stage and fixed draws stay blocked (roadmap). A waterfall with no pooling phase stays blocked (roadmap: joining while nobody is eliminated, graph adjusted by hand).
+- A tournament with no pooling phase keeps today's first-bracket-round case (least-full room, over-cap confirm, `'strict-room'` under "None").
+- Names: one shared validator; every place a name enters the roster refuses an unstorable name with a message naming each offender.
+
+**Planner decisions, open to correction.** The window (`reserveWindowAtCurrentRound`) is unchanged. Joining during the last qualifying round is allowed (the confirm names all rounds missed; the joiner is normally cut). Team member names are validated too, not only team names.
+
+**Implementer calls.**
+- The advance takes in undrawn roster units for a no-elimination pooling round **except the standings cut-off** (`isStandingsCutoffRound`). The plan said `isNoElim && !isGroupStage`; taken literally that also fires at the last qualifying round, where `advancing` is the top `qualAdv` of the standings, and appending everyone not in it would defeat the cut. The joiner is already in the standings with 0 points. Accepted by the reviewer.
+- The plan's "Swiss 53 → 1 bye" was a slip: 53 registered plus a joiner is 54, which pairs evenly (27 rooms, no bye). The 1-bye case is 52 registered plus a joiner (= 53), covered as its own test.
+- `updateTeam` refuses only names the update *introduces*, so a team stored earlier with a `.` in a name can still have another member renamed (no migration). `fillTeamSlot` returns the state untouched, without consuming the reserve individual, when the update is refused.
+
+**Commits.**
+1. `d50d2de` Late joiners in the domain. `mutations.ts`: `addReserveUnit` in the order closed, group stage, fixed draw, waterfall with pooling `none`, then a round in play that is not a pooling round (`seatInRoundInPlay`, today's path extracted), then the pooling path (`breaksStrictPooling` → `'strict-room'`, `missedCountedRounds` ≥ 2 → `confirm-late-join` unless `allowLateJoin`, move the unit from reserves to players without touching `assignments`, `rebuildFutureRounds` except for a waterfall); `'qualification-in-progress'` removed. `transitions.ts`: `withUndrawnRosterUnits`. Four old tests asserting the removed blocks were rewritten.
+2. `6f4d858` A test that a joiner leaves an edited waterfall graph alone (labels edited after generation survive; it fails without the waterfall early return), and a comment fix.
+3. `9180c78` Rankings and the Reserves tool. `computeRankings` lists a joiner waiting for the next pooling round as active with `room: null` and `waitingFor: curRound + 1` (`undrawnJoiners`), so the "where" line reads "Waiting for Round 3". `RankingsRoster.tsx`: the `confirm-late-join` confirm (names the next round and the missed count; OK retries with `allowLateJoin`), the reworded waterfall and strict-room messages, the RESERVES hint.
+4. `521af5e` Names the database can store. `roster.ts`: `UNSTORABLE_NAME_CHARACTERS`, `findUnstorableNames`, `unstorableNamesMessage`, `teamNames`, `rosterNames`; `tournament-write.shared.ts` reuses the constant; `refuseUnstorableNames` (`features/tournament/unstorable-names.ts`) in the Setup roster load and every typed-name prompt in Rankings; domain guards in the five mutations and `'unstorable-name'` from `addWalkUpIndividual`.
+5. The docs commit (this entry, `rules.md`, `views.md`, `open-items.md`, `roadmap.md`).
+
+### Testing
+- `late-joiners.test.ts` (22 tests; each asserts the round in play's assignments are unchanged and the joiner is seated exactly once next round): FFA qual table at 37 advance 16 (round 1 no prompt, round 2 `missedRounds` 2 then added, round 3 `missedRounds` 3 with the joiner ranked last and cut and the bracket unchanged); 43 with 1 non-counting round (round 2 `missedRounds` 1, no prompt; round 3 asks with 2); Swiss 1v1 at 31 (round 3 is 16 rooms, no bye), 53 (27 rooms, no bye) and 52 (26 rooms, 1 bye); waterfall with a Qual source at 37 and 53 (waterfall rounds deep-equal before and after, 24 routed, 14 and 30 eliminated, no shortfall block) and the edited-graph test; waterfall with pooling `none` refused; double elimination 1v1 at 43 (last qualifying round) and at 31 with 2 warm-ups (bracket rebuilt for 32 and equal to a fresh generation, joiner drawn into the first bracket round; a joiner in the first bracket round is seated after the over-cap confirm); single elimination FFA 37 without pooling (room 3, then `'closed'`); Kings Valley FFA 53 (first round is 54 strong); 2v2v2v2 at 31 teams; group stage 1v1 at 37 and a fixed draw still refused; "None" at 32 → `'strict-room'`.
+- `rankings.test.ts`: FFA qual at 37, joiner at round 2 listed once with `waitingFor` 2 and no room; after Next Round a room and no `waitingFor`.
+- `roster.test.ts` (new): each unstorable character, clean names including `Ølaf`, offenders once and in order, both messages, `teamNames`/`rosterNames`. `mutations.test.ts`: rename to `A.B`, walk-up `x#1`, swap to `a/b`, team swap with `m[1]` and `Team.Three`, `updateTeam`/`fillTeamSlot`, a stored `Old.Team` not locking its team.
+- Reviewer's mutation checks: no undrawn joiners (fails the Rankings test), walk-up guard, `updateTeam` guard and `.` dropped from the regex (all fail), the waterfall early return (fails the edited-graph test), the advance change (11 tests fail).
+- Full suite and the live check: see the line added to this entry after the push.
+
+### Out of scope
+- Adding players once elimination has started (wanted long-term).
+- A waterfall with no pooling phase taking a joiner while nobody is eliminated, with the graph adjusted by hand: `docs/roadmap.md`.
+- Group stage: rebuilding groups mid-stage. Fixed draws: patching published future rounds for a joiner. Both: `docs/roadmap.md`.
+- Seating a joiner in the pooling round in play (decided against); over-full rooms remain only in the no-pooling first-bracket-round case, as before.
+- A joiner added after Previous while the next round is already drawn and locked (`drawnAheadStatus` 'locked') joins the round after that one: edge case, not handled (`docs/open-items.md`).
+- Renaming names already stored in existing tournaments; no migration.
+
+---
+
 ## Semis shrinks to who advances, refusal below the floor, readable score boxes, tie-break decimals on hover (done — 2026-10-16)
 
 Plan: `plans/2026-10-16-quick-fixes.md` (planner/reviewer and implementer sessions, five commits on `test`).
