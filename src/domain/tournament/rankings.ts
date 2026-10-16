@@ -30,6 +30,8 @@ export interface ActiveRanking extends RankingDisplay {
   poolRank: { rank: number; fp: number | null; groupLabel?: string } | null;
   /** Index of the round this unit is routed to but not drawn into yet (it waits in that round's pending pool); `room` is null then. */
   waitingFor?: number;
+  /** A unit added while a pooling round was in play: no room yet, drawn in by the round `waitingFor`. */
+  joining?: true;
 }
 
 export interface FinalistRanking extends RankingDisplay {
@@ -276,10 +278,10 @@ function waitingUnits(
 function undrawnJoiners(
   state: TournamentState,
   pooled: ReadonlySet<string>,
-): Array<{ name: string; isLucky: boolean; waitingFor: number }> {
+): Array<{ name: string; isLucky: boolean; waitingFor: number; joining?: true }> {
   return lateJoinersOf(state, state.curRound)
     .filter((name) => !pooled.has(name))
-    .map((name) => ({ name, isLucky: false, waitingFor: state.curRound + 1 }));
+    .map((name) => ({ name, isLucky: false, waitingFor: state.curRound + 1, joining: true as const }));
 }
 
 export function computeRankings(state: TournamentState): TournamentRankings | null {

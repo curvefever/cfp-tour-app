@@ -8,6 +8,7 @@ import {
   refreshRoundStandings,
 } from '../advancement';
 import { addReserveUnit, removeRosterUnit, resolveTournamentTie } from '../mutations';
+import { distributeRooms } from '../room-distribution';
 import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound, routeStandings } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentStanding } from '../types';
@@ -299,11 +300,17 @@ describe('a withdrawal during qualification', () => {
     expect(play.outcome.message).toContain('Edit graph');
   });
 
-  it('takes a late reserve during qualification without touching its rounds: the exit routing fits whoever arrives', () => {
+  it('takes a late reserve during qualification without touching its graph rounds: the pooling rounds fit 32 and the exit routing fits whoever arrives', () => {
     const state = { ...buildQualWaterfall(31), reserves: ['Late'], reserveOpen: true };
     const result = addReserveUnit(state, 'Late');
     expect(result.status).toBe('added');
-    if (result.status === 'added') expect(result.state.rounds).toEqual(state.rounds);
+    if (result.status !== 'added') return;
+    const firstWaterfall = state.rounds.findIndex((round) => round.isWaterfall);
+    expect(result.state.rounds.slice(firstWaterfall)).toEqual(state.rounds.slice(firstWaterfall));
+    const roomSize = state.gamemodeConfig.roomSize as { min: number; max: number; ideal: number };
+    for (const index of [1, 2]) {
+      expect(result.state.rounds[index].rooms).toEqual(distributeRooms(32, roomSize));
+    }
   });
 });
 

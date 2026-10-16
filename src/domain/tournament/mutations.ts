@@ -2,6 +2,7 @@ import { invalidateStaleTieResolutions } from './advancement';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
+import { refitPoolingRound } from './pooling';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
 import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
@@ -227,6 +228,23 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
 }
 
 /**
+ * A waterfall keeps its graph rounds (they are fitted to the real head count at each advance, and a re-plan would
+ * discard live graph edits), but the pooling rounds before them are not part of the graph: reshape the ones not
+ * yet reached for the roster count, so the Bracket shows the sizes the draw will use.
+ */
+function refitFuturePoolingRounds(state: TournamentState): TournamentState {
+  const roomSize = state.gamemodeConfig.roomSize;
+  if (!roomSize) return state;
+  const count = rosterKeys(state.players).length;
+  const rounds = state.rounds.map((round, index) =>
+    index > state.curRound && round.isNoElim && !round.isGroupStage && !round.isWaterfall
+      ? refitPoolingRound(round, count, roomSize, state.gamemodeConfig.oddCountStrategy)
+      : round,
+  );
+  return { ...state, rounds };
+}
+
+/**
  * Re-plans the not-yet-reached rounds for the new headcount after a removal,
  * the way a reserve join does. Skipped for fixed draws (their published rounds
  * were already patched) and waterfall brackets (an exact-headcount graph). A
@@ -237,7 +255,7 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
  */
 function replanFutureRounds(state: TournamentState): TournamentState {
   if (state.gamemodeConfig.drawPublication === 'fixed') return state;
-  if (state.gamemodeConfig.bracketPhase === 'waterfall-bracket') return state;
+  if (state.gamemodeConfig.bracketPhase === 'waterfall-bracket') return refitFuturePoolingRounds(state);
   const rebuilt = rebuildFutureRounds(state);
   if (!rebuilt) return state;
   const coherent = rebuilt.rounds.every(
@@ -390,9 +408,7 @@ export function addReserveUnit(
   }
   const moved = moveReserveToPlayers(state, key);
   if (!moved) return { status: 'blocked', reason: 'room-cap' };
-  // A waterfall keeps its rounds: they are fitted to the real head count at
-  // each advance, and re-planning would discard live edits to its graph.
-  if (isWaterfall) return { status: 'added', state: moved };
+  if (isWaterfall) return { status: 'added', state: refitFuturePoolingRounds(moved) };
   const rebuilt = rebuildFutureRounds(moved);
   if (!rebuilt) return { status: 'blocked', reason: 'room-cap' };
   return { status: 'added', state: rebuilt };

@@ -167,7 +167,7 @@ describe('standingsExplanation', () => {
 
 describe('roundCells', () => {
   it('shows score, place and points of a played round', () => {
-    expect(roundCells({ roundIndex: 1, score: 1250, rank: 2, points: 3, bye: false }, true)).toEqual({
+    expect(roundCells({ roundIndex: 1, score: 1250, rank: 2, points: 3, bye: false })).toEqual({
       score: '1250',
       rank: '2nd',
       points: '3',
@@ -175,16 +175,15 @@ describe('roundCells', () => {
   });
 
   it('shows a bye as "Bye" with its points', () => {
-    expect(roundCells({ roundIndex: 1, score: null, rank: null, points: 2, bye: true }, true)).toEqual({
+    expect(roundCells({ roundIndex: 1, score: null, rank: null, points: 2, bye: true })).toEqual({
       score: 'Bye',
       rank: '—',
       points: '2',
     });
   });
 
-  it('shows 0 points for a round missed, and nothing for a round not over yet', () => {
-    expect(roundCells(undefined, true)).toEqual({ score: '—', rank: '—', points: '0' });
-    expect(roundCells(undefined, false)).toEqual({ score: '—', rank: '—', points: '—' });
+  it('shows "—" in score, place and points for a round the unit missed, whether or not the round is over', () => {
+    expect(roundCells(undefined)).toEqual({ score: '—', rank: '—', points: '—' });
   });
 });
 

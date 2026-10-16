@@ -10,7 +10,7 @@ import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
 import { luckyLoserNames, pendingTieNames } from './room-row-inputs';
-import { LuckyLoserStandingsPanel } from './RoundNotes';
+import { JoiningPanel, LuckyLoserStandingsPanel } from './RoundNotes';
 
 function tieResolutionListSafe(state: TournamentState, key: string): string[] {
   const value = state.tieResolutions[key];
@@ -43,13 +43,16 @@ export function RoundBody({
     if (roundIndex <= state.curRound)
       return <div className='text-sm text-muted'>Nobody reached this round.</div>;
     return (
-      <PlaceholderRound
-        round={round}
-        roundIndex={roundIndex}
-        state={state}
-        projected={projected}
-        labels={labels}
-      />
+      <>
+        <PlaceholderRound
+          round={round}
+          roundIndex={roundIndex}
+          state={state}
+          projected={projected}
+          labels={labels}
+        />
+        {roundIndex === state.curRound + 1 ? <JoiningPanel state={state} /> : null}
+      </>
     );
   }
   if (round.isFinal)

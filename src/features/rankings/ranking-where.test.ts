@@ -7,6 +7,7 @@ import {
 } from '../../domain/tournament/__tests__/qual-waterfall';
 import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { addWalkUpIndividual } from '../../domain/tournament/mutations';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -167,6 +168,42 @@ describe('the where line of a unit waiting in a waterfall', () => {
     const out = rankings.eliminatedList.map((entry) => eliminatedWhere(state, entry, labels));
     expect(out).toHaveLength(13);
     expect(out.every((text) => /^Qualification · #\d+$/.test(text))).toBe(true);
+  });
+});
+
+describe('the where line of a late joiner', () => {
+  it('reads "Joining Round 2" for a walk-up added in round 1 of a 37-player qualification table; the rest keep their room', () => {
+    const added = addWalkUpIndividual(qualTournament(37), 'Late');
+    if (added.status !== 'added') throw new Error('expected the walk-up to be added');
+    const { rankings, stillIn } = wheres(added.state);
+    const names = rankings.stillActive.map((entry) => entry.name);
+    expect(stillIn[names.indexOf('Late')]).toBe('Joining Round 2');
+    expect(rankings.stillActive.filter((entry) => entry.joining)).toHaveLength(1);
+    expect(stillIn.filter((text) => text.startsWith('Round 1 · Room'))).toHaveLength(37);
+  });
+
+  it('a double-elimination unit waiting in a pending pool still reads "Waiting for ...", never "Joining"', () => {
+    const start = buildState({
+      label: 'double elimination 31',
+      count: 31,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'double-elimination',
+        poolingPhase: 'none',
+        oddCountStrategy: 'bye',
+      },
+    });
+    if (!start) throw new Error('generation failed');
+    let state = start;
+    let waiting: string[] = [];
+    for (let guard = 0; guard < 8 && waiting.length === 0; guard += 1) {
+      state = advance(state);
+      const { rankings, stillIn } = wheres(state);
+      waiting = stillIn.filter((_, index) => rankings.stillActive[index].waitingFor !== undefined);
+    }
+    expect(waiting.length).toBeGreaterThan(0);
+    expect(waiting.every((text) => text.startsWith('Waiting for '))).toBe(true);
   });
 });
 

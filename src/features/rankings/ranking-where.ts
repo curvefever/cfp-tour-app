@@ -23,7 +23,7 @@ function roundAndRoom(state: TournamentState, roundIndex: number, room: number, 
 /**
  * Where a unit that is still in stands: its room in the last drawn round and, once every score of the room is in,
  * its place there ("Quarters · Room B · 2nd"); "Waiting for Semis" while it sits in the pool of a round that is not
- * drawn yet; "Round 3 · Bye" when it sits the round out.
+ * drawn yet; "Joining Round 3" for a unit added during a pooling round, drawn in by the next; "Round 3 · Bye" when it sits the round out.
  */
 export function stillInWhere(
   state: TournamentState,
@@ -31,7 +31,9 @@ export function stillInWhere(
   entry: ActiveRanking,
   labels: Labels,
 ): string {
-  if (entry.waitingFor !== undefined) return `Waiting for ${destinationLabel(entry.waitingFor, labels)}`;
+  if (entry.waitingFor !== undefined) {
+    return `${entry.joining ? 'Joining' : 'Waiting for'} ${destinationLabel(entry.waitingFor, labels)}`;
+  }
   if (entry.room === null) return `${destinationLabel(lastRoundIndex, labels)} · Bye`;
   const where = roundAndRoom(state, lastRoundIndex, entry.room, labels);
   const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name);

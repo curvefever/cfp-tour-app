@@ -82,6 +82,33 @@ function createPoolingRound(
   };
 }
 
+/** Both Swiss seeders pair units two by two and always give an odd unit a real bye, whatever the odd-count strategy. */
+function swissShape(roomSize: RoomSize): RoomSize {
+  return { min: roomSize.ideal, max: roomSize.ideal, ideal: roomSize.ideal };
+}
+
+/**
+ * A pooling round not yet reached, reshaped for `n` units the way generation would shape it. Everything else
+ * on the round (its flags, its standings routes) is kept; an advancement total that was the whole pool follows it.
+ */
+export function refitPoolingRound(
+  round: TournamentRound,
+  n: number,
+  roomSize: RoomSize,
+  oddCountStrategy: OddCountStrategyKey | undefined,
+): TournamentRound {
+  const distribution = round.isSwiss
+    ? distributeRoomsWithBye(n, swissShape(roomSize), 'bye')
+    : distributeRoomsWithBye(n, roomSize, oddCountStrategy);
+  return {
+    ...round,
+    players: n,
+    rooms: distribution.rooms,
+    byeCount: distribution.byeCount,
+    advTotal: round.advTotal === round.players ? n : round.advTotal,
+  };
+}
+
 export function qualificationTablePoolingPhase(
   config: Pick<PoolingConfig, 'n' | 'qualAdv'>,
   format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'qualRounds' | 'nonCountingRounds'>,
@@ -108,7 +135,7 @@ export function swissPoolingPhase(
   // Both Swiss seeders (swissFoldPair, buildFixedSwissSchedule) pair units two
   // by two and always give an odd unit a real bye, whatever the odd-count
   // strategy, so the declared shape is always that of a head-to-head bye.
-  const headToHead = { min: format.roomSize.ideal, max: format.roomSize.ideal, ideal: format.roomSize.ideal };
+  const headToHead = swissShape(format.roomSize);
   const rounds = Array.from({ length: format.swissRounds }, (_, index) => {
     const distribution = distributeRoomsWithBye(config.n, headToHead, 'bye');
     return {

@@ -69,11 +69,11 @@ export interface RoundCells {
 }
 
 /**
- * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed shows 0 points once
- * the round is over, and nothing while it is still ahead or being played.
+ * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed (a late joiner's)
+ * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there.
  */
-export function roundCells(result: StandingRoundResult | undefined, roundOver: boolean): RoundCells {
-  if (!result) return { score: '—', rank: '—', points: roundOver ? '0' : '—' };
+export function roundCells(result: StandingRoundResult | undefined): RoundCells {
+  if (!result) return { score: '—', rank: '—', points: '—' };
   if (result.bye) return { score: 'Bye', rank: '—', points: String(result.points) };
   return {
     score: String(result.score),

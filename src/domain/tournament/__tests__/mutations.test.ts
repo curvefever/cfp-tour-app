@@ -21,6 +21,7 @@ import {
   updateTeam,
 } from '../mutations';
 import { computeRankings } from '../rankings';
+import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -1266,7 +1267,7 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
     expect(removed.rounds[firstBracket]).toBe(state.rounds[firstBracket]);
   });
 
-  it('does not rebuild a waterfall bracket', () => {
+  it('leaves the graph rounds of a waterfall bracket untouched and refits its pooling rounds to the new headcount', () => {
     const state = generate(16, {
       scheduleLogic: 'waterfall-bracket',
       poolingPhase: 'qual-table',
@@ -1274,7 +1275,15 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
       waterfallGraph:
         'ROUNDS:\nR1 = 2x8\nSemiB = 8\nFinal = 8 FINAL\n\nROUTES:\nR1.A: 1-3->Final, 4-7->SemiB, 8->eliminated\nR1.B: 1-3->Final, 4-7->SemiB, 8->eliminated\nSemiB: 1-2->Final, 3-8->eliminated',
     });
-    expect(removeRosterUnit(state, 'P1').rounds).toBe(state.rounds);
+    const removed = removeRosterUnit(state, 'P1');
+    const firstWaterfall = state.rounds.findIndex((round) => round.isWaterfall);
+    expect(removed.rounds.slice(firstWaterfall)).toEqual(state.rounds.slice(firstWaterfall));
+    const roomSize = state.gamemodeConfig.roomSize as { min: number; max: number; ideal: number };
+    for (const index of [1, 2]) {
+      expect(removed.rounds[index].rooms).toEqual(distributeRooms(15, roomSize));
+      expect(removed.rounds[index].players).toBe(15);
+    }
+    expect(removed.rounds[0]).toBe(state.rounds[0]);
   });
 
   it('still removes the unit, and leaves the rounds untouched, when the rebuild returns null', () => {

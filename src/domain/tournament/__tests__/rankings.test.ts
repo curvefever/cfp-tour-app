@@ -998,6 +998,21 @@ describe('computeRankings -- a late joiner waiting for the next pooling round', 
     expect(computeRankings(joined.state)?.eliminatedList).toHaveLength(0);
   });
 
+  it('marks the joiner as joining, and nobody else (a unit waiting in a pending pool is not joining)', () => {
+    const joined = addWalkUpIndividual(atRound2(), 'Late', { allowLateJoin: true });
+    if (joined.status !== 'added') throw new Error('expected the joiner to be added');
+    const active = computeRankings(joined.state)?.stillActive ?? [];
+    expect(active.filter((entry) => entry.joining).map((entry) => entry.name)).toEqual(['Late']);
+    const exit = playToQualificationExit(buildQualWaterfall(37));
+    const result = advanceTournamentRound(exit);
+    if (result.status !== 'advanced') throw new Error('expected the pooling exit to advance');
+    const waiting = (computeRankings(result.state)?.stillActive ?? []).filter(
+      (entry) => entry.waitingFor !== undefined,
+    );
+    expect(waiting.length).toBeGreaterThan(0);
+    expect(waiting.some((entry) => entry.joining)).toBe(false);
+  });
+
   it('has a room and no waitingFor once Next Round draws them in', () => {
     const joined = addWalkUpIndividual(atRound2(), 'Late', { allowLateJoin: true });
     if (joined.status !== 'added') throw new Error('expected the joiner to be added');

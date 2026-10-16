@@ -6,6 +6,7 @@ import {
   addReserveUnit,
   addWalkUpIndividual,
   missedCountedRounds,
+  removeRosterUnit,
   type ReserveAddResult,
 } from '../mutations';
 import { distributeRooms } from '../room-distribution';
@@ -504,5 +505,51 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     const room = entries.find((entry) => entry.name === 'Late')?.room as number;
     const place = entries.filter((entry) => entry.room === room).findIndex((entry) => entry.name === 'Late');
     expect(tierOf(scored, 1, 'Late')).toMatchObject({ rank: place, sourceRoom: room });
+  });
+});
+
+describe('a waterfall refits its pooling rounds to the roster at once, a join or a removal', () => {
+  const sizes = (state: TournamentState, index: number) => state.rounds[index].rooms;
+  const firstWaterfall = (state: TournamentState) => state.rounds.findIndex((round) => round.isWaterfall);
+  const lastQual = (state: TournamentState) => state.rounds.filter((round) => round.isQual).at(-1);
+  const roomSize = (state: TournamentState) =>
+    state.gamemodeConfig.roomSize as { min: number; max: number; ideal: number };
+
+  it.each([
+    [37, 38, 36],
+    [53, 54, 52],
+  ])(
+    'Qual source at %i: a join at round 1 fits rounds 2 and 3 for %i, a removal for %i',
+    (registered, joinedCount, removedCount) => {
+      const start = buildQualWaterfall(registered);
+      const bracket = start.rounds.slice(firstWaterfall(start));
+      const routes = lastQual(start)?.standingsRoutes;
+
+      const joined = join(start);
+      expect(sizes(joined, 1)).toEqual(distributeRooms(joinedCount, roomSize(start)));
+      expect(sizes(joined, 2)).toEqual(distributeRooms(joinedCount, roomSize(start)));
+      expect(joined.rounds[1].players).toBe(joinedCount);
+      expect(joined.rounds.slice(firstWaterfall(start))).toEqual(bracket);
+      expect(lastQual(joined)?.standingsRoutes).toEqual(routes);
+      expect(sizes(joined, 0)).toEqual(sizes(start, 0));
+
+      const removed = removeRosterUnit(start, 'P1');
+      expect(sizes(removed, 1)).toEqual(distributeRooms(removedCount, roomSize(start)));
+      expect(sizes(removed, 2)).toEqual(distributeRooms(removedCount, roomSize(start)));
+      expect(removed.rounds.slice(firstWaterfall(start))).toEqual(bracket);
+      expect(lastQual(removed)?.standingsRoutes).toEqual(routes);
+    },
+  );
+
+  it('the refit rounds are the shape the next draw uses: Next Round seats the joiner in a room of the refit round', () => {
+    const next = playRound(join(buildQualWaterfall(37)));
+    expect(next.rounds[1].rooms).toEqual(distributeRooms(38, roomSize(next)));
+    expect(seated(next, 1, 'Late')).toBe(1);
+  });
+
+  it('a non-waterfall tournament (FFA qual table at 43) is rebuilt for 44, as before', () => {
+    const joined = join(build(43, FFA_QUAL));
+    expect(sizes(joined, 1)).toEqual(distributeRooms(44, roomSize(joined)));
+    expect(sizes(joined, 2)).toEqual(distributeRooms(44, roomSize(joined)));
   });
 });

@@ -84,19 +84,8 @@ function StandingsHead({
   );
 }
 
-function RoundResultCells({
-  entry,
-  roundIndex,
-  roundOver,
-}: {
-  entry: Entry;
-  roundIndex: number;
-  roundOver: boolean;
-}) {
-  const cells = roundCells(
-    entry.rounds?.find((result) => result.roundIndex === roundIndex),
-    roundOver,
-  );
+function RoundResultCells({ entry, roundIndex }: { entry: Entry; roundIndex: number }) {
+  const cells = roundCells(entry.rounds?.find((result) => result.roundIndex === roundIndex));
   return (
     <>
       <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-sm text-muted')}>{cells.score}</TableCell>
@@ -146,12 +135,7 @@ function StandingsRow({
         <TieMark placed={placed} pending={pending} />
       </TableCell>
       {roundIndexes.map((roundIndex) => (
-        <RoundResultCells
-          entry={entry}
-          key={roundIndex}
-          roundIndex={roundIndex}
-          roundOver={roundIndex < state.curRound}
-        />
+        <RoundResultCells entry={entry} key={roundIndex} roundIndex={roundIndex} />
       ))}
       <TableCell className='w-21 border-0 py-0 pr-2 text-right text-lg font-extrabold tabular-nums'>
         {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
