@@ -206,6 +206,19 @@ describe('a late joiner in a waterfall with a Qual source', () => {
     },
   );
 
+  it('keeps a graph edited after generation: the joiner does not re-plan the waterfall rounds', () => {
+    const start = playRound(buildQualWaterfall(37));
+    const edited = {
+      ...start,
+      rounds: start.rounds.map((round) =>
+        round.isWaterfall ? { ...round, customLabel: `${round.customLabel}-edited` } : round,
+      ),
+    };
+    const joined = join(edited);
+    expect(joined.rounds.slice(firstWaterfall(start))).toEqual(edited.rounds.slice(firstWaterfall(start)));
+    expect(joined.rounds[firstWaterfall(start)].customLabel).toMatch(/-edited$/);
+  });
+
   it('without a pooling phase a waterfall still refuses a joiner', () => {
     const graph = `
 ROUNDS:

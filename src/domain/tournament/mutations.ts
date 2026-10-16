@@ -268,8 +268,8 @@ interface ReserveAddOptions {
 
 /**
  * Counted pooling rounds a unit added now would miss: the qualification/Swiss
- * rounds up to and including the one in play. Warm-ups (`excludeFromStandings`)
- * are played but earn nothing, so they don't count.
+ * rounds up to and including the one in play. The leading non-counting rounds
+ * (`excludeFromStandings`) are played but earn nothing, so they don't count.
  */
 export function missedCountedRounds(state: Pick<TournamentState, 'rounds' | 'curRound'>): number {
   return state.rounds
