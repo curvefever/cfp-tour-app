@@ -12,6 +12,7 @@ import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from './exit-text';
 import { placeInRoom } from './folded-round';
 import { roomTitle } from './room-title';
+import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 type Labels = ReturnType<typeof bracketRoundLabels>;
 
@@ -73,7 +74,7 @@ function placeDestination(
     case 'eliminate':
       return 'out';
     case 'lucky-chance':
-      return roundIndex < state.curRound ? null : '· lucky loser?';
+      return isRoundDone(state, roundIndex) ? null : '· lucky loser?';
   }
 }
 
@@ -95,9 +96,9 @@ export function followBannerText(
   // A round drawn ahead of the current one is shown as the next step of the last round the unit played.
   const played = Object.keys(follow.rounds)
     .map(Number)
-    .filter((index) => index <= state.curRound)
+    .filter((index) => isRoundReached(state, index))
     .at(-1);
-  const drawnAhead = follow.lastRi > state.curRound && played !== undefined;
+  const drawnAhead = !isRoundReached(state, follow.lastRi) && played !== undefined;
   const roundIndex = drawnAhead ? played : follow.lastRi;
   const round = state.rounds[roundIndex];
   const roundName = destinationLabel(roundIndex, labels);

@@ -100,6 +100,8 @@ export interface TournamentRound {
   standingsRoutes?: Array<number | 'eliminated'>;
   /** The organiser's own round label from the waterfall graph (e.g. "SemiA", "6B"), read by bracketRoundLabels() instead of a synthetic "Round N". Only set when isWaterfall is true. */
   customLabel?: string;
+  /** The waterfall column this round is played in (numbered from 1; the qualification table is column 0). Rounds of one column are played together and sit next to each other in `state.rounds`. Only set on waterfall rounds of a tournament generated with columns; a round without it is played on its own. */
+  waterfallColumn?: number;
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */

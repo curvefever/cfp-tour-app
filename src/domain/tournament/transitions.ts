@@ -32,6 +32,7 @@ import type {
   TournamentState,
 } from './types';
 import { declaredWaterfallSeats, fitWaterfallRound, waterfallDestination } from './waterfall-bracket';
+import { isRoundDone, nextColumnStart } from './round-columns';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
@@ -130,7 +131,7 @@ function reserveWindowAtCurrentRound(state: Pick<TournamentState, 'cfg' | 'round
   } else {
     cutRound = state.rounds.findIndex((round) => !round.isNoElim && !round.isFinal);
   }
-  return cutRound !== -1 && state.curRound <= cutRound;
+  return cutRound !== -1 && !isRoundDone(state, cutRound);
 }
 
 interface RoundFitFailure {
@@ -664,7 +665,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   }
   const drawnAhead = drawnAheadStatus(prepared, roundIndex);
   if (drawnAhead === 'locked') {
-    const state = { ...prepared, curRound: roundIndex + 1 };
+    const state = { ...prepared, curRound: nextColumnStart(prepared) };
     return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
   }
   const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;

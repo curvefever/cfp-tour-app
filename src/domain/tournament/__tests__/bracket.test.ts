@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   bracketBoxes,
   bracketFollowStatus,
+  bracketRoundDefaultCollapsed,
   bracketRoundLabels,
   projectedSlotLabelText,
   projectFutureRoundSlots,
@@ -18,6 +19,28 @@ import { buildRound, fixedIdSource } from './test-fixtures';
 function project(rounds: TournamentRound[], curRound: number) {
   return projectFutureRoundSlots({ rounds, curRound });
 }
+
+describe('bracketRoundDefaultCollapsed', () => {
+  const single = Array.from({ length: 6 }, (_, index) => buildRound({ roundNum: index + 1 }));
+
+  it('folds the rounds more than one behind the current one', () => {
+    const folded = single.map((_, index) =>
+      bracketRoundDefaultCollapsed({ rounds: single, curRound: 4 }, index),
+    );
+    expect(folded).toEqual([true, true, true, false, false, false]);
+    expect(bracketRoundDefaultCollapsed({ rounds: single, curRound: 0 }, 0)).toBe(false);
+  });
+
+  it('folds the rounds before the previous column when the current one holds several', () => {
+    const columned = [1, 2, 3, 3, 4, 4].map((waterfallColumn, index) =>
+      buildRound({ roundNum: index + 1, waterfallColumn }),
+    );
+    const folded = columned.map((_, index) =>
+      bracketRoundDefaultCollapsed({ rounds: columned, curRound: 4 }, index),
+    );
+    expect(folded).toEqual([true, true, false, false, false, false]);
+  });
+});
 
 describe('bracketRoundLabels', () => {
   it("labels a WB/LB round by its own roundNum, not a separate WB/LB-specific counter -- regression for a box header ('Round N') and its content (this label) citing different numbers", () => {

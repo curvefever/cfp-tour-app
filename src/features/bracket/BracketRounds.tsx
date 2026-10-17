@@ -19,6 +19,7 @@ import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
+import { isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column. */
 export function roundColumnWidthClass() {
@@ -176,11 +177,11 @@ export function BracketRounds({
   const strip = useRef<HTMLDivElement>(null);
   const finalTab = finalTabOverride ?? finalProgress?.nextGame ?? 1;
   function renderSingle(roundIndex: number) {
-    const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(roundIndex, state.curRound);
+    const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
       <RoundColumn
         collapsed={collapsed}
-        current={roundIndex === state.curRound}
+        current={isCurrentRound(state, roundIndex)}
         folded={foldedRoundSummary(state, roundIndex, followKey)}
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
@@ -207,7 +208,7 @@ export function BracketRounds({
           state={state}
           roundIndex={roundIndex}
           round={finalRound}
-          editable={editable && roundIndex === state.curRound}
+          editable={editable && isCurrentRound(state, roundIndex)}
           activeTab={finalTab}
         />
       </Fragment>
@@ -216,15 +217,14 @@ export function BracketRounds({
   function renderWave(box: Extract<BracketBox, { kind: 'wave' }>) {
     const constituents = [box.winnersRoundIndex, ...box.losersRoundIndices];
     const lastIndex = Math.max(...constituents);
-    const collapsed =
-      collapse?.[box.winnersRoundIndex] ?? bracketRoundDefaultCollapsed(lastIndex, state.curRound);
+    const collapsed = collapse?.[box.winnersRoundIndex] ?? bracketRoundDefaultCollapsed(state, lastIndex);
     return (
       <RoundColumn
         collapsed={collapsed}
-        current={constituents.includes(state.curRound)}
+        current={constituents.some((index) => isCurrentRound(state, index))}
         folded={{
           ...foldedRoundSummary(state, box.winnersRoundIndex, followKey),
-          done: lastIndex < state.curRound,
+          done: isRoundDone(state, lastIndex),
         }}
         gameCount={roundGameCount(state, box.winnersRoundIndex)}
         key={box.winnersRoundIndex}

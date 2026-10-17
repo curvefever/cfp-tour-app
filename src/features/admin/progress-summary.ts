@@ -3,6 +3,7 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import { getFinalUnitScore, getUnitScore, roundHasAnyScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { plural } from './setup/plural';
+import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 export type StageState = 'done' | 'now' | 'upcoming';
 
@@ -94,8 +95,8 @@ export function progressSummary(state: TournamentState): ProgressSummary {
   const finished = computeRankings(state)?.finalComplete ?? false;
   const rooms = roomsOf(state, state.curRound);
   const stages = labels.map((name, index): ProgressStage => {
-    if (index < state.curRound) return { name, state: 'done' };
-    if (index > state.curRound) return { name, state: 'upcoming' };
+    if (isRoundDone(state, index)) return { name, state: 'done' };
+    if (!isRoundReached(state, index)) return { name, state: 'upcoming' };
     return { name, state: finished ? 'done' : 'now' };
   });
   const roundName = labels[state.curRound] ?? '';

@@ -1,6 +1,7 @@
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import type { TournamentRound, TournamentState } from './types';
+import { isRoundReached, nextColumnStart, previousColumnStart } from './round-columns';
 
 interface BracketRoundLabel {
   label: string;
@@ -90,8 +91,12 @@ export function bracketFollowStatus(
   };
 }
 
-export function bracketRoundDefaultCollapsed(roundIndex: number, currentRound: number): boolean {
-  return roundIndex < currentRound - 1;
+export function bracketRoundDefaultCollapsed(
+  state: Pick<TournamentState, 'rounds' | 'curRound'>,
+  roundIndex: number,
+): boolean {
+  const previous = previousColumnStart(state);
+  return previous !== null && roundIndex < previous;
 }
 
 export type BracketBox =
@@ -360,7 +365,7 @@ function seatedRoomSizes(
   roundIndex: number,
 ): number[] {
   const planned = state.rounds[roundIndex].rooms;
-  const seated = roundIndex <= state.curRound ? (state.assignments?.[roundIndex] ?? []) : [];
+  const seated = isRoundReached(state, roundIndex) ? (state.assignments?.[roundIndex] ?? []) : [];
   if (seated.length === 0) return planned;
   return planned.map((_, index) => seated.filter((entry) => entry.room === index + 1).length);
 }
@@ -373,7 +378,7 @@ export function projectFutureRoundSlots(
   const result: Record<number, ProjectedSlotLabel[][] | null> = {};
   const unresolved = new Set<number>();
 
-  for (let targetIndex = state.curRound + 1; targetIndex < rounds.length; targetIndex += 1) {
+  for (let targetIndex = nextColumnStart(state); targetIndex < rounds.length; targetIndex += 1) {
     const round = rounds[targetIndex];
     if (
       !round ||

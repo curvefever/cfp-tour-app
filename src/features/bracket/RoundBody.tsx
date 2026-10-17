@@ -12,6 +12,7 @@ import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
 import { luckyLoserNames, pendingTieNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel } from './RoundNotes';
+import { isCurrentRound, isRoundReached, nextColumnStart } from '../../domain/tournament/round-columns';
 
 /** The organiser decided this tie: picked who ranks next, or shared the points. */
 function hasOrganiserDecision(state: TournamentState, key: string): boolean {
@@ -42,7 +43,7 @@ export function RoundBody({
   const assignments = state.assignments[roundIndex] ?? [];
   if (!assignments.length) {
     // A round already reached with nobody in it (a removal left it no units).
-    if (roundIndex <= state.curRound)
+    if (isRoundReached(state, roundIndex))
       return <div className='text-sm text-muted'>Nobody reached this round.</div>;
     return (
       <>
@@ -53,7 +54,7 @@ export function RoundBody({
           projected={projected}
           labels={labels}
         />
-        {roundIndex === state.curRound + 1 ? <JoiningPanel state={state} /> : null}
+        {roundIndex === nextColumnStart(state) ? <JoiningPanel state={state} /> : null}
       </>
     );
   }
@@ -62,7 +63,7 @@ export function RoundBody({
       <FinalColumn
         state={state}
         roundIndex={roundIndex}
-        editable={editable && roundIndex === state.curRound}
+        editable={editable && isCurrentRound(state, roundIndex)}
         followed={followKey}
         tab={finalTab ?? 1}
         onTabChange={onFinalTabChange ?? (() => {})}
@@ -75,7 +76,7 @@ export function RoundBody({
     (exitRule.kind === 'standings-cutoff' && !round.excludeFromStandings);
   const points = countsForPoints ? roomPoints(describeStandings(state), roundIndex) : null;
   const teamMap = buildTeamMap(state);
-  const rowsEditable = editable && roundIndex === state.curRound;
+  const rowsEditable = editable && isCurrentRound(state, roundIndex);
   const luckyNames = luckyLoserNames(state, roundIndex);
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
@@ -103,7 +104,7 @@ export function RoundBody({
           teamMap={teamMap}
         />
       ))}
-      {round.luckyCount > 0 && !round.isNoElim && roundIndex === state.curRound ? (
+      {round.luckyCount > 0 && !round.isNoElim && isCurrentRound(state, roundIndex) ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}
       {(state.byes[roundIndex] ?? []).map((name) => (

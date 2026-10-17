@@ -5,6 +5,7 @@ import { placeInRoom } from '../bracket/folded-round';
 import { luckyLoserNames, pendingTieNames } from '../bracket/room-row-inputs';
 import { roomRowResult } from '../bracket/room-row-result';
 import type { RowResult } from '../tournament/components/result-row';
+import { isRoundDone } from '../../domain/tournament/round-columns';
 
 /**
  * The stripe of every unit still in, as its row in the Bracket would draw it in the last drawn round: green once
@@ -40,7 +41,7 @@ export function stillInResults(
           lucky: luckyNames.includes(entry.name),
           pendingTie: place !== null && pending.has(entry.name),
           roomComplete: place !== null,
-          roundDecided: lastRoundIndex < state.curRound,
+          roundDecided: isRoundDone(state, lastRoundIndex),
         }).result,
       );
     }

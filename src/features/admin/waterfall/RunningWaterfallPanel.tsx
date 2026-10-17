@@ -13,18 +13,19 @@ import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
+import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
 
 const CAUTION_MESSAGE =
   "The tournament is running. Rounds that have started keep their rooms; you can still change where their players go next. Saving re-sorts players using the results already entered. If the current round's line-up changes, its rooms are re-drawn, which is only possible before any score is entered there.";
 
-/** Labels of every reached waterfall round (index <= curRound), and which one is current. */
+/** Labels of every reached waterfall round, and which one is current. */
 function reachedRounds(state: TournamentState): { lockedRounds: Set<string>; currentRoundLabel?: string } {
   const lockedRounds = new Set<string>();
   let currentRoundLabel: string | undefined;
   state.rounds.forEach((round, index) => {
-    if (!round.isWaterfall || index > state.curRound || !round.customLabel) return;
+    if (!round.isWaterfall || !isRoundReached(state, index) || !round.customLabel) return;
     lockedRounds.add(round.customLabel);
-    if (index === state.curRound) currentRoundLabel = round.customLabel;
+    if (isCurrentRound(state, index)) currentRoundLabel = round.customLabel;
   });
   return { lockedRounds, currentRoundLabel };
 }

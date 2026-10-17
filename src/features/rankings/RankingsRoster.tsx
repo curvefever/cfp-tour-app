@@ -33,6 +33,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
+import { nextColumnStart } from '../../domain/tournament/round-columns';
 
 /** The confirm a reserve add can ask for, with the option that answers it; null when the add needs none. */
 function reserveConfirmation(
@@ -47,7 +48,7 @@ function reserveConfirmation(
     };
   }
   if (result.status !== 'confirm-late-join') return null;
-  const joinsFrom = destinationLabel(state.curRound + 1, bracketRoundLabels(state));
+  const joinsFrom = destinationLabel(nextColumnStart(state), bracketRoundLabels(state));
   return {
     text: `"${label}" joins from ${joinsFrom} and misses ${result.missedRounds} qualifying rounds, which count as 0 points. Add anyway?`,
     options: { allowLateJoin: true },

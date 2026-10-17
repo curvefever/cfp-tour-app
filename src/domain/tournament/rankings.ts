@@ -17,6 +17,7 @@ import type {
   TournamentState,
   WithdrawnUnit,
 } from './types';
+import { isCurrentRound } from './round-columns';
 
 export interface RankingDisplay {
   name: string;
@@ -347,7 +348,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const pooled = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
   const waiting = [
     ...pooled,
-    ...(lastRi === state.curRound && !finalComplete
+    ...(isCurrentRound(state, lastRi) && !finalComplete
       ? undrawnJoiners(state, new Set(pooled.map(({ name }) => name)))
       : []),
   ];

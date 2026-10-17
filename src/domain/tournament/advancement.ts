@@ -12,6 +12,7 @@ import {
 } from './scoring';
 import { rosterKeys } from './roster';
 import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
+import { isCurrentRound, isRoundDone } from './round-columns';
 
 /** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
 const EQUALITY_TOLERANCE = 1e-9;
@@ -188,7 +189,7 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
   };
   const nextRound = state.rounds[roundIndex + 1];
   // The stored tables are not kept up to date while a round is scored, so the current round checks fresh ones.
-  const standings = roundIndex === state.curRound ? refreshRoundStandings(state, roundIndex) : state;
+  const standings = isCurrentRound(state, roundIndex) ? refreshRoundStandings(state, roundIndex) : state;
   if (isLastStandingsRound(state, roundIndex)) {
     for (const cutoff of detectQualCutoffTies(standings)) ties[cutoff.key] = cutoff;
   }
@@ -532,7 +533,7 @@ function isHeldBackLiveRoom(
 
 /** True once the round is being played or is over: a bye or a lone unit only earns its win then. */
 function roundHasBegun(state: TournamentState, roundIndex: number): boolean {
-  return roundIndex < state.curRound || (roundIndex === state.curRound && state.started);
+  return isRoundDone(state, roundIndex) || (isCurrentRound(state, roundIndex) && state.started);
 }
 
 /** Group Stage byes of groups that play a match this round (a group whose round robin ran out is idle, not on a bye). */

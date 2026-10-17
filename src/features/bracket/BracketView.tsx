@@ -20,6 +20,7 @@ import { BracketRounds } from './BracketRounds';
 import { FollowBanner } from './FollowBanner';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
+import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
 
 export function BracketView() {
   const app = useTournamentApp();
@@ -57,6 +58,7 @@ export function BracketView() {
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
     app.state.curRound >= app.state.rounds.length - 1 || currentRound?.bracket === 'grand-final';
+  const previousStart = previousColumnStart(app.state);
   const drawnAhead = isLastRound ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
@@ -127,7 +129,7 @@ export function BracketView() {
       />
       {editable && drawnAhead !== 'none' ? (
         <div className='mt-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>
-          {destinationLabel(app.state.curRound + 1, labels)}{' '}
+          {destinationLabel(nextColumnStart(app.state), labels)}{' '}
           {drawnAhead === 'redraw'
             ? "is already drawn. Next Round re-draws it from this round's results."
             : "is already drawn and locked. Next Round returns to it unchanged; a correction here won't change its draw."}
@@ -145,9 +147,14 @@ export function BracketView() {
               Next Round →
             </Button>
           ) : null}
-          {app.state.curRound > 0 ? (
+          {previousStart !== null ? (
             <Button
-              onClick={() => app.updateState((current) => ({ ...current, curRound: current.curRound - 1 }))}
+              onClick={() =>
+                app.updateState((current) => ({
+                  ...current,
+                  curRound: previousColumnStart(current) ?? current.curRound,
+                }))
+              }
             >
               ← Previous
             </Button>

@@ -3,6 +3,7 @@ import { unitDisplay } from '../../domain/tournament/roster';
 import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { placeOrdinal } from '../../lib/ordinal';
+import { isRoundDone } from '../../domain/tournament/round-columns';
 
 export interface FoldedFollowed {
   /** The followed unit's name as shown (a team's name, a player's name). */
@@ -61,7 +62,7 @@ export function foldedRoundSummary(
   const assignments = state.assignments[roundIndex] ?? [];
   const occupied = new Set(assignments.flatMap((entry) => (entry.room === null ? [] : [entry.room])));
   const rooms = assignments.length > 0 ? occupied.size : (state.rounds[roundIndex]?.rooms.length ?? 0);
-  const done = roundIndex < state.curRound;
+  const done = isRoundDone(state, roundIndex);
   if (!followKey) return { rooms, done, followed: null };
   const label = unitDisplay(state, followKey).label;
   if (state.byes[roundIndex]?.includes(followKey)) {

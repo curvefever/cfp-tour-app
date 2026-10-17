@@ -12,6 +12,7 @@ import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
+import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 /** The small header of a pooling room that shows points: SCORE and PTS. */
 function PointsHeader() {
@@ -119,7 +120,7 @@ export function RoomCard({
     score: getUnitScore(state, roundIndex, room, position, null),
   }));
   const complete = scored.length > 0 && scored.every((entry) => entry.score !== null);
-  const showResults = roundIndex <= state.curRound && complete;
+  const showResults = isRoundReached(state, roundIndex) && complete;
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
   const display = showResults
     ? orderRoomWithPlaces(
@@ -143,7 +144,7 @@ export function RoomCard({
           lucky,
           pendingTie,
           roomComplete: showResults,
-          roundDecided: roundIndex < state.curRound,
+          roundDecided: isRoundDone(state, roundIndex),
         });
         return (
           <RoomRow
