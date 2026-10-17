@@ -6,6 +6,47 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A loaded roster keeps its game format (done — 2026-10-17)
+
+Planner/reviewer and implementer sessions; two stages, one commit each, plus the close-out. Plan: `plans/2026-10-17-roster-format.md`.
+
+**Why.** Organiser report: production tournament `1792226417678` ("2v2v2v2 Survival Teams Tour", published, not started, one team registered). Opening Players as an admin gave a white screen with React error #31 ("object with keys {members, teamId, teamName}"); a viewer saw `team_1792232047445_0` where the team should be.
+
+**Diagnosis** (Firebase REST read of `tournaments/` and `setups/` for the id). The Setup form's `gameFormat` was `team-2v2v2v2`; the tournament's own `gameFormat` was `ffa-individual`, the default from `state-defaults.ts`; `players` held one `TournamentTeam`. "Load roster & reserves" (`RosterPanel.tsx`, `loadRoster`) parses by the form's format but wrote `players`, `reserves`, `reserveIndividuals` and `confirmedCount`, never `gameFormat`. Only `generateTournament` wrote it. Until then every reader of `state.gameFormat` took the tournament for FFA: `ManageRoster` cast `state.players as string[]` and rendered a team object as a child (the crash), `unitDisplay` returned the raw key (the viewer), and `registeredLine`, `ReservePanel` and `RankingsView`'s empty text were wrong too. Info and the Tournaments card were right because they read the index's Setup-derived format. Same root cause as the first item in `docs/open-items.md`: generation accepted a roster of the wrong kind (load a roster, switch the Setup format, generate, get a schedule of the wrong unit type).
+
+**Organiser decision (2026-10-17): fix A.**
+- A loaded roster carries the format it was parsed with: loading also stores `gameFormat: setup.gameFormat`, so every pre-start reader is right without change.
+- Generate refuses a roster that doesn't fit the format. The check is on the roster's shape, not on `state.gameFormat`, because many test helpers build state with the default format and pass the format only in the form.
+- Setup says so before Generate: the ROSTER header hint asks to load again.
+- **Planner decision, open to correction:** the team-size check is exact. `parseTeamLines` pads to `teamSize`, so a roster loaded under 2v2v2v2 and generated under 3v3v3 has 2-slot teams and is refused.
+- Not chosen (option B): making the roster views tell teams from players by each entry's shape.
+- Existing data: no migration. After this ships to production, the organiser clicks "Load roster & reserves" once on `1792226417678` (the roster text is still in its Setup form).
+
+**Commits.**
+1. `1754a3c` Domain: `rosterFitsFormat` (`roster.ts`), `withLoadedRoster` (`mutations.ts`), the refusal in `generateTournament` (`generation.ts`, right after the format lookup).
+2. `d761330` Setup's ROSTER panel: both `loadRoster` branches go through `withLoadedRoster`; the header hint reads "Game format changed — load the roster again" (in `text-warning`) when a roster is loaded and doesn't fit `setup.gameFormat`.
+3. The close-out commit (this entry, `docs/views.md`, `docs/open-items.md`).
+
+`SetupView.applyCopiedSettings`' own "The game format changed: load the roster again." message stays as the immediate feedback after a copy.
+
+### Testing
+- New test data fixture `rosterFor(gameFormat, count)` (`__tests__/test-fixtures.ts`): teams of the format's `teamSize`, or plain names. Adding the refusal first broke 14 existing tests in 4 files, all test data that gave a team format the wrong kind of roster: `play-through.ts`' `buildState` hard-coded 3 members (5 tests in double-elimination-removal, rankings, redraw), and five sites in `generation.test.ts` passed plain names to a team format (9 tests: the two `team-3v3` Group Stage/Swiss smoke tests, Kings Valley "refuses" and "still generates", the Kings Valley size limits, Survival Teams). `odd-count-default.test.ts`' local `unitsFor` became `rosterFor`. No assertion changed.
+- `roster.test.ts`, `rosterFitsFormat`: names under `ffa-individual` and `individual-1v1` fit; teams of 2 under `team-2v2v2v2` fit; a team under `ffa-individual` does not (the reported case); names and teams of 2 under `team-3v3v3` do not; a wrong-kind entry only in `reserves` does not; an empty roster fits any format.
+- `mutations.test.ts`, `withLoadedRoster`: sets the format, the three lists and `confirmedCount`, leaves `title`, `cfg` and `info` alone.
+- `generation.test.ts`, awkward counts: 37 teams of 2 generate under `team-2v2v2v2` and store that format; the same 37 under `ffa-individual` are refused; 31 teams of 2 under `team-3v3v3` are refused; 43 names under `team-3v3` are refused; 53 players under `ffa-individual` generate as before.
+- Reviewer's mutation checks on stage 1: 4 of 4 caught (refusal disabled, member-count check dropped, reserves left out of the check, `gameFormat` not set by `withLoadedRoster`).
+- Stage-1 checks: domain suite 37 files, 1410 tests; `vitest related` 60 files, 1774 tests; eslint, prettier, typecheck clean. No component test for `RosterPanel` (`docs/platform.md`, "Tests").
+- Live check, test site after pushing `d761330` (signed in as Lead Mod; the deploy served the old bundle for several minutes, and a first run on it reproduced the crash, `e.label.localeCompare is not a function`). Throwaway draft `1792233970666`: with 2v2v2v2 and `Alpha, A1, A2` / `Beta, B1, B2` loaded, Players as admin lists both teams with their members, no crash; the stored tournament has `gameFormat: team-2v2v2v2` (Firebase REST read). Switching the format to FFA turned the ROSTER hint orange, "Game format changed — load the roster again", and Generate Schedule refused with the new message. Loading again under FFA cleared the hint and Players listed the two lines as players. The viewer's view (team names instead of ids, "2 teams registered so far") was not seen directly: the built-in browser is signed in as an admin, and the admin Players tab shows only the organiser tools; it follows from the stored format, which `unitDisplay` and `registeredLine` read. The draft was published for this and then deleted.
+
+### Out of scope
+- An error boundary around the tabs. A render error still gives a white screen with "Something went wrong!"; worth an open-items or roadmap line.
+- React tests: the screenshot fixture `upcoming-teams-13` is built by generating and then stripping the rounds, so it has the team format stored, and the screenshot spec also runs signed out only; neither could have reproduced this bug. `RosterPanel`, `ManageRoster` and the Players tab have no component tests.
+- Repairing the production tournament's data from code: the organiser reloads the roster.
+- Making `ManageRoster` / `unitDisplay` read each entry's shape (option B).
+- Clearing or converting the loaded roster automatically when the Setup format changes.
+
+---
+
 ## Shared points for a tie in a pooling room (done — 2026-10-17)
 
 Planner/reviewer and implementer sessions; three stages, one commit each, plus the docs.
