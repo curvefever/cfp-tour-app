@@ -143,7 +143,7 @@ describe('TabErrorBoundary', () => {
   });
 });
 
-describe('Players before the start: a drawn but not started tournament', () => {
+describe('Players tab, drawn rooms and the start', () => {
   const drawn = () => {
     const fixture = fixtureTournaments().find((entry) => entry.id === 'drawn-ffa-31');
     if (!fixture) throw new Error('the drawn-ffa-31 fixture is missing');
@@ -156,6 +156,16 @@ describe('Players before the start: a drawn but not started tournament', () => {
     expect(view.queryAllByText(/31 players registered so far/)).toHaveLength(1);
     expect(view.queryAllByText(/Round 1 ·/)).toHaveLength(0);
     expect(view.queryByRole('button', { name: /Download image/ })).toBeNull();
+  });
+
+  it('still shows a viewer the rankings once the tournament has started', () => {
+    const started = fixtureTournaments().find((entry) => entry.id === 'ffa37-pooling');
+    if (!started) throw new Error('the ffa37-pooling fixture is missing');
+
+    const view = renderApp(started, { role: 'viewer', tab: 'rankings' });
+
+    expect(view.queryByRole('button', { name: /Download image/ })).not.toBeNull();
+    expect(view.queryAllByText(/(Round [0-9]+|Qualification) ·/).length).toBeGreaterThan(0);
   });
 
   it('still shows an admin the drawn rooms', () => {

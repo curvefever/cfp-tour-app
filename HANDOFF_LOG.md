@@ -17,8 +17,8 @@ Planner/reviewer and implementer sessions; one commit (code, tests and close-out
 **Admin decision (planner, open to correction).** An admin keeps today's view: the drawn rooms and the organiser tools from Generate, mirroring `showsDraw`, to check the draw before Confirm & Start.
 
 ### Testing
-- `AppShell.render.test.tsx`, a `describe` next to the matrix, on `drawn-ffa-31` (31 players, the awkward count): a viewer on Players sees "31 players registered so far", no text matching `Round 1 ·` and no Download image button; an admin on Players still sees `Round 1 ·` lines.
-- The viewer test was run before the change and failed ("expected [] to have a length of 1 but got +0": the roster line was missing, the page showed the rankings); the admin test passed both before and after. After the change the render file passes, 212 tests.
+- `AppShell.render.test.tsx`, a `describe` next to the matrix, on `drawn-ffa-31` (31 players, the awkward count): a viewer on Players sees "31 players registered so far", no text matching `Round 1 ·` and no Download image button; an admin on Players still sees `Round 1 ·` lines. Added after the reviewer's mutation check (`mayShowDraw` made `app.unlocked` only: all 212 tests still passed): a viewer on the Rankings tab of a started fixture (`ffa37-pooling`) still sees the Download image button and where lines; that test fails under the same mutation.
+- The viewer test was run before the change and failed ("expected [] to have a length of 1 but got +0": the roster line was missing, the page showed the rankings); the admin test passed both before and after. After the change the render file passes, 213 tests.
 - eslint, prettier (`--end-of-line auto`), typecheck clean on the two files. No e2e, no live check.
 
 ### Out of scope
