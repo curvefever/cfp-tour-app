@@ -172,8 +172,9 @@ export const SCORING_SYSTEM_OPTION_LABELS: Record<ScoringSystemKey, string> = {
   'positional-points': 'Custom points table',
 };
 
+/** Points as shown: whole numbers stay whole, a shared place's fractional average shows one decimal ("6.5", "6.3" for 6.333…). */
 export function formatStandingValue(value: number): string {
-  return String(Math.round(value));
+  return String(Math.round(value * 10) / 10);
 }
 
 export function groupByScore<T extends { score: number }>(scoredDescending: T[]): T[][] {
@@ -193,10 +194,68 @@ export function groupByScore<T extends { score: number }>(scoredDescending: T[])
   return clusters;
 }
 
-export function tieResolutionList(state: Pick<TournamentState, 'tieResolutions'>, key: string): string[] {
+/** Stored in a tie's list between the ranked picks and the units that share the next place ("#" can't occur in a unit name). */
+export const SHARED_TIE_MARK = '#shared';
+
+/** A tie's stored decision: the units picked to rank next, in order, and the units that share the next place (empty unless shared). */
+export function readTieResolution(
+  state: Pick<TournamentState, 'tieResolutions'>,
+  key: string,
+): { ranked: string[]; shared: string[] } {
   const value = state.tieResolutions[key];
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
+  if (!value) return { ranked: [], shared: [] };
+  const list = Array.isArray(value) ? value : [value];
+  const markAt = list.indexOf(SHARED_TIE_MARK);
+  if (markAt < 0) return { ranked: list, shared: [] };
+  return { ranked: list.slice(0, markAt), shared: list.slice(markAt + 1) };
+}
+
+/** The units picked to rank next, in order (a shared group is not part of it). */
+export function tieResolutionList(state: Pick<TournamentState, 'tieResolutions'>, key: string): string[] {
+  return readTieResolution(state, key).ranked;
+}
+
+/** One unit of a room with the place it holds; `sharedBy` is 1 when alone, else how many units share `place`. */
+export interface RoomPlace<T> {
+  entry: T;
+  place: number;
+  sharedBy: number;
+}
+
+/** A room's units best first, each with its place: ranked picks first, then the units sharing the next place, then the rest of a tie in their order. */
+export function orderRoomWithPlaces<T extends { name: string; score: number }>(
+  scored: T[],
+  roundIndex: number,
+  room: number,
+  state: Pick<TournamentState, 'tieResolutions'>,
+): Array<RoomPlace<T>> {
+  const sorted = [...scored].sort((first, second) => second.score - first.score);
+  const placed: Array<RoomPlace<T>> = [];
+  for (const cluster of groupByScore(sorted)) {
+    if (cluster.length < 2) {
+      placed.push({ entry: cluster[0], place: placed.length + 1, sharedBy: 1 });
+      continue;
+    }
+    const key = `r${roundIndex}-rm${room}-s${cluster[0].score}`;
+    const { ranked, shared } = readTieResolution(state, key);
+    const byName = new Map(cluster.map((entry) => [entry.name, entry]));
+    const rankedNames = ranked.filter((name) => byName.has(name));
+    const sharedNames = shared.filter((name) => byName.has(name) && !rankedNames.includes(name));
+    const sharingNames = sharedNames.length >= 2 ? sharedNames : [];
+    const taken = new Set([...rankedNames, ...sharingNames]);
+    const remaining = cluster.map((entry) => entry.name).filter((name) => !taken.has(name));
+    for (const name of rankedNames) {
+      placed.push({ entry: byName.get(name) as T, place: placed.length + 1, sharedBy: 1 });
+    }
+    const sharedPlace = placed.length + 1;
+    for (const name of sharingNames) {
+      placed.push({ entry: byName.get(name) as T, place: sharedPlace, sharedBy: sharingNames.length });
+    }
+    for (const name of remaining) {
+      placed.push({ entry: byName.get(name) as T, place: placed.length + 1, sharedBy: 1 });
+    }
+  }
+  return placed;
 }
 
 export function orderRoomByScore<T extends { name: string; score: number }>(
@@ -205,23 +264,7 @@ export function orderRoomByScore<T extends { name: string; score: number }>(
   room: number,
   state: Pick<TournamentState, 'tieResolutions'>,
 ): T[] {
-  const sorted = [...scored].sort((first, second) => second.score - first.score);
-  const ordered: T[] = [];
-  for (const cluster of groupByScore(sorted)) {
-    if (cluster.length < 2) {
-      ordered.push(cluster[0]);
-      continue;
-    }
-    const key = `r${roundIndex}-rm${room}-s${cluster[0].score}`;
-    const resolved = tieResolutionList(state, key);
-    const byName = new Map(cluster.map((entry) => [entry.name, entry]));
-    const remaining = cluster.map((entry) => entry.name).filter((name) => !resolved.includes(name));
-    for (const name of [...resolved, ...remaining]) {
-      const entry = byName.get(name);
-      if (entry) ordered.push(entry);
-    }
-  }
-  return ordered;
+  return orderRoomWithPlaces(scored, roundIndex, room, state).map((item) => item.entry);
 }
 
 /** The Final scores under `finalScores` (game{n}-{name} keys, no round index); every other round under `scores` (r{roundIndex}-... keys). */

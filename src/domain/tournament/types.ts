@@ -152,6 +152,8 @@ export interface StandingRoundResult {
   rank: number | null;
   points: number;
   bye: boolean;
+  /** The place was shared with another unit on the same score. */
+  shared?: boolean;
 }
 
 export interface TournamentStanding {

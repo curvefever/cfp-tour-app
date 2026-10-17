@@ -126,6 +126,36 @@ describe('advanceTournamentRound — noop/blocked guards', () => {
   });
 });
 
+describe('advanceTournamentRound — a shared tie in a pooling round', () => {
+  const warmUp = (tieResolutions: Record<string, string[]>) =>
+    createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      gamemodeConfig: { roomSize: { min: 2, max: 2, ideal: 2 } },
+      rounds: [
+        buildRound({ roundNum: 1, rooms: [4], isNoElim: true, players: 4 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2 }),
+      ],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+          { name: 'P3', room: 1, isLucky: false },
+          { name: 'P4', room: 1, isLucky: false },
+        ],
+      ],
+      scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 100, 'r0-rm1-p2': 50, 'r0-rm1-p3': 10 },
+      tieResolutions,
+      curRound: 0,
+    });
+
+  it('blocks on the tie until it is shared, then advances', () => {
+    const open = advanceTournamentRound(warmUp({}));
+    expect(open.status === 'blocked' && open.reason).toBe('pending-ties');
+    const shared = advanceTournamentRound(warmUp({ 'r0-rm1-s100': ['#shared', 'P1', 'P2'] }));
+    expect(shared.status).toBe('advanced');
+  });
+});
+
 describe('advanceTournamentRound — double-elimination routing', () => {
   it('delegates to advanceDoubleElimination for a real generated bracket:"winners" round', () => {
     const rounds = raceDoubleEliminationBracketPhase(4, 1, {

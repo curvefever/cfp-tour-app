@@ -4,25 +4,33 @@ import {
   getUnitScore,
   groupByScore,
   orderRoomByScore,
+  orderRoomWithPlaces,
   positionalPoints,
+  readTieResolution,
   standardPoints,
   tieResolutionList,
 } from './scoring';
 import { rosterKeys } from './roster';
 import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
 
-/** Room shares closer than this count as equal (they are averages of floating-point ratios). */
-const ROOM_SHARE_TOLERANCE = 1e-9;
+/** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
+const EQUALITY_TOLERANCE = 1e-9;
 
 /** Room shares are equal within the tolerance; a missing share (legacy snapshot) is null and equals only another null. */
 export function sameRoomShare(first: number | null, second: number | null): boolean {
   if (first === null || second === null) return first === second;
-  return Math.abs(first - second) < ROOM_SHARE_TOLERANCE;
+  return Math.abs(first - second) < EQUALITY_TOLERANCE;
 }
 
-/** Equal standing points (strict) and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
+/** Points totals are equal within the tolerance (a shared place can make a total fractional); a missing total (nothing played) is null and equals only another null. */
+export function samePoints(first: number | null, second: number | null): boolean {
+  if (first === null || second === null) return first === second;
+  return Math.abs(first - second) < EQUALITY_TOLERANCE;
+}
+
+/** Equal standing points and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
 export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
-  if (first.totalFP !== second.totalFP) return false;
+  if (!samePoints(first.totalFP, second.totalFP)) return false;
   return sameRoomShare(first.roomShare ?? null, second.roomShare ?? null);
 }
 
@@ -31,8 +39,7 @@ export function compareStandings(first: TournamentStanding, second: TournamentSt
   if (first.totalFP === null && second.totalFP === null) return 0;
   if (first.totalFP === null) return 1;
   if (second.totalFP === null) return -1;
-  const byPoints = second.totalFP - first.totalFP;
-  if (byPoints !== 0) return byPoints;
+  if (!samePoints(first.totalFP, second.totalFP)) return second.totalFP - first.totalFP;
   if (sameStanding(first, second)) return 0;
   return (second.roomShare ?? 0) - (first.roomShare ?? 0);
 }
@@ -144,7 +151,8 @@ export function isTieResolved(
   cluster: Pick<RoomTieCluster, 'players'> | Pick<CutoffTieCluster, 'players'>,
   state: Pick<TournamentState, 'tieResolutions'>,
 ): boolean {
-  return tieResolutionList(state, key).length >= cluster.players.length - 1;
+  const { ranked, shared } = readTieResolution(state, key);
+  return ranked.length >= cluster.players.length - 1 || shared.length > 0;
 }
 
 type TournamentTieCluster = RoomTieCluster | CutoffTieCluster;
@@ -199,6 +207,12 @@ export function hasPendingTies(state: TournamentState, roundIndex: number): bool
   );
 }
 
+/** A shared place holds only while the recorded names are exactly the tied units. */
+function coversCluster(recorded: string[], cluster: Pick<RoomTieCluster, 'players'>): boolean {
+  const names = new Set(recorded);
+  return names.size === cluster.players.length && cluster.players.every((player) => names.has(player.name));
+}
+
 /**
  * Drop room tie decisions whose recorded names no longer belong to the same
  * score cluster. This is the immutable domain equivalent of the legacy
@@ -218,9 +232,11 @@ export function invalidateStaleTieResolutions(
   for (const key of Object.keys(tieResolutions)) {
     if (!key.startsWith(prefix)) continue;
     const cluster = currentTies[key];
-    const resolved = tieResolutionList(state, key);
+    const { ranked, shared } = readTieResolution(state, key);
     const stillValid = Boolean(
-      cluster && resolved.every((name) => cluster.players.some((player) => player.name === name)),
+      cluster &&
+      [...ranked, ...shared].every((name) => cluster.players.some((player) => player.name === name)) &&
+      (shared.length === 0 || coversCluster([...ranked, ...shared], cluster)),
     );
     if (!stillValid) {
       delete tieResolutions[key];
@@ -448,6 +464,13 @@ function pointsForPlace(state: TournamentState, place: number): number {
     : standardPoints(place, largestRoomSize(state));
 }
 
+/** The points a shared place earns: the average of the points of the `count` places it covers. */
+function pointsForSharedPlace(state: TournamentState, place: number, count: number): number {
+  let total = 0;
+  for (let offset = 0; offset < count; offset += 1) total += pointsForPlace(state, place + offset);
+  return total / count;
+}
+
 /** One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room gives everyone 1. */
 export function relativeRoomShare(score: number, scoredRoom: readonly { score: number }[]): number {
   const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
@@ -545,14 +568,15 @@ function roomOutcomes(
   room: number,
 ): Array<RoundOutcome & { name: string }> {
   const scored = scoreRoom(state, roundIndex, room, null);
-  return orderRoomByScore(scored, roundIndex, room, state).map((entry, index) => ({
+  return orderRoomWithPlaces(scored, roundIndex, room, state).map(({ entry, place, sharedBy }) => ({
     name: entry.name,
     roundIndex,
     score: entry.score,
-    rank: index + 1,
-    points: pointsForPlace(state, index + 1),
+    rank: place,
+    points: pointsForSharedPlace(state, place, sharedBy),
     bye: false,
     share: relativeRoomShare(entry.score, scored),
+    ...(sharedBy > 1 ? { shared: true } : {}),
   }));
 }
 
@@ -740,9 +764,10 @@ export function buildAdvancementTiers(
 
   if (round) {
     for (let room = 1; room <= round.rooms.length; room += 1) {
-      const scored = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
-      const roomTotal = scored.reduce((total, entry) => total + entry.score, 0);
-      for (const [rank, entry] of scored.entries()) {
+      const scored = orderRoomWithPlaces(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
+      const roomTotal = scored.reduce((total, { entry }) => total + entry.score, 0);
+      for (const { entry, place } of scored) {
+        const rank = place - 1;
         if (!remaining.has(entry.name)) continue;
         remaining.delete(entry.name);
         const member: AdvancementTierMember = {

@@ -16,12 +16,13 @@ import {
   isLastStandingsRound,
   isUncontestedRoom,
   isTieResolved,
+  samePoints,
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
 } from '../advancement';
 import { generateTournament } from '../generation';
-import { removeRosterUnit, setRoundScore } from '../mutations';
+import { removeRosterUnit, resolveTournamentTie, setRoundScore, shareTiedPoints } from '../mutations';
 import { roundExitRule } from '../room-exits';
 import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
@@ -2203,5 +2204,223 @@ describe('a score entered in the last group-stage round is seen by the tie check
     const tie = getAllTies(after, after.curRound)['group-cutoff-A'];
     expect(tie.players).toHaveLength(2);
     expect(hasPendingTies(after, after.curRound)).toBe(true);
+  });
+});
+
+describe('shared points for a tie in a pooling room', () => {
+  type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
+  type RoundResult = { rank: number | null; points: number; shared?: boolean };
+
+  const FFA: SetupOverrides = {
+    gameFormat: 'ffa-individual',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'qual-table',
+    qualAdv: '16',
+  };
+
+  function ffaRound(count: number, extra: SetupOverrides = {}): TournamentState {
+    const state = buildState({ label: 'shared', count, teams: false, setup: { ...FFA, ...extra } });
+    return scoreCurrentRound(state as TournamentState, 0);
+  }
+
+  function roomWithSize(state: TournamentState, minSize: number): number {
+    return state.rounds[state.curRound].rooms.findIndex((size) => size >= minSize) + 1;
+  }
+
+  /** Sets a room's scores by seat: `head` first, then descending values far below any head value. */
+  function withRoomScores(state: TournamentState, room: number, head: number[]) {
+    const names = state.assignments[state.curRound]
+      .filter((entry) => entry.room === room)
+      .map((entry) => entry.name);
+    const scores = { ...state.scores };
+    names.forEach((_, seat) => {
+      scores[`r${state.curRound}-rm${room}-p${seat}`] = head[seat] ?? 100 - seat * 10;
+    });
+    return { state: { ...state, scores }, names };
+  }
+
+  const standingOf = (state: TournamentState, name: string) =>
+    computeQualificationStandings(state).find((entry) => entry.name === name);
+  const resultOf = (state: TournamentState, name: string) =>
+    standingOf(state, name)?.rounds?.[0] as RoundResult;
+
+  it('37 players: a 2-way tie at 2nd under Standard points gives both 6.5, rank 2, shared; 4th place still earns 5', () => {
+    const base = ffaRound(37);
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 400]);
+    const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
+    expect(shared).not.toBe(state);
+    for (const name of [names[1], names[2]]) {
+      expect(resultOf(shared, name)).toMatchObject({ rank: 2, points: 6.5, shared: true });
+      expect(standingOf(shared, name)?.totalFP).toBe(6.5);
+    }
+    expect(resultOf(shared, names[3])).toMatchObject({ rank: 4, points: 5 });
+    expect('shared' in resultOf(shared, names[3])).toBe(false);
+    expect('shared' in resultOf(shared, names[0])).toBe(false);
+  });
+
+  it('37 players: a 3-way tie at 2nd gives each (7 + 6 + 5) / 3 = 6', () => {
+    const base = ffaRound(37);
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 500]);
+    const shared = shareTiedPoints(state, `r0-rm${room}-s500`, names.slice(1, 4));
+    for (const name of names.slice(1, 4)) {
+      expect(resultOf(shared, name)).toMatchObject({ rank: 2, points: 6, shared: true });
+    }
+    expect(resultOf(shared, names[4])).toMatchObject({ rank: 5, points: 4 });
+  });
+
+  it('43 players: one unit ranked next, the other two share (6 + 5) / 2 = 5.5', () => {
+    const base = ffaRound(43);
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 500]);
+    const key = `r0-rm${room}-s500`;
+    const picked = resolveTournamentTie(state, key, names[2]);
+    const shared = shareTiedPoints(picked, key, [names[1], names[3]]);
+    expect(shared).not.toBe(picked);
+    expect(resultOf(shared, names[2])).toMatchObject({ rank: 2, points: 7 });
+    for (const name of [names[1], names[3]]) {
+      expect(resultOf(shared, name)).toMatchObject({ rank: 3, points: 5.5, shared: true });
+    }
+  });
+
+  it('a Custom table shares the exact average: 3-way tie at 2nd of 10,8,6,5,… gives 19/3 each', () => {
+    const base = ffaRound(37, { scoring: 'positional-points', positionalPointsTable: '10,8,6,5,4,3,2,1' });
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 500]);
+    const shared = shareTiedPoints(state, `r0-rm${room}-s500`, names.slice(1, 4));
+    expect(resultOf(shared, names[1]).points).toBeCloseTo(19 / 3, 12);
+    expect(resultOf(shared, names[4])).toMatchObject({ rank: 5, points: 4 });
+  });
+
+  it('totals that are equal up to float noise are the same standing and share a rank', () => {
+    const standing = (name: string, totalFP: number): TournamentStanding => ({
+      name,
+      totalFP,
+      totalScore: 0,
+      roomShare: 1,
+      played: 3,
+    });
+    // The same three rounds in another order: 19/3 is not exact in binary, so the sums can differ in the last bit.
+    const first = standing('X', 19 / 3 + 8 + 5);
+    const second = standing('Y', 5 + 19 / 3 + 8);
+    expect(samePoints(0.1 + 0.2, 0.3)).toBe(true);
+    expect(samePoints(null, null)).toBe(true);
+    expect(samePoints(1, null)).toBe(false);
+    expect(sameStanding(first, second)).toBe(true);
+    expect(sameStanding(standing('A', 0.1 + 0.2), standing('B', 0.3))).toBe(true);
+    expect(sameStanding(standing('A', 6.5), standing('B', 6.6))).toBe(false);
+    expect(rankStandings([first, second]).map((entry) => entry.rank)).toEqual([1, 1]);
+  });
+
+  it('is resolved after a share, so the room tie no longer holds the round', () => {
+    const base = ffaRound(37);
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 400]);
+    expect(hasPendingTies(state, 0)).toBe(true);
+    const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
+    expect(hasPendingTies(shared, 0)).toBe(false);
+    const cluster = detectTieBreaks(0, shared.rounds[0], shared)[`r0-rm${room}-s500`];
+    expect(isTieResolved(`r0-rm${room}-s500`, cluster, shared)).toBe(true);
+  });
+
+  describe('a share is cleared when the tie it was made for changes', () => {
+    const room = (scores: number[], tieResolutions: Record<string, string[]>) =>
+      createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        rounds: [buildRound({ roundNum: 1, rooms: [scores.length], players: scores.length, isNoElim: true })],
+        assignments: [buildAssignments(['A', 'B', 'C', 'D'].slice(0, scores.length), [scores.length])],
+        scores: Object.fromEntries(scores.map((score, seat) => [`r0-rm1-p${seat}`, score])),
+        tieResolutions,
+      });
+    const edit = (state: TournamentState, seat: number, value: number) =>
+      setRoundScore(state, `r0-rm1-p${seat}`, value, 0, 1);
+    const shared = { 'r0-rm1-s500': ['#shared', 'A', 'B'] };
+
+    it('keeps it when the edit is elsewhere in the room', () => {
+      const state = room([500, 500, 100, 50], shared);
+      expect(edit(state, 2, 90).tieResolutions).toEqual(shared);
+    });
+
+    it('clears it when a shared unit leaves the tied score', () => {
+      const state = room([500, 500, 100], shared);
+      expect(edit(state, 1, 300).tieResolutions).toEqual({});
+    });
+
+    it('clears it, picks included, when another unit joins the tied score', () => {
+      const state = room([500, 500, 100, 50], shared);
+      expect(edit(state, 2, 500).tieResolutions).toEqual({});
+      const withPick = room([500, 500, 500, 50], { 'r0-rm1-s500': ['A', '#shared', 'B', 'C'] });
+      expect(edit(withPick, 3, 500).tieResolutions).toEqual({});
+    });
+
+    it('keeps a pick-then-share while the tie is unchanged', () => {
+      const withPick = room([500, 500, 500, 50], { 'r0-rm1-s500': ['A', '#shared', 'B', 'C'] });
+      expect(edit(withPick, 3, 40).tieResolutions).toEqual({ 'r0-rm1-s500': ['A', '#shared', 'B', 'C'] });
+    });
+  });
+
+  describe('head-to-head: a shared place is a draw', () => {
+    const H2H: SetupOverrides = { gameFormat: 'individual-1v1', oddCountStrategy: 'bye', qualAdv: '4' };
+    const SWISS: SetupOverrides = { poolingPhase: 'swiss' };
+    const GROUPS: SetupOverrides = { poolingPhase: 'group-stage', groupSize: '4' };
+
+    /** A first-round room of two, scored as a draw and shared; returns the two names and the shared state. */
+    function drawnRoom(count: number, setup: SetupOverrides) {
+      const live = buildState({ label: 'h2h', count, teams: false, setup: { ...H2H, ...setup } });
+      const state = live as TournamentState;
+      const room = state.assignments[0].find((entry) => entry.room !== null)?.room as number;
+      const { state: drawn, names } = withRoomScores(state, room, [500, 500]);
+      return { names, shared: shareTiedPoints(drawn, `r0-rm${room}-s500`, names) };
+    }
+
+    const totalOf = (state: TournamentState, name: string) =>
+      (state.cfg.poolingPhase === 'group-stage'
+        ? Object.values(computeGroupStandings(state)).flat()
+        : computeQualificationStandings(state)
+      ).find((entry) => entry.name === name)?.totalFP;
+
+    it.each([
+      ['Swiss, 53 players', 53, SWISS],
+      ['group stage, 31 players', 31, GROUPS],
+    ])('%s: a draw gives 1.5 each under Standard points', (_label, count, setup) => {
+      const { names, shared } = drawnRoom(count, setup);
+      expect(hasPendingTies(shared, 0)).toBe(false);
+      expect(names.map((name) => totalOf(shared, name))).toEqual([1.5, 1.5]);
+    });
+
+    it.each([
+      ['Swiss, 53 players', 53, SWISS],
+      ['group stage, 31 players', 31, GROUPS],
+    ])('%s: a draw gives 2 each under a Custom 3,1 table', (_label, count, setup) => {
+      const { names, shared } = drawnRoom(count, {
+        ...setup,
+        scoring: 'positional-points',
+        positionalPointsTable: '3,1',
+      });
+      expect(names.map((name) => totalOf(shared, name))).toEqual([2, 2]);
+    });
+  });
+
+  it('a warm-up round (no pooling phase, 31 players) seeds the shared units from the same tier', () => {
+    const base = scoreCurrentRound(
+      buildState({
+        label: 'warm-up',
+        count: 31,
+        teams: false,
+        setup: { gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination', poolingPhase: 'none' },
+      }) as TournamentState,
+      0,
+    );
+    const room = roomWithSize(base, 7);
+    const { state, names } = withRoomScores(base, room, [900, 500, 500, 400]);
+    const all = state.assignments[0].map((entry) => entry.name);
+    const tierOf = (live: TournamentState, name: string) =>
+      buildAdvancementTiers(live, 0, all).find((tier) => tier.members.some((member) => member.name === name))
+        ?.rank;
+    expect([tierOf(state, names[1]), tierOf(state, names[2])]).toEqual([1, 2]);
+    const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
+    expect([tierOf(shared, names[1]), tierOf(shared, names[2])]).toEqual([1, 1]);
+    expect(tierOf(shared, names[3])).toBe(3);
   });
 });

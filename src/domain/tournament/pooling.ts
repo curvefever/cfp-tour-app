@@ -14,6 +14,10 @@ export const QUALIFICATION_ROUNDS = 3;
 const MIN_SWISS_ROUNDS = 3;
 const MAX_SWISS_ROUNDS = 7;
 const IDEAL_GROUP_SIZE = 4;
+
+/** A pooling round (warm-up, qualification table, Swiss or group stage): never an elimination round, Semis or the Final. */
+export const isPoolingRound = (round: TournamentRound): boolean =>
+  (round.isQual || !!round.isSwiss || round.isNoElim) && !round.isFinal && !round.isSemis;
 export const GROUP_SIZE_BOUNDS = {
   min: 3,
   max: 5,

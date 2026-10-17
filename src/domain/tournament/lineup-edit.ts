@@ -2,6 +2,7 @@ import { getGameFormat } from './formats';
 import { splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { roundHasAnyScore } from './scoring';
+import { isPoolingRound } from './pooling';
 import { recordRoomHistory, rewindRoomHistory } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
@@ -29,8 +30,6 @@ export type LineupScope =
   | { ok: false; reason: string };
 
 export type LineupEditResult = { ok: true; state: TournamentState } | { ok: false; error: string };
-
-const isPoolingRound = (round: TournamentRound) => round.isQual || !!round.isSwiss || round.isNoElim;
 
 function scopeRefusal(state: TournamentState): string | null {
   if (!state.started) return 'The tournament has not started.';

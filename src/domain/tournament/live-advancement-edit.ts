@@ -3,6 +3,7 @@ import { parseAdvanceToBracket } from './bracket-entry';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';
+import { isPoolingRound } from './pooling';
 import { rosterKeys } from './roster';
 import { buildTournamentProgression, getMinimumBracketUnits } from './schedule-generation';
 import { defaultSemisSize, eliminationRound } from './single-elimination';
@@ -47,8 +48,6 @@ export type AdvancementEditInput =
 export type AdvancementEditResult = { ok: true; state: TournamentState } | { ok: false; error: string };
 
 const EDITABLE_SCHEDULES = ['single-elimination', 'double-elimination-shared-final'];
-
-const isPoolingRound = (round: TournamentRound) => round.isQual || !!round.isSwiss || round.isNoElim;
 
 const isEliminationRound = (round: TournamentRound) =>
   !isPoolingRound(round) && !round.isSemis && !round.isFinal && !round.isGroupStage;

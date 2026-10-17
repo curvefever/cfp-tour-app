@@ -12,14 +12,17 @@ import {
   renameIndividual,
   resetRoster,
   resetTournamentState,
+  resolveTournamentTie,
   setFinalScore,
   setRoundScore,
+  shareTiedPoints,
   swapIndividual,
   swapTeam,
   swapWindowOpen,
   unflagFinalGameAnonymous,
   updateTeam,
 } from '../mutations';
+import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/sync/firebase-marshal';
 import { computeRankings } from '../rankings';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
@@ -30,7 +33,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
-import { buildRound } from './test-fixtures';
+import { buildAssignments, buildRound } from './test-fixtures';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
 
@@ -1645,5 +1648,76 @@ describe('names the database cannot store are refused by the domain', () => {
     }));
     expect(renamedMember).not.toBe(state);
     expect((renamedMember.players[0] as TournamentTeam).teamName).toBe('Old.Team');
+  });
+});
+
+describe('shareTiedPoints', () => {
+  const KEY = 'r0-rm1-s500';
+  const tiedRoom = (round: Partial<TournamentRound>, extra: Partial<TournamentState> = {}) =>
+    createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      players: ['A', 'B', 'C', 'D', 'E', 'F'],
+      rounds: [buildRound({ roundNum: 1, rooms: [4, 2], players: 6, ...round })],
+      assignments: [buildAssignments(['A', 'B', 'C', 'D', 'E', 'F'], [4, 2])],
+      scores: {
+        'r0-rm1-p0': 500,
+        'r0-rm1-p1': 500,
+        'r0-rm1-p2': 500,
+        'r0-rm1-p3': 100,
+        'r0-rm2-p0': 9,
+        'r0-rm2-p1': 5,
+      },
+      ...extra,
+    });
+  const pooling = () => tiedRoom({ isNoElim: true });
+
+  it('stores the ranked picks, the shared mark, then the sharing units', () => {
+    expect(shareTiedPoints(pooling(), KEY, ['A', 'B', 'C']).tieResolutions).toEqual({
+      [KEY]: ['#shared', 'A', 'B', 'C'],
+    });
+    const picked = resolveTournamentTie(pooling(), KEY, 'C');
+    expect(shareTiedPoints(picked, KEY, ['A', 'B']).tieResolutions).toEqual({
+      [KEY]: ['C', '#shared', 'A', 'B'],
+    });
+  });
+
+  it('refuses the tie of an elimination round and of a Final', () => {
+    const elimination = tiedRoom({ advPerRoom: 2 });
+    expect(shareTiedPoints(elimination, KEY, ['A', 'B', 'C'])).toBe(elimination);
+    const final = tiedRoom({ isFinal: true, isNoElim: true });
+    expect(shareTiedPoints(final, KEY, ['A', 'B', 'C'])).toBe(final);
+  });
+
+  it('refuses a resolved key, a missing tie and names that are not exactly the unranked remainder', () => {
+    const state = pooling();
+    const resolved = { ...state, tieResolutions: { [KEY]: ['A', 'B'] } };
+    expect(shareTiedPoints(resolved, KEY, ['C'])).toBe(resolved);
+    const alreadyShared = shareTiedPoints(state, KEY, ['A', 'B', 'C']);
+    expect(shareTiedPoints(alreadyShared, KEY, ['A', 'B', 'C'])).toBe(alreadyShared);
+    expect(shareTiedPoints(state, 'r0-rm1-s999', ['A', 'B'])).toBe(state);
+    expect(shareTiedPoints(state, KEY, ['A', 'B'])).toBe(state);
+    expect(shareTiedPoints(state, KEY, ['A', 'B', 'D'])).toBe(state);
+    expect(shareTiedPoints(state, KEY, ['A'])).toBe(state);
+    const picked = resolveTournamentTie(state, KEY, 'A');
+    expect(shareTiedPoints(picked, KEY, ['A', 'B', 'C'])).toBe(picked);
+  });
+
+  it('makes resolveTournamentTie refuse a shared key', () => {
+    const shared = shareTiedPoints(pooling(), KEY, ['A', 'B', 'C']);
+    expect(resolveTournamentTie(shared, KEY, 'A')).toBe(shared);
+  });
+
+  it('keeps the share through a rename and through the removal of an unrelated unit', () => {
+    const shared = shareTiedPoints(pooling(), KEY, ['A', 'B', 'C']);
+    expect(renameIndividual(shared, 'B', 'Bea').tieResolutions).toEqual({
+      [KEY]: ['#shared', 'A', 'Bea', 'C'],
+    });
+    expect(removeRosterUnit(shared, 'F').tieResolutions).toEqual({ [KEY]: ['#shared', 'A', 'B', 'C'] });
+  });
+
+  it('survives the Firebase round trip', () => {
+    const shared = shareTiedPoints(resolveTournamentTie(pooling(), KEY, 'C'), KEY, ['A', 'B']);
+    const stored = unmarshalFromFirebase(marshalForFirebase(shared.tieResolutions));
+    expect(stored).toEqual({ [KEY]: ['C', '#shared', 'A', 'B'] });
   });
 });

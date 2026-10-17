@@ -6,7 +6,10 @@ import {
   getUnitScore,
   groupByScore,
   orderRoomByScore,
+  orderRoomWithPlaces,
   positionalPoints,
+  readTieResolution,
+  SHARED_TIE_MARK,
   SCORING_SYSTEM_OPTION_LABELS,
   scoredTeamSize,
   scoreKeysForPosition,
@@ -239,6 +242,14 @@ describe('formatStandingValue', () => {
   it('formats a points total as a rounded whole number', () => {
     expect(formatStandingValue(24)).toBe('24');
     expect(formatStandingValue(23.999999)).toBe('24');
+    expect(formatStandingValue(19.0000000001)).toBe('19');
+    expect(formatStandingValue(7)).toBe('7');
+  });
+
+  it('shows one decimal when a shared place makes the value fractional', () => {
+    expect(formatStandingValue(6.5)).toBe('6.5');
+    expect(formatStandingValue(19 / 3)).toBe('6.3');
+    expect(formatStandingValue(6.25)).toBe('6.3');
   });
 });
 
@@ -303,5 +314,74 @@ describe('orderRoomByScore', () => {
     ];
     const state = { tieResolutions: { 'r0-rm1-s10': ['B'] } };
     expect(orderRoomByScore(scored, 0, 1, state).map((entry) => entry.name)).toEqual(['B', 'A', 'C', 'D']);
+  });
+});
+
+describe('readTieResolution', () => {
+  const read = (value: string | string[] | undefined) =>
+    readTieResolution({ tieResolutions: value === undefined ? {} : { k: value } }, 'k');
+
+  it('reads a missing key, a string and a ranked-only list as ranked picks', () => {
+    expect(read(undefined)).toEqual({ ranked: [], shared: [] });
+    expect(read('A')).toEqual({ ranked: ['A'], shared: [] });
+    expect(read(['A', 'B'])).toEqual({ ranked: ['A', 'B'], shared: [] });
+  });
+
+  it('splits a shared list at the mark, with or without ranked picks before it', () => {
+    expect(read([SHARED_TIE_MARK, 'A', 'B'])).toEqual({ ranked: [], shared: ['A', 'B'] });
+    expect(read(['A', SHARED_TIE_MARK, 'B', 'C'])).toEqual({ ranked: ['A'], shared: ['B', 'C'] });
+  });
+
+  it('tieResolutionList returns the ranked part only', () => {
+    expect(tieResolutionList({ tieResolutions: { k: ['A', SHARED_TIE_MARK, 'B', 'C'] } }, 'k')).toEqual([
+      'A',
+    ]);
+  });
+});
+
+describe('orderRoomWithPlaces', () => {
+  const room = (...scores: number[]) => scores.map((score, index) => ({ name: `P${index + 1}`, score }));
+  const places = (scored: ReturnType<typeof room>, list?: string[]) =>
+    orderRoomWithPlaces(scored, 0, 1, { tieResolutions: list ? { 'r0-rm1-s10': list } : {} }).map(
+      (item) => `${item.entry.name}:${item.place}/${item.sharedBy}`,
+    );
+
+  it('numbers a room without ties 1..n, alone in each place', () => {
+    expect(places(room(5, 10, 1))).toEqual(['P2:1/1', 'P1:2/1', 'P3:3/1']);
+  });
+
+  it('keeps the places of a tie without a share distinct, in order', () => {
+    expect(places(room(10, 10, 4), ['P2'])).toEqual(['P2:1/1', 'P1:2/1', 'P3:3/1']);
+  });
+
+  it('gives a 2-way share the same place and the next unit the place after both', () => {
+    expect(places(room(30, 10, 10, 4), [SHARED_TIE_MARK, 'P2', 'P3'])).toEqual([
+      'P1:1/1',
+      'P2:2/2',
+      'P3:2/2',
+      'P4:4/1',
+    ]);
+  });
+
+  it('gives a 3-way share the same place', () => {
+    expect(places(room(10, 10, 10, 4), [SHARED_TIE_MARK, 'P1', 'P2', 'P3'])).toEqual([
+      'P1:1/3',
+      'P2:1/3',
+      'P3:1/3',
+      'P4:4/1',
+    ]);
+  });
+
+  it('ranks the picks first, then shares the rest', () => {
+    expect(places(room(30, 10, 10, 10), ['P3', SHARED_TIE_MARK, 'P2', 'P4'])).toEqual([
+      'P1:1/1',
+      'P3:2/1',
+      'P2:3/2',
+      'P4:3/2',
+    ]);
+  });
+
+  it('ignores a share that no longer matches two units of the tie', () => {
+    expect(places(room(10, 10), [SHARED_TIE_MARK, 'P1', 'GONE'])).toEqual(['P1:1/1', 'P2:2/1']);
   });
 });

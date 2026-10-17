@@ -1,8 +1,8 @@
-import { invalidateStaleTieResolutions } from './advancement';
+import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
-import { refitPoolingRound } from './pooling';
+import { isPoolingRound, refitPoolingRound } from './pooling';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
 import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
@@ -10,9 +10,10 @@ import { buildTournamentProgression, type TournamentProgressionInput } from './s
 import {
   getFinalUnitScore,
   getUnitScore,
+  readTieResolution,
   scoredTeamSize,
   scoreKeysForPosition,
-  tieResolutionList,
+  SHARED_TIE_MARK,
 } from './scoring';
 import type {
   AnonymousFinalist,
@@ -149,11 +150,38 @@ export function connectAnonymousFinalist(state: TournamentState, alias: string):
 }
 
 export function resolveTournamentTie(state: TournamentState, key: string, name: string): TournamentState {
-  const list = [...tieResolutionList(state, key)];
+  const { ranked, shared } = readTieResolution(state, key);
+  if (shared.length > 0) return state;
+  const list = [...ranked];
   if (!list.includes(name)) list.push(name);
   return {
     ...state,
     tieResolutions: { ...state.tieResolutions, [key]: list },
+  };
+}
+
+/** The room tie behind a tie key (`r{round}-rm{room}-s{score}`) when it is a current tie of a pooling round. */
+function poolingRoomTie(state: TournamentState, key: string) {
+  const roundIndex = Number(/^r(\d+)-rm\d+-s/u.exec(key)?.[1]);
+  const round = state.rounds[roundIndex];
+  if (!round || !isPoolingRound(round)) return null;
+  return detectTieBreaks(roundIndex, round, state)[key] ?? null;
+}
+
+/**
+ * Share the points of the places a room tie still covers: `names` must be exactly the tied units not yet ranked
+ * (two or more). Stored as the ranked picks, the shared mark, then the sharing units. Pooling rounds only.
+ */
+export function shareTiedPoints(state: TournamentState, key: string, names: string[]): TournamentState {
+  const tie = poolingRoomTie(state, key);
+  if (!tie || isTieResolved(key, tie, state)) return state;
+  const { ranked } = readTieResolution(state, key);
+  const unranked = tie.players.map((player) => player.name).filter((name) => !ranked.includes(name));
+  const exact = names.length === unranked.length && unranked.every((name) => names.includes(name));
+  if (names.length < 2 || !exact) return state;
+  return {
+    ...state,
+    tieResolutions: { ...state.tieResolutions, [key]: [...ranked, SHARED_TIE_MARK, ...names] },
   };
 }
 
@@ -608,7 +636,7 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
   const strip = (values: string[]) => values.filter((name) => name !== key);
   const tieResolutions = Object.fromEntries(
     Object.entries(next.tieResolutions).map(([tieKey, value]) => {
-      const filtered = tieResolutionList(next, tieKey).filter((name) => name !== key);
+      const filtered = (Array.isArray(value) ? value : [value]).filter((name) => name !== key);
       return [tieKey, Array.isArray(value) ? filtered : (filtered[0] ?? '')];
     }),
   );
