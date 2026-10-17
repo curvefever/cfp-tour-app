@@ -7,7 +7,11 @@ import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState } from '../types';
 import { buildState, scoreCurrentRound } from './play-through';
-import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
+import {
+  buildShapedQualWaterfall as buildQualWaterfall,
+  describeInBothShapes,
+  playToQualificationExit,
+} from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
 describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
@@ -894,7 +898,7 @@ describe('computeRankings -- order within an elimination round', () => {
   });
 });
 
-describe('computeRankings -- a waterfall fed by the qualification table (Qual source)', () => {
+describeInBothShapes('computeRankings -- a waterfall fed by the qualification table (Qual source)', () => {
   function afterQualification(registered: number) {
     const exit = playToQualificationExit(buildQualWaterfall(registered));
     const order = orderedQualificationTable(exit).ordered.map((entry) => entry.name);
@@ -930,7 +934,7 @@ describe('computeRankings -- a waterfall fed by the qualification table (Qual so
   });
 });
 
-describe('computeRankings -- units waiting in a pending pool are still in the tournament', () => {
+describeInBothShapes('computeRankings -- units waiting in a pending pool are still in the tournament', () => {
   function atPoolingExit(registered: number) {
     const exit = playToQualificationExit(buildQualWaterfall(registered));
     const order = orderedQualificationTable(exit).ordered.map((entry) => entry.name);
@@ -972,7 +976,7 @@ describe('computeRankings -- units waiting in a pending pool are still in the to
   });
 });
 
-describe('computeRankings -- a late joiner waiting for the next pooling round', () => {
+describeInBothShapes('computeRankings -- a late joiner waiting for the next pooling round', () => {
   function atRound2() {
     const start = buildState({
       label: 'FFA qual 37',

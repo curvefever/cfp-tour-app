@@ -1,3 +1,4 @@
+import { beforeEach, describe } from 'vitest';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
@@ -74,6 +75,45 @@ export function buildQualWaterfall(
   return options.columns ? started : withoutColumns(started);
 }
 
+let columnsStored = false;
+
+/** `buildQualWaterfall` in the shape the enclosing `describeInBothShapes` is running. */
+export function buildShapedQualWaterfall(
+  registered: number,
+  waterfallGraph = QUAL_GRAPH,
+  setup: Parameters<typeof createDefaultSetup>[0] = {},
+): TournamentState {
+  const graph = columnsStored ? inColumnsOfTheirOwn(waterfallGraph) : waterfallGraph;
+  return buildQualWaterfall(registered, graph, setup, { columns: columnsStored });
+}
+
+/**
+ * The Qual fixtures wait with R1C while R1 plays and play R2 after R1C. With stored columns their automatic
+ * layout is [R1, R1C], [R2], [Final], which draws R1C with R1: the column shape of these fixtures numbers R1C
+ * and R2 so each round keeps its own column and the same flows run. The default grouping has its own tests.
+ */
+function inColumnsOfTheirOwn(graph: string): string {
+  return graph.replace(/^(R1C = \S+)$/m, '$1 COLUMN 2').replace(/^(R2 = \S+)$/m, '$1 COLUMN 3');
+}
+
+/**
+ * Runs a describe block once for a tournament generated before columns existed (every round played on its
+ * own) and once for one with its columns stored, so the same flows are covered in both shapes. Inside it,
+ * build with `buildShapedQualWaterfall`. Where a result differs by design, assert on `columnsStored`'s shape
+ * through the test's own name.
+ */
+export function describeInBothShapes(name: string, body: (shape: { stored: boolean }) => void): void {
+  describe.each([
+    { stored: false, label: 'one round at a time (no stored columns)' },
+    { stored: true, label: 'columns stored' },
+  ])(`${name} -- $label`, ({ stored }) => {
+    beforeEach(() => {
+      columnsStored = stored;
+    });
+    body({ stored });
+  });
+}
+
 /** Scores and advances every qualification round but the last, then scores the last one (not advanced yet). */
 export function playToQualificationExit(start: TournamentState): TournamentState {
   let state = start;
@@ -130,7 +170,7 @@ export function scoredAlike(state: TournamentState): TournamentState {
 
 /** The TIE_GRAPH tournament with its one qualification round scored alike: Next Round is blocked on two ties. */
 export function tiedQualExit(): TournamentState {
-  const start = buildQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
+  const start = buildShapedQualWaterfall(32, TIE_GRAPH, { qualRoundsOverride: '1', nonCountingRounds: '0' });
   return scoredAlike(start);
 }
 

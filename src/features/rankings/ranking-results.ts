@@ -18,11 +18,26 @@ export function stillInResults(
   lastRoundIndex: number,
   active: ActiveRanking[],
 ): Map<string, RowResult> {
-  const rule = roundExitRule(state, lastRoundIndex);
-  const luckyNames = luckyLoserNames(state, lastRoundIndex);
-  const pending = pendingTieNames(state, lastRoundIndex);
+  // A unit is judged by the round it is drawn into (a column holds several); the rule of each is read once.
+  const rounds = new Map<
+    number,
+    { rule: ReturnType<typeof roundExitRule>; lucky: string[]; pending: Set<string> }
+  >();
+  const roundOf = (roundIndex: number) => {
+    const known = rounds.get(roundIndex);
+    if (known) return known;
+    const read = {
+      rule: roundExitRule(state, roundIndex),
+      lucky: luckyLoserNames(state, roundIndex),
+      pending: pendingTieNames(state, roundIndex),
+    };
+    rounds.set(roundIndex, read);
+    return read;
+  };
   const results = new Map<string, RowResult>();
   for (const entry of active) {
+    const roundIndex = entry.ri ?? lastRoundIndex;
+    const { rule, lucky, pending } = roundOf(roundIndex);
     if (entry.waitingFor !== undefined) {
       results.set(entry.name, 'advance');
     } else if (rule.kind !== 'per-room') {
@@ -30,7 +45,7 @@ export function stillInResults(
     } else if (entry.room === null) {
       results.set(entry.name, 'advance');
     } else {
-      const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name)?.place ?? null;
+      const place = placeInRoom(state, roundIndex, entry.room, entry.name)?.place ?? null;
       const bands = rule.rooms[entry.room - 1] ?? [];
       results.set(
         entry.name,
@@ -38,10 +53,10 @@ export function stillInResults(
           rule,
           bands,
           rank: place ?? 1,
-          lucky: luckyNames.includes(entry.name),
+          lucky: lucky.includes(entry.name),
           pendingTie: place !== null && pending.has(entry.name),
           roomComplete: place !== null,
-          roundDecided: isRoundDone(state, lastRoundIndex),
+          roundDecided: isRoundDone(state, roundIndex),
         }).result,
       );
     }

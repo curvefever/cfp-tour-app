@@ -839,3 +839,50 @@ Semi-B: 1-2->Final`;
     expect(waterfallDraftColumns(looping)).toBeNull();
   });
 });
+
+describe('the column choices of a running tournament', () => {
+  const RUNNING_GRAPH = `ROUNDS:
+R1 = 2x8
+R1C = 8
+R2 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-24->R1C
+R1.A: 1-4->R2, 5-8->eliminated
+R1.B: 1-4->R2, 5-8->eliminated
+R1C: 1-4->Final, 5-8->eliminated
+R2: 1-4->Final, 5-8->eliminated`;
+  const started = { R1: 1, R1C: 1 };
+
+  function runningDraft(text: string): WaterfallDraft {
+    const result = parseWaterfallDraft(text, { standingsSource: true });
+    if (!result.ok) throw new Error(result.error);
+    return result.value;
+  }
+
+  it('shows a round added after the bracket started, fed only by Qual, in the first open column', () => {
+    const added = runningDraft(
+      RUNNING_GRAPH.replace('R1C = 8', 'R1C = 8\nR1D = 6').replace('17-24->R1C', '17-24->R1C, 25-30->R1D'),
+    );
+    expect(waterfallDraftColumns(added)?.R1D).toBe(1);
+    expect(waterfallDraftColumns(added, started)?.R1D).toBe(2);
+    expect(waterfallColumnChoices(added, 'R1D', started)).toEqual({ automatic: 2, numbers: [2, 3, 4] });
+    expect(waterfallColumnGroups(added, started)?.map((group) => group.labels)).toEqual([
+      ['R1', 'R1C'],
+      ['R1D', 'R2'],
+      ['Final'],
+    ]);
+  });
+
+  it('keeps the started columns where they are and offers no earlier column to the others', () => {
+    const draft = runningDraft(RUNNING_GRAPH);
+    expect(waterfallDraftColumns(draft, started)).toEqual({ R1: 1, R1C: 1, R2: 2, Final: 3 });
+    expect(waterfallColumnChoices(draft, 'R2', started)).toEqual({ automatic: 2, numbers: [2, 3, 4] });
+  });
+
+  it('has no columns when a started round is given another number', () => {
+    const moved = setWaterfallColumn(runningDraft(RUNNING_GRAPH), 'R1C', 2);
+    expect(waterfallDraftColumns(moved, started)).toBeNull();
+  });
+});

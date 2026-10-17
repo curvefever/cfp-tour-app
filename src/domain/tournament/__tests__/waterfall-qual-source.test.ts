@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import {
   applyQualCutoffOrder,
   getAllTies,
@@ -15,7 +15,8 @@ import type { TournamentRound, TournamentState, TournamentStanding } from '../ty
 import { playThrough, playWithRemovals, scoreCurrentRound } from './play-through';
 import {
   QUAL_GRAPH,
-  buildQualWaterfall,
+  buildShapedQualWaterfall as buildQualWaterfall,
+  describeInBothShapes,
   playToQualificationExit,
   playerNames,
   tiedQualExit,
@@ -53,7 +54,7 @@ function standingsOrder(state: TournamentState): string[] {
   return orderedQualificationTable(state).ordered.map((entry) => entry.name);
 }
 
-describe('the pooling exit of a waterfall graph with a Qual source', () => {
+describeInBothShapes('the pooling exit of a waterfall graph with a Qual source', () => {
   it.each([
     [31, 7],
     [37, 13],
@@ -146,7 +147,7 @@ describe('the pooling exit of a waterfall graph with a Qual source', () => {
   });
 });
 
-describe('qualification ties at the band boundaries', () => {
+describeInBothShapes('qualification ties at the band boundaries', () => {
   /** The exit state with a hand-made qualification table: ranks 1..n, with `tiedFrom..tiedTo` (1-based) level. */
   function withTiedPositions(tiedFrom: number, tiedTo: number): TournamentState {
     const exit = playToQualificationExit(buildQualWaterfall(37));
@@ -222,7 +223,7 @@ describe('qualification ties at the band boundaries', () => {
   });
 });
 
-describe('a real tie at the band boundaries blocks the exit until it is resolved', () => {
+describeInBothShapes('a real tie at the band boundaries blocks the exit until it is resolved', () => {
   it('names the destinations each cluster decides between', () => {
     const exit = tiedQualExit();
     const ties = getAllTies(refreshRoundStandings(exit, exit.curRound), exit.curRound);
@@ -273,7 +274,7 @@ describe('a real tie at the band boundaries blocks the exit until it is resolved
   });
 });
 
-describe('a withdrawal during qualification', () => {
+describeInBothShapes('a withdrawal during qualification', () => {
   it('keeps the standings routing and the derived qualAdv, and still routes exactly 24 ranks', () => {
     const start = buildQualWaterfall(31);
     const victim = start.assignments[0][0].name;
@@ -314,7 +315,7 @@ describe('a withdrawal during qualification', () => {
   });
 });
 
-describe('a whole waterfall played from the qualification table', () => {
+describeInBothShapes('a whole waterfall played from the qualification table', () => {
   it('plays a Qual-line graph end to end at 37 registered', () => {
     expect(playThrough(buildQualWaterfall(37), 0, null)).toEqual({ kind: 'ok' });
   });
@@ -337,7 +338,7 @@ SemiB: 1-2->Final, 3-8->eliminated
   });
 });
 
-describe('going back to the last qualification round after the pooling exit', () => {
+describeInBothShapes('going back to the last qualification round after the pooling exit', () => {
   function goBack(state: TournamentState): TournamentState {
     return { ...state, curRound: state.curRound - 1 };
   }

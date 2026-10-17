@@ -33,7 +33,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
-import { nextColumnStart } from '../../domain/tournament/round-columns';
+import { nextColumnStart, roundInPlayOf } from '../../domain/tournament/round-columns';
 
 /** The confirm a reserve add can ask for, with the option that answers it; null when the add needs none. */
 function reserveConfirmation(
@@ -313,7 +313,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
     <ToolPanel className='flex-[2_1_520px]' note={swapsOpen ? null : SWAPS_CLOSED_TITLE} title='Manage teams'>
       <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5 p-3'>
         {sortedTeams.map((team) => {
-          const defender = getDefenderIndex(state, team.teamId, state.curRound);
+          const defender = getDefenderIndex(state, team.teamId, roundInPlayOf(state, team.teamId));
           return (
             <div
               className='flex min-w-0 flex-col items-stretch gap-2 rounded-[5px] border border-surface-hover bg-surface-low px-3 py-2'

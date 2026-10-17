@@ -5,6 +5,7 @@ import { getGameFormat } from './formats';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
+import { roundInPlayOf } from './round-columns';
 import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import {
@@ -470,7 +471,7 @@ export function removeReserveUnit(state: TournamentState, key: string): Tourname
 }
 
 function removeUnitFromCurrentRoom(state: TournamentState, key: string): TournamentState {
-  const roundIndex = state.curRound;
+  const roundIndex = roundInPlayOf(state, key);
   const assignments = state.assignments[roundIndex] ?? [];
   const found = assignments.find((entry) => entry.name === key);
   if (!found || found.room === null) {
@@ -713,7 +714,8 @@ function recordWithdrawal(
 
 function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
   const assignments = state.assignments.map((entries) => entries.map((entry) => ({ ...entry })));
-  const current = assignments[state.curRound] ?? [];
+  const roundIndex = roundInPlayOf(state, oldKey);
+  const current = assignments[roundIndex] ?? [];
   const assignmentIndex = current.findIndex((entry) => entry.name === oldKey);
   if (assignmentIndex < 0) return null;
 
@@ -724,10 +726,10 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
   const scores = { ...state.scores };
   if (room !== null) {
     for (const key of scoreKeysForPosition({
-      roundIndex: state.curRound,
+      roundIndex,
       room,
       position,
-      numGames: Math.max(state.rounds[state.curRound].numGames ?? 1, 1),
+      numGames: Math.max(state.rounds[roundIndex].numGames ?? 1, 1),
       teamSize: scoredTeamSize(state),
     }))
       delete scores[key];
@@ -739,11 +741,11 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
     assignments,
     qualTable: state.qualTable.filter((entry) => entry.name !== oldKey),
     byes: state.byes.map((values, index) =>
-      index === state.curRound ? values.map((name) => (name === oldKey ? newKey : name)) : values,
+      index === roundIndex ? values.map((name) => (name === oldKey ? newKey : name)) : values,
     ),
     poolingByeCounts: movePoolingByeCount(state.poolingByeCounts, oldKey, newKey),
   };
-  if (room !== null) next = invalidateStaleTieResolutions(next, state.curRound, room);
+  if (room !== null) next = invalidateStaleTieResolutions(next, roundIndex, room);
   return next;
 }
 
@@ -899,9 +901,10 @@ export function updateTeam(
 
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
   const changes = [...(state.defenderChanges[teamId] ?? [])];
-  const existing = changes.find((entry) => entry.round === state.curRound);
+  const round = roundInPlayOf(state, teamId);
+  const existing = changes.find((entry) => entry.round === round);
   if (existing) existing.memberIdx = memberIdx;
-  else changes.push({ round: state.curRound, memberIdx });
+  else changes.push({ round, memberIdx });
   return {
     ...state,
     defenderChanges: { ...state.defenderChanges, [teamId]: changes },

@@ -50,6 +50,8 @@ interface EditorProps {
   lockedRounds?: ReadonlySet<string>;
   /** The rounds being played now (every round of the current column), shown with their own badge in the round list (a "played" badge covers every other locked round). */
   currentRoundLabels?: ReadonlySet<string>;
+  /** The columns of the rounds that have started (a running tournament), by label; they stay where they are, and no other round can use them. */
+  startedColumns?: Record<string, number>;
   /** false when the tournament's rounds aren't played in columns: no Column select, the list stays in play order. Default true. */
   showColumns?: boolean;
   /** false hides "Blank start" and the examples, which would replace locked rounds too. Ignored when readOnly. Default true. */
@@ -118,6 +120,7 @@ function DraftEditor({
   readOnly,
   lockedRounds,
   currentRoundLabels,
+  startedColumns,
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
@@ -215,9 +218,12 @@ function DraftEditor({
     },
   };
 
-  const draftColumns = showColumns ? waterfallDraftColumns(draft) : null;
+  const draftColumns = showColumns ? waterfallDraftColumns(draft, startedColumns) : null;
   const columnInfo = showColumns
-    ? { current: draftColumns?.[round.label], choices: waterfallColumnChoices(draft, round.label) }
+    ? {
+        current: draftColumns?.[round.label],
+        choices: waterfallColumnChoices(draft, round.label, startedColumns),
+      }
     : undefined;
 
   const addRound = () => {
@@ -273,6 +279,7 @@ function DraftEditor({
             onSelect={select}
             selected={qualSelected ? QUAL_LABEL : round.label}
             showColumns={showColumns}
+            startedColumns={startedColumns}
           />
           {readOnly ? null : (
             <Button className='mt-2 w-full' onClick={addRound} size='sm'>
@@ -314,6 +321,7 @@ export function WaterfallGraphEditor({
   readOnly,
   lockedRounds,
   currentRoundLabels,
+  startedColumns,
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
@@ -420,6 +428,7 @@ export function WaterfallGraphEditor({
         roomSize={roomSize}
         showColumns={showColumns}
         standingsSource={standingsSource}
+        startedColumns={startedColumns}
         status={status}
         text={text}
       />

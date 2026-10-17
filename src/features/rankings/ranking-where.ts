@@ -34,9 +34,10 @@ export function stillInWhere(
   if (entry.waitingFor !== undefined) {
     return `${entry.joining ? 'Joining' : 'Waiting for'} ${destinationLabel(entry.waitingFor, labels)}`;
   }
-  if (entry.room === null) return `${destinationLabel(lastRoundIndex, labels)} · Bye`;
-  const where = roundAndRoom(state, lastRoundIndex, entry.room, labels);
-  const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name);
+  const roundIndex = entry.ri ?? lastRoundIndex;
+  if (entry.room === null) return `${destinationLabel(roundIndex, labels)} · Bye`;
+  const where = roundAndRoom(state, roundIndex, entry.room, labels);
+  const place = placeInRoom(state, roundIndex, entry.room, entry.name);
   return place === null ? where : `${where} · ${placeOrdinal(place)}`;
 }
 

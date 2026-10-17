@@ -53,3 +53,18 @@ export function previousColumnStart(state: ColumnState): number | null {
   const { start } = currentColumn(state);
   return start > 0 ? roundColumn(state.rounds, start - 1).start : null;
 }
+
+/**
+ * The round of the column in play whose line-up holds the unit, or `curRound` when none does (a unit
+ * waiting in a later pool, or a bye): where a roster change or a defender change for it applies.
+ */
+export function roundInPlayOf(
+  state: Pick<TournamentState, 'rounds' | 'curRound' | 'assignments'>,
+  name: string,
+): number {
+  const { start, end } = currentColumn(state);
+  for (let index = start; index <= end; index += 1) {
+    if ((state.assignments[index] ?? []).some((entry) => entry.name === name)) return index;
+  }
+  return state.curRound;
+}

@@ -38,6 +38,17 @@ function hasStandingsSource(state: TournamentState): boolean {
   return state.cfg.poolingPhase === 'qual-table' && state.rounds.some((round) => round.isQual);
 }
 
+/** The stored column of every round that has started, by label. */
+function startedColumnsOf(state: TournamentState, lockedRounds: ReadonlySet<string>): Record<string, number> {
+  const columns: Record<string, number> = {};
+  for (const round of state.rounds) {
+    if (round.customLabel && lockedRounds.has(round.customLabel) && round.waterfallColumn !== undefined) {
+      columns[round.customLabel] = round.waterfallColumn;
+    }
+  }
+  return columns;
+}
+
 function savedText(state: TournamentState): string {
   const rankCount = rosterKeys(state.players).length;
   return serializeWaterfallDraft(waterfallDraftFromRounds(state.rounds, { rankCount }));
@@ -58,8 +69,11 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const standingsSource = hasStandingsSource(state);
   const entrantCount = standingsSource ? rosterKeys(state.players).length : (entryRound?.players ?? null);
   const { lockedRounds, currentRoundLabels } = reachedRounds(state);
-  // A tournament generated before columns existed plays one round at a time, and its rounds keep no column.
-  const showColumns = entryRound?.waterfallColumn !== undefined;
+  // A tournament generated before columns existed plays one round at a time once its bracket has started,
+  // and its rounds keep no column; before that, a save gives it columns.
+  const bracketEntered = entryRound !== undefined && isRoundReached(state, state.rounds.indexOf(entryRound));
+  const showColumns = entryRound?.waterfallColumn !== undefined || !bracketEntered;
+  const startedColumns = startedColumnsOf(state, lockedRounds);
 
   function startEdit() {
     setDraftText(savedText(state));
@@ -125,6 +139,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           roomSize={roomSize}
           showColumns={showColumns}
           standingsSource={standingsSource}
+          startedColumns={startedColumns}
           text={savedText(state)}
         />
         <ButtonRow className='mt-3'>
@@ -156,6 +171,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         roomSize={roomSize}
         showColumns={showColumns}
         standingsSource={standingsSource}
+        startedColumns={startedColumns}
         text={draftText}
       />
       {redrawPrompt ? (

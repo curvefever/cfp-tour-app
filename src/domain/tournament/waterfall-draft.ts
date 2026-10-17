@@ -601,11 +601,23 @@ function draftColumnInputs(draft: WaterfallDraft): { order: string[]; feeders: n
   return { order, feeders };
 }
 
+/** The columns of the rounds that have started (a running tournament), by label: they stay where they are. */
+export type WaterfallStartedColumns = Record<string, number>;
+
+function firstOpenColumn(started: WaterfallStartedColumns | undefined): number {
+  return Math.max(0, ...Object.values(started ?? {})) + 1;
+}
+
 /**
  * The column of every round of the draft (by label) as validation will number them, or null when the
- * routing loops or the numbers given can't work (the graph error says why).
+ * routing loops or the numbers given can't work (the graph error says why). `started` is what a live
+ * edit of a running tournament passes to validation: the columns that have started are fixed and no
+ * other round can use them.
  */
-export function waterfallDraftColumns(draft: WaterfallDraft): Record<string, number> | null {
+export function waterfallDraftColumns(
+  draft: WaterfallDraft,
+  started?: WaterfallStartedColumns,
+): Record<string, number> | null {
   const inputs = draftColumnInputs(draft);
   if (!inputs) return null;
   const result = assignWaterfallColumns(
@@ -614,6 +626,7 @@ export function waterfallDraftColumns(draft: WaterfallDraft): Record<string, num
       column: findWaterfallRound(draft, label)?.column ?? null,
       feeders: inputs.feeders[index],
     })),
+    { fixed: inputs.order.map((label) => started?.[label]), firstOpenColumn: firstOpenColumn(started) },
   );
   if (!result.ok) return null;
   return Object.fromEntries(inputs.order.map((label, index) => [label, result.value[index]]));
@@ -626,8 +639,11 @@ export interface WaterfallColumnGroup {
 }
 
 /** The rounds grouped by column, earliest first; null when the columns can't be worked out. */
-export function waterfallColumnGroups(draft: WaterfallDraft): WaterfallColumnGroup[] | null {
-  const columns = waterfallDraftColumns(draft);
+export function waterfallColumnGroups(
+  draft: WaterfallDraft,
+  started?: WaterfallStartedColumns,
+): WaterfallColumnGroup[] | null {
+  const columns = waterfallDraftColumns(draft, started);
   if (!columns) return null;
   const groups: WaterfallColumnGroup[] = [];
   for (const label of waterfallRoundIntake(draft).order) {
@@ -647,13 +663,19 @@ export interface WaterfallColumnChoices {
 }
 
 /** What the Column select offers for a round; null when the columns can't be worked out. */
-export function waterfallColumnChoices(draft: WaterfallDraft, label: string): WaterfallColumnChoices | null {
+export function waterfallColumnChoices(
+  draft: WaterfallDraft,
+  label: string,
+  started?: WaterfallStartedColumns,
+): WaterfallColumnChoices | null {
   const inputs = draftColumnInputs(draft);
-  const columns = waterfallDraftColumns(draft);
+  const columns = waterfallDraftColumns(draft, started);
   if (!inputs || !columns) return null;
   const index = inputs.order.indexOf(label);
   if (index === -1) return null;
-  const automatic = Math.max(0, ...inputs.feeders[index].map((feeder) => columns[inputs.order[feeder]])) + 1;
+  const afterFeeders =
+    Math.max(0, ...inputs.feeders[index].map((feeder) => columns[inputs.order[feeder]])) + 1;
+  const automatic = started?.[label] ?? Math.max(afterFeeders, firstOpenColumn(started));
   const last = Math.max(...Object.values(columns));
   return {
     automatic,

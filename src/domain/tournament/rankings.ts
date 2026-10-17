@@ -17,7 +17,7 @@ import type {
   TournamentState,
   WithdrawnUnit,
 } from './types';
-import { isCurrentRound } from './round-columns';
+import { isCurrentRound, roundColumn } from './round-columns';
 
 export interface RankingDisplay {
   name: string;
@@ -33,6 +33,8 @@ export interface ActiveRanking extends RankingDisplay {
   waitingFor?: number;
   /** A unit added while a pooling round was in play: no room yet, drawn in by the round `waitingFor`. */
   joining?: true;
+  /** The round the unit is drawn into: one of the rounds of the last drawn column (a column can hold several). Absent while it waits. */
+  ri?: number;
 }
 
 export interface FinalistRanking extends RankingDisplay {
@@ -290,15 +292,17 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const lastRi = lastAssignedRound(state);
   if (lastRi === -1) return null;
 
+  // The last drawn column is still in play, every round of it: a unit in any of them is not eliminated.
+  const lastColumn = roundColumn(state.rounds, lastRi);
   const eliminated = new Map<string, RoundElimination>();
-  for (let roundIndex = 0; roundIndex < lastRi; roundIndex += 1) {
+  for (let roundIndex = 0; roundIndex < lastColumn.start; roundIndex += 1) {
     if (state.rounds[roundIndex].isFinal) continue;
     for (const [name, info] of eliminationsInRound(state, roundIndex)) eliminated.set(name, info);
   }
 
   const lastRound = state.rounds[lastRi];
   const lastAssignments = state.assignments[lastRi] ?? [];
-  let active: RoundAssignment[] = [];
+  let active: Array<RoundAssignment & { ri?: number }> = [];
   let finalistValues: Array<{ name: string; total: number }> = [];
   let finalComplete = false;
   if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
@@ -337,7 +341,13 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
         }))
         .sort((first, second) => second.total - first.total);
     } else active = [...lastAssignments];
-  } else active = [...lastAssignments];
+  } else {
+    active = state.assignments
+      .slice(lastColumn.start, lastColumn.end + 1)
+      .flatMap((assignments, offset) =>
+        (assignments ?? []).map((entry) => ({ ...entry, ri: lastColumn.start + offset })),
+      );
+  }
 
   // A removed/swapped-out unit's old name can still linger in a round that
   // was fully pre-generated before the withdrawal (e.g. group-stage's whole
@@ -415,7 +425,12 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
   return {
     stillActive: [
-      ...active.map((entry) => ({ name: entry.name, room: entry.room, isLucky: Boolean(entry.isLucky) })),
+      ...active.map((entry) => ({
+        name: entry.name,
+        room: entry.room,
+        isLucky: Boolean(entry.isLucky),
+        ri: 'ri' in entry ? (entry.ri as number) : lastRi,
+      })),
       ...waiting.map((entry) => ({ ...entry, room: null })),
     ]
       .map(({ name, ...rest }) => ({

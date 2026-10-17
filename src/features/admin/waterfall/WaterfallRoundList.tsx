@@ -5,6 +5,7 @@ import {
   type WaterfallColumnGroup,
   type WaterfallDraft,
   type WaterfallIntake,
+  type WaterfallStartedColumns,
 } from '../../../domain/tournament/waterfall-draft';
 import { QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cn } from '../../../components/ui/cn';
@@ -27,6 +28,7 @@ export function WaterfallRoundList({
   lockedRounds,
   currentRoundLabels,
   showColumns = true,
+  startedColumns,
 }: {
   draft: WaterfallDraft;
   intake: WaterfallIntake;
@@ -38,10 +40,12 @@ export function WaterfallRoundList({
   currentRoundLabels?: ReadonlySet<string>;
   /** Group the rounds under their column; false (or columns that can't be worked out) lists them in play order. */
   showColumns?: boolean;
+  /** The columns of the rounds that have started, so the grouping matches what a save stores. */
+  startedColumns?: WaterfallStartedColumns;
 }) {
-  const groups: WaterfallColumnGroup[] = (showColumns ? waterfallColumnGroups(draft) : null) ?? [
-    { column: 0, labels: intake.order },
-  ];
+  const groups: WaterfallColumnGroup[] = (showColumns
+    ? waterfallColumnGroups(draft, startedColumns)
+    : null) ?? [{ column: 0, labels: intake.order }];
   const renderRound = (label: string) => {
     const round = draft.rounds.find((candidate) => candidate.label === label);
     if (!round) return null;

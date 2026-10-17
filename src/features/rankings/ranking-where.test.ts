@@ -300,3 +300,25 @@ describe('the where line: a shared place', () => {
     expect(whereOf(names[3])).toBe('Round 1 · Room A · 4th');
   });
 });
+
+describe('the where line for a column of several rounds', () => {
+  it('names each unit’s own round: R1 for the units of R1, R1C for the units of R1C', () => {
+    const entered = advance(
+      playToQualificationExit(buildQualWaterfall(37, undefined, {}, { columns: true })),
+    );
+    const { rankings } = wheres(entered);
+    const labels = bracketRoundLabels(entered);
+    const r1c = entered.rounds.findIndex((round) => round.customLabel === 'R1C');
+    const lines = rankings.stillActive.map((entry) => ({
+      ri: entry.ri,
+      where: stillInWhere(entered, rankings.lastRi, entry, labels),
+    }));
+    expect(lines.filter((line) => line.ri === r1c).every((line) => line.where.startsWith('R1C · Room'))).toBe(
+      true,
+    );
+    expect(lines.filter((line) => line.ri !== r1c).every((line) => line.where.startsWith('R1 · Room'))).toBe(
+      true,
+    );
+    expect(lines.filter((line) => line.ri === r1c)).toHaveLength(8);
+  });
+});

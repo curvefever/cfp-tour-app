@@ -6,7 +6,12 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState } from '../types';
 import { fitWaterfallRound } from '../waterfall-bracket';
 import { playWithRemovals, scoreCurrentRound } from './play-through';
-import { buildQualWaterfall, playToQualificationExit, playerNames } from './qual-waterfall';
+import {
+  buildShapedQualWaterfall as buildQualWaterfall,
+  describeInBothShapes,
+  playToQualificationExit,
+  playerNames,
+} from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
 /** The graph's bottom bands route on: R1's ranks 5-8 go to R3 instead of out. */
@@ -103,68 +108,74 @@ function drawnRounds(state: TournamentState) {
 
 const sum = (sizes: number[]) => sizes.reduce((total, size) => total + size, 0);
 
-describe.each([31, 37, 43, 53])('withdrawals in a running waterfall at %i registered', (registered) => {
-  it('absorbs a seated withdrawal in the eliminated band: R1 sends 4 on from its short room, R2 is drawn full', () => {
-    const played = playRemovingFromR1(buildQualWaterfall(registered), 1);
-    expect(played.outcome).toEqual({ kind: 'ok' });
-    const end = played.state;
-    const r1 = indexOfRound(end, 'R1');
-    expect(roomSizes(end, r1)).toEqual([7, 8]);
-    const r2 = indexOfRound(end, 'R2');
-    expect(end.rounds[r2]).toMatchObject({ rooms: [8], players: 8 });
-    expect(end.rounds[r2].declaredRooms).toBeUndefined();
-    expect(end.rounds[indexOfRound(end, 'R1C')]).toMatchObject({ rooms: [8], players: 8 });
-  });
-
-  it('draws the destination of a bottom band that routes on one seat short (7), and plays to the Final', () => {
-    const played = playRemovingFromR1(buildQualWaterfall(registered, BOTTOM_ROUTES_ON), 1);
-    expect(played.outcome).toEqual({ kind: 'ok' });
-    const end = played.state;
-    expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [7], players: 7, declaredRooms: [8] });
-    // The gap fell in the eliminated band: the round still sends the same 4 on.
-    expect(end.rounds[indexOfRound(end, 'R3')].advTotal).toBe(4);
-    for (const round of drawnRounds(end)) expect(sum(round.rooms)).toBe(round.players);
-    expect(end.assignments[indexOfRound(end, 'R3')]).toHaveLength(7);
-  });
-
-  it('draws it as one room of 6 after two seated withdrawals from different R1 rooms', () => {
-    const played = playRemovingFromR1(buildQualWaterfall(registered, BOTTOM_ROUTES_ON), 2);
-    expect(played.outcome).toEqual({ kind: 'ok' });
-    const end = played.state;
-    const r1 = indexOfRound(end, 'R1');
-    expect(roomSizes(end, r1)).toEqual([7, 7]);
-    expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [6], players: 6 });
-  });
-
-  it('counts a short round’s advancing seats from the bands it still has (advTotal)', () => {
-    const played = playRemovingFromR1(buildQualWaterfall(registered, BOTH_BANDS_ROUTE_ON), 1);
-    expect(played.outcome).toEqual({ kind: 'ok' });
-    const end = played.state;
-    // R3 has 7: every rank still advances (2 to the Final, 5 to R4), so the gap lowers advTotal from 8 to 7.
-    expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [7], players: 7, advTotal: 7 });
-    expect(end.rounds[indexOfRound(end, 'R4')]).toMatchObject({
-      rooms: [5],
-      players: 5,
-      declaredRooms: [6],
-      advTotal: 2,
+describeInBothShapes('withdrawals in a running waterfall', () => {
+  describe.each([31, 37, 43, 53])('withdrawals in a running waterfall at %i registered', (registered) => {
+    it('absorbs a seated withdrawal in the eliminated band: R1 sends 4 on from its short room, R2 is drawn full', () => {
+      const played = playRemovingFromR1(buildQualWaterfall(registered), 1);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      const end = played.state;
+      const r1 = indexOfRound(end, 'R1');
+      expect(roomSizes(end, r1)).toEqual([7, 8]);
+      const r2 = indexOfRound(end, 'R2');
+      expect(end.rounds[r2]).toMatchObject({ rooms: [8], players: 8 });
+      expect(end.rounds[r2].declaredRooms).toBeUndefined();
+      expect(end.rounds[indexOfRound(end, 'R1C')]).toMatchObject({ rooms: [8], players: 8 });
     });
-  });
 
-  it.each([
-    [0, [7, 7]],
-    [1, [7, 6]],
-    [2, [6, 6]],
-  ])('a 2-room destination with %i withdrawals is drawn %j, never [7, 5]', (removals, rooms) => {
-    const played = playRemovingFromR1(buildQualWaterfall(registered, TWO_ROOM_DESTINATION), removals);
-    expect(played.outcome).toEqual({ kind: 'ok' });
-    const index = indexOfRound(played.state, 'R3');
-    expect(played.state.rounds[index].rooms).toEqual(rooms);
-    expect(played.state.rounds[index].players).toBe(sum(rooms));
-    expect(played.state.assignments[index]).toHaveLength(sum(rooms));
+    it('draws the destination of a bottom band that routes on one seat short (7), and plays to the Final', () => {
+      const played = playRemovingFromR1(buildQualWaterfall(registered, BOTTOM_ROUTES_ON), 1);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      const end = played.state;
+      expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({
+        rooms: [7],
+        players: 7,
+        declaredRooms: [8],
+      });
+      // The gap fell in the eliminated band: the round still sends the same 4 on.
+      expect(end.rounds[indexOfRound(end, 'R3')].advTotal).toBe(4);
+      for (const round of drawnRounds(end)) expect(sum(round.rooms)).toBe(round.players);
+      expect(end.assignments[indexOfRound(end, 'R3')]).toHaveLength(7);
+    });
+
+    it('draws it as one room of 6 after two seated withdrawals from different R1 rooms', () => {
+      const played = playRemovingFromR1(buildQualWaterfall(registered, BOTTOM_ROUTES_ON), 2);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      const end = played.state;
+      const r1 = indexOfRound(end, 'R1');
+      expect(roomSizes(end, r1)).toEqual([7, 7]);
+      expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [6], players: 6 });
+    });
+
+    it('counts a short round’s advancing seats from the bands it still has (advTotal)', () => {
+      const played = playRemovingFromR1(buildQualWaterfall(registered, BOTH_BANDS_ROUTE_ON), 1);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      const end = played.state;
+      // R3 has 7: every rank still advances (2 to the Final, 5 to R4), so the gap lowers advTotal from 8 to 7.
+      expect(end.rounds[indexOfRound(end, 'R3')]).toMatchObject({ rooms: [7], players: 7, advTotal: 7 });
+      expect(end.rounds[indexOfRound(end, 'R4')]).toMatchObject({
+        rooms: [5],
+        players: 5,
+        declaredRooms: [6],
+        advTotal: 2,
+      });
+    });
+
+    it.each([
+      [0, [7, 7]],
+      [1, [7, 6]],
+      [2, [6, 6]],
+    ])('a 2-room destination with %i withdrawals is drawn %j, never [7, 5]', (removals, rooms) => {
+      const played = playRemovingFromR1(buildQualWaterfall(registered, TWO_ROOM_DESTINATION), removals);
+      expect(played.outcome).toEqual({ kind: 'ok' });
+      const index = indexOfRound(played.state, 'R3');
+      expect(played.state.rounds[index].rooms).toEqual(rooms);
+      expect(played.state.rounds[index].players).toBe(sum(rooms));
+      expect(played.state.assignments[index]).toHaveLength(sum(rooms));
+    });
   });
 });
 
-describe('a waterfall round never accepts more than it declares', () => {
+describeInBothShapes('a waterfall round never accepts more than it declares', () => {
   it('blocks with "malformed-waterfall-round" when an extra unit is waiting for R1C', () => {
     const atR1 = advance(playToQualificationExit(buildQualWaterfall(37)));
     const r1c = indexOfRound(atR1, 'R1C');

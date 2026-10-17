@@ -1,16 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { getAllColumnTies, hasPendingColumnTies } from '../advancement';
 import { generateTournament } from '../generation';
-import { resolveTournamentTie } from '../mutations';
+import { removeRosterUnit, resolveTournamentTie, setTeamDefender, swapIndividual } from '../mutations';
+import { computeRankings } from '../rankings';
 import { drawnAheadStatus } from '../redraw';
 import { createTournamentRuntime } from '../runtime';
-import { currentColumn } from '../round-columns';
-import { scoreKeysForPosition } from '../scoring';
+import { currentColumn, roundInPlayOf } from '../round-columns';
+import { getDefenderIndex, scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { scoreCurrentRound } from './play-through';
-import { buildQualWaterfall, withoutColumns } from './qual-waterfall';
+import {
+  ALL_ROUTED_GRAPHS,
+  QUAL_GRAPH,
+  buildQualWaterfall,
+  playToQualificationExit,
+  withoutColumns,
+} from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
 const LIVE_GRAPH = `
@@ -292,5 +299,90 @@ describe('a tournament with no stored columns', () => {
     const next = advance(scoreCurrentRound(legacy, 2));
     expect(next.curRound).toBe(indexOf(next, 'Round 5 Lower'));
     expect(seated(next, 'Round 5 Lower')).toHaveLength(8);
+  });
+});
+
+describe('the Qual graph with its default columns: R1 and R1C are drawn together', () => {
+  const exit = playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns: true }));
+  const entered = advance(exit);
+
+  it('draws R1C (qualification ranks 17-24) with R1 (ranks 1-16): nobody waits in a pool', () => {
+    expect(entered.curRound).toBe(indexOf(entered, 'R1'));
+    expect(seated(entered, 'R1')).toHaveLength(16);
+    expect(seated(entered, 'R1C')).toHaveLength(8);
+    expect(Object.values(entered.pendingBracketSeeds).flat()).toEqual([]);
+  });
+
+  it('shows the R1C units as entries with a room, not as waiting', () => {
+    const active = computeRankings(entered)?.stillActive ?? [];
+    expect(active).toHaveLength(24);
+    expect(active.every((entry) => entry.room !== null && entry.waitingFor === undefined)).toBe(true);
+    expect(computeRankings(entered)?.eliminatedList).toHaveLength(13);
+  });
+});
+
+describe('roster changes for a unit seated in the second round of a column', () => {
+  const live = enterBracket(liveTournament(19), 2);
+  const lower = indexOf(live, 'Round 5 Lower');
+  const upper = indexOf(live, 'Round 5 Upper');
+  const inRoomA = (state: TournamentState, index: number) =>
+    state.assignments[index].find((entry) => entry.room === 1)?.name as string;
+
+  it('finds the round of the column that holds the unit, and the first round when it holds none', () => {
+    expect(roundInPlayOf(live, inRoomA(live, lower))).toBe(lower);
+    expect(roundInPlayOf(live, inRoomA(live, upper))).toBe(upper);
+    expect(roundInPlayOf(live, 'nobody')).toBe(live.curRound);
+  });
+
+  it('a withdrawal from Round 5 Lower room A: the room of 3 sends ranks 1-2 on, and Round 6 still arrives full', () => {
+    const removed = removeRosterUnit(live, inRoomA(live, lower));
+    expect(removed.assignments[lower].filter((entry) => entry.room === 1)).toHaveLength(3);
+    expect(removed.assignments[upper]).toEqual(live.assignments[upper]);
+    const next = advance(scoreColumn(removed, 2));
+    expect(next.rounds[indexOf(next, 'Round 6')].rooms).toEqual([4, 4]);
+    expect(seated(next, 'Round 6')).toHaveLength(8);
+    expect(seated(next, 'Semi A')).toHaveLength(4);
+  });
+
+  it('a withdrawal from Round 5 Upper room A: Round 6 arrives with 7 as [4, 3]', () => {
+    const removed = removeRosterUnit(live, inRoomA(live, upper));
+    const next = advance(scoreColumn(removed, 2));
+    expect(next.rounds[indexOf(next, 'Round 6')].rooms).toEqual([4, 3]);
+    expect(seated(next, 'Round 6')).toHaveLength(7);
+    expect(seated(next, 'Semi A')).toHaveLength(4);
+  });
+
+  it('a withdrawal drops that seat’s score in the unit’s own round, not in the first round of the column', () => {
+    const scored = scoreColumn(live, 2);
+    const removed = removeRosterUnit(scored, inRoomA(live, lower));
+    const roomKeys = (state: TournamentState, index: number) =>
+      Object.keys(state.scores).filter((key) => key.startsWith(`r${index}-rm1-`)).length;
+    expect(roomKeys(removed, upper)).toBe(roomKeys(scored, upper));
+    expect(roomKeys(removed, lower)).toBeLessThan(roomKeys(scored, lower));
+  });
+
+  it('a defender change records the round the team is in, not the first round of the column', () => {
+    const lowerTeam = inRoomA(live, lower);
+    const upperTeam = inRoomA(live, upper);
+    const changed = setTeamDefender(setTeamDefender(live, lowerTeam, 1), upperTeam, 1);
+    expect(changed.defenderChanges[lowerTeam]).toEqual([{ round: lower, memberIdx: 1 }]);
+    expect(changed.defenderChanges[upperTeam]).toEqual([{ round: upper, memberIdx: 1 }]);
+    expect(getDefenderIndex(changed, lowerTeam, lower)).toBe(1);
+  });
+});
+
+describe('a swap for a unit seated in the second round of a column', () => {
+  // This graph routes every registered unit, so nobody is eliminated and the swap window stays open.
+  const entered = advance(
+    playToQualificationExit(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37], {}, { columns: true })),
+  );
+
+  it('replaces the unit in its own round and leaves the first round alone', () => {
+    const r1c = indexOf(entered, 'R1C');
+    const old = entered.assignments[r1c][0].name;
+    const swapped = swapIndividual(entered, old, 'Sub');
+    expect(swapped.assignments[r1c].some((entry) => entry.name === 'Sub')).toBe(true);
+    expect(swapped.assignments[r1c].some((entry) => entry.name === old)).toBe(false);
+    expect(swapped.assignments[indexOf(entered, 'R1')]).toEqual(entered.assignments[indexOf(entered, 'R1')]);
   });
 });
