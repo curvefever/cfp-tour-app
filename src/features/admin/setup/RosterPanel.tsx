@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { resetRoster } from '../../../domain/tournament/mutations';
+import { resetRoster, withLoadedRoster } from '../../../domain/tournament/mutations';
 import {
   findDuplicateDisplayNames,
   parseIndividualLines,
   parseMemberLine,
   parseTeamLines,
+  rosterFitsFormat,
   rosterNames,
 } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
@@ -32,6 +33,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   const format = getGameFormat(setup.gameFormat);
   const teamSize = format?.teamSize;
   const unit = teamSize ? 'teams' : 'players';
+  const staleFormat = state.confirmedCount !== null && !rosterFitsFormat(state, setup.gameFormat);
 
   function loadRoster() {
     if (!format) return;
@@ -67,13 +69,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         );
         return;
       }
-      updateState({
-        ...state,
-        players,
-        reserves,
-        reserveIndividuals,
-        confirmedCount: players.length,
-      });
+      updateState(withLoadedRoster(state, setup.gameFormat, { players, reserves, reserveIndividuals }));
       setStatus(rosterLoadStatus(players.length, reserves.length, reserveIndividuals.length));
     } else {
       const players = parseIndividualLines(setup.roster.trim());
@@ -86,20 +82,23 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         );
         return;
       }
-      updateState({
-        ...state,
-        players,
-        reserves,
-        reserveIndividuals: [],
-        confirmedCount: players.length,
-      });
+      updateState(withLoadedRoster(state, setup.gameFormat, { players, reserves, reserveIndividuals: [] }));
       setStatus(rosterLoadStatus(players.length, reserves.length));
     }
     onLoaded();
   }
 
   return (
-    <SectionPanel hint={rosterCount(state, unit)} title='ROSTER'>
+    <SectionPanel
+      hint={
+        staleFormat ? (
+          <span className='text-warning'>Game format changed — load the roster again</span>
+        ) : (
+          rosterCount(state, unit)
+        )
+      }
+      title='ROSTER'
+    >
       <PresenceField className='mb-0' htmlFor='cfg-roster' label={`Roster — confirmed ${unit}, one per line`}>
         <Textarea
           id='cfg-roster'
