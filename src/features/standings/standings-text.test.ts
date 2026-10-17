@@ -174,6 +174,19 @@ describe('roundCells', () => {
     });
   });
 
+  it('shows a shared place as "=2nd" and fractional points with one decimal', () => {
+    expect(roundCells({ roundIndex: 1, score: 500, rank: 2, points: 6.5, bye: false, shared: true })).toEqual(
+      {
+        score: '500',
+        rank: '=2nd',
+        points: '6.5',
+      },
+    );
+    expect(
+      roundCells({ roundIndex: 1, score: 500, rank: 2, points: 19 / 3, bye: false, shared: true }).points,
+    ).toBe('6.3');
+  });
+
   it('shows a bye as "Bye" with its points', () => {
     expect(roundCells({ roundIndex: 1, score: null, rank: null, points: 2, bye: true })).toEqual({
       score: 'Bye',
@@ -210,6 +223,14 @@ describe('sharesWholePercent', () => {
     const shares = [0.0112, 0.0137, 0.0149, 0.0051, 0.004];
     const flags = sharesWholePercent(shares.map((share) => ({ points: 3, share })));
     expect(flags).toEqual([true, true, true, true, false]);
+  });
+
+  it('treats totals that show the same points as equal, whatever the order they were summed in', () => {
+    const flags = sharesWholePercent([
+      { points: 19 / 3 + 8 + 5, share: 1.2 },
+      { points: 5 + 19 / 3 + 8, share: 1.2 },
+    ]);
+    expect(flags).toEqual([true, true]);
   });
 
   it('does not flag an equal whole percent on different points', () => {

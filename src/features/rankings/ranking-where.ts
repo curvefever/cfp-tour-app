@@ -2,7 +2,7 @@ import type { bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ActiveRanking, EliminatedRanking, FinalistRanking } from '../../domain/tournament/rankings';
 import { standingsKind } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
-import { ordinal } from '../../lib/ordinal';
+import { ordinal, placeOrdinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from '../bracket/exit-text';
 import { placeInRoom } from '../bracket/folded-round';
@@ -37,7 +37,7 @@ export function stillInWhere(
   if (entry.room === null) return `${destinationLabel(lastRoundIndex, labels)} · Bye`;
   const where = roundAndRoom(state, lastRoundIndex, entry.room, labels);
   const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name);
-  return place === null ? where : `${where} · ${ordinal(place)}`;
+  return place === null ? where : `${where} · ${placeOrdinal(place)}`;
 }
 
 /**

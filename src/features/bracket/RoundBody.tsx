@@ -1,5 +1,6 @@
 import { detectTieBreaks } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
+import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
@@ -12,9 +13,10 @@ import { roomPoints } from './room-points';
 import { luckyLoserNames, pendingTieNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel } from './RoundNotes';
 
-function tieResolutionListSafe(state: TournamentState, key: string): string[] {
-  const value = state.tieResolutions[key];
-  return Array.isArray(value) ? value : value ? [value] : [];
+/** The organiser decided this tie: picked who ranks next, or shared the points. */
+function hasOrganiserDecision(state: TournamentState, key: string): boolean {
+  const { ranked, shared } = readTieResolution(state, key);
+  return ranked.length > 0 || shared.length > 0;
 }
 
 export function RoundBody({
@@ -78,7 +80,7 @@ export function RoundBody({
   const roomTies = detectTieBreaks(roundIndex, round, state);
   const resolvedTieNames = new Set(
     Object.entries(roomTies)
-      .filter(([key]) => tieResolutionListSafe(state, key).length > 0)
+      .filter(([key]) => hasOrganiserDecision(state, key))
       .flatMap(([, tie]) => tie.players.map((entry) => entry.name)),
   );
   const pendingTies = pendingTieNames(state, roundIndex);

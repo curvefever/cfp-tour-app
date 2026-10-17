@@ -29,7 +29,7 @@ export function stillInResults(
     } else if (entry.room === null) {
       results.set(entry.name, 'advance');
     } else {
-      const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name);
+      const place = placeInRoom(state, lastRoundIndex, entry.room, entry.name)?.place ?? null;
       const bands = rule.rooms[entry.room - 1] ?? [];
       results.set(
         entry.name,

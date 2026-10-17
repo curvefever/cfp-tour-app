@@ -7,7 +7,7 @@ import {
 } from '../../domain/tournament/__tests__/qual-waterfall';
 import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
-import { addWalkUpIndividual } from '../../domain/tournament/mutations';
+import { addWalkUpIndividual, shareTiedPoints } from '../../domain/tournament/mutations';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -275,5 +275,28 @@ describe('the where line of a withdrawn unit', () => {
     const rankings = computeRankings(state);
     expect(rankings?.dnfList.map((unit) => unit.name)).toEqual(['P3']);
     expect(WITHDRAWN_WHERE).toBe('Withdrawn');
+  });
+});
+
+describe('the where line: a shared place', () => {
+  it('reads "Round 1 · Room A · =2nd" for units sharing 2nd place in the room being scored (37 players)', () => {
+    const base = scoreCurrentRound(qualTournament(37), 0);
+    const names = (base.assignments[0] ?? []).filter((entry) => entry.room === 1).map((entry) => entry.name);
+    const scores = { ...base.scores };
+    names.forEach((_, seat) => {
+      scores[`r0-rm1-p${seat}`] = [900, 500, 500, 400][seat] ?? 100 - seat * 10;
+    });
+    const state = shareTiedPoints({ ...base, scores }, 'r0-rm1-s500', [names[1], names[2]]);
+    const rankings = computeRankings(state);
+    if (!rankings) throw new Error('no rankings');
+    const labels = bracketRoundLabels(state);
+    const whereOf = (name: string) => {
+      const entry = rankings.stillActive.find((candidate) => candidate.name === name);
+      if (!entry) throw new Error(`${name} is not active`);
+      return stillInWhere(state, rankings.lastRi, entry, labels);
+    };
+    expect(whereOf(names[1])).toBe('Round 1 · Room A · =2nd');
+    expect(whereOf(names[2])).toBe('Round 1 · Room A · =2nd');
+    expect(whereOf(names[3])).toBe('Round 1 · Room A · 4th');
   });
 });

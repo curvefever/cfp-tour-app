@@ -4,7 +4,7 @@ import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
-import { getUnitScore, orderRoomByScore, scoredTeamSize } from '../../domain/tournament/scoring';
+import { getUnitScore, orderRoomWithPlaces, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
@@ -122,13 +122,13 @@ export function RoomCard({
   const showResults = roundIndex <= state.curRound && complete;
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
   const display = showResults
-    ? orderRoomByScore(
+    ? orderRoomWithPlaces(
         scored as Array<{ name: string; position: number; score: number }>,
         roundIndex,
         room,
         state,
-      )
-    : scored;
+      ).map(({ entry, place, sharedBy }) => ({ ...entry, place, shared: sharedBy > 1 }))
+    : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   const memberInputs = scoredTeamSize(state);
   return (
     <RoomFrame lines={lines} title={title}>
@@ -139,7 +139,7 @@ export function RoomCard({
         const { result, star } = roomRowResult({
           rule: exitRule,
           bands,
-          rank: index + 1,
+          rank: entry.place ?? index + 1,
           lucky,
           pendingTie,
           roomComplete: showResults,
@@ -156,6 +156,7 @@ export function RoomCard({
             memberInputs={memberInputs}
             name={entry.name}
             pendingTie={pendingTie}
+            place={entry.place}
             points={points ? (points.get(entry.name) ?? null) : undefined}
             position={entry.position}
             resolvedTie={resolvedTieNames.has(entry.name)}
@@ -164,6 +165,7 @@ export function RoomCard({
             roundIndex={roundIndex}
             rowsEditable={rowsEditable}
             score={entry.score}
+            sharedPlace={entry.shared}
             showResults={showResults}
             star={star}
             state={state}

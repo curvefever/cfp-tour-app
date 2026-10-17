@@ -7,7 +7,7 @@ import {
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
-import { ordinal } from '../../lib/ordinal';
+import { placeOrdinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from './exit-text';
 import { placeInRoom } from './folded-round';
@@ -112,8 +112,9 @@ export function followBannerText(
     }
     return { name, detail: `${where}${standingsSuffix(standings, key, Boolean(round.isGroupStage))}` };
   }
-  const place = placeInRoom(state, roundIndex, entry.room, key);
-  const placeText = place === null ? '' : ` · ${ordinal(place)}`;
+  const roomPlace = placeInRoom(state, roundIndex, entry.room, key);
+  const place = roomPlace?.place ?? null;
+  const placeText = roomPlace === null ? '' : ` · ${placeOrdinal(roomPlace)}`;
   if (follow.eliminated && !drawnAhead) return { name, detail: `Out in ${where}${placeText}` };
   if (place === null) return { name, detail: where };
   const nextRoom = drawnAhead ? follow.rounds[follow.lastRi]?.room : null;

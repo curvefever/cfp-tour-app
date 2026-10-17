@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
-import { removeRosterUnit } from '../../domain/tournament/mutations';
+import { removeRosterUnit, shareTiedPoints } from '../../domain/tournament/mutations';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { foldedRoundSummary } from './folded-round';
@@ -87,5 +87,22 @@ describe('foldedRoundSummary: a bye', () => {
       place: null,
       detail: 'Bye',
     });
+  });
+});
+
+describe('foldedRoundSummary: a shared place', () => {
+  it('reads "=2nd" for units sharing 2nd place, and plain places around them (37 players)', () => {
+    const base = scoreCurrentRound(started(37), 0);
+    const names = (base.assignments[0] ?? []).filter((entry) => entry.room === 1).map((entry) => entry.name);
+    const scores = { ...base.scores };
+    names.forEach((_, seat) => {
+      scores[`r0-rm1-p${seat}`] = [900, 500, 500, 400][seat] ?? 100 - seat * 10;
+    });
+    const shared = shareTiedPoints({ ...base, scores }, 'r0-rm1-s500', [names[1], names[2]]);
+    const detail = (name: string) => foldedRoundSummary(shared, 0, name).followed?.detail;
+    expect(detail(names[0])).toBe('Room A · 1st');
+    expect(detail(names[1])).toBe('Room A · =2nd');
+    expect(detail(names[2])).toBe('Room A · =2nd');
+    expect(detail(names[3])).toBe('Room A · 4th');
   });
 });

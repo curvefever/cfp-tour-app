@@ -1,8 +1,8 @@
 import { largestRoomSize } from '../../domain/tournament/advancement';
-import { standardPoints } from '../../domain/tournament/scoring';
+import { formatStandingValue, standardPoints } from '../../domain/tournament/scoring';
 import type { StandingsDisplay } from '../../domain/tournament/standings-display';
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
-import { ordinal } from '../../lib/ordinal';
+import { ordinal, placeOrdinal } from '../../lib/ordinal';
 
 /** Where the standings are: how many rounds are in, that they are final, or when they start. */
 export function standingsProgressSentence(display: StandingsDisplay): string {
@@ -74,11 +74,11 @@ export interface RoundCells {
  */
 export function roundCells(result: StandingRoundResult | undefined): RoundCells {
   if (!result) return { score: '—', rank: '—', points: '—' };
-  if (result.bye) return { score: 'Bye', rank: '—', points: String(result.points) };
+  if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
   return {
     score: String(result.score),
-    rank: result.rank === null ? '—' : ordinal(result.rank),
-    points: String(result.points),
+    rank: result.rank === null ? '—' : placeOrdinal({ place: result.rank, shared: result.shared === true }),
+    points: formatStandingValue(result.points),
   };
 }
 
@@ -95,7 +95,9 @@ export function sharesWholePercent(
   units: Array<{ points: number | null; share: number | null | undefined }>,
 ): boolean[] {
   const keyOf = (unit: (typeof units)[number]) =>
-    unit.share === null || unit.share === undefined ? null : `${unit.points}|${formatTieBreak(unit.share)}`;
+    unit.share === null || unit.share === undefined
+      ? null
+      : `${unit.points === null ? 'none' : formatStandingValue(unit.points)}|${formatTieBreak(unit.share)}`;
   const counts = new Map<string, number>();
   for (const unit of units) {
     const key = keyOf(unit);

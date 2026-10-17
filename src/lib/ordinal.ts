@@ -1,3 +1,8 @@
+/** A place as read aloud: "2nd", or "=2nd" when another unit on the same score shares it. */
+export function placeOrdinal({ place, shared }: { place: number; shared: boolean }): string {
+  return shared ? `=${ordinal(place)}` : ordinal(place);
+}
+
 /** 1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd". */
 export function ordinal(n: number): string {
   const mod100 = n % 100;

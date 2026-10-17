@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { getUnitScore } from '../../domain/tournament/scoring';
+import { formatStandingValue, getUnitScore } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
@@ -26,6 +26,11 @@ type StripeFit = 'fixed' | 'line' | 'member-line';
 
 const STRIPE_MARGIN: Record<Exclude<StripeFit, 'fixed'>, string> = { line: 'my-px', 'member-line': 'my-3' };
 
+/** A place as the row slot shows it: "2", or "=2" when shared. */
+function placeLabel(place: number, shared: boolean): string {
+  return shared ? `=${place}` : String(place);
+}
+
 /** One row of a room card: place, result stripe, name with its marks, and the score (or the score inputs). */
 function RowLine({
   children,
@@ -34,7 +39,7 @@ function RowLine({
   stripe = 'line',
 }: {
   children: ReactNode;
-  place: number | null;
+  place: string | null;
   result: RowResult;
   stripe?: StripeFit;
 }) {
@@ -117,6 +122,10 @@ export interface RoomRowProps {
   name: string;
   /** The row's place in the room's order (0-based), for the alternating ground. */
   index: number;
+  /** The row's place in the room (null until the room is complete). */
+  place: number | null;
+  /** Another unit on the same score shares the place. */
+  sharedPlace: boolean;
   score: number | null;
   result: RowResult;
   star: 'lucky' | 'candidate' | null;
@@ -190,6 +199,7 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
 export function RoomRow(props: RoomRowProps) {
   const { state, roundIndex, room, position, name, index, score, result, star, showResults, rowsEditable } =
     props;
+  const { place, sharedPlace } = props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
@@ -214,7 +224,7 @@ export function RoomRow(props: RoomRowProps) {
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <RowLine
-        place={showResults ? index + 1 : null}
+        place={showResults && place !== null ? placeLabel(place, sharedPlace) : null}
         result={result}
         stripe={inlineInput ? 'fixed' : memberLine ? 'member-line' : 'line'}
       >
@@ -243,7 +253,9 @@ export function RoomRow(props: RoomRowProps) {
         )}
         {pointsColumn ? (
           <span className='w-9 shrink-0 text-right text-sm font-bold text-cfp-sky'>
-            {props.points === null || props.points === undefined ? null : `+${props.points}`}
+            {props.points === null || props.points === undefined
+              ? null
+              : `+${formatStandingValue(props.points)}`}
           </span>
         ) : null}
       </RowLine>

@@ -1,8 +1,8 @@
 import { roomLetter } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { getUnitScore, orderRoomByScore } from '../../domain/tournament/scoring';
+import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
-import { ordinal } from '../../lib/ordinal';
+import { placeOrdinal } from '../../lib/ordinal';
 
 export interface FoldedFollowed {
   /** The followed unit's name as shown (a team's name, a player's name). */
@@ -11,7 +11,7 @@ export interface FoldedFollowed {
   room: number | null;
   /** Its place in that room, once every unit of the room has a score. */
   place: number | null;
-  /** "Room A · 3rd", "Room A" while the room is being scored, or "Bye". */
+  /** "Room A · 3rd" ("Room A · =3rd" for a shared place), "Room A" while the room is being scored, or "Bye". */
   detail: string;
 }
 
@@ -23,22 +23,33 @@ export interface FoldedRoundSummary {
   followed: FoldedFollowed | null;
 }
 
+/** A unit's place in its room, and whether another unit on the same score shares it. */
+export interface RoomPlace {
+  place: number;
+  shared: boolean;
+}
+
 /** The place of the unit seated at `position` of `room`, ordered by score as the room card orders its rows. */
 export function placeInRoom(
   state: TournamentState,
   roundIndex: number,
   room: number,
   name: string,
-): number | null {
+): RoomPlace | null {
   const units = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
   const scored = units.map((entry, position) => ({
     name: entry.name,
     score: getUnitScore(state, roundIndex, room, position, null),
   }));
   if (scored.length === 0 || scored.some((entry) => entry.score === null)) return null;
-  const ordered = orderRoomByScore(scored as Array<{ name: string; score: number }>, roundIndex, room, state);
-  const index = ordered.findIndex((entry) => entry.name === name);
-  return index === -1 ? null : index + 1;
+  const ordered = orderRoomWithPlaces(
+    scored as Array<{ name: string; score: number }>,
+    roundIndex,
+    room,
+    state,
+  );
+  const found = ordered.find((item) => item.entry.name === name);
+  return found ? { place: found.place, shared: found.sharedBy > 1 } : null;
 }
 
 /** What a folded round shows: how many rooms it had, whether it is done, and where the followed unit stood. */
@@ -59,7 +70,8 @@ export function foldedRoundSummary(
   const seat = assignments.find((entry) => entry.name === followKey);
   if (!seat) return { rooms, done, followed: null };
   if (seat.room === null) return { rooms, done, followed: { label, room: null, place: null, detail: 'Bye' } };
-  const place = placeInRoom(state, roundIndex, seat.room, followKey);
+  const roomPlace = placeInRoom(state, roundIndex, seat.room, followKey);
+  const place = roomPlace?.place ?? null;
   const room = `Room ${roomLetter(seat.room)}`;
   return {
     rooms,
@@ -68,7 +80,7 @@ export function foldedRoundSummary(
       label,
       room: seat.room,
       place,
-      detail: place === null ? room : `${room} · ${ordinal(place)}`,
+      detail: roomPlace === null ? room : `${room} · ${placeOrdinal(roomPlace)}`,
     },
   };
 }

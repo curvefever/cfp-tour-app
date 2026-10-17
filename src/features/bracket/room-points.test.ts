@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import { shareTiedPoints } from '../../domain/tournament/mutations';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
@@ -70,6 +71,19 @@ describe('roomPoints', () => {
     const first = scoreRooms(start(37), [1, 2, 3, 4, 5]);
     expect(roomPoints(describeStandings(first), 0).size).toBe(37);
     expect(roomPoints(describeStandings(first), 1).size).toBe(0);
+  });
+
+  it('gives units sharing a place the average of the places they cover (37 players: 2nd and 3rd earn 6.5)', () => {
+    const scored = scoreRooms(start(37), [1]);
+    const names = (scored.assignments[0] ?? [])
+      .filter((entry) => entry.room === 1)
+      .map((entry) => entry.name);
+    const scores = { ...scored.scores, 'r0-rm1-p1': 95, 'r0-rm1-p2': 95 };
+    const state = shareTiedPoints({ ...scored, scores }, 'r0-rm1-s95', [names[1], names[2]]);
+    const points = roomPoints(describeStandings(state), 0);
+    expect([names[0], names[1], names[2], names[3]].map((name) => points.get(name))).toEqual([
+      8, 6.5, 6.5, 5,
+    ]);
   });
 
   it('uses the Custom points table', () => {

@@ -1,6 +1,7 @@
 import { getAllTies, isTieResolved, qualTieBoundaryText } from '../../domain/tournament/advancement';
 import { roomLetter } from '../../domain/tournament/bracket';
-import { resolveTournamentTie } from '../../domain/tournament/mutations';
+import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/mutations';
+import { isPoolingRound } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -10,12 +11,14 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 export function TieBanners({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const ties = getAllTies(state, state.curRound);
+  const poolingRound = isPoolingRound(state.rounds[state.curRound]);
   return Object.entries(ties)
     .filter(([key, tie]) => !isTieResolved(key, tie, state))
     .map(([key, tie]) => {
       const resolved = tieResolutionList(state, key);
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
       const isCutoff = !('score' in tie);
+      const canShare = !isCutoff && poolingRound;
       const boundaryText = 'firstRank' in tie ? qualTieBoundaryText(state, tie) : null;
       const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} pts` : '';
       const heading = !isCutoff
@@ -47,7 +50,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
                 ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
                 : ''}
               tied: {tie.players.map((player) => unitDisplay(state, player.name).label).join(', ')} — pick who
-              ranks next
+              ranks next{canShare ? ', or share points' : ''}
             </div>
           </div>
           <ButtonRow className='mt-0'>
@@ -61,6 +64,22 @@ export function TieBanners({ state }: { state: TournamentState }) {
                 {unitDisplay(state, player.name).label} ranks next
               </Button>
             ))}
+            {canShare ? (
+              <Button
+                size='sm'
+                onClick={() =>
+                  app.updateState((current) =>
+                    shareTiedPoints(
+                      current,
+                      key,
+                      remaining.map((player) => player.name),
+                    ),
+                  )
+                }
+              >
+                Share points
+              </Button>
+            ) : null}
           </ButtonRow>
         </div>
       );
