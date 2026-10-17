@@ -63,7 +63,7 @@ function ColumnField({
   const { choices } = info;
   if (!onSetColumn) {
     return (
-      <label className={cn(fieldLabelClass, 'w-44')}>
+      <label className={cn(fieldLabelClass, 'w-52')}>
         Column
         <Select className='mt-1' disabled value='shown'>
           <option value='shown'>
@@ -76,7 +76,7 @@ function ColumnField({
   }
   const numbers = choices?.numbers ?? (round.column === null ? [] : [round.column]);
   return (
-    <label className={cn(fieldLabelClass, 'w-44')}>
+    <label className={cn(fieldLabelClass, 'w-52')}>
       Column
       <Select
         className='mt-1'
