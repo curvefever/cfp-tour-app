@@ -47,6 +47,8 @@ export interface WaterfallRoundSpec {
   label: string;
   roomSizes: number[];
   isFinal: boolean;
+  /** True when the organiser numbered the round's column (COLUMN n), false/absent when it is automatic. */
+  columnSet?: true;
 }
 
 /**
@@ -933,7 +935,12 @@ function buildOrderedGraph(
   const indexByLabel = new Map(topoOrder.map((label, index) => [label, index]));
   const rounds: WaterfallRoundSpec[] = topoOrder.map((label) => {
     const round = roundByLabel.get(label) as RawRoundLine;
-    return { label: round.label, roomSizes: round.roomSizes, isFinal: round.isFinal };
+    return {
+      label: round.label,
+      roomSizes: round.roomSizes,
+      isFinal: round.isFinal,
+      ...(round.column === null ? {} : { columnSet: true as const }),
+    };
   });
   const routes: Array<Array<Array<number | 'eliminated'>>> = topoOrder.map((label) => {
     const roomDestinationArrays = roomBandsByLabel.get(label) ?? [];

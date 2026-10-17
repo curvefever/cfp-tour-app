@@ -18,16 +18,19 @@ import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round
 const CAUTION_MESSAGE =
   "The tournament is running. Rounds that have started keep their rooms; you can still change where their players go next. Saving re-sorts players using the results already entered. If the current round's line-up changes, its rooms are re-drawn, which is only possible before any score is entered there.";
 
-/** Labels of every reached waterfall round, and which one is current. */
-function reachedRounds(state: TournamentState): { lockedRounds: Set<string>; currentRoundLabel?: string } {
+/** Labels of every reached waterfall round, and which ones are being played now (every round of the current column). */
+function reachedRounds(state: TournamentState): {
+  lockedRounds: Set<string>;
+  currentRoundLabels: Set<string>;
+} {
   const lockedRounds = new Set<string>();
-  let currentRoundLabel: string | undefined;
+  const currentRoundLabels = new Set<string>();
   state.rounds.forEach((round, index) => {
     if (!round.isWaterfall || !isRoundReached(state, index) || !round.customLabel) return;
     lockedRounds.add(round.customLabel);
-    if (isCurrentRound(state, index)) currentRoundLabel = round.customLabel;
+    if (isCurrentRound(state, index)) currentRoundLabels.add(round.customLabel);
   });
-  return { lockedRounds, currentRoundLabel };
+  return { lockedRounds, currentRoundLabels };
 }
 
 /** A qualification-table graph has a Qual source and is checked against the units still registered, not the entry round's size. */
@@ -54,7 +57,9 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const entryRound = state.rounds.find((round) => round.isWaterfall);
   const standingsSource = hasStandingsSource(state);
   const entrantCount = standingsSource ? rosterKeys(state.players).length : (entryRound?.players ?? null);
-  const { lockedRounds, currentRoundLabel } = reachedRounds(state);
+  const { lockedRounds, currentRoundLabels } = reachedRounds(state);
+  // A tournament generated before columns existed plays one round at a time, and its rounds keep no column.
+  const showColumns = entryRound?.waterfallColumn !== undefined;
 
   function startEdit() {
     setDraftText(savedText(state));
@@ -112,12 +117,13 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           </Alert>
         ) : null}
         <WaterfallGraphEditor
-          currentRoundLabel={currentRoundLabel}
+          currentRoundLabels={currentRoundLabels}
           entrantCount={entrantCount}
           lockedRounds={lockedRounds}
           onChange={() => {}}
           readOnly
           roomSize={roomSize}
+          showColumns={showColumns}
           standingsSource={standingsSource}
           text={savedText(state)}
         />
@@ -140,7 +146,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
       ) : null}
       <WaterfallGraphEditor
         allowReplace={false}
-        currentRoundLabel={currentRoundLabel}
+        currentRoundLabels={currentRoundLabels}
         entrantCount={entrantCount}
         lockedRounds={lockedRounds}
         onChange={(next) => {
@@ -148,6 +154,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           setRedrawPrompt(null);
         }}
         roomSize={roomSize}
+        showColumns={showColumns}
         standingsSource={standingsSource}
         text={draftText}
       />

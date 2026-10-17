@@ -4,6 +4,7 @@ import {
   groupRoomByDestination,
   groupRoomWithOut,
   MAX_WATERFALL_ROOM_SIZE,
+  type WaterfallColumnChoices,
   type WaterfallDraft,
   type WaterfallDraftRound,
   type WaterfallSlotDestination,
@@ -29,12 +30,73 @@ export interface RoundEditorActions {
   onRename: (name: string) => string | null;
   onResize: (roomCount: number, roomSize: number) => void;
   onSetFinal: (isFinal: boolean) => void;
+  /** A whole column number, or null to leave the round's column automatic. */
+  onSetColumn: (column: number | null) => void;
   onDelete: () => void;
   /** Shows more ranks in the qualification table (only offered while the head count isn't known). */
   onAddRanks?: () => void;
 }
 
+const MAX_ROUND_NAME_LENGTH = 30;
 const fieldLabelClass = 'block text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase';
+
+/** Where the Column select gets its numbers; absent when the columns aren't shown. */
+export interface RoundColumnInfo {
+  /** The round's column as validation numbers it, undefined while that can't be worked out. */
+  current?: number;
+  /** What the select offers, null while the columns can't be worked out. */
+  choices: WaterfallColumnChoices | null;
+}
+
+const AUTOMATIC_VALUE = 'automatic';
+
+/** The round's column: a select the organiser changes, or the same select disabled (a round that has started, or a read-only view). */
+function ColumnField({
+  round,
+  info,
+  onSetColumn,
+}: {
+  round: WaterfallDraftRound;
+  info: RoundColumnInfo;
+  onSetColumn?: (column: number | null) => void;
+}) {
+  const { choices } = info;
+  if (!onSetColumn) {
+    return (
+      <label className={cn(fieldLabelClass, 'w-44')}>
+        Column
+        <Select className='mt-1' disabled value='shown'>
+          <option value='shown'>
+            {info.current === undefined ? 'Not known' : `Column ${info.current}`}
+            {round.column === null ? ' (automatic)' : ''}
+          </option>
+        </Select>
+      </label>
+    );
+  }
+  const numbers = choices?.numbers ?? (round.column === null ? [] : [round.column]);
+  return (
+    <label className={cn(fieldLabelClass, 'w-44')}>
+      Column
+      <Select
+        className='mt-1'
+        onChange={(event) =>
+          onSetColumn(event.target.value === AUTOMATIC_VALUE ? null : Number(event.target.value))
+        }
+        value={round.column === null ? AUTOMATIC_VALUE : String(round.column)}
+      >
+        <option value={AUTOMATIC_VALUE}>
+          {choices ? `Automatic (column ${choices.automatic})` : 'Automatic'}
+        </option>
+        {numbers.map((number) => (
+          <option key={number} value={number}>
+            Column {number}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+}
 
 /** Whole number within [1, max], or null. */
 function readCount(text: string, max: number): number | null {
@@ -42,7 +104,15 @@ function readCount(text: string, max: number): number | null {
   return Number.isInteger(value) && value >= 1 && value <= max ? value : null;
 }
 
-function RoundSettings({ round, actions }: { round: WaterfallDraftRound; actions: RoundEditorActions }) {
+function RoundSettings({
+  round,
+  actions,
+  columns,
+}: {
+  round: WaterfallDraftRound;
+  actions: RoundEditorActions;
+  columns?: RoundColumnInfo;
+}) {
   const [name, setName] = useState(round.label);
   const [rooms, setRooms] = useState(String(round.roomCount));
   const [size, setSize] = useState(String(round.roomSize));
@@ -76,7 +146,7 @@ function RoundSettings({ round, actions }: { round: WaterfallDraftRound; actions
           Name
           <Input
             className='mt-1'
-            maxLength={12}
+            maxLength={MAX_ROUND_NAME_LENGTH}
             onBlur={commitName}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={blurOnEnter}
@@ -105,6 +175,7 @@ function RoundSettings({ round, actions }: { round: WaterfallDraftRound; actions
             value={size}
           />
         </label>
+        {columns ? <ColumnField info={columns} onSetColumn={actions.onSetColumn} round={round} /> : null}
         <label className='flex items-center gap-2 pb-2 text-sm'>
           <input
             checked={round.isFinal}
@@ -336,7 +407,7 @@ export function QualificationTableEditor({
   );
 }
 
-function RoundSummary({ round }: { round: WaterfallDraftRound }) {
+function RoundSummary({ round, columns }: { round: WaterfallDraftRound; columns?: RoundColumnInfo }) {
   return (
     <div className='flex flex-wrap items-center gap-3'>
       <b>{round.label}</b>
@@ -344,6 +415,7 @@ function RoundSummary({ round }: { round: WaterfallDraftRound }) {
         {round.roomCount > 1 ? `${round.roomCount} rooms × ${round.roomSize}` : `${round.roomSize} players`}
         {round.isFinal ? ' · Final' : ''}
       </span>
+      {columns ? <ColumnField info={columns} round={round} /> : null}
     </div>
   );
 }
@@ -356,6 +428,7 @@ export function WaterfallRoundEditor({
   mirror,
   actions,
   locked,
+  columns,
 }: {
   draft: WaterfallDraft;
   round: WaterfallDraftRound;
@@ -366,17 +439,20 @@ export function WaterfallRoundEditor({
   actions?: RoundEditorActions;
   /** This round already started: its own routing is still editable, but rename/resize/remove/Final-toggle aren't. */
   locked?: boolean;
+  /** The Column select's numbers; omitted when the tournament's rounds aren't played in columns. */
+  columns?: RoundColumnInfo;
 }) {
   return (
     <div>
       {actions && !locked ? (
         <RoundSettings
           actions={actions}
+          columns={columns}
           key={`${round.label}-${round.roomCount}-${round.roomSize}`}
           round={round}
         />
       ) : (
-        <RoundSummary round={round} />
+        <RoundSummary columns={columns} round={round} />
       )}
       {round.isFinal ? (
         <div className='mt-3 rounded-lg bg-surface-low p-4'>

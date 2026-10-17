@@ -749,6 +749,10 @@ describe('applyWaterfallGraphEdit -- columns', () => {
     expect(!refused.ok && refused.error).toBe('Column 1 has already started -- choose column 2 or later.');
     const accepted = edit(state, WITH_R1D.replace('R1D = 6', 'R1D = 6 COLUMN 2'));
     expect(accepted.ok && columnsOf(accepted.state)).toEqual({ ...COLUMNS, R1D: 2 });
+    expect(
+      accepted.ok &&
+        accepted.state.rounds.filter((round) => round.waterfallColumnSet).map((round) => round.customLabel),
+    ).toEqual(['R1D']);
   });
 
   it('puts a round added after the bracket started, fed only by Qual, in the first column after the current one', () => {

@@ -15,7 +15,10 @@ import {
   renameWaterfallRound,
   resizeWaterfallRound,
   serializeWaterfallDraft,
+  setWaterfallColumn,
   setWaterfallFinal,
+  waterfallColumnChoices,
+  waterfallDraftColumns,
   waterfallQualCounts,
   waterfallRoundIntake,
   type WaterfallDraft,
@@ -45,8 +48,10 @@ interface EditorProps {
   readOnly?: boolean;
   /** Labels of rounds that have already started: rename/resize/remove/Final-toggle are hidden for them, but their own routing stays editable. */
   lockedRounds?: ReadonlySet<string>;
-  /** The round currently being played, shown with its own badge in the round list (a "played" badge covers every other locked round). */
-  currentRoundLabel?: string;
+  /** The rounds being played now (every round of the current column), shown with their own badge in the round list (a "played" badge covers every other locked round). */
+  currentRoundLabels?: ReadonlySet<string>;
+  /** false when the tournament's rounds aren't played in columns: no Column select, the list stays in play order. Default true. */
+  showColumns?: boolean;
   /** false hides "Blank start" and the examples, which would replace locked rounds too. Ignored when readOnly. Default true. */
   allowReplace?: boolean;
 }
@@ -112,7 +117,8 @@ function DraftEditor({
   roomSize,
   readOnly,
   lockedRounds,
-  currentRoundLabel,
+  currentRoundLabels,
+  showColumns = true,
   allowReplace = true,
   standingsSource = false,
   onAddRanks,
@@ -192,6 +198,7 @@ function DraftEditor({
       }
       commit(setWaterfallFinal(draft, round.label, isFinal));
     },
+    onSetColumn: (column) => commit(setWaterfallColumn(draft, round.label, column)),
     onAddRanks,
     onDelete: () => {
       const isDestination = (intake.incoming[round.label] ?? 0) > 0;
@@ -207,6 +214,11 @@ function DraftEditor({
       commit(removeWaterfallRound(draft, round.label));
     },
   };
+
+  const draftColumns = showColumns ? waterfallDraftColumns(draft) : null;
+  const columnInfo = showColumns
+    ? { current: draftColumns?.[round.label], choices: waterfallColumnChoices(draft, round.label) }
+    : undefined;
 
   const addRound = () => {
     const next = addWaterfallRound(draft, round.roomSize);
@@ -253,13 +265,14 @@ function DraftEditor({
             Rounds
           </div>
           <WaterfallRoundList
-            currentRoundLabel={currentRoundLabel}
+            currentRoundLabels={currentRoundLabels}
             draft={draft}
             entrantCount={entrantCount}
             intake={intake}
             lockedRounds={lockedRounds}
             onSelect={select}
             selected={qualSelected ? QUAL_LABEL : round.label}
+            showColumns={showColumns}
           />
           {readOnly ? null : (
             <Button className='mt-2 w-full' onClick={addRound} size='sm'>
@@ -272,6 +285,7 @@ function DraftEditor({
         ) : (
           <WaterfallRoundEditor
             actions={readOnly ? undefined : actions}
+            columns={columnInfo}
             draft={draft}
             incomingPlayers={intake.incoming[round.label] ?? 0}
             locked={lockedRounds?.has(round.label)}
@@ -299,7 +313,8 @@ export function WaterfallGraphEditor({
   roomSize,
   readOnly,
   lockedRounds,
-  currentRoundLabel,
+  currentRoundLabels,
+  showColumns = true,
   allowReplace = true,
   standingsSource = false,
 }: EditorProps) {
@@ -395,7 +410,7 @@ export function WaterfallGraphEditor({
       ) : null}
       <DraftEditor
         allowReplace={allowReplace}
-        currentRoundLabel={currentRoundLabel}
+        currentRoundLabels={currentRoundLabels}
         draft={parsed.value}
         entrantCount={entrantCount}
         lockedRounds={lockedRounds}
@@ -403,6 +418,7 @@ export function WaterfallGraphEditor({
         onChange={onChange}
         readOnly={readOnly}
         roomSize={roomSize}
+        showColumns={showColumns}
         standingsSource={standingsSource}
         status={status}
         text={text}

@@ -23,7 +23,11 @@ import {
   renameWaterfallRound,
   resizeWaterfallRound,
   serializeWaterfallDraft,
+  setWaterfallColumn,
   setWaterfallFinal,
+  waterfallColumnChoices,
+  waterfallColumnGroups,
+  waterfallDraftColumns,
   waterfallDraftFromRounds,
   waterfallFlowEdges,
   waterfallQualAdvance,
@@ -710,9 +714,18 @@ describe('waterfall columns in a draft', () => {
       const built = waterfallBracketPhase(entrants, 1, { graph: result.value, finalsGames: 1 });
       return { built, columns: result.value.columns };
     }
+    /** A state as the column engine will store it: every column, and the flag on the numbered rounds. */
     const stamped = (text: string, entrants: number) => {
       const { built, columns } = rounds(text, entrants);
-      return built.map((round, index) => ({ ...round, waterfallColumn: columns[index] }));
+      const graph = validated(text, entrants);
+      const set = Object.fromEntries(
+        graph.ok ? graph.value.rounds.map((round) => [round.label, round.columnSet === true]) : [],
+      );
+      return built.map((round, index) => ({
+        ...round,
+        waterfallColumn: columns[index],
+        ...(set[round.customLabel as string] ? { waterfallColumnSet: true as const } : {}),
+      }));
     };
 
     it('leaves a column the routing gives automatically out of the text, so a later edit can move it', () => {
@@ -720,7 +733,7 @@ describe('waterfall columns in a draft', () => {
       expect(draft.rounds.map((round) => round.column)).toEqual(Array(7).fill(null));
     });
 
-    it('writes only the column that was held back; the rounds after it follow it', () => {
+    it('writes only the columns the organiser numbered; the rounds after a held-back one follow it', () => {
       const draft = waterfallDraftFromRounds(stamped(NUMBERED_GRAPH, 32));
       expect(draft.rounds.map((round) => [round.label, round.column])).toEqual([
         ['5', null],
@@ -729,13 +742,100 @@ describe('waterfall columns in a draft', () => {
         ['6C', 3],
         ['7A', null],
         ['SemiB', null],
-        ['Final', null],
+        ['Final', 6],
       ]);
+    });
+
+    it('keeps a number the organiser set equal to the automatic column, through a re-save', () => {
+      const pinned = SPREADSHEET_GRAPH.replace('SemiA = 8', 'SemiA = 8 COLUMN 2');
+      const draft = waterfallDraftFromRounds(stamped(pinned, 32));
+      expect(draft.rounds.find((round) => round.label === 'SemiA')?.column).toBe(2);
+      expect(draft.rounds.filter((round) => round.column !== null)).toHaveLength(1);
+      const text = serializeWaterfallDraft(draft);
+      expect(text).toContain('SemiA = 8 COLUMN 2\n');
+      expect(validated(text, 32)).toEqual(validated(pinned, 32));
     });
 
     it('treats a tournament with no stored columns as all automatic', () => {
       const draft = waterfallDraftFromRounds(rounds(SPREADSHEET_GRAPH, 32).built);
       expect(draft.rounds.map((round) => round.column)).toEqual(Array(7).fill(null));
     });
+  });
+});
+
+describe('the column choices of a draft', () => {
+  const LIVE_GRAPH = `ROUNDS:
+Round 5 Upper = 2x4
+Round 5 Lower = 2x4
+Semi A = 4
+Round 6 = 2x4
+Round 7 = 4
+Semi-B = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->Round 5 Upper, 9-16->Round 5 Lower
+Round 5 Upper.A: 1-2->Semi A, 3-4->Round 6
+Round 5 Upper.B: 1-2->Semi A, 3-4->Round 6
+Round 5 Lower.A: 1-2->Round 6
+Round 5 Lower.B: 1-2->Round 6
+Semi A: 1-2->Final, 3-4->Semi-B
+Round 6.A: 1-2->Round 7
+Round 6.B: 1-2->Round 7
+Round 7: 1-2->Semi-B
+Semi-B: 1-2->Final`;
+
+  function liveDraft(text = LIVE_GRAPH): WaterfallDraft {
+    const result = parseWaterfallDraft(text, { standingsSource: true });
+    if (!result.ok) throw new Error(result.error);
+    return result.value;
+  }
+
+  it('sets a round’s column, and clears it back to automatic', () => {
+    const set = setWaterfallColumn(liveDraft(), 'Semi A', 3);
+    expect(serializeWaterfallDraft(set)).toContain('Semi A = 4 COLUMN 3\n');
+    const cleared = setWaterfallColumn(set, 'Semi A', null);
+    expect(serializeWaterfallDraft(cleared)).toBe(serializeWaterfallDraft(liveDraft()));
+  });
+
+  it('numbers the rounds and groups them by column in play order', () => {
+    expect(waterfallColumnGroups(liveDraft())).toEqual([
+      { column: 1, labels: ['Round 5 Upper', 'Round 5 Lower'] },
+      { column: 2, labels: ['Semi A', 'Round 6'] },
+      { column: 3, labels: ['Round 7'] },
+      { column: 4, labels: ['Semi-B'] },
+      { column: 5, labels: ['Final'] },
+    ]);
+    const moved = setWaterfallColumn(liveDraft(), 'Semi A', 3);
+    expect(waterfallColumnGroups(moved)?.map((group) => group.labels)).toEqual([
+      ['Round 5 Upper', 'Round 5 Lower'],
+      ['Round 6'],
+      ['Semi A', 'Round 7'],
+      ['Semi-B'],
+      ['Final'],
+    ]);
+  });
+
+  it('offers Semi A automatic (column 2) and the columns 2 to 6: from the earliest its feeders allow to one past the last', () => {
+    expect(waterfallColumnChoices(liveDraft(), 'Semi A')).toEqual({ automatic: 2, numbers: [2, 3, 4, 5, 6] });
+    expect(waterfallColumnChoices(liveDraft(), 'Round 5 Upper')).toEqual({
+      automatic: 1,
+      numbers: [1, 2, 3, 4, 5, 6],
+    });
+    expect(waterfallColumnChoices(liveDraft(), 'Final')).toEqual({ automatic: 5, numbers: [5, 6] });
+  });
+
+  it('keeps the automatic column of a round whatever number it holds now', () => {
+    const moved = setWaterfallColumn(liveDraft(), 'Semi A', 4);
+    expect(waterfallColumnChoices(moved, 'Semi A')?.automatic).toBe(2);
+  });
+
+  it('has no columns to show while the numbers can’t work or the routing loops', () => {
+    const impossible = setWaterfallColumn(liveDraft(), 'Round 6', 1);
+    expect(waterfallDraftColumns(impossible)).toBeNull();
+    expect(waterfallColumnGroups(impossible)).toBeNull();
+    expect(waterfallColumnChoices(impossible, 'Semi A')).toBeNull();
+    const looping = draftOf('ROUNDS:\nA = 4\nB = 4\nFinal = 4 FINAL\nROUTES:\nA: 1-4->B\nB: 1-4->A');
+    expect(waterfallDraftColumns(looping)).toBeNull();
   });
 });

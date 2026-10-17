@@ -188,7 +188,12 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // total it implies are replaced. Unreached rounds are wholly new.
   const newBracketRounds: TournamentRound[] = materialized.map((spec, index) => {
     if (index < reached.length) return rerouted(reached[index], spec);
-    return columnsStored ? { ...spec, waterfallColumn: graph.columns[index] } : spec;
+    if (!columnsStored) return spec;
+    return {
+      ...spec,
+      waterfallColumn: graph.columns[index],
+      ...(graph.rounds[index].columnSet ? { waterfallColumnSet: true as const } : {}),
+    };
   });
 
   const keptLength = firstWaterfallIndex + reached.length;

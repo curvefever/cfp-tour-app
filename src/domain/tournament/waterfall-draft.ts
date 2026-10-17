@@ -5,6 +5,7 @@ import {
   MAX_ROOMS_PER_ROUND,
   QUAL_LABEL,
   declaredWaterfallRooms,
+  assignWaterfallColumns,
   expandRankTokens,
   normalizeRoundLabel,
   parseWaterfallGraph,
@@ -260,33 +261,6 @@ function resolveDestination(label: string, byLower: Map<string, WaterfallDraftRo
   return byLower.get(label.toLowerCase())?.label ?? null;
 }
 
-/**
- * The columns of a running tournament's waterfall rounds that the draft must write out so they stay
- * where they are: a stored column that is not the one after its feeders' stored columns. The rest stay
- * automatic, so a later edit of the routing can move them. All automatic when no column is stored.
- */
-function manualColumnsOf(
-  waterfallRounds: TournamentRound[],
-  routes: Record<string, WaterfallSlotDestination[][]>,
-): Array<number | null> {
-  const none = waterfallRounds.map(() => null);
-  if (waterfallRounds.some((round) => round.waterfallColumn === undefined)) return none;
-  const position = new Map(waterfallRounds.map((round, index) => [round.customLabel, index]));
-  const feeders: number[][] = waterfallRounds.map(() => []);
-  waterfallRounds.forEach((round, source) => {
-    for (const destination of new Set((routes[round.customLabel as string] ?? []).flat())) {
-      const target = destination === null ? undefined : position.get(destination);
-      if (target !== undefined && target > source) feeders[target].push(source);
-    }
-  });
-  return waterfallRounds.map((round, index) => {
-    const stored = round.waterfallColumn as number;
-    const automatic =
-      Math.max(0, ...feeders[index].map((feeder) => waterfallRounds[feeder].waterfallColumn as number)) + 1;
-    return stored === automatic ? null : stored;
-  });
-}
-
 /** Sorted ranks to compact tokens: [1,2,3,5] becomes ["1-3", "5"]. */
 export function compressWaterfallRanks(ranks: number[]): string[] {
   const sorted = [...ranks].sort((first, second) => first - second);
@@ -376,7 +350,7 @@ export function waterfallDraftFromRounds(
       roomCount: declared.length,
       roomSize: declared[0],
       isFinal: round.isFinal,
-      column: null,
+      column: round.waterfallColumnSet ? (round.waterfallColumn ?? null) : null,
     };
   });
   const routes: Record<string, WaterfallSlotDestination[][]> = {};
@@ -389,12 +363,7 @@ export function waterfallDraftFromRounds(
           ),
         );
   }
-  const columns = manualColumnsOf(waterfallRounds, routes);
-  const draft: WaterfallDraft = {
-    rounds: draftRounds.map((round, index) => ({ ...round, column: columns[index] })),
-    routes,
-    qualRoutes: null,
-  };
+  const draft: WaterfallDraft = { rounds: draftRounds, routes, qualRoutes: null };
   if (!rounds.some((round) => round.isQual)) return draft;
   const standingsRoutes = rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
   const routed: WaterfallSlotDestination[] = standingsRoutes
@@ -604,6 +573,92 @@ export function setWaterfallFinal(draft: WaterfallDraft, label: string, isFinal:
     isFinal: round.label === label ? isFinal : isFinal ? false : round.isFinal,
   }));
   return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };
+}
+
+/** Gives a round its own column number, or null to leave it automatic. */
+export function setWaterfallColumn(
+  draft: WaterfallDraft,
+  label: string,
+  column: number | null,
+): WaterfallDraft {
+  const rounds = draft.rounds.map((round) => (round.label === label ? { ...round, column } : round));
+  return { ...draft, rounds };
+}
+
+/** The draft's rounds in play order, with the positions of the rounds routing into each; null when the routing loops. */
+function draftColumnInputs(draft: WaterfallDraft): { order: string[]; feeders: number[][] } | null {
+  const { order } = waterfallRoundIntake(draft);
+  const position = new Map(order.map((label, index) => [label, index]));
+  const feeders: number[][] = order.map(() => []);
+  for (const edge of waterfallFlowEdges(draft)) {
+    if (edge.from === QUAL_LABEL || edge.to === ELIMINATED || edge.to === edge.from) continue;
+    const from = position.get(edge.from);
+    const to = position.get(edge.to);
+    if (from === undefined || to === undefined) continue;
+    if (from > to) return null;
+    if (!feeders[to].includes(from)) feeders[to].push(from);
+  }
+  return { order, feeders };
+}
+
+/**
+ * The column of every round of the draft (by label) as validation will number them, or null when the
+ * routing loops or the numbers given can't work (the graph error says why).
+ */
+export function waterfallDraftColumns(draft: WaterfallDraft): Record<string, number> | null {
+  const inputs = draftColumnInputs(draft);
+  if (!inputs) return null;
+  const result = assignWaterfallColumns(
+    inputs.order.map((label, index) => ({
+      label,
+      column: findWaterfallRound(draft, label)?.column ?? null,
+      feeders: inputs.feeders[index],
+    })),
+  );
+  if (!result.ok) return null;
+  return Object.fromEntries(inputs.order.map((label, index) => [label, result.value[index]]));
+}
+
+export interface WaterfallColumnGroup {
+  column: number;
+  /** Round labels in play order. */
+  labels: string[];
+}
+
+/** The rounds grouped by column, earliest first; null when the columns can't be worked out. */
+export function waterfallColumnGroups(draft: WaterfallDraft): WaterfallColumnGroup[] | null {
+  const columns = waterfallDraftColumns(draft);
+  if (!columns) return null;
+  const groups: WaterfallColumnGroup[] = [];
+  for (const label of waterfallRoundIntake(draft).order) {
+    const column = columns[label];
+    const group = groups.find((candidate) => candidate.column === column);
+    if (group) group.labels.push(label);
+    else groups.push({ column, labels: [label] });
+  }
+  return groups.sort((first, second) => first.column - second.column);
+}
+
+export interface WaterfallColumnChoices {
+  /** The column the round gets when it is left automatic: the one after its feeders'. */
+  automatic: number;
+  /** The numbers to offer: from the earliest its feeders allow up to one past the last column. */
+  numbers: number[];
+}
+
+/** What the Column select offers for a round; null when the columns can't be worked out. */
+export function waterfallColumnChoices(draft: WaterfallDraft, label: string): WaterfallColumnChoices | null {
+  const inputs = draftColumnInputs(draft);
+  const columns = waterfallDraftColumns(draft);
+  if (!inputs || !columns) return null;
+  const index = inputs.order.indexOf(label);
+  if (index === -1) return null;
+  const automatic = Math.max(0, ...inputs.feeders[index].map((feeder) => columns[inputs.order[feeder]])) + 1;
+  const last = Math.max(...Object.values(columns));
+  return {
+    automatic,
+    numbers: Array.from({ length: last + 1 - automatic + 1 }, (_, offset) => automatic + offset),
+  };
 }
 
 /**
