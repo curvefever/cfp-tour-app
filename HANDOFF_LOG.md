@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The Bracket standings column is as wide as a round column (done — 2026-10-17)
+
+Solo session started by the reviewer of the render-checks build; one commit.
+
+**Diagnosis.** Four screenshot tests failed at 1280 px: `ffa37-pooling`, `ffa31-pooling`, `fixed-draws-ffa-37` and `waterfall-qual-37`, all on "the standings title fits" (`screens.spec.ts`). All four have a qualification table. `7a6b7e7` (2026-10-15, "standings tab names") renamed the Bracket standings column title from "Standings" to the pooling phase's name. In the 280 px column, the title bar left 111 px for the title beside TEMPORARY (81 px), the exit icon and the fold chevron (56 px) and the gaps. "QUALIFICATION" needs 139 px, so it read "QUALIFICA…". "SWISS" and "GROUPS" still fit, which is why the Swiss and group-stage fixtures passed. The shared-points work, B11 and the visual redesign, which were suspected, had nothing to do with it.
+
+**Decision (organiser).** The column widens to 330 px (`w-82.5`), the width of a round column, so the Bracket has one column width. Options shown with renders of the 280 px column: 330 px, 310 px (just enough, about 2 px spare), or a short title "QUAL" used only in the column.
+
+1. `StandingsColumn.tsx`: `w-70 min-w-70` → `w-82.5 min-w-82.5`. `docs/views.md`, Standings column: 330 px.
+
+### Testing
+- `pnpm exec playwright test e2e/screens/screens.spec.ts --project=screens`: 50 passed (the first try timed out waiting for the dev server to start; the rerun was clean). Before the change, `ffa31-pooling at 1280px` failed with the title 139 px wide in a 111 px box.
+- Related Vitest (`StandingsColumn.tsx`): 213 passed. ESLint, Prettier and typecheck clean on the file.
+- Looked at `e2e-screens/ffa31-pooling/bracket-1280.png`: "QUALIFICATION  TEMPORARY" in full, with both icons.
+
+### Out of scope
+- At 1280 px, with Round 1 folded and two open rounds, the wider column now runs about 10 px past the right edge of the window, so the points of the standings column need a small horizontal scroll (before, the column ended inside the window). The organiser chose 330 px knowing it costs 50 px.
+
+---
+
 ## A viewer's Players tab doesn't show the draw before the start (done — 2026-10-17)
 
 Planner/reviewer and implementer sessions; one commit (code, tests and close-out).
@@ -69,7 +89,7 @@ Planner/reviewer and implementer sessions; three stages, one commit each, plus a
 - Final review (reviewer): eslint, prettier (`--end-of-line auto`) and typecheck clean on every changed code file; full suite 91 files, 2456 tests passing; `pnpm run test:e2e` 7 passed. Reviewer's mutation in stage 3: showing the error message to everyone fails "shows the error message to an admin only".
 
 ### Out of scope
-- The four screenshot tests that already fail at 1280 px, on the commit before this build too: `ffa37-pooling`, `ffa31-pooling`, `fixed-draws-ffa-37` and `waterfall-qual-37` (the Bracket-tab assertion "the standings title fits", `screens.spec.ts`). Raised with the organiser separately.
+- The four screenshot tests that already fail at 1280 px, on the commit before this build too: `ffa37-pooling`, `ffa31-pooling`, `fixed-draws-ffa-37` and `waterfall-qual-37` (the Bracket-tab assertion "the standings title fits", `screens.spec.ts`). Raised with the organiser separately. **Fixed 2026-10-17 — see 'The Bracket standings column is as wide as a round column' above.**
 - The pre-start draw shown on a viewer's Players tab: found here, on `drawn-ffa-31`. For a generated, not-started tournament the viewer's Players tab lists "Round 1 · Room C" beside each name (and a "Download image" button), though the tab rules say a viewer never sees a draw before the start. `RankingsView` shows ranking data whenever rounds exist. The render check asserts nothing about room lines for a viewer; a separate fix is planned.
 - Interaction tests: clicking Load roster, swaps, `window.prompt` flows, score entry.
 - Rendering through the real `TournamentProvider` (sync, setup transport, presence), and server functions.

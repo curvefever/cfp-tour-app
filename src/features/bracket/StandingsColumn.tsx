@@ -124,7 +124,7 @@ export function StandingsColumn({
   }
   const exitLines = display.tables[0] ? standingsExitLines(display.tables[0], display, labels) : [];
   return (
-    <div className='relative flex w-70 min-w-70 shrink-0 flex-col gap-4.5' data-standings-column>
+    <div className='relative flex w-82.5 min-w-82.5 shrink-0 flex-col gap-4.5' data-standings-column>
       <ColumnTitleBar
         badge={<PhaseBadge phase={display.phase} />}
         extra={
