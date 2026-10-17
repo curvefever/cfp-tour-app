@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Shared points for a tie in a pooling room (done — 2026-10-17)
 
-Plan: `plans/2026-10-17-shared-points.md` (planner/reviewer and implementer sessions; three stages, one commit each, plus the docs).
+Planner/reviewer and implementer sessions; three stages, one commit each, plus the docs.
 
 **Why.** When units in a pooling room had the same score, the admin had to pick who ranks next, so one got 5 points and the other 4. The organiser wanted a third choice: **share the points** (4.5 each), the "=2nd" of a draw.
 
@@ -39,7 +39,9 @@ Plan: `plans/2026-10-17-shared-points.md` (planner/reviewer and implementer sess
 - UI helpers: `standings-text.test.ts`, `folded-round.test.ts`, `ranking-where.test.ts`, `room-points.test.ts`. The tie card and room row have no component tests (`docs/platform.md`, "Tests"); the live check covers them.
 - Reviewer's mutation checks on stage 1: 9 of 10 caught; the survivor was the `sharedNames.length >= 2` guard (without it a lone leftover shared name only changes the order among unranked units, and a score edit clears a stale share first), left as is. The review found the float-noise `sharesWholePercent` test did not exercise float noise (`19/3 + 8 + 5` equals `5 + 19/3 + 8`); it now uses `19/3 + 6.5 + 25/3` and `25/3 + 19/3 + 6.5`, which differ in the last bit, and fails with the key reverted to `${unit.points}`.
 - Live check on the test site after the push of `2cd572f` (signed in as Lead Mod; the deploy answered 502 for about a minute after the push). Throwaway FFA 37, qualification table, advance 16, Standard points (`1792230507338`): Room A with a 2-way tie at 2nd showed "Share points" next to the two "ranks next" buttons; after sharing, the room card read "=2 P12 +6.5 / =2 P18 +6.5 / 4 P25 +5", the Standings tab "=2nd 6.5" with POINTS 6.5 for both, and the Bracket standings column 6.5. Room B with a 3-way tie: "P09 ranks next", then "Share points" gave 2 (+7), =3 (+5.5) and =3 (+5.5). Editing a shared unit's score to 450 removed the tie card and put the points back to +7 / +6; setting it back to 500 brought the card back and sharing again gave "=2 … +6.5". Rankings read "Round 1 · Room A · =2nd" and "Room B · =3rd" for the shared units. Next Round went through with both shares in place. A second throwaway (FFA 24, no pooling phase, `1792230644775`): the two warm-up rounds offer "Share points" (they are pooling rounds), and an elimination-round tie in Round 3 shows only the "ranks next" buttons and "pick who ranks next" without "or share points".
-- No follow-text test with "· =2nd": `followBannerText` only reads a place for non-pooling rounds, where no share can exist.
+- No follow-text test with "· =2nd": `followBannerText` reads a room place only outside qualification, Swiss and group stage (its own `isPooling` leaves warm-ups out), so a shared warm-up place does show "=2nd" there through `placeOrdinal`; the formatter itself is covered by `folded-round.test.ts` and `ranking-where.test.ts`.
+- Reviewer's mutation checks on stage 2: 4 of 5 caught; the survivor, the `formatStandingValue` key in `sharesWholePercent`, was a test whose two sums were exactly equal in JavaScript, replaced in `2cd572f` by `19/3 + 6.5 + 25/3` against `25/3 + 19/3 + 6.5` (they differ by one ulp), which then failed with the key reverted.
+- Final review: full suite 90 files, 2227 tests passed; eslint, prettier --check and typecheck clean over the 25 source and test files the plan changed.
 
 ### Out of scope
 - Sharing in elimination rounds, Kings Valley, waterfall graph rounds, Semis and the Final (a cut needs an order).
