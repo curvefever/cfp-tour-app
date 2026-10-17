@@ -176,7 +176,15 @@ export function roomLetter(room: number): string {
 
 export type ProjectedSlotLabel =
   | { kind: 'room-rank'; room: number; rank: number; advPerRoom: number; sourceRound: number }
-  | { kind: 'waterfall-rank'; room: number; rank: number; sourceRound: number }
+  | {
+      kind: 'waterfall-rank';
+      room: number;
+      rank: number;
+      sourceRound: number;
+      /** The source round's own label, as the Bracket shows it ("Round 5 Upper"). */
+      sourceLabel: string;
+      sourceRoomCount: number;
+    }
   | { kind: 'standings-rank'; rank: number }
   | { kind: 'lucky' }
   | { kind: 'qualifier-cutoff' }
@@ -193,8 +201,11 @@ export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
       // rank is already known exactly from the organiser's graph (no
       // top-N-cutoff concept to collapse into a bare "Winner of Room X"),
       // and collapsing it would misrepresent a band that isn't rank 1.
-      const tag = `${slot.sourceRound}${roomLetter(slot.room)}`;
-      return `Room ${tag}, Rank ${slot.rank}`;
+      // The source is named by its own label, not its round number (meaningless in a waterfall, and with
+      // columns misleading); the room letter only when the round has several rooms.
+      const source =
+        slot.sourceRoomCount > 1 ? `${slot.sourceLabel} · Room ${roomLetter(slot.room)}` : slot.sourceLabel;
+      return `${source}, Rank ${slot.rank}`;
     }
     case 'standings-rank':
       return `Qualification #${slot.rank}`;
@@ -459,7 +470,14 @@ export function projectFutureRoundSlots(
         for (let rank = 1; rank <= maxRank; rank += 1) {
           for (const candidate of edgesForSource) {
             if (candidate.ranks.includes(rank)) {
-              pool.push({ kind: 'waterfall-rank', room: candidate.room, rank, sourceRound });
+              pool.push({
+                kind: 'waterfall-rank',
+                room: candidate.room,
+                rank,
+                sourceRound,
+                sourceLabel,
+                sourceRoomCount: source.rooms.length,
+              });
             }
           }
         }

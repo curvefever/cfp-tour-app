@@ -14,7 +14,7 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
-import { buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
+import { SPREADSHEET_GRAPH, buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
 import { scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource } from './test-fixtures';
 
@@ -371,7 +371,7 @@ describe('projectFutureRoundSlots', () => {
     expect(ranksInRoomA.size).toBeGreaterThan(1);
   });
 
-  it('projects a waterfall band as rank-precise "Room X, Rank N", never collapsing to "Winner of Room X" even for a single-person band', () => {
+  it('projects a waterfall band as rank-precise "<round>, Rank N", never collapsing to "Winner of Room X" even for a single-person band', () => {
     const rounds = [
       buildRound({
         roundNum: 1,
@@ -392,7 +392,7 @@ describe('projectFutureRoundSlots', () => {
     ];
     const result = project(rounds, 0);
     expect(result[1]?.[0].map((slot) => slot.kind)).toEqual(['waterfall-rank']);
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1']);
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['5, Rank 1']);
   });
 
   it('projects an N-way waterfall convergence with non-contiguous rank bands, tier-major across every contributing room', () => {
@@ -415,11 +415,11 @@ describe('projectFutureRoundSlots', () => {
     // Tier-major: rank 1 across A and B, then rank 2 (B only), rank 3 (C
     // only), rank 4 (A only) -- not room-major, and not a contiguous range.
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
-      'Room 1A, Rank 1',
-      'Room 1B, Rank 1',
-      'Room 1B, Rank 2',
-      'Room 1C, Rank 3',
-      'Room 1A, Rank 4',
+      '5 · Room A, Rank 1',
+      '5 · Room B, Rank 1',
+      '5 · Room B, Rank 2',
+      '5 · Room C, Rank 3',
+      '5 · Room A, Rank 4',
     ]);
   });
 
@@ -451,7 +451,7 @@ describe('projectFutureRoundSlots', () => {
       }),
     ];
     const result = project(rounds, 0);
-    expect(result[2]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1A, Rank 2']);
+    expect(result[2]?.[0].map(projectedSlotLabelText)).toEqual(['5, Rank 1', '5, Rank 2']);
   });
 });
 
@@ -779,5 +779,32 @@ describe('bracketBoxes -- a waterfall column of several rounds', () => {
   it('is one single box per round when no round has a stored column', () => {
     const legacy = withoutColumns(advanceWhile(liveTournament(19)));
     expect(bracketBoxes(legacy).every((box) => box.kind === 'single')).toBe(true);
+  });
+});
+
+describe('projectFutureRoundSlots -- a waterfall source is named by its own label', () => {
+  it('names a several-room source with its room and a one-room source plainly: the live graph in column 1', () => {
+    const bracket = advanceWhile(liveTournament(19));
+    const slots = projectFutureRoundSlots(bracket);
+    const text = (label: string) =>
+      (slots[bracket.rounds.findIndex((round) => round.customLabel === label)] ?? []).map((room) =>
+        room.map(projectedSlotLabelText),
+      );
+    const round6 = text('Round 6').flat();
+    expect(round6).toContain('Round 5 Upper · Room A, Rank 3');
+    expect(round6).toContain('Round 5 Lower · Room A, Rank 1');
+    expect(round6.every((line) => /^Round 5 (Upper|Lower) · Room [AB], Rank \d$/.test(line))).toBe(true);
+    expect(text('Semi-B').flat()).toContain('Semi A, Rank 3');
+    expect(text('Semi-B').flat()).toContain('Round 7, Rank 1');
+  });
+
+  it('names R6B and R6C plainly in R7A of the 32-player example', () => {
+    const start = buildQualWaterfall(37, SPREADSHEET_GRAPH, { qualAdv: '32' }, { columns: true });
+    const slots = projectFutureRoundSlots(start);
+    const r7a = start.rounds.findIndex((round) => round.customLabel === '7A');
+    const lines = (slots[r7a] ?? []).flatMap((room) => room.map(projectedSlotLabelText));
+    expect(lines).toContain('6B, Rank 1');
+    expect(lines).toContain('6C, Rank 1');
+    expect(lines.some((line) => /^Room /.test(line))).toBe(false);
   });
 });

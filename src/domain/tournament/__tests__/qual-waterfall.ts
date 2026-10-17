@@ -266,3 +266,26 @@ export function liveTournament(teamCount: number): TournamentState {
   if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
   return { ...result.state, started: true };
 }
+
+/** The 32-player spreadsheet layout: [5], [SemiA, 6B, 6C], [7A], [SemiB], [Final]. */
+export const SPREADSHEET_GRAPH = `
+ROUNDS:
+5 = 4x8
+6B = 8
+6C = 8
+7A = 8
+SemiA = 8
+SemiB = 8
+Final = 8 FINAL
+
+ROUTES:
+5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
+5.B: 1-4->SemiA, 6,7->6B, 5,8->6C
+5.C: 1,4->6C, 2,3->6B, 5-8->eliminated
+5.D: 1,4->6B, 2,3->6C, 5-8->eliminated
+SemiA: 1-4->Final, 5-8->SemiB
+6B: 1-4->7A, 5-8->eliminated
+6C: 1-4->7A, 5-8->eliminated
+7A: 1-4->SemiB, 5-8->eliminated
+SemiB: 1-4->Final, 5-8->eliminated
+`;
