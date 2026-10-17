@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAllColumnTies, hasPendingColumnTies } from '../advancement';
+import { getAllColumnTies, getAllTies, hasPendingColumnTies, refreshRoundStandings } from '../advancement';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, resolveTournamentTie, setTeamDefender, swapIndividual } from '../mutations';
 import { computeRankings } from '../rankings';
@@ -14,8 +14,10 @@ import { scoreCurrentRound } from './play-through';
 import {
   ALL_ROUTED_GRAPHS,
   QUAL_GRAPH,
+  TIE_GRAPH,
   buildQualWaterfall,
   playToQualificationExit,
+  scoredAlike,
   withoutColumns,
 } from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
@@ -384,5 +386,62 @@ describe('a swap for a unit seated in the second round of a column', () => {
     expect(swapped.assignments[r1c].some((entry) => entry.name === 'Sub')).toBe(true);
     expect(swapped.assignments[r1c].some((entry) => entry.name === old)).toBe(false);
     expect(swapped.assignments[indexOf(entered, 'R1')]).toEqual(entered.assignments[indexOf(entered, 'R1')]);
+  });
+});
+
+describe('rankings in the middle of a column (R1 and R1C drawn together, 37 registered)', () => {
+  it('keeps all 24 units active when R1 is fully scored but not advanced, its band-5-to-8 finishers included', () => {
+    const entered = advance(
+      playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns: true })),
+    );
+    const midColumn = scoreRound(entered, 'R1', 0);
+    const rankings = computeRankings(midColumn);
+    const r1 = indexOf(midColumn, 'R1');
+    const activeNames = new Set((rankings?.stillActive ?? []).map((entry) => entry.name));
+    expect(activeNames.size).toBe(24);
+    expect(rankings?.eliminatedList).toHaveLength(13);
+    const r1Units = midColumn.assignments[r1].map((entry) => entry.name);
+    expect(r1Units.every((name) => activeNames.has(name))).toBe(true);
+    // R1's own eliminating bands (places 5-8 of each room) are still in the tournament until the column advances.
+    const eliminatedNames = new Set((rankings?.eliminatedList ?? []).map((entry) => entry.name));
+    expect(r1Units.some((name) => eliminatedNames.has(name))).toBe(false);
+  });
+});
+
+describe('a qualification tie across the R1/R1C boundary, entering a column', () => {
+  const setup = { qualRoundsOverride: '1', nonCountingRounds: '0' };
+
+  it('blocks Next Round, and once resolved draws R1 and R1C together with the tied units on the picked sides', () => {
+    const exit = scoredAlike(buildQualWaterfall(32, TIE_GRAPH, setup, { columns: true }));
+    const blocked = advanceTournamentRound(exit);
+    expect(blocked.status === 'blocked' && blocked.reason).toBe('pending-ties');
+
+    const ties = getAllTies(refreshRoundStandings(exit, exit.curRound), exit.curRound);
+    expect(Object.keys(ties).filter((key) => key.startsWith('qual-'))).toEqual([
+      'qual-band-13',
+      'qual-cutoff',
+    ]);
+    let state = exit;
+    const picks = new Map<string, string[]>();
+    for (const key of ['qual-band-13', 'qual-cutoff']) {
+      const members = ties[key].players.map((player) => player.name);
+      const order = [...members].reverse();
+      picks.set(key, order);
+      for (const name of order.slice(0, members.length - 1)) state = resolveTournamentTie(state, key, name);
+    }
+    const next = advance(state);
+    expect(next.curRound).toBe(indexOf(next, 'R1'));
+    const band = picks.get('qual-band-13') as string[];
+    const cut = picks.get('qual-cutoff') as string[];
+    // Band 13-16: the first two picks take ranks 13-14 (R1), the other two 15-16 (R1C).
+    expect(seated(next, 'R1')).toEqual(expect.arrayContaining(band.slice(0, 2)));
+    expect(seated(next, 'R1')).not.toContain(band[2]);
+    expect(seated(next, 'R1C')).toEqual(expect.arrayContaining([band[2], band[3]]));
+    // Cut-off cluster 21-24: the first two picks take ranks 21-22 (R1C), the other two are out.
+    expect(seated(next, 'R1C')).toEqual(expect.arrayContaining(cut.slice(0, 2)));
+    const bracketNames = new Set([...seated(next, 'R1'), ...seated(next, 'R1C')]);
+    expect(bracketNames.has(cut[2])).toBe(false);
+    expect(bracketNames.has(cut[3])).toBe(false);
+    expect(seated(next, 'R1C')).toHaveLength(8);
   });
 });
