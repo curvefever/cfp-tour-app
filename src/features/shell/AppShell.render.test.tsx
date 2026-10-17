@@ -142,3 +142,25 @@ describe('TabErrorBoundary', () => {
     expect(tabBar.querySelectorAll('button').length).toBeGreaterThan(1);
   });
 });
+
+describe('Players before the start: a drawn but not started tournament', () => {
+  const drawn = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'drawn-ffa-31');
+    if (!fixture) throw new Error('the drawn-ffa-31 fixture is missing');
+    return fixture;
+  };
+
+  it('shows a viewer the plain roster: no rooms, no Download image', () => {
+    const view = renderApp(drawn(), { role: 'viewer', tab: 'rankings' });
+
+    expect(view.queryAllByText(/31 players registered so far/)).toHaveLength(1);
+    expect(view.queryAllByText(/Round 1 ·/)).toHaveLength(0);
+    expect(view.queryByRole('button', { name: /Download image/ })).toBeNull();
+  });
+
+  it('still shows an admin the drawn rooms', () => {
+    const view = renderApp(drawn(), { role: 'admin', tab: 'rankings' });
+
+    expect(view.queryAllByText(/Round 1 ·/).length).toBeGreaterThan(0);
+  });
+});

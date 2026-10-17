@@ -6,6 +6,28 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A viewer's Players tab doesn't show the draw before the start (done — 2026-10-17)
+
+Planner/reviewer and implementer sessions; one commit (code, tests and close-out).
+
+**Found.** While building the render-check fixtures (log entry "Realistic before-start fixtures, a render check of every tab…"), the screenshot of `drawn-ffa-31` (published, generated, not started) showed a signed-out viewer's Players tab with every player's Round 1 room ("Round 1 · Room C") and the "Download image" button, whose image carries the same lines. This contradicts the rule in `docs/views.md` and `showsDraw` (`shell/tabs.ts`): a viewer never sees a draw before the start. Bracket and the standings tab follow it. Players did not: `RankingsView` computed `computeRankings(app.state)`, which returns data as soon as the state has rounds and assignments, started or not, and with data the page renders `RankingsLists`, the where lines and the Download image action instead of the plain roster (`RosterOnly` → `PlayersList`). It was on production too.
+
+**The rule.** A viewer gets the plain roster until the start: "N players registered so far", the roster and the reserves, no where lines, no Download image. In `RankingsView`, the rankings are computed only when `app.state.started || app.unlocked`; otherwise `data` is `null` and the existing paths (`RankingsContent` → `RosterOnly`; no heading action) do the rest. The flags are the ones the tab rules already use: `app.unlocked` is what `AppShell` passes to `visibleTabs` as `canAdmin`, and `app.state.started` is what the same file uses for the "Players" / "Rankings" label. `computeRankings` is unchanged: the domain stays unaware of who is looking.
+
+**Admin decision (planner, open to correction).** An admin keeps today's view: the drawn rooms and the organiser tools from Generate, mirroring `showsDraw`, to check the draw before Confirm & Start.
+
+### Testing
+- `AppShell.render.test.tsx`, a `describe` next to the matrix, on `drawn-ffa-31` (31 players, the awkward count): a viewer on Players sees "31 players registered so far", no text matching `Round 1 ·` and no Download image button; an admin on Players still sees `Round 1 ·` lines.
+- The viewer test was run before the change and failed ("expected [] to have a length of 1 but got +0": the roster line was missing, the page showed the rankings); the admin test passed both before and after. After the change the render file passes, 212 tests.
+- eslint, prettier (`--end-of-line auto`), typecheck clean on the two files. No e2e, no live check.
+
+### Out of scope
+- Hiding the draw from the stored state or the database: viewers can read the stored state, as before. This fix is about what the app shows.
+- Any change to the Bracket or standings tab rules.
+- The four screenshot tests that fail at 1280 px on the commit before the render-check build too: `ffa37-pooling`, `ffa31-pooling`, `fixed-draws-ffa-37` and `waterfall-qual-37`.
+
+---
+
 ## Realistic before-start fixtures, a render check of every tab, and an error message instead of a white screen (done — 2026-10-17)
 
 Planner/reviewer and implementer sessions; three stages, one commit each, plus a small refactor commit and the close-out.

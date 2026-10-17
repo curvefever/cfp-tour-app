@@ -97,7 +97,9 @@ function DownloadImageButton({ state }: { state: TournamentState }) {
 export function RankingsView() {
   const app = useTournamentApp();
   const title = useTournamentTitle();
-  const data = useMemo(() => computeRankings(app.state), [app.state]);
+  // A viewer never sees a draw before the start (as in tabs.ts); an admin sees it from Generate, to check it.
+  const mayShowDraw = app.state.started || app.unlocked;
+  const data = useMemo(() => (mayShowDraw ? computeRankings(app.state) : null), [app.state, mayShowDraw]);
   return (
     <>
       <PageHeading
