@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import type { ActiveTab } from '../../domain/tournament/types';
-import { standingsKind } from '../../domain/tournament/standings-display';
-import { standingsNames } from '../standings/standings-names';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
@@ -15,7 +13,7 @@ import { TournamentsView } from '../tournaments/TournamentsView';
 import { UNAVAILABLE_DETAIL, UNAVAILABLE_NOTICE } from '../tournaments/visit';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { AppHeader } from './AppHeader';
-import { effectiveTab, loadedPhase, visibleTabs } from './tabs';
+import { effectiveTab, tabContextFor, visibleTabs } from './tabs';
 import { Alert, Modal } from '../../components/ui';
 
 /** Admin is the organiser's screen (middle look); every viewer tab is the game look. */
@@ -27,20 +25,13 @@ export function AppShell() {
   const app = useTournamentApp();
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
-  const kind = standingsKind(app.state);
-  const standingsTitle = kind === null ? null : standingsNames(kind).title;
-  const phase = loadedPhase({
+  const tabContext = tabContextFor({
     state: app.state,
     summary: app.tournaments.summaries.find((entry) => entry.id === app.state.tournamentId),
+    canAdmin: app.unlocked,
     stateReceived: !['idle', 'connecting', 'waiting', 'unavailable'].includes(app.syncStatus.kind),
     nowMs: Date.now(),
   });
-  const tabContext = {
-    canAdmin: app.unlocked,
-    phase,
-    standingsTitle,
-    scheduleDrawn: app.state.rounds.length > 0,
-  };
   const tabs = visibleTabs(tabContext);
   const activeTab = effectiveTab(app.activeTab, tabContext);
 
@@ -60,7 +51,7 @@ export function AppShell() {
         onHome={() => app.setActiveTab('tournaments')}
         onSelectTab={app.setActiveTab}
         tabs={tabs}
-        tournamentLoaded={phase !== null}
+        tournamentLoaded={tabContext.phase !== null}
       />
       {app.isViewer && app.syncStatus.kind === 'stale' ? (
         <Alert className='mx-auto mt-2.5 w-[min(1100px,calc(100%-24px))]' tone='danger'>

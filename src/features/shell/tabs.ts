@@ -1,4 +1,6 @@
+import { standingsKind } from '../../domain/tournament/standings-display';
 import type { ActiveTab, TournamentPhase, TournamentState } from '../../domain/tournament/types';
+import { standingsNames } from '../standings/standings-names';
 import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 
@@ -97,4 +99,22 @@ export function loadedPhase(input: {
     },
     nowMs,
   );
+}
+
+/** What the tab rules read about the app: the loaded tournament, whether the viewer is an admin, and how far its state has arrived. */
+export function tabContextFor(input: {
+  state: TournamentState;
+  summary: TournamentSummary | undefined;
+  canAdmin: boolean;
+  stateReceived: boolean;
+  nowMs: number;
+}): TabContext {
+  const { state, summary, canAdmin, stateReceived, nowMs } = input;
+  const kind = standingsKind(state);
+  return {
+    canAdmin,
+    phase: loadedPhase({ state, summary, stateReceived, nowMs }),
+    standingsTitle: kind === null ? null : standingsNames(kind).title,
+    scheduleDrawn: state.rounds.length > 0,
+  };
 }

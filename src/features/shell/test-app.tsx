@@ -1,11 +1,9 @@
 import { render } from '@testing-library/react';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime } from '../../domain/tournament/runtime';
-import { standingsKind } from '../../domain/tournament/standings-display';
 import type { ActiveTab } from '../../domain/tournament/types';
 import { getAnonymousAuthSnapshot, Role, type AuthSnapshot } from '../auth/auth.shared';
 import { AuthProvider } from '../auth/AuthProvider';
-import { standingsNames } from '../standings/standings-names';
 import { TournamentContext, type TournamentAppContext } from '../tournament/TournamentProvider';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 import {
@@ -15,7 +13,7 @@ import {
   type FixtureTournament,
 } from '../../../e2e/screens/fixtures';
 import { AppShell } from './AppShell';
-import { loadedPhase, visibleTabs } from './tabs';
+import { tabContextFor, visibleTabs } from './tabs';
 
 /** Test helpers: render the real `AppShell` for a fixture tournament, without Firebase, sync or server functions. */
 
@@ -38,14 +36,14 @@ function summaryOf(fixture: FixtureTournament): TournamentSummary {
 
 /** The tabs the app lists for this fixture and role: the same inputs `AppShell` gives the tab rules. */
 export function tabsFor(fixture: FixtureTournament, role: AppRole): Array<{ key: ActiveTab; label: string }> {
-  const state = loadedState(fixture);
-  const kind = standingsKind(state);
-  return visibleTabs({
+  const context = tabContextFor({
+    state: loadedState(fixture),
+    summary: summaryOf(fixture),
     canAdmin: role === 'admin',
-    phase: loadedPhase({ state, summary: summaryOf(fixture), stateReceived: true, nowMs: Date.now() }),
-    standingsTitle: kind === null ? null : standingsNames(kind).title,
-    scheduleDrawn: state.rounds.length > 0,
+    stateReceived: true,
+    nowMs: Date.now(),
   });
+  return visibleTabs(context);
 }
 
 /** The app context for a fixture: its loaded state and Setup, the tab to show, and callbacks that do nothing. */

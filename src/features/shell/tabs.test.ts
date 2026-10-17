@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { TournamentPhase, TournamentState } from '../../domain/tournament/types';
+import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import type { TournamentPhase, TournamentRound, TournamentState } from '../../domain/tournament/types';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
-import { effectiveTab, loadedPhase, visibleTabs, type TabContext } from './tabs';
+import { effectiveTab, loadedPhase, tabContextFor, visibleTabs, type TabContext } from './tabs';
 
 const context = (overrides: Partial<TabContext> = {}): TabContext => ({
   canAdmin: false,
@@ -180,5 +181,29 @@ describe('loadedPhase', () => {
     expect(loadedPhase({ state: received, summary: undefined, stateReceived: false, nowMs: NOW })).toBe(
       'upcoming',
     );
+  });
+});
+
+describe('tabContextFor', () => {
+  const NOW = Date.UTC(2026, 9, 18, 18, 0);
+  const loaded = createDefaultTournamentState({ tournamentId: 't1' });
+  const input = { state: loaded, summary: undefined, canAdmin: true, stateReceived: true, nowMs: NOW };
+
+  it('describes a loaded tournament with no schedule and no standings', () => {
+    expect(tabContextFor(input)).toEqual({
+      canAdmin: true,
+      phase: 'upcoming',
+      standingsTitle: null,
+      scheduleDrawn: false,
+    });
+  });
+
+  it('says the schedule is drawn once the state has rounds', () => {
+    const drawn = { ...loaded, rounds: [{ isQual: true }] as TournamentRound[] };
+    expect(tabContextFor({ ...input, state: drawn }).scheduleDrawn).toBe(true);
+  });
+
+  it('has no phase when no tournament is loaded', () => {
+    expect(tabContextFor({ ...input, state: createDefaultTournamentState() }).phase).toBeNull();
   });
 });
