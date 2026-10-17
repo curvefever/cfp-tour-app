@@ -273,18 +273,22 @@ function ffaPooling(count: number): TournamentState {
   return scoreCurrentRound(atLastQual, { seed: 9, rooms: [1, 2] });
 }
 
+const FFA_SETUP: SetupOverrides = {
+  gameFormat: 'ffa-individual',
+  poolingPhase: 'qual-table',
+  qualAdv: '24',
+  scheduleLogic: 'single-elimination',
+};
+
+const TEAMS_2V2_SETUP: SetupOverrides = {
+  gameFormat: 'team-2v2v2v2',
+  poolingPhase: 'qual-table',
+  qualAdv: '8',
+  scheduleLogic: 'single-elimination',
+};
+
 function ffa37Like(count: number, overrides: SetupOverrides = {}, players?: string[]): TournamentState {
-  return generate(
-    count,
-    {
-      poolingPhase: 'qual-table',
-      qualAdv: '24',
-      scheduleLogic: 'single-elimination',
-      ...overrides,
-    },
-    0,
-    players,
-  );
+  return generate(count, { ...FFA_SETUP, ...overrides }, 0, players);
 }
 
 /** A qualification table whose later rounds are published up front: future cards show their unit names. */
@@ -320,16 +324,7 @@ function ffa37FinalComplete(): TournamentState {
 }
 
 function teams2v2Start(): TournamentState {
-  return generate(
-    13,
-    {
-      gameFormat: 'team-2v2v2v2',
-      poolingPhase: 'qual-table',
-      qualAdv: '8',
-      scheduleLogic: 'single-elimination',
-    },
-    2,
-  );
+  return generate(13, TEAMS_2V2_SETUP, 2);
 }
 
 /** The 13-team tournament with its Final played: a podium of teams, for Rankings. */
@@ -439,20 +434,6 @@ function waterfallQual(): TournamentState {
 
 type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;
 
-const UPCOMING_SETUP: SetupOverrides = {
-  gameFormat: 'ffa-individual',
-  poolingPhase: 'qual-table',
-  qualAdv: '24',
-  scheduleLogic: 'single-elimination',
-};
-
-const UPCOMING_TEAMS_SETUP: SetupOverrides = {
-  gameFormat: 'team-2v2v2v2',
-  poolingPhase: 'qual-table',
-  qualAdv: '8',
-  scheduleLogic: 'single-elimination',
-};
-
 /** A tournament before Confirm & Start, as the app stores it after Load roster: the roster and its format, nothing generated. */
 function loadedRoster(setup: SetupOverrides, roster: LoadedRoster): TournamentState {
   return withLoadedRoster(
@@ -463,7 +444,7 @@ function loadedRoster(setup: SetupOverrides, roster: LoadedRoster): TournamentSt
 }
 
 function upcoming(): TournamentState {
-  return loadedRoster(UPCOMING_SETUP, {
+  return loadedRoster(FFA_SETUP, {
     players: individuals(37),
     reserves: ['Larch', 'Nimbus'],
     reserveIndividuals: [],
@@ -471,7 +452,7 @@ function upcoming(): TournamentState {
 }
 
 function upcomingTeams(): TournamentState {
-  return loadedRoster(UPCOMING_TEAMS_SETUP, {
+  return loadedRoster(TEAMS_2V2_SETUP, {
     players: teams(13, 2),
     reserves: [],
     reserveIndividuals: [],
@@ -534,12 +515,12 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('upcoming-info', upcoming(), {
-      setup: UPCOMING_SETUP,
+      setup: FFA_SETUP,
       tabs: ['Info', 'Players'],
       rulesText: RULES_TEXT,
       screenshotIds: ['shot1', 'shot2'],
     }),
-    entry('upcoming-teams-13', upcomingTeams(), { setup: UPCOMING_TEAMS_SETUP, tabs: ['Info', 'Players'] }),
+    entry('upcoming-teams-13', upcomingTeams(), { setup: TEAMS_2V2_SETUP, tabs: ['Info', 'Players'] }),
     entry('drawn-ffa-31', drawnFfa31(), { tabs: ['Info', 'Players'] }),
   ];
 }
