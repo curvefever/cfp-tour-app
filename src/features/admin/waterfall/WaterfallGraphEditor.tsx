@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { RoomSize } from '../../../domain/tournament/types';
 import {
+  normalizeRoundLabel,
   parseWaterfallGraph,
   QUAL_LABEL,
   validateAndOrderWaterfallGraph,
@@ -174,7 +175,7 @@ function DraftEditor({
     onRename: (name) => {
       const result = renameWaterfallRound(draft, round.label, name);
       if (!result.ok) return result.error;
-      setSelectedLabel(name);
+      setSelectedLabel(normalizeRoundLabel(name));
       commit(result.value);
       return null;
     },

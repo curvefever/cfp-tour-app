@@ -100,7 +100,8 @@ export interface RawWaterfallGraph {
   qualBands: RawRouteBand[] | null;
 }
 
-export const LABEL_PATTERN = /^[A-Za-z0-9]+$/;
+/** A round name: letters and digits, with single spaces or dashes between words; it starts and ends with a letter or digit. */
+export const LABEL_PATTERN = /^[A-Za-z0-9]+(?:[ -]+[A-Za-z0-9]+)*$/;
 export const ELIMINATED = 'eliminated';
 /** The reserved route-line label for the qualification table; never a declared round. */
 export const QUAL_LABEL = 'Qual';
@@ -112,6 +113,11 @@ function ok<T>(value: T): WaterfallParseResult<T> {
 }
 function err<T>(error: string): WaterfallParseResult<T> {
   return { ok: false, error };
+}
+
+/** Trims a round name and collapses runs of whitespace to one space, so "Semi   A" and "Semi A" are the same name. */
+export function normalizeRoundLabel(label: string): string {
+  return label.trim().replace(/\s+/g, ' ');
 }
 
 function letterToRoomIndex(letter: string): number | null {
@@ -170,10 +176,10 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
       `ROUNDS line "${line}" is missing "=" -- expected "<label> = <size>" or "<label> = <N>x<size>".`,
     );
   }
-  const label = line.slice(0, eqIndex).trim();
+  const label = normalizeRoundLabel(line.slice(0, eqIndex));
   if (!LABEL_PATTERN.test(label)) {
     return err(
-      `Round label "${label}" is invalid -- labels must be letters/digits only, no spaces or punctuation.`,
+      `Round label "${label}" is invalid -- labels use letters, digits, spaces and dashes, and start and end with a letter or digit.`,
     );
   }
   if (label.toLowerCase() === ELIMINATED) {
@@ -240,10 +246,10 @@ function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
   let label: string;
   let room: number | null;
   if (dotIndex === -1) {
-    label = address;
+    label = normalizeRoundLabel(address);
     room = null;
   } else {
-    label = address.slice(0, dotIndex);
+    label = normalizeRoundLabel(address.slice(0, dotIndex));
     const letter = address.slice(dotIndex + 1);
     const parsedRoom = letterToRoomIndex(letter);
     if (parsedRoom === null) {
@@ -274,7 +280,7 @@ function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
       continue;
     }
     const rankPart = token.slice(0, arrowIndex).trim();
-    const destPart = token.slice(arrowIndex + 2).trim();
+    const destPart = normalizeRoundLabel(token.slice(arrowIndex + 2));
     if (!rankPart) {
       return err(`ROUTES line for "${address}" has a band with no rank before "->".`);
     }

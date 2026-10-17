@@ -289,14 +289,49 @@ describe('waterfall draft edits', () => {
   });
 
   it.each([
-    ['a name with a space', 'Semi B', 'letters and digits'],
-    ['an empty name', '', 'letters and digits'],
+    ['a name starting with a dash', '-Semi', 'start and end with a letter or digit'],
+    ['a name ending with a dash', 'Semi-', 'start and end with a letter or digit'],
+    ['a name with a dot', 'Semi.B', 'letters, digits, spaces and dashes'],
+    ['an empty name', '', 'letters, digits, spaces and dashes'],
+    ['a blank name', '   ', 'letters, digits, spaces and dashes'],
+    ['the qualification table name', ' qual ', 'qualification table'],
     ['the reserved word', 'Eliminated', 'reserved'],
     ['a name another round has, in any letter case', 'final', 'already uses'],
   ])('refuses a rename to %s', (_name, to, message) => {
     const result = renameWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'SemiB', to);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain(message);
+  });
+
+  it('renames a round to a name with spaces and a dash, tidying the spacing, and the text round-trips', () => {
+    const result = renameWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'SemiB', '  Semi   B-2 ');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.rounds.map((round) => round.label)).toEqual(['R1', 'Semi B-2', 'Final']);
+    expect(result.value.routes.R1[0][3]).toBe('Semi B-2');
+    expect(result.value.routes['Semi B-2'][0][0]).toBe('Final');
+    const text = serializeWaterfallDraft(result.value);
+    expect(text).toContain('Semi B-2 = 8');
+    expect(text).toContain('R1.A: 1-3->Final, 4-7->Semi B-2');
+    expect(validated(text, 16).ok).toBe(true);
+    expect(draftOf(text)).toEqual(result.value);
+  });
+
+  it('rewrites every route and Qual slot when a round gets a spaced name', () => {
+    const parsed = parseWaterfallDraft(
+      'ROUNDS:\nR1 = 2x4\nSemi = 4\nFinal = 4 FINAL\nROUTES:\nQual: 1-8->R1\nR1.A: 1-2->Semi, 3-4->Final\nR1.B: 1-2->Semi, 3-4->Final\nSemi: 1-4->Final',
+      { standingsSource: true },
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    const draft = parsed.value;
+    const result = renameWaterfallRound(draft, 'R1', 'Round 5 Upper');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.qualRoutes).toEqual(Array(8).fill('Round 5 Upper'));
+    expect(Object.keys(result.value.routes)).toEqual(['Round 5 Upper', 'Semi', 'Final']);
+    const text = serializeWaterfallDraft(result.value);
+    expect(text).toContain('Qual: 1-8->Round 5 Upper');
+    expect(text).toContain('Round 5 Upper.A: 1-2->Semi, 3-4->Final');
   });
 
   it('allows renaming a round to its own name', () => {

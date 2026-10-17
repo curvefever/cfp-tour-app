@@ -6,6 +6,7 @@ import {
   QUAL_LABEL,
   declaredWaterfallRooms,
   expandRankTokens,
+  normalizeRoundLabel,
   parseWaterfallGraph,
   roomIndexToLetter,
   type WaterfallParseResult,
@@ -505,10 +506,18 @@ function unsetQualRoutesTo(
 export function renameWaterfallRound(
   draft: WaterfallDraft,
   from: string,
-  to: string,
+  requestedName: string,
 ): WaterfallParseResult<WaterfallDraft> {
-  if (!LABEL_PATTERN.test(to)) return err('Round names can only use letters and digits.');
+  const to = normalizeRoundLabel(requestedName);
+  if (!LABEL_PATTERN.test(to)) {
+    return err(
+      'Round names can use letters, digits, spaces and dashes, and must start and end with a letter or digit.',
+    );
+  }
   if (to.toLowerCase() === ELIMINATED) return err(`"${ELIMINATED}" is reserved and can't be a round name.`);
+  if (to.toLowerCase() === QUAL_LABEL.toLowerCase()) {
+    return err(`"${QUAL_LABEL}" stands for the qualification table and can't be a round name.`);
+  }
   const clash = draft.rounds.some(
     (round) => round.label !== from && round.label.toLowerCase() === to.toLowerCase(),
   );

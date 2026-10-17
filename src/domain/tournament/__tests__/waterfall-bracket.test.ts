@@ -130,9 +130,13 @@ describe('parseWaterfallGraph -- syntax-level errors', () => {
   });
 
   it('rejects an invalid round label', () => {
-    const result = parseWaterfallGraph('ROUNDS:\nSemi A = 8 FINAL\nROUTES:\n5: 1-8->eliminated');
+    const result = parseWaterfallGraph('ROUNDS:\nSemi.A = 8 FINAL\nROUTES:\n5: 1-8->eliminated');
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain('invalid');
+    if (!result.ok) {
+      expect(result.error).toBe(
+        'Round label "Semi.A" is invalid -- labels use letters, digits, spaces and dashes, and start and end with a letter or digit.',
+      );
+    }
   });
 
   it('rejects a duplicate round label', () => {
@@ -805,5 +809,114 @@ R2: 1-4->Final, 5-8->eliminated
     if (!parsed.ok) return;
     expect(parsed.value.qualRoutes).toBeUndefined();
     expect(waterfallStandingsRoutes(parsed.value, 4)).toBeUndefined();
+  });
+});
+
+describe('round names with spaces and dashes', () => {
+  // The 2v2v2v2 Survival Teams graph of the live tournament, in its two spellings.
+  const PLAIN_GRAPH = `
+ROUNDS:
+Round5Upper = 2x4
+Round5Lower = 2x4
+SemiA = 4
+Round6 = 2x4
+Round7 = 4
+SemiB = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->Round5Upper, 9-16->Round5Lower
+Round5Upper.A: 1-2->SemiA, 3-4->Round6
+Round5Upper.B: 1-2->SemiA, 3-4->Round6
+Round5Lower.A: 1-2->Round6
+Round5Lower.B: 1-2->Round6
+SemiA: 1-2->Final, 3-4->SemiB
+Round6.A: 1-2->Round7
+Round6.B: 1-2->Round7
+Round7: 1-2->SemiB
+SemiB: 1-2->Final
+`;
+  const SPACED_GRAPH = PLAIN_GRAPH.replaceAll('Round5Upper', 'Round 5 Upper')
+    .replaceAll('Round5Lower', 'Round 5 Lower')
+    .replaceAll('SemiA', 'Semi A')
+    .replaceAll('Round6', 'Round 6')
+    .replaceAll('Round7', 'Round 7')
+    .replaceAll('SemiB', 'Semi-B');
+  const TEAM_ROOM_SIZE: RoomSize = { min: 3, max: 4, ideal: 4 };
+
+  function validate(text: string, entrantCount = 19) {
+    const parsed = parseWaterfallGraph(text);
+    if (!parsed.ok) return parsed;
+    return validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: TEAM_ROOM_SIZE,
+      entrantCount,
+      standingsSource: true,
+    });
+  }
+
+  /** The graph without its labels: room sizes, routes (destinations are play-order indices) and Qual routes. */
+  function shape(result: ReturnType<typeof validate>) {
+    if (!result.ok) throw new Error(result.error);
+    return {
+      rooms: result.value.rounds.map((round) => round.roomSizes),
+      routes: result.value.routes,
+      qualRoutes: result.value.qualRoutes,
+    };
+  }
+
+  it('reads the live graph with spaced names at 19 teams as the same routes as the original', () => {
+    const spaced = validate(SPACED_GRAPH);
+    expect(spaced.ok && spaced.value.rounds.map((round) => round.label)).toEqual([
+      'Round 5 Upper',
+      'Round 5 Lower',
+      'Semi A',
+      'Round 6',
+      'Round 7',
+      'Semi-B',
+      'Final',
+    ]);
+    expect(shape(spaced)).toEqual(shape(validate(PLAIN_GRAPH)));
+  });
+
+  it('resolves a destination with a dash or extra spaces, and matches names case-insensitively', () => {
+    const text = SPACED_GRAPH.replace(
+      'Round 5 Upper.A: 1-2->Semi A, 3-4->Round 6',
+      'round  5 upper.A: 1-2->semi a, 3-4-> Round  6',
+    );
+    expect(shape(validate(text))).toEqual(shape(validate(SPACED_GRAPH)));
+    expect(validate(SPACED_GRAPH.replaceAll('Semi A', 'Semi-A')).ok).toBe(true);
+  });
+
+  it('collapses a run of spaces in a name to one', () => {
+    const result = parseWaterfallGraph(
+      'ROUNDS:\nSemi    A = 4\nFinal = 4 FINAL\nROUTES:\nSemi A: 1-4->Final',
+    );
+    expect(result.ok && result.value.roundLines[0].label).toBe('Semi A');
+  });
+
+  it.each(['round  5', 'ROUND 5'])('treats "%s" and "Round 5" as the same round name', (second) => {
+    const result = parseWaterfallGraph(
+      `ROUNDS:\nRound 5 = 4\n${second} = 4\nFinal = 4 FINAL\nROUTES:\nRound 5: 1-4->Final`,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain('Duplicate round label');
+  });
+
+  it.each([
+    '-A',
+    'A-',
+    'Semi.A',
+    'Semi,A',
+    'Semi:A',
+    'Semi>A',
+    'Semi=A',
+    '-',
+    '',
+    'Qual',
+    ' qual ',
+    'Eliminated',
+  ])('refuses the round name "%s"', (name) => {
+    const result = parseWaterfallGraph(`ROUNDS:\n${name} = 4 FINAL\nROUTES:\nX: 1-4->eliminated`);
+    expect(result.ok).toBe(false);
   });
 });
