@@ -33,14 +33,18 @@ export default defineConfig({
       },
     },
   },
-  plugins: [
-    tanstackStart(),
-    tailwindcss(),
-    viteReact(),
-    nitro({
-      rolldownConfig: {
-        external: [/^firebase-admin(?:\/|$)/],
-      },
-    }),
-  ],
+  // Under Vitest none of the app's build plugins are needed, and TanStack Start's gives the jsdom render checks two
+  // copies of React (react-dom sets the hooks dispatcher on the copy the components never import).
+  plugins: process.env.VITEST
+    ? []
+    : [
+        tanstackStart(),
+        tailwindcss(),
+        viteReact(),
+        nitro({
+          rolldownConfig: {
+            external: [/^firebase-admin(?:\/|$)/],
+          },
+        }),
+      ],
 });

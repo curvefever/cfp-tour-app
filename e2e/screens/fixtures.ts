@@ -15,6 +15,7 @@ import { marshalForFirebase } from '../../src/features/sync/firebase-marshal';
 import {
   buildTournamentSummary,
   type TournamentDescription,
+  type TournamentSummary,
 } from '../../src/features/tournaments/tournament-summary';
 
 /**
@@ -527,10 +528,10 @@ export function fixtureTournaments(): FixtureTournament[] {
 
 // ---------- what the page is served ----------
 
-/** The stored state of a fixture as the database transport delivers it (markers for empty values). */
-export function storedState(fixture: FixtureTournament): unknown {
+/** The state of a fixture as the app holds it once loaded: with its id, lifecycle and info, which the database stores beside it. */
+export function loadedState(fixture: FixtureTournament): TournamentState {
   const finished = fixture.status === 'finished';
-  return marshalForFirebase({
+  return {
     ...fixture.state,
     tournamentId: fixture.id,
     lifecycle: {
@@ -544,9 +545,15 @@ export function storedState(fixture: FixtureTournament): unknown {
       rulesText: fixture.rulesText ?? '',
       screenshots: fixture.screenshotIds ?? [],
     },
-  });
+  };
 }
 
+/** The stored state of a fixture as the database transport delivers it (markers for empty values). */
+export function storedState(fixture: FixtureTournament): unknown {
+  return marshalForFirebase(loadedState(fixture));
+}
+
+type IndexEntry = Omit<TournamentSummary, 'id'>;
 type IndexDescription = Omit<TournamentDescription, 'title' | 'scheduledAt'>;
 
 /** What the Tournaments list says about a tournament it builds without a fixture. */
@@ -568,7 +575,7 @@ export function indexEntry(
     winners?: Array<{ label: string; members: string[] | null }>;
     description?: IndexDescription;
   },
-): Record<string, unknown> {
+): IndexEntry {
   const { gameFormat, poolingPhase, scheduleLogic, unitCount } = fields.description ?? LIST_DESCRIPTION;
   return {
     title,
@@ -592,7 +599,7 @@ export function setupOf(fixture: FixtureTournament): PersistedSetup {
 }
 
 /** A fixture's index entry, described by its own settings and roster. */
-export function fixtureIndexEntry(fixture: FixtureTournament): Record<string, unknown> {
+export function fixtureIndexEntry(fixture: FixtureTournament): IndexEntry {
   const { gameFormat, poolingPhase, scheduleLogic, unitCount } = buildTournamentSummary(
     fixture.state,
     setupOf(fixture),

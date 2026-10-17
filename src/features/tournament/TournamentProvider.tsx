@@ -110,7 +110,7 @@ function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
 }
 
-const Context = createContext<TournamentAppContext | null>(null);
+export const TournamentContext = createContext<TournamentAppContext | null>(null);
 
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
@@ -498,11 +498,11 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       updateState,
     ],
   );
-  return <Context.Provider value={value}>{children}</Context.Provider>;
+  return <TournamentContext.Provider value={value}>{children}</TournamentContext.Provider>;
 }
 
 export function useTournamentApp(): TournamentAppContext {
-  const value = useContext(Context);
+  const value = useContext(TournamentContext);
   if (!value) throw new Error('useTournamentApp requires TournamentProvider.');
   return value;
 }
