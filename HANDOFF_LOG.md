@@ -6,6 +6,57 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Realistic before-start fixtures, a render check of every tab, and an error message instead of a white screen (done — 2026-10-17)
+
+Planner/reviewer and implementer sessions; three stages, one commit each, plus a small refactor commit and the close-out.
+
+**Why.** The Players-tab crash on production tournament `1792226417678` (log entry "A loaded roster keeps its game format") went through every automated check:
+- The screenshot fixture took a shortcut. `upcoming-teams-13` was built by generating a schedule and stripping the rounds, and generation stores `gameFormat`; the real flow (Load roster, nothing generated) did not.
+- `indexEntry` hard-coded `ffa-individual`, `qual-table`, `single-elimination` and 37 units for every fixture, so Info and the Tournaments card showed FFA for the team fixtures.
+- Nothing rendered an admin's view: the screenshot spec and the smoke tests run signed out, and React components had no tests.
+- A render error blanked the page: nothing caught it.
+
+**Decisions (planner, 2026-10-17; organiser approved the first three).**
+- Fixtures go through the app's real steps: a before-start fixture is `withLoadedRoster(...)` with no schedule, a drawn-but-not-started one is a generated schedule left unstarted, and index entries are built from the fixture's own settings.
+- The render check runs in Vitest with jsdom (a `// @vitest-environment jsdom` docblock on the render files; the global environment stays `node`), not in Playwright: it runs in `pnpm test` and `vitest related` without a dev server, an admin needs no sign-in (`AuthProvider` trusts an authenticated `initialAuth`), and it is deterministic. It renders the real `AppShell` with a plain test context, so the real `TournamentProvider` (sync, setup transport, presence) is not under test.
+- The tab matrix comes from the app's own tab rules (`visibleTabs`), not a hand-kept list.
+- One error boundary per tab section, not one around `<main>`: `BracketView` is always mounted (hidden on other tabs), so a single boundary would let a hidden Bracket error blank every tab. Each boundary is keyed by the tournament id, and the header and tab bar stay outside.
+- **Planner decision, open to correction:** the fallback reads "This page couldn't be shown." and "Try another tab, or reload the page." with a Reload button; admins also see the error's message in small muted text. It uses the existing `Alert` (danger) and `Button`.
+- **Planner decision, open to correction:** the Bracket boundary stays mounted with its hidden section, and a tab that has fallen back stays fallen back until another tournament is loaded (the boundary is keyed by the tournament id) or the page is reloaded; live updates don't clear it. A simple choice, not an automatic retry.
+- **Reviewer's request after stage 2:** the inputs of the tab rules are built in one place (`tabContextFor`, `shell/tabs.ts`), used by `AppShell` and by the render check, so the matrix cannot drift from the app.
+
+**Commits.**
+1. `c394283` Fixtures: before-start fixtures through `withLoadedRoster`, per-fixture `setup`, `fixtureIndexEntry` from `buildTournamentSummary`, new `drawn-ffa-31` fixture (31 players, qualification table into single elimination, generated and not started).
+2. `6e5a50f` Fixtures: the shared FFA and 2v2 setups named once (`FFA_SETUP`, `TEAMS_2V2_SETUP`).
+3. `40254fd` The render check (`AppShell.render.test.tsx`, `test-app.tsx`); `TournamentProvider` exports `TournamentContext`; `vite.config.ts` drops the build plugins under Vitest.
+4. `9535955` `tabContextFor` in `tabs.ts`, used by `AppShell` and `test-app.tsx`.
+5. `1ddb6b3` `TabErrorBoundary`, one per tab section in `AppShell`.
+6. The close-out commit (this entry, `docs/platform.md`, `docs/views.md`, `docs/open-items.md`, `HANDOFF.md`).
+
+**The render check.** `fixtureTournaments()` entry × viewer/admin × each tab `tabsFor` gives (the Admin tab included for the admin), 206 rows named `<fixture> · <role> · <tab>`. Each row asserts: rendering doesn't throw, `console.error` is never called, the "This page couldn't be shown." fallback is absent, and (except on the Tournaments tab, which is the list) a heading with the fixture's title is there. On the Players / Rankings tab of every team fixture, no team's `teamId` appears as text and every `teamName` does, for both roles. `test-app.tsx` builds the context: the fixture's loaded state (`loadedState`, shared with `storedState`), its Setup, its summary in `tournaments`, no-op callbacks. Mocks, two modules, the limit being three: `../sync/firebase-client` (partial: the presence and server-clock subscriptions) and `../presence/presence.server-fns` (`setSetupPresence`). jsdom lacks `window.matchMedia` and `ResizeObserver`, so the test file stubs both with "nothing matches" answers. The file imports the fixtures from `e2e/screens/fixtures.ts`.
+
+**Why `vite.config.ts` changed.** With the existing config no React component rendered under Vitest: even a five-line `useState` component with Testing Library failed with "Cannot read properties of null (reading 'useState')". Bisecting the plugins showed that TanStack Start's plugin alone causes it (react-dom and the components end up with two copies of React; with no plugins the same file passes). Tried without success, plugin kept: `server.deps.inline` and `external` for react, react-dom and Testing Library, `resolve.dedupe`, and `optimizeDeps` options. What shipped: `plugins: process.env.VITEST ? [] : [...]` (nothing the build plugins do is needed by a test; server-fns files are not transformed in tests, and none is called). Alternatives, not taken: a separate Vitest config used only for `*.render.test.tsx`, or finding the exact setting of the Start plugin that causes it. The reviewer accepted it after a full-suite run.
+
+### Testing
+- Stage 1: eslint, prettier (`--end-of-line auto`, the working copies are CRLF) and typecheck clean. `pnpm run test:screens`: 46 passed, 4 failed (the four known failures below, identical on the commit before the stage). Info and Players of `upcoming-teams-13` at 1280 px checked by eye: the format line says 2v2v2v2 and Players lists the 13 teams with their members, not ids.
+- Stage 2: render file 206 passed in about 31–34 s wall (about 25 s of test time; the slowest rows 0.2–0.4 s: `teams2v2-13 · admin · Rankings` 421 ms, `ffa43-quarters · viewer · Qualification` 339 ms). Mutation 1, `upcomingTeams()` stored with `gameFormat: 'ffa-individual'` (today's production data): 2 rows fail, `upcoming-teams-13 · viewer · Players` on the team-id assertion and `upcoming-teams-13 · admin · Players` on the throw ("first.label.localeCompare is not a function", `ManageRoster`). Mutation 2, a throw in `ManageRoster`'s team branch: 4 admin rows fail (`teams2v2-13`, `long-names-teams3-13`, `kings-valley-12` · Rankings, `upcoming-teams-13` · Players); the two finished team fixtures don't, because a finished tournament renders no `ManageRoster`. The reviewer's own mutation (`unitDisplay` returning the raw key for every format): 11 rows failed (team Rankings, viewer and admin). Full suite after the `vite.config.ts` change: 91 files, 2449 tests.
+- `tabContextFor`: 3 tests in `tabs.test.ts` (no schedule and no standings; a state with rounds is drawn; nothing loaded gives no phase).
+- Stage 3: render file 210 passed (206 rows + 4 boundary tests), about 41 s wall. `TabErrorBoundary` tests: a throwing child shows the fallback and Reload and logs the error; the message shows for an admin and not for a viewer (the reviewer's mutation, showing it to everyone, failed this test); a child that doesn't throw renders as is; the real `AppShell` on `upcoming-teams-13` with its `gameFormat` forced to `ffa-individual` (production's data) shows the fallback on the admin Players tab while the "Tournament sections" tab bar still has its buttons. Mutation 2 again: the same 4 rows fail, now on the first assertion ("expected 'error' to not be called at all, but actually been called 2 times": React's log plus `componentDidCatch`), not on an uncaught throw. Boundary removed from the Rankings section: the tab-bar test fails with the uncaught TypeError, the other three boundary tests still pass. `pnpm run test:e2e`: 7 passed.
+- Awkward counts: the fixtures include 37, 31, 43 and 53 players and 13 teams; the new `drawn-ffa-31` is the 31 case before the start.
+- Cost of the render file: about 33 s of test time (about 41 s wall with the boundary tests); the full suite went from about 2243 tests (90 files) to about 2453 (91 files).
+
+### Out of scope
+- The four screenshot tests that already fail at 1280 px, on the commit before this build too: `ffa37-pooling`, `ffa31-pooling`, `fixed-draws-ffa-37` and `waterfall-qual-37` (the Bracket-tab assertion "the standings title fits", `screens.spec.ts`). Raised with the organiser separately.
+- The pre-start draw shown on a viewer's Players tab: found here, on `drawn-ffa-31`. For a generated, not-started tournament the viewer's Players tab lists "Round 1 · Room C" beside each name (and a "Download image" button), though the tab rules say a viewer never sees a draw before the start. `RankingsView` shows ranking data whenever rounds exist. The render check asserts nothing about room lines for a viewer; a separate fix is planned.
+- Interaction tests: clicking Load roster, swaps, `window.prompt` flows, score entry.
+- Rendering through the real `TournamentProvider` (sync, setup transport, presence), and server functions.
+- Admin pages in Playwright, or an admin hook for the deployed site.
+- Phone-width render checks: jsdom has no layout; the screenshot spec keeps covering 390 px.
+- Reporting caught errors anywhere but the console (no telemetry).
+- Making `ManageRoster` / `unitDisplay` tolerate a roster of the wrong kind (option B of the roster-format build).
+
+---
+
 ## A loaded roster keeps its game format (done — 2026-10-17)
 
 Planner/reviewer and implementer sessions; two stages, one commit each, plus the close-out.
