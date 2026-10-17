@@ -1,7 +1,7 @@
 import {
   buildAdvancementTiers,
   doubleEliminationComputeAdvancement,
-  hasPendingTies,
+  hasPendingColumnTies,
   isStandingsCutoffRound,
   kingsValleyComputeAdvancement,
   orderedQualificationTable,
@@ -32,7 +32,7 @@ import type {
   TournamentState,
 } from './types';
 import { declaredWaterfallSeats, fitWaterfallRound, waterfallDestination } from './waterfall-bracket';
-import { isRoundDone, nextColumnStart } from './round-columns';
+import { currentColumn, isRoundDone, nextColumnStart, roundColumn } from './round-columns';
 
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
@@ -558,21 +558,22 @@ function standingsShortfallMessage(ranked: number, highestRoutedRank: number): s
 }
 
 /**
- * Folds one round's per-destination additions into pendingBracketSeeds
+ * Folds the finished round's (or column's) per-destination additions into pendingBracketSeeds
  * (the destination-indexed accumulator advanceDoubleElimination already uses,
- * generalized from 2 named destinations to N), then draws the round right
- * after it. Always finalizes roundIndex + 1 specifically -- NOT whatever a
- * band's own destination is, which may be several rounds ahead and stay
- * merely pending until curRound actually reaches it. This is safe because
- * the graph is a validated DAG played in its own topological order: every
- * source of round X is guaranteed already played by the time curRound
- * reaches X - 1, so X's pool is always complete by the time it's X's own turn
- * to be finalized here.
+ * generalized from 2 named destinations to N), then draws the next column: every
+ * round after `lastRoundIndex` that shares the first one's column (a round with no
+ * stored column is a column of its own). Always finalizes that column specifically
+ * -- NOT whatever a band's own destination is, which may be several columns ahead
+ * and stay merely pending until curRound actually reaches it. This is safe because
+ * the graph is a validated DAG played in column order: every source of a round in
+ * column N is in an earlier column, so its pool is always complete by the time its
+ * column is entered here. If any round of the column can't be drawn, the input state
+ * is returned unchanged.
  */
-function enterNextWaterfallRound(
+function enterNextWaterfallColumn(
   input: TournamentState,
   state: TournamentState,
-  roundIndex: number,
+  lastRoundIndex: number,
   additionsByDestination: Map<number, PendingBracketSeed[]>,
 ): RoundAdvanceResult {
   for (const [destination, additions] of additionsByDestination) {
@@ -582,29 +583,44 @@ function enterNextWaterfallRound(
     ];
   }
 
-  const nextIndex = roundIndex + 1;
-  const shapeFailure = fitWaterfallRoundAt(
-    state,
-    nextIndex,
-    (state.pendingBracketSeeds[nextIndex] ?? []).length,
-  );
-  if (shapeFailure) return { status: 'blocked', ...shapeFailure, state: input };
+  const { start, end } = roundColumn(state.rounds, lastRoundIndex + 1);
+  for (let index = start; index <= end; index += 1) {
+    const shapeFailure = fitWaterfallRoundAt(state, index, (state.pendingBracketSeeds[index] ?? []).length);
+    if (shapeFailure) return { status: 'blocked', ...shapeFailure, state: input };
+  }
 
-  state.curRound = nextIndex;
-  const fitFailure = seedRoundFromPendingPool(state, nextIndex);
-  if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
+  state.curRound = start;
+  for (let index = start; index <= end; index += 1) {
+    const fitFailure = seedRoundFromPendingPool(state, index);
+    if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
+  }
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   return { status: 'advanced', state };
 }
 
-/** Waterfall's advance step: route the finished round's rooms (routeWaterfallRound), then enter the next round. */
-function advanceWaterfallBracket(
-  input: TournamentState,
-  roundIndex: number,
-  round: TournamentRound,
-): RoundAdvanceResult {
+/** Every destination's arrivals from several rounds, the rounds' own order kept within a destination. */
+function mergeAdditions(parts: Array<Map<number, PendingBracketSeed[]>>): Map<number, PendingBracketSeed[]> {
+  const merged = new Map<number, PendingBracketSeed[]>();
+  for (const part of parts) {
+    for (const [destination, additions] of part) {
+      merged.set(destination, [...(merged.get(destination) ?? []), ...additions]);
+    }
+  }
+  return merged;
+}
+
+/**
+ * Waterfall's advance step: route every finished round of the current column
+ * (routeWaterfallRound), then enter the next column.
+ */
+function advanceWaterfallBracket(input: TournamentState): RoundAdvanceResult {
   const state = cloneForTransition(input);
-  return enterNextWaterfallRound(input, state, roundIndex, routeWaterfallRound(state, roundIndex, round));
+  const { start, end } = currentColumn(input);
+  const parts: Array<Map<number, PendingBracketSeed[]>> = [];
+  for (let index = start; index <= end; index += 1) {
+    parts.push(routeWaterfallRound(state, index, state.rounds[index]));
+  }
+  return enterNextWaterfallColumn(input, state, end, mergeAdditions(parts));
 }
 
 /**
@@ -639,7 +655,7 @@ function advanceFromStandings(
       roomShare: standing.roomShare ?? 0,
     })),
   };
-  return enterNextWaterfallRound(input, state, roundIndex, routeStandings(ordered, round));
+  return enterNextWaterfallColumn(input, state, roundIndex, routeStandings(ordered, round));
 }
 
 /**
@@ -649,13 +665,17 @@ function advanceFromStandings(
 export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
   const roundIndex = input.curRound;
   const round = input.rounds[roundIndex];
-  const nextRound = input.rounds[roundIndex + 1];
+  const nextRound = input.rounds[nextColumnStart(input)];
   if (!round || !nextRound) {
     return { status: 'noop', reason: 'last-round', state: input };
   }
 
-  const prepared = refreshRoundStandings(input, roundIndex);
-  if (hasPendingTies(prepared, roundIndex)) {
+  const column = currentColumn(input);
+  let prepared = input;
+  for (let index = column.start; index <= column.end; index += 1) {
+    prepared = refreshRoundStandings(prepared, index);
+  }
+  if (hasPendingColumnTies(prepared)) {
     return {
       status: 'blocked',
       reason: 'pending-ties',
@@ -676,7 +696,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
     return advanceKingsValley(base, roundIndex);
   }
   if (round.isWaterfall) {
-    return advanceWaterfallBracket(base, roundIndex, round);
+    return advanceWaterfallBracket(base);
   }
   if (round.standingsRoutes) {
     return advanceFromStandings(base, roundIndex, round);

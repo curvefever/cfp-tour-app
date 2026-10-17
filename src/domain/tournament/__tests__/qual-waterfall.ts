@@ -32,11 +32,30 @@ export function playerNames(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `P${index + 1}`);
 }
 
-/** A started qualification-table + waterfall tournament, at the first qualification round. */
+/**
+ * The shape of a waterfall tournament generated before columns existed: no round has a stored column, so
+ * every round is played on its own, as it still is for any such tournament that is running.
+ */
+export function withoutColumns(state: TournamentState): TournamentState {
+  return {
+    ...state,
+    rounds: state.rounds.map((round) => {
+      const { waterfallColumn: _column, waterfallColumnSet: _set, ...single } = round;
+      return single;
+    }),
+  };
+}
+
+/**
+ * A started qualification-table + waterfall tournament, at the first qualification round. Its waterfall
+ * rounds are played one at a time (the pre-columns shape, `withoutColumns`) unless `columns` is true, which
+ * keeps the columns generation stores.
+ */
 export function buildQualWaterfall(
   registered: number,
   waterfallGraph = QUAL_GRAPH,
   setup: Parameters<typeof createDefaultSetup>[0] = {},
+  options: { columns?: boolean } = {},
 ): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: registered, players: playerNames(registered) }),
@@ -51,7 +70,8 @@ export function buildQualWaterfall(
     createTournamentRuntime({ ids: fixedIdSource() }),
   );
   if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return { ...result.state, started: true };
+  const started = { ...result.state, started: true };
+  return options.columns ? started : withoutColumns(started);
 }
 
 /** Scores and advances every qualification round but the last, then scores the last one (not advanced yet). */

@@ -5,12 +5,17 @@ import { removeRosterUnit, swapIndividual } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound, seedRoundFromPendingPool } from '../transitions';
+import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { fitWaterfallRound } from '../waterfall-bracket';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { playThrough, scoreCurrentRound } from './play-through';
-import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
+import {
+  ALL_ROUTED_GRAPHS,
+  QUAL_GRAPH,
+  buildQualWaterfall,
+  playToQualificationExit,
+  withoutColumns,
+} from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
 function names(count: number): string[] {
@@ -41,7 +46,11 @@ SemiA: 1-4->Final, 5-8->SemiB
 SemiB: 1-4->Final, 5-8->eliminated
 `;
 
-function buildTournament(overrides: Parameters<typeof createDefaultSetup>[0] = {}): TournamentState {
+/** Generated before columns existed (every round played on its own) unless `columns` keeps the stored columns. */
+function buildTournament(
+  overrides: Parameters<typeof createDefaultSetup>[0] = {},
+  columns = false,
+): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: 37, players: names(37) }),
     createDefaultSetup({
@@ -57,7 +66,7 @@ function buildTournament(overrides: Parameters<typeof createDefaultSetup>[0] = {
   if (result.status !== 'generated') {
     throw new Error(`fixture failed to generate: ${result.status === 'invalid' ? result.message : ''}`);
   }
-  return result.state;
+  return columns ? result.state : withoutColumns(result.state);
 }
 
 /** Scores the current round with the real transition code and advances, distinctly and deterministically. */
@@ -477,7 +486,8 @@ describe('applyWaterfallGraphEdit -- a graph with a Qual source', () => {
     const next = advanceTournamentRound(exit);
     expect(next.status).toBe('advanced');
     if (next.status !== 'advanced') return;
-    expect(pool(next.state, 'R1C')).toEqual(order.slice(19, 27));
+    // The edit gave the tournament its columns, so R1C is drawn together with R1.
+    expect(new Set(seated(next.state, 'R1C'))).toEqual(new Set(order.slice(19, 27)));
     expect(new Set(seated(next.state, 'R1'))).toEqual(new Set(order.slice(0, 16)));
   });
 
@@ -694,27 +704,15 @@ describe('applyWaterfallGraphEdit -- columns', () => {
         .map((round) => [round.customLabel, round.waterfallColumn]),
     );
 
-  function enterBracket(): TournamentState {
-    const result = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(37)));
+  function enterBracket(columns: boolean): TournamentState {
+    const exit = playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns }));
+    const result = advanceTournamentRound(exit);
     if (result.status !== 'advanced') throw new Error('the pooling exit did not advance');
     return result.state;
   }
 
-  /** The bracket entered with its columns stored, as the column engine will leave it: R1C drawn beside R1. */
-  function inFirstColumn(): TournamentState {
-    const state = structuredClone(enterBracket());
-    state.rounds = state.rounds.map((round) =>
-      round.customLabel && round.customLabel in COLUMNS
-        ? { ...round, waterfallColumn: COLUMNS[round.customLabel] }
-        : round,
-    );
-    const r1c = indexOf(state, 'R1C');
-    const fitted = fitWaterfallRound(state.rounds[r1c], (state.pendingBracketSeeds[r1c] ?? []).length);
-    if ('error' in fitted) throw new Error(fitted.error);
-    state.rounds[r1c] = fitted;
-    seedRoundFromPendingPool(state, r1c);
-    return state;
-  }
+  /** The bracket entered with its columns stored: R1 and R1C are drawn together. */
+  const inFirstColumn = () => enterBracket(true);
 
   /** Scores the given round alone, with the real scoring helper. */
   function scoreRound(state: TournamentState, label: string): TournamentState {
@@ -766,8 +764,27 @@ describe('applyWaterfallGraphEdit -- columns', () => {
     expect(result.state.curRound).toBe(indexOf(result.state, 'R1'));
   });
 
+  it('gives a tournament generated before columns existed its columns when the save comes before the bracket starts', () => {
+    const legacy = buildQualWaterfall(37);
+    expect(legacy.rounds.every((round) => round.waterfallColumn === undefined)).toBe(true);
+    const numbered = QUAL_GRAPH.replace('R1C = 8', 'R1C = 8 COLUMN 2').replace('R2 = 8', 'R2 = 8 COLUMN 3');
+    const result = edit(legacy, numbered);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(columnsOf(result.state)).toEqual({ R1: 1, R1C: 2, R2: 3, Final: 4 });
+    const numberedRounds = result.state.rounds.filter((round) => round.waterfallColumnSet);
+    expect(numberedRounds.map((round) => round.customLabel)).toEqual(['R1C', 'R2']);
+    const bracket = advanceTournamentRound(playToQualificationExit(result.state));
+    expect(bracket.status).toBe('advanced');
+    if (bracket.status !== 'advanced') return;
+    expect(seatedIn(bracket.state, 'R1').size).toBe(16);
+    expect(seatedIn(bracket.state, 'R1C').size).toBe(0);
+    const unnumbered = edit(legacy, QUAL_GRAPH);
+    expect(unnumbered.ok && columnsOf(unnumbered.state)).toEqual(COLUMNS);
+  });
+
   it('keeps a state with no stored columns playing one round at a time, and refuses a COLUMN number in it', () => {
-    const state = enterBracket();
+    const state = enterBracket(false);
     const edited = edit(state, WITH_R1D);
     expect(edited.ok).toBe(true);
     if (!edited.ok) return;

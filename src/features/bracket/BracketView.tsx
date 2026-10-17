@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { hasPendingTies } from '../../domain/tournament/advancement';
+import { hasPendingColumnTies } from '../../domain/tournament/advancement';
 import {
   bracketFollowStatus,
   bracketRoundLabels,
@@ -54,10 +54,10 @@ export function BracketView() {
     );
   }
   const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
-  const pendingTies = hasPendingTies(app.state, app.state.curRound);
+  const pendingTies = hasPendingColumnTies(app.state);
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
-    app.state.curRound >= app.state.rounds.length - 1 || currentRound?.bracket === 'grand-final';
+    nextColumnStart(app.state) >= app.state.rounds.length || currentRound?.bracket === 'grand-final';
   const previousStart = previousColumnStart(app.state);
   const drawnAhead = isLastRound ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   function advance() {

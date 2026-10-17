@@ -1,8 +1,9 @@
-import { getAllTies, isTieResolved, qualTieBoundaryText } from '../../domain/tournament/advancement';
-import { roomLetter } from '../../domain/tournament/bracket';
+import { getAllColumnTies, isTieResolved, qualTieBoundaryText } from '../../domain/tournament/advancement';
+import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/mutations';
 import { isPoolingRound } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';
+import { currentColumn } from '../../domain/tournament/round-columns';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
@@ -10,8 +11,13 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 
 export function TieBanners({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
-  const ties = getAllTies(state, state.curRound);
+  const ties = getAllColumnTies(state);
   const round = state.rounds[state.curRound];
+  const column = currentColumn(state);
+  const labels = bracketRoundLabels(state);
+  // A column of several rounds names the round a room tie belongs to (the key starts "r<round index>-").
+  const roundLabelOf = (key: string): string =>
+    column.end > column.start ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
   const poolingRound = round ? isPoolingRound(round) : false;
   return Object.entries(ties)
     .filter(([key, tie]) => !isTieResolved(key, tie, state))
@@ -23,7 +29,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
       const boundaryText = 'firstRank' in tie ? qualTieBoundaryText(state, tie) : null;
       const cutoffValue = isCutoff ? `${formatStandingValue(tie.fp)} pts` : '';
       const heading = !isCutoff
-        ? `⚠ Tie-break required — Room ${roomLetter(tie.rm)} (score ${tie.score})`
+        ? `⚠ Tie-break required — ${roundLabelOf(key) ? `${roundLabelOf(key)} · ` : ''}Room ${roomLetter(tie.rm)} (score ${tie.score})`
         : 'groupLabel' in tie && tie.groupLabel
           ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
           : boundaryText

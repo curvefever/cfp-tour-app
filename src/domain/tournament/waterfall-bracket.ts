@@ -1100,6 +1100,8 @@ export function waterfallBracketPhase(
       ...(roundSpec.isFinal ? { numGames: config.finalsGames } : {}),
       isWaterfall: true,
       customLabel: roundSpec.label,
+      waterfallColumn: graph.columns[index],
+      ...(roundSpec.columnSet ? { waterfallColumnSet: true as const } : {}),
       waterfallRoutes: routesForRound.map((roomDestinations) =>
         roomDestinations.map((destination) =>
           destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,

@@ -132,8 +132,9 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const reached = state.rounds.slice(firstWaterfallIndex, firstWaterfallIndex + reachedCount);
   const fixedPrefix = reached.map((round) => round.customLabel as string);
   // A tournament generated before columns existed has none stored: once its bracket has started it
-  // keeps playing one round at a time.
+  // keeps playing one round at a time. Before that, a save gives it its columns.
   const columnsStored = entryRound.waterfallColumn !== undefined;
+  const writeColumns = columnsStored || reachedCount === 0;
   const fixedColumns = columnsStored ? reached.map((round) => round.waterfallColumn as number) : undefined;
 
   const parsed = parseWaterfallGraph(text);
@@ -188,12 +189,9 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // total it implies are replaced. Unreached rounds are wholly new.
   const newBracketRounds: TournamentRound[] = materialized.map((spec, index) => {
     if (index < reached.length) return rerouted(reached[index], spec);
-    if (!columnsStored) return spec;
-    return {
-      ...spec,
-      waterfallColumn: graph.columns[index],
-      ...(graph.rounds[index].columnSet ? { waterfallColumnSet: true as const } : {}),
-    };
+    if (writeColumns) return spec;
+    const { waterfallColumn: _column, waterfallColumnSet: _set, ...single } = spec;
+    return single;
   });
 
   const keptLength = firstWaterfallIndex + reached.length;

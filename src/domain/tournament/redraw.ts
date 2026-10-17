@@ -1,5 +1,6 @@
 import { roundHasAnyScore } from './scoring';
 import { rewindRoomHistory } from './seeding';
+import { roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 
 /**
@@ -19,12 +20,15 @@ export type DrawnAheadStatus = 'none' | 'redraw' | 'locked';
  * seeds it and pushes no pending seeds.
  */
 export function drawnAheadStatus(state: TournamentState, roundIndex: number): DrawnAheadStatus {
-  if (!state.assignments[roundIndex + 1]?.length) return 'none';
+  const next = roundColumn(state.rounds, roundIndex).end + 1;
+  if (!state.assignments[next]?.length) return 'none';
   const lastDrawn = lastDrawnIndex(state);
-  for (let index = roundIndex; index < lastDrawn; index += 1) {
+  // The last drawn column hasn't been advanced from: only the rounds before its first one have.
+  const lastAdvanced = roundColumn(state.rounds, lastDrawn).start;
+  for (let index = roundIndex; index < lastAdvanced; index += 1) {
     if (state.rounds[index]?.bracket || state.rounds[index]?.isWaterfall) return 'locked';
   }
-  for (let index = roundIndex + 1; index <= lastDrawn; index += 1) {
+  for (let index = next; index <= lastDrawn; index += 1) {
     if (!state.assignments[index]?.length) continue;
     if (roundHasAnyScore(state, index, state.rounds[index])) return 'locked';
   }
@@ -81,6 +85,7 @@ function withoutStandingsArrivals(
  * advance re-fits them.
  */
 export function discardDrawsAfter(state: TournamentState, roundIndex: number): TournamentState {
+  const keep = roundColumn(state.rounds, roundIndex).end;
   let roomHistory = state.roomHistory;
   const poolingByeCounts = { ...state.poolingByeCounts };
   const byes = state.byes.map((round) => [...round]);
@@ -88,7 +93,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
   const tieResolutions = { ...state.tieResolutions };
   const pendingBracketSeeds = withoutStandingsArrivals(state, roundIndex);
 
-  for (let index = state.assignments.length - 1; index > roundIndex; index -= 1) {
+  for (let index = state.assignments.length - 1; index > keep; index -= 1) {
     if (!state.assignments[index]?.length) continue;
     const round = state.rounds[index];
     // A fixed draw is folded into the history at generation and never re-recorded.
@@ -105,7 +110,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
 
   return {
     ...state,
-    assignments: state.assignments.slice(0, roundIndex + 1),
+    assignments: state.assignments.slice(0, keep + 1),
     roomHistory,
     poolingByeCounts,
     byes,
