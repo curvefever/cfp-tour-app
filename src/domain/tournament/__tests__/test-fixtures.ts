@@ -1,5 +1,6 @@
+import { getGameFormat } from '../formats';
 import type { IdSource, RandomSource } from '../runtime';
-import type { RoundAssignment, TournamentRound } from '../types';
+import type { GameFormatKey, RoundAssignment, TournamentRound, TournamentRoster } from '../types';
 
 /** Deterministic RandomSource yielding a fixed sequence, cycling if exhausted. */
 export function sequenceRandom(values: number[]): RandomSource {
@@ -54,4 +55,16 @@ export function buildAssignments(names: string[], rooms: number[]): RoundAssignm
     }
   }
   return assignments;
+}
+
+/** A roster of `count` units that fits the format: teams of its team size, or plain names for an individual format. */
+export function rosterFor(gameFormat: GameFormatKey, count: number): TournamentRoster {
+  const teamSize = getGameFormat(gameFormat)?.teamSize;
+  const indexes = Array.from({ length: count }, (_, index) => index);
+  if (!teamSize) return indexes.map((index) => `P${index + 1}`);
+  return indexes.map((index) => ({
+    teamId: `t${index + 1}`,
+    teamName: `Team ${index + 1}`,
+    members: Array.from({ length: teamSize }, (_unused, slot) => ({ name: `${'abcdef'[slot]}${index}` })),
+  }));
 }

@@ -1,3 +1,4 @@
+import { getGameFormat } from '../formats';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
@@ -23,11 +24,12 @@ export interface SweepConfig {
 }
 
 export function buildState(config: SweepConfig): TournamentState | null {
+  const teamSize = getGameFormat(config.setup?.gameFormat ?? 'team-3v3v3')?.teamSize ?? 3;
   const players = config.teams
     ? Array.from({ length: config.count }, (_, index): TournamentTeam => ({
         teamId: `t${index + 1}`,
         teamName: `Team ${index + 1}`,
-        members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
+        members: Array.from({ length: teamSize }, (_, slot) => ({ name: `${'abc'[slot]}${index}` })),
       }))
     : Array.from({ length: config.count }, (_, index) => `P${index + 1}`);
   const result = generateTournament(

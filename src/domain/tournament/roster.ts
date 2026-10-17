@@ -1,6 +1,6 @@
 import { getGameFormat } from './formats';
 import type { IdSource } from './runtime';
-import type { TeamMember, TournamentRoster, TournamentState, TournamentTeam } from './types';
+import type { GameFormatKey, TeamMember, TournamentRoster, TournamentState, TournamentTeam } from './types';
 
 function isTournamentTeam(entry: string | TournamentTeam): entry is TournamentTeam {
   return typeof entry === 'object' && entry !== null;
@@ -86,6 +86,23 @@ export function buildTeamMap(
 ): Record<string, TournamentTeam> {
   const entries: Array<string | TournamentTeam> = [...state.players, ...state.reserves];
   return Object.fromEntries(entries.filter(isTournamentTeam).map((team) => [team.teamId, team] as const));
+}
+
+/**
+ * Whether the loaded roster has the shape the format needs: teams of exactly
+ * the format's size for a team format, plain names for an individual one. An
+ * unknown format fits, because generation refuses that with its own message.
+ */
+export function rosterFitsFormat(
+  roster: Pick<TournamentState, 'players' | 'reserves'>,
+  gameFormat: GameFormatKey,
+): boolean {
+  const format = getGameFormat(gameFormat);
+  if (!format) return true;
+  const { teamSize } = format;
+  return [...roster.players, ...roster.reserves].every((entry) =>
+    teamSize ? isTournamentTeam(entry) && entry.members.length === teamSize : !isTournamentTeam(entry),
+  );
 }
 
 export function unitDisplay(

@@ -3,8 +3,8 @@ import { GAME_FORMATS, getGameFormat, resolveOddCountStrategy } from '../formats
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import type { GameFormatKey, PersistedSetup, TournamentState, TournamentTeam } from '../types';
-import { fixedIdSource, sequenceRandom } from './test-fixtures';
+import type { GameFormatKey, PersistedSetup } from '../types';
+import { fixedIdSource, rosterFor, sequenceRandom } from './test-fixtures';
 
 /**
  * Head-to-head formats default to the "Bye" odd-count strategy, and an unset
@@ -42,18 +42,9 @@ describe('resolveOddCountStrategy', () => {
   });
 });
 
-function unitsFor(gameFormat: GameFormatKey, count: number): TournamentState['players'] {
-  if (gameFormat === 'individual-1v1') return Array.from({ length: count }, (_, index) => `P${index + 1}`);
-  return Array.from({ length: count }, (_, index): TournamentTeam => ({
-    teamId: `t${index + 1}`,
-    teamName: `Team ${index + 1}`,
-    members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
-  }));
-}
-
 function generate(gameFormat: GameFormatKey, count: number, setup: Partial<PersistedSetup>) {
   return generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: unitsFor(gameFormat, count) }),
+    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
     createDefaultSetup({ gameFormat, qualAdv: '4', ...setup }),
     createTournamentRuntime({ random: sequenceRandom([0.31, 0.72, 0.05, 0.9, 0.48]), ids: fixedIdSource() }),
   );

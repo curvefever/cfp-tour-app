@@ -9,7 +9,7 @@ import {
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { validateRoomCap } from './room-distribution';
-import { rosterKeys } from './roster';
+import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
 import { defaultSemisSize } from './single-elimination';
 import {
@@ -133,6 +133,11 @@ export function generateTournament(
   }
   const format = getGameFormat(form.gameFormat);
   if (!format) return generationError('This game format is not available yet.');
+  if (!rosterFitsFormat(current, form.gameFormat)) {
+    return generationError(
+      'The roster was loaded for a different game format — click "Load roster & reserves" again before generating.',
+    );
+  }
   const schedule = form.scheduleLogic;
   if (!format.defaultRoomSize && !format.idealRoomSize) {
     return generationError('This game format has no room size.');

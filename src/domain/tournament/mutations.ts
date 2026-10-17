@@ -17,6 +17,7 @@ import {
 } from './scoring';
 import type {
   AnonymousFinalist,
+  GameFormatKey,
   MaterializedGamemodeConfig,
   TournamentRoster,
   TournamentRound,
@@ -904,6 +905,22 @@ export function setTeamDefender(state: TournamentState, teamId: string, memberId
   return {
     ...state,
     defenderChanges: { ...state.defenderChanges, [teamId]: changes },
+  };
+}
+
+/** Stores a loaded roster together with the format it was parsed for, so the two never disagree. */
+export function withLoadedRoster(
+  state: TournamentState,
+  gameFormat: GameFormatKey,
+  loaded: Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>,
+): TournamentState {
+  return {
+    ...state,
+    gameFormat,
+    players: loaded.players,
+    reserves: loaded.reserves,
+    reserveIndividuals: loaded.reserveIndividuals,
+    confirmedCount: loaded.players.length,
   };
 }
 

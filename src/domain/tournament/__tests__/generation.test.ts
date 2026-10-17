@@ -9,7 +9,7 @@ import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
 import { applyTournamentSettings } from '../tournament-settings';
-import { fixedIdSource, sequenceRandom } from './test-fixtures';
+import { fixedIdSource, rosterFor, sequenceRandom } from './test-fixtures';
 
 function names(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `P${index + 1}`);
@@ -423,7 +423,7 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
   // structurally plausible during the audit but never executed -- these
   // anchors convert "looks fine on paper" into "confirmed by running it."
   it('generates successfully: team-3v3, Group Stage + double-elimination-shared-final', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 12, players: names(12) });
+    const state = createDefaultTournamentState({ confirmedCount: 12, players: rosterFor('team-3v3', 12) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'team-3v3',
@@ -444,7 +444,7 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
   });
 
   it('generates successfully: team-3v3, Swiss + double-elimination-shared-final', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 8, players: names(8) });
+    const state = createDefaultTournamentState({ confirmedCount: 8, players: rosterFor('team-3v3', 8) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'team-3v3',
@@ -1173,7 +1173,10 @@ describe('generateTournament -- kings-valley', () => {
   ] as const)(
     'refuses Kings Valley for %s (%i units, odd-count %s) -- a head-to-head room shape cuts too slowly',
     (gameFormat, confirmedCount, oddCountStrategy) => {
-      const state = createDefaultTournamentState({ confirmedCount, players: names(confirmedCount) });
+      const state = createDefaultTournamentState({
+        confirmedCount,
+        players: rosterFor(gameFormat, confirmedCount),
+      });
       const form = createDefaultSetup({
         gameFormat,
         scheduleLogic: 'kings-valley',
@@ -1193,7 +1196,10 @@ describe('generateTournament -- kings-valley', () => {
     ['team-2v2v2v2', 13],
     ['team-3v3v3', 13],
   ] as const)('still generates Kings Valley for %s (%i units)', (gameFormat, confirmedCount) => {
-    const state = createDefaultTournamentState({ confirmedCount, players: names(confirmedCount) });
+    const state = createDefaultTournamentState({
+      confirmedCount,
+      players: rosterFor(gameFormat, confirmedCount),
+    });
     const form = createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
@@ -1207,7 +1213,7 @@ describe('generateTournament -- kings-valley', () => {
     (gameFormat, ok, over) => {
       const generate = (count: number, overrides = {}) =>
         generateTournament(
-          createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
+          createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
           createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley', ...overrides }),
           createTournamentRuntime({ ids: fixedIdSource() }),
         );
@@ -1637,7 +1643,10 @@ SemiB: 1-2->Final, 3-8->eliminated
 
 describe('generateTournament -- team scoring rule', () => {
   it('carries Survival Teams into gamemodeConfig for a team format', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    const state = createDefaultTournamentState({
+      confirmedCount: 37,
+      players: rosterFor('team-2v2v2v2', 37),
+    });
     const form = createDefaultSetup({ gameFormat: 'team-2v2v2v2', teamScoringRule: 'survival-teams' });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
@@ -2007,5 +2016,41 @@ describe('single elimination: Semis shrinks to who advances', () => {
   it('a Semis size override still wins over the shrunken default', () => {
     const { semis } = bracketRounds(16, { ...ffaQual(14), semisOverride: '12' });
     expect(semis?.players).toBe(12);
+  });
+});
+
+describe('generateTournament -- the roster must fit the game format', () => {
+  const REFUSAL = 'The roster was loaded for a different game format';
+
+  function generateFor(
+    rosterFormat: Parameters<typeof rosterFor>[0],
+    count: number,
+    gameFormat: typeof rosterFormat,
+  ) {
+    return generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(rosterFormat, count) }),
+      createDefaultSetup({ gameFormat }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    );
+  }
+
+  it('generates 37 teams of 2 under team-2v2v2v2 and stores that format', () => {
+    const result = generateFor('team-2v2v2v2', 37, 'team-2v2v2v2');
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated') expect(result.state.gameFormat).toBe('team-2v2v2v2');
+  });
+
+  it.each([
+    ['team-2v2v2v2', 37, 'ffa-individual'],
+    ['team-2v2v2v2', 31, 'team-3v3v3'],
+    ['ffa-individual', 43, 'team-3v3'],
+  ] as const)('refuses a roster of %s units (%i) generated under %s', (rosterFormat, count, gameFormat) => {
+    const result = generateFor(rosterFormat, count, gameFormat);
+    expect(result.status).toBe('invalid');
+    if (result.status === 'invalid') expect(result.message).toContain(REFUSAL);
+  });
+
+  it('still generates 53 players under ffa-individual', () => {
+    expect(generateFor('ffa-individual', 53, 'ffa-individual').status).toBe('generated');
   });
 });

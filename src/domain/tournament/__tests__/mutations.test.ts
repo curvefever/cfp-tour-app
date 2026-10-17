@@ -21,6 +21,7 @@ import {
   swapWindowOpen,
   unflagFinalGameAnonymous,
   updateTeam,
+  withLoadedRoster,
 } from '../mutations';
 import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/sync/firebase-marshal';
 import { computeRankings } from '../rankings';
@@ -892,6 +893,37 @@ describe('addReserveUnit -- which tournaments take a reserve', () => {
     });
     const result = addReserveUnit(state, 'P3');
     expect(result.status).toBe('added');
+  });
+});
+
+describe('withLoadedRoster', () => {
+  it('stores the roster, its reserves, the count and the format it was parsed for, and nothing else', () => {
+    const team = {
+      teamId: 't1',
+      teamName: 'Alpha',
+      members: [{ name: 'A1' }, { name: 'A2' }],
+    };
+    const before = createDefaultTournamentState({
+      title: 'Cup',
+      gameFormat: 'ffa-individual',
+      players: ['Old'],
+      confirmedCount: null,
+    });
+    const result = withLoadedRoster(before, 'team-2v2v2v2', {
+      players: [team],
+      reserves: [],
+      reserveIndividuals: [{ name: 'Solo' }],
+    });
+    expect(result).toMatchObject({
+      gameFormat: 'team-2v2v2v2',
+      players: [team],
+      reserves: [],
+      reserveIndividuals: [{ name: 'Solo' }],
+      confirmedCount: 1,
+    });
+    expect(result.title).toBe(before.title);
+    expect(result.cfg).toBe(before.cfg);
+    expect(result.info).toBe(before.info);
   });
 });
 
