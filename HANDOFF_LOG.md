@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## A loaded roster keeps its game format (done — 2026-10-17)
 
-Planner/reviewer and implementer sessions; two stages, one commit each, plus the close-out. Plan: `plans/2026-10-17-roster-format.md`.
+Planner/reviewer and implementer sessions; two stages, one commit each, plus the close-out.
 
 **Why.** Organiser report: production tournament `1792226417678` ("2v2v2v2 Survival Teams Tour", published, not started, one team registered). Opening Players as an admin gave a white screen with React error #31 ("object with keys {members, teamId, teamName}"); a viewer saw `team_1792232047445_0` where the team should be.
 
@@ -37,6 +37,7 @@ Planner/reviewer and implementer sessions; two stages, one commit each, plus the
 - Reviewer's mutation checks on stage 1: 4 of 4 caught (refusal disabled, member-count check dropped, reserves left out of the check, `gameFormat` not set by `withLoadedRoster`).
 - Stage-1 checks: domain suite 37 files, 1410 tests; `vitest related` 60 files, 1774 tests; eslint, prettier, typecheck clean. No component test for `RosterPanel` (`docs/platform.md`, "Tests").
 - Live check, test site after pushing `d761330` (signed in as Lead Mod; the deploy served the old bundle for several minutes, and a first run on it reproduced the crash, `e.label.localeCompare is not a function`). Throwaway draft `1792233970666`: with 2v2v2v2 and `Alpha, A1, A2` / `Beta, B1, B2` loaded, Players as admin lists both teams with their members, no crash; the stored tournament has `gameFormat: team-2v2v2v2` (Firebase REST read). Switching the format to FFA turned the ROSTER hint orange, "Game format changed — load the roster again", and Generate Schedule refused with the new message. Loading again under FFA cleared the hint and Players listed the two lines as players. The viewer's view (team names instead of ids, "2 teams registered so far") was not seen directly: the built-in browser is signed in as an admin, and the admin Players tab shows only the organiser tools; it follows from the stored format, which `unitDisplay` and `registeredLine` read. The draft was published for this and then deleted.
+- Final review (planner): full suite 90 files, 2243 tests, all pass; eslint and typecheck clean on every changed file. `prettier --check` warns on `roster.ts`, `mutations.ts` and `generation.ts` in the working copy only: `core.autocrlf` checks them out with CRLF; the committed blobs pass. The viewer's data was checked in a throwaway Vitest file instead of a browser: a `parseTeamLines` roster stored with `withLoadedRoster` under `team-2v2v2v2` gives `unitDisplay` → "Diamonds" with its two members, `registeredLine` → "1 team registered so far", and roster rows carrying the team name, not the id. `RosterPanel` has no component test, so the stage-2 hint and the `withLoadedRoster` call in `loadRoster` were checked live only; no mutation check is possible there.
 
 ### Out of scope
 - An error boundary around the tabs. A render error still gives a white screen with "Something went wrong!"; worth an open-items or roadmap line.
