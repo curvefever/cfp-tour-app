@@ -34,6 +34,8 @@ export interface WaterfallDraftRound {
   roomCount: number;
   roomSize: number;
   isFinal: boolean;
+  /** The organiser's own column number; null = automatic (the column after the rounds that route into it). */
+  column: number | null;
 }
 
 /** A slot's destination: a round label, or null when the rank is out. */
@@ -201,6 +203,7 @@ export function parseWaterfallDraft(
     roomCount: line.roomSizes.length,
     roomSize: line.roomSizes[0],
     isFinal: line.isFinal,
+    column: line.column,
   }));
   const byLower = new Map(rounds.map((round) => [round.label.toLowerCase(), round]));
   const routes = reshapeRoutes(rounds, {});
@@ -257,6 +260,33 @@ function resolveDestination(label: string, byLower: Map<string, WaterfallDraftRo
   return byLower.get(label.toLowerCase())?.label ?? null;
 }
 
+/**
+ * The columns of a running tournament's waterfall rounds that the draft must write out so they stay
+ * where they are: a stored column that is not the one after its feeders' stored columns. The rest stay
+ * automatic, so a later edit of the routing can move them. All automatic when no column is stored.
+ */
+function manualColumnsOf(
+  waterfallRounds: TournamentRound[],
+  routes: Record<string, WaterfallSlotDestination[][]>,
+): Array<number | null> {
+  const none = waterfallRounds.map(() => null);
+  if (waterfallRounds.some((round) => round.waterfallColumn === undefined)) return none;
+  const position = new Map(waterfallRounds.map((round, index) => [round.customLabel, index]));
+  const feeders: number[][] = waterfallRounds.map(() => []);
+  waterfallRounds.forEach((round, source) => {
+    for (const destination of new Set((routes[round.customLabel as string] ?? []).flat())) {
+      const target = destination === null ? undefined : position.get(destination);
+      if (target !== undefined && target > source) feeders[target].push(source);
+    }
+  });
+  return waterfallRounds.map((round, index) => {
+    const stored = round.waterfallColumn as number;
+    const automatic =
+      Math.max(0, ...feeders[index].map((feeder) => waterfallRounds[feeder].waterfallColumn as number)) + 1;
+    return stored === automatic ? null : stored;
+  });
+}
+
 /** Sorted ranks to compact tokens: [1,2,3,5] becomes ["1-3", "5"]. */
 export function compressWaterfallRanks(ranks: number[]): string[] {
   const sorted = [...ranks].sort((first, second) => first - second);
@@ -297,7 +327,7 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
   if (draft.rounds.length === 0) return '';
   const roundLines = draft.rounds.map((round) => {
     const size = round.roomCount > 1 ? `${round.roomCount}x${round.roomSize}` : String(round.roomSize);
-    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}`;
+    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
   });
   const routeLines = draft.rounds.flatMap((round) =>
     (draft.routes[round.label] ?? []).flatMap((room, roomIndex) => {
@@ -346,6 +376,7 @@ export function waterfallDraftFromRounds(
       roomCount: declared.length,
       roomSize: declared[0],
       isFinal: round.isFinal,
+      column: null,
     };
   });
   const routes: Record<string, WaterfallSlotDestination[][]> = {};
@@ -358,7 +389,12 @@ export function waterfallDraftFromRounds(
           ),
         );
   }
-  const draft: WaterfallDraft = { rounds: draftRounds, routes, qualRoutes: null };
+  const columns = manualColumnsOf(waterfallRounds, routes);
+  const draft: WaterfallDraft = {
+    rounds: draftRounds.map((round, index) => ({ ...round, column: columns[index] })),
+    routes,
+    qualRoutes: null,
+  };
   if (!rounds.some((round) => round.isQual)) return draft;
   const standingsRoutes = rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
   const routed: WaterfallSlotDestination[] = standingsRoutes
@@ -465,8 +501,9 @@ export function blankWaterfallDraft(
       roomCount: fits ? Math.min(entrantCount / roomSize.ideal, MAX_ROOMS_PER_ROUND) : 1,
       roomSize: roomSize.ideal,
       isFinal: false,
+      column: null,
     },
-    { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true },
+    { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true, column: null },
   ];
   const qualRoutes = options.standingsSource
     ? Array.from({ length: entrantCount ?? roomSize.max }, (): WaterfallSlotDestination => null)
@@ -478,7 +515,13 @@ export function blankWaterfallDraft(
 export function addWaterfallRound(draft: WaterfallDraft, roomSize: number): WaterfallDraft {
   let number = draft.rounds.length + 1;
   while (labelIsTaken(draft, `R${number}`)) number += 1;
-  const added: WaterfallDraftRound = { label: `R${number}`, roomCount: 1, roomSize, isFinal: false };
+  const added: WaterfallDraftRound = {
+    label: `R${number}`,
+    roomCount: 1,
+    roomSize,
+    isFinal: false,
+    column: null,
+  };
   const last = draft.rounds[draft.rounds.length - 1];
   const rounds = last?.isFinal ? [...draft.rounds.slice(0, -1), added, last] : [...draft.rounds, added];
   return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };

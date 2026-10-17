@@ -403,6 +403,7 @@ describe('roundExitRule -- waterfall', () => {
         { label: 'R3', roomSizes: [2], isFinal: false },
         { label: 'Final', roomSizes: [6], isFinal: true },
       ],
+      columns: [1, 2, 3, 4],
       routes: [
         [
           [1, 1, 1, 1, 1, 'eliminated', 'eliminated'],

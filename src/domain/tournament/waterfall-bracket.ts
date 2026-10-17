@@ -63,6 +63,8 @@ export interface WaterfallRoundSpec {
  */
 export interface OrderedWaterfallGraph {
   rounds: WaterfallRoundSpec[];
+  /** Index-aligned with `rounds`: the column each round is played in (from 1). Rounds of one column are next to each other. */
+  columns: number[];
   routes: Array<Array<Array<number | 'eliminated'>>>;
   /**
    * Where the qualification table's standings go, when the graph has a Qual
@@ -79,6 +81,8 @@ interface RawRoundLine {
   label: string;
   roomSizes: number[];
   isFinal: boolean;
+  /** The organiser's own column number ("COLUMN 2"), null when the round's column is automatic. */
+  column: number | null;
 }
 
 interface RawRouteBand {
@@ -223,17 +227,43 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
     );
   }
 
-  const remaining = tokens.slice(1);
-  let isFinal = false;
-  if (remaining.length === 1 && remaining[0].toUpperCase() === 'FINAL') {
-    isFinal = true;
-  } else if (remaining.length > 0) {
-    return err(
-      `ROUNDS line for "${label}" has an unexpected trailing token ("${remaining.join(' ')}") -- only "FINAL" is allowed after the size.`,
-    );
-  }
+  const trailer = parseRoundLineTrailer(label, tokens.slice(1));
+  if (!trailer.ok) return trailer;
 
-  return ok({ label, roomSizes, isFinal });
+  return ok({ label, roomSizes, ...trailer.value });
+}
+
+/** The tokens after a ROUNDS line's size: "FINAL" and/or "COLUMN <n>", in either order, each at most once. */
+function parseRoundLineTrailer(
+  label: string,
+  tokens: string[],
+): WaterfallParseResult<{ isFinal: boolean; column: number | null }> {
+  let isFinal = false;
+  let column: number | null = null;
+  let seenColumn = false;
+  for (let index = 0; index < tokens.length; index += 1) {
+    const keyword = tokens[index].toUpperCase();
+    if (keyword === 'FINAL') {
+      if (isFinal) return err(`ROUNDS line for "${label}" repeats FINAL -- write it once.`);
+      isFinal = true;
+    } else if (keyword === 'COLUMN') {
+      if (seenColumn) return err(`ROUNDS line for "${label}" repeats COLUMN -- write it once.`);
+      seenColumn = true;
+      const number = tokens[index + 1];
+      if (number === undefined || !/^\d+$/.test(number) || Number.parseInt(number, 10) < 1) {
+        return err(
+          `ROUNDS line for "${label}" needs a whole number from 1 after COLUMN -- for example "COLUMN 2".`,
+        );
+      }
+      column = Number.parseInt(number, 10);
+      index += 1;
+    } else {
+      return err(
+        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL" and "COLUMN <number>" are allowed after the size.`,
+      );
+    }
+  }
+  return ok({ isFinal, column });
 }
 
 function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
@@ -469,6 +499,10 @@ export function validateAndOrderWaterfallGraph(
      * routing, as normal.
      */
     fixedPrefix?: string[];
+    /** Index-aligned with `fixedPrefix`: the column each of those rounds already has. Without it they are placed like any other round. */
+    fixedColumns?: number[];
+    /** The first column an unreached round may use (a live edit: the columns before it have started). Default 1. */
+    firstOpenColumn?: number;
   },
 ): WaterfallParseResult<OrderedWaterfallGraph> {
   const { roundLines, routeLines } = graph;
@@ -792,11 +826,106 @@ export function validateAndOrderWaterfallGraph(
     }
   }
 
-  return ok(buildOrderedGraph(topoOrder, roundByLabel, roomBandsByLabel, qualLabels));
+  // Columns, then the play order: the fixed prefix as given, the other rounds column by column
+  // (the routing walk's order within a column) -- still a valid topological order, since a round's column is
+  // always later than its feeders'.
+  const feeders = topoFeeders(topoOrder, destinationsByLabel);
+  const columns = assignWaterfallColumns(
+    topoOrder.map((label, index) => ({
+      label: (roundByLabel.get(label) as RawRoundLine).label,
+      column: (roundByLabel.get(label) as RawRoundLine).column,
+      feeders: feeders[index],
+    })),
+    { fixed: options.fixedColumns, firstOpenColumn: options.firstOpenColumn },
+  );
+  if (!columns.ok) return columns;
+  const columnOf = new Map(topoOrder.map((label, index) => [label, columns.value[index]]));
+  // Array.sort is stable: rounds of one column keep their order in the routing walk (today's order).
+  const rest = topoOrder
+    .slice(fixedPrefixLower.length)
+    .sort((first, second) => (columnOf.get(first) as number) - (columnOf.get(second) as number));
+  const playOrder = [...topoOrder.slice(0, fixedPrefixLower.length), ...rest];
+
+  return ok(
+    buildOrderedGraph(
+      playOrder,
+      playOrder.map((label) => columnOf.get(label) as number),
+      roundByLabel,
+      roomBandsByLabel,
+      qualLabels,
+    ),
+  );
+}
+
+/** For each round of the topological order, the positions of the rounds that route into it. */
+function topoFeeders(topoOrder: string[], destinationsByLabel: Map<string, Set<string>>): number[][] {
+  const position = new Map(topoOrder.map((label, index) => [label, index]));
+  const feeders: number[][] = topoOrder.map(() => []);
+  for (const [source, destinations] of destinationsByLabel) {
+    for (const destination of destinations) {
+      feeders[position.get(destination) as number].push(position.get(source) as number);
+    }
+  }
+  return feeders;
+}
+
+export interface WaterfallColumnInput {
+  label: string;
+  /** The organiser's own column number, null for automatic. */
+  column: number | null;
+  /** The positions (in the rounds array) of the rounds that route into this one. */
+  feeders: number[];
+}
+
+/**
+ * The column of every round, `rounds` being in topological order (every feeder comes before the round
+ * it feeds). A round with no number goes in the column after its feeders' latest (column 1 when no
+ * round routes into it, the qualification table being column 0); a numbered round must be later than
+ * every feeder. A round in `fixed` already has its column (a started round of a live edit) and a
+ * different number on it is refused; the other rounds can't use a column before `firstOpenColumn`.
+ * No column may be left empty between 1 and the last.
+ */
+export function assignWaterfallColumns(
+  rounds: WaterfallColumnInput[],
+  options: { fixed?: Array<number | undefined>; firstOpenColumn?: number } = {},
+): WaterfallParseResult<number[]> {
+  const { fixed, firstOpenColumn = 1 } = options;
+  const columns: number[] = [];
+  for (const [index, round] of rounds.entries()) {
+    let latest: number | null = null;
+    for (const feeder of round.feeders) {
+      if (latest === null || columns[feeder] > columns[latest]) latest = feeder;
+    }
+    const after = latest === null ? 0 : columns[latest];
+    const started = fixed?.[index];
+    if (started !== undefined && round.column !== null && round.column !== started) {
+      return err(`Round "${round.label}" has already started in column ${started}.`);
+    }
+    const chosen = started ?? round.column;
+    if (chosen !== null && chosen <= after) {
+      return err(
+        `Round "${round.label}" can't be in column ${chosen}: round "${rounds[latest as number].label}" routes into it and is in column ${after}.`,
+      );
+    }
+    if (started === undefined && chosen !== null && chosen < firstOpenColumn) {
+      return err(`Column ${chosen} has already started -- choose column ${firstOpenColumn} or later.`);
+    }
+    columns.push(chosen ?? Math.max(after + 1, firstOpenColumn));
+  }
+  const used = new Set(columns);
+  for (let column = 1; column <= Math.max(0, ...columns); column += 1) {
+    if (!used.has(column)) {
+      return err(
+        `Column ${column} has no round -- renumber the later columns or set a round to column ${column}.`,
+      );
+    }
+  }
+  return ok(columns);
 }
 
 function buildOrderedGraph(
   topoOrder: string[],
+  columns: number[],
   roundByLabel: Map<string, RawRoundLine>,
   roomBandsByLabel: Map<string, string[][]>,
   qualLabels: string[] | null,
@@ -823,7 +952,7 @@ function buildOrderedGraph(
       : (indexByLabel.get(destinationLabel.toLowerCase()) as number),
   );
 
-  return { rounds, routes, ...(qualRoutes ? { qualRoutes } : {}) };
+  return { rounds, columns, routes, ...(qualRoutes ? { qualRoutes } : {}) };
 }
 
 /**

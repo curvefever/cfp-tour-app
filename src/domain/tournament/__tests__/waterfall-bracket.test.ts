@@ -446,6 +446,7 @@ describe('waterfallDestination', () => {
       { label: 'R3', roomSizes: [2], isFinal: false },
       { label: 'Final', roomSizes: [6], isFinal: true },
     ],
+    columns: [1, 2, 3, 4],
     routes: [
       [
         // Room A: ranks 1-5 -> R2, 6-7 eliminated.
@@ -918,5 +919,228 @@ SemiB: 1-2->Final
   ])('refuses the round name "%s"', (name) => {
     const result = parseWaterfallGraph(`ROUNDS:\n${name} = 4 FINAL\nROUTES:\nX: 1-4->eliminated`);
     expect(result.ok).toBe(false);
+  });
+});
+
+describe('waterfall columns', () => {
+  const LIVE_GRAPH = `
+ROUNDS:
+Round5Upper = 2x4
+Round5Lower = 2x4
+SemiA = 4
+Round6 = 2x4
+Round7 = 4
+SemiB = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->Round5Upper, 9-16->Round5Lower
+Round5Upper.A: 1-2->SemiA, 3-4->Round6
+Round5Upper.B: 1-2->SemiA, 3-4->Round6
+Round5Lower.A: 1-2->Round6
+Round5Lower.B: 1-2->Round6
+SemiA: 1-2->Final, 3-4->SemiB
+Round6.A: 1-2->Round7
+Round6.B: 1-2->Round7
+Round7: 1-2->SemiB
+SemiB: 1-2->Final
+`;
+  const TEAM_ROOM_SIZE: RoomSize = { min: 3, max: 4, ideal: 4 };
+  const STARTED = { fixedPrefix: ['Round5Upper', 'Round5Lower'], fixedColumns: [1, 1], firstOpenColumn: 2 };
+
+  function validateLive(
+    text: string,
+    options: { fixedPrefix?: string[]; fixedColumns?: number[]; firstOpenColumn?: number } = {},
+  ) {
+    const parsed = parseWaterfallGraph(text);
+    if (!parsed.ok) return parsed;
+    return validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: TEAM_ROOM_SIZE,
+      entrantCount: 19,
+      standingsSource: true,
+      ...options,
+    });
+  }
+
+  /** The play order as "label:column" pairs. */
+  function layout(
+    text: string,
+    validate: (text: string) => ReturnType<typeof validateLive> = (graphText) => validateLive(graphText),
+  ) {
+    const result = validate(text);
+    if (!result.ok) throw new Error(result.error);
+    return result.value.rounds.map((round, index) => `${round.label}:${result.value.columns[index]}`);
+  }
+
+  function withColumn(text: string, label: string, column: number) {
+    return text.replace(new RegExp(`^${label} = (.*)$`, 'm'), `${label} = $1 COLUMN ${column}`);
+  }
+
+  function refusal(text: string, options = {}) {
+    const result = validateLive(text, options);
+    if (result.ok) throw new Error('expected a refusal');
+    return result.error;
+  }
+
+  it('numbers the live graph automatically: both qualification-fed rounds in column 1, then SemiA with Round6', () => {
+    expect(layout(LIVE_GRAPH)).toEqual([
+      'Round5Upper:1',
+      'Round5Lower:1',
+      'SemiA:2',
+      'Round6:2',
+      'Round7:3',
+      'SemiB:4',
+      'Final:5',
+    ]);
+  });
+
+  it('numbers the worked 32-player example [5], [SemiA, 6B, 6C], [7A], [SemiB], [Final] and keeps its order', () => {
+    const validate = (text: string) => parseAndValidate(text, 32, FFA_ROOM_SIZE);
+    expect(layout(SPREADSHEET_GRAPH, validate)).toEqual([
+      '5:1',
+      'SemiA:2',
+      '6B:2',
+      '6C:2',
+      '7A:3',
+      'SemiB:4',
+      'Final:5',
+    ]);
+  });
+
+  it('gives the same columns when every round is numbered as automatic would number it', () => {
+    let numbered = LIVE_GRAPH;
+    for (const [label, column] of [
+      ['Round5Upper', 1],
+      ['Round5Lower', 1],
+      ['SemiA', 2],
+      ['Round6', 2],
+      ['Round7', 3],
+      ['SemiB', 4],
+    ] as const) {
+      numbered = withColumn(numbered, label, column);
+    }
+    numbered = numbered.replace('Final = 4 FINAL', 'Final = 4 column 5 FINAL');
+    expect(layout(numbered)).toEqual(layout(LIVE_GRAPH));
+  });
+
+  it('plays a round with a manual column later: SemiA COLUMN 3 moves it after Round6, the rest follow', () => {
+    expect(layout(withColumn(LIVE_GRAPH, 'SemiA', 3))).toEqual([
+      'Round5Upper:1',
+      'Round5Lower:1',
+      'Round6:2',
+      'SemiA:3',
+      'Round7:3',
+      'SemiB:4',
+      'Final:5',
+    ]);
+  });
+
+  it('puts one room host short in a column of its own: R6C COLUMN 3 on the 32-player example', () => {
+    const validate = (text: string) => parseAndValidate(text, 32, FFA_ROOM_SIZE);
+    expect(layout(SPREADSHEET_GRAPH.replace('6C = 8', '6C = 8 COLUMN 3'), validate)).toEqual([
+      '5:1',
+      'SemiA:2',
+      '6B:2',
+      '6C:3',
+      '7A:4',
+      'SemiB:5',
+      'Final:6',
+    ]);
+  });
+
+  it('keeps the Final alone in its column in every case above', () => {
+    for (const text of [
+      LIVE_GRAPH,
+      withColumn(LIVE_GRAPH, 'SemiA', 3),
+      withColumn(LIVE_GRAPH, 'Round6', 3),
+    ]) {
+      const placed = layout(text);
+      const finalColumn = placed.at(-1)?.split(':')[1];
+      expect(placed.filter((entry) => entry.endsWith(`:${finalColumn}`))).toHaveLength(1);
+    }
+  });
+
+  it('still plays the qualification-fed rounds first when SemiA is declared before them', () => {
+    const reordered = LIVE_GRAPH.replace('SemiA = 4\n', '').replace(
+      'Round5Upper = 2x4\n',
+      'SemiA = 4\nRound5Upper = 2x4\n',
+    );
+    expect(layout(reordered)).toEqual(layout(LIVE_GRAPH));
+  });
+
+  it('refuses a column that is not later than a round routing into it', () => {
+    expect(refusal(withColumn(LIVE_GRAPH, 'Round6', 1))).toBe(
+      'Round "Round6" can\'t be in column 1: round "Round5Upper" routes into it and is in column 1.',
+    );
+  });
+
+  it('refuses a layout that leaves a column empty', () => {
+    expect(refusal(withColumn(LIVE_GRAPH, 'SemiB', 6))).toBe(
+      'Column 4 has no round -- renumber the later columns or set a round to column 4.',
+    );
+  });
+
+  it('moves an automatic round after a new feeder, and refuses the same edit when the round is numbered', () => {
+    const rerouted = LIVE_GRAPH.replace(
+      'Round5Upper.B: 1-2->SemiA, 3-4->Round6',
+      'Round5Upper.B: 1->SemiA, 2-3->Round6',
+    ).replace('Round6.A: 1-2->Round7', 'Round6.A: 1-2->Round7, 3->SemiA');
+    expect(layout(rerouted)).toEqual([
+      'Round5Upper:1',
+      'Round5Lower:1',
+      'Round6:2',
+      'Round7:3',
+      'SemiA:3',
+      'SemiB:4',
+      'Final:5',
+    ]);
+    expect(refusal(withColumn(rerouted, 'SemiA', 2))).toBe(
+      'Round "SemiA" can\'t be in column 2: round "Round6" routes into it and is in column 2.',
+    );
+  });
+
+  it('keeps a started round in its column and refuses another number for it', () => {
+    expect(validateLive(LIVE_GRAPH, STARTED).ok).toBe(true);
+    expect(refusal(withColumn(LIVE_GRAPH, 'Round5Lower', 2), STARTED)).toBe(
+      'Round "Round5Lower" has already started in column 1.',
+    );
+    expect(validateLive(withColumn(LIVE_GRAPH, 'Round5Lower', 1), STARTED).ok).toBe(true);
+  });
+
+  it('keeps the play order of an automatic graph the same with or without a started prefix', () => {
+    const started = validateLive(LIVE_GRAPH, STARTED);
+    expect(started.ok && started.value.rounds.map((round) => round.label)).toEqual(
+      layout(LIVE_GRAPH).map((entry) => entry.split(':')[0]),
+    );
+  });
+});
+
+describe('the COLUMN keyword in a ROUNDS line', () => {
+  function roundLine(line: string) {
+    const parsed = parseWaterfallGraph(`ROUNDS:\n${line}\nROUTES:\nX: 1-4->eliminated`);
+    return parsed.ok ? parsed.value.roundLines[0] : parsed.error;
+  }
+
+  it.each([
+    ['Semi A = 4 COLUMN 2', { isFinal: false, column: 2 }],
+    ['Semi A = 4 column 12', { isFinal: false, column: 12 }],
+    ['Final = 4 FINAL COLUMN 5', { isFinal: true, column: 5 }],
+    ['Final = 4 column 5 final', { isFinal: true, column: 5 }],
+    ['Semi A = 4', { isFinal: false, column: null }],
+  ])('reads "%s"', (line, expected) => {
+    expect(roundLine(line)).toMatchObject(expected);
+  });
+
+  it.each([
+    ['Semi A = 4 COLUMN', 'needs a whole number from 1 after COLUMN'],
+    ['Semi A = 4 COLUMN 0', 'needs a whole number from 1 after COLUMN'],
+    ['Semi A = 4 COLUMN x', 'needs a whole number from 1 after COLUMN'],
+    ['Semi A = 4 COLUMN 2.5', 'needs a whole number from 1 after COLUMN'],
+    ['Semi A = 4 COLUMN FINAL', 'needs a whole number from 1 after COLUMN'],
+    ['Semi A = 4 COLUMN 2 COLUMN 3', 'repeats COLUMN'],
+    ['Semi A = 4 FINAL FINAL', 'repeats FINAL'],
+    ['Semi A = 4 LAST', 'only "FINAL" and "COLUMN <number>" are allowed after the size'],
+  ])('refuses "%s"', (line, message) => {
+    expect(roundLine(line)).toContain(message);
   });
 });

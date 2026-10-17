@@ -5,8 +5,9 @@ import { removeRosterUnit, swapIndividual } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
+import { advanceTournamentRound, seedRoundFromPendingPool } from '../transitions';
 import type { TournamentState } from '../types';
+import { fitWaterfallRound } from '../waterfall-bracket';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { playThrough, scoreCurrentRound } from './play-through';
 import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
@@ -671,5 +672,131 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
     };
     const result = saved(stripped);
     expect(result.state.pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
+  });
+});
+
+describe('applyWaterfallGraphEdit -- columns', () => {
+  // QUAL_GRAPH's columns: R1 and R1C (both fed by Qual only) together, then R2, then the Final.
+  const COLUMNS: Record<string, number> = { R1: 1, R1C: 1, R2: 2, Final: 3 };
+  // R1D joins the graph: ranks 25-30 of the qualification table, 2 of them on to the Final.
+  const WITH_R1D = QUAL_GRAPH.replace('R1C = 8\n', 'R1C = 8\nR1D = 6\n')
+    .replace('17-24->R1C', '17-24->R1C, 25-30->R1D')
+    .replace(
+      'R1C: 1-4->Final, 5-8->eliminated',
+      'R1C: 1-2->Final, 3-8->eliminated\nR1D: 1-2->Final, 3-6->eliminated',
+    );
+  const indexOf = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+  const columnsOf = (state: TournamentState) =>
+    Object.fromEntries(
+      state.rounds
+        .filter((round) => round.isWaterfall)
+        .map((round) => [round.customLabel, round.waterfallColumn]),
+    );
+
+  function enterBracket(): TournamentState {
+    const result = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(37)));
+    if (result.status !== 'advanced') throw new Error('the pooling exit did not advance');
+    return result.state;
+  }
+
+  /** The bracket entered with its columns stored, as the column engine will leave it: R1C drawn beside R1. */
+  function inFirstColumn(): TournamentState {
+    const state = structuredClone(enterBracket());
+    state.rounds = state.rounds.map((round) =>
+      round.customLabel && round.customLabel in COLUMNS
+        ? { ...round, waterfallColumn: COLUMNS[round.customLabel] }
+        : round,
+    );
+    const r1c = indexOf(state, 'R1C');
+    const fitted = fitWaterfallRound(state.rounds[r1c], (state.pendingBracketSeeds[r1c] ?? []).length);
+    if ('error' in fitted) throw new Error(fitted.error);
+    state.rounds[r1c] = fitted;
+    seedRoundFromPendingPool(state, r1c);
+    return state;
+  }
+
+  /** Scores the given round alone, with the real scoring helper. */
+  function scoreRound(state: TournamentState, label: string): TournamentState {
+    const scored = scoreCurrentRound({ ...state, curRound: indexOf(state, label) }, 0);
+    return { ...scored, curRound: state.curRound };
+  }
+
+  const edit = (state: TournamentState, text: string) => applyWaterfallGraphEdit(state, text);
+  const seatedIn = (state: TournamentState, label: string) =>
+    new Set((state.assignments[indexOf(state, label)] ?? []).map((entry) => entry.name));
+
+  it('saves unchanged text with both rounds of the column kept, nothing redrawn and every column stored', () => {
+    const state = inFirstColumn();
+    const result = edit(state, QUAL_GRAPH);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.redrawnRound).toBeNull();
+    expect(columnsOf(result.state)).toEqual(COLUMNS);
+    expect(result.state.assignments.slice(0, state.assignments.length)).toEqual(state.assignments);
+  });
+
+  it('refuses a different column number for a round that has started, and accepts its own', () => {
+    const state = inFirstColumn();
+    const moved = edit(state, QUAL_GRAPH.replace('R1C = 8', 'R1C = 8 COLUMN 2'));
+    expect(!moved.ok && moved.error).toBe('Round "R1C" has already started in column 1.');
+    expect(edit(state, QUAL_GRAPH.replace('R1C = 8', 'R1C = 8 COLUMN 1')).ok).toBe(true);
+  });
+
+  it('refuses a number in a column that has started for a round that has not, and shows the first free one', () => {
+    const state = inFirstColumn();
+    const refused = edit(state, WITH_R1D.replace('R1D = 6', 'R1D = 6 COLUMN 1'));
+    expect(!refused.ok && refused.error).toBe('Column 1 has already started -- choose column 2 or later.');
+    const accepted = edit(state, WITH_R1D.replace('R1D = 6', 'R1D = 6 COLUMN 2'));
+    expect(accepted.ok && columnsOf(accepted.state)).toEqual({ ...COLUMNS, R1D: 2 });
+  });
+
+  it('puts a round added after the bracket started, fed only by Qual, in the first column after the current one', () => {
+    const result = edit(inFirstColumn(), WITH_R1D);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(columnsOf(result.state)).toEqual({ ...COLUMNS, R1D: 2 });
+    expect(
+      result.state.rounds.filter((round) => round.isWaterfall).map((round) => round.customLabel),
+    ).toEqual(['R1', 'R1C', 'R1D', 'R2', 'Final']);
+    expect(result.state.curRound).toBe(indexOf(result.state, 'R1'));
+  });
+
+  it('keeps a state with no stored columns playing one round at a time, and refuses a COLUMN number in it', () => {
+    const state = enterBracket();
+    const edited = edit(state, WITH_R1D);
+    expect(edited.ok).toBe(true);
+    if (!edited.ok) return;
+    expect(edited.state.rounds.every((round) => round.waterfallColumn === undefined)).toBe(true);
+    const numbered = edit(state, WITH_R1D.replace('R1D = 6', 'R1D = 6 COLUMN 2'));
+    expect(!numbered.ok && numbered.error).toBe(
+      "This tournament's rounds are played one at a time -- columns can't be set once its bracket has started.",
+    );
+  });
+
+  describe('when the edit changes the line-up of the rounds in the current column', () => {
+    // Ranks 9-16 and 17-24 trade places: R1 and R1C both get different units.
+    const SWAPPED = QUAL_GRAPH.replace('Qual: 1-16->R1, 17-24->R1C', 'Qual: 1-8, 17-24->R1, 9-16->R1C');
+
+    it('re-draws every round of the column that has no score', () => {
+      const state = inFirstColumn();
+      const result = edit(state, SWAPPED);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.redrawnRound).toBe('R1 + R1C');
+      const order = orderedQualificationTable(state).ordered.map((entry) => entry.name);
+      expect(seatedIn(result.state, 'R1')).toEqual(new Set([...order.slice(0, 8), ...order.slice(16, 24)]));
+      expect(seatedIn(result.state, 'R1C')).toEqual(new Set(order.slice(8, 16)));
+    });
+
+    it('refuses the edit when a score has been entered in a later round of the column', () => {
+      const result = edit(scoreRound(inFirstColumn(), 'R1C'), SWAPPED);
+      expect(!result.ok && result.error).toContain('a score has already been entered in "R1C"');
+    });
+
+    it('refuses the edit when a score has been entered in the first round of the column', () => {
+      const result = edit(scoreRound(inFirstColumn(), 'R1'), SWAPPED);
+      expect(!result.ok && result.error).toContain('a score has already been entered in "R1"');
+    });
   });
 });
