@@ -2,6 +2,7 @@ import { generateTournament } from '../../src/domain/tournament/generation';
 import { createTournamentRuntime } from '../../src/domain/tournament/runtime';
 import { scoreKeysForPosition } from '../../src/domain/tournament/scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
+import { withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type {
   PersistedSetup,
@@ -11,6 +12,10 @@ import type {
   TournamentTeam,
 } from '../../src/domain/tournament/types';
 import { marshalForFirebase } from '../../src/features/sync/firebase-marshal';
+import {
+  buildTournamentSummary,
+  type TournamentDescription,
+} from '../../src/features/tournaments/tournament-summary';
 
 /**
  * Fixture tournaments for the screenshot spec. Each one is generated and played with the real domain code and
@@ -23,6 +28,8 @@ export interface FixtureTournament {
   id: string;
   state: TournamentState;
   status: 'published' | 'finished';
+  /** The Setup form as the organiser left it, for a fixture that was never generated; a generated one takes it from `state.settings`. */
+  setup?: SetupOverrides;
   /** The viewer tabs the spec captures for this fixture, by their button label. */
   tabs: string[];
   rulesText?: string;
@@ -430,23 +437,50 @@ function waterfallQual(): TournamentState {
   );
 }
 
-/** A tournament before Confirm & Start: the roster and its settings, no schedule drawn yet. */
-function beforeStart(state: TournamentState, reserves: string[]): TournamentState {
-  return { ...state, started: false, rounds: [], assignments: [], scores: {}, curRound: 0, reserves };
+type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;
+
+const UPCOMING_SETUP: SetupOverrides = {
+  gameFormat: 'ffa-individual',
+  poolingPhase: 'qual-table',
+  qualAdv: '24',
+  scheduleLogic: 'single-elimination',
+};
+
+const UPCOMING_TEAMS_SETUP: SetupOverrides = {
+  gameFormat: 'team-2v2v2v2',
+  poolingPhase: 'qual-table',
+  qualAdv: '8',
+  scheduleLogic: 'single-elimination',
+};
+
+/** A tournament before Confirm & Start, as the app stores it after Load roster: the roster and its format, nothing generated. */
+function loadedRoster(setup: SetupOverrides, roster: LoadedRoster): TournamentState {
+  return withLoadedRoster(
+    createDefaultTournamentState({ title: 'Fixture Cup' }),
+    setup.gameFormat ?? 'ffa-individual',
+    roster,
+  );
 }
 
 function upcoming(): TournamentState {
-  return {
-    ...beforeStart(generate(37, { poolingPhase: 'qual-table', qualAdv: '24' }), ['Larch', 'Nimbus']),
-    title: 'Autumn Cup',
-  };
+  return loadedRoster(UPCOMING_SETUP, {
+    players: individuals(37),
+    reserves: ['Larch', 'Nimbus'],
+    reserveIndividuals: [],
+  });
 }
 
 function upcomingTeams(): TournamentState {
-  return {
-    ...beforeStart(teams2v2Start(), []),
-    title: 'Team Cup',
-  };
+  return loadedRoster(UPCOMING_TEAMS_SETUP, {
+    players: teams(13, 2),
+    reserves: [],
+    reserveIndividuals: [],
+  });
+}
+
+/** A generated schedule that is not started yet: what an admin has between Generate and Confirm & Start. */
+function drawnFfa31(): TournamentState {
+  return { ...ffa37Like(31), started: false };
 }
 
 const RULES_TEXT = `Welcome to the Autumn Cup!
@@ -500,11 +534,13 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('upcoming-info', upcoming(), {
+      setup: UPCOMING_SETUP,
       tabs: ['Info', 'Players'],
       rulesText: RULES_TEXT,
       screenshotIds: ['shot1', 'shot2'],
     }),
-    entry('upcoming-teams-13', upcomingTeams(), { tabs: ['Info', 'Players'] }),
+    entry('upcoming-teams-13', upcomingTeams(), { setup: UPCOMING_TEAMS_SETUP, tabs: ['Info', 'Players'] }),
+    entry('drawn-ffa-31', drawnFfa31(), { tabs: ['Info', 'Players'] }),
   ];
 }
 
@@ -530,6 +566,16 @@ export function storedState(fixture: FixtureTournament): unknown {
   });
 }
 
+type IndexDescription = Omit<TournamentDescription, 'title' | 'scheduledAt'>;
+
+/** What the Tournaments list says about a tournament it builds without a fixture. */
+const LIST_DESCRIPTION: IndexDescription = {
+  gameFormat: 'ffa-individual',
+  poolingPhase: 'qual-table',
+  scheduleLogic: 'single-elimination',
+  unitCount: 37,
+};
+
 /** One index entry (`TournamentSummary` without its id) for the Tournaments list. */
 export function indexEntry(
   title: string,
@@ -539,8 +585,10 @@ export function indexEntry(
     scheduledAt: number;
     testRun?: boolean;
     winners?: Array<{ label: string; members: string[] | null }>;
+    description?: IndexDescription;
   },
 ): Record<string, unknown> {
+  const { gameFormat, poolingPhase, scheduleLogic, unitCount } = fields.description ?? LIST_DESCRIPTION;
   return {
     title,
     status: fields.status,
@@ -549,12 +597,31 @@ export function indexEntry(
     scheduledAt: fields.scheduledAt,
     createdAt: 1,
     finishedAt: fields.status === 'finished' ? fields.scheduledAt + 3 * HOUR : null,
-    gameFormat: 'ffa-individual',
-    poolingPhase: 'qual-table',
-    scheduleLogic: 'single-elimination',
-    unitCount: 37,
+    gameFormat,
+    poolingPhase,
+    scheduleLogic,
+    unitCount,
     ...(fields.winners ? { winners: fields.winners } : {}),
   };
+}
+
+/** The Setup form of a fixture: as the organiser left it, or as the generated schedule snapshotted it. */
+export function setupOf(fixture: FixtureTournament): PersistedSetup {
+  return createDefaultSetup(fixture.setup ?? fixture.state.settings);
+}
+
+/** A fixture's index entry, described by its own settings and roster. */
+export function fixtureIndexEntry(fixture: FixtureTournament): Record<string, unknown> {
+  const { gameFormat, poolingPhase, scheduleLogic, unitCount } = buildTournamentSummary(
+    fixture.state,
+    setupOf(fixture),
+  );
+  return indexEntry(fixture.state.title, {
+    status: fixture.status,
+    started: fixture.state.started,
+    scheduledAt: scheduledAtOf(fixture),
+    description: { gameFormat, poolingPhase, scheduleLogic, unitCount },
+  });
 }
 
 /** The Tournaments list: one ongoing tournament, two upcoming (one starting soon, one test run) and two finished. */

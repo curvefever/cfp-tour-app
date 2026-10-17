@@ -2,8 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 import {
   fixtureTournaments,
-  indexEntry,
-  scheduledAtOf,
+  fixtureIndexEntry,
   STANDINGS_TABS,
   storedState,
   tournamentListIndex,
@@ -122,15 +121,8 @@ async function captureExitPopup(page: Page, fixtureId: string, nth: number, widt
 }
 
 function servedFor(fixture: FixtureTournament): ServedPage {
-  const started = fixture.state.started;
   return {
-    index: {
-      [fixture.id]: indexEntry(fixture.state.title, {
-        status: fixture.status,
-        started,
-        scheduledAt: scheduledAtOf(fixture),
-      }),
-    },
+    index: { [fixture.id]: fixtureIndexEntry(fixture) },
     stored: { [fixture.id]: storedState(fixture) },
     screenshots: Object.fromEntries(
       (fixture.screenshotIds ?? []).map((id, index) => [id, lobbyPicture(index)]),
