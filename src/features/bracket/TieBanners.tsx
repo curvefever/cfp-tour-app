@@ -11,7 +11,8 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 export function TieBanners({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const ties = getAllTies(state, state.curRound);
-  const poolingRound = isPoolingRound(state.rounds[state.curRound]);
+  const round = state.rounds[state.curRound];
+  const poolingRound = round ? isPoolingRound(round) : false;
   return Object.entries(ties)
     .filter(([key, tie]) => !isTieResolved(key, tie, state))
     .map(([key, tie]) => {

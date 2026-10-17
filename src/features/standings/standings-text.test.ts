@@ -227,8 +227,8 @@ describe('sharesWholePercent', () => {
 
   it('treats totals that show the same points as equal, whatever the order they were summed in', () => {
     const flags = sharesWholePercent([
-      { points: 19 / 3 + 8 + 5, share: 1.2 },
-      { points: 5 + 19 / 3 + 8, share: 1.2 },
+      { points: 19 / 3 + 6.5 + 25 / 3, share: 1.2 },
+      { points: 25 / 3 + 19 / 3 + 6.5, share: 1.2 },
     ]);
     expect(flags).toEqual([true, true]);
   });

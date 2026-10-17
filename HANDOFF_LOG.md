@@ -6,6 +6,52 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Shared points for a tie in a pooling room (done — 2026-10-17)
+
+Plan: `plans/2026-10-17-shared-points.md` (planner/reviewer and implementer sessions; three stages, one commit each, plus the docs).
+
+**Why.** When units in a pooling room had the same score, the admin had to pick who ranks next, so one got 5 points and the other 4. The organiser wanted a third choice: **share the points** (4.5 each), the "=2nd" of a draw.
+
+**Organiser decisions (2026-10-17).**
+- Every pooling round: warm-ups (no pooling phase), qualification table, Swiss and group stage. Never an elimination round, Kings Valley, a waterfall graph round, Semis or the Final (a cut needs an order).
+- Not automatic: a third button on the room tie card, next to the "ranks next" buttons.
+- Every tied unit not yet ranked shares; the admin can rank some first and share the rest (A, B, C tied at 2nd: "A ranks next", then share: A 2nd, B and C =3rd).
+- The value is the exact average of the points the shared places earn (FFA Standard, max room 8, places 2–3: 6.5; Custom `10,8,6,5,…`, places 2–4: 19/3). Nothing is rounded in the state; displays show one decimal only when fractional ("6.5", "6.3" for 6.333…), whole numbers as before.
+- Head-to-head (Swiss, group stage): a share is a draw, 1.5 each under Standard points, the average of the table's first two values under Custom.
+- Warm-ups have no points: a share shows "=2" and puts the shared units in the same seeding tier. In every pooling round shared units go to the tier of the shared place.
+- Cleared by a score edit, as "ranks next" is, and also when another unit joins the tied score.
+- Display: "=2" on room cards, "=2nd" where places are ordinals (Standings Rank cell, Rankings "where" line and its image, the folded-round box).
+
+**Planner decisions, open to correction.**
+- **Storage: a marker inside the existing tie list.** `tieResolutions[key]` stays `string | string[]`; a shared tie is `[...ranked, '#shared', ...shared]` (`SHARED_TIE_MARK`, `scoring.ts`). A unit name can never contain `#` (`findUnstorableNames`), and the marker is a Firebase value, not a key, so `firebase-marshal.ts` needed no change. A separate state field was rejected because every cleanup path that drops or renames a tie list (redraw, line-up edit, waterfall live edit, rename, removal, resets) would have needed to learn about it; with the marker they all keep working untouched. Only `scoring.ts` knows the encoding (`readTieResolution`; `tieResolutionList` returns the ranked part, so cut-off ties are unaffected), and `shareTiedPoints` (`mutations.ts`) writes it. The one writer that round-tripped a list through `tieResolutionList` was `removeRosterUnit`; it now filters the raw stored value.
+- **One helper for places.** `orderRoomWithPlaces` returns each unit with its place and `sharedBy`; `orderRoomByScore` is `orderRoomWithPlaces(...).map(entry)`, so ordering stays in one place. A shared list counts only while two or more of its names are still in the tie.
+- **Exact average, rounded only for display.** `formatStandingValue` rounds to tenths. Because totals are now floating-point sums, `sameStanding` and `compareStandings` compare points with `samePoints` (tolerance 1e-9, shared with the room-share tolerance, renamed `EQUALITY_TOLERANCE`) instead of `===`.
+- **One predicate for pooling rounds.** `isPoolingRound` (`pooling.ts`) replaces the two private copies in `lineup-edit.ts` and `live-advancement-edit.ts`; no Final or Semis round is ever built with a pooling flag, so the added guard changes nothing there.
+- `StandingRoundResult.shared` is set only when a place was shared (conditional spread: Firebase rejects `undefined`, and old snapshots stay identical).
+
+**Commits.**
+1. `a0ad9c0` Domain: storage, places, points, tiers (`scoring.ts`, `advancement.ts`, `mutations.ts`, `pooling.ts`, `types.ts`).
+2. `f48e5c5` UI: the "Share points" button (`TieBanners.tsx`, pooling rooms only), "=2" and fractional points on room cards, "=2nd" in Standings, Rankings and the folded-round box (`placeInRoom` now returns `{ place, shared }`; `placeOrdinal` in `lib/ordinal.ts`). "=2" fits the 18 px place slot (14.2 px at 13 px bold); "=10" would not (21.2 px) but a room has at most 8 places, so the slot stayed.
+3. The close-out commit (this entry, `rules.md`, `seeding.md`, `views.md`; the float-noise test fix in `standings-text.test.ts`; the `TieBanners` guard for a missing round).
+
+### Testing
+- Domain: `scoring.test.ts` (`readTieResolution`, `orderRoomWithPlaces` for a 2-way share, a 3-way share, pick-then-share and a stale share; `formatStandingValue`), `advancement.test.ts` (37 players: 2-way share at 2nd gives 6.5 each and 4th still earns 5, 3-way share gives 6; 43 players: one ranked, two sharing 5.5; Custom table 19/3; float-noise equality; `hasPendingTies`; invalidation on a leaving unit, a joining unit and an edit elsewhere; Swiss 53 and group stage 31 draws give 1.5 under Standard and 2 under Custom `3,1`; a 31-player warm-up puts both shared units in tier 1), `mutations.test.ts` (`shareTiedPoints` refusals, `resolveTournamentTie` refusing a shared key, rename and unrelated removal keeping the share, marshal round trip), `transitions.test.ts` (a warm-up tie blocks Next Round until shared).
+- UI helpers: `standings-text.test.ts`, `folded-round.test.ts`, `ranking-where.test.ts`, `room-points.test.ts`. The tie card and room row have no component tests (`docs/platform.md`, "Tests"); the live check covers them.
+- Reviewer's mutation checks on stage 1: 9 of 10 caught; the survivor was the `sharedNames.length >= 2` guard (without it a lone leftover shared name only changes the order among unranked units, and a score edit clears a stale share first), left as is. The review found the float-noise `sharesWholePercent` test did not exercise float noise (`19/3 + 8 + 5` equals `5 + 19/3 + 8`); it now uses `19/3 + 6.5 + 25/3` and `25/3 + 19/3 + 6.5`, which differ in the last bit, and fails with the key reverted to `${unit.points}`.
+- No follow-text test with "· =2nd": `followBannerText` only reads a place for non-pooling rounds, where no share can exist.
+
+### Out of scope
+- Sharing in elimination rounds, Kings Valley, waterfall graph rounds, Semis and the Final (a cut needs an order).
+- Sharing at a standings cut-off tie (the orange card): it decides who goes through, so it keeps its pick buttons.
+- Automatic sharing of every tie.
+- An "undo share" button: a score edit clears it, as with "ranks next"; an undo for both is a separate idea.
+- Rounding stored shared points to one decimal.
+- Phone layouts of the tie card (visual redesign phase G).
+- A place in the follow banner for pooling rooms (it shows the standings position there).
+- Re-routing after a score correction in double elimination / waterfall.
+
+---
+
 ## A late joiner is seeded as an average unit and shown before Next Round (done — 2026-10-16)
 
 Plan: `plans/2026-10-16-adding-players.md`, "Plan B2" (stages 5–7, same planner/reviewer and implementer sessions; follows the late-joiner build above).
