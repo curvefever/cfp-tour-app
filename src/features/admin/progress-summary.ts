@@ -3,7 +3,7 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import { getFinalUnitScore, getUnitScore, roundHasAnyScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { plural } from './setup/plural';
-import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
+import { currentColumn, isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 export type StageState = 'done' | 'now' | 'upcoming';
 
@@ -93,13 +93,20 @@ function roundProgress(rooms: RoomProgress[]): { text: string; fraction: number 
 export function progressSummary(state: TournamentState): ProgressSummary {
   const labels = bracketRoundLabels(state).map((entry) => entry.label);
   const finished = computeRankings(state)?.finalComplete ?? false;
-  const rooms = roomsOf(state, state.curRound);
+  const { start, end } = currentColumn(state);
+  const columnRounds = Array.from({ length: end - start + 1 }, (_, offset) => start + offset);
+  // A column of several rounds lists every room under its round's name; the line names the column by its rounds.
+  const rooms = columnRounds.flatMap((index) =>
+    roomsOf(state, index).map((room) =>
+      columnRounds.length > 1 ? { ...room, name: `${labels[index]} · ${room.name}` } : room,
+    ),
+  );
   const stages = labels.map((name, index): ProgressStage => {
     if (isRoundDone(state, index)) return { name, state: 'done' };
     if (!isRoundReached(state, index)) return { name, state: 'upcoming' };
     return { name, state: finished ? 'done' : 'now' };
   });
-  const roundName = labels[state.curRound] ?? '';
+  const roundName = columnRounds.map((index) => labels[index] ?? '').join(' + ');
   if (finished) return { roundName, text: `${roundName} · complete`, fraction: 1, stages, rooms };
   const { text, fraction } = roundProgress(rooms);
   return { roundName, text: `${roundName} · ${text}`, fraction, stages, rooms };

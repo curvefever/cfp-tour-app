@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
+import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
 import { progressSummary } from './progress-summary';
 
 function ffa37(): TournamentState {
@@ -113,5 +114,40 @@ describe('progressSummary', () => {
     expect(summary.text).toBe('Final · complete');
     expect(summary.fraction).toBe(1);
     expect(summary.stages.every((stage) => stage.state === 'done')).toBe(true);
+  });
+});
+
+describe('progressSummary -- a waterfall column of two rounds', () => {
+  function inBracket(): TournamentState {
+    let state = liveTournament(19);
+    for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
+      const result = advanceTournamentRound(scoreCurrentRound(state, 2));
+      if (result.status !== 'advanced') throw new Error('could not advance');
+      state = result.state;
+    }
+    return state;
+  }
+
+  it('names the column by its rounds, lists every room under its round, and marks both rounds as now', () => {
+    const start = inBracket();
+    const summary = progressSummary(start);
+    expect(summary.roundName).toBe('Round 5 Upper + Round 5 Lower');
+    expect(summary.text).toBe('Round 5 Upper + Round 5 Lower · 0 of 4 rooms scored');
+    expect(summary.rooms.map((room) => room.name)).toEqual([
+      'Round 5 Upper · Room A',
+      'Round 5 Upper · Room B',
+      'Round 5 Lower · Room A',
+      'Round 5 Lower · Room B',
+    ]);
+    const now = summary.stages.filter((stage) => stage.state === 'now').map((stage) => stage.name);
+    expect(now).toEqual(['Round 5 Upper', 'Round 5 Lower']);
+    expect(summary.stages.find((stage) => stage.name === 'Semi A')?.state).toBe('upcoming');
+  });
+
+  it('counts a room scored in the second round', () => {
+    const start = inBracket();
+    const lower = start.curRound + 1;
+    const scored = { ...scoreCurrentRound({ ...start, curRound: lower }, 2), curRound: start.curRound };
+    expect(progressSummary(scored).text).toBe('Round 5 Upper + Round 5 Lower · 2 of 4 rooms scored');
   });
 });

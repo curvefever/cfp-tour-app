@@ -4,7 +4,7 @@ import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
-import type { TournamentState } from '../types';
+import type { TournamentState, TournamentTeam } from '../types';
 import { fixedIdSource } from './test-fixtures';
 import { scoreCurrentRound } from './play-through';
 
@@ -216,3 +216,53 @@ R2.A: 1-4->Final, 5-7->eliminated
 R2.B: 1-4->Final, 5-7->eliminated
 `,
 };
+
+/** The live tournament's graph: 2v2v2v2 Survival Teams, two rooms of 4 each at the start, spaced names. */
+export const LIVE_GRAPH = `
+ROUNDS:
+Round 5 Upper = 2x4
+Round 5 Lower = 2x4
+Semi A = 4
+Round 6 = 2x4
+Round 7 = 4
+Semi-B = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->Round 5 Upper, 9-16->Round 5 Lower
+Round 5 Upper.A: 1-2->Semi A, 3-4->Round 6
+Round 5 Upper.B: 1-2->Semi A, 3-4->Round 6
+Round 5 Lower.A: 1-2->Round 6
+Round 5 Lower.B: 1-2->Round 6
+Semi A: 1-2->Final, 3-4->Semi-B
+Round 6.A: 1-2->Round 7
+Round 6.B: 1-2->Round 7
+Round 7: 1-2->Semi-B
+Semi-B: 1-2->Final
+`;
+
+/** Teams of two, for the live tournament's 2v2v2v2 format. */
+export function teams(count: number): TournamentTeam[] {
+  return Array.from({ length: count }, (_, index) => ({
+    teamId: `t${index + 1}`,
+    teamName: `Team ${index + 1}`,
+    members: [{ name: `a${index}` }, { name: `b${index}` }],
+  }));
+}
+
+/** The live tournament's shape: 2v2v2v2 teams, three qualification rounds, the live graph. */
+export function liveTournament(teamCount: number): TournamentState {
+  const result = generateTournament(
+    createDefaultTournamentState({ confirmedCount: teamCount, players: teams(teamCount) }),
+    createDefaultSetup({
+      gameFormat: 'team-2v2v2v2',
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      qualAdv: '99',
+      waterfallGraph: LIVE_GRAPH,
+    }),
+    createTournamentRuntime({ ids: fixedIdSource() }),
+  );
+  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+  return { ...result.state, started: true };
+}

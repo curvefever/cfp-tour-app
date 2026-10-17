@@ -174,3 +174,26 @@ describe('Players tab, drawn rooms and the start', () => {
     expect(view.queryAllByText(/Round 1 ·/).length).toBeGreaterThan(0);
   });
 });
+
+describe('Bracket tab, a waterfall column of two rounds', () => {
+  const column = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'waterfall-column-19');
+    if (!fixture) throw new Error('the waterfall-column-19 fixture is missing');
+    return fixture;
+  };
+
+  it('shows both rounds of the current column under their own title bars, with one NOW pill', () => {
+    const view = renderApp(column(), { role: 'viewer', tab: 'bracket' });
+
+    expect(view.queryAllByRole('heading', { name: 'Round 5 Upper' })).toHaveLength(1);
+    expect(view.queryAllByRole('heading', { name: 'Round 5 Lower' })).toHaveLength(1);
+    expect(view.queryAllByText('NOW')).toHaveLength(1);
+  });
+
+  it('shows an admin the same column with its score fields', () => {
+    const view = renderApp(column(), { role: 'admin', tab: 'bracket' });
+
+    expect(view.queryAllByRole('heading', { name: 'Round 5 Lower' })).toHaveLength(1);
+    expect(view.queryAllByRole('button', { name: /Next Round/ }).length).toBeGreaterThan(0);
+  });
+});

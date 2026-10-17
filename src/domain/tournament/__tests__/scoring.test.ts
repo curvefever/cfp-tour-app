@@ -1,4 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { currentColumn } from '../round-columns';
+import { advanceTournamentRound } from '../transitions';
+import type { TournamentState } from '../types';
+import { buildState, scoreCurrentRound as scoreRound } from './play-through';
+import { liveTournament } from './qual-waterfall';
 import {
   formatStandingValue,
   getDefenderIndex,
@@ -10,6 +15,7 @@ import {
   positionalPoints,
   readTieResolution,
   SHARED_TIE_MARK,
+  unscoredRooms,
   SCORING_SYSTEM_OPTION_LABELS,
   scoredTeamSize,
   scoreKeysForPosition,
@@ -383,5 +389,103 @@ describe('orderRoomWithPlaces', () => {
 
   it('ignores a share that no longer matches two units of the tie', () => {
     expect(places(room(10, 10), [SHARED_TIE_MARK, 'P1', 'GONE'])).toEqual(['P1:1/1', 'P2:2/1']);
+  });
+});
+
+describe('unscoredRooms', () => {
+  const entered = () => {
+    let state = liveTournament(19);
+    for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
+      const result = advanceTournamentRound(scoreRound(state, 2));
+      if (result.status !== 'advanced') throw new Error('could not advance');
+      state = result.state;
+    }
+    return state;
+  };
+  const indexOf = (state: TournamentState, label: string) =>
+    state.rounds.findIndex((round) => round.customLabel === label);
+  const scoreAll = (state: TournamentState) => {
+    let scored = state;
+    for (let index = state.curRound; index <= currentColumn(state).end; index += 1) {
+      scored = { ...scoreRound({ ...scored, curRound: index }, 2), curRound: state.curRound };
+    }
+    return scored;
+  };
+  const withoutRoom = (state: TournamentState, roundIndex: number, room: number): TournamentState => ({
+    ...state,
+    scores: Object.fromEntries(
+      Object.entries(state.scores).filter(([key]) => !key.startsWith(`r${roundIndex}-rm${room}-`)),
+    ),
+  });
+
+  it('is empty for a fully scored column', () => {
+    expect(unscoredRooms(scoreAll(entered()))).toEqual([]);
+  });
+
+  it('lists every room of a column of two rounds when nothing is scored', () => {
+    const start = entered();
+    const upper = indexOf(start, 'Round 5 Upper');
+    const lower = indexOf(start, 'Round 5 Lower');
+    expect(unscoredRooms(start)).toEqual([
+      { roundIndex: upper, room: 1 },
+      { roundIndex: upper, room: 2 },
+      { roundIndex: lower, room: 1 },
+      { roundIndex: lower, room: 2 },
+    ]);
+  });
+
+  it('finds the one room of the column with no score: Round 5 Lower room B', () => {
+    const start = entered();
+    const lower = indexOf(start, 'Round 5 Lower');
+    expect(unscoredRooms(withoutRoom(scoreAll(start), lower, 2))).toEqual([{ roundIndex: lower, room: 2 }]);
+  });
+
+  it('counts a room as scored once any one score is in', () => {
+    const start = entered();
+    const lower = indexOf(start, 'Round 5 Lower');
+    const full = scoreAll(start);
+    const oneKey = Object.keys(full.scores).find((key) => key.startsWith(`r${lower}-rm2-`)) as string;
+    const oneScore = {
+      ...withoutRoom(full, lower, 2),
+      scores: { ...withoutRoom(full, lower, 2).scores, [oneKey]: full.scores[oneKey] },
+    };
+    expect(unscoredRooms(oneScore)).toEqual([]);
+  });
+
+  it('ignores a room of one unit', () => {
+    const start = entered();
+    const lower = indexOf(start, 'Round 5 Lower');
+    const keepFirstOfRoom2 = start.assignments[lower].filter(
+      (entry, index, all) => entry.room !== 2 || all.findIndex((other) => other.room === 2) === index,
+    );
+    const lone = {
+      ...start,
+      assignments: start.assignments.map((entries, index) => (index === lower ? keepFirstOfRoom2 : entries)),
+    };
+    expect(unscoredRooms(withoutRoom(scoreAll(lone), lower, 2))).toEqual([]);
+  });
+
+  it('asks about one unscored room of a single-round pooling round (37 FFA players)', () => {
+    const start = buildState({
+      label: 'ffa 37',
+      count: 37,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '24',
+      },
+    });
+    if (!start) throw new Error('generation failed');
+    const scored = scoreRound(start, 0);
+    expect(unscoredRooms(scored)).toEqual([]);
+    expect(unscoredRooms(withoutRoom(scored, 0, 5))).toEqual([{ roundIndex: 0, room: 5 }]);
+  });
+
+  it('leaves the Final out: it ends with Finish, not Next Round', () => {
+    const start = entered();
+    const final = start.rounds.findIndex((round) => round.isFinal);
+    expect(unscoredRooms({ ...start, curRound: final })).toEqual([]);
   });
 });

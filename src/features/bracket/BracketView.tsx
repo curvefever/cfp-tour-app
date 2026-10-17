@@ -21,6 +21,8 @@ import { FollowBanner } from './FollowBanner';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
 import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
+import { unscoredRooms } from '../../domain/tournament/scoring';
+import { unscoredRoomsMessage } from './next-round-warning';
 
 export function BracketView() {
   const app = useTournamentApp();
@@ -65,6 +67,8 @@ export function BracketView() {
     // result instead of throwing, but this guards against any
     // future/unanticipated throw deep in the advancement logic crashing the
     // whole Bracket view mid-tournament.
+    const unscored = unscoredRooms(app.state);
+    if (unscored.length > 0 && !window.confirm(unscoredRoomsMessage(app.state, unscored))) return;
     let result;
     try {
       result = advanceTournamentRound(app.state);

@@ -1,5 +1,6 @@
 import { getGameFormat } from './formats';
 import { buildTeamMap } from './roster';
+import { currentColumn } from './round-columns';
 import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
 function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
@@ -278,4 +279,35 @@ export function roundHasAnyScore(
   }
   const prefix = `r${roundIndex}-`;
   return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
+}
+
+/** A room of the column in play with no score entered yet. */
+export interface UnscoredRoom {
+  roundIndex: number;
+  room: number;
+}
+
+/**
+ * The rooms of the column in play that hold two or more units and have no score entered at all (any game of
+ * any unit counts as a score). A room of one unit routes uncontested and never counts; the Final ends with
+ * Finish, not Next Round, so it is left out.
+ */
+export function unscoredRooms(state: TournamentState): UnscoredRoom[] {
+  const { start, end } = currentColumn(state);
+  const unscored: UnscoredRoom[] = [];
+  for (let roundIndex = start; roundIndex <= end; roundIndex += 1) {
+    if (state.rounds[roundIndex]?.isFinal) continue;
+    const sizes = new Map<number, number>();
+    for (const entry of state.assignments[roundIndex] ?? []) {
+      if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
+    }
+    for (const [room, size] of [...sizes].sort((first, second) => first[0] - second[0])) {
+      const prefix = `r${roundIndex}-rm${room}-`;
+      const scored = Object.entries(state.scores).some(
+        ([key, value]) => key.startsWith(prefix) && value !== null,
+      );
+      if (size >= 2 && !scored) unscored.push({ roundIndex, room });
+    }
+  }
+  return unscored;
 }

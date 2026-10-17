@@ -1,4 +1,4 @@
-import { roomLetter } from '../../domain/tournament/bracket';
+import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -51,6 +51,30 @@ export function placeInRoom(
   );
   const found = ordered.find((item) => item.entry.name === name);
   return found ? { place: found.place, shared: found.sharedBy > 1 } : null;
+}
+
+/**
+ * What a folded column shows: the rooms of all its rounds, done when the column is, and the followed unit
+ * from whichever round it played; its line names the round ("Round 5 Lower · Room B · 2nd") when the
+ * column holds more than one.
+ */
+export function foldedColumnSummary(
+  state: TournamentState,
+  roundIndices: number[],
+  followKey: string | null,
+): FoldedRoundSummary {
+  const parts = roundIndices.map((index) => foldedRoundSummary(state, index, followKey));
+  const played = parts.findIndex((part) => part.followed !== null);
+  const followed = played === -1 ? null : parts[played].followed;
+  const label = bracketRoundLabels(state)[roundIndices[played]]?.label;
+  return {
+    rooms: parts.reduce((total, part) => total + part.rooms, 0),
+    done: parts.every((part) => part.done),
+    followed:
+      followed && roundIndices.length > 1 && label
+        ? { ...followed, detail: `${label} · ${followed.detail}` }
+        : followed,
+  };
 }
 
 /** What a folded round shows: how many rooms it had, whether it is done, and where the followed unit stood. */

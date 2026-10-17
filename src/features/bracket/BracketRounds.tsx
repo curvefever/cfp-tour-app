@@ -16,7 +16,7 @@ import { StandingsColumn } from './StandingsColumn';
 import { AnonymousFinalCard } from './AnonymousFinalCard';
 import { ColumnTitleBar } from './ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
-import { type FoldedRoundSummary, foldedRoundSummary } from './folded-round';
+import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import { isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
@@ -214,6 +214,46 @@ export function BracketRounds({
       </Fragment>
     );
   }
+  /**
+   * A waterfall column of several rounds, played together: one column whose title bar is the first round's,
+   * then each further round under a title bar of its own (name and games, no NOW pill and no fold control).
+   */
+  function renderColumn(box: Extract<BracketBox, { kind: 'column' }>) {
+    const [first, ...others] = box.roundIndices;
+    const collapsed = collapse?.[first] ?? bracketRoundDefaultCollapsed(state, first);
+    const bodyOf = (roundIndex: number) => (
+      <RoundBody
+        state={state}
+        roundIndex={roundIndex}
+        editable={editable}
+        followKey={followKey}
+        projected={projectedSlots[roundIndex] ?? null}
+        labels={labels}
+      />
+    );
+    return (
+      <RoundColumn
+        collapsed={collapsed}
+        current={isCurrentRound(state, first)}
+        folded={foldedColumnSummary(state, box.roundIndices, followKey)}
+        gameCount={roundGameCount(state, first)}
+        key={first}
+        label={labels[first]?.label ?? ''}
+        onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
+      >
+        {bodyOf(first)}
+        {others.map((roundIndex) => (
+          <div className='flex flex-col gap-4.5' key={roundIndex}>
+            <ColumnTitleBar
+              gameCount={roundGameCount(state, roundIndex)}
+              title={labels[roundIndex]?.label ?? ''}
+            />
+            <div className='flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
+          </div>
+        ))}
+      </RoundColumn>
+    );
+  }
   function renderWave(box: Extract<BracketBox, { kind: 'wave' }>) {
     const constituents = [box.winnersRoundIndex, ...box.losersRoundIndices];
     const lastIndex = Math.max(...constituents);
@@ -250,7 +290,8 @@ export function BracketRounds({
         ref={strip}
       >
         {boxes.map((box) => {
-          if (box.kind !== 'single') return renderWave(box);
+          if (box.kind === 'column') return renderColumn(box);
+          if (box.kind === 'wave') return renderWave(box);
           if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)
             return renderSingle(box.roundIndex);
           return (

@@ -3,7 +3,8 @@ import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__
 import { removeRosterUnit, shareTiedPoints } from '../../domain/tournament/mutations';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
-import { foldedRoundSummary } from './folded-round';
+import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
+import { foldedColumnSummary, foldedRoundSummary } from './folded-round';
 
 const FFA = {
   gameFormat: 'ffa-individual',
@@ -104,5 +105,49 @@ describe('foldedRoundSummary: a shared place', () => {
     expect(detail(names[1])).toBe('Room A · =2nd');
     expect(detail(names[2])).toBe('Room A · =2nd');
     expect(detail(names[3])).toBe('Room A · 4th');
+  });
+});
+
+describe('foldedColumnSummary -- a waterfall column of two rounds', () => {
+  function inBracket(): TournamentState {
+    let state = liveTournament(19);
+    for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
+      state = advanced2(state);
+    }
+    return state;
+  }
+  function advanced2(state: TournamentState): TournamentState {
+    const result = advanceTournamentRound(scoreCurrentRound(state, 2));
+    if (result.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+  const start = inBracket();
+  const upper = start.curRound;
+  const column = [upper, upper + 1];
+
+  it('counts the rooms of every round of the column, and is not done while it is in play', () => {
+    expect(foldedColumnSummary(start, column, null)).toEqual({ rooms: 4, done: false, followed: null });
+  });
+
+  it('is done once the column has been advanced from', () => {
+    let scored = start;
+    for (const index of column)
+      scored = { ...scoreCurrentRound({ ...scored, curRound: index }, 2), curRound: start.curRound };
+    const next = advanceTournamentRound(scored);
+    if (next.status !== 'advanced') throw new Error('expected an advance');
+    expect(foldedColumnSummary(next.state, column, null)).toMatchObject({ rooms: 4, done: true });
+  });
+
+  it('names the round in the line of a followed unit that played the second round', () => {
+    const lowerUnit = (start.assignments[upper + 1] ?? []).find((entry) => entry.room === 2)?.name ?? '';
+    const scored = { ...scoreCurrentRound({ ...start, curRound: upper + 1 }, 2), curRound: upper };
+    const followed = foldedColumnSummary(scored, column, lowerUnit).followed;
+    expect(followed?.detail).toMatch(/^Round 5 Lower · Room B( · \d+(st|nd|rd|th))?$/);
+    expect(followed?.room).toBe(2);
+  });
+
+  it('keeps the plain line for a column of one round', () => {
+    const unit = (start.assignments[upper] ?? []).find((entry) => entry.room === 1)?.name ?? '';
+    expect(foldedColumnSummary(start, [upper], unit).followed?.detail).toBe('Room A');
   });
 });

@@ -433,6 +433,48 @@ function waterfallQual(): TournamentState {
   );
 }
 
+const COLUMN_GRAPH = `
+ROUNDS:
+Round 5 Upper = 2x4
+Round 5 Lower = 2x4
+Semi A = 4
+Round 6 = 2x4
+Round 7 = 4
+Semi-B = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->Round 5 Upper, 9-16->Round 5 Lower
+Round 5 Upper.A: 1-2->Semi A, 3-4->Round 6
+Round 5 Upper.B: 1-2->Semi A, 3-4->Round 6
+Round 5 Lower.A: 1-2->Round 6
+Round 5 Lower.B: 1-2->Round 6
+Semi A: 1-2->Final, 3-4->Semi-B
+Round 6.A: 1-2->Round 7
+Round 6.B: 1-2->Round 7
+Round 7: 1-2->Semi-B
+Semi-B: 1-2->Final
+`;
+
+/** The live tournament's shape: 2v2v2v2 teams, the graph with spaced names, in column 1 with scores in Round 5 Lower only. */
+function waterfallColumn(): TournamentState {
+  const start = generate(
+    19,
+    {
+      gameFormat: 'team-2v2v2v2',
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      qualAdv: '99',
+      waterfallGraph: COLUMN_GRAPH,
+    },
+    2,
+  );
+  const inBracket = playUntil(start, (round) => Boolean(round.isWaterfall), 1);
+  const lower = inBracket.rounds.findIndex((round) => round.customLabel === 'Round 5 Lower');
+  const scored = scoreCurrentRound({ ...inBracket, curRound: lower }, { seed: 12 });
+  return { ...scored, curRound: inBracket.curRound };
+}
+
 type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;
 
 /** A tournament before Confirm & Start, as the app stores it after Load roster: the roster and its format, nothing generated. */
@@ -515,6 +557,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
+    entry('waterfall-column-19', waterfallColumn()),
     entry('upcoming-info', upcoming(), {
       setup: FFA_SETUP,
       tabs: ['Info', 'Players'],

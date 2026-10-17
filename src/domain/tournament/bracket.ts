@@ -1,7 +1,7 @@
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import type { TournamentRound, TournamentState } from './types';
-import { isRoundReached, nextColumnStart, previousColumnStart } from './round-columns';
+import { isRoundReached, nextColumnStart, previousColumnStart, roundColumn } from './round-columns';
 
 interface BracketRoundLabel {
   label: string;
@@ -101,7 +101,8 @@ export function bracketRoundDefaultCollapsed(
 
 export type BracketBox =
   | { kind: 'single'; roundIndex: number }
-  | { kind: 'wave'; winnersRoundIndex: number; losersRoundIndices: number[] };
+  | { kind: 'wave'; winnersRoundIndex: number; losersRoundIndices: number[] }
+  | { kind: 'column'; roundIndices: number[] };
 
 /**
  * Splits a tournament's rounds into display boxes for Bracket view: a
@@ -119,7 +120,10 @@ export type BracketBox =
  * absorption, genuinely producing a wave with an empty `losersRoundIndices`).
  * This scan needs no format-specific branching to handle either shape.
  *
- * Everything not absorbed into a wave -- pre-bracket pooling rounds, and
+ * A waterfall column of two or more rounds (stored `waterfallColumn`) is one `column` box: its rounds
+ * are played together and shown stacked in one box. A waterfall round alone in its column is a `single` box.
+ *
+ * Everything not absorbed into a wave or a column -- pre-bracket pooling rounds, and
  * the terminal Final/Grand-Final (never tagged `winners`/`losers`, so it's
  * never absorbed) -- becomes its own `single` box, in original order.
  * Degenerates to "every round is its own `single` box, original order"
@@ -142,8 +146,17 @@ export function bracketBoxes(state: Pick<TournamentState, 'rounds'>): BracketBox
       boxes.push({ kind: 'wave', winnersRoundIndex: i, losersRoundIndices });
       i = j;
     } else {
-      boxes.push({ kind: 'single', roundIndex: i });
-      i += 1;
+      const { end } = roundColumn(rounds, i);
+      if (end > i) {
+        boxes.push({
+          kind: 'column',
+          roundIndices: Array.from({ length: end - i + 1 }, (_, offset) => i + offset),
+        });
+        i = end + 1;
+      } else {
+        boxes.push({ kind: 'single', roundIndex: i });
+        i += 1;
+      }
     }
   }
   return boxes;

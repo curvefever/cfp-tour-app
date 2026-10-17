@@ -11,9 +11,11 @@ import {
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
+import { advanceTournamentRound } from '../transitions';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
-import { buildQualWaterfall } from './qual-waterfall';
+import { buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
+import { scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource } from './test-fixtures';
 
 function project(rounds: TournamentRound[], curRound: number) {
@@ -739,5 +741,43 @@ describe('projectFutureRoundSlots -- a round fed by the qualification table (Qua
     const all = Object.values(projected).flatMap((rooms) => (rooms ?? []).flat().map(projectedSlotLabelText));
     expect(all).not.toContain('Qualifier from standings (seed TBD)');
     expect(all).toContain('Qualification #24');
+  });
+});
+
+/** The live tournament played to the start of its bracket. */
+function advanceWhile(start: TournamentState): TournamentState {
+  let state = start;
+  for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
+    const result = advanceTournamentRound(scoreTeamRound(state, 2));
+    if (result.status !== 'advanced') throw new Error('could not advance');
+    state = result.state;
+  }
+  return state;
+}
+
+describe('bracketBoxes -- a waterfall column of several rounds', () => {
+  it('makes the three qualification rounds singles, then a column per multi-round column and a single for each lone round', () => {
+    const bracket = advanceWhile(liveTournament(19));
+    expect(bracketBoxes(bracket).map((box) => box.kind)).toEqual([
+      'single',
+      'single',
+      'single',
+      'column',
+      'column',
+      'single',
+      'single',
+      'single',
+    ]);
+    const columns = bracketBoxes(bracket).filter((box) => box.kind === 'column');
+    const label = (index: number) => bracket.rounds[index].customLabel;
+    expect(columns.map((box) => box.roundIndices.map(label))).toEqual([
+      ['Round 5 Upper', 'Round 5 Lower'],
+      ['Semi A', 'Round 6'],
+    ]);
+  });
+
+  it('is one single box per round when no round has a stored column', () => {
+    const legacy = withoutColumns(advanceWhile(liveTournament(19)));
+    expect(bracketBoxes(legacy).every((box) => box.kind === 'single')).toBe(true);
   });
 });
