@@ -165,11 +165,12 @@ function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
 type RosterApp = Pick<ReturnType<typeof useTournamentApp>, 'runtime' | 'updateState'>;
 
 /**
- * Removes a unit from the roster. Before Confirm & Start, with a schedule drawn, the draw is redone for the
- * smaller roster; when it can't be, the unit is removed all the same and the organiser is told why.
+ * Removes a unit from the roster. Before Confirm & Start the roster count follows and, with a schedule
+ * drawn, the draw is redone for the smaller roster; when it can't be, the unit is removed all the same and
+ * the organiser is told why.
  */
 function removeUnit(state: TournamentState, key: string, label: string, app: RosterApp) {
-  if (state.started || !state.rounds.length) {
+  if (state.started) {
     app.updateState((current) => removeRosterUnit(current, key));
     return;
   }
