@@ -3,6 +3,7 @@ import { moveConfirmation } from './confirmations';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
+import { lateJoinersOf } from './late-joiners';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
@@ -779,9 +780,31 @@ function replacePendingUnit(state: TournamentState, oldKey: string, newKey: stri
   };
 }
 
-/** Seated in the current round, else waiting in a pending pool, else not in play (null). */
+/**
+ * A late joiner of the pooling round in play sits in no line-up yet, so there is no seat to hand over:
+ * only its ranking-table row and bye count move. The roster swap that follows puts the substitute in
+ * `players` unseated, so it is itself a late joiner, drawn in at the next advance. Null if the unit is
+ * not a late joiner of the round in play.
+ */
+function replaceLateJoiner(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
+  if (!lateJoinersOf(state, state.curRound).includes(oldKey)) return null;
+  return {
+    ...state,
+    qualTable: state.qualTable.filter((entry) => entry.name !== oldKey),
+    poolingByeCounts: movePoolingByeCount(state.poolingByeCounts, oldKey, newKey),
+  };
+}
+
+/**
+ * Seated in the current round, else waiting in a pending pool, else a late joiner of the pooling round
+ * in play, else not in play (null).
+ */
 function replaceUnitInPlay(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
-  return replaceAssignedUnit(state, oldKey, newKey) ?? replacePendingUnit(state, oldKey, newKey);
+  return (
+    replaceAssignedUnit(state, oldKey, newKey) ??
+    replacePendingUnit(state, oldKey, newKey) ??
+    replaceLateJoiner(state, oldKey, newKey)
+  );
 }
 
 /** Reserves can stand in for a no-show only until anyone has been eliminated, in every format. */

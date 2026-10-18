@@ -7,6 +7,8 @@ import {
   addWalkUpIndividual,
   missedCountedRounds,
   removeRosterUnit,
+  swapIndividual,
+  swapTeam,
   type ReserveAddResult,
 } from '../mutations';
 import { distributeRooms } from '../room-distribution';
@@ -325,6 +327,65 @@ describe('a late joiner team in 2v2v2v2, qualification table at 31 teams', () =>
     const next = playRound(joined, 2);
     expect(seated(next, 1, 'late')).toBe(1);
     expect(seatedCount(next, 1)).toBe(32);
+  });
+});
+
+describe('swapping a late joiner, who is in no room yet', () => {
+  const withdrawnAsSwapped = (state: TournamentState, name: string, replacedBy: string) =>
+    state.withdrawnUnits.filter(
+      (unit) => unit.name === name && unit.reason === 'swapped' && unit.replacedBy === replacedBy,
+    );
+
+  it('individual: the substitute is the late joiner of round 1 and is drawn into round 2', () => {
+    const joined = added(addWalkUpIndividual(build(37, FFA_QUAL), 'Late'));
+    const swapped = swapIndividual(joined, 'Late', 'Typed');
+    expect(swapped).not.toBe(joined);
+    expect(lateJoinersOf(swapped, 0)).toEqual(['Typed']);
+    expect(withdrawnAsSwapped(swapped, 'Late', 'Typed')).toHaveLength(1);
+    expectRoundInPlayUnchanged(joined, swapped);
+
+    const next = playRound(swapped);
+    expect(seated(next, 1, 'Typed')).toBe(1);
+    expect(seated(next, 1, 'Late')).toBe(0);
+    expect(seatedCount(next, 1)).toBe(38);
+  });
+
+  it('team: a reserve team swapped in for the joiner is drawn into round 2', () => {
+    const start = build(21, { gameFormat: 'team-2v2v2v2', poolingPhase: 'qual-table', qualAdv: '8' }, true);
+    const team = (teamId: string, teamName: string): TournamentTeam => ({
+      teamId,
+      teamName,
+      members: [{ name: `${teamId}a` }, { name: `${teamId}b` }],
+    });
+    const joined = added(
+      addReserveUnit(
+        { ...start, reserves: [team('late', 'Late Team'), team('spare', 'Spare Team')] },
+        'late',
+      ),
+    );
+    const swapped = swapTeam(joined, 'late', team('spare', 'Spare Team'));
+    expect(swapped).not.toBe(joined);
+    expect(lateJoinersOf(swapped, 0)).toEqual(['spare']);
+    expect(swapped.reserves).toEqual([]);
+    expect(withdrawnAsSwapped(swapped, 'late', 'spare')).toHaveLength(1);
+
+    const next = playRound(swapped, 2);
+    expect(seated(next, 1, 'spare')).toBe(1);
+    expect(seated(next, 1, 'late')).toBe(0);
+    expect(seatedCount(next, 1)).toBe(22);
+  });
+
+  it('a unit that is neither seated, pending nor a late joiner (cut at the standings) still can not be swapped', () => {
+    const inBracket = playRounds(build(37, FFA_QUAL), 3);
+    const seatedNames = new Set(inBracket.assignments[inBracket.curRound].map((entry) => entry.name));
+    const cut = (inBracket.players as string[]).find((name) => !seatedNames.has(name)) as string;
+    expect(lateJoinersOf(inBracket, inBracket.curRound)).toEqual([]);
+    expect(swapIndividual(inBracket, cut, 'Typed')).toBe(inBracket);
+  });
+
+  it('a name that is not on the roster at all is not a late joiner either, even in a pooling round', () => {
+    const start = build(37, FFA_QUAL);
+    expect(swapIndividual(start, 'Nobody', 'Typed')).toBe(start);
   });
 });
 
