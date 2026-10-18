@@ -131,6 +131,9 @@ export function generateTournament(
       'Load a roster first — click "Load roster & reserves" before generating a schedule.',
     );
   }
+  // The roster is the count of record: `confirmedCount` is only set when a roster is loaded, so a unit
+  // added or removed since then makes it stale.
+  const unitCount = rosterKeys(current.players).length;
   const format = getGameFormat(form.gameFormat);
   if (!format) return generationError('This game format is not available yet.');
   if (!rosterFitsFormat(current, form.gameFormat)) {
@@ -145,11 +148,11 @@ export function generateTournament(
   const formatRoomSize = deriveRoomSize(format);
   const floorMin = getMinimumBracketUnits(schedule, formatRoomSize);
   const unitPlural = format.unitLabelPlural.toLowerCase();
-  if (current.confirmedCount < floorMin) {
+  if (unitCount < floorMin) {
     const reason =
       schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${formatRoomSize.min})` : '';
     return generationError(
-      `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${current.confirmedCount}.`,
+      `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`,
     );
   }
 
@@ -158,9 +161,9 @@ export function generateTournament(
   const scoringVisible = form.poolingPhase !== 'none';
   const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
   const config: GeneratedTournamentConfig = {
-    n: current.confirmedCount,
+    n: unitCount,
     poolingPhase: form.poolingPhase,
-    qualAdv: current.confirmedCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
+    qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
     groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),

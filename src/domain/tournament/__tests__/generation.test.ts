@@ -47,7 +47,7 @@ describe('generateTournament -- validation failures', () => {
   });
 
   it('refuses when confirmedCount is below the format/schedule floor', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const state = createDefaultTournamentState({ confirmedCount: 10, players: names(10) });
     const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -58,7 +58,7 @@ describe('generateTournament -- validation failures', () => {
   });
 
   it('refuses a Kings Valley count below its floor with the unchanged wording', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const state = createDefaultTournamentState({ confirmedCount: 10, players: names(10) });
     const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'kings-valley' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result).toMatchObject({
@@ -71,7 +71,7 @@ describe('generateTournament -- validation failures', () => {
     // n=10 (even, passes a naive config.n check) but qualAdv clamps to 5
     // (odd) -- the number ACTUALLY entering the bracket. A validation that
     // only checked config.n would wrongly accept this.
-    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const state = createDefaultTournamentState({ confirmedCount: 10, players: names(10) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       scheduleLogic: 'single-elimination',
@@ -89,7 +89,7 @@ describe('generateTournament -- validation failures', () => {
   });
 
   it('rejects an empty "Advance to bracket" value instead of silently defaulting to 24', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -99,21 +99,21 @@ describe('generateTournament -- validation failures', () => {
   });
 
   it('rejects "0" for "Advance to bracket" instead of silently defaulting to 24', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '0' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
   });
 
   it('rejects a negative "Advance to bracket" value', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '-3' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
   });
 
   it('ignores qualAdv validation entirely when poolingPhase is "none"', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'none', qualAdv: '' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -122,7 +122,7 @@ describe('generateTournament -- validation failures', () => {
 
 describe('generateTournament -- non-counting rounds', () => {
   it('flags exactly the leading N rounds excludeFromStandings for a qual-table tournament (fixed at 3 rounds)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '2' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -155,7 +155,7 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 
   it('defaults to 0 non-counting rounds (every round counts) when the field is left blank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -164,7 +164,7 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 
   it('rejects a negative value instead of silently clamping to 0', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '-1' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -172,7 +172,7 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 
   it('rejects a value that would leave zero counting rounds (qual-table has only 3 rounds total)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', nonCountingRounds: '3' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -198,7 +198,7 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 
   it('ignores non-counting-rounds validation entirely for Group Stage -- it has its own separate standings mechanism', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
@@ -209,7 +209,7 @@ describe('generateTournament -- non-counting rounds', () => {
   });
 
   it('ignores non-counting-rounds validation entirely when poolingPhase is "none"', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'none', nonCountingRounds: '99' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -218,7 +218,7 @@ describe('generateTournament -- non-counting rounds', () => {
 
 describe('generateTournament -- pooling round-count override', () => {
   it('overrides the qual-table pooling phase to a non-default round count', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '5' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -240,7 +240,7 @@ describe('generateTournament -- pooling round-count override', () => {
   });
 
   it('defaults to the normal derived round count when the override field is left blank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: '' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -251,7 +251,7 @@ describe('generateTournament -- pooling round-count override', () => {
   it.each(['0', '-2', '13', 'abc'])(
     'rejects an out-of-range or non-numeric qual-table override ("%s")',
     (value) => {
-      const state = createDefaultTournamentState({ confirmedCount: 20 });
+      const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
       const form = createDefaultSetup({ poolingPhase: 'qual-table', qualRoundsOverride: value });
       const result = generateTournament(state, form, createTournamentRuntime());
       expect(result.status).toBe('invalid');
@@ -262,14 +262,14 @@ describe('generateTournament -- pooling round-count override', () => {
   );
 
   it('is ignored (never even parsed) when poolingPhase is not qual-table/swiss', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'none', qualRoundsOverride: 'garbage' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
   });
 
   it('feeds the overridden round count into non-counting-rounds validation, not the un-overridden default', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     // Default qual-table is 3 rounds, so nonCountingRounds:'2' would normally
     // pass -- but overriding down to 2 rounds means 2 non-counting rounds
     // would leave nothing that counts.
@@ -296,7 +296,10 @@ describe('generateTournament -- Group Stage format gating', () => {
   ] as const)(
     'refuses Group Stage for %s -- round-robin needs a head-to-head room shape',
     (gameFormat, confirmedCount, label) => {
-      const state = createDefaultTournamentState({ confirmedCount });
+      const state = createDefaultTournamentState({
+        confirmedCount,
+        players: rosterFor(gameFormat, confirmedCount),
+      });
       const form = createDefaultSetup({ gameFormat, poolingPhase: 'group-stage' });
       const result = generateTournament(state, form, createTournamentRuntime());
       expect(result.status).toBe('invalid');
@@ -326,7 +329,10 @@ describe('generateTournament -- Swiss format gating', () => {
   ] as const)(
     'refuses Swiss for %s -- fold-pairing needs a head-to-head room shape',
     (gameFormat, confirmedCount, label) => {
-      const state = createDefaultTournamentState({ confirmedCount });
+      const state = createDefaultTournamentState({
+        confirmedCount,
+        players: rosterFor(gameFormat, confirmedCount),
+      });
       const form = createDefaultSetup({ gameFormat, poolingPhase: 'swiss' });
       const result = generateTournament(state, form, createTournamentRuntime());
       expect(result.status).toBe('invalid');
@@ -349,7 +355,7 @@ describe('generateTournament -- Swiss format gating', () => {
 
 describe('generateTournament -- double-elimination format/odd-count-strategy gating', () => {
   it('refuses "double-elimination" for a non-head-to-head format', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'double-elimination' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -360,7 +366,7 @@ describe('generateTournament -- double-elimination format/odd-count-strategy gat
   });
 
   it('refuses "double-elimination" combined with the "flex" odd-count strategy -- the stale UI-desync scenario (odd-count-strategy changed after schedule logic was picked)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 16 });
+    const state = createDefaultTournamentState({ confirmedCount: 16, players: rosterFor('team-3v3', 16) });
     const form = createDefaultSetup({
       gameFormat: 'team-3v3',
       scheduleLogic: 'double-elimination',
@@ -381,7 +387,7 @@ describe('generateTournament -- double-elimination bracket-entry-count reachabil
     // units would enter the bracket phase, below double-elimination's own
     // floor of 2 winners-bracket rounds (needs at least 3, floored to 4 by
     // getMinimumBracketUnits's conservative flat minimum).
-    const state = createDefaultTournamentState({ confirmedCount: 6 });
+    const state = createDefaultTournamentState({ confirmedCount: 6, players: names(6) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       scheduleLogic: 'double-elimination',
@@ -398,7 +404,7 @@ describe('generateTournament -- double-elimination bracket-entry-count reachabil
   });
 
   it('refuses a Final size override for double-elimination-shared-final that needs more WB qualifiers than would actually enter the bracket', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 16 });
+    const state = createDefaultTournamentState({ confirmedCount: 16, players: names(16) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'double-elimination-shared-final',
@@ -467,7 +473,7 @@ describe('generateTournament -- double-elimination-shared-final + Group Stage / 
 
 describe('generateTournament -- elimination round-target override', () => {
   it('replaces the automatic curve for single-elimination with the exact supplied targets', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -485,7 +491,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('replaces the automatic curve for double-elimination-shared-final, respecting the winners-bracket-qualifiers floor', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 19 });
+    const state = createDefaultTournamentState({ confirmedCount: 19, players: names(19) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'ffa-individual',
@@ -505,7 +511,7 @@ describe('generateTournament -- elimination round-target override', () => {
   describe('a shared Final: the last target must be exactly the winners-bracket share', () => {
     const generateShared = (targets: string, finalOverride: string, lbQualifiers: string, count = 37) =>
       generateTournament(
-        createDefaultTournamentState({ confirmedCount: count }),
+        createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
         {
           ...createDefaultSetup({
             gameFormat: 'ffa-individual',
@@ -547,7 +553,7 @@ describe('generateTournament -- elimination round-target override', () => {
 
     it('leaves single elimination alone: a last target above the Semis size still generates', () => {
       const result = generateTournament(
-        createDefaultTournamentState({ confirmedCount: 37 }),
+        createDefaultTournamentState({ confirmedCount: 37, players: names(37) }),
         createDefaultSetup({
           gameFormat: 'ffa-individual',
           scheduleLogic: 'single-elimination',
@@ -560,7 +566,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('leaves the automatic curve untouched when the field is blank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({ gameFormat: 'ffa-individual', scheduleLogic: 'single-elimination' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -569,7 +575,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('rejects a non-numeric entry', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -581,7 +587,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('rejects an increasing sequence', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -593,7 +599,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('accepts a plateau (a round that eliminates no one)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -606,7 +612,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('rejects a first target exceeding the number of units entering the bracket phase', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -618,7 +624,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('rejects a last target below the Semis-size floor', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -633,7 +639,7 @@ describe('generateTournament -- elimination round-target override', () => {
   });
 
   it('is ignored for a schedule logic it does not apply to (Kings Valley)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'kings-valley',
@@ -646,7 +652,7 @@ describe('generateTournament -- elimination round-target override', () => {
 
 describe('generateTournament -- elimination seeding-weight override', () => {
   it('stamps the parsed mode onto each WB elimination round, index-aligned with the targets list', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -665,7 +671,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 
   it('rejects being set without elimination round targets also being set', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -679,7 +685,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 
   it('ignores stale seeding overrides when the schedule logic does not show the field (kings-valley, blank targets)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 23 });
+    const state = createDefaultTournamentState({ confirmedCount: 23, players: names(23) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'kings-valley',
@@ -690,7 +696,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 
   it('rejects a length mismatch against elimination round targets', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -705,7 +711,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 
   it('rejects an invalid mode keyword', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -720,7 +726,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
   });
 
   it('works for double-elimination-shared-final too, stamping only the WB rounds', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 19 });
+    const state = createDefaultTournamentState({ confirmedCount: 19, players: names(19) });
     const form = {
       ...createDefaultSetup({
         gameFormat: 'ffa-individual',
@@ -744,7 +750,7 @@ describe('generateTournament -- elimination seeding-weight override', () => {
 
 describe('generateTournament -- positional-points scoring', () => {
   it('ignores a stale positional-points selection when poolingPhase is "none" (its Setup field is hidden)', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       poolingPhase: 'none',
       scoring: 'positional-points',
@@ -758,7 +764,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it('rejects a blank points table', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', scoring: 'positional-points' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
@@ -766,7 +772,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it('rejects a non-numeric entry', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       poolingPhase: 'qual-table',
       scoring: 'positional-points',
@@ -778,7 +784,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it('rejects a table that increases from rank to rank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       poolingPhase: 'qual-table',
       scoring: 'positional-points',
@@ -790,7 +796,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it("rejects a table shorter than the format's largest possible room size", () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       poolingPhase: 'qual-table',
       scoring: 'positional-points',
@@ -802,7 +808,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it('accepts a valid table and wires it into gamemodeConfig alongside the scoring system', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       poolingPhase: 'qual-table',
       scoring: 'positional-points',
@@ -816,7 +822,7 @@ describe('generateTournament -- positional-points scoring', () => {
   });
 
   it('defaults to fairpoints scoring with no positionalPointsTable when the field is left blank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -835,7 +841,9 @@ describe('generateTournament -- fixed draw publication', () => {
     if (result.status !== 'generated') return;
     expect(result.state.gamemodeConfig.drawPublication).toBe('adaptive');
     // reserveOpen forced on so addReserveUnit reaches its fixed-draw check.
-    expect(addReserveUnit({ ...result.state, reserveOpen: true }, 'Reserve 1')).not.toMatchObject({
+    expect(
+      addReserveUnit({ ...result.state, reserveOpen: true, started: true }, 'Reserve 1'),
+    ).not.toMatchObject({
       status: 'blocked',
       reason: 'fixed-draw',
     });
@@ -905,7 +913,7 @@ describe('generateTournament -- fixed draw publication', () => {
   });
 
   it('defaults to adaptive draw publication when the field is left blank', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table' });
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('generated');
@@ -917,7 +925,7 @@ describe('generateTournament -- fixed draw publication', () => {
 
 describe('generateTournament -- Stage B numeric-input robustness', () => {
   it('refuses a negative Semis size override', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -932,7 +940,7 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
   });
 
   it('refuses a negative Final size override', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -948,7 +956,7 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
 
   it('refuses a Final size override exceeding the derived default Semis size when no Semis override is set', () => {
     // ffa-individual's default Semis size is 2 * roomSize.ideal = 16.
-    const state = createDefaultTournamentState({ confirmedCount: 20 });
+    const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -963,7 +971,7 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
   });
 
   it('refuses a Group size exceeding the upper bound', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const state = createDefaultTournamentState({ confirmedCount: 10, players: names(10) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
@@ -978,7 +986,7 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
   });
 
   it('refuses a negative Qualifiers per group', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 10 });
+    const state = createDefaultTournamentState({ confirmedCount: 10, players: names(10) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
@@ -993,7 +1001,7 @@ describe('generateTournament -- Stage B numeric-input robustness', () => {
   });
 
   it('refuses a negative Grand Final win target', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 16 });
+    const state = createDefaultTournamentState({ confirmedCount: 16, players: names(16) });
     const form = createDefaultSetup({
       gameFormat: 'individual-1v1',
       scheduleLogic: 'double-elimination',
@@ -1543,7 +1551,7 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
 
 describe('generateTournament -- settings snapshot', () => {
   it('carries the form minus roster keys as `settings`', () => {
-    const state = createDefaultTournamentState({ confirmedCount: 37 });
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
@@ -1575,7 +1583,7 @@ R1.A: 1-3->Final, 4-7->SemiB, 8->eliminated
 R1.B: 1-3->Final, 4-7->SemiB, 8->eliminated
 SemiB: 1-2->Final, 3-8->eliminated
 `;
-    const state = createDefaultTournamentState({ confirmedCount: 43 });
+    const state = createDefaultTournamentState({ confirmedCount: 43, players: names(43) });
     const form = createDefaultSetup({
       gameFormat: 'ffa-individual',
       scheduleLogic: 'waterfall-bracket',
@@ -1828,7 +1836,7 @@ describe('Advance to bracket below the bracket floor is refused, not raised', ()
 
   function refusal(count: number, setup: Setup) {
     const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count }),
+      createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
       createDefaultSetup(setup),
       createTournamentRuntime(),
     );
@@ -1871,7 +1879,7 @@ describe('Advance to bracket below the bracket floor is refused, not raised', ()
 
   it('a request above the registered count still clamps down to everyone', () => {
     const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: 20 }),
+      createDefaultTournamentState({ confirmedCount: 20, players: names(20) }),
       createDefaultSetup({
         gameFormat: 'ffa-individual',
         scheduleLogic: 'kings-valley',
@@ -1890,7 +1898,10 @@ describe('single elimination: Semis shrinks to who advances', () => {
 
   function generate(count: number, setup: Setup) {
     return generateTournament(
-      createDefaultTournamentState({ confirmedCount: count }),
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: rosterFor(setup?.gameFormat ?? 'ffa-individual', count),
+      }),
       createDefaultSetup({ scheduleLogic: 'single-elimination', ...setup }),
       createTournamentRuntime(),
     );
@@ -2052,5 +2063,27 @@ describe('generateTournament -- the roster must fit the game format', () => {
 
   it('still generates 53 players under ffa-individual', () => {
     expect(generateFor('ffa-individual', 53, 'ffa-individual').status).toBe('generated');
+  });
+});
+
+describe('generateTournament -- the roster is the count of record', () => {
+  it.each([31, 37, 43, 53])(
+    'a roster of %i units generates for %i even when confirmedCount still says one fewer',
+    (count) => {
+      const state = createDefaultTournamentState({ confirmedCount: count - 1, players: names(count) });
+      const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '16' });
+      const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
+      expect(result.status).toBe('generated');
+      if (result.status !== 'generated') return;
+      expect(result.state.cfg.n).toBe(count);
+      expect(result.state.assignments[0]).toHaveLength(count);
+      expect(result.state.rounds[0].rooms.reduce((sum, size) => sum + size, 0)).toBe(count);
+    },
+  );
+
+  it('still asks for a roster first while confirmedCount is unset', () => {
+    const state = createDefaultTournamentState({ confirmedCount: null, players: names(31) });
+    const result = generateTournament(state, createDefaultSetup(), createTournamentRuntime());
+    expect(result).toMatchObject({ status: 'invalid' });
   });
 });

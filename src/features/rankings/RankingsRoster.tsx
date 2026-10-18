@@ -75,6 +75,10 @@ function handleReserveResult(
     return;
   }
   if (result.status !== 'blocked') return;
+  if (result.reason === 'generation') {
+    window.alert(result.message);
+    return;
+  }
   const messages = {
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
@@ -235,16 +239,16 @@ export function ReservePanel({ state }: { state: TournamentState }) {
     handleReserveResult(
       state,
       unitDisplay(state, key).label,
-      addReserveUnit(state, key),
-      (options) => addReserveUnit(state, key, options),
+      addReserveUnit(state, key, {}, app.runtime),
+      (options) => addReserveUnit(state, key, options, app.runtime),
       app.updateState,
     );
   const addWalkUp = () => {
     handleReserveResult(
       state,
       walkup.trim(),
-      addWalkUpIndividual(state, walkup),
-      (options) => addWalkUpIndividual(state, walkup, options),
+      addWalkUpIndividual(state, walkup, {}, app.runtime),
+      (options) => addWalkUpIndividual(state, walkup, options, app.runtime),
       app.updateState,
     );
     setWalkup('');
@@ -306,7 +310,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
             {format?.teamSize ? <ReserveIndividualChips confirmations={confirmations} state={state} /> : null}
             <div className='mt-1 text-xs text-muted'>
               {keys.length
-                ? 'Click ＋ to add a reserve. They join from the next round (during the first bracket round of a tournament without pooling: the least-full room).'
+                ? `Click ＋ to add a reserve. ${state.started ? 'They join from the next round' : 'Before Confirm & Start the draw is redone with them in; after, they join from the next round'} (during the first bracket round of a tournament without pooling: the least-full room).`
                 : `No ${format?.teamSize ? 'reserve teams' : 'reserves'} on the bench.`}
             </div>
           </>

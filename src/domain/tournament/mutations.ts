@@ -5,10 +5,12 @@ import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-dra
 import { getGameFormat } from './formats';
 import { lateJoinersOf } from './late-joiners';
 import { isPoolingRound, refitPoolingRound } from './pooling';
+import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
 import { validateRoomCap } from './room-distribution';
 import { roundInPlayOf } from './round-columns';
 import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
+import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import {
   getFinalUnitScore,
@@ -311,6 +313,7 @@ export type ReserveAddResult =
         | 'duplicate-name'
         | 'unstorable-name';
     }
+  | { status: 'blocked'; reason: 'generation'; message: string }
   | { status: 'confirm-over-cap'; room: number; count: number }
   | { status: 'confirm-late-join'; missedRounds: number };
 
@@ -404,12 +407,39 @@ function seatInRoundInPlay(
   return { status: 'added', state: rebuilt };
 }
 
+/**
+ * Before Confirm & Start a joiner is part of the draw: with no rounds yet it just joins the roster, with
+ * rounds the schedule is redone for the new head count and generation is the only judge. Null when the
+ * tournament has started, or was generated before its settings were stored (today's rules apply).
+ */
+function addBeforeStart(
+  state: TournamentState,
+  key: string,
+  runtime: TournamentRuntime,
+): ReserveAddResult | null {
+  if (state.started) return null;
+  const moved = moveReserveToPlayers(state, key);
+  if (!moved) return { status: 'blocked', reason: 'room-cap' };
+  if (!state.rounds.length) {
+    return { status: 'added', state: { ...moved, confirmedCount: rosterKeys(moved.players).length } };
+  }
+  const regenerated = regenerateForRoster(moved, runtime);
+  if (regenerated.status === 'generated') return { status: 'added', state: regenerated.state };
+  if (regenerated.status === 'invalid') {
+    return { status: 'blocked', reason: 'generation', message: regenerated.message };
+  }
+  return null;
+}
+
 export function addReserveUnit(
   state: TournamentState,
   key: string,
   options: ReserveAddOptions = {},
+  runtime: TournamentRuntime = createTournamentRuntime(),
 ): ReserveAddResult {
   if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
+  const beforeStart = addBeforeStart(state, key, runtime);
+  if (beforeStart) return beforeStart;
   if (state.cfg.poolingPhase === 'group-stage') {
     return { status: 'blocked', reason: 'group-stage' };
   }
@@ -451,6 +481,7 @@ export function addWalkUpIndividual(
   state: TournamentState,
   name: string,
   options: ReserveAddOptions = {},
+  runtime?: TournamentRuntime,
 ): ReserveAddResult {
   const trimmed = name.trim();
   if (!trimmed || getGameFormat(state.gameFormat)?.teamSize) {
@@ -460,7 +491,12 @@ export function addWalkUpIndividual(
     return { status: 'blocked', reason: 'duplicate-name' };
   }
   if (findUnstorableNames([trimmed]).length) return { status: 'blocked', reason: 'unstorable-name' };
-  return addReserveUnit({ ...state, reserves: [...(state.reserves as string[]), trimmed] }, trimmed, options);
+  return addReserveUnit(
+    { ...state, reserves: [...(state.reserves as string[]), trimmed] },
+    trimmed,
+    options,
+    runtime,
+  );
 }
 
 export function removeReserveUnit(state: TournamentState, key: string): TournamentState {
