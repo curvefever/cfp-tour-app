@@ -182,7 +182,7 @@ function ReserveChipName({
     return (
       <>
         <TournamentUnit state={state} name={name} />
-        <ConfirmToggle confirmed={confirmations.isConfirmed(name)} name={name} size='chip' />
+        <ConfirmToggle source={confirmations.source(name)} name={name} size='chip' />
       </>
     );
   return (
@@ -194,11 +194,7 @@ function ReserveChipName({
         member ? (
           <span className='flex items-center gap-1' key={member.name}>
             {member.name}
-            <ConfirmToggle
-              confirmed={confirmations.isConfirmed(member.name)}
-              name={member.name}
-              size='chip'
-            />
+            <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
           </span>
         ) : null,
       )}
@@ -221,7 +217,7 @@ function ReserveIndividualChips({
       {state.reserveIndividuals.map((member) => (
         <div className={RESERVE_CHIP} key={member.name}>
           {member.name}
-          <ConfirmToggle confirmed={confirmations.isConfirmed(member.name)} name={member.name} size='chip' />
+          <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
         </div>
       ))}
     </div>
@@ -345,7 +341,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
               className='break-inside-avoid'
               controls={
                 <>
-                  <ConfirmToggle confirmed={confirmations.isConfirmed(name)} name={name} />
+                  <ConfirmToggle source={confirmations.source(name)} name={name} />
                   <ToolIconButton
                     glyph='✎'
                     label={`Rename ${name}`}
@@ -587,7 +583,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         : ''}
                     </span>
                     <span className='flex gap-1'>
-                      <ConfirmToggle confirmed={confirmations.isConfirmed(member.name)} name={member.name} />
+                      <ConfirmToggle source={confirmations.source(member.name)} name={member.name} />
                       {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
                       defender !== memberIndex ? (
                         <Button

@@ -240,6 +240,20 @@ describe('Players tab, confirmations in the organiser tools', () => {
     expect(view.queryAllByText('0 of 13 teams confirmed · 0 of 26 players')).toHaveLength(1);
   });
 
+  it('locks the toggle of a player who has a score, and counts them without a manual mark', () => {
+    const started = fixtureTournaments().find((entry) => entry.id === 'ffa37-pooling');
+    if (!started) throw new Error('the ffa37-pooling fixture is missing');
+    const view = renderApp(started, { role: 'admin', tab: 'rankings' });
+
+    const locked = view.queryAllByTitle('Confirmed — has a score');
+    expect(locked.length).toBeGreaterThan(0);
+    for (const toggle of locked) {
+      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(toggle).toHaveProperty('disabled', true);
+    }
+    expect(view.queryAllByText(`${locked.length} of 37 confirmed`)).toHaveLength(1);
+  });
+
   it.each(['upcoming-info', 'upcoming-teams-13'])('shows a viewer nothing of it on %s', (id) => {
     const fixture = upcomingFixture(id, { confirmations: confirmed('Player 01', 'T1-a', 'Larch') });
     const view = renderApp(fixture, { role: 'viewer', tab: 'rankings' });

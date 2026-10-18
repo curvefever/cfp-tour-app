@@ -1,7 +1,9 @@
 import {
-  isConfirmed,
+  confirmationSource,
   rosterConfirmationSummary,
+  scoredPlayers,
   teamConfirmation,
+  type ConfirmationSource,
   type RosterConfirmationSummary,
   type TeamConfirmation,
 } from '../../domain/tournament/confirmations';
@@ -9,17 +11,18 @@ import type { TournamentState, TournamentTeam } from '../../domain/tournament/ty
 
 /** What the organiser tools show about confirmations; every status read in the components goes through it. */
 export interface ConfirmationView {
-  isConfirmed: (name: string) => boolean;
+  source: (name: string) => ConfirmationSource;
   team: (team: TournamentTeam) => TeamConfirmation;
   summary: RosterConfirmationSummary;
 }
 
-/** Built once per render of a tools panel and passed down, so no row works anything out for itself. */
+/** Built once per render of a tools panel and passed down: the scored names are worked out here, not by each row. */
 export function confirmationView(state: TournamentState): ConfirmationView {
+  const scored = scoredPlayers(state);
   return {
-    isConfirmed: (name) => isConfirmed(state, name),
-    team: (team) => teamConfirmation(state, team),
-    summary: rosterConfirmationSummary(state),
+    source: (name) => confirmationSource(state, name, scored),
+    team: (team) => teamConfirmation(state, team, scored),
+    summary: rosterConfirmationSummary(state, scored),
   };
 }
 

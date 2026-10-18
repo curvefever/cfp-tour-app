@@ -3,7 +3,10 @@ import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
 import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
-function scoreOrDefault(raw: string | number | null | undefined, fallback: number | null): number | null {
+export function scoreOrDefault(
+  raw: string | number | null | undefined,
+  fallback: number | null,
+): number | null {
   return raw !== null && raw !== undefined && raw !== '' ? Number.parseInt(String(raw), 10) : fallback;
 }
 
@@ -103,6 +106,11 @@ export function getUnitScore(
   return anyMissing && fallback === null ? null : total;
 }
 
+/** The Final's score key for one game of a unit (a player, a team id, or an anonymous alias), and for one member of a team. */
+export function finalScoreKey(game: number, key: string, memberIndex?: number): string {
+  return `game${game}-${key}` + (memberIndex === undefined ? '' : `-m${memberIndex}`);
+}
+
 export function getFinalUnitScore(
   state: TournamentState,
   key: string,
@@ -110,9 +118,8 @@ export function getFinalUnitScore(
   fallback: number | null,
 ): number | null {
   const teamSize = scoredTeamSize(state);
-  const gamePart = `game${game}`;
   if (!teamSize) {
-    return scoreOrDefault(state.finalScores[`${gamePart}-${key}`], fallback);
+    return scoreOrDefault(state.finalScores[finalScoreKey(game, key)], fallback);
   }
   const team = buildTeamMap(state)[key];
   const values: number[] = [];
@@ -122,7 +129,7 @@ export function getFinalUnitScore(
       values.push(0);
       continue;
     }
-    const value = scoreOrDefault(state.finalScores[`${gamePart}-${key}-m${memberIndex}`], null);
+    const value = scoreOrDefault(state.finalScores[finalScoreKey(game, key, memberIndex)], null);
     values.push(value ?? 0);
     if (value === null) anyMissing = true;
   }

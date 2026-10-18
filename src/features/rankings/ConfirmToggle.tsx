@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import type { TeamConfirmation } from '../../domain/tournament/confirmations';
-import { isConfirmed, setConfirmed } from '../../domain/tournament/confirmations';
+import type { ConfirmationSource, TeamConfirmation } from '../../domain/tournament/confirmations';
+import { isManuallyConfirmed, setConfirmed } from '../../domain/tournament/confirmations';
 import { Button, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamConfirmationText } from './confirmation-view';
@@ -10,25 +10,34 @@ const SIZES = {
   chip: 'size-6 min-h-0 p-0 text-xs',
 } as const;
 
-/** The first control of a player row: ✓ on green when confirmed, ? on red when not, so the state is not only colour. */
+/** The first control of a player row: ✓ on green when confirmed, ? on red when not, so the state is not only colour. A score confirms the player and locks the toggle. */
 export function ConfirmToggle({
-  confirmed,
   name,
   size = 'row',
+  source,
 }: {
-  confirmed: boolean;
   name: string;
   size?: keyof typeof SIZES;
+  source: ConfirmationSource;
 }) {
   const app = useTournamentApp();
+  const confirmed = source !== null;
+  const title = {
+    score: 'Confirmed — has a score',
+    manual: 'Confirmed — click to undo',
+    none: 'Not confirmed yet — click to confirm',
+  }[source ?? 'none'];
   return (
     <Button
       aria-label={`Confirmed: ${name}`}
       aria-pressed={confirmed}
-      className={cn(SIZES[size], confirmed && 'bg-cfp-green-dim text-cfp-green-text')}
-      onClick={() => app.updateState((current) => setConfirmed(current, name, !isConfirmed(current, name)))}
+      className={cn(SIZES[size], confirmed && 'bg-cfp-green-dim text-cfp-green-text disabled:opacity-70')}
+      disabled={source === 'score'}
+      onClick={() =>
+        app.updateState((current) => setConfirmed(current, name, !isManuallyConfirmed(current, name)))
+      }
       size='sm'
-      title={confirmed ? 'Confirmed — click to undo' : 'Not confirmed yet — click to confirm'}
+      title={title}
       variant={confirmed ? 'secondary' : 'danger'}
     >
       {confirmed ? '✓' : '?'}
