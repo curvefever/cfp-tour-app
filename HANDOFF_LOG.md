@@ -6,6 +6,50 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Player confirmation: organiser marks, and a score confirms automatically (done — 2026-10-18)
+
+Planner/reviewer and implementer sessions; plan `plans/2026-10-18-player-confirmation.md`; five stages on `test`, one commit each, plus one review-fix commit. Production tournament `1792226417678` was never opened or touched.
+
+**Why.** Players are asked to confirm their participation before a tournament (outside the app for now). Knowing who confirmed helps the organiser manage reserves and size the format to the real headcount. The organiser wanted a mark beside each player in the organiser tools of the Players/Rankings tab, red while not confirmed and green once confirmed; in a team tournament each member is confirmed on their own, and the team shows green when all are, orange when some are, red when none. Viewers never see any of it.
+
+### Decisions (organiser, 2026-10-18)
+- **Toggle style: an icon button like ✎ ⇄ ✕.** "✓" on a green treatment when confirmed, "?" on a red one when not, so the state does not rest on colour alone. It is the first control of the row.
+- **Reserves can be confirmed too** (reserve players, members of reserve teams, individual reserves). A reserve keeps the status when they join or are swapped in, because it belongs to the name.
+- **Automatic confirmation from scores, as the last build stage.** Worked out from the stored scores, never saved: an individual score above 0 confirms a player and locks the toggle. Individual formats and team formats scored as "sum of members" only; not Survival Teams, not Save your Buddy. A 0 does not count.
+- **"Confirmed" is freed for this feature.** Setup and the generation messages say "registered" for everyone on the loaded roster ("37 registered, 1 reserve"). Wording only; identifiers such as `confirmedCount` stay.
+
+### Planner decisions (open to correction)
+- **Storage: `confirmations: Record<string, true>` on `TournamentState`, keyed by name** (never a team id); absent means not confirmed, unconfirming deletes the key. A toggle in a non-empty map is a patch of one path (`confirmations/<name>`); the first mark and unmarking the last write the whole key (the empty-value rule of `tournament-patch.ts`).
+- **The status belongs to the name:** it survives a roster reload, Back to draft, a reserve joining and a swap. A rename moves it (`renameIndividual`, new `renameTeamMember`). A removal does not prune it (harmless, and the same person added back is still confirmed). Clear roster clears all.
+- **Confirmation changes nothing else:** generation, room distribution, advancement and the counts ignore it.
+- **Header counts** in muted text: "24 of 37 confirmed"; "9 of 13 teams confirmed · 31 of 39 players" (a team counts when all its members are; reserves are not counted). **Team indicator:** a dot before the team name, "1/3" after it while partial, read out as "all confirmed", "1 of 3 confirmed", "none confirmed"; vacant slots are not counted.
+- **The data is readable by anyone who can read the database;** only the display is admin-only (`docs/open-items.md`).
+- **Implementer additions, approved in review:** `moveConfirmation` shared by both renames; the summary's team fields are optional rather than a union; `confirmationView` builds the status (and the scored set) once per panel render so every component reads through one place; `isManuallyConfirmed` is the manual mark alone (used by `setConfirmed`, `moveConfirmation` and the toggle's click), and `isConfirmed` is manual-or-score; the toggle takes a `source` ('score' | 'manual' | null) instead of a boolean and is `disabled` with "Confirmed — has a score" for a score, drawn green at 70% opacity.
+
+### Stages and commits
+1. **`3e61162` — "registered" wording.** `roster-status.ts`, the Roster label in `RosterPanel.tsx`, six generation messages, a comment; the tests that quote them.
+2. **`d3e683e` — state field and domain rules.** `types.ts`, `state-defaults.ts`, new `confirmations.ts` (`isConfirmed`, `setConfirmed`, `moveConfirmation`, `teamConfirmation`, `rosterConfirmationSummary`), `mutations.ts` (`renameIndividual` moves the key, new `renameTeamMember`, `resetRoster` clears), the member ✎ in `RankingsRoster.tsx` calls `renameTeamMember`. Copy settings never touches state fields, so it cannot carry confirmations.
+3. **`861ef9a` — toggles, team dot and counts.** New `ConfirmToggle.tsx` (toggle and `TeamConfirmationLabel`), `confirmation-view.ts`, a `count` prop on `ToolPanel`, `RankingsRoster.tsx` (players, team members, team cards, reserve chips, reserve team chips, a line of individual reserves). **`e2a4e0e` — review fixes:** a muted "Individual reserves" label in front of those chips; the 13-team render test also asserts no "2/2" or "0/2".
+4. **`7284fff` — a score above 0 confirms.** `scoredPlayers` in `confirmations.ts` walks every round's assignments with the same room and position rule as `scoring.ts`, `scoreKeysForPosition` for the keys and a new `finalScoreKey` (exported from `scoring.ts`, now also used by `getFinalUnitScore`); `confirmationSource`; the locked toggle.
+5. **Close-out** (this entry, `docs/rules.md`, `docs/views.md`, `docs/open-items.md`, `docs/roadmap.md`, `HANDOFF.md`).
+
+### Testing
+- **Awkward counts:** 37 players in rooms 8,8,7,7,7 (a 0, a positive, an empty field, and P37 at position 7 of room 2); 13 teams in rooms 4,3,3,3 (member scored / teammate not → team "some", both → "all"); the summary for 37 players and for 13 teams of 3; a team of 3 with a vacant slot is "all" when its two members are.
+- **Domain:** `confirmations.test.ts` (26 tests: set and unset without storing `false`, idempotence, a name such as `constructor`, moving, team levels, summaries; scores in individual formats, game-split Semis, a room seat without a room, Finals through game and anonymous alias, teams under sum of members, Survival Teams and Save your Buddy giving nobody a score, a refilled slot, a team Semis and Final); `mutations.test.ts` (rename of a player, a reserve and a team member moves the mark; refused renames leave it; a swap; Clear roster clears; reload and Back to draft keep it); `tournament-patch.test.ts` (a toggle patches one path, unconfirming writes `null` there, the first mark and the last unmark write the whole key and read back right); `live-state.test.ts` (a state stored without the field, and the stored empty-object marker, read back as `{}`).
+- **Render:** `AppShell.render.test.tsx`, seven tests in "confirmations in the organiser tools" (37 toggles and "2 of 37 confirmed"; a reserve's own toggle and no reserves in the count; 13 teams of 2 with the dots and "1 of 13 teams confirmed · 3 of 26 players"; a reserve team and individual reserves; a locked toggle from a score on `ffa37-pooling`; two viewer cases showing nothing). `confirmation-view.test.ts` for the count and dot texts.
+- **Known noise:** the full `AppShell.render.test.tsx` run prints "Timeout calling onTaskUpdate" from the vitest worker; it was there before this build (checked at the previous commit) and the results are unaffected (`docs/open-items.md`).
+- **Live checks (test site, signed in as Lead Mod):** a 37-player FFA draft `1792312334205` (reserves Larch and Nimbus) and a 13-team 2v2v2v2 draft `1792312486688` (reserve team Bench, individual reserves Solo and Odd): toggling a player, a team member (the team dot red → orange "1/2" → green), a reserve, a reserve team member and an individual reserve; the header counts; everything kept after a reload. Setup read "37 registered, 2 reserves" with the label "Roster — registered players, one per line". On the throwaway waterfall draft `?t=1792253432805` (read-only) all 37 players showed the locked ✓ toggle and "37 of 37 confirmed". Not done live: the signed-out view (the browser stays signed in; two viewer render tests cover it) and the member ✎ rename (a browser prompt; covered by the unit tests). The two new drafts are left for the organiser.
+- **Reviews (planner/reviewer, mutation checks restored afterwards, each failing the tests as it should):** stage 1: "confirmed" back in `rosterLoadStatus` fails 2 tests. Stage 2: `renameIndividual` without the move 2 tests, `renameTeamMember` without the move 1, `resetRoster` without the clear 1, counting vacant slots in the team total 2, storing `false` on unconfirm 5. Stage 3: `aria-pressed` always false 4 tests, reserves in the header count 3, the "n/m" shown on full teams too survived until the fix commit asked for the `2/2` and `0/2` assertions (now 1 fails). Stage 4: a score of 0 counting 10 tests, every key going to member 0 3, the Survival and Buddy early return removed 2, the anonymous alias ignored 1, the lock off 1.
+
+### Out of scope
+- Players confirming themselves (`docs/roadmap.md`).
+- Any use of confirmation by generation, Setup's counts or the schedule preview (for example "generate with confirmed players only" or a "remove unconfirmed" button).
+- An indicator in the viewer lists or the Rankings image, for anyone.
+- A confirmation toggle in Setup's roster text boxes.
+- Pruning the confirmations of removed players.
+
+---
+
 ## Spaces and dashes in waterfall round names; rounds played together as one column (done — 2026-10-17)
 
 Planner/reviewer and implementer sessions; plan `plans/2026-10-17-waterfall-columns.md`; seven stages (stage 5 split into 5a and 5b, and a stage 6b added), one or more commits each, on `test`. Nothing was pushed to `main`.
