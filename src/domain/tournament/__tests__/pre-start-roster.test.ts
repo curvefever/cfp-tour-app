@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
 import { addReserveUnit, addWalkUpIndividual, removeRosterUnit, type ReserveAddResult } from '../mutations';
-import { removeUnitBeforeStart } from '../pre-start-edits';
-import { regenerateForRoster } from '../pre-start-roster';
+import { reloadRosterBeforeStart, removeUnitBeforeStart } from '../pre-start-edits';
+import { regenerateForRoster, scheduleMatchesRoster } from '../pre-start-roster';
 import { rosterKeys } from '../roster';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
@@ -286,5 +286,183 @@ describe('removing a unit before Confirm & Start redraws the schedule', () => {
     const { state, redrawRefusal } = removeUnitBeforeStart(start, 'P3', testRuntime());
     expect(redrawRefusal).toBeUndefined();
     expect(state).toEqual({ ...removeRosterUnit(start, 'P3'), confirmedCount: 36 });
+  });
+});
+
+describe('reloading the roster in Setup after Generate', () => {
+  /** The same teams parsed again: every one gets a new id, as `parseTeamLines` gives them. */
+  const reparsed = (teams: TournamentTeam[]) =>
+    teams.map((team) => ({ ...team, teamId: `new_${team.teamId}` }));
+  const nothingStale = (state: TournamentState, staleIds: string[]) => {
+    const everywhere = JSON.stringify([state.assignments, state.byes, state.qualTable, state.roomHistory]);
+    for (const id of staleIds) expect(everywhere).not.toContain(`"${id}"`);
+  };
+
+  it('2v2v2v2 into a waterfall with a Qual source: 20 teams generated, the same 20 plus one reloaded', () => {
+    const setup: Setup = {
+      gameFormat: 'team-2v2v2v2',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: TEAM_QUAL_GRAPH,
+    };
+    const start = generated(20, setup);
+    const oldTeams = start.players as TournamentTeam[];
+    const players = [...reparsed(oldTeams), { ...lateTeam, teamId: 'new_late' }];
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      start,
+      'team-2v2v2v2',
+      { players, reserves: [], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.confirmedCount).toBe(21);
+    expect(state.assignments[0].map((entry) => entry.name).sort()).toEqual(
+      players.map((team) => team.teamId).sort(),
+    );
+    nothingStale(
+      state,
+      oldTeams.map((team) => team.teamId),
+    );
+    expect(scheduleMatchesRoster(state)).toBe(true);
+  });
+
+  it('FFA individuals generated at 37, reloaded with one name replaced and one added (38)', () => {
+    const start = generated(37, FFA_QUAL);
+    const players = [...(start.players as string[]).filter((name) => name !== 'P3'), 'Q3', 'Q38'];
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      start,
+      'ffa-individual',
+      { players, reserves: [], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.assignments[0].some((entry) => entry.name === 'P3')).toBe(false);
+    for (const name of ['Q3', 'Q38']) {
+      expect(state.assignments[0].filter((entry) => entry.name === name)).toHaveLength(1);
+    }
+    expect(seatedCount(state, 0)).toBe(38);
+    expect(state.rounds[0].rooms).toEqual(distributeRooms(38, roomSizeOf(state)));
+    nothingStale(state, ['P3']);
+  });
+
+  it('a reload for another game format drops the schedule, keeps the roster and says why', () => {
+    const start = generated(37, FFA_QUAL);
+    const teams = rosterFor('team-2v2v2v2', 24) as TournamentTeam[];
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      start,
+      'team-2v2v2v2',
+      { players: teams, reserves: [], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toContain('game format');
+    expect(state.rounds).toEqual([]);
+    expect(state.assignments).toEqual([]);
+    expect(state.gameFormat).toBe('team-2v2v2v2');
+    expect(state.players).toEqual(teams);
+    expect(state.confirmedCount).toBe(24);
+    expect(state.settings).toEqual(start.settings);
+  });
+
+  it('a reload below the minimum of the format drops the schedule with the message of generation', () => {
+    const start = generated(12, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      start,
+      'ffa-individual',
+      { players: rosterFor('ffa-individual', 8), reserves: [], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toContain('at least 12');
+    expect(state.rounds).toEqual([]);
+    expect(state.players).toHaveLength(8);
+  });
+
+  it('a tournament generated before settings were stored drops the schedule', () => {
+    const start = withoutSettings(generated(37, FFA_QUAL));
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      start,
+      'ffa-individual',
+      { players: rosterFor('ffa-individual', 37), reserves: [], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toBeDefined();
+    expect(state.rounds).toEqual([]);
+  });
+
+  it('before Generate nothing is created: the roster is stored, no rounds', () => {
+    const loaded = createDefaultTournamentState({
+      confirmedCount: 5,
+      players: rosterFor('ffa-individual', 5),
+    });
+    const { state, redrawRefusal } = reloadRosterBeforeStart(
+      loaded,
+      'ffa-individual',
+      { players: rosterFor('ffa-individual', 9), reserves: ['R'], reserveIndividuals: [] },
+      testRuntime(),
+    );
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.rounds).toEqual([]);
+    expect(state.confirmedCount).toBe(9);
+    expect(state.reserves).toEqual(['R']);
+  });
+});
+
+describe('scheduleMatchesRoster', () => {
+  it.each([31, 43, 53])('is true right after generation at %i, across the schedule shapes', (count) => {
+    const setups: Setup[] = [
+      FFA_QUAL,
+      { ...FFA_QUAL, drawPublication: 'fixed' },
+      { poolingPhase: 'none', scheduleLogic: 'single-elimination' },
+      { poolingPhase: 'none', scheduleLogic: 'kings-valley' },
+      { poolingPhase: 'swiss', gameFormat: 'individual-1v1', oddCountStrategy: 'bye' },
+      GROUP_STAGE,
+      { ...GROUP_STAGE, drawPublication: 'fixed' },
+      {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'none',
+        scheduleLogic: 'double-elimination',
+        oddCountStrategy: 'bye',
+      },
+      { gameFormat: 'team-2v2v2v2', poolingPhase: 'qual-table', qualAdv: '8' },
+    ];
+    let generatedCount = 0;
+    for (const setup of setups) {
+      const result = generateTournament(
+        createDefaultTournamentState({
+          confirmedCount: count,
+          players: rosterFor(setup?.gameFormat ?? 'ffa-individual', count),
+        }),
+        createDefaultSetup(setup),
+        testRuntime(),
+      );
+      if (result.status !== 'generated') continue;
+      generatedCount += 1;
+      expect(scheduleMatchesRoster(result.state), JSON.stringify(setup)).toBe(true);
+    }
+    expect(generatedCount).toBe(setups.length);
+  });
+
+  it('is true for a roster with no schedule yet', () => {
+    const loaded = createDefaultTournamentState({ players: rosterFor('ffa-individual', 5) });
+    expect(scheduleMatchesRoster(loaded)).toBe(true);
+  });
+
+  it('is false when every roster id is new (the seated ids are no longer on the roster)', () => {
+    const start = generated(20, { gameFormat: 'team-2v2v2v2', qualAdv: '8' });
+    const players = (start.players as TournamentTeam[]).map((team) => ({
+      ...team,
+      teamId: `new_${team.teamId}`,
+    }));
+    expect(scheduleMatchesRoster({ ...start, players })).toBe(false);
+  });
+
+  it('is false when the schedule was built for fewer units than the roster holds (production: 20 vs 21)', () => {
+    const start = generated(20, { gameFormat: 'team-2v2v2v2', qualAdv: '8' });
+    const players = [...(start.players as TournamentTeam[]), lateTeam];
+    expect(scheduleMatchesRoster({ ...start, players })).toBe(false);
+  });
+
+  it('is false when a seated id is not on the roster, though the count agrees', () => {
+    const start = generated(37, FFA_QUAL);
+    const players = (start.players as string[]).map((name) => (name === 'P3' ? 'Q3' : name));
+    expect(scheduleMatchesRoster({ ...start, players })).toBe(false);
   });
 });

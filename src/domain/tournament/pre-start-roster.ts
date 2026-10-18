@@ -26,3 +26,30 @@ export function regenerateForRoster(state: TournamentState, runtime: TournamentR
   const current = { ...state, confirmedCount: rosterKeys(state.players).length };
   return generateTournament(current, form, runtime);
 }
+
+const sameKeys = (left: readonly string[], right: readonly string[]) =>
+  left.length === right.length && JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
+
+/**
+ * True unless the drawn schedule no longer fits the roster: round 1's seats plus byes (and a fixed draw's
+ * published round 1) are exactly the roster's units, and the schedule was built for that many. A
+ * tournament with nothing drawn yet has nothing to be stale.
+ */
+export function scheduleMatchesRoster(state: TournamentState): boolean {
+  if (!state.rounds.length) return true;
+  const roster = rosterKeys(state.players);
+  if (state.cfg.n !== roster.length) return false;
+  // A bye unit is both in the assignments (room null) and on the bye list.
+  const seated = [
+    ...new Set([...(state.assignments[0] ?? []).map((entry) => entry.name), ...(state.byes[0] ?? [])]),
+  ];
+  if (!sameKeys(seated, roster)) return false;
+  const fixed = state.rounds[0].fixedRoomAssignments;
+  return (
+    !fixed ||
+    sameKeys(
+      fixed.map((entry) => entry.name),
+      roster,
+    )
+  );
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rosterLoadStatus } from './roster-status';
+import { rosterLoadStatus, scheduleReloadStatus } from './roster-status';
 
 describe('rosterLoadStatus', () => {
   it('counts the reserves in the singular and the plural', () => {
@@ -9,5 +9,21 @@ describe('rosterLoadStatus', () => {
 
   it('adds the individual reserves of a team format', () => {
     expect(rosterLoadStatus(13, 2, 1)).toBe('13 registered, 2 reserves, 1 individual reserve');
+  });
+});
+
+describe('scheduleReloadStatus', () => {
+  it('says nothing when no schedule was generated', () => {
+    expect(scheduleReloadStatus(false)).toBe('');
+  });
+
+  it('says the schedule was redrawn', () => {
+    expect(scheduleReloadStatus(true)).toBe(' · schedule redrawn');
+  });
+
+  it('says the schedule was cleared, with the reason, and points at Generate', () => {
+    expect(scheduleReloadStatus(true, 'This format needs at least 12 players.')).toBe(
+      ' · schedule cleared: This format needs at least 12 players. Click Generate again.',
+    );
   });
 });

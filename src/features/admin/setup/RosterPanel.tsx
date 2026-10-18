@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { resetRoster, withLoadedRoster } from '../../../domain/tournament/mutations';
+import { resetRoster } from '../../../domain/tournament/mutations';
+import { reloadRosterBeforeStart } from '../../../domain/tournament/pre-start-edits';
 import {
   findDuplicateDisplayNames,
   parseIndividualLines,
@@ -15,7 +16,7 @@ import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../../tournament/unstorable-names';
 import { plural } from './plural';
-import { rosterLoadStatus } from './roster-status';
+import { rosterLoadStatus, scheduleReloadStatus } from './roster-status';
 import { useSetupChange } from './useSetupChange';
 
 /** The header count of the roster: "37 players · 2 reserves", or a nudge while none is loaded. */
@@ -34,6 +35,13 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   const teamSize = format?.teamSize;
   const unit = teamSize ? 'teams' : 'players';
   const staleFormat = state.confirmedCount !== null && !rosterFitsFormat(state, setup.gameFormat);
+
+  /** Stores the loaded roster; before the start a schedule already generated is redone for it, or cleared. */
+  function applyRoster(loaded: Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>): string {
+    const edit = reloadRosterBeforeStart(state, setup.gameFormat, loaded, runtime);
+    updateState(edit.state);
+    return scheduleReloadStatus(state.rounds.length > 0, edit.redrawRefusal);
+  }
 
   function loadRoster() {
     if (!format) return;
@@ -69,8 +77,10 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         );
         return;
       }
-      updateState(withLoadedRoster(state, setup.gameFormat, { players, reserves, reserveIndividuals }));
-      setStatus(rosterLoadStatus(players.length, reserves.length, reserveIndividuals.length));
+      const scheduleStatus = applyRoster({ players, reserves, reserveIndividuals });
+      setStatus(
+        rosterLoadStatus(players.length, reserves.length, reserveIndividuals.length) + scheduleStatus,
+      );
     } else {
       const players = parseIndividualLines(setup.roster.trim());
       const reserves = parseIndividualLines(setup.reserves.trim());
@@ -82,8 +92,8 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         );
         return;
       }
-      updateState(withLoadedRoster(state, setup.gameFormat, { players, reserves, reserveIndividuals: [] }));
-      setStatus(rosterLoadStatus(players.length, reserves.length));
+      const scheduleStatus = applyRoster({ players, reserves, reserveIndividuals: [] });
+      setStatus(rosterLoadStatus(players.length, reserves.length) + scheduleStatus);
     }
     onLoaded();
   }
@@ -99,7 +109,11 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
       }
       title='ROSTER'
     >
-      <PresenceField className='mb-0' htmlFor='cfg-roster' label={`Roster — registered ${unit}, one per line`}>
+      <PresenceField
+        className='mb-0'
+        htmlFor='cfg-roster'
+        label={`Roster — registered ${unit}, one per line`}
+      >
         <Textarea
           id='cfg-roster'
           className='min-h-40'

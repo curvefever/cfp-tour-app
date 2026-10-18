@@ -1017,7 +1017,7 @@ export function withLoadedRoster(
  * below, which preserves the roster but clears live progress.
  */
 export function resetRoster(state: TournamentState): TournamentState {
-  const { settings: _settings, ...rest } = state;
+  const { settings: _settings, ...rest } = withoutDrawnSchedule(state);
   return {
     ...rest,
     players: [],
@@ -1025,6 +1025,19 @@ export function resetRoster(state: TournamentState): TournamentState {
     reserveIndividuals: [],
     confirmations: {},
     confirmedCount: null,
+    withdrawnUnits: [],
+    reserveOpen: true,
+  };
+}
+
+/**
+ * Clears everything a generated schedule put in the state (the rounds, who is seated where, standings,
+ * scores, the room history), keeping the roster, the settings snapshot, the withdrawals and the
+ * confirmations. A state with nothing generated yet.
+ */
+export function withoutDrawnSchedule(state: TournamentState): TournamentState {
+  return {
+    ...state,
     rounds: [],
     groups: [],
     groupStandings: {},
@@ -1039,11 +1052,9 @@ export function resetRoster(state: TournamentState): TournamentState {
     pendingBracketSeeds: {},
     tieResolutions: {},
     defenderChanges: {},
-    withdrawnUnits: [],
     roomHistory: {},
     anonymousFinalists: [],
     curRound: 0,
-    reserveOpen: true,
     started: false,
   };
 }
