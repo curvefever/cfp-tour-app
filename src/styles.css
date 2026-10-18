@@ -158,3 +158,31 @@
     color: var(--app-foreground);
   }
 }
+
+@layer components {
+  /* A scrollbar styled so browsers draw it permanently, not as an overlay that hides until you scroll (StickyScrollbar). */
+  .game-scrollbar::-webkit-scrollbar {
+    height: 12px;
+  }
+
+  .game-scrollbar::-webkit-scrollbar-track {
+    background: var(--color-cfp-game-deep);
+  }
+
+  .game-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: var(--color-cfp-text-dim);
+  }
+
+  .game-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-cfp-text-soft);
+  }
+
+  /* Firefox only: where the -webkit- bar exists, scrollbar-color would switch its styling off. */
+  @supports not selector(::-webkit-scrollbar) {
+    .game-scrollbar {
+      scrollbar-width: auto;
+      scrollbar-color: var(--color-cfp-text-dim) var(--color-cfp-game-deep);
+    }
+  }
+}
