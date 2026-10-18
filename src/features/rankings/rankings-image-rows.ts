@@ -3,7 +3,7 @@ import type { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { naturalByLabel } from './ranking-order';
 import { finalStanding, type Medal } from './ranking-podium';
-import { eliminatedWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
+import { eliminatedRankText, eliminatedWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
 
 type Rankings = NonNullable<ReturnType<typeof computeRankings>>;
 
@@ -44,7 +44,7 @@ export function rankingsImageRows(state: TournamentState, data: Rankings): Image
       where: stillInWhere(state, data.lastRi, unit, labels),
     })),
     ...data.eliminatedList.map((unit) => ({
-      rank: String(unit.rank),
+      rank: eliminatedRankText(unit),
       medal: null,
       name: unit.label,
       where: eliminatedWhere(state, unit, labels),

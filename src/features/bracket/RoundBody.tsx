@@ -1,4 +1,4 @@
-import { detectTieBreaks } from '../../domain/tournament/advancement';
+import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
@@ -10,7 +10,7 @@ import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
-import { luckyLoserNames, pendingTieNames } from './room-row-inputs';
+import { luckyLoserNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel } from './RoundNotes';
 import { isCurrentRound, isRoundReached, nextColumnStart } from '../../domain/tournament/round-columns';
 

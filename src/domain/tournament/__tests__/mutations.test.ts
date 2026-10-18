@@ -1531,6 +1531,20 @@ describe('swaps close once anyone is eliminated', () => {
     );
   });
 
+  it('single elimination, 37: stays open while units are out only in the round still in play, closes once it is advanced', () => {
+    const start = individual(37, {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'none',
+    });
+    const { before, after } = playUpTo(start, 3);
+    const inPlay = computeRankings(before)?.eliminatedList ?? [];
+    expect(inPlay.length).toBeGreaterThan(0);
+    expect(inPlay.every((entry) => entry.rank === null)).toBe(true);
+    expect(swapWindowOpen(before)).toBe(true);
+    expect(swapWindowOpen(after)).toBe(false);
+  });
+
   it('qualification table into a waterfall with Qual source, 37: open in the last qualification round, closed after the pooling exit', () => {
     expectBoundaryAt(withReserve(buildQualWaterfall(37)), 3);
   });

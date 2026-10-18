@@ -1,4 +1,9 @@
-import type { StandingsDisplay, StandingsDisplayTable } from '../../../domain/tournament/standings-display';
+import {
+  type StandingsDisplay,
+  type StandingsDisplayTable,
+  isStandingsRowOut,
+  standingsBandAt,
+} from '../../../domain/tournament/standings-display';
 import { cn } from '../../../components/ui';
 
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
@@ -77,17 +82,17 @@ export function standingsRowResult(
   ranked = true,
 ): RowResult {
   if (phase === 'upcoming' || !ranked) return '';
+  if (isStandingsRowOut(table, index)) return 'eliminate';
   if (table.bands && table.bands.length > 0) {
     const bands = table.bands;
-    const band = [...bands].reverse().find((candidate) => candidate.start <= index) ?? bands[0];
-    if (band.destination === 'out') return 'eliminate';
+    const band = standingsBandAt(bands, index);
     const destinations = [
       ...new Set(bands.filter((entry) => entry.destination !== 'out').map((entry) => entry.destination)),
     ];
     const position = destinations.indexOf(band.destination);
     return position <= 0 ? 'advance' : position === 1 ? 'advance-second' : 'advance-third';
   }
-  return table.cut === null || index < table.cut ? 'advance' : 'eliminate';
+  return 'advance';
 }
 
 /**

@@ -12,7 +12,13 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
-import { eliminatedWhere, finalistWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
+import {
+  eliminatedRankText,
+  eliminatedWhere,
+  finalistWhere,
+  stillInWhere,
+  WITHDRAWN_WHERE,
+} from './ranking-where';
 
 function advance(state: TournamentState): TournamentState {
   const result = advanceTournamentRound(scoreCurrentRound(state, 0));
@@ -320,5 +326,12 @@ describe('the where line for a column of several rounds', () => {
       true,
     );
     expect(lines.filter((line) => line.ri === r1c)).toHaveLength(8);
+  });
+});
+
+describe('eliminatedRankText', () => {
+  it('is the number once the round is advanced, "—" while it is still in play', () => {
+    expect(eliminatedRankText({ rank: 25 })).toBe('25');
+    expect(eliminatedRankText({ rank: null })).toBe('—');
   });
 });

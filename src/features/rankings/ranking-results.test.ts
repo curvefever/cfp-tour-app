@@ -60,9 +60,9 @@ describe.each([37, 43])('the stripe of a unit still in, with %i players', (count
     expect(counts(resultsOf(pooled))).toEqual({ undecided: 24 });
   });
 
-  it('is green for places 1-6, a dashed candidate for 7th and red for 8th once the rooms are scored', () => {
+  it('is green for places 1-6 and a dashed candidate for 7th once the rooms are scored; 8th has left Still in', () => {
     const scored = { ...pooled, scores: scoreCurrentRound(pooled, 0).scores };
-    expect(counts(resultsOf(scored))).toEqual({ advance: 18, candidate: 3, eliminate: 3 });
+    expect(counts(resultsOf(scored))).toEqual({ advance: 18, candidate: 3 });
   });
 });
 

@@ -339,21 +339,27 @@ describe('a swap for a unit seated in the second round of a column', () => {
 });
 
 describe('rankings in the middle of a column (R1 and R1C drawn together, 37 registered)', () => {
-  it('keeps all 24 units active when R1 is fully scored but not advanced, its band-5-to-8 finishers included', () => {
+  it("moves R1's places 5-8 to the eliminated, with no rank, once R1 is fully scored but not advanced", () => {
     const entered = advance(
       playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns: true })),
     );
+    const before = computeRankings(entered);
     const midColumn = scoreRound(entered, 'R1', 0);
     const rankings = computeRankings(midColumn);
     const r1 = indexOf(midColumn, 'R1');
-    const activeNames = new Set((rankings?.stillActive ?? []).map((entry) => entry.name));
-    expect(activeNames.size).toBe(24);
-    expect(rankings?.eliminatedList).toHaveLength(13);
     const r1Units = midColumn.assignments[r1].map((entry) => entry.name);
-    expect(r1Units.every((name) => activeNames.has(name))).toBe(true);
-    // R1's own eliminating bands (places 5-8 of each room) are still in the tournament until the column advances.
-    const eliminatedNames = new Set((rankings?.eliminatedList ?? []).map((entry) => entry.name));
-    expect(r1Units.some((name) => eliminatedNames.has(name))).toBe(false);
+    const outOfR1 = (rankings?.eliminatedList ?? []).filter((entry) => entry.ri === r1);
+    // R1's eliminating band (places 5-8 of each of its two rooms) is certainly out; the rest of R1 stays in.
+    expect(outOfR1).toHaveLength(8);
+    expect(outOfR1.every((entry) => entry.rank === null && entry.place >= 5)).toBe(true);
+    const activeNames = new Set((rankings?.stillActive ?? []).map((entry) => entry.name));
+    expect(activeNames.size).toBe(16);
+    expect(r1Units.filter((name) => activeNames.has(name))).toHaveLength(8);
+    // The 13 units the qualification cut eliminated keep their numbers.
+    const earlier = (rankings?.eliminatedList ?? []).filter((entry) => entry.ri !== r1);
+    expect(earlier.map((entry) => [entry.name, entry.rank])).toEqual(
+      (before?.eliminatedList ?? []).map((entry) => [entry.name, entry.rank]),
+    );
   });
 });
 

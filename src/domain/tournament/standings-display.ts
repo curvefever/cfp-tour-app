@@ -170,6 +170,23 @@ export function describeStandings(state: TournamentState): StandingsDisplay | nu
   };
 }
 
+/** The run of a Qual source's table that row `index` (0-based) falls in. */
+export function standingsBandAt(bands: StandingsBand[], index: number): StandingsBand {
+  return [...bands].reverse().find((candidate) => candidate.start <= index) ?? bands[0];
+}
+
+/**
+ * Whether row `index` (0-based) of a table is out: in an "out" run of a Qual source, else past the cut. The one test
+ * behind the table's red rows (`standingsRowResult`) and Rankings' eliminations at a complete cut.
+ */
+export function isStandingsRowOut(
+  table: Pick<StandingsDisplayTable, 'bands' | 'cut'>,
+  index: number,
+): boolean {
+  if (table.bands && table.bands.length > 0) return standingsBandAt(table.bands, index).destination === 'out';
+  return table.cut !== null && index >= table.cut;
+}
+
 /** The counted rounds a table shows (indexes into state.rounds): every counted pooling round, or for a group the counted group-stage rounds in which that group plays a match. */
 export function tableRoundIndexes(state: TournamentState, table: StandingsDisplayTable): number[] {
   return state.rounds.flatMap((round, index) => {

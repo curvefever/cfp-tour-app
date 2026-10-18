@@ -1,14 +1,18 @@
 import {
   compareStandings,
+  isRoomFullyScored,
   isStandingsCutoffRound,
+  isUncontestedRoom,
+  pendingTieNames,
   relativeRoomShare,
   sameRoomShare,
   sameStanding,
 } from './advancement';
-import { describeStandings, type StandingsDisplay } from './standings-display';
+import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './standings-display';
+import { exitBandAtRank, type RoomExitBand, roundExitRule } from './room-exits';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
-import { getFinalUnitScore, getUnitScore, tieResolutionList } from './scoring';
+import { getFinalUnitScore, getUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import type {
   RoundAssignment,
@@ -47,7 +51,8 @@ export interface EliminatedRanking extends RankingDisplay {
   round: TournamentRound;
   /** The Kings Valley room (the ranking orders by it); undefined in every other round. */
   room?: number;
-  rank: number;
+  /** Null while the round that eliminated it is still in play: other rooms may still be playing. */
+  rank: number | null;
   /** The room (1-based) it played the round that eliminated it in. */
   seat: number;
   /** Its place in that room by score; units with level scores share a place. */
@@ -240,10 +245,13 @@ function survivorNames(state: TournamentState, roundIndex: number, round: Tourna
   );
 }
 
-/** The units one round eliminated, each with its place and relative share in its room. */
-function eliminationsInRound(state: TournamentState, roundIndex: number): Array<[string, RoundElimination]> {
+/** The units of a round that `isOut` names, each with its place and relative share in its room. */
+function eliminationsInRound(
+  state: TournamentState,
+  roundIndex: number,
+  isOut: (name: string) => boolean,
+): Array<[string, RoundElimination]> {
   const round = state.rounds[roundIndex];
-  const survived = survivorNames(state, roundIndex, round);
   const eliminations: Array<[string, RoundElimination]> = [];
   for (const [roomKey, roomAssignments] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
     const room = Number(roomKey);
@@ -252,7 +260,7 @@ function eliminationsInRound(state: TournamentState, roundIndex: number): Array<
       score: getUnitScore(state, roundIndex, room, position, 0) ?? 0,
     }));
     for (const { name, score } of scored) {
-      if (survived.has(name)) continue;
+      if (!isOut(name)) continue;
       eliminations.push([
         name,
         {
@@ -267,6 +275,71 @@ function eliminationsInRound(state: TournamentState, roundIndex: number): Array<
     }
   }
   return eliminations;
+}
+
+/** The units an advanced round eliminated: every unit it did not send on. */
+function eliminatedByPastRound(
+  state: TournamentState,
+  roundIndex: number,
+): Array<[string, RoundElimination]> {
+  const survived = survivorNames(state, roundIndex, state.rounds[roundIndex]);
+  return eliminationsInRound(state, roundIndex, (name) => !survived.has(name));
+}
+
+/** The rows a complete room of a per-room round draws red (`roomRowResult`): no band, or an eliminate band. */
+function outOfCompleteRooms(
+  state: TournamentState,
+  roundIndex: number,
+  rooms: RoomExitBand[][],
+): Set<string> {
+  const pending = pendingTieNames(state, roundIndex);
+  const out = new Set<string>();
+  for (const [roomKey, roomAssignments] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
+    const room = Number(roomKey);
+    if (!Number.isInteger(room) || isUncontestedRoom(state, roundIndex, room)) continue;
+    const scores = roomAssignments.map((_, position) =>
+      getUnitScore(state, roundIndex, room, position, null),
+    );
+    if (scores.some((score) => score === null)) continue;
+    const scored = roomAssignments.map(({ name }, position) => ({ name, score: scores[position] ?? 0 }));
+    for (const { entry, place } of orderRoomWithPlaces(scored, roundIndex, room, state)) {
+      const band = exitBandAtRank(rooms[room - 1] ?? [], place);
+      if (!pending.has(entry.name) && (!band || band.kind === 'eliminate')) out.add(entry.name);
+    }
+  }
+  return out;
+}
+
+/** The rows the standings tables draw red once every room of the cut-off round is scored (`isStandingsRowOut`). */
+function outAtCompleteCut(state: TournamentState, roundIndex: number): Set<string> {
+  const rooms = new Set(
+    (state.assignments[roundIndex] ?? []).flatMap(({ room }) => (room === null ? [] : [room])),
+  );
+  const complete = [...rooms].every(
+    (room) => isUncontestedRoom(state, roundIndex, room) || isRoomFullyScored(state, roundIndex, room),
+  );
+  if (!complete) return new Set();
+  const pending = pendingTieNames(state, roundIndex);
+  const out = new Set<string>();
+  for (const table of describeStandings(state)?.tables ?? []) {
+    table.entries.forEach((entry, index) => {
+      if (entry.rank !== null && isStandingsRowOut(table, index) && !pending.has(entry.name))
+        out.add(entry.name);
+    });
+  }
+  return out;
+}
+
+/**
+ * The units of a round still in play that are already certainly out: exactly the rows the Bracket draws red in a
+ * complete room, or the rows the standings tables draw red at a complete cut. Never a unit in a tie the organiser has
+ * not resolved, nor a lucky-loser candidate; nobody in a round whose standings or Final decide later.
+ */
+function outInPlay(state: TournamentState, roundIndex: number): Set<string> {
+  const rule = roundExitRule(state, roundIndex);
+  if (rule.kind === 'per-room') return outOfCompleteRooms(state, roundIndex, rule.rooms);
+  if (rule.kind === 'standings-cutoff') return outAtCompleteCut(state, roundIndex);
+  return new Set();
 }
 
 /**
@@ -312,12 +385,22 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const lastRi = lastAssignedRound(state);
   if (lastRi === -1) return null;
 
-  // The last drawn column is still in play, every round of it: a unit in any of them is not eliminated.
+  // The last drawn column is still in play, every round of it: a unit in any of them is eliminated only once it is
+  // certainly out (outInPlay), and has no rank number until its round is advanced.
   const lastColumn = roundColumn(state.rounds, lastRi);
   const eliminated = new Map<string, RoundElimination>();
   for (let roundIndex = 0; roundIndex < lastColumn.start; roundIndex += 1) {
     if (state.rounds[roundIndex].isFinal) continue;
-    for (const [name, info] of eliminationsInRound(state, roundIndex)) eliminated.set(name, info);
+    for (const [name, info] of eliminatedByPastRound(state, roundIndex)) eliminated.set(name, info);
+  }
+  const outNow = new Set<string>();
+  for (let roundIndex = lastColumn.start; roundIndex <= lastColumn.end; roundIndex += 1) {
+    if (state.rounds[roundIndex].isFinal) continue;
+    const out = outInPlay(state, roundIndex);
+    for (const [name, info] of eliminationsInRound(state, roundIndex, (name) => out.has(name))) {
+      eliminated.set(name, info);
+      outNow.add(name);
+    }
   }
 
   const lastRound = state.rounds[lastRi];
@@ -366,7 +449,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   // schedule is built upfront) -- exclude anyone no longer on the roster so
   // they never appear as "still in tournament".
   const rosterSet = new Set(rosterKeys(state.players));
-  active = active.filter((entry) => rosterSet.has(entry.name));
+  active = active.filter((entry) => rosterSet.has(entry.name) && !outNow.has(entry.name));
   const pooled = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
   const waiting = [
     ...pooled,
@@ -403,7 +486,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       ri: entry.ri,
       round: entry.round,
       room: entry.room,
-      rank,
+      rank: entry.ri >= lastColumn.start ? null : rank,
       seat: entry.seat,
       place: entry.place,
       atCut: Boolean(entry.cut),

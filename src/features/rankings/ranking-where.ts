@@ -13,6 +13,11 @@ type Labels = ReturnType<typeof bracketRoundLabels>;
 /** What Rankings says of a unit that withdrew after playing (it is listed last, with no stripe). */
 export const WITHDRAWN_WHERE = 'Withdrawn';
 
+/** An eliminated unit's place number, or "—" while the round that eliminated it is still in play (like the withdrawn). */
+export function eliminatedRankText(entry: Pick<EliminatedRanking, 'rank'>): string {
+  return entry.rank === null ? '—' : String(entry.rank);
+}
+
 /** "Quarters · Room B": the round and the room, or just the round when the room's title is the round's own ("Final"). */
 function roundAndRoom(state: TournamentState, roundIndex: number, room: number, labels: Labels): string {
   const roundName = destinationLabel(roundIndex, labels);

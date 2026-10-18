@@ -12,7 +12,7 @@ import { rowSurfaceClasses, type RowResult } from '../tournament/components/resu
 import { naturalByLabel } from './ranking-order';
 import { stillInResults } from './ranking-results';
 import { finalStanding } from './ranking-podium';
-import { eliminatedWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
+import { eliminatedRankText, eliminatedWhere, stillInWhere, WITHDRAWN_WHERE } from './ranking-where';
 
 type Rankings = NonNullable<ReturnType<typeof computeRankings>>;
 
@@ -108,7 +108,7 @@ function eliminatedRows(state: TournamentState, data: Rankings): ListRow[] {
   const labels = bracketRoundLabels(state);
   return data.eliminatedList.map((unit) => ({
     key: unit.name,
-    rank: String(unit.rank),
+    rank: eliminatedRankText(unit),
     result: 'eliminate' as const,
     label: unit.label,
     members: unit.members,

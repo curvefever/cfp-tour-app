@@ -208,6 +208,15 @@ export function hasPendingTies(state: TournamentState, roundIndex: number): bool
   );
 }
 
+/** The units in a tie of the round (in a room or at the cut) that the organiser has not resolved yet. */
+export function pendingTieNames(state: TournamentState, roundIndex: number): Set<string> {
+  return new Set(
+    Object.entries(getAllTies(state, roundIndex))
+      .filter(([key, tie]) => !isTieResolved(key, tie, state))
+      .flatMap(([, tie]) => tie.players.map((entry) => entry.name)),
+  );
+}
+
 /** The ties of every round in the column in play (a column of one round: that round's ties). */
 export function getAllColumnTies(state: TournamentState): Record<string, TournamentTieCluster> {
   const { start, end } = currentColumn(state);

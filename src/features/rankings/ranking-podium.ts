@@ -2,7 +2,7 @@ import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { destinationLabel } from '../bracket/exit-text';
-import { eliminatedWhere, finalistWhere, WITHDRAWN_WHERE } from './ranking-where';
+import { eliminatedRankText, eliminatedWhere, finalistWhere, WITHDRAWN_WHERE } from './ranking-where';
 
 type Rankings = NonNullable<ReturnType<typeof computeRankings>>;
 export type Medal = 'gold' | 'silver' | 'bronze';
@@ -79,20 +79,27 @@ export function finalStanding(state: TournamentState, data: Rankings): FinalStan
       };
     }),
   ];
-  const cards: PodiumCard[] = entries.slice(0, 3).map((entry) => ({
-    key: entry.key,
-    rank: entry.rank,
-    label: entry.label,
-    members: entry.members,
-    line: entry.line,
-    medal: medalOf(entry.rank),
-  }));
+  // Every rank is known once the Final is complete: no round that eliminated anyone is still in play.
+  const cards: PodiumCard[] = entries.slice(0, 3).flatMap(({ rank, ...entry }) =>
+    rank === null
+      ? []
+      : [
+          {
+            key: entry.key,
+            rank,
+            label: entry.label,
+            members: entry.members,
+            line: entry.line,
+            medal: medalOf(rank),
+          },
+        ],
+  );
   const [first, second, third] = cards;
   const podium = [second, first, third].filter((card): card is PodiumCard => card !== undefined);
   const rest: FinishRow[] = [
     ...entries.slice(3).map((entry) => ({
       key: entry.key,
-      rank: String(entry.rank),
+      rank: eliminatedRankText(entry),
       label: entry.label,
       members: entry.members,
       where: entry.where,

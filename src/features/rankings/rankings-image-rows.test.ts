@@ -42,6 +42,25 @@ function rowsOf(current: ReturnType<typeof state>) {
 }
 
 describe('rankingsImageRows', () => {
+  it('while the round that eliminated them is still in play: "—" for a rank, and the same where line', () => {
+    const advanced = state({});
+    const inPlay = { ...advanced, curRound: 0, assignments: [advanced.assignments[0], []] };
+    const rows = rowsOf(inPlay).slice(4);
+    expect(rows.map((row) => [row.rank, row.name])).toEqual([
+      ['—', 'Player 2'],
+      ['—', 'Player 4'],
+      ['—', 'P5'],
+      ['—', 'P6'],
+      ['—', 'P7'],
+      ['—', 'P8'],
+    ]);
+    expect(rows.map((row) => row.where)).toEqual(
+      rowsOf(advanced)
+        .slice(4)
+        .map((row) => row.where),
+    );
+  });
+
   it('while the tournament runs: those still in alphabetically (numbers as numbers), then the eliminated by place', () => {
     const rows = rowsOf(state({}));
     expect(rows.slice(0, 4).map((row) => [row.rank, row.name])).toEqual([

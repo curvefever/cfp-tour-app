@@ -863,9 +863,13 @@ function replaceUnitInPlay(state: TournamentState, oldKey: string, newKey: strin
   );
 }
 
-/** Reserves can stand in for a no-show only until anyone has been eliminated, in every format. */
+/**
+ * Reserves can stand in for a no-show only until anyone has been eliminated, in every format: until a round that
+ * eliminated someone has been advanced. A unit already out in the round still in play (it has no rank yet) does not
+ * close the window, as a no-show in a room not played yet can still be swapped.
+ */
 export function swapWindowOpen(state: TournamentState): boolean {
-  return !computeRankings(state)?.eliminatedList.length;
+  return !computeRankings(state)?.eliminatedList.some((entry) => entry.rank !== null);
 }
 
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {

@@ -14,6 +14,13 @@ import {
 } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
+/** The rank of a unit eliminated by a round already advanced, which always has one. */
+function knownRank(entry: { rank: number | null }): number {
+  if (entry.rank === null)
+    throw new Error('expected a rank: the round that eliminated the unit is still in play');
+  return entry.rank;
+}
+
 describe('computeRankings -- Kings Valley room-depth tiebreak', () => {
   // Room1 (top): P1=100, P2=10 -- P2's pct = 10/110 ~= 0.091 (low).
   // Room2 (bottom, further from the top): P3=100, P4=90 -- P4's pct = 90/190 ~= 0.474 (high).
@@ -479,7 +486,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
     const active = rankings?.stillActive.length ?? 0;
     expect(eliminated[0].rank).toBe(active + 1);
     expect(atCut.map((entry) => entry.rank)).toEqual([17, 18, 19, 20, 21, 22, 23]);
-    expect(Math.max(...later.map((entry) => entry.rank))).toBeLessThan(17);
+    expect(Math.max(...later.map(knownRank))).toBeLessThan(17);
   });
 
   it('group stage (31 units, 2 per group go through): eliminated units are ordered by place in group, then standing', () => {
@@ -515,7 +522,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
           compareStandings(here?.standing as TournamentStanding, there?.standing as TournamentStanding),
         ).toBeLessThanOrEqual(0);
       }
-      expect(entry.rank).toBeLessThanOrEqual(next.rank);
+      expect(entry.rank).toBeLessThanOrEqual(knownRank(next));
     }
     expect(eliminated[0].rank).toBe((rankings?.stillActive.length ?? 0) + 1);
   });
@@ -923,7 +930,7 @@ describe('computeRankings -- order within an elimination round', () => {
       expect(
         here.place < there.place || (here.place === there.place && here.share >= there.share - 1e-9),
       ).toBe(true);
-      expect(next.rank).toBe(level ? entry.rank : eliminated[0].rank + index + 1);
+      expect(next.rank).toBe(level ? entry.rank : knownRank(eliminated[0]) + index + 1);
     }
   });
 
@@ -984,7 +991,7 @@ describeInBothShapes('computeRankings -- a waterfall fed by the qualification ta
     const lastQualification = state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
     expect(entries.every((entry) => entry.ri === lastQualification)).toBe(true);
     // Every eliminated unit ranks below the 24 that are still in.
-    expect(entries.every((entry) => entry.rank > 24)).toBe(true);
+    expect(entries.every((entry) => knownRank(entry) > 24)).toBe(true);
     expect(entries.map((entry) => entry.name)).toEqual(expect.arrayContaining(order.slice(24)));
   });
 });
@@ -1009,7 +1016,7 @@ describeInBothShapes('computeRankings -- units waiting in a pending pool are sti
     expect(waiting.every((entry) => entry.waitingFor === r1c && entry.room === null)).toBe(true);
     expect(active.filter((entry) => entry.room !== null)).toHaveLength(16);
     expect(rankings?.eliminatedList).toHaveLength(13);
-    expect(Math.min(...(rankings?.eliminatedList ?? []).map((entry) => entry.rank))).toBe(25);
+    expect(Math.min(...(rankings?.eliminatedList ?? []).map(knownRank))).toBe(25);
   });
 
   it('at 53 registered: 24 still in, 29 eliminated', () => {
