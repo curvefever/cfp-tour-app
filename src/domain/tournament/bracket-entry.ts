@@ -13,7 +13,7 @@ export function parseAdvanceToBracket(raw: string): number | null {
   return Number.isFinite(value) && value >= 1 ? value : null;
 }
 
-/** A request above the number of confirmed units means everyone advances. */
+/** A request above the number of registered units means everyone advances. */
 export function clampAdvanceToBracket(requested: number, confirmedCount: number): number {
   return Math.min(requested, confirmedCount);
 }

@@ -149,7 +149,7 @@ export function generateTournament(
     const reason =
       schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${formatRoomSize.min})` : '';
     return generationError(
-      `This format needs at least ${floorMin} confirmed ${unitPlural}${reason}. Confirmed: ${current.confirmedCount}.`,
+      `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${current.confirmedCount}.`,
     );
   }
 
@@ -384,7 +384,7 @@ export function generateTournament(
         .map((strategy) => strategy.charAt(0).toUpperCase() + strategy.slice(1))
         .join('/');
       return generationError(
-        `With "None" selected as the odd-count strategy, the confirmed ${unitPlural} must be an exact multiple of ${ideal} (this format's room size) so the pooling phase itself can pair everyone cleanly — got ${config.n}.${alternatives ? ` Adjust the count, or pick ${alternatives} instead.` : ' Adjust the count.'}`,
+        `With "None" selected as the odd-count strategy, the registered ${unitPlural} must be an exact multiple of ${ideal} (this format's room size) so the pooling phase itself can pair everyone cleanly — got ${config.n}.${alternatives ? ` Adjust the count, or pick ${alternatives} instead.` : ' Adjust the count.'}`,
       );
     }
     const eliminationEntryCount = bracketEntryCount;
@@ -401,7 +401,7 @@ export function generateTournament(
         ? 'must be an exact power of 2 (double elimination halves the field every round)'
         : `must be an exact multiple of ${ideal} (this format's room size)`;
       return generationError(
-        `With "None" selected as the odd-count strategy, the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`} ${requirement} — got ${eliminationEntryCount}.${alternatives ? ` Adjust the count, or pick ${alternatives} instead.` : ' Adjust the count.'}`,
+        `With "None" selected as the odd-count strategy, the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `registered ${unitPlural}`} ${requirement} — got ${eliminationEntryCount}.${alternatives ? ` Adjust the count, or pick ${alternatives} instead.` : ' Adjust the count.'}`,
       );
     }
   }
@@ -441,7 +441,7 @@ export function generateTournament(
   }
   if (semisOverride && semisOverride > overrideEntryCount) {
     return generationError(
-      `Semis size override (${semisOverride}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket (' : 'confirmed count ('}${overrideEntryCount}) — there'd be nothing left to eliminate down to it.`,
+      `Semis size override (${semisOverride}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket (' : 'registered count ('}${overrideEntryCount}) — there'd be nothing left to eliminate down to it.`,
     );
   }
   // finalOverride was previously only checked AGAINST semisOverride when the
@@ -470,7 +470,7 @@ export function generateTournament(
           ? 'Increase the group count or qualifiers per group.'
           : config.poolingPhase !== 'none'
             ? 'Increase "Advance to bracket."'
-            : `Add more confirmed ${unitPlural}.`;
+            : `Add more registered ${unitPlural}.`;
       return generationError(
         `Can't build a double-elimination bracket — only ${bracketEntryCount} ${unitPlural} would actually enter the bracket phase (needs at least ${doubleElimFloor}). ${adjustHint}`,
       );
@@ -522,7 +522,7 @@ export function generateTournament(
     schedule,
     bracketEntryCount,
     entryLabel:
-      config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `confirmed ${unitPlural}`,
+      config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `registered ${unitPlural}`,
     semisSize: semisOverride || semisDefault,
     winnersQualifiers: winnersQualifiers ?? 0,
     finalSize: prospectiveFinalSize,

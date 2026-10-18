@@ -99,7 +99,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
       }
       title='ROSTER'
     >
-      <PresenceField className='mb-0' htmlFor='cfg-roster' label={`Roster — confirmed ${unit}, one per line`}>
+      <PresenceField className='mb-0' htmlFor='cfg-roster' label={`Roster — registered ${unit}, one per line`}>
         <Textarea
           id='cfg-roster'
           className='min-h-40'

@@ -52,7 +52,7 @@ describe('generateTournament -- validation failures', () => {
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') {
-      expect(result.message).toContain('needs at least 12 confirmed players');
+      expect(result.message).toContain('needs at least 12 registered players');
       expect(result.message).toContain('Semis needs 2 rooms of at least 6');
     }
   });
@@ -63,7 +63,7 @@ describe('generateTournament -- validation failures', () => {
     const result = generateTournament(state, form, createTournamentRuntime());
     expect(result).toMatchObject({
       status: 'invalid',
-      message: 'This format needs at least 16 confirmed players. Confirmed: 10.',
+      message: 'This format needs at least 16 registered players. Registered: 10.',
     });
   });
 
