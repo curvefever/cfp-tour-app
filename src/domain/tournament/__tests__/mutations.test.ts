@@ -267,6 +267,57 @@ describe('swapTeam', () => {
     // Existing groups-remap behavior, unchanged by this plan -- regression coverage only.
     expect(result.groups).toEqual([{ label: 'A', members: ['t3', 't2'] }]);
   });
+
+  describe('replacement taken from the reserves', () => {
+    const reserveTeam = {
+      teamId: 'r1',
+      teamName: 'Reserve Team 1',
+      members: [{ name: 'Gina' }, { name: 'Hal' }],
+    };
+    const otherReserve = {
+      teamId: 'r2',
+      teamName: 'Reserve Team 2',
+      members: [{ name: 'Ian' }, { name: 'Jo' }],
+    };
+
+    function withReserves() {
+      return createDefaultTournamentState({
+        gameFormat: 'team-2v2v2v2',
+        players: [
+          { teamId: 't1', teamName: 'Team One', members: [{ name: 'Alice' }, { name: 'Bob' }] },
+          { teamId: 't2', teamName: 'Team Two', members: [{ name: 'Carl' }, { name: 'Dave' }] },
+        ],
+        reserves: [reserveTeam, otherReserve],
+        rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+        assignments: [
+          [
+            { name: 't1', room: 1, isLucky: false },
+            { name: 't2', room: 1, isLucky: false },
+          ],
+        ],
+        scores: {},
+      });
+    }
+
+    it("moves the reserve into the roster and takes the outgoing team's seat", () => {
+      const result = swapTeam(withReserves(), 't1', reserveTeam);
+      expect((result.players as { teamId: string }[]).map((team) => team.teamId)).toEqual(['t2', 'r1']);
+      expect((result.reserves as { teamId: string }[]).map((team) => team.teamId)).toEqual(['r2']);
+      expect(result.assignments[0].map((seat) => seat.name)).toEqual(['r1', 't2']);
+    });
+
+    it('still refuses a typed replacement named like a different reserve team', () => {
+      const state = withReserves();
+      const typed = { teamId: 'new1', teamName: 'Reserve Team 2', members: [{ name: 'Kim' }] };
+      expect(swapTeam(state, 't1', typed)).toBe(state);
+    });
+
+    it('still accepts a replacement named like the outgoing team', () => {
+      const state = withReserves();
+      const sameName = { teamId: 'new2', teamName: 'Team One', members: [{ name: 'Kim' }] };
+      expect(swapTeam(state, 't1', sameName)).not.toBe(state);
+    });
+  });
 });
 
 describe('future group-stage rounds -- removeRosterUnit/swapIndividual/swapTeam', () => {

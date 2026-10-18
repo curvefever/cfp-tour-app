@@ -136,7 +136,7 @@ function renamePlayer(state: TournamentState, name: string, apply: UpdateState) 
   const value = window.prompt(`Rename "${name}" to:`, name);
   if (value === null || !value.trim() || value.trim() === name) return;
   if (refuseUnstorableNames([value])) return;
-  if (isDisplayNameTaken(state, value, name)) {
+  if (isDisplayNameTaken(state, value, [name])) {
     window.alert(`"${value.trim()}" is already registered — pick a different name.`);
     return;
   }
@@ -406,7 +406,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       const value = window.prompt(`Rename team "${team.teamName}" to:`, team.teamName);
                       if (!value?.trim()) return;
                       if (refuseUnstorableNames([value])) return;
-                      if (isDisplayNameTaken(state, value, team.teamId)) {
+                      if (isDisplayNameTaken(state, value, [team.teamId])) {
                         window.alert(
                           `A team called "${value.trim()}" is already registered — pick a different name.`,
                         );
@@ -470,7 +470,9 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         }
                       }
                       if (refuseUnstorableNames(teamNames(replacement))) return;
-                      if (isDisplayNameTaken(state, replacement.teamName, team.teamId)) {
+                      if (
+                        isDisplayNameTaken(state, replacement.teamName, [team.teamId, replacement.teamId])
+                      ) {
                         window.alert(
                           `A team called "${replacement.teamName}" is already registered — pick a different name.`,
                         );

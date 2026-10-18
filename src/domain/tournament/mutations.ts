@@ -835,9 +835,9 @@ export function swapTeam(
   ) {
     return state;
   }
-  // The outgoing team (oldTeamId) is excluded -- it's being removed by this
-  // same swap, so a replacement sharing its exact name is not a collision.
-  if (isDisplayNameTaken(state, replacement.teamName, oldTeamId)) return state;
+  // The outgoing team is being removed by this same swap and the replacement may be
+  // taken from the reserves, so neither counts as a name collision.
+  if (isDisplayNameTaken(state, replacement.teamName, [oldTeamId, replacement.teamId])) return state;
   if (findUnstorableNames(teamNames(replacement)).length) return state;
   const replaced = replaceUnitInPlay(state, oldTeamId, replacement.teamId);
   if (!replaced) return state;
