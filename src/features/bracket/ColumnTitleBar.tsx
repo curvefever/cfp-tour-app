@@ -1,10 +1,28 @@
 import type { ReactNode } from 'react';
 import { Badge, cn, columnTitleClassName } from '../../components/ui';
 import type { RoundGameCount } from '../../domain/tournament/bracket';
+import type { RoomsScored } from './still-playing';
 
-/** "3 GAMES", or "UP TO 4 GAMES" for the race Grand Final. */
+/** "1 GAME", "3 GAMES", or "UP TO 4 GAMES" for the race Grand Final. */
 function gameCountText({ games, upTo }: RoundGameCount): string {
-  return `${upTo ? 'UP TO ' : ''}${games} GAMES`;
+  return `${upTo ? 'UP TO ' : ''}${games} ${games === 1 ? 'GAME' : 'GAMES'}`;
+}
+
+/** The admin's "4/6": rooms fully scored out of the round's rooms, green once all are in. */
+function RoomsScoredTag({ progress: { scored, total } }: { progress: RoomsScored }) {
+  const label = `${scored} of ${total} rooms scored`;
+  return (
+    <span
+      aria-label={label}
+      className={cn(
+        'px-1.5 text-[13px] font-bold tabular-nums',
+        scored === total ? 'text-cfp-green-text' : 'text-cfp-text-soft',
+      )}
+      title={label}
+    >
+      {scored}/{total}
+    </span>
+  );
 }
 
 function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }) {
@@ -30,8 +48,9 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
 }
 
 /**
- * The title bar above a Bracket column: its name, a NOW pill on the current round, the game count when there is
- * more than one game, anything extra the column wants at the right (an exit icon), and the fold chevron.
+ * The title bar above a Bracket column: its name, a NOW pill on the current round, the game count (`roundGameCount`
+ * decides when there is one), and at the right the admin's rooms-scored tracker, anything extra the column wants (an
+ * exit icon) and the fold chevron.
  */
 export function ColumnTitleBar({
   badge,
@@ -40,6 +59,7 @@ export function ColumnTitleBar({
   gameCount,
   now = false,
   onToggle,
+  progress = null,
   title,
 }: {
   /** A status tag after the title (the standings column's TEMPORARY / FINAL). */
@@ -49,6 +69,8 @@ export function ColumnTitleBar({
   gameCount?: RoundGameCount | null;
   now?: boolean;
   onToggle?: () => void;
+  /** Rooms scored out of the round's rooms, for an admin on a round in play; nothing when null or without rooms. */
+  progress?: RoomsScored | null;
   title: string;
 }) {
   return (
@@ -71,6 +93,7 @@ export function ColumnTitleBar({
       ) : null}
       {badge}
       <div className='ml-auto flex shrink-0 items-center'>
+        {progress && progress.total > 0 ? <RoomsScoredTag progress={progress} /> : null}
         {extra}
         {onToggle ? <FoldButton onToggle={onToggle} title={title} /> : null}
       </div>

@@ -77,6 +77,26 @@ export function lastAssignedRound(state: Pick<TournamentState, 'assignments'>): 
   return last;
 }
 
+/**
+ * Whether the Final, the last drawn round, is complete: the race Grand Final decided, or every game of the plain
+ * Final scored for every finalist (real keys only). False while the last drawn round is not a Final.
+ */
+export function isFinalComplete(state: TournamentState): boolean {
+  const lastRi = lastAssignedRound(state);
+  const round = state.rounds[lastRi];
+  if (!round?.isFinal) return false;
+  if (round.bracket === 'grand-final')
+    return Boolean(computeGrandFinalRaceState(state, lastRi, round)?.decided);
+  const games = Array.from({ length: round.numGames ?? 0 }, (_, index) => index + 1);
+  const assignments = state.assignments[lastRi] ?? [];
+  return (
+    assignments.length > 0 &&
+    assignments.every((assignment) =>
+      games.every((game) => getFinalUnitScore(state, assignment.name, game, null) !== null),
+    )
+  );
+}
+
 /** Where an eliminated unit stood in the table that decided its standings cut. */
 interface CutPlacement {
   /** Position in its table (its group's table, for a Group Stage). */
@@ -304,10 +324,9 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const lastAssignments = state.assignments[lastRi] ?? [];
   let active: Array<RoundAssignment & { ri?: number }> = [];
   let finalistValues: Array<{ name: string; total: number }> = [];
-  let finalComplete = false;
+  const finalComplete = isFinalComplete(state);
   if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
     const race = computeGrandFinalRaceState(state, lastRi, lastRound);
-    finalComplete = Boolean(race?.decided);
     if (race?.decided) {
       const loser = race.winnerName === race.wbName ? race.lbName : race.wbName;
       finalistValues = [
@@ -323,13 +342,6 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     } else active = [...lastAssignments];
   } else if (lastRound.isFinal) {
     const games = lastRound.numGames ?? 0;
-    finalComplete =
-      lastAssignments.length > 0 &&
-      lastAssignments.every((assignment) =>
-        Array.from({ length: games }, (_, index) => index + 1).every(
-          (game) => getFinalUnitScore(state, assignment.name, game, null) !== null,
-        ),
-      );
     if (finalComplete) {
       finalistValues = lastAssignments
         .map((assignment) => ({

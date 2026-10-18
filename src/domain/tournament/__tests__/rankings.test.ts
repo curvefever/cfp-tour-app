@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compareStandings, isStandingsCutoffRound, orderedQualificationTable } from '../advancement';
 import { addWalkUpIndividual } from '../mutations';
-import { computeRankings, tournamentWinners } from '../rankings';
+import { computeRankings, isFinalComplete, tournamentWinners } from '../rankings';
 import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -365,6 +365,61 @@ function finalCompleteState(): TournamentState {
   });
   return state;
 }
+
+describe('isFinalComplete', () => {
+  it('is true once every game of the plain Final is scored for every finalist', () => {
+    const state = finalCompleteState();
+    expect(isFinalComplete(state)).toBe(true);
+    expect(isFinalComplete({ ...state, finalScores: { 'game1-P1': 50 } })).toBe(false);
+  });
+
+  it('waits for the last game of a 3-game Final', () => {
+    const state = finalCompleteState();
+    const threeGames = {
+      ...state,
+      rounds: state.rounds.map((round) => (round.isFinal ? { ...round, numGames: 3 } : round)),
+    };
+    expect(isFinalComplete(threeGames)).toBe(false);
+    const allGames = { ...state.finalScores, 'game2-P1': 70, 'game2-P2': 60, 'game3-P1': 40, 'game3-P2': 90 };
+    expect(isFinalComplete({ ...threeGames, finalScores: allGames })).toBe(true);
+  });
+
+  it('is false while the last drawn round is not a Final', () => {
+    const state = finalCompleteState();
+    expect(isFinalComplete({ ...state, assignments: [state.assignments[0], []] })).toBe(false);
+  });
+
+  it('is true once the race Grand Final is decided, not before', () => {
+    const race = (finalScores: Record<string, number>, numGames: number): TournamentState =>
+      createDefaultTournamentState({
+        gameFormat: 'individual-1v1',
+        players: ['W', 'L'],
+        rounds: [
+          buildRound({
+            roundNum: 1,
+            rooms: [2],
+            players: 2,
+            bracket: 'grand-final',
+            isFinal: true,
+            numGames,
+            wbFinalistName: 'W',
+          }),
+        ],
+        assignments: [
+          [
+            { name: 'W', room: 1, isLucky: false },
+            { name: 'L', room: 1, isLucky: false },
+          ],
+        ],
+        finalScores,
+      });
+    // Default targets: W needs 2 wins, L needs 3.
+    expect(isFinalComplete(race({ 'game1-W': 10, 'game1-L': 5 }, 1))).toBe(false);
+    const decided = race({ 'game1-W': 10, 'game1-L': 5, 'game2-W': 10, 'game2-L': 5 }, 2);
+    expect(isFinalComplete(decided)).toBe(true);
+    expect(computeRankings(decided)?.finalComplete).toBe(true);
+  });
+});
 
 describe('computeRankings -- eliminated at a standings cut', () => {
   function advance(state: TournamentState): TournamentState {

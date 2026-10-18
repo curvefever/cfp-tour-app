@@ -15,10 +15,11 @@ export interface RoundGameCount {
 }
 
 /**
- * How many games a round is played over, when that's more than one; null otherwise. Separate from
- * bracketRoundLabels, whose label also feeds destination tags that must not gain a game count.
- * The race Grand Final's `numGames` grows as games are opened, so it reports its maximum instead:
- * one side one win short of its target while the other reaches its own (drawn games ignored).
+ * How many games a round is played over, when the Bracket says so: always for the Final (one game too), otherwise
+ * only when that's more than one; null otherwise. Separate from bracketRoundLabels, whose label also feeds
+ * destination tags that must not gain a game count.
+ * The race Grand Final's `numGames` grows as games are opened, so it reports its maximum instead: one side one win
+ * short of its target while the other reaches its own (drawn games ignored). A maximum of 1 is a plain "1 GAME".
  */
 export function roundGameCount(
   state: Pick<TournamentState, 'rounds' | 'gamemodeConfig'>,
@@ -29,9 +30,10 @@ export function roundGameCount(
   if (round.bracket === 'grand-final') {
     const { wbTarget, lbTarget } = grandFinalTargets(state);
     const games = wbTarget + lbTarget - 1;
-    return games > 1 ? { games, upTo: true } : null;
+    return { games, upTo: games > 1 };
   }
-  return round.numGames !== undefined && round.numGames > 1 ? { games: round.numGames, upTo: false } : null;
+  const games = round.numGames ?? 0;
+  return games > 1 || (round.isFinal && games === 1) ? { games, upTo: false } : null;
 }
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {

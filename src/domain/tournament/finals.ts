@@ -118,7 +118,7 @@ export function progressGrandFinalRace(state: TournamentState): GrandFinalRaceTr
  * anonymous-flagged game's slot as filled once its placeholder alias has a
  * score -- not the real finalist's own key, which stays empty by design
  * until connectAnonymousFinalist() merges it in. Deliberately NOT the same
- * check as computeRankings()'s finalComplete (rankings.ts), which reads only
+ * check as isFinalComplete() (rankings.ts), which reads only
  * real keys and would therefore never become true while any game is still
  * anonymous and unconnected -- this is the gate connectAnonymousFinalist()
  * itself needs to decide whether a placeholder is safe to reveal.

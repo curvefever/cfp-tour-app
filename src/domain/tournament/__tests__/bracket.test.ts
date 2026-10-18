@@ -637,7 +637,9 @@ describe('roundGameCount', () => {
   const countOf = (round: TournamentRound, gamemodeConfig: TournamentState['gamemodeConfig'] = {}) =>
     roundGameCount({ rounds: [round], gamemodeConfig }, 0);
   const plain = (numGames?: number) => buildRound({ roundNum: 1, numGames });
-  const grandFinal = (numGames: number) => buildRound({ roundNum: 1, bracket: 'grand-final', numGames });
+  const final = (numGames: number) => buildRound({ roundNum: 1, isFinal: true, numGames });
+  const grandFinal = (numGames: number) =>
+    buildRound({ roundNum: 1, bracket: 'grand-final', isFinal: true, numGames });
 
   it.each([
     [undefined, null],
@@ -646,6 +648,10 @@ describe('roundGameCount', () => {
     [4, { games: 4, upTo: false }],
   ])('numGames %s', (numGames, expected) => {
     expect(countOf(plain(numGames))).toEqual(expected);
+  });
+
+  it.each([1, 3])('always reports the plain Final, one game included (%i)', (games) => {
+    expect(countOf(final(games))).toEqual({ games, upTo: false });
   });
 
   it('returns null for a round that does not exist', () => {
@@ -659,12 +665,15 @@ describe('roundGameCount', () => {
     },
   );
 
-  it('follows custom race targets, and shows nothing when both are 1', () => {
+  it('follows custom race targets, and reports a plain 1 game (never "up to 1") when both are 1', () => {
     expect(countOf(grandFinal(1), { grandFinalWbTarget: 3, grandFinalLbTarget: 4 })).toEqual({
       games: 6,
       upTo: true,
     });
-    expect(countOf(grandFinal(1), { grandFinalWbTarget: 1, grandFinalLbTarget: 1 })).toBeNull();
+    expect(countOf(grandFinal(1), { grandFinalWbTarget: 1, grandFinalLbTarget: 1 })).toEqual({
+      games: 1,
+      upTo: false,
+    });
   });
 
   const counts = (state: TournamentState) => state.rounds.map((_, index) => roundGameCount(state, index));

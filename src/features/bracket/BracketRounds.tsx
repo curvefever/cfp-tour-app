@@ -10,6 +10,7 @@ import {
   roundGameCount,
 } from '../../domain/tournament/bracket';
 import { finalsProgressState } from '../../domain/tournament/finals';
+import { isFinalComplete } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
@@ -19,6 +20,7 @@ import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
+import { type RoomsScored, roomsScored } from './still-playing';
 import { isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column. */
@@ -35,6 +37,7 @@ export function RoundColumn({
   gameCount,
   label,
   onToggle,
+  progress,
 }: {
   children: ReactNode;
   collapsed?: boolean;
@@ -44,6 +47,8 @@ export function RoundColumn({
   gameCount?: RoundGameCount | null;
   label: string;
   onToggle?: () => void;
+  /** The admin's rooms-scored tracker on the title bar (`ColumnTitleBar`); a folded box shows none. */
+  progress?: RoomsScored | null;
 }) {
   if (collapsed) {
     return (
@@ -54,7 +59,13 @@ export function RoundColumn({
   }
   return (
     <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
-      <ColumnTitleBar gameCount={gameCount} now={current} onToggle={onToggle} title={label} />
+      <ColumnTitleBar
+        gameCount={gameCount}
+        now={current}
+        onToggle={onToggle}
+        progress={progress}
+        title={label}
+      />
       <div className='flex flex-col gap-5.5'>{children}</div>
     </div>
   );
@@ -131,6 +142,16 @@ function WaveBoxBody({
   );
 }
 
+/** A wave box's tracker: its rounds in play added together; null when none is. */
+function sumProgress(parts: Array<RoomsScored | null>): RoomsScored | null {
+  const counted = parts.filter((part): part is RoomsScored => part !== null);
+  if (counted.length === 0) return null;
+  return {
+    scored: counted.reduce((sum, part) => sum + part.scored, 0),
+    total: counted.reduce((sum, part) => sum + part.total, 0),
+  };
+}
+
 /**
  * Renders a tournament's rounds as one flowing row of boxes, one per
  * `bracketBoxes()` entry. A double-elimination winners-bracket (WB) round
@@ -176,17 +197,28 @@ export function BracketRounds({
   const [finalTabOverride, setFinalTabOverride] = useState<number | null>(null);
   const strip = useRef<HTMLDivElement>(null);
   const finalTab = finalTabOverride ?? finalProgress?.nextGame ?? 1;
+  const finalComplete = useMemo(() => isFinalComplete(state), [state]);
+  /** NOW marks the column in play, until the Final is complete. */
+  const isNow = (roundIndex: number) => isCurrentRound(state, roundIndex) && !finalComplete;
+  /** The admin's tracker: rounds of the column in play only, never the Final (one room over several games). */
+  const progressOf = (roundIndex: number): RoomsScored | null => {
+    const round = state.rounds[roundIndex];
+    if (!editable || !isCurrentRound(state, roundIndex) || round.isFinal || round.bracket === 'grand-final')
+      return null;
+    return roomsScored(state, roundIndex);
+  };
   function renderSingle(roundIndex: number) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
       <RoundColumn
         collapsed={collapsed}
-        current={isCurrentRound(state, roundIndex)}
+        current={isNow(roundIndex)}
         folded={foldedRoundSummary(state, roundIndex, followKey)}
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
         label={labels[roundIndex]?.label ?? ''}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+        progress={progressOf(roundIndex)}
       >
         <RoundBody
           state={state}
@@ -234,18 +266,20 @@ export function BracketRounds({
     return (
       <RoundColumn
         collapsed={collapsed}
-        current={isCurrentRound(state, first)}
+        current={isNow(first)}
         folded={foldedColumnSummary(state, box.roundIndices, followKey)}
         gameCount={roundGameCount(state, first)}
         key={first}
         label={labels[first]?.label ?? ''}
         onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
+        progress={progressOf(first)}
       >
         {bodyOf(first)}
         {others.map((roundIndex) => (
           <div className='flex flex-col gap-4.5' key={roundIndex}>
             <ColumnTitleBar
               gameCount={roundGameCount(state, roundIndex)}
+              progress={progressOf(roundIndex)}
               title={labels[roundIndex]?.label ?? ''}
             />
             <div className='flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
@@ -261,7 +295,7 @@ export function BracketRounds({
     return (
       <RoundColumn
         collapsed={collapsed}
-        current={constituents.some((index) => isCurrentRound(state, index))}
+        current={constituents.some(isNow)}
         folded={{
           ...foldedRoundSummary(state, box.winnersRoundIndex, followKey),
           done: isRoundDone(state, lastIndex),
@@ -270,6 +304,7 @@ export function BracketRounds({
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
+        progress={sumProgress(constituents.map(progressOf))}
       >
         <WaveBoxBody
           state={state}
