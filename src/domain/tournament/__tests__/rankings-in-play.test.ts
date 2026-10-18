@@ -96,10 +96,10 @@ describe('in play: a single-elimination round with lucky losers (37 players, roo
 
   it('gives the early-eliminated units their numbers once the round is advanced', () => {
     const allScored = scoreRooms(state, [1, 2, 3, 4, 5]);
-    expect(eliminatedRanks(allScored)).toEqual([
-      [roomA[7], null],
-      [roomB[7], null],
-    ]);
+    // The two 8ths are level (same place, same room share, no pooling standing), so their order is not part of the rule.
+    const inPlay = eliminatedRanks(allScored);
+    expect(inPlay.map(([name]) => name).sort()).toEqual([roomA[7], roomB[7]].sort());
+    expect(inPlay.every(([, rank]) => rank === null)).toBe(true);
     const advanced = rankings(advance(allScored));
     // 32 go on, so the 5 out rank 33-37: the 3 lucky-loser candidates not picked (7th), then the two 8ths, level.
     expect(advanced.eliminatedList.map((entry) => entry.rank)).toEqual([33, 33, 33, 36, 36]);
