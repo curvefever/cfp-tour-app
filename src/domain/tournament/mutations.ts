@@ -311,6 +311,7 @@ export type ReserveAddResult =
         | 'strict-room'
         | 'room-cap'
         | 'duplicate-name'
+        | 'no-members'
         | 'unstorable-name';
     }
   | { status: 'blocked'; reason: 'generation'; message: string }
@@ -494,6 +495,25 @@ export function addWalkUpIndividual(
   return addReserveUnit(
     { ...state, reserves: [...(state.reserves as string[]), trimmed] },
     trimmed,
+    options,
+    runtime,
+  );
+}
+
+/** Adds a brand-new team: it joins the reserves and is admitted at once, like a walk-up individual. */
+export function addWalkUpTeam(
+  state: TournamentState,
+  team: TournamentTeam,
+  options: ReserveAddOptions = {},
+  runtime?: TournamentRuntime,
+): ReserveAddResult {
+  if (!getGameFormat(state.gameFormat)?.teamSize) return { status: 'blocked', reason: 'room-cap' };
+  if (team.members.every((member) => !member)) return { status: 'blocked', reason: 'no-members' };
+  if (isDisplayNameTaken(state, team.teamName)) return { status: 'blocked', reason: 'duplicate-name' };
+  if (findUnstorableNames(teamNames(team)).length) return { status: 'blocked', reason: 'unstorable-name' };
+  return addReserveUnit(
+    { ...state, reserves: [...(state.reserves as TournamentTeam[]), team] },
+    team.teamId,
     options,
     runtime,
   );

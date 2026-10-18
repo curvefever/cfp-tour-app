@@ -5,6 +5,7 @@ import { generateTournament } from '../generation';
 import {
   addReserveUnit,
   addWalkUpIndividual,
+  addWalkUpTeam,
   connectAnonymousFinalist,
   fillTeamSlot,
   flagFinalGameAnonymous,
@@ -1896,5 +1897,81 @@ describe('confirmations follow the person', () => {
     });
     expect(loaded.confirmations).toEqual({ P1: true, Sub: true });
     expect(resetTournamentState(loaded).confirmations).toEqual({ P1: true, Sub: true });
+  });
+});
+
+describe('addWalkUpTeam', () => {
+  const qualSetup = { gameFormat: 'team-2v2v2v2', poolingPhase: 'qual-table', qualAdv: '8' } as const;
+  const newTeam: TournamentTeam = {
+    teamId: 'walkup',
+    teamName: 'Late Team',
+    members: [{ name: 'Kim' }, { name: 'Lee' }],
+  };
+
+  function generatedTeams(count: number, started: boolean): TournamentState {
+    const players = Array.from({ length: count }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: [{ name: `a${index}` }, { name: `b${index}` }],
+    }));
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players }),
+      createDefaultSetup(qualSetup),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(result.message);
+    return { ...result.state, started };
+  }
+
+  const seatedIn = (state: TournamentState, round: number, name: string) =>
+    (state.assignments[round] ?? []).filter((entry) => entry.name === name).length;
+
+  it('after the start the team is a late joiner: on the roster, in no room of the round in play', () => {
+    const start = generatedTeams(31, true);
+    const result = addWalkUpTeam(start, newTeam);
+    if (result.status !== 'added') throw new Error(JSON.stringify(result));
+    expect(result.state.players).toHaveLength(32);
+    expect(result.state.reserves).toEqual([]);
+    expect(seatedIn(result.state, 0, 'walkup')).toBe(0);
+    expect(result.state.assignments[0]).toEqual(start.assignments[0]);
+  });
+
+  it('before the start the team is seated in round 1 (31 -> 32 teams)', () => {
+    const result = addWalkUpTeam(generatedTeams(31, false), newTeam);
+    if (result.status !== 'added') throw new Error(JSON.stringify(result));
+    expect(result.state.confirmedCount).toBe(32);
+    expect(seatedIn(result.state, 0, 'walkup')).toBe(1);
+  });
+
+  it('refuses a team with no members', () => {
+    const state = generatedTeams(31, true);
+    expect(addWalkUpTeam(state, { ...newTeam, members: [null, null] })).toEqual({
+      status: 'blocked',
+      reason: 'no-members',
+    });
+  });
+
+  it('refuses a name already used by a roster team or by a reserve team', () => {
+    const state = {
+      ...generatedTeams(31, true),
+      reserves: [{ ...newTeam, teamId: 'r1', teamName: 'Bench' }],
+    };
+    const duplicate = { status: 'blocked', reason: 'duplicate-name' };
+    expect(addWalkUpTeam(state, { ...newTeam, teamName: 'Team 5' })).toEqual(duplicate);
+    expect(addWalkUpTeam(state, { ...newTeam, teamName: 'Bench' })).toEqual(duplicate);
+  });
+
+  it('refuses a name or a member name the database cannot store', () => {
+    const state = generatedTeams(31, true);
+    const unstorable = { status: 'blocked', reason: 'unstorable-name' };
+    expect(addWalkUpTeam(state, { ...newTeam, members: [{ name: 'm[1]' }, { name: 'Lee' }] })).toEqual(
+      unstorable,
+    );
+    expect(addWalkUpTeam(state, { ...newTeam, teamName: 'Team.Three' })).toEqual(unstorable);
+  });
+
+  it('refuses an individual format', () => {
+    const state = createDefaultTournamentState({ gameFormat: 'ffa-individual', players: ['P1', 'P2'] });
+    expect(addWalkUpTeam(state, newTeam)).toEqual({ status: 'blocked', reason: 'room-cap' });
   });
 });

@@ -4,6 +4,7 @@ import { getGameFormat } from '../../domain/tournament/formats';
 import {
   addReserveUnit,
   addWalkUpIndividual,
+  addWalkUpTeam,
   fillTeamSlot,
   removeReserveUnit,
   removeRosterUnit,
@@ -20,7 +21,6 @@ import {
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
   isDisplayNameTaken,
-  parseTeamLines,
   rosterKeys,
   teamNames,
   unitDisplay,
@@ -37,6 +37,7 @@ import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
 import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
+import { memberPlaceholders, noMembersMessage, parseWalkUpTeam } from './walk-up-team';
 import { nextColumnStart, roundInPlayOf } from '../../domain/tournament/round-columns';
 
 /** The confirm a reserve add can ask for, with the option that answers it; null when the add needs none. */
@@ -59,12 +60,15 @@ function reserveConfirmation(
   };
 }
 
+const isTeamFormat = (state: TournamentState) => Boolean(getGameFormat(state.gameFormat)?.teamSize);
+
 function handleReserveResult(
   state: TournamentState,
   label: string,
   result: ReserveAddResult,
   retry: (options: ReserveAddOptions) => ReserveAddResult,
   apply: (state: TournamentState) => void,
+  names: string[] = [label],
 ) {
   if (result.status === 'added') return apply(result.state);
   const confirmation = reserveConfirmation(state, label, result);
@@ -91,8 +95,11 @@ function handleReserveResult(
     'strict-room':
       'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",
-    'duplicate-name': 'A player with that name is already registered — pick a different name.',
-    'unstorable-name': unstorableNamesMessage([label]),
+    'duplicate-name': isTeamFormat(state)
+      ? `A team called "${label}" is already registered — pick a different name.`
+      : 'A player with that name is already registered — pick a different name.',
+    'no-members': noMembersMessage(label),
+    'unstorable-name': unstorableNamesMessage(names),
   };
   window.alert(messages[result.reason]);
 }
@@ -113,6 +120,8 @@ function applySwap(
   apply(swap);
 }
 
+const teamLinePlaceholder = (teamSize: number) => `Team name, ${memberPlaceholders(teamSize)}`;
+
 /** What the Reserves panel says once eliminations have started: the window is closed; the waiting list stays visible. */
 function ClosedReserves({ state }: { state: TournamentState }) {
   const format = getGameFormat(state.gameFormat);
@@ -120,7 +129,14 @@ function ClosedReserves({ state }: { state: TournamentState }) {
   return (
     <>
       <div className='text-sm text-danger'>Reserve window closed — eliminations have started.</div>
-      {format?.teamSize ? null : (
+      {format?.teamSize ? (
+        <Input
+          aria-label='A new team: name and players'
+          disabled
+          placeholder={teamLinePlaceholder(format.teamSize)}
+          type='text'
+        />
+      ) : (
         <Input
           aria-label='Name of a new or walk-up player'
           disabled
@@ -275,6 +291,24 @@ export function ReservePanel({ state }: { state: TournamentState }) {
     );
     setWalkup('');
   };
+  const addWalkUpTeamLine = () => {
+    const parsed = parseWalkUpTeam(walkup, format?.teamSize ?? 0, app.runtime.ids);
+    if (parsed.status === 'empty') return;
+    if (parsed.status === 'no-members') {
+      window.alert(parsed.message);
+      return;
+    }
+    const { team } = parsed;
+    handleReserveResult(
+      state,
+      team.teamName,
+      addWalkUpTeam(state, team, {}, app.runtime),
+      (options) => addWalkUpTeam(state, team, options, app.runtime),
+      app.updateState,
+      teamNames(team),
+    );
+    setWalkup('');
+  };
   return (
     <ToolPanel title='Reserves'>
       <div className='flex flex-col gap-2.5 px-4.5 py-3.5'>
@@ -282,28 +316,29 @@ export function ReservePanel({ state }: { state: TournamentState }) {
           <ClosedReserves state={state} />
         ) : (
           <>
-            {!format?.teamSize ? (
-              <div className='flex items-center gap-2'>
-                <Input
-                  className='min-w-0 flex-1'
-                  type='text'
-                  placeholder='Name of a new/walk-up player'
-                  value={walkup}
-                  onChange={(event) => setWalkup(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') addWalkUp();
-                  }}
-                />
-                <Button
-                  className='shrink-0 whitespace-nowrap'
-                  size='sm'
-                  variant='warning'
-                  onClick={addWalkUp}
-                >
-                  ＋ Add new player
-                </Button>
-              </div>
-            ) : null}
+            <div className='flex items-center gap-2'>
+              <Input
+                aria-label={format?.teamSize ? 'A new team: name and players' : undefined}
+                className='min-w-0 flex-1'
+                type='text'
+                placeholder={
+                  format?.teamSize ? teamLinePlaceholder(format.teamSize) : 'Name of a new/walk-up player'
+                }
+                value={walkup}
+                onChange={(event) => setWalkup(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') (format?.teamSize ? addWalkUpTeamLine : addWalkUp)();
+                }}
+              />
+              <Button
+                className='shrink-0 whitespace-nowrap'
+                size='sm'
+                variant='warning'
+                onClick={format?.teamSize ? addWalkUpTeamLine : addWalkUp}
+              >
+                {format?.teamSize ? '＋ Add new team' : '＋ Add new player'}
+              </Button>
+            </div>
             <div className='my-2.5 flex flex-wrap gap-2'>
               {keys.map((key) => (
                 <div className={RESERVE_CHIP} key={key}>
@@ -473,27 +508,21 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         if (selected > 0) replacement = reserves[selected - 1];
                       }
                       if (!replacement) {
-                        const placeholders = Array.from(
-                          { length: format.teamSize ?? 0 },
-                          (_, index) => `Player${index + 1}`,
-                        ).join(', ');
+                        const placeholders = memberPlaceholders(format.teamSize ?? 0);
                         const line = window.prompt(
-                          `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
+                          `Enter the replacement team, same format as the roster:
+
+TeamName, ${placeholders}`,
                           `Team name, ${placeholders}`,
                         );
-                        if (!line?.trim()) return;
-                        replacement = parseTeamLines({
-                          value: line,
-                          idPrefix: 'team',
-                          teamSize: format.teamSize ?? 0,
-                          ids: app.runtime.ids,
-                        })[0];
-                        if (!replacement || replacement.members.every((member) => !member)) {
-                          window.alert(
-                            `"${replacement?.teamName ?? 'Team'}" has no players listed — add at least one member.`,
-                          );
+                        if (line === null) return;
+                        const parsed = parseWalkUpTeam(line, format.teamSize ?? 0, app.runtime.ids);
+                        if (parsed.status === 'empty') return;
+                        if (parsed.status === 'no-members') {
+                          window.alert(parsed.message);
                           return;
                         }
+                        replacement = parsed.team;
                       }
                       if (refuseUnstorableNames(teamNames(replacement))) return;
                       if (
