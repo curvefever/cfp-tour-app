@@ -32,13 +32,13 @@ const sameKeys = (left: readonly string[], right: readonly string[]) =>
 
 /**
  * True unless the drawn schedule no longer fits the roster: round 1's seats plus byes (and a fixed draw's
- * published round 1) are exactly the roster's units, and the schedule was built for that many. A
- * tournament with nothing drawn yet has nothing to be stale.
+ * published round 1) are exactly the roster's units. A tournament with nothing drawn yet has nothing to be
+ * stale. The head count the schedule was built for (`cfg.n`) is not compared: a pre-start removal whose
+ * redraw was refused leaves a short room on purpose, and the organiser can still start it.
  */
 export function scheduleMatchesRoster(state: TournamentState): boolean {
   if (!state.rounds.length) return true;
   const roster = rosterKeys(state.players);
-  if (state.cfg.n !== roster.length) return false;
   // A bye unit is both in the assignments (room null) and on the bye list.
   const seated = [
     ...new Set([...(state.assignments[0] ?? []).map((entry) => entry.name), ...(state.byes[0] ?? [])]),

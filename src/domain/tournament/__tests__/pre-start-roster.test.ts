@@ -460,6 +460,22 @@ describe('scheduleMatchesRoster', () => {
     expect(scheduleMatchesRoster({ ...start, players })).toBe(false);
   });
 
+  it('stays true after a pre-start removal whose redraw was refused: the short room can still start', () => {
+    const exactCount = generated(16, {
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'none',
+      waterfallGraph: EXACT_COUNT_GRAPH,
+    });
+    const belowMinimum = generated(12, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    for (const start of [exactCount, belowMinimum]) {
+      const { state, redrawRefusal } = removeUnitBeforeStart(start, 'P3', testRuntime());
+      expect(redrawRefusal).toBeDefined();
+      expect(state.cfg.n).toBe(start.players.length);
+      expect(state.players).toHaveLength(start.players.length - 1);
+      expect(scheduleMatchesRoster(state)).toBe(true);
+    }
+  });
+
   it('is false when a seated id is not on the roster, though the count agrees', () => {
     const start = generated(37, FFA_QUAL);
     const players = (start.players as string[]).map((name) => (name === 'P3' ? 'Q3' : name));
