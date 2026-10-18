@@ -32,6 +32,8 @@ import { destinationLabel } from '../bracket/exit-text';
 import { Button, Input, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
+import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
+import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 import { nextColumnStart, roundInPlayOf } from '../../domain/tournament/round-columns';
@@ -160,12 +162,78 @@ function removePlayer(name: string, apply: UpdateState) {
     apply((current) => removeRosterUnit(current, name));
 }
 
+const RESERVE_CHIP =
+  'flex items-center gap-2 rounded-full border border-surface-hover bg-surface-low px-3 py-1 text-xs';
+
+/** A reserve chip's name: an individual with their toggle, or a team behind its dot with each member and their toggle. */
+function ReserveChipName({
+  confirmations,
+  name,
+  state,
+}: {
+  confirmations: ConfirmationView;
+  name: string;
+  state: TournamentState;
+}) {
+  const team = (state.reserves as Array<string | TournamentTeam>).find(
+    (entry): entry is TournamentTeam => typeof entry !== 'string' && entry.teamId === name,
+  );
+  if (!team)
+    return (
+      <>
+        <TournamentUnit state={state} name={name} />
+        <ConfirmToggle confirmed={confirmations.isConfirmed(name)} name={name} size='chip' />
+      </>
+    );
+  return (
+    <>
+      <TeamConfirmationLabel confirmation={confirmations.team(team)}>
+        <strong>{team.teamName}</strong>
+      </TeamConfirmationLabel>
+      {team.members.map((member) =>
+        member ? (
+          <span className='flex items-center gap-1' key={member.name}>
+            {member.name}
+            <ConfirmToggle
+              confirmed={confirmations.isConfirmed(member.name)}
+              name={member.name}
+              size='chip'
+            />
+          </span>
+        ) : null,
+      )}
+    </>
+  );
+}
+
+/** The individual reserves of a team format: name and toggle only. */
+function ReserveIndividualChips({
+  confirmations,
+  state,
+}: {
+  confirmations: ConfirmationView;
+  state: TournamentState;
+}) {
+  if (!state.reserveIndividuals.length) return null;
+  return (
+    <div aria-label='Individual reserves' className='flex flex-wrap gap-2' role='group'>
+      {state.reserveIndividuals.map((member) => (
+        <div className={RESERVE_CHIP} key={member.name}>
+          {member.name}
+          <ConfirmToggle confirmed={confirmations.isConfirmed(member.name)} name={member.name} size='chip' />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function ReservePanel({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const [walkup, setWalkup] = useState('');
   const format = getGameFormat(state.gameFormat);
   if (!state.reserves.length && !state.reserveOpen && format?.teamSize) return null;
   const keys = state.reserves.map((entry) => (typeof entry === 'string' ? entry : entry.teamId));
+  const confirmations = confirmationView(state);
   const add = (key: string) =>
     handleReserveResult(
       state,
@@ -215,11 +283,8 @@ export function ReservePanel({ state }: { state: TournamentState }) {
             ) : null}
             <div className='my-2.5 flex flex-wrap gap-2'>
               {keys.map((key) => (
-                <div
-                  className='flex items-center gap-2 rounded-full border border-surface-hover bg-surface-low px-3 py-1 text-xs'
-                  key={key}
-                >
-                  <TournamentUnit state={state} name={key} />
+                <div className={RESERVE_CHIP} key={key}>
+                  <ReserveChipName confirmations={confirmations} name={key} state={state} />
                   <Button
                     aria-label={`Add ${key}`}
                     className='size-6 min-h-0 p-0 text-warning'
@@ -241,6 +306,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
                 </div>
               ))}
             </div>
+            {format?.teamSize ? <ReserveIndividualChips confirmations={confirmations} state={state} /> : null}
             <div className='mt-1 text-xs text-muted'>
               {keys.length
                 ? 'Click ＋ to add a reserve. They join from the next round (during the first bracket round of a tournament without pooling: the least-full room).'
@@ -259,6 +325,8 @@ export function ManageRoster({ state }: { state: TournamentState }) {
   if (!state.players.length) return null;
   const swapsOpen = swapWindowOpen(state);
   const swapTitle = (open: string) => (swapsOpen ? open : SWAPS_CLOSED_TITLE);
+  const confirmations = confirmationView(state);
+  const count = confirmationCountText(confirmations.summary);
   if (!format?.teamSize) {
     const names = naturalByLabel((state.players as string[]).map((name) => ({ label: name }))).map(
       (unit) => unit.label,
@@ -266,6 +334,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
     return (
       <ToolPanel
         className='flex-[2_1_520px]'
+        count={count}
         note={swapsOpen ? null : SWAPS_CLOSED_TITLE}
         title='Manage players'
       >
@@ -275,6 +344,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
               className='break-inside-avoid'
               controls={
                 <>
+                  <ConfirmToggle confirmed={confirmations.isConfirmed(name)} name={name} />
                   <ToolIconButton
                     glyph='✎'
                     label={`Rename ${name}`}
@@ -311,7 +381,12 @@ export function ManageRoster({ state }: { state: TournamentState }) {
     (unit) => unit.team,
   );
   return (
-    <ToolPanel className='flex-[2_1_520px]' note={swapsOpen ? null : SWAPS_CLOSED_TITLE} title='Manage teams'>
+    <ToolPanel
+      className='flex-[2_1_520px]'
+      count={count}
+      note={swapsOpen ? null : SWAPS_CLOSED_TITLE}
+      title='Manage teams'
+    >
       <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5 p-3'>
         {sortedTeams.map((team) => {
           const defender = getDefenderIndex(state, team.teamId, roundInPlayOf(state, team.teamId));
@@ -321,7 +396,9 @@ export function ManageRoster({ state }: { state: TournamentState }) {
               key={team.teamId}
             >
               <div className='flex items-center justify-between gap-2'>
-                <strong>{team.teamName}</strong>
+                <TeamConfirmationLabel confirmation={confirmations.team(team)}>
+                  <strong>{team.teamName}</strong>
+                </TeamConfirmationLabel>
                 <span className='flex gap-1'>
                   <Button
                     aria-label={`Rename team ${team.teamName}`}
@@ -509,6 +586,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                         : ''}
                     </span>
                     <span className='flex gap-1'>
+                      <ConfirmToggle confirmed={confirmations.isConfirmed(member.name)} name={member.name} />
                       {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
                       defender !== memberIndex ? (
                         <Button

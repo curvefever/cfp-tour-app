@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import type { ActiveTab } from '../../domain/tournament/types';
+import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { renderApp, tabsFor, type AppRole } from './test-app';
@@ -172,6 +172,79 @@ describe('Players tab, drawn rooms and the start', () => {
     const view = renderApp(drawn(), { role: 'admin', tab: 'rankings' });
 
     expect(view.queryAllByText(/Round 1 ·/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Players tab, confirmations in the organiser tools', () => {
+  const upcomingFixture = (id: string, patch: Partial<TournamentState>): FixtureTournament => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === id);
+    if (!fixture) throw new Error(`the ${id} fixture is missing`);
+    return { ...fixture, state: { ...fixture.state, ...patch } };
+  };
+  const confirmed = (...names: string[]) => Object.fromEntries(names.map((name) => [name, true as const]));
+  const pressed = (view: ReturnType<typeof renderApp>, name: string) =>
+    view.getByRole('button', { name: `Confirmed: ${name}` }).getAttribute('aria-pressed');
+
+  it('gives each of 37 players a toggle, and counts the confirmed ones in the header', () => {
+    const fixture = upcomingFixture('upcoming-info', {
+      confirmations: confirmed('Player 01', 'Player 05'),
+    });
+    const view = renderApp(fixture, { role: 'admin', tab: 'rankings' });
+
+    expect(view.queryAllByRole('button', { name: /^Confirmed: Player / })).toHaveLength(37);
+    expect(pressed(view, 'Player 01')).toBe('true');
+    expect(pressed(view, 'Player 05')).toBe('true');
+    expect(pressed(view, 'Player 02')).toBe('false');
+    expect(view.queryAllByText('2 of 37 confirmed')).toHaveLength(1);
+  });
+
+  it('gives a reserve its own toggle, and leaves reserves out of the header count', () => {
+    const fixture = upcomingFixture('upcoming-info', { confirmations: confirmed('Larch') });
+    const view = renderApp(fixture, { role: 'admin', tab: 'rankings' });
+
+    expect(pressed(view, 'Larch')).toBe('true');
+    expect(pressed(view, 'Nimbus')).toBe('false');
+    expect(view.queryAllByText('0 of 37 confirmed')).toHaveLength(1);
+  });
+
+  it('shows the team dots and counts for 13 teams of 2: one all, one some, eleven none', () => {
+    const fixture = upcomingFixture('upcoming-teams-13', {
+      confirmations: confirmed('T1-a', 'T1-b', 'T2-a'),
+    });
+    const view = renderApp(fixture, { role: 'admin', tab: 'rankings' });
+
+    expect(view.queryAllByText('1 of 13 teams confirmed · 3 of 26 players')).toHaveLength(1);
+    expect(view.queryAllByRole('img', { name: 'all confirmed' })).toHaveLength(1);
+    expect(view.queryAllByRole('img', { name: '1 of 2 confirmed' })).toHaveLength(1);
+    expect(view.queryAllByRole('img', { name: 'none confirmed' })).toHaveLength(11);
+    expect(view.queryAllByText('1/2')).toHaveLength(1);
+    expect(pressed(view, 'T2-a')).toBe('true');
+    expect(pressed(view, 'T2-b')).toBe('false');
+  });
+
+  it('shows a reserve team behind its dot with a toggle per member, and the individual reserves of a team format', () => {
+    const fixture = upcomingFixture('upcoming-teams-13', {
+      reserves: [{ teamId: 'r1', teamName: 'Bench', members: [{ name: 'B1' }, { name: 'B2' }] }],
+      reserveIndividuals: [{ name: 'Solo' }, { name: 'Odd' }],
+      confirmations: confirmed('B1', 'Solo'),
+    });
+    const view = renderApp(fixture, { role: 'admin', tab: 'rankings' });
+
+    expect(pressed(view, 'B1')).toBe('true');
+    expect(pressed(view, 'B2')).toBe('false');
+    expect(pressed(view, 'Solo')).toBe('true');
+    expect(pressed(view, 'Odd')).toBe('false');
+    expect(view.queryAllByRole('img', { name: '1 of 2 confirmed' })).toHaveLength(1);
+    expect(view.queryAllByText('0 of 13 teams confirmed · 0 of 26 players')).toHaveLength(1);
+  });
+
+  it.each(['upcoming-info', 'upcoming-teams-13'])('shows a viewer nothing of it on %s', (id) => {
+    const fixture = upcomingFixture(id, { confirmations: confirmed('Player 01', 'T1-a', 'Larch') });
+    const view = renderApp(fixture, { role: 'viewer', tab: 'rankings' });
+
+    expect(view.queryAllByRole('button', { name: /^Confirmed: / })).toHaveLength(0);
+    expect(view.queryAllByRole('img', { name: /confirmed/ })).toHaveLength(0);
+    expect(view.queryAllByText(/ confirmed/)).toHaveLength(0);
   });
 });
 

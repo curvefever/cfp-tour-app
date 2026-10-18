@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react';
 import { Button, SectionPanel, cn } from '../../components/ui';
 
-/** A panel of the Organiser tools block: the shared section panel, with an optional orange note at the right of its header. */
+/** A panel of the Organiser tools block: the shared section panel, with an optional muted count and orange note at the right of its header. */
 export function ToolPanel({
   children,
   className,
+  count,
   label,
   note,
   title,
 }: {
   children: ReactNode;
   className?: string;
+  count?: string;
   /** The accessible name when it differs from the title. */
   label?: string;
   note?: ReactNode;
@@ -18,7 +20,14 @@ export function ToolPanel({
 }) {
   return (
     <SectionPanel
-      actions={note ? <div className='text-[13px] text-cfp-orange-text'>{note}</div> : null}
+      actions={
+        count || note ? (
+          <div className='flex flex-wrap items-center justify-end gap-x-3 text-[13px]'>
+            {count ? <span className='text-muted'>{count}</span> : null}
+            {note ? <span className='text-cfp-orange-text'>{note}</span> : null}
+          </div>
+        ) : null
+      }
       className={className}
       label={label}
       padded={false}
