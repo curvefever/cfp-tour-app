@@ -510,9 +510,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       if (!replacement) {
                         const placeholders = memberPlaceholders(format.teamSize ?? 0);
                         const line = window.prompt(
-                          `Enter the replacement team, same format as the roster:
-
-TeamName, ${placeholders}`,
+                          `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
                           `Team name, ${placeholders}`,
                         );
                         if (line === null) return;

@@ -6,6 +6,65 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Reserve swap fixes, pre-start redraw, "Add new team" (done — 2026-10-18)
+
+Planner/reviewer and implementer sessions; plan `plans/2026-10-18-reserves-and-new-teams.md`; seven stages on `test`, one commit each, plus two small follow-up commits. The example, production tournament `1792313382162`, was read-only for everyone: never opened with an admin session, read anonymously with curl when needed.
+
+**What the organiser reported, and the causes.**
+1. **Swapping in a reserve team always failed** with `A team called "Reserve Team 15" is already registered`. `isDisplayNameTaken` searched `players` and `reserves`, excluding only the outgoing team, and the chosen replacement is itself in `reserves`, so it collided with itself. A typed walk-up team worked; individuals were not affected.
+2. **A unit that just joined from reserves could not be swapped** ("isn't in the current round or waiting for a later one"). `replaceUnitInPlay` knew two places a unit can be, seated in the round in play or waiting in a `pendingBracketSeeds` pool. A late joiner of a pooling round is in neither: it is a roster unit missing from the round in play (`lateJoinersOf`), drawn in at the next advance.
+3. **New teams mid-tour.** Adding during pooling already worked for a waterfall with a pooling phase. Missing: team formats had no way to add a brand-new team (only teams typed into the Setup reserves box; the organiser worked around it with 15 placeholder reserve teams); and before Confirm & Start a joiner still sat out Round 1, although nobody but admins has seen the draw by then. A latent bug on the way: Setup's Generate built rounds for `confirmedCount` (set only when the roster is loaded) but seeded `rosterKeys(players)`, so after a pre-start join they differed (20 vs 21 in the example).
+4. **Reloading the roster in Setup after Generate** (reported with a screenshot of a test tournament): Round 1 showed raw ids (`team_1792244475701_11`…) and every team was listed under Round 2 as "Joining this round". `withLoadedRoster` replaces `players` with freshly parsed teams that all get new ids, but kept the drawn `rounds`, `assignments`, `qualTable`, `roomHistory`. Nothing stopped Confirm & Start from starting that stale draw. Same root as point 3: a pre-start roster change did not redraw.
+
+### Decisions (organiser, 2026-10-18)
+- Before Confirm & Start, adding a unit redraws the schedule with the new head count, so the joiner plays Round 1. After the start, today's behaviour stands (joins from the next round).
+- Before Confirm & Start, removing a unit redraws the schedule too, so Round 1 has no short room. After the start the room in play keeps the gap and later rounds are refitted.
+- "＋ Add new team" in RESERVES: one line in the roster format (`TeamName, Player1, Player2`), which adds the team and joins it at once, like "＋ Add new player".
+
+### Planner calls (open to correction)
+- Before the start, generation is the only judge: the group-stage, fixed-draw and pooling-less-waterfall refusals apply only after the start. A refused redraw refuses the add with generation's own message (`'generation'`).
+- A pre-start removal is never refused: when generation can't redraw (below the format's minimum, a graph built for the exact count), the plain removal stands (Round 1 keeps a short room) and the organiser is told why.
+- The redraw uses the stored settings snapshot (`state.settings`), not the Setup form's current, possibly unsaved, values.
+- Any roster change before the start redraws, the Setup reload included (auto-redraw chosen over "clear the draw" for consistency).
+- **`scheduleMatchesRoster` compares seats only, not `cfg.n`** (decided in review): a refused pre-start redraw leaves every remaining unit seated but `cfg.n` at the old count, and the start guard would then block a start the organiser was promised. The key-set check alone catches every real stale draw (new ids, an unseated 21st team, a seated id off the roster).
+
+### Calls made while building (planner-approved)
+- `regenerateForRoster` returns a third status, `no-settings` (a tournament generated before settings were stored), so callers don't read the snapshot themselves; the add falls back to today's path, the removal is the plain removal, and the reload drops the schedule.
+- **File split to avoid an import cycle:** `pre-start-roster.ts` (`regenerateForRoster`, `scheduleMatchesRoster`) imports nothing from `mutations.ts`, which imports it for the add; `pre-start-edits.ts` imports both and holds `removeUnitBeforeStart` and `reloadRosterBeforeStart`.
+- The reload messages: a game format that differs from the stored settings' skips generation and drops the schedule with "The game format changed, so the drawn schedule no longer fits." (generation's own message there would say to click "Load roster & reserves", right after the organiser did); a schedule with no settings snapshot is dropped with a message of its own, as keeping it is the bug.
+- `withoutDrawnSchedule` (`mutations.ts`) is the one list of what a generated schedule puts in the state; `resetRoster` is built on it. `resetTournamentState` keeps the rounds, so it stays separate.
+- The unstorable-name alert for a walk-up team cites the team's names (team and members), not just the team name.
+- `removeUnit` (RankingsRoster) applies a whole state built from the render-time state, not an updater over `current`; the same pattern as the reserve add.
+- The tests of the pre-start removal and reload stay in `pre-start-roster.test.ts` (shared helpers) rather than a `pre-start-edits.test.ts`.
+- **CRLF:** the working tree is CRLF (autocrlf) while `.prettierrc` says LF, so a plain `prettier --check` warns on every file, untouched ones included. Checked with `--end-of-line auto`.
+
+### Stages and commits
+1. **`f3886a1` — swapping in a reserve team.** `isDisplayNameTaken` takes `excludeKeys` (a list); `swapTeam` and the Swap button pass the outgoing team and the replacement.
+2. **`d69196b` — swapping a late joiner.** `replaceLateJoiner` in `mutations.ts` (only the table row and the bye count move; no seat), the third case of `replaceUnitInPlay`.
+3. **`b0201e3` — before the start, an add redraws the schedule.** New `pre-start-roster.ts`; `addBeforeStart` in `addReserveUnit` (new `runtime` parameter, `'generation'` reason); `generateTournament` counts the roster (`unitCount`) instead of `confirmedCount`; the hint text.
+4. **`ab40ed4` — before the start, a removal redraws.** New `pre-start-edits.ts` (`removeUnitBeforeStart`), `removeUnit` helper in `RankingsRoster.tsx` with the alert. **`69159f5`:** before Generate the count follows too (the early branch is the started case only); the team ✕'s strict-room pre-check applies only after the start.
+5. **`d2a9fa4` — reload after Generate, and a start guard.** `reloadRosterBeforeStart`, `scheduleMatchesRoster`, `withoutDrawnSchedule`, the status line (`scheduleReloadStatus`), the disabled Confirm & Start with its refusal line. **`d2eb36b`:** the `cfg.n` condition removed (see above).
+6. **`15181ff` — "＋ Add new team".** `addWalkUpTeam` (`'no-members'` reason), `parseWalkUpTeam` shared with Swap (`walk-up-team.ts`), the box and button in `ReservePanel` and its disabled twin in the closed panel, the team duplicate-name message.
+7. **Close-out** (this entry, `docs/rules.md`, `docs/views.md`, `docs/open-items.md`, `HANDOFF.md`, and the Swap prompt's `\n\n` restored).
+
+### Testing
+- **Awkward counts:** FFA qualification table 31 → 32, 37 → 38, 43 → 44, 53 → 54 (add) and 32 → 31, 38 → 37, 44 → 43, 54 → 53 (remove): `confirmedCount` follows, round 1 seats everyone in rooms from `distributeRooms(n)`, no empty seat. 37 → 38 head-to-head group stage and back; 21 teams of 2v2v2v2 into a waterfall with a Qual source (20 + 1, 21 → 20); 37 FFA reloaded with a name replaced and one added (38); `scheduleMatchesRoster` true right after generation at 31, 43 and 53 across nine shapes (FFA qual, a fixed draw, single elimination, Kings Valley, Swiss 1v1 with a bye, group stage with and without a fixed draw, double elimination, 2v2v2v2 qual).
+- **Domain tests:** `mutations.test.ts` (swap with a reserve team: leaves `reserves`, joins `players`, takes the seat; a typed name matching another reserve still refused; `addWalkUpTeam`: late joiner after the start, seated before it, and each refusal); `late-joiners.test.ts` (swapping a late joiner, individual at 37 and team at 21, plus two cases that still can't be swapped); `pre-start-roster.test.ts` (add, remove and reload cases above, the refusals, no-rounds and no-settings fallbacks, `regenerateForRoster`, `scheduleMatchesRoster` including the 20-vs-21 production shape and a refused redraw that still starts); `generation.test.ts` (a roster one unit larger than `confirmedCount` generates for the roster at 31, 37, 43 and 53; fixtures that set `confirmedCount` now carry a matching roster); `walk-up-team.test.ts`; `roster-status.test.ts`.
+- **Reviews (planner/reviewer, mutation checks restored afterwards):** stage 1 `swapTeam` back to excluding only the outgoing team fails the reserve swap test; stage 2 a late-joiner case that returns the state unchanged survived (a joiner added by `addReserveUnit` never has a table row or a bye count, so the two moves are no-ops kept for symmetry with `replacePendingUnit`); stage 3 removing the `started` guard fails 39 tests; stage 6 disabling the duplicate-name check fails a test. Full suite on `15181ff`: 98 files, 2789 tests passed; eslint, prettier and typecheck clean over the 16 changed `src` files.
+- **Live check (test site, signed in as Lead Mod; dialogs stubbed in the page to drive ⇄ and ✕):** a new test-run tournament `1792319575559` (2v2v2v2, Survival Teams, qualification table into a waterfall with a minimal graph: Qual ranks 1–4 → R1 1×4, R1 1–4 → Final 1×4; 21 teams, 2 reserve teams), **deleted afterwards**. After Generate: "＋ Add new team" with `Late Team, A, B` seated it in Round 1 and the header read 22; ⇄ Team 3 for "Reserve Team 1" succeeded; ✕ Team 7 left 21 teams in rooms of 4,4,4,3,3,3 with both in NO-SHOWS; adding one line to the Setup roster and loading it said "· schedule redrawn", the preview read 22 teams and the Bracket's Round 1 showed names only (no `team_…` ids, no "Joining this round" box). After Confirm & Start: a new team read "Joining Round 2" with Round 1's rooms unchanged, and ⇄ it for a reserve team succeeded and still read "Joining Round 2". **Noted:** a Setup reload resets the roster to the text box, so the earlier pre-start swaps and removals came back (their NO-SHOWS entries stay); existing behaviour, not changed (`docs/open-items.md`).
+
+### Production tournament `1792313382162`
+After this deploy reaches `main`, its Confirm & Start will be disabled by the stale-draw guard (rounds built for 20, 21 teams, the 21st unseated) until the organiser clicks Generate again, which then counts all 21.
+
+### Out of scope
+- Adding units to a pooling-less waterfall after the start; group stage and fixed draw after the start stay refused (roadmap entries exist).
+- A removal after the start: unchanged (the room in play keeps the gap).
+- Renaming a reserve team or its members on the bench (only possible once it joins).
+- A server-side start guard (the stale-draw check is client-side only).
+- Keeping a team's id across a Setup reload when its line is unchanged (not needed once the reload redraws).
+
+---
+
 ## Player confirmation: organiser marks, and a score confirms automatically (done — 2026-10-18)
 
 Planner/reviewer and implementer sessions; plan `plans/2026-10-18-player-confirmation.md`; five stages on `test`, one commit each, plus one review-fix commit. Production tournament `1792226417678` was never opened or touched.
