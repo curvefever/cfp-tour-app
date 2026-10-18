@@ -17,6 +17,7 @@ import {
   type ReserveAddOptions,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
+import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
   isDisplayNameTaken,
   parseTeamLines,
@@ -161,9 +162,29 @@ function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
   applySwap(state, apply, (current) => swapIndividual(current, name, value), name);
 }
 
-function removePlayer(name: string, apply: UpdateState) {
+type RosterApp = Pick<ReturnType<typeof useTournamentApp>, 'runtime' | 'updateState'>;
+
+/**
+ * Removes a unit from the roster. Before Confirm & Start, with a schedule drawn, the draw is redone for the
+ * smaller roster; when it can't be, the unit is removed all the same and the organiser is told why.
+ */
+function removeUnit(state: TournamentState, key: string, label: string, app: RosterApp) {
+  if (state.started || !state.rounds.length) {
+    app.updateState((current) => removeRosterUnit(current, key));
+    return;
+  }
+  const { state: next, redrawRefusal } = removeUnitBeforeStart(state, key, app.runtime);
+  app.updateState(next);
+  if (redrawRefusal) {
+    window.alert(
+      `Removed "${label}". The draw couldn't be redone: ${redrawRefusal} Round 1 keeps a short room.`,
+    );
+  }
+}
+
+function removePlayer(state: TournamentState, name: string, app: RosterApp) {
   if (window.confirm(`Remove "${name}" from the tournament? This cannot be undone.`))
-    apply((current) => removeRosterUnit(current, name));
+    removeUnit(state, name, name, app);
 }
 
 const RESERVE_CHIP =
@@ -363,7 +384,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     danger
                     glyph='✕'
                     label={`Remove ${name}`}
-                    onClick={() => removePlayer(name, app.updateState)}
+                    onClick={() => removePlayer(state, name, app)}
                     title='Remove'
                   />
                 </>
@@ -500,6 +521,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     variant='danger'
                     onClick={() => {
                       if (
+                        state.started &&
                         state.gamemodeConfig.oddCountStrategy === 'none' &&
                         (state.assignments[state.curRound] ?? []).some((entry) => entry.name === team.teamId)
                       ) {
@@ -517,7 +539,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           `Remove team "${team.teamName}" from the tournament? This cannot be undone.`,
                         )
                       )
-                        app.updateState((current) => removeRosterUnit(current, team.teamId));
+                        removeUnit(state, team.teamId, team.teamName, app);
                     }}
                   >
                     ✕

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { addReserveUnit, addWalkUpIndividual, type ReserveAddResult } from '../mutations';
+import { addReserveUnit, addWalkUpIndividual, removeRosterUnit, type ReserveAddResult } from '../mutations';
+import { removeUnitBeforeStart } from '../pre-start-edits';
 import { regenerateForRoster } from '../pre-start-roster';
 import { rosterKeys } from '../roster';
 import { distributeRooms } from '../room-distribution';
@@ -197,5 +198,93 @@ describe('regenerateForRoster', () => {
     expect(regenerateForRoster(withoutSettings(generated(37, FFA_QUAL)), testRuntime())).toEqual({
       status: 'no-settings',
     });
+  });
+});
+
+describe('removing a unit before Confirm & Start redraws the schedule', () => {
+  const nowhere = (state: TournamentState, name: string) => {
+    expect(state.assignments.flat().some((entry) => entry.name === name)).toBe(false);
+    expect(state.byes.flat()).not.toContain(name);
+    expect(state.qualTable.some((entry) => entry.name === name)).toBe(false);
+  };
+
+  it.each([32, 38, 44, 54])(
+    'FFA qualification table at %i -> one fewer: no short room, the unit is a no-show',
+    (count) => {
+      const { state, redrawRefusal } = removeUnitBeforeStart(generated(count, FFA_QUAL), 'P5', testRuntime());
+      expect(redrawRefusal).toBeUndefined();
+      expect(state.confirmedCount).toBe(count - 1);
+      expect(state.players).toHaveLength(count - 1);
+      expect(seatedCount(state, 0)).toBe(count - 1);
+      expect(state.assignments[0].every((entry) => entry.room !== null)).toBe(true);
+      expect(state.rounds[0].rooms).toEqual(distributeRooms(count - 1, roomSizeOf(state)));
+      expect(state.withdrawnUnits).toMatchObject([{ name: 'P5', reason: 'removed', playedAnyMatch: false }]);
+      nowhere(state, 'P5');
+    },
+  );
+
+  it('2v2v2v2 into a waterfall with a Qual source, 21 -> 20 teams: round 1 redrawn, graph rounds unchanged', () => {
+    const start = generated(21, {
+      gameFormat: 'team-2v2v2v2',
+      scheduleLogic: 'waterfall-bracket',
+      waterfallGraph: TEAM_QUAL_GRAPH,
+    });
+    const { state, redrawRefusal } = removeUnitBeforeStart(start, 't5', testRuntime());
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.confirmedCount).toBe(20);
+    expect(seatedCount(state, 0)).toBe(20);
+    nowhere(state, 't5');
+    const firstWaterfall = start.rounds.findIndex((round) => round.isWaterfall);
+    expect(state.rounds.slice(firstWaterfall)).toEqual(start.rounds.slice(firstWaterfall));
+  });
+
+  it('head-to-head group stage at 38 -> 37: groups rebuilt without the unit', () => {
+    const { state } = removeUnitBeforeStart(generated(38, GROUP_STAGE), 'P5', testRuntime());
+    const members = state.groups.flatMap((group) => group.members);
+    expect(members).toHaveLength(37);
+    expect(members).not.toContain('P5');
+    expect(state.confirmedCount).toBe(37);
+  });
+
+  it('a waterfall without pooling built for the exact count: removed anyway, the refusal is the message generation gives', () => {
+    const start = generated(16, {
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'none',
+      waterfallGraph: EXACT_COUNT_GRAPH,
+    });
+    const { state, redrawRefusal } = removeUnitBeforeStart(start, 'P3', testRuntime());
+    const plain = removeRosterUnit(start, 'P3');
+    expect(state).toEqual({ ...plain, confirmedCount: 15 });
+    const regenerated = regenerateForRoster(plain, testRuntime());
+    if (regenerated.status !== 'invalid') throw new Error(JSON.stringify(regenerated));
+    expect(redrawRefusal).toBe(regenerated.message);
+  });
+
+  it("a removal below the format's minimum is carried out, with the refusal", () => {
+    const start = generated(12, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    const { state, redrawRefusal } = removeUnitBeforeStart(start, 'P3', testRuntime());
+    expect(state.players).toHaveLength(11);
+    expect(state.confirmedCount).toBe(11);
+    expect(redrawRefusal).toContain('at least 12');
+    nowhere(state, 'P3');
+  });
+
+  it('with no rounds yet it is the plain removal and the count follows', () => {
+    const loaded = createDefaultTournamentState({
+      confirmedCount: 6,
+      players: rosterFor('ffa-individual', 6),
+    });
+    const { state, redrawRefusal } = removeUnitBeforeStart(loaded, 'P2', testRuntime());
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.confirmedCount).toBe(5);
+    expect(state.rounds).toEqual([]);
+    expect(state.withdrawnUnits).toMatchObject([{ name: 'P2', reason: 'removed' }]);
+  });
+
+  it('a tournament generated before settings were stored gets the plain removal, no message', () => {
+    const start = withoutSettings(generated(37, FFA_QUAL));
+    const { state, redrawRefusal } = removeUnitBeforeStart(start, 'P3', testRuntime());
+    expect(redrawRefusal).toBeUndefined();
+    expect(state).toEqual({ ...removeRosterUnit(start, 'P3'), confirmedCount: 36 });
   });
 });
