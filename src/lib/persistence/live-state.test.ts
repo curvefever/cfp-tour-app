@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { marshalForFirebase, unmarshalFromFirebase } from '../../features/sync/firebase-marshal';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import {
   normalizeActiveTab,
@@ -16,6 +17,17 @@ describe('normalizeLiveTournamentState', () => {
     expect(state.title).toBe('My Cup');
     expect(state.scores).toEqual({});
     expect(state.curRound).toBe(0);
+  });
+
+  it('reads a tournament stored without confirmations back with an empty map', () => {
+    expect(normalizeLiveTournamentState({ title: 'Old Cup' }, fixedIds).confirmations).toEqual({});
+  });
+
+  it('reads the stored empty-map marker back as an empty map, and a filled map as it was', () => {
+    const empty = unmarshalFromFirebase({ title: 'Cup', confirmations: { __ffaEmptyObject: true } });
+    expect(normalizeLiveTournamentState(empty, fixedIds).confirmations).toEqual({});
+    const filled = unmarshalFromFirebase(marshalForFirebase({ title: 'Cup', confirmations: { Ann: true } }));
+    expect(normalizeLiveTournamentState(filled, fixedIds).confirmations).toEqual({ Ann: true });
   });
 
   it('keeps the lifecycle, info and annotations of a stored tournament', () => {

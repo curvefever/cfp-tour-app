@@ -10,6 +10,7 @@ import {
   flagFinalGameAnonymous,
   removeRosterUnit,
   renameIndividual,
+  renameTeamMember,
   resetRoster,
   resetTournamentState,
   resolveTournamentTie,
@@ -27,6 +28,7 @@ import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/syn
 import { computeRankings } from '../rankings';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
+import { isConfirmed, setConfirmed } from '../confirmations';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { settingsFromForm } from '../tournament-settings';
@@ -1751,5 +1753,97 @@ describe('shareTiedPoints', () => {
     const shared = shareTiedPoints(resolveTournamentTie(pooling(), KEY, 'C'), KEY, ['A', 'B']);
     const stored = unmarshalFromFirebase(marshalForFirebase(shared.tieResolutions));
     expect(stored).toEqual({ [KEY]: ['C', '#shared', 'A', 'B'] });
+  });
+});
+
+describe('confirmations follow the person', () => {
+  const individuals = (confirmed: string[]) =>
+    confirmed.reduce(
+      (state, name) => setConfirmed(state, name, true),
+      createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        players: ['P1', 'P2', 'P3'],
+        reserves: ['Sub'],
+        confirmedCount: 3,
+      }),
+    );
+  const teams = () =>
+    setConfirmed(
+      createDefaultTournamentState({
+        gameFormat: 'team-2v2v2v2',
+        players: [
+          { teamId: 't1', teamName: 'Team One', members: [{ name: 'Alice' }, { name: 'Bob' }] },
+          { teamId: 't2', teamName: 'Team Two', members: [{ name: 'Carl' }, { name: 'Dave' }] },
+        ],
+      }),
+      'Alice',
+      true,
+    );
+
+  it("renameIndividual moves a player's confirmation to the new spelling", () => {
+    const result = renameIndividual(individuals(['P1', 'P2']), 'P1', 'Ann');
+    expect(result.confirmations).toEqual({ Ann: true, P2: true });
+  });
+
+  it("renameIndividual moves a reserve's confirmation", () => {
+    const result = renameIndividual(individuals(['Sub']), 'Sub', 'Spare');
+    expect(result.reserves).toEqual(['Spare']);
+    expect(result.confirmations).toEqual({ Spare: true });
+  });
+
+  it('a refused rename leaves the confirmation where it was', () => {
+    const state = individuals(['P1']);
+    expect(renameIndividual(state, 'P1', 'A.B')).toBe(state);
+    expect(renameIndividual(state, 'P1', 'P2')).toBe(state);
+  });
+
+  it('renameTeamMember renames the member and moves their confirmation', () => {
+    const result = renameTeamMember(teams(), 't1', 0, '  Alicia ');
+    expect((result.players as TournamentTeam[])[0].members[0]).toEqual({ name: 'Alicia' });
+    expect(result.confirmations).toEqual({ Alicia: true });
+  });
+
+  it('renameTeamMember refuses a name the database cannot store, an empty name and a vacant slot', () => {
+    const state = teams();
+    expect(renameTeamMember(state, 't1', 0, 'A.B')).toBe(state);
+    expect(renameTeamMember(state, 't1', 0, '  ')).toBe(state);
+    expect(renameTeamMember(state, 'nope', 0, 'Zed')).toBe(state);
+    const vacant = updateTeam(state, 't1', (team) => ({ ...team, members: [team.members[0], null] }));
+    expect(renameTeamMember(vacant, 't1', 1, 'Zed')).toBe(vacant);
+  });
+
+  it("a swap brings the incoming name's own status, and the outgoing one stays on its name", () => {
+    const played = createDefaultTournamentState({
+      gameFormat: 'individual-1v1',
+      players: ['P1', 'P2'],
+      reserves: ['Sub'],
+      rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2 })],
+      assignments: [
+        [
+          { name: 'P1', room: 1, isLucky: false },
+          { name: 'P2', room: 1, isLucky: false },
+        ],
+      ],
+    });
+    const state = setConfirmed(setConfirmed(played, 'P1', true), 'Sub', true);
+    const result = swapIndividual(state, 'P1', 'Sub');
+    expect(result.players).toEqual(['P2', 'Sub']);
+    expect(isConfirmed(result, 'Sub')).toBe(true);
+    expect(isConfirmed(result, 'P1')).toBe(true);
+  });
+
+  it('Clear roster clears every confirmation', () => {
+    expect(resetRoster(individuals(['P1', 'Sub'])).confirmations).toEqual({});
+  });
+
+  it('reloading the roster and Back to draft keep them', () => {
+    const state = individuals(['P1', 'Sub']);
+    const loaded = withLoadedRoster(state, 'ffa-individual', {
+      players: ['P1', 'P2'],
+      reserves: ['Sub'],
+      reserveIndividuals: [],
+    });
+    expect(loaded.confirmations).toEqual({ P1: true, Sub: true });
+    expect(resetTournamentState(loaded).confirmations).toEqual({ P1: true, Sub: true });
   });
 });

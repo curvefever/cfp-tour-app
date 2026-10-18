@@ -6,6 +6,7 @@ export function createDefaultTournamentState(overrides: Partial<TournamentState>
     players: [],
     reserves: [],
     reserveIndividuals: [],
+    confirmations: {},
     confirmedCount: null,
     tournamentId: null,
     rounds: [],

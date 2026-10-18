@@ -8,6 +8,7 @@ import {
   removeReserveUnit,
   removeRosterUnit,
   renameIndividual,
+  renameTeamMember,
   setTeamDefender,
   swapIndividual,
   swapTeam,
@@ -531,12 +532,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                           const value = window.prompt(`Rename "${member.name}" to:`, member.name);
                           if (value?.trim() && !refuseUnstorableNames([value]))
                             app.updateState((current) =>
-                              updateTeam(current, team.teamId, (entry) => ({
-                                ...entry,
-                                members: entry.members.map((item, index) =>
-                                  index === memberIndex && item ? { ...item, name: value.trim() } : item,
-                                ),
-                              })),
+                              renameTeamMember(current, team.teamId, memberIndex, value),
                             );
                         }}
                       >

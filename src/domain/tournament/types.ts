@@ -250,6 +250,8 @@ export interface TournamentState {
   players: TournamentRoster;
   reserves: TournamentRoster;
   reserveIndividuals: TeamMember[];
+  /** Players the organiser has marked as confirmed, keyed by name: an individual's, a team member's or a reserve's, never a team id. Absent means not confirmed (unconfirming deletes the key). The status belongs to the name, so it survives a reload of the roster, a reserve joining and a swap (confirmations.ts). Shown to admins only; scores confirm a player too, worked out with this map and never stored. */
+  confirmations: Record<string, true>;
   confirmedCount: number | null;
   tournamentId: string | null;
   rounds: TournamentRound[];

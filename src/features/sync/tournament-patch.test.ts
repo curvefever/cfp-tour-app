@@ -4,6 +4,8 @@ import {
   scoreCurrentRound,
   type SweepConfig,
 } from '../../domain/tournament/__tests__/play-through';
+import { setConfirmed } from '../../domain/tournament/confirmations';
+import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import {
@@ -130,6 +132,33 @@ describe('buildTournamentPatch', () => {
       { a: { x: 2, z: 1 }, b: [1, 2], d: [] },
     )!;
     expect(() => validatePatchInput({ tournamentId: 't1', patch })).not.toThrow();
+  });
+});
+
+describe('buildTournamentPatch on confirmations', () => {
+  const base = createDefaultTournamentState({ players: ['Ann', 'Bob', 'Cy'] });
+  const two = setConfirmed(setConfirmed(base, 'Ann', true), 'Bob', true);
+
+  it('a toggle in a non-empty map patches only that name', () => {
+    const three = setConfirmed(two, 'Cy', true);
+    expect(buildTournamentPatch(two, three)).toEqual({ 'confirmations/Cy': true });
+  });
+
+  it('unconfirming one of several writes null at that name', () => {
+    const patch = buildTournamentPatch(two, setConfirmed(two, 'Bob', false));
+    expect(patch).toEqual({ 'confirmations/Bob': null });
+    expect(readBackAfter(JSON.parse(JSON.stringify({ confirmations: two.confirmations })), patch!)).toEqual({
+      confirmations: { Ann: true },
+    });
+  });
+
+  it('the first confirmation and unconfirming the last write the whole key, and read back right', () => {
+    const one = setConfirmed(base, 'Ann', true);
+    const first = buildTournamentPatch(base, one)!;
+    expect(first).toEqual({ confirmations: { Ann: true } });
+    const last = buildTournamentPatch(one, setConfirmed(one, 'Ann', false))!;
+    expect(last).toEqual({ confirmations: marshalForFirebase({}) });
+    expect(readBackAfter({ confirmations: { Ann: true } }, last)).toEqual({ confirmations: {} });
   });
 });
 

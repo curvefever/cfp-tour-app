@@ -1,4 +1,5 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
+import { moveConfirmation } from './confirmations';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
@@ -200,7 +201,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     const match = key.match(/^(game\d+)-(.*)$/u);
     finalScores[match?.[2] === oldName ? `${match[1]}-${trimmed}` : key] = score;
   }
-  return {
+  const renamed: TournamentState = {
     ...state,
     players: players.map(rename),
     reserves: reserves.map(rename),
@@ -217,6 +218,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     ),
     finalScores,
   };
+  return moveConfirmation(renamed, oldName, trimmed);
 }
 
 function rebuildFutureRounds(state: TournamentState): TournamentState | null {
@@ -899,6 +901,26 @@ export function updateTeam(
   return refused ? state : { ...state, players };
 }
 
+/** Renames one team member; their confirmation follows the new spelling. */
+export function renameTeamMember(
+  state: TournamentState,
+  teamId: string,
+  memberIndex: number,
+  newName: string,
+): TournamentState {
+  const trimmed = newName.trim();
+  const team = (state.players as TournamentTeam[]).find((entry) => entry.teamId === teamId);
+  const oldName = team?.members[memberIndex]?.name;
+  if (!oldName || !trimmed || trimmed === oldName) return state;
+  const renamed = updateTeam(state, teamId, (entry) => ({
+    ...entry,
+    members: entry.members.map((item, index) =>
+      index === memberIndex && item ? { ...item, name: trimmed } : item,
+    ),
+  }));
+  return renamed === state ? state : moveConfirmation(renamed, oldName, trimmed);
+}
+
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
   const changes = [...(state.defenderChanges[teamId] ?? [])];
   const round = roundInPlayOf(state, teamId);
@@ -942,6 +964,7 @@ export function resetRoster(state: TournamentState): TournamentState {
     players: [],
     reserves: [],
     reserveIndividuals: [],
+    confirmations: {},
     confirmedCount: null,
     rounds: [],
     groups: [],
