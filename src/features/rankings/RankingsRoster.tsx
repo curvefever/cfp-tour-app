@@ -217,6 +217,7 @@ function ReserveIndividualChips({
   if (!state.reserveIndividuals.length) return null;
   return (
     <div aria-label='Individual reserves' className='flex flex-wrap gap-2' role='group'>
+      <span className='self-center text-xs text-muted'>Individual reserves</span>
       {state.reserveIndividuals.map((member) => (
         <div className={RESERVE_CHIP} key={member.name}>
           {member.name}

@@ -218,6 +218,8 @@ describe('Players tab, confirmations in the organiser tools', () => {
     expect(view.queryAllByRole('img', { name: '1 of 2 confirmed' })).toHaveLength(1);
     expect(view.queryAllByRole('img', { name: 'none confirmed' })).toHaveLength(11);
     expect(view.queryAllByText('1/2')).toHaveLength(1);
+    expect(view.queryByText('2/2')).toBeNull();
+    expect(view.queryByText('0/2')).toBeNull();
     expect(pressed(view, 'T2-a')).toBe('true');
     expect(pressed(view, 'T2-b')).toBe('false');
   });
