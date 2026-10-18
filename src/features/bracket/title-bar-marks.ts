@@ -1,0 +1,39 @@
+import { isCurrentRound } from '../../domain/tournament/round-columns';
+import type { TournamentState } from '../../domain/tournament/types';
+import { type RoomsScored, roomsScored } from './still-playing';
+
+/** NOW marks the rounds of the column in play, until the Final is complete (`isFinalComplete`). */
+export function showsNowPill(state: TournamentState, roundIndex: number, finalComplete: boolean): boolean {
+  return isCurrentRound(state, roundIndex) && !finalComplete;
+}
+
+/**
+ * The admin's rooms-scored tracker for a round's title bar: only where the Bracket is editable, on a round of the
+ * column in play, and never on the Final or the race Grand Final (one room over several games); null otherwise.
+ */
+export function roundProgress(
+  state: TournamentState,
+  roundIndex: number,
+  editable: boolean,
+): RoomsScored | null {
+  const round = state.rounds[roundIndex];
+  if (
+    !editable ||
+    !round ||
+    !isCurrentRound(state, roundIndex) ||
+    round.isFinal ||
+    round.bracket === 'grand-final'
+  )
+    return null;
+  return roomsScored(state, roundIndex);
+}
+
+/** A wave box's tracker: its rounds in play added together; null when none is. */
+export function sumProgress(parts: Array<RoomsScored | null>): RoomsScored | null {
+  const counted = parts.filter((part): part is RoomsScored => part !== null);
+  if (counted.length === 0) return null;
+  return {
+    scored: counted.reduce((sum, part) => sum + part.scored, 0),
+    total: counted.reduce((sum, part) => sum + part.total, 0),
+  };
+}

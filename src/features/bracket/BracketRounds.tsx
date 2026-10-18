@@ -20,7 +20,8 @@ import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from './folded-round';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
-import { type RoomsScored, roomsScored } from './still-playing';
+import type { RoomsScored } from './still-playing';
+import { roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
 import { isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column. */
@@ -142,16 +143,6 @@ function WaveBoxBody({
   );
 }
 
-/** A wave box's tracker: its rounds in play added together; null when none is. */
-function sumProgress(parts: Array<RoomsScored | null>): RoomsScored | null {
-  const counted = parts.filter((part): part is RoomsScored => part !== null);
-  if (counted.length === 0) return null;
-  return {
-    scored: counted.reduce((sum, part) => sum + part.scored, 0),
-    total: counted.reduce((sum, part) => sum + part.total, 0),
-  };
-}
-
 /**
  * Renders a tournament's rounds as one flowing row of boxes, one per
  * `bracketBoxes()` entry. A double-elimination winners-bracket (WB) round
@@ -198,15 +189,8 @@ export function BracketRounds({
   const strip = useRef<HTMLDivElement>(null);
   const finalTab = finalTabOverride ?? finalProgress?.nextGame ?? 1;
   const finalComplete = useMemo(() => isFinalComplete(state), [state]);
-  /** NOW marks the column in play, until the Final is complete. */
-  const isNow = (roundIndex: number) => isCurrentRound(state, roundIndex) && !finalComplete;
-  /** The admin's tracker: rounds of the column in play only, never the Final (one room over several games). */
-  const progressOf = (roundIndex: number): RoomsScored | null => {
-    const round = state.rounds[roundIndex];
-    if (!editable || !isCurrentRound(state, roundIndex) || round.isFinal || round.bracket === 'grand-final')
-      return null;
-    return roomsScored(state, roundIndex);
-  };
+  const isNow = (roundIndex: number) => showsNowPill(state, roundIndex, finalComplete);
+  const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
   function renderSingle(roundIndex: number) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
