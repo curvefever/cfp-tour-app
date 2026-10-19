@@ -6,6 +6,60 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket scrollbar, title bar marks, early eliminations in Rankings, Qualification gap colour (done — 2026-10-19)
+
+Planner/reviewer and implementer sessions; five stages on `test`, one commit each, plus a test-gap commit and a flaky-test fix. `main` was not touched; nothing of this build is in production until the organiser says so.
+
+**What the organiser asked for.**
+1. **Bracket scrolling cue:** viewers don't see that the rounds strip extends past the window. "Simply showing the scroll bar is good."
+2. **Admin tracker:** on each round's title bar, a sober but visible "4/6", rooms fully scored out of the round's rooms. Admins only.
+3. **NOW on a finished Final:** the Final kept its NOW pill after it had been played and the tournament was over.
+4. **Game counts:** the Final always says how many games it has ("1 GAME" too); other rounds only when they have several.
+5. **Eliminate early in Rankings:** a unit moves to ELIMINATED as soon as it is certainly out (its room fully scored, its place out), without waiting for the whole round. Undecided units (lucky-loser candidates, a pending tie) stay in STILL IN.
+6. **Qualification gap:** the gap between exit groups was almost the colour of the darker table rows; differentiate it, discreetly.
+
+### Decisions (organiser, 2026-10-18)
+- **A unit eliminated in the round still in play shows no rank number** ("—") until that round is advanced; then it gets the number it gets anyway. Other rooms may still be playing, so its rank isn't known.
+- **No tracker on the Final** (plain or race Grand Final): it is one room over several games.
+
+### Planner decisions (open to correction)
+- **NOW disappears when the Final is complete**, the moment Rankings shows the podium (`isFinalComplete`), not when the organiser presses Finish.
+- **The tracker shows on the rounds of the column in play only**, and only where the Bracket is editable (admin, started, not read-only). Past rounds are all scored; future rounds have nothing to count.
+- **The swap window keeps its meaning:** it closes once a round that eliminated someone has been advanced. A unit shown in ELIMINATED during the round in play does not close it (a no-show in a room not yet played can still be swapped while another room has finished).
+- **The Qualification gap takes the table's frame colour** (`cfp-game-frame`), so the table reads as separate framed blocks (fallback `cfp-game-deep` if too loud; not needed).
+- **The scrollbar is styled so browsers draw it permanently** (macOS and Android draw unstyled bars as overlays that hide until you scroll). iOS Safari ignores scrollbar styling: written in `docs/open-items.md`, no fallback cue.
+- **Invariants:** everything is derived at render time, nothing new is stored (editing a score back un-eliminates a unit); Rankings never re-decides advancement (a unit is out in play exactly when the Bracket draws its row red, or the Qualification table draws it red at a complete cut); ranks of units eliminated by rounds already advanced don't change; `swapWindowOpen` returns the same value as before for every state.
+
+### Stages and commits
+1. **`44668ee` — scrollbar always drawn.** `.game-scrollbar` in `styles.css` (`::-webkit-scrollbar` 12 px, track `cfp-game-deep`, rounded thumb `cfp-text-dim`, `cfp-text-soft` on hover; Firefox `scrollbar-width`/`scrollbar-color` under `@supports not selector(::-webkit-scrollbar)`), applied by `StickyScrollbar.tsx` while the strip overflows.
+2. **`43c57da` — title bar.** `isFinalComplete(state)` extracted from `computeRankings` (no change there); `roundGameCount` returns the Final's count at 1 game and the race Grand Final `{ games: 1, upTo: false }` at a maximum of 1 (the Setup schedule preview now reads "Final · 1 room · 1 game", intended); `roomsScored(state, roundIndex)` in `still-playing.ts` (contested rooms only, a room counts once every game of every unit is in); `ColumnTitleBar` draws "N/M" (13 px bold tabular, soft, green when complete, "N of M rooms scored"); `BracketRounds.tsx` wires single, column and wave boxes (a wave box sums its current rounds).
+   **`05f5912` — the two gates as pure helpers**, after the reviewer found them untested: `title-bar-marks.ts` (`showsNowPill`, `roundProgress`, `sumProgress`), called by `BracketRounds.tsx`, with tests.
+3. **`c894732` — eliminated as soon as certain.** `rankings.ts`: `eliminationsInRound(state, ri, isOut)`; past rounds keep the survivors rule (`eliminatedByPastRound`); the rounds of the last drawn column use `outInPlay` by exit rule: per-room → `outOfCompleteRooms` (complete contested rooms ordered by `orderRoomWithPlaces`, out when `exitBandAtRank` is null or `'eliminate'` and the unit is not in a pending tie), standings-cutoff → `outAtCompleteCut` (every contested room scored, then each `describeStandings` table's ranked rows that are out and not pending), anything else → nobody. `computeRankings` moves them from `active` to `eliminated` and sets `rank: null` for entries of the column in play; `EliminatedRanking.rank` is `number | null`. `pendingTieNames` moved to `advancement.ts`; `standingsBandAt` and `isStandingsRowOut` in `standings-display.ts`, used by `standingsRowResult` too, so Rankings and the table never disagree. `swapWindowOpen` counts ranked entries only. `eliminatedRankText` ("—") in `ranking-where.ts`, used by `RankingsLists.tsx`, `rankings-image-rows.ts` and `ranking-podium.ts` (podium cards skip a null rank, which can't happen once the Final is complete).
+   **`b1f92b9` — flaky test fixed (test only).** "gives the early-eliminated units their numbers once the round is advanced" expected the two in-play 8ths in room order; they are level (same place, same room share, no pooling standing), level units keep roster order, and which players sit in Rooms A and B is random at the draw, so the order flipped about half the time. The assertion now compares the names without order.
+4. **Stage 4 — Qualification gap colour.** `GroupGap` in `StandingsTable.tsx`: `bg-cfp-game-page` → `bg-cfp-game-frame`. The Bracket standings column's gap is unchanged.
+5. **Close-out** (this entry, `docs/views.md` items 5–7, `docs/rules.md` swap window, `docs/open-items.md`, `HANDOFF.md` code map).
+
+### Testing
+- **Awkward counts:** 37 FFA single elimination with lucky losers (targets 32,24: Round 3 in rooms 8/8/7/7/7, 6 through per room, 2 lucky losers); 43 FFA with a qualification cut at 24; a Qual source of 32 units with a tie of 4 across the cut (21–24); 31 double elimination (1v1, byes); the 37-player waterfall (`QUAL_GRAPH`).
+- **Stage 2:** `bracket.test.ts` (`roundGameCount`: plain Final at 1 and 3 games, race Grand Final at max 1 and above, a 1-game non-final round → null), `still-playing.test.ts` (`roomsScored`, 37 players: 0/5, 2/5, 5/5; a lone-unit room not counted; a 2-game room counts only once both games are in), `rankings.test.ts` (`isFinalComplete` for the plain Final and the race): 10 tests. `title-bar-marks.test.ts`: 10 tests (NOW on the round in play only, kept on a Final being played, gone once complete; the tracker for an editable round in play, null when not editable, outside the column in play, on the Final and the race Grand Final; `sumProgress`).
+- **Stage 3:** new `rankings-in-play.test.ts`, 14 tests: room A of the 37 scored moves its 8th with no rank and keeps its 7th (lucky candidate) and rooms B–E; a room missing one score moves nobody; all scored then advanced gives ranks 33,33,33,36,36; an unresolved 7th/8th tie keeps both, resolved moves the 8th; a lone-unit room moves nobody; earlier-round ranks unchanged while Round 4 eliminates in play; 43 at the cut: nobody until every room is scored, then 25–43 with no rank; the Qual source tie: 25–32 move, the tied 21–24 stay, and the resolution moves the two it puts out; double elimination: a winners-bracket loser stays (it drops), a losers-bracket loser moves; waterfall: room A's 5–8 move, 1–4 stay. One new test each in `mutations.test.ts` (the swap window stays open with in-play eliminations only, closes once the round is advanced), `rankings-image-rows.test.ts` ("—" with the eliminated where line) and `ranking-where.test.ts` (`eliminatedRankText`). `ranking-results.test.ts`, `waterfall-columns.test.ts` and `rankings.test.ts` updated to the new rule (a `knownRank` helper where ranks are read as numbers). `vitest related` on the stage's files: 57 files, 2188 tests passed.
+- **Cross-check before Stage 3 was committed** (a throw-away script, deleted): the old and new `rankings.ts` at every room-by-room scoring step and every advance through to the Final, for 37 lucky losers, 43 qual, 53 qual, 31 with no pooling, 31 double elimination, 37 Kings Valley and the 37 waterfall: 298 checks, the new list without its null ranks equal to the old one (names, order, ranks).
+- **Flaky fix:** the file passed 12 runs in a row (14/14), and 5 more in review.
+- **Stage 4:** `vitest related` on `StandingsTable.tsx`, 233 tests passed; `pnpm run test:screens` and the 1280 px Qualification screenshot of `ffa31-pooling` checked by eye.
+- **Screenshots:** Stage 1 and Stage 2 crops from `pnpm run test:screens` (the bar at 1280 and 390 px, taken with scrollbars shown since headless Chromium hides them; "1 GAME", "N GAMES", the tracker in its states).
+- **Live check (test site, implementer, after `c894732`):** a new test-run tournament `?t=1792342915518`, FFA, qualification table + single elimination, 37 players, a 1-game Final, left unfinished on purpose. The admin tracker counted up room by room on every round (Round 1 0/5 → 1/5 → 2/5 → 5/5 in green; Round 4 0/3 → 1/3 → 3/3), none on past rounds or the Final. A viewer (a signed-out run against the live link) saw no tracker and the bar at the bottom of the screen before any scroll, at 1280 and 390 px. Last qualification round: ELIMINATED read "Nobody is out yet" with room E unscored, then 13 units with "—" ("Qualification · #25" …), numbered 25–37 in the same order after Next Round, and swaps then closed. Round 4 room A alone: its 8th moved with "—", its 7th (lucky candidate) stayed in STILL IN. Final: "Final · NOW · 1 GAME" while scoring, still NOW at 7 of 8 scores, NOW gone after the 8th, before Finish was pressed. The finished Rankings showed no "—".
+- **Reviews (planner/reviewer):** stage 2's NOW and tracker gates were untested until `05f5912`; then dropping `&& !finalComplete` and dropping `!editable ||` each failed a test. Stage 3: the reviewer's 7 mutations each failed a test; the implementer's own checks put back the old `!eliminatedList.length` swap window (6 swap tests fail) and dropped the uncontested-room skip (the lone-unit test fails). The reviewer's run of the new file failed once, which led to `b1f92b9`.
+
+### Out of scope
+- A scroll cue other than the bar (edge fade, arrow), and anything for iOS Safari (`docs/open-items.md`).
+- A tracker on folded boxes, on the Final, or for viewers.
+- The Bracket standings column's gap; the Rankings image layout beyond the "—" rank.
+- Closing the swap window earlier.
+- NOW on the Tournaments list cards (lifecycle, unrelated).
+- Found during the live check, not changed: for an admin the sticky "Next Round" panel (`BracketView.tsx`, `sticky bottom-2.5 z-20`) covers the sticky scrollbar while the page is scrolled mid-bracket; it predates this build and viewers are unaffected (`docs/open-items.md`). A synthetic click in the live check wrote to the clipboard (probably a copy button under the click); nothing in the app to change.
+
+---
+
 ## Reserve swap fixes, pre-start redraw, "Add new team" (done — 2026-10-18)
 
 Planner/reviewer and implementer sessions; plan `plans/2026-10-18-reserves-and-new-teams.md`; seven stages on `test`, one commit each, plus two small follow-up commits. The example, production tournament `1792313382162`, was read-only for everyone: never opened with an admin session, read anonymously with curl when needed.
