@@ -157,7 +157,7 @@ function StandingsRow({
 function GroupGap({ columnCount }: { columnCount: number }) {
   return (
     <tr aria-hidden='true'>
-      <td className='h-3.5 border-0 bg-cfp-game-page p-0' colSpan={columnCount} />
+      <td className='h-3.5 border-0 bg-cfp-game-frame p-0' colSpan={columnCount} />
     </tr>
   );
 }
