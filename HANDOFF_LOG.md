@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Line endings: `.gitattributes` keeps text files LF (done — 2026-10-22)
 
-Implementer session, one commit on `test`: `e92a8c7` (plan: `plans/2026-10-22-line-endings.md`).
+Implementer session, one commit on `test`: `e92a8c7`, raised during the team-formats build.
 
 **Cause.** Git for Windows sets `core.autocrlf=true` in its system config, so every file git wrote into the working copy (checkout, reset, a restore after a mutation check) came out CRLF, while `.prettierrc` says `endOfLine: lf`. The index was always LF; only the working copy was off, so a plain `prettier --check` flagged files the commits never touched. Every build since phase A ran `prettier --check --end-of-line auto` to get around it (see the "CRLF" and "Line endings" notes in the entries below, kept as history).
 
@@ -21,6 +21,7 @@ Implementer session, one commit on `test`: `e92a8c7` (plan: `plans/2026-10-22-li
 - The round trip that caused the problem: one character changed in `formats.ts`, `git checkout -- src/domain/tournament/formats.ts`, then `git ls-files --eol` shows `w/lf`.
 - `git status --short`: only `?? docs-review/`. `git diff HEAD~1 --stat`: only `.gitattributes`.
 - No vitest, typecheck or lint (no source changes). Full suite: not run (no shared code).
+- **Review (planner)**: `git diff 7e2c942..7ecc587` touches only `.gitattributes`, this log and `docs/platform.md`; the counts above confirmed (394 `w/lf`, 0 `w/crlf`, 0 `w/mixed`); a plain `prettier --check` passes on four more formerly-CRLF files (`generation.ts`, `rankings-image-podium.ts`, `FormatPanel.tsx`, this log). The delete-and-restore step replaced the plan's `checkout --` alone, which can't rewrite files git sees as unchanged; it was safe because no tracked file was modified.
 
 **Out of scope.** No change to anyone's global or system git config, no content reformatting, nothing in the index but `.gitattributes`.
 
