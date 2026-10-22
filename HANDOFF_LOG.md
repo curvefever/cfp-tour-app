@@ -44,6 +44,12 @@ Planner/reviewer and implementer sessions; three build stages on `test` (`56a6c3
 - **Live check (test site, implementer, after `22ffc13`, as a viewer):** "E5 live check teams 20" (finished, teams, shared first place: members under the names, list from 4th), "D7 live check FFA 13" (finished, 21 players, no members lines, list 4 to 21) and "B16 live check teams 13" (in play: red dot, "13 teams · 26 players · 13 still in", no podium). **Not live-checked: an image of a tournament with no scheduled date** (every tournament on the test site has one); it is a single branch and the stage 1 tests cover it.
 - The canvas drawing files have no unit tests, as before; the layout and the text are pure and tested.
 
+### Final review (planner)
+- Lint, prettier and types are clean over the 12 source and test files the build changed (`rankings-image*.ts`, `tournament-info.ts` and their tests).
+- The docs (`views.md` item 7, `roadmap.md`, `open-items.md`) match the build, in present tense.
+- **The full suite was not run:** the organiser asked to skip it for this build. Every stage's related tests passed (256, 263, 258). No e2e was planned.
+- No findings.
+
 ### Out of scope
 - Wrapping long names in the image (stays in `docs/open-items.md`).
 - Members under team names in the list rows.
