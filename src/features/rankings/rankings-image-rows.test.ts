@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { computeRankings } from '../../domain/tournament/rankings';
+import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import type { TournamentTeam, TournamentState, WithdrawnUnit } from '../../domain/tournament/types';
 import { rankingsImageRows } from './rankings-image-rows';
 
 /** Ten players: the first four reach a Final (single game), the other six went out in the first round. */
@@ -121,5 +123,88 @@ describe('rankingsImageRows', () => {
     const rows = rowsOf(finishedOf(31, { 'game1-P1': 40, 'game1-P2': 30, 'game1-P3': 20, 'game1-P4': 20 }));
     expect(rows).toHaveLength(28);
     expect(rows[0]).toMatchObject({ rank: '3', name: 'P4' });
+  });
+});
+
+/** Six teams of three: t1-t4 reach a single-game Final (t1 wins), t5 and t6 went out in the first round. */
+function teamsFinished(finalScores: Record<string, number> = {}): TournamentState {
+  const teams: TournamentTeam[] = Array.from({ length: 6 }, (_, index) => ({
+    teamId: `t${index + 1}`,
+    teamName: `Team ${index + 1}`,
+    members: ['a', 'b', 'c'].map((letter) => ({ name: `${letter}${index + 1}` })),
+  }));
+  const scores: Record<string, number> = {};
+  teams.forEach((_team, position) => {
+    scoreKeysForPosition({ roundIndex: 0, room: 1, position, numGames: 1, teamSize: 3 }).forEach((key) => {
+      scores[key] = 600 - position * 100;
+    });
+  });
+  return createDefaultTournamentState({
+    gameFormat: 'team-3v3v3',
+    players: teams,
+    curRound: 1,
+    rounds: [
+      buildRound({ roundNum: 1, rooms: [6], players: 6, advPerRoom: 4 }),
+      buildRound({ roundNum: 2, rooms: [4], players: 4, isFinal: true, numGames: 1 }),
+    ],
+    assignments: [
+      teams.map((team) => ({ name: team.teamId, room: 1, isLucky: false })),
+      teams.slice(0, 4).map((team) => ({ name: team.teamId, room: 1, isLucky: false })),
+    ],
+    scores,
+    finalScores,
+  });
+}
+
+const membersOf = (rows: ReturnType<typeof rowsOf>) =>
+  Object.fromEntries(rows.map((row) => [row.name, row.members]));
+
+describe('rankingsImageRows members', () => {
+  it('while a team tournament runs: those still in and the eliminated carry their members', () => {
+    const rows = rowsOf(teamsFinished());
+    expect(rows).toHaveLength(6);
+    expect(membersOf(rows)).toEqual({
+      'Team 1': ['a1', 'b1', 'c1'],
+      'Team 2': ['a2', 'b2', 'c2'],
+      'Team 3': ['a3', 'b3', 'c3'],
+      'Team 4': ['a4', 'b4', 'c4'],
+      'Team 5': ['a5', 'b5', 'c5'],
+      'Team 6': ['a6', 'b6', 'c6'],
+    });
+  });
+
+  it('a withdrawn team that played carries its members', () => {
+    const withdrawn: WithdrawnUnit = {
+      name: 't7',
+      label: 'Team 7',
+      members: ['a7', 'b7', 'c7'],
+      playedAnyMatch: true,
+      reason: 'removed',
+    };
+    const rows = rowsOf({ ...teamsFinished(), withdrawnUnits: [withdrawn] });
+    expect(rows.at(-1)).toMatchObject({ rank: '—', name: 'Team 7', members: ['a7', 'b7', 'c7'] });
+  });
+
+  it('after the Final: the lines after the podium carry their members', () => {
+    const finalScores = Object.fromEntries(
+      [10, 8, 6, 4].flatMap((total, index) =>
+        [0, 1, 2].map((member) => [`game1-t${index + 1}-m${member}`, total]),
+      ),
+    );
+    const rows = rowsOf(teamsFinished(finalScores));
+    expect(rows.map((row) => [row.name, row.members])).toEqual([
+      ['Team 4', ['a4', 'b4', 'c4']],
+      ['Team 5', ['a5', 'b5', 'c5']],
+      ['Team 6', ['a6', 'b6', 'c6']],
+    ]);
+  });
+
+  it('an individual format has no members: every list carries null', () => {
+    const inPlayRows = rowsOf(state({}));
+    expect(inPlayRows.every((row) => row.members === null)).toBe(true);
+    const finishedRows = rowsOf(
+      state({ 'game1-Player 10': 30, 'game1-Player 9': 90, 'game1-Player 3': 60, 'game1-Player 1': 10 }),
+    );
+    expect(finishedRows.every((row) => row.members === null)).toBe(true);
   });
 });

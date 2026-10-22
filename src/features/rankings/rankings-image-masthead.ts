@@ -1,14 +1,14 @@
 import type { ImageHeaderText } from './rankings-image-header';
-import { COLORS, FONTS, fitText } from './rankings-image-style';
+import { HEADER_HEIGHT, MASTHEAD_LINES, mastheadTextHeight } from './rankings-image-layout';
+import { COLORS, FONTS, measurer } from './rankings-image-style';
+import { wrapText } from './rankings-image-wrap';
 
 const LOGO_GAP = 28;
 const RULE_WIDTH = 2;
 const LABEL_SPACING = '2px';
 const DOT_SIZE = 8;
-const LABEL_LINE = 16;
-const TITLE_LINE = 40;
-const DATE_LINE = 22;
-const LINE_GAP = 6;
+const { label: LABEL_LINE, title: TITLE_LINE, date: DATE_LINE, gap: LINE_GAP } = MASTHEAD_LINES;
+const TITLE_MAX_LINES = 2;
 
 /** The logo, or null when it didn't load: the header is then drawn without it. */
 export async function loadRankingsLogo(): Promise<HTMLImageElement | null> {
@@ -55,33 +55,48 @@ function drawDateLine(context: CanvasRenderingContext2D, header: ImageHeaderText
   }
 }
 
+/** Where the text starts: at the padding, or after the logo and its rule. */
+export function mastheadTextLeft(x: number, logo: HTMLImageElement | null): number {
+  if (!logo) return x;
+  const logoWidth = (HEADER_HEIGHT * logo.naturalWidth) / logo.naturalHeight;
+  return x + logoWidth + LOGO_GAP + RULE_WIDTH + LOGO_GAP;
+}
+
+/** The title wrapped to its width: at most two lines, cut with an ellipsis only beyond that or for a word wider than a line. */
+export function wrapTitle(context: CanvasRenderingContext2D, title: string, width: number): string[] {
+  return wrapText(measurer(context, FONTS.title), title, width, TITLE_MAX_LINES);
+}
+
 /**
- * The top of the image: the logo at the left, a rule, then the label, the title and the date-and-count line, the three
- * lines centred on the logo's height. Without the logo the lines start at the padding.
+ * The top of the image: the logo at the left (`HEADER_HEIGHT` tall, centred in the header) with a rule, then the label,
+ * the title lines and the date-and-count line as one block centred in the header. Without the logo the block starts at
+ * the padding.
  */
 export function drawMasthead(
   context: CanvasRenderingContext2D,
   header: ImageHeaderText,
+  titleLines: readonly string[],
   logo: HTMLImageElement | null,
-  box: { x: number; y: number; height: number; right: number },
+  box: { x: number; y: number; height: number },
 ) {
-  let textX = box.x;
   if (logo) {
-    const logoWidth = (box.height * logo.naturalWidth) / logo.naturalHeight;
-    context.drawImage(logo, box.x, box.y, logoWidth, box.height);
-    const ruleX = box.x + logoWidth + LOGO_GAP;
+    const logoWidth = (HEADER_HEIGHT * logo.naturalWidth) / logo.naturalHeight;
+    const logoTop = box.y + (box.height - HEADER_HEIGHT) / 2;
+    context.drawImage(logo, box.x, logoTop, logoWidth, HEADER_HEIGHT);
     context.fillStyle = COLORS.frame;
-    context.fillRect(ruleX, box.y, RULE_WIDTH, box.height);
-    textX = ruleX + RULE_WIDTH + LOGO_GAP;
+    context.fillRect(box.x + logoWidth + LOGO_GAP, logoTop, RULE_WIDTH, HEADER_HEIGHT);
   }
-  const block = LABEL_LINE + TITLE_LINE + DATE_LINE + 2 * LINE_GAP;
-  const top = box.y + (box.height - block) / 2;
+  const textX = mastheadTextLeft(box.x, logo);
+  const lines = Math.max(1, titleLines.length);
+  const top = box.y + (box.height - mastheadTextHeight(lines)) / 2;
   const titleTop = top + LABEL_LINE + LINE_GAP;
   context.textBaseline = 'middle';
   drawLabel(context, header, textX, top + LABEL_LINE / 2);
   context.font = FONTS.title;
   context.fillStyle = COLORS.text;
-  context.fillText(fitText(context, header.title, box.right - textX), textX, titleTop + TITLE_LINE / 2);
-  drawDateLine(context, header, textX, titleTop + TITLE_LINE + LINE_GAP + DATE_LINE / 2);
+  titleLines.forEach((line, index) => {
+    context.fillText(line, textX, titleTop + index * TITLE_LINE + TITLE_LINE / 2);
+  });
+  drawDateLine(context, header, textX, titleTop + lines * TITLE_LINE + LINE_GAP + DATE_LINE / 2);
   context.textBaseline = 'alphabetic';
 }

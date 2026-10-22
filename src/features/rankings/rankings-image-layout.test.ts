@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { podiumCardHeight, rankingsImageLayout } from './rankings-image-layout';
+import {
+  HEADER_HEIGHT,
+  NAME_LINE,
+  ROW_HEIGHT,
+  ROW_MEMBER_LINE,
+  ROW_NAME_LINE,
+  SMALL_LINE,
+  imageColumnWidth,
+  mastheadTextHeight,
+  podiumCardHeight,
+  rankingsImageLayout,
+  type RowLines,
+} from './rankings-image-layout';
 
 const rows = (count: number) => Array.from({ length: count }, (_, index) => `row ${index + 1}`);
 const columnSizes = (count: number) => {
@@ -8,9 +20,9 @@ const columnSizes = (count: number) => {
 };
 
 const podiumSizes = [
-  { height: podiumCardHeight({ first: false, hasMembers: false }) },
-  { height: podiumCardHeight({ first: true, hasMembers: false }) },
-  { height: podiumCardHeight({ first: false, hasMembers: false }) },
+  { height: podiumCardHeight({ first: false, nameLines: 1, memberLines: 0 }) },
+  { height: podiumCardHeight({ first: true, nameLines: 1, memberLines: 0 }) },
+  { height: podiumCardHeight({ first: false, nameLines: 1, memberLines: 0 }) },
 ];
 
 describe('rankingsImageLayout', () => {
@@ -106,19 +118,19 @@ describe('rankingsImageLayout with a podium', () => {
   });
 
   it('makes a team card with members taller than one without', () => {
-    expect(podiumCardHeight({ first: false, hasMembers: true })).toBeGreaterThan(
-      podiumCardHeight({ first: false, hasMembers: false }),
+    expect(podiumCardHeight({ first: false, nameLines: 1, memberLines: 1 })).toBeGreaterThan(
+      podiumCardHeight({ first: false, nameLines: 1, memberLines: 0 }),
     );
-    expect(podiumCardHeight({ first: true, hasMembers: true })).toBeGreaterThan(
-      podiumCardHeight({ first: true, hasMembers: false }),
+    expect(podiumCardHeight({ first: true, nameLines: 1, memberLines: 1 })).toBeGreaterThan(
+      podiumCardHeight({ first: true, nameLines: 1, memberLines: 0 }),
     );
   });
 
   it('puts the podium cards on a team podium at their own heights, the tallest setting the line', () => {
     const sizes = [
-      { height: podiumCardHeight({ first: false, hasMembers: true }) },
-      { height: podiumCardHeight({ first: true, hasMembers: false }) },
-      { height: podiumCardHeight({ first: false, hasMembers: false }) },
+      { height: podiumCardHeight({ first: false, nameLines: 1, memberLines: 1 }) },
+      { height: podiumCardHeight({ first: true, nameLines: 1, memberLines: 0 }) },
+      { height: podiumCardHeight({ first: false, nameLines: 1, memberLines: 0 }) },
     ];
     const { podium } = layoutOf(34, sizes);
     expect(new Set(podium.map((card) => card.y + card.height)).size).toBe(1);
@@ -135,5 +147,103 @@ describe('rankingsImageLayout with a podium', () => {
     }
     const lastBottom = Math.max(...layout.cells.map((cell) => cell.y + cell.height));
     expect(lastBottom).toBe(layout.height - layout.padding);
+  });
+});
+
+describe('rankingsImageLayout with wrapped lines', () => {
+  const kind = (nameLines: number, memberLines: number, first = false) => ({ first, nameLines, memberLines });
+  const rowsOf = (count: number) => rows(count);
+  const withLines = (count: number, lines: Record<string, RowLines>, extra = {}) =>
+    rankingsImageLayout(rowsOf(count), {
+      width: 1200,
+      rowLines: (row) => lines[row] ?? { nameLines: 1, memberLines: 0 },
+      ...extra,
+    });
+
+  it('makes a podium card taller by exactly one name line for each extra line of its name', () => {
+    expect(podiumCardHeight(kind(2, 0)) - podiumCardHeight(kind(1, 0))).toBe(NAME_LINE);
+    expect(podiumCardHeight(kind(3, 0)) - podiumCardHeight(kind(1, 0))).toBe(2 * NAME_LINE);
+  });
+
+  it('makes a podium card taller by one small line for each extra line of its members', () => {
+    expect(podiumCardHeight(kind(1, 2)) - podiumCardHeight(kind(1, 1))).toBe(SMALL_LINE);
+    expect(podiumCardHeight(kind(1, 4)) - podiumCardHeight(kind(1, 1))).toBe(3 * SMALL_LINE);
+  });
+
+  it('keeps the bottoms of the cards aligned when their heights differ', () => {
+    const sizes = [
+      { height: podiumCardHeight(kind(2, 2)) },
+      { height: podiumCardHeight(kind(1, 3, true)) },
+      { height: podiumCardHeight(kind(3, 0)) },
+    ];
+    const { podium } = rankingsImageLayout(rowsOf(34), { width: 1200, podium: sizes });
+    expect(new Set(podium.map((card) => card.y + card.height)).size).toBe(1);
+    expect(podium.map((card) => card.height)).toEqual(sizes.map((size) => size.height));
+  });
+
+  it('gives a row of one line and no members the old height, and each further line its own', () => {
+    const [plain, wrapped, team] = rankingsImageLayout(rowsOf(3), {
+      width: 1200,
+      rowLines: (row) =>
+        ({ 'row 1': { nameLines: 1, memberLines: 0 }, 'row 2': { nameLines: 3, memberLines: 0 } })[row] ?? {
+          nameLines: 1,
+          memberLines: 2,
+        },
+    }).cells;
+    expect(plain?.height).toBe(ROW_HEIGHT);
+    expect(wrapped?.height).toBe(ROW_HEIGHT + 2 * ROW_NAME_LINE);
+    expect(team?.height).toBe(ROW_HEIGHT + 2 * ROW_MEMBER_LINE);
+  });
+
+  it('pushes the rest of its column down when a row wraps, and leaves the other columns alone', () => {
+    const plain = rankingsImageLayout(rowsOf(13), { width: 1200 }).cells;
+    const tall = withLines(13, { 'row 2': { nameLines: 3, memberLines: 0 } }).cells;
+    const shift = 2 * ROW_NAME_LINE;
+    plain.forEach((cell, index) => {
+      const moved = cell.column === 0 && index > 1 ? shift : 0;
+      expect(tall[index]?.y).toBe(cell.y + moved);
+    });
+  });
+
+  it('is as tall as the tallest column: a taller shorter column grows the image only when it passes the longest', () => {
+    const height = (lines: Record<string, RowLines>) => withLines(13, lines).height;
+    const base = height({});
+    // Column 1 (rows 6-9) holds 4 rows against column 0's 5: one extra line still leaves it shorter.
+    expect(height({ 'row 7': { nameLines: 2, memberLines: 0 } })).toBe(base);
+    // Four member lines on a row of column 1 make it the tallest.
+    const grown = height({ 'row 7': { nameLines: 1, memberLines: 4 } });
+    expect(grown - base).toBe(4 * ROW_MEMBER_LINE - ROW_HEIGHT - 2);
+  });
+
+  it('makes the header as tall as its text needs: the logo height for a one-line title, more for two', () => {
+    const one = rankingsImageLayout(rowsOf(34), { width: 1200, titleLines: 1, podium: podiumSizes });
+    const two = rankingsImageLayout(rowsOf(34), { width: 1200, titleLines: 2, podium: podiumSizes });
+    expect(one.header.height).toBe(HEADER_HEIGHT);
+    expect(HEADER_HEIGHT).toBe(112);
+    expect(two.header.height).toBe(mastheadTextHeight(2));
+    expect(two.header.height).toBe(130);
+    const shift = two.header.height - one.header.height;
+    expect(two.podium[0]?.y).toBe((one.podium[0]?.y ?? 0) + shift);
+    expect(two.cells[0]?.y).toBe((one.cells[0]?.y ?? 0) + shift);
+    expect(two.height).toBe(one.height + shift);
+  });
+
+  it('lays out one-line rows without members exactly as before: 112 header, 38 pitch from the list top', () => {
+    const plain = rankingsImageLayout(rowsOf(37), { width: 1200 });
+    const explicit = rankingsImageLayout(rowsOf(37), {
+      width: 1200,
+      titleLines: 1,
+      rowLines: () => ({ nameLines: 1, memberLines: 0 }),
+    });
+    expect(explicit).toEqual(plain);
+    expect(plain.header).toEqual({ x: 32, y: 32, height: 112 });
+    expect(plain.cells[0]?.y).toBe(32 + 112 + 32);
+    expect(plain.cells[1]?.y).toBe(32 + 112 + 32 + 38);
+    expect(plain.height).toBe(32 + 112 + 32 + 13 * 38 - 2 + 32);
+  });
+
+  it('exposes the column width the drawing code wraps to', () => {
+    expect(imageColumnWidth(1200)).toBe((1200 - 64 - 48) / 3);
+    expect(rankingsImageLayout(rowsOf(3), { width: 1200 }).cells[0]?.width).toBe(imageColumnWidth(1200));
   });
 });

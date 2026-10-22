@@ -1,3 +1,5 @@
+import type { Measure } from './rankings-image-wrap';
+
 const FONT = 'Asap, sans-serif';
 
 // The weights the image draws with, as the page loads them (400, 700, 800); the sizes only name the font.
@@ -28,10 +30,10 @@ export const COLORS = {
   medals: { gold: '#e8b923', silver: '#b8c4cc', bronze: '#c27c3e' },
 };
 
-/** The text cut with an ellipsis so that it fits the width. */
-export function fitText(context: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (context.measureText(text).width <= maxWidth) return text;
-  let length = text.length;
-  while (length > 1 && context.measureText(`${text.slice(0, length)}…`).width > maxWidth) length--;
-  return `${text.slice(0, length)}…`;
+/** A measuring function for `font`: it sets the font on the context, then measures. */
+export function measurer(context: CanvasRenderingContext2D, font: string): Measure {
+  return (text) => {
+    context.font = font;
+    return context.measureText(text).width;
+  };
 }

@@ -14,6 +14,8 @@ export interface ImageRow {
   name: string;
   /** Where the unit stands or went out, muted at the right of the line. */
   where: string;
+  /** A team's members, drawn muted under its name; null for a player. */
+  members: string[] | null;
 }
 
 /**
@@ -27,6 +29,7 @@ export function rankingsImageRows(state: TournamentState, data: Rankings): Image
       rank: row.rank,
       name: row.label,
       where: row.where,
+      members: row.members,
     }));
   }
   const labels = bracketRoundLabels(state);
@@ -35,12 +38,19 @@ export function rankingsImageRows(state: TournamentState, data: Rankings): Image
       rank: '',
       name: unit.label,
       where: stillInWhere(state, data.lastRi, unit, labels),
+      members: unit.members,
     })),
     ...data.eliminatedList.map((unit) => ({
       rank: eliminatedRankText(unit),
       name: unit.label,
       where: eliminatedWhere(state, unit, labels),
+      members: unit.members,
     })),
-    ...data.dnfList.map((unit) => ({ rank: '—', name: unit.label, where: WITHDRAWN_WHERE })),
+    ...data.dnfList.map((unit) => ({
+      rank: '—',
+      name: unit.label,
+      where: WITHDRAWN_WHERE,
+      members: unit.members,
+    })),
   ];
 }
