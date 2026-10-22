@@ -305,7 +305,14 @@ test.describe('the rankings image', () => {
   test.use({ locale: 'en-GB', timezoneId: 'Europe/Paris' });
 
   // A finished tournament (podium colours) and a running one (those still in, the label "LIVE").
-  for (const id of ['ffa37-finished', 'ffa37-quarters', 'teams2v2-13-finished']) {
+  for (const id of [
+    'ffa37-finished',
+    'ffa37-quarters',
+    'teams2v2-13-finished',
+    'teams-5v5-final',
+    'teams-4v4-13',
+    'long-names-teams3-13-finished',
+  ]) {
     test(`${id}: Download image saves a PNG`, async ({ page }) => {
       const fixture = fixtureTournaments().find((candidate) => candidate.id === id);
       if (!fixture) throw new Error(`no fixture ${id}`);

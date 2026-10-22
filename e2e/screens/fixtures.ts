@@ -208,6 +208,31 @@ function teams(count: number, teamSize: number): TournamentTeam[] {
   }));
 }
 
+const MEMBER_NAME_BASES = [
+  'Sidewip',
+  'Mellow',
+  'Kurven',
+  'Nobrake',
+  'Wiggles',
+  'Acecurv',
+  'Pinkman',
+  'Zigzag',
+  'Basilsk',
+  'Cobra',
+  'Viper',
+  'Moonwlk',
+];
+
+/** Teams of any size whose members have names of 8 to 12 characters, to see how members fit on a line. */
+function namedMemberTeams(count: number, teamSize: number): TournamentTeam[] {
+  return teams(count, teamSize).map((team, index) => ({
+    ...team,
+    members: team.members.map((_member, slot) => ({
+      name: `${MEMBER_NAME_BASES[(index * teamSize + slot) % MEMBER_NAME_BASES.length]}_${String.fromCharCode(65 + index)}`,
+    })),
+  }));
+}
+
 /** Long names, to check that rows wrap instead of cutting names off (players by roster index). */
 const LONG_PLAYER_NAMES: Record<number, string> = {
   2: 'Xx_TheUnstoppableCurveMaster_xX',
@@ -364,6 +389,60 @@ function teams3LongFinished(): TournamentState {
   return scoreFinal(
     playUntil(teams3LongStart(), (round) => round.isFinal, 1),
     3,
+  );
+}
+
+const TEAMS_4V4_SETUP: SetupOverrides = {
+  gameFormat: 'team-4v4',
+  poolingPhase: 'swiss',
+  qualAdv: '8',
+  scheduleLogic: 'single-elimination',
+  oddCountStrategy: 'bye',
+  teamScoringRule: 'designated-player',
+};
+
+/** 13 teams of four, Swiss into a single elimination, "Save your Buddy" scoring: the first bracket round has one room scored. */
+function teams4v4Bracket(): TournamentState {
+  const start = generate(13, TEAMS_4V4_SETUP, 4, namedMemberTeams(13, 4));
+  const first = playUntil(start, (round) => isFirstLuckyRound(round) || Boolean(round.isFinal), 1);
+  return scoreCurrentRound(first, { seed: 7, rooms: [1] });
+}
+
+/** 11 teams of five, head-to-head single elimination, played to the end of the Final: a podium of teams of five. */
+function teams5v5FinalComplete(): TournamentState {
+  const start = generate(
+    11,
+    {
+      gameFormat: 'team-5v5',
+      poolingPhase: 'none',
+      scheduleLogic: 'single-elimination',
+      oddCountStrategy: 'bye',
+    },
+    5,
+    namedMemberTeams(11, 5),
+  );
+  return scoreFinal(
+    playUntil(start, (round) => round.isFinal, 1),
+    3,
+  );
+}
+
+/** 23 teams of two in rooms of 4-5 teams (10 players a room), a qualification table at its second round. */
+function teams2x5Pooling(): TournamentState {
+  const start = generate(
+    23,
+    {
+      gameFormat: 'team-2v2v2v2v2',
+      poolingPhase: 'qual-table',
+      qualAdv: '8',
+      scheduleLogic: 'single-elimination',
+    },
+    2,
+    namedMemberTeams(23, 2),
+  );
+  return scoreCurrentRound(
+    playUntil(start, (_round, index) => index === 1, 1),
+    { seed: 10, rooms: [1, 2] },
   );
 }
 
@@ -554,6 +633,9 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('long-names-ffa37', ffaQuarters(37, longNamedIndividuals(37))),
     entry('long-names-teams3-13', teams3Long()),
     entry('long-names-teams3-13-finished', teams3LongFinished(), { status: 'finished' }),
+    entry('teams-4v4-13', teams4v4Bracket(), { tabs: ['Bracket', 'Swiss', 'Rankings', 'Info'] }),
+    entry('teams-5v5-final', teams5v5FinalComplete(), { status: 'finished', tabs: NO_STANDINGS_TABS }),
+    entry('teams-2x5-23', teams2x5Pooling()),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),

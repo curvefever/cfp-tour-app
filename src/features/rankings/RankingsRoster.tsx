@@ -37,7 +37,7 @@ import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
 import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
-import { memberPlaceholders, noMembersMessage, parseWalkUpTeam } from './walk-up-team';
+import { memberPlaceholders, noMembersMessage, parseWalkUpTeam, teamLinePlaceholder } from './walk-up-team';
 import { nextColumnStart, roundInPlayOf } from '../../domain/tournament/round-columns';
 
 /** The confirm a reserve add can ask for, with the option that answers it; null when the add needs none. */
@@ -119,8 +119,6 @@ function applySwap(
   }
   apply(swap);
 }
-
-const teamLinePlaceholder = (teamSize: number) => `Team name, ${memberPlaceholders(teamSize)}`;
 
 /** What the Reserves panel says once eliminations have started: the window is closed; the waiting list stays visible. */
 function ClosedReserves({ state }: { state: TournamentState }) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixedIdSource } from '../../domain/tournament/__tests__/test-fixtures';
-import { memberPlaceholders, parseWalkUpTeam } from './walk-up-team';
+import { memberPlaceholders, parseWalkUpTeam, teamLinePlaceholder } from './walk-up-team';
 
 const ids = fixedIdSource();
 
@@ -38,5 +38,17 @@ describe('memberPlaceholders', () => {
   it('lists one placeholder per member slot', () => {
     expect(memberPlaceholders(2)).toBe('Player1, Player2');
     expect(memberPlaceholders(3)).toBe('Player1, Player2, Player3');
+  });
+});
+
+describe('teamLinePlaceholder', () => {
+  it('lists every member slot up to three', () => {
+    expect(teamLinePlaceholder(2)).toBe('Team name, Player1, Player2');
+    expect(teamLinePlaceholder(3)).toBe('Team name, Player1, Player2, Player3');
+  });
+
+  it('shortens a team of four or five to its first and last member', () => {
+    expect(teamLinePlaceholder(4)).toBe('Team name, Player1, …, Player4');
+    expect(teamLinePlaceholder(5)).toBe('Team name, Player1, …, Player5');
   });
 });

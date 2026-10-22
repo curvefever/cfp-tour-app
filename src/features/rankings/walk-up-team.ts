@@ -17,6 +17,12 @@ export function memberPlaceholders(teamSize: number): string {
   return Array.from({ length: teamSize }, (_, index) => `Player${index + 1}`).join(', ');
 }
 
+/** The hint of a one-line team input: every member slot up to three, then the first and last ("Player1, …, Player5") so it fits the box. */
+export function teamLinePlaceholder(teamSize: number): string {
+  const members = teamSize <= 3 ? memberPlaceholders(teamSize) : `Player1, …, Player${teamSize}`;
+  return `Team name, ${members}`;
+}
+
 /** One typed line in the roster format (`TeamName, Player1, Player2`) as a brand-new walk-up team. */
 export function parseWalkUpTeam(line: string, teamSize: number, ids: IdSource): WalkUpTeamParse {
   if (!line.trim()) return { status: 'empty' };
