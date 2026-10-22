@@ -9,7 +9,7 @@ const LIST_GAP_ABOVE = 32;
 const CARD_WIDTH = 300;
 const CARD_GAP = 18;
 
-// The podium card's inside, top to bottom: a medal bar, padding, the lines (each as high as its line height) and padding.
+// The podium card's inside, top to bottom: a medal bar, padding, the lines and padding.
 const CARD_BAR = 10;
 const CARD_LINE_GAP = 6;
 const NAME_LINE = 29;
@@ -54,12 +54,39 @@ export interface RankingsImageLayout<T> {
   cells: PlacedRow<T>[];
 }
 
-/** The height of a podium card: the first place stands taller, a team shows its members under the name. */
-export function podiumCardHeight({ first, hasMembers }: { first: boolean; hasMembers: boolean }): number {
+/** What a podium card is made of, for placing its lines and for its height. */
+export interface PodiumCardMetrics {
+  barHeight: number;
+  paddingTop: number;
+  paddingBottom: number;
+  lineGap: number;
+  /** The height of each line, top to bottom: the ordinal, the name, the members (a team only), the Final line. */
+  lines: number[];
+}
+
+/** The first place stands taller, a team shows its members under the name. */
+export function podiumCardMetrics({
+  first,
+  hasMembers,
+}: {
+  first: boolean;
+  hasMembers: boolean;
+}): PodiumCardMetrics {
   const { top, bottom, ordinal } = first ? CARD_PADDING.first : CARD_PADDING.other;
-  const lines = [ordinal, NAME_LINE, ...(hasMembers ? [SMALL_LINE] : []), SMALL_LINE];
-  const gaps = (lines.length - 1) * CARD_LINE_GAP;
-  return CARD_BAR + top + lines.reduce((sum, line) => sum + line, 0) + gaps + bottom;
+  return {
+    barHeight: CARD_BAR,
+    paddingTop: top,
+    paddingBottom: bottom,
+    lineGap: CARD_LINE_GAP,
+    lines: [ordinal, NAME_LINE, ...(hasMembers ? [SMALL_LINE] : []), SMALL_LINE],
+  };
+}
+
+/** The height of a podium card. */
+export function podiumCardHeight(kind: { first: boolean; hasMembers: boolean }): number {
+  const { barHeight, paddingTop, paddingBottom, lineGap, lines } = podiumCardMetrics(kind);
+  const text = lines.reduce((sum, line) => sum + line, 0) + (lines.length - 1) * lineGap;
+  return barHeight + paddingTop + text + paddingBottom;
 }
 
 /** How many rows each column takes when they fill column by column: the first columns take the extra ones. */
