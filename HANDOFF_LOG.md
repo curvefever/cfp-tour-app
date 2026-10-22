@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Team formats from a rule: players per team × teams per room, 4v4 included (done — 2026-10-22)
 
-Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the rule), `525ed09` and `e46108b` (Setup, and its presence fix), `580b943` (teams of 4 and 5 on screen), `9306535` and `412b47c` (the Rankings image, see the next entry), plus this close-out. `525ed09` and what came before it were pushed to `test` for the live check; the later commits are local. `main` was not touched. Plan: `plans/2026-10-22-parametric-team-formats.md`.
+Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the rule), `525ed09` and `e46108b` (Setup, and its presence fix), `580b943` (teams of 4 and 5 on screen), `9306535` and `412b47c` (the Rankings image, see the next entry), plus this close-out. `525ed09` and what came before it were pushed to `test` for the live check; the later commits are local. `main` was not touched.
 
 **Why.** The next tournament is 4v4, which the app did not offer. Every format was a hand-written entry in `GAME_FORMATS`, so each new team format meant picking its room sizes by hand and growing the Setup dropdown. The engine never branches on the key: it reads the entry's traits (`teamSize`, `defaultRoomSize` or `idealRoomSize`, the odd-count options), so only the catalogue needed to change.
 
@@ -35,7 +35,8 @@ Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the
 - **Awkward counts**: 4v4 with 31 teams (qualification table + single elimination, "Bye": 15 rooms of 2 plus one bye; "None" refused, as 3v3 is); 5v5 with 13 teams in Swiss (6 rooms + a bye); 2v2 with 13 teams in a group stage; 2v2v2v2v2 with 23 and 37 teams in a qualification table (every room 4–5 teams, never more than 10 players); 2v2v2 with 31 teams, qualification table + Kings Valley (rooms of 2–3); a 5v5 Final size override of 3 refused by `validateRoomCap`. Live (test site, stage 2): 13 teams of 4 in Swiss, 6 rooms + a bye; 23 teams of 2 in 2v2v2v2v2, rooms of 4–5; the roster hint orange and Generate refused after changing players per team.
 - **Tests added**: `formats.test.ts` (19: the 10 keys exactly, the cap, none/bye for 4v4 and 5v5, Flex for 2v2 and 3v3, the five old formats' traits pinned including that none gains a trait of the other room-size style, the generation cases above), `game-format-choice.test.ts`, `tournament-info.test.ts` (+2), `presence.shared.test.ts` (+1), `walk-up-team.test.ts` (+2), and the render check now covers the three new fixtures (264 tests, was 233).
 - **Reviews:** the reviewer's mutation checks were each caught (stage 1: Flex always offered, multi-team min `k − 2`, one extra teams-per-room count, head-to-head default "none", the `shortLabel` fallback emptied; stage 2: the smallest instead of the largest valid count, team scoring always reset, default Teams shape 2 × 3, teams per room never kept; stage 3: the presence mapping dropped, the full member list in the hint).
-- **Full suite: to be filled at the final review** (this build touches `src/domain/`, so the suite runs there).
+- **Final review**: eslint, `prettier --check --end-of-line auto` and typecheck clean on the 32 source and test files the build changed. The reviewer also wrote two `docs/open-items.md` notes, at the organiser's request: Kings Valley's field limit as a known gap (24 units with rooms of 2–3, 32 with 3–4, 40 with 4–5, 60 FFA, computed with `kingsValleyMaxEntrants`; `docs/rules.md`'s size-limit sentence lists the same four), and the 390 px tab bar clipping its first tab, under the phone-layouts item.
+- **Full suite: passed on `04016a5`** (105 files, 2948 tests).
 
 ### Out of scope
 - FFA room sizes 4–10 and a non-8 Final (`docs/roadmap.md`, "Flexible FFA room sizes").
@@ -47,7 +48,7 @@ Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the
 
 ## Rankings image: names and title wrap instead of being cut; list rows show members (done — 2026-10-22)
 
-Stage 4 of the build above (`9306535`, then `412b47c`); plan: `plans/2026-10-22-parametric-team-formats.md`, stage 4. Not pushed.
+Stage 4 of the build above (`9306535`, then `412b47c`). Not pushed.
 
 **Why.** `fitText` cut four things to one line with "…" (the title, a list row's name, a podium card's name and its member line) while the page wraps them all, and the list rows left out a team's members. With teams of 4 and 5 that lost real information.
 
@@ -64,7 +65,8 @@ Stage 4 of the build above (`9306535`, then `412b47c`); plan: `plans/2026-10-22-
 - `rankings-image-wrap.test.ts` (10), `rankings-image-layout.test.ts` (new signatures, same numbers, plus name and member lines on a card, bottoms aligned, row heights, a wrapped row pushing only its own column, the image as tall as the tallest column, `titleLines` 2 giving 130, the all-one-line invariant), `rankings-image-rows.test.ts` (+4), `rankings-image-row.test.ts` (4, with a fake context: members that fit the full width but not the name's stay on one line).
 - **Invariant checked on pixels**: the finished 37-player FFA image is identical before and after (diff None, 867 px tall at 1×). Team images are taller on purpose; heights at 1×, before → after (members under the full width): `teams-5v5-final` 549 → 669, `teams-4v4-13` 396 → 481, `long-names-teams3-13-finished` 587 → 684, `teams2v2-13-finished` 587 → 655; a 5v5 row with 5 members of 8–10 characters is 70 px (87 with 3 lines).
 - Captures through the spec's existing "rankings image" test; the title was checked with a temporary spec (a ~70-character title, with and without the logo: 2 lines and a 130 px header with it, one line without).
-- **Full suite: to be filled at the final review.**
+- **Reviews:** the reviewer's mutation checks were each caught (no split for a too-wide unit, a space instead of " · " between members, member lines adding no height, the header fixed at 112, eliminated rows without members, the members back to the name's width).
+- **Full suite: passed on `04016a5`** (105 files, 2948 tests), the same run as the entry above.
 
 ### Out of scope
 - None added; the planner's open-items notes (Kings Valley's field limit, the 390 px tab bar) and the line-ending plan are the planner's own.
