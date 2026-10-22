@@ -18,14 +18,24 @@ export interface WrappedRow {
   memberLines: string[];
 }
 
-/** Wraps a row's name and members, which get the column's width less the rank and the "where" text, measuring with the canvas. */
+/**
+ * Wraps a row's name and members, measuring with the canvas. The name's first line shares the row with the "where" text,
+ * so it gets the column's width less the rank and that text; the members start under the name, so they get the width
+ * less the rank only.
+ */
 export function wrapRow(context: CanvasRenderingContext2D, row: ImageRow, columnWidth: number): WrappedRow {
   const whereWidth = measurer(context, FONTS.where)(row.where);
-  const textWidth = columnWidth - NAME_LEFT - RIGHT_GAP - whereWidth - RIGHT_GAP;
+  const membersWidth = columnWidth - NAME_LEFT - RIGHT_GAP;
+  const nameWidth = membersWidth - whereWidth - RIGHT_GAP;
   return {
     row,
-    nameLines: wrapText(measurer(context, FONTS.name), row.name, textWidth, NAME_MAX_LINES),
-    memberLines: wrapMembers(measurer(context, FONTS.where), row.members ?? [], textWidth, MEMBERS_MAX_LINES),
+    nameLines: wrapText(measurer(context, FONTS.name), row.name, nameWidth, NAME_MAX_LINES),
+    memberLines: wrapMembers(
+      measurer(context, FONTS.where),
+      row.members ?? [],
+      membersWidth,
+      MEMBERS_MAX_LINES,
+    ),
   };
 }
 
