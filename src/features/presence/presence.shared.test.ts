@@ -100,6 +100,11 @@ describe('fieldOfControl', () => {
     expect(fieldOfControl('cfg-grand-final-wb-target')).toBe('grandFinalWbTarget');
   });
 
+  it('maps the team-format controls onto the game format, which they edit together', () => {
+    expect(fieldOfControl('cfg-team-size')).toBe('gameFormat');
+    expect(fieldOfControl('cfg-teams-per-room')).toBe('gameFormat');
+  });
+
   it('knows no field for a control that is not a Setup key', () => {
     expect(fieldOfControl('cfg-lb-qualifiers')).toBeNull();
     expect(fieldOfControl('cfg-n-display')).toBeNull();

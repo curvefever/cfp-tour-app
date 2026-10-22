@@ -89,12 +89,15 @@ const CONTROL_FIELDS: Record<string, string> = {
   'cfg-title': 'title',
   'cfg-scheduled-at': 'info.scheduledAt',
   'info-rules-text': 'info.rulesText',
+  // Players per team and teams per room are two more controls on the one `gameFormat` setting.
+  'cfg-team-size': 'gameFormat',
+  'cfg-teams-per-room': 'gameFormat',
 };
 
 const SETUP_KEYS = new Set<string>(Object.keys(createDefaultSetup()));
 
 /**
- * The presence field a form control stands for, from its element id: the three named ones, or `cfg-some-setting`
+ * The presence field a form control stands for, from its element id: the named ones, or `cfg-some-setting`
  * for the Setup key `someSetting`. `null` for a control that is no shared field (or no id).
  */
 export function fieldOfControl(controlId: string | null | undefined): string | null {
