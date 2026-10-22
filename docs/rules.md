@@ -5,17 +5,26 @@ Current rules of the app's tournament engine (`src/domain/tournament/`). Read wh
 ## Game formats
 `formats.ts`, `GAME_FORMATS`. A "unit" is a player (individual formats) or a team.
 
+Two individual formats are written out, and the team formats are built from a rule: **players per team `t` (2–5) × teams per room `k` (2–5)**, with `t × k` at most 10, the game's hard cap on players in one room (`HARD_ROOM_PLAYER_CAP`, `formats.ts`, shared with `validateRoomCap`). The key is `team-` plus `k` copies of `t` joined by `v` (`team-2v2v2`), and the label is the same without `team-`; `teamFormatKey()` and `teamsPerRoomOptions()` hold the rule, and Setup offers every valid combination with none ranked above another. The five formats that existed before the rule (`ffa-individual`, `team-2v2v2v2`, `team-3v3v3`, `team-3v3`, `individual-1v1`) keep their keys and traits exactly, so saved tournaments need no migration.
+
 | Format | Unit | Room size | Odd-count strategies (default) |
 |---|---|---|---|
 | `ffa-individual` | player | 6–8, ideal 8 | — |
-| `team-2v2v2v2` | team of 2 | 3–4, ideal 4 | — |
-| `team-3v3v3` | team of 3 | 2–3, ideal 3 | — |
-| `team-3v3` | team of 3 | 2 (head-to-head) | `none`/`bye`/`flex` (`bye`) |
 | `individual-1v1` | player | 2 (head-to-head) | `none`/`bye` (`bye`) |
+| `team-2v2` | team of 2 | 2 (head-to-head) | `none`/`bye`/`flex` (`bye`) |
+| `team-2v2v2` | team of 2 | 2–3, ideal 3 | — |
+| `team-2v2v2v2` | team of 2 | 3–4, ideal 4 | — |
+| `team-2v2v2v2v2` | team of 2 | 4–5, ideal 5 | — |
+| `team-3v3` | team of 3 | 2 (head-to-head) | `none`/`bye`/`flex` (`bye`) |
+| `team-3v3v3` | team of 3 | 2–3, ideal 3 | — |
+| `team-4v4` | team of 4 | 2 (head-to-head) | `none`/`bye` (`bye`) |
+| `team-5v5` | team of 5 | 2 (head-to-head) | `none`/`bye` (`bye`) |
+
+With several teams per room (`k ≥ 3`) rooms hold from `k − 1` to `k` teams (`defaultRoomSize`); with two teams the format is head-to-head (`idealRoomSize: 2`, default strategy `bye`). A definition also carries `teamsPerRoom` (team formats) and `shortLabel` ("FFA", "1v1", "4v4"), which the Tournaments list shows; an unknown key shows as itself there and generation refuses it with "This game format is not available yet." (`GameFormatKey` is ``'ffa-individual' | 'individual-1v1' | `team-${string}` ``).
 
 FFA counts that can't fill rooms of 6–8 are seated in smaller rooms by design (9 → [5,4], 17 → [6,6,5]). Planned advancement counts (what a schedule chooses itself) are always seatable; counts the organiser enters are seated as they come.
 
-An unset odd-count strategy means the format's default. "Flex" lets `team-3v3` seat a 3-team room (room size 2–3). "None" refuses to generate on a count that can't be split evenly.
+An unset odd-count strategy means the format's default. "Flex" lets a head-to-head team format seat a 3-team room (room size 2–3); it is offered only where three teams still fit the cap (`3 × t ≤ 10`), so for `team-2v2` and `team-3v3`, not for `team-4v4` and `team-5v5`. A Semis/Final size override is checked against the cap too (a 5v5 Final of 3 teams is 15 players and is refused). "None" refuses to generate on a count that can't be split evenly.
 
 Room counts and sizes for any headcount come from `distributeRooms()` (`room-distribution.ts`); a round's advancement target splits into `advPerRoom` per room plus `luckyCount` lucky-loser slots (`splitAdvancement`). When removals leave a round with a different headcount than planned, `fitRoundToPool` reshapes it at advance time.
 
@@ -26,7 +35,7 @@ Room counts and sizes for any headcount come from `distributeRooms()` (`room-dis
 - `group-stage` — round-robin groups (single or double), top N per group advance. Pairings are known at generation (`round.matches`/`round.groupByes`).
 
 Rules:
-- Swiss and Group Stage are **head-to-head only** (`individual-1v1`, `team-3v3`), gated in Setup and in `generateTournament()`: fold-pairing and round-robin always pair exactly 2 units.
+- Swiss and Group Stage are **head-to-head only** (`individual-1v1` and the two-teams team formats, 2v2 to 5v5), gated in Setup and in `generateTournament()`: fold-pairing and round-robin always pair exactly 2 units.
 - **Non-counting rounds** (qual-table/Swiss only): a tournament can mark its leading N rounds `excludeFromStandings`; they're played and reseed normally but `computeQualificationStandings` skips them.
 - **Reserve admission** (`addReserveUnit`, `mutations.ts`): a reserve or walk-up can join until the pooling phase ends (`reserveOpen`). **Before Confirm & Start** nobody but admins has seen the draw, so a joiner is part of it: with no schedule generated yet the reserve just joins the roster (`confirmedCount` follows); with one, the schedule is redrawn for the new head count from the settings it was generated with (`regenerateForRoster`, `pre-start-roster.ts`; `state.settings`, not the Setup form's current values) and the joiner plays Round 1. Generation is the only judge then: the group-stage, fixed-draw, pooling-less-waterfall and `'strict-room'` refusals below apply only after the start, and when generation refuses the new count the add is refused with its message (`'generation'`). A tournament generated before settings were stored keeps the rules below. A **brand-new team** can be added in a team format (`addWalkUpTeam`: one `TeamName, Player1, Player2` line; refused with no member, with a name already used in `players` or `reserves`, or with an unstorable name) and joins like any reserve. **After the start:** while a pooling round is in play (warm-up, qualification or Swiss) the round stays as drawn: the joiner sits it out (0 points if it counts) and is drawn in with everyone else when the round advances, so no over-full room is ever created, in any bracket format. At that advance a no-elimination pooling round takes in every roster unit not already advancing (`withUndrawnRosterUnits`, `transitions.ts`), except at the last qualifying round, where the standings decide and the joiner, ranked last with 0 points, is normally cut. From 2 missed counted rounds (`missedCountedRounds`: qualification/Swiss rounds up to and including the one in play, not the leading non-counting ones) the admin confirms first (`confirm-late-join`). The odd-count strategy "None" refuses a joiner who would leave a count that is not a multiple of the room size (`'strict-room'`). After the start, group stage (`'group-stage'`), a fixed draw (`'fixed-draw'`) and a waterfall without a pooling phase (`'waterfall-bracket'`) still refuse. In a tournament with no pooling phase the window ends with its first bracket round: a reserve added then is seated in that round, in the least-full room (the over-cap confirm, `'strict-room'` under "None"); during a warm-up the joiner is drawn into the first bracket round. **First-round seeding:** a joiner's level is unknown, so in the round they enter they are seeded as an average unit (see `docs/seeding.md`): in the middle tier of the round they missed in the room-based reseed, at the end of the fold in Swiss so they meet a middle-ranked unit, and never given the bye (a bye counts as a win; if only joiners are left to take one, the usual rule applies). From their second round on their own results seed them, and their standings keep counting the missed rounds as 0. In a waterfall, a join or removal during qualification also reshapes the pooling rounds not yet reached for the new head count at once (`refitPoolingRound`, `pooling.ts`), so the Bracket shows the room sizes the next draw will use; the graph rounds and the last qualifying round's `standingsRoutes` are left alone.
 - **Draw publication** (qual-table/Swiss, Setup "Draw publication"): `adaptive` (default) reseeds from live results; `fixed` publishes the whole pooling schedule at generation — see `docs/seeding.md`.
@@ -52,7 +61,7 @@ A room ladder: rooms are ranked top to bottom. Each round, a room's top finisher
 - **Size limit.** Past the cap the forced Final would exceed the room maximum, so generation refuses a field above `kingsValleyMaxEntrants(roomSize)`: 32 teams in 2v2v2v2, 24 in 3v3v3, 60 players in FFA. The message names the limit and the 14 rounds, and suggests lowering "Advance to bracket" or adding a qualification phase. The re-plan after a reserve (`fitKingsValleyTail`) is not refused: it may still force a larger Final.
 - **Accepted:** a removal can leave the current round (and rarely the next) with a room below the minimum; the organiser can fill it with a reserve.
 - If a removal or reserve makes the survivor count differ from the plan, the rest of the ladder (Final included) is re-planned at the next advance (`fitKingsValleyTail`, `transitions.ts`); room movement uses `sequentialSeed`.
-- **Unavailable for head-to-head formats** (`individual-1v1`, `team-3v3` including Flex): with rooms of 2 it cuts one unit per round and can't reach a Final within the cap above 16 units. Hidden in Setup and refused by generation; head-to-head Kings Valley tournaments generated earlier still play out.
+- **Unavailable for head-to-head formats** (`individual-1v1` and 2v2 to 5v5, Flex included): with rooms of 2 it cuts one unit per round and can't reach a Final within the cap above 16 units. Hidden in Setup and refused by generation; head-to-head Kings Valley tournaments generated earlier still play out.
 - No Setup fields: the organiser tunes nothing.
 
 ### Waterfall bracket (`waterfall-bracket.ts`)

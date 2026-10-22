@@ -6,6 +6,71 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Team formats from a rule: players per team × teams per room, 4v4 included (done — 2026-10-22)
+
+Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the rule), `525ed09` and `e46108b` (Setup, and its presence fix), `580b943` (teams of 4 and 5 on screen), `9306535` and `412b47c` (the Rankings image, see the next entry), plus this close-out. `525ed09` and what came before it were pushed to `test` for the live check; the later commits are local. `main` was not touched. Plan: `plans/2026-10-22-parametric-team-formats.md`.
+
+**Why.** The next tournament is 4v4, which the app did not offer. Every format was a hand-written entry in `GAME_FORMATS`, so each new team format meant picking its room sizes by hand and growing the Setup dropdown. The engine never branches on the key: it reads the entry's traits (`teamSize`, `defaultRoomSize` or `idealRoomSize`, the odd-count options), so only the catalogue needed to change.
+
+### The rule (organiser, 2026-10-22)
+- **Team formats come from two numbers**: players per team `t` (2–5) and teams per room `k` (2–5), with `t × k ≤ 10`, the game's cap per room. FFA and 1v1 stay written out. Eight team formats result: 2v2, 2v2v2, 2v2v2v2, 2v2v2v2v2, 3v3, 3v3v3, 4v4, 5v5 (table in `docs/rules.md`, "Game formats").
+- **Every valid combination is offered**, none ranked above another; the organiser varies formats on purpose. **No stop-gap 4v4 entry**: the rule replaced the list directly.
+- **Room sizes keep today's rules**: `k ≥ 3` rooms hold `k − 1` to `k`; `k = 2` is head-to-head (rooms of 2, odd-count default "Bye"), with Flex only where `3 × t ≤ 10` (2v2, 3v3).
+- **Key and label come from the numbers** (`k` copies of `t` joined by `v`, `team-` in front for the key). The three existing team keys come out exactly as stored, so no migration. `HARD_ROOM_PLAYER_CAP` is exported from `formats.ts` and used by the rule and `validateRoomCap`.
+
+### Planner decisions (open to correction)
+- `GameFormatKey` is a template-literal type (`'ffa-individual' | 'individual-1v1' | team-${string}`); `GAME_FORMATS` is a partial record built by the rule, plus `GAME_FORMAT_LIST` for display order. `getGameFormat` already returned `undefined` for an unknown key and every caller handles it.
+- New definition fields `teamsPerRoom` and `shortLabel`; `tournament-info.ts`'s `FORMAT_NAMES` table became `shortLabel`, falling back to the raw key.
+- Setup: three selects (FFA / 1v1 / Teams, then Players per team, Teams per room), all ending in `changeFormat`. Teams starts at 2 × 4. A new team size keeps teams per room when still valid, else takes the largest valid count. The team scoring rule is kept between two team formats. Changing players per team after loading a roster behaves like any format change (orange hint, generation refuses until the roster is loaded again); changing only teams per room keeps the roster valid. Nothing new is persisted.
+- Not added: FFA team sizes other than 1, FFA room sizes, more than 5 teams per room.
+
+### Corrections and findings during the build
+- **Kings Valley field limit (stage 1).** The plan's case "2v2v2, 31 teams, Kings Valley" with no pooling phase is refused by the ladder's existing limit (24 units for rooms of 2–3). The test uses a qualification table (`qualAdv` 16) in front. Not a defect of this build.
+- **Presence (stage 2 review).** `cfg-team-size` and `cfg-teams-per-room` map to the `gameFormat` presence field in `CONTROL_FIELDS`, so the "is editing" tag shows beside all three selects.
+- **"Download image" is not admin-only** (the plan assumed it was): the screens spec's existing "rankings image" test saves it as a signed-out viewer, so no `__FAKE_ADMIN__` change was needed for the image captures. The spec's id list gained three fixtures.
+- **Line endings.** `core.autocrlf=true` writes CRLF into the working copy while `.prettierrc` says `endOfLine: lf`, so a plain `prettier --check` flags every file git has rewritten (the index is LF). All checks of this build ran with `--end-of-line auto`. The repo-wide fix is a separate plan.
+- **Stage 3 (teams of 4 and 5 on screen).** New fixtures `teams-4v4-13`, `teams-5v5-final`, `teams-2x5-23` (members with 8–10 character names, letter suffixes), looked at in every viewer tab at 1280 and 390, and, as an admin (temporary `__FAKE_ADMIN__` change, never committed): per-member score inputs on a room card with 5 members and a 2-game Semis, the roster tools (team edit, defender mark), Setup with Teams selected. Everything fits. The one plain overflow: the one-line "Add new team" input's hint was cut at 5 members; `teamLinePlaceholder()` (`walk-up-team.ts`) now reads "Team name, Player1, …, Player5" from four members up. Unchanged by this build: at 390 px a tournament with five tabs scrolls the tab bar sideways and clips the first tab.
+
+### Testing
+- **Awkward counts**: 4v4 with 31 teams (qualification table + single elimination, "Bye": 15 rooms of 2 plus one bye; "None" refused, as 3v3 is); 5v5 with 13 teams in Swiss (6 rooms + a bye); 2v2 with 13 teams in a group stage; 2v2v2v2v2 with 23 and 37 teams in a qualification table (every room 4–5 teams, never more than 10 players); 2v2v2 with 31 teams, qualification table + Kings Valley (rooms of 2–3); a 5v5 Final size override of 3 refused by `validateRoomCap`. Live (test site, stage 2): 13 teams of 4 in Swiss, 6 rooms + a bye; 23 teams of 2 in 2v2v2v2v2, rooms of 4–5; the roster hint orange and Generate refused after changing players per team.
+- **Tests added**: `formats.test.ts` (19: the 10 keys exactly, the cap, none/bye for 4v4 and 5v5, Flex for 2v2 and 3v3, the five old formats' traits pinned including that none gains a trait of the other room-size style, the generation cases above), `game-format-choice.test.ts`, `tournament-info.test.ts` (+2), `presence.shared.test.ts` (+1), `walk-up-team.test.ts` (+2), and the render check now covers the three new fixtures (264 tests, was 233).
+- **Reviews:** the reviewer's mutation checks were each caught (stage 1: Flex always offered, multi-team min `k − 2`, one extra teams-per-room count, head-to-head default "none", the `shortLabel` fallback emptied; stage 2: the smallest instead of the largest valid count, team scoring always reset, default Teams shape 2 × 3, teams per room never kept; stage 3: the presence mapping dropped, the full member list in the hint).
+- **Full suite: to be filled at the final review** (this build touches `src/domain/`, so the suite runs there).
+
+### Out of scope
+- FFA room sizes 4–10 and a non-8 Final (`docs/roadmap.md`, "Flexible FFA room sizes").
+- Flex for 1v1; teams of more than 5 or rooms of more than 5 teams; mixed team sizes within one tournament.
+- Anonymous Finals for team formats (still excluded, `docs/open-items.md`).
+- Any change to scoring, seeding or advancement: they already read only the traits.
+
+---
+
+## Rankings image: names and title wrap instead of being cut; list rows show members (done — 2026-10-22)
+
+Stage 4 of the build above (`9306535`, then `412b47c`); plan: `plans/2026-10-22-parametric-team-formats.md`, stage 4. Not pushed.
+
+**Why.** `fitText` cut four things to one line with "…" (the title, a list row's name, a podium card's name and its member line) while the page wraps them all, and the list rows left out a team's members. With teams of 4 and 5 that lost real information.
+
+### The rule
+- **`rankings-image-wrap.ts` (pure)**: `wrapText` breaks at spaces; `wrapMembers` breaks only between members (joined by " · ", never a separator at a line's edge, a member wider than a line wrapped at its own spaces on lines of its own). Cut with "…" only for a single word wider than a line or text beyond the limit (the last allowed line is cut). Limits: title 2 lines, podium name 3, podium members 4, row name 3, row members 4. `fitText` is gone.
+- **The layout stays pure and takes line counts**: `podiumCardMetrics({ first, nameLines, memberLines })` (a block is n × `NAME_LINE` 29 or n × `SMALL_LINE` 18, no gap inside a block, bottoms still aligned); `rankingsImageLayout(rows, { titleLines, rowLines })`; `imageColumnWidth` and `rowHeight` exported. **Row line heights chosen: `ROW_NAME_LINE` 19 per extra name line (the 15 px name font), `ROW_MEMBER_LINE` 17 per member line.** A row of one line and no members is `ROW_HEIGHT` 36 as before; the members sit directly under the name, the 9 px padding stays at the bottom.
+- **Members' font: `FONTS.where` (400 13px) in the muted colour**, no new font entry.
+- **Header**: `max(112, text block)` tall (130 for a 2-line title); the logo and its rule keep 112 px, centred vertically; the text block is centred too.
+- **`buildRankingsImage` order**: create the canvas and its context, wrap everything with that context (`measurer` sets the font before each measure), run the layout, set `canvas.width/height`, and only then `scale`, because resizing a canvas resets its context.
+- **`ImageRow.members`** carries each unit's members in every list (after-Final rest rows, still in, eliminated, withdrawn); `null` for a player.
+- **Correction at the stage 4 review (`412b47c`)**: the "where" text sits on the first baseline only, so the member lines get the column width less the rank and the right gap, not less the "where" text; only the name keeps the narrower width. This took the 5v5 image rows from 3 member lines to 2.
+
+### Testing
+- `rankings-image-wrap.test.ts` (10), `rankings-image-layout.test.ts` (new signatures, same numbers, plus name and member lines on a card, bottoms aligned, row heights, a wrapped row pushing only its own column, the image as tall as the tallest column, `titleLines` 2 giving 130, the all-one-line invariant), `rankings-image-rows.test.ts` (+4), `rankings-image-row.test.ts` (4, with a fake context: members that fit the full width but not the name's stay on one line).
+- **Invariant checked on pixels**: the finished 37-player FFA image is identical before and after (diff None, 867 px tall at 1×). Team images are taller on purpose; heights at 1×, before → after (members under the full width): `teams-5v5-final` 549 → 669, `teams-4v4-13` 396 → 481, `long-names-teams3-13-finished` 587 → 684, `teams2v2-13-finished` 587 → 655; a 5v5 row with 5 members of 8–10 characters is 70 px (87 with 3 lines).
+- Captures through the spec's existing "rankings image" test; the title was checked with a temporary spec (a ~70-character title, with and without the logo: 2 lines and a 130 px header with it, one line without).
+- **Full suite: to be filled at the final review.**
+
+### Out of scope
+- None added; the planner's open-items notes (Kings Valley's field limit, the 390 px tab bar) and the line-ending plan are the planner's own.
+
+---
+
 ## Rankings download image: logo, podium, date and player count (done — 2026-10-22)
 
 Planner/reviewer and implementer sessions; three build stages on `test` (`56a6c3b`, `988e3de`, `22ffc13`) plus this close-out. `main` was not touched; nothing of this build is in production until the organiser says so. Plan: `plans/2026-10-22-rankings-export.md`.
