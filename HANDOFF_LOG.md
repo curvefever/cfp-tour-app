@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Line endings: `.gitattributes` keeps text files LF (done — 2026-10-22)
+
+Implementer session, one commit on `test`: `e92a8c7` (plan: `plans/2026-10-22-line-endings.md`).
+
+**Cause.** Git for Windows sets `core.autocrlf=true` in its system config, so every file git wrote into the working copy (checkout, reset, a restore after a mutation check) came out CRLF, while `.prettierrc` says `endOfLine: lf`. The index was always LF; only the working copy was off, so a plain `prettier --check` flagged files the commits never touched. Every build since phase A ran `prettier --check --end-of-line auto` to get around it (see the "CRLF" and "Line endings" notes in the entries below, kept as history).
+
+**Fix.** A root `.gitattributes`: `* text=auto eol=lf`, plus `binary` for png/jpg/jpeg/webp/ico/woff/woff2. It applies to every clone and machine, whatever `core.autocrlf` says. `git add --renormalize .` staged nothing but the new file (the index was already LF). The 91 CRLF/mixed working-copy files were then rewritten as LF: they were deleted and restored with `git checkout --` (a plain `checkout --` alone left them as they were, as git saw them unchanged), after confirming no tracked file was modified. No content changed.
+
+**`git ls-files --eol` counts, before → after.** `w/lf` 302 → 394 (includes `.gitattributes`), `w/crlf` 90 → 0, `w/mixed` 1 (`.prettierignore`) → 0, `w/none` 1 → 1, `w/-text` 4 → 4 (the four PNGs stay untouched).
+
+**Testing.**
+- Plain `pnpm exec prettier --check`, without `--end-of-line auto`, on five files that were CRLF (`src/domain/tournament/formats.ts`, `src/features/rankings/rankings-image-row.ts` and three more): passes.
+- The round trip that caused the problem: one character changed in `formats.ts`, `git checkout -- src/domain/tournament/formats.ts`, then `git ls-files --eol` shows `w/lf`.
+- `git status --short`: only `?? docs-review/`. `git diff HEAD~1 --stat`: only `.gitattributes`.
+- No vitest, typecheck or lint (no source changes). Full suite: not run (no shared code).
+
+**Out of scope.** No change to anyone's global or system git config, no content reformatting, nothing in the index but `.gitattributes`.
+
+---
+
 ## Team formats from a rule: players per team × teams per room, 4v4 included (done — 2026-10-22)
 
 Planner/reviewer and implementer sessions; five stages on `test`: `a253b36` (the rule), `525ed09` and `e46108b` (Setup, and its presence fix), `580b943` (teams of 4 and 5 on screen), `9306535` and `412b47c` (the Rankings image, see the next entry), plus this close-out. `525ed09` and what came before it were pushed to `test` for the live check; the later commits are local. `main` was not touched.
