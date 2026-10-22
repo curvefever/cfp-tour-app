@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import {
-  GAME_FORMAT_LIST,
   ODD_COUNT_STRATEGY_LABELS,
   TEAM_SCORING_RULE_LABELS,
   getGameFormat,
@@ -18,6 +17,8 @@ import {
   gamesLabel,
   visibleFormatFields,
 } from './format-fields';
+import { GameFormatFields } from './GameFormatFields';
+import { nextTeamScoringRule } from './game-format-choice';
 import { setupDerived } from './setup-derived';
 import { useSetupChange } from './useSetupChange';
 
@@ -99,15 +100,15 @@ export function FormatPanel({
     }));
   }
 
-  function changeFormat(value: string) {
-    const nextFormat = getGameFormat(value as PersistedSetup['gameFormat']);
+  function changeFormat(value: PersistedSetup['gameFormat']) {
+    const nextFormat = getGameFormat(value);
     const defaultOdd = (nextFormat && resolveOddCountStrategy(nextFormat, '')) ?? '';
     const compatible = nextFormat?.idealRoomSize === 2 && defaultOdd !== 'flex';
     updateSetup((current) => ({
       ...current,
-      gameFormat: value as PersistedSetup['gameFormat'],
+      gameFormat: value,
       oddCountStrategy: defaultOdd,
-      teamScoringRule: nextFormat?.teamSize ? 'sum-members' : '',
+      teamScoringRule: nextTeamScoringRule(current, nextFormat?.teamSize),
       scheduleLogic: reconcileScheduleLogicForFormat(
         current.scheduleLogic,
         compatible,
@@ -126,19 +127,7 @@ export function FormatPanel({
   return (
     <SectionPanel title='FORMAT'>
       <div className='grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-4'>
-        <PresenceField htmlFor='cfg-game-format' label='Game format'>
-          <Select
-            id='cfg-game-format'
-            value={setup.gameFormat}
-            onChange={(e) => changeFormat(e.target.value)}
-          >
-            {GAME_FORMAT_LIST.map((entry) => (
-              <option key={entry.key} value={entry.key}>
-                {entry.label}
-              </option>
-            ))}
-          </Select>
-        </PresenceField>
+        <GameFormatFields gameFormat={setup.gameFormat} onChange={changeFormat} />
         <PresenceField htmlFor='cfg-schedule-logic' label='Schedule logic'>
           <Select
             id='cfg-schedule-logic'

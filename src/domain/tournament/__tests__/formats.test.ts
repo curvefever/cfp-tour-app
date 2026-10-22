@@ -116,6 +116,17 @@ describe('the five formats that existed before the rule', () => {
     expect(format.unitLabelPlural).toBe(format.unitLabel === 'Team' ? 'Teams' : 'Players');
   });
 
+  it('gains no trait of the other room-size style', () => {
+    for (const key of ['team-2v2v2v2', 'team-3v3v3'] as const) {
+      const format = requireGameFormat(key);
+      expect(format.idealRoomSize).toBeUndefined();
+      expect(format.supportedOddCountStrategies).toBeUndefined();
+      expect(format.defaultOddCountStrategy).toBeUndefined();
+    }
+    expect(requireGameFormat('team-3v3').defaultRoomSize).toBeUndefined();
+    expect(requireGameFormat('individual-1v1').defaultRoomSize).toBeUndefined();
+  });
+
   it('keeps the derived room sizes of the head-to-head team format', () => {
     expect(deriveRoomSize(requireGameFormat('team-3v3'), 'flex')).toEqual({ min: 2, max: 3, ideal: 2 });
     expect(deriveRoomSize(requireGameFormat('team-3v3'), 'bye')).toEqual({ min: 2, max: 2, ideal: 2 });
