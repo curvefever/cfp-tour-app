@@ -1,13 +1,6 @@
+import { getGameFormat } from '../../domain/tournament/formats';
 import { timeZoneLabel } from './scheduled-time';
 import type { GameFormatKey, PoolingPhaseKey, ScheduleLogicKey } from '../../domain/tournament/types';
-
-const FORMAT_NAMES: Record<GameFormatKey, string> = {
-  'ffa-individual': 'FFA',
-  'team-2v2v2v2': '2v2v2v2',
-  'team-3v3v3': '3v3v3',
-  'team-3v3': '3v3',
-  'individual-1v1': '1v1',
-};
 
 const POOLING_NAMES: Record<PoolingPhaseKey, string | null> = {
   none: null,
@@ -31,7 +24,7 @@ export function tournamentFormatLine(format: {
   scheduleLogic: ScheduleLogicKey;
 }): string {
   return [
-    FORMAT_NAMES[format.gameFormat],
+    getGameFormat(format.gameFormat)?.shortLabel ?? format.gameFormat,
     POOLING_NAMES[format.poolingPhase],
     BRACKET_NAMES[format.scheduleLogic],
   ]

@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { GAME_FORMATS, getGameFormat, resolveOddCountStrategy } from '../formats';
+import { resolveOddCountStrategy } from '../formats';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { GameFormatKey, PersistedSetup } from '../types';
-import { fixedIdSource, rosterFor, sequenceRandom } from './test-fixtures';
+import { fixedIdSource, requireGameFormat, rosterFor, sequenceRandom } from './test-fixtures';
 
 /**
  * Head-to-head formats default to the "Bye" odd-count strategy, and an unset
  * value ('') means that default everywhere: what Setup shows is what is applied.
  */
 
-const format = (key: GameFormatKey) => getGameFormat(key) as (typeof GAME_FORMATS)[GameFormatKey];
+const format = requireGameFormat;
 
 describe('resolveOddCountStrategy', () => {
   it.each(['individual-1v1', 'team-3v3'] as const)('resolves an unset value to "bye" for %s', (key) => {
@@ -35,10 +35,10 @@ describe('resolveOddCountStrategy', () => {
   });
 
   it('keeps "none" first in the dropdown order and names "bye" as the default explicitly', () => {
-    expect(GAME_FORMATS['individual-1v1'].supportedOddCountStrategies).toEqual(['none', 'bye']);
-    expect(GAME_FORMATS['team-3v3'].supportedOddCountStrategies).toEqual(['none', 'bye', 'flex']);
-    expect(GAME_FORMATS['individual-1v1'].defaultOddCountStrategy).toBe('bye');
-    expect(GAME_FORMATS['team-3v3'].defaultOddCountStrategy).toBe('bye');
+    expect(format('individual-1v1').supportedOddCountStrategies).toEqual(['none', 'bye']);
+    expect(format('team-3v3').supportedOddCountStrategies).toEqual(['none', 'bye', 'flex']);
+    expect(format('individual-1v1').defaultOddCountStrategy).toBe('bye');
+    expect(format('team-3v3').defaultOddCountStrategy).toBe('bye');
   });
 });
 

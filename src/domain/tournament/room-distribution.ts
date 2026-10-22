@@ -1,6 +1,5 @@
+import { HARD_ROOM_PLAYER_CAP } from './formats';
 import type { GameFormatDefinition, RoomSize, TournamentRound } from './types';
-
-const HARD_ROOM_PLAYER_CAP = 10;
 
 export function distributeRooms(count: number, roomSize: RoomSize): number[] {
   if (count <= 0) return [];

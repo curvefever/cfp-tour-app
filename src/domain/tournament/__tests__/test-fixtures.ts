@@ -1,6 +1,12 @@
 import { getGameFormat } from '../formats';
 import type { IdSource, RandomSource } from '../runtime';
-import type { GameFormatKey, RoundAssignment, TournamentRound, TournamentRoster } from '../types';
+import type {
+  GameFormatDefinition,
+  GameFormatKey,
+  RoundAssignment,
+  TournamentRound,
+  TournamentRoster,
+} from '../types';
 
 /** Deterministic RandomSource yielding a fixed sequence, cycling if exhausted. */
 export function sequenceRandom(values: number[]): RandomSource {
@@ -55,6 +61,13 @@ export function buildAssignments(names: string[], rooms: number[]): RoundAssignm
     }
   }
   return assignments;
+}
+
+/** The definition of a format the test expects to exist. */
+export function requireGameFormat(key: GameFormatKey): Readonly<GameFormatDefinition> {
+  const format = getGameFormat(key);
+  if (!format) throw new Error(`No game format ${key}.`);
+  return format;
 }
 
 /** A roster of `count` units that fits the format: teams of its team size, or plain names for an individual format. */

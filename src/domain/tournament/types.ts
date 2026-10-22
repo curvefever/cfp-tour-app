@@ -2,7 +2,8 @@ import type { OrderedWaterfallGraph } from './waterfall-bracket';
 
 export type ActiveTab = 'tournaments' | 'info' | 'admin' | 'bracket' | 'standings' | 'rankings';
 
-export type GameFormatKey = 'ffa-individual' | 'team-2v2v2v2' | 'team-3v3v3' | 'team-3v3' | 'individual-1v1';
+/** `team-<n>v<n>…` keys come from the format rule in formats.ts (players per team × teams per room). */
+export type GameFormatKey = 'ffa-individual' | 'individual-1v1' | `team-${string}`;
 
 export type ScheduleLogicKey =
   | 'single-elimination'
@@ -43,9 +44,13 @@ export interface RoomSize {
 export interface GameFormatDefinition {
   key: GameFormatKey;
   label: string;
+  /** The format's name in one line of running text: "FFA", "1v1", "4v4". */
+  shortLabel: string;
   unitLabel: 'Player' | 'Team';
   unitLabelPlural: 'Players' | 'Teams';
   teamSize?: number;
+  /** Team formats only: how many teams share a room. */
+  teamsPerRoom?: number;
   defaultRoomSize?: RoomSize;
   idealRoomSize?: number;
   supportedOddCountStrategies?: OddCountStrategyKey[];

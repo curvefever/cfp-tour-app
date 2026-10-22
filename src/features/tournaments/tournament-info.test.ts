@@ -148,3 +148,25 @@ describe('scheduledDay', () => {
     );
   });
 });
+
+describe('tournamentFormatLine for team formats', () => {
+  it('reads the short label of a rule-built format', () => {
+    expect(
+      tournamentFormatLine({
+        gameFormat: 'team-4v4',
+        poolingPhase: 'swiss',
+        scheduleLogic: 'single-elimination',
+      }),
+    ).toBe('4v4 · Swiss · Single elimination');
+  });
+
+  it('shows the raw key for a format it does not know', () => {
+    expect(
+      tournamentFormatLine({
+        gameFormat: 'team-9v9',
+        poolingPhase: 'none',
+        scheduleLogic: 'single-elimination',
+      }),
+    ).toBe('team-9v9 · Single elimination');
+  });
+});

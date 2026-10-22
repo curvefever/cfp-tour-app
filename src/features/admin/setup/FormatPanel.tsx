@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import {
-  GAME_FORMATS,
+  GAME_FORMAT_LIST,
   ODD_COUNT_STRATEGY_LABELS,
   TEAM_SCORING_RULE_LABELS,
   getGameFormat,
@@ -132,7 +132,7 @@ export function FormatPanel({
             value={setup.gameFormat}
             onChange={(e) => changeFormat(e.target.value)}
           >
-            {Object.values(GAME_FORMATS).map((entry) => (
+            {GAME_FORMAT_LIST.map((entry) => (
               <option key={entry.key} value={entry.key}>
                 {entry.label}
               </option>

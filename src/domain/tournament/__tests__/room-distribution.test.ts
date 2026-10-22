@@ -6,9 +6,8 @@ import {
   splitAdvancement,
   validateRoomCap,
 } from '../room-distribution';
-import { GAME_FORMATS } from '../formats';
 import type { RoomSize } from '../types';
-import { buildRound } from './test-fixtures';
+import { buildRound, requireGameFormat } from './test-fixtures';
 
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
 const HEAD_TO_HEAD_ROOM_SIZE: RoomSize = { min: 2, max: 2, ideal: 2 };
@@ -40,7 +39,7 @@ describe('distributeRooms', () => {
   });
 
   it('respects a team format room size (team-3v3v3, 11 teams)', () => {
-    const roomSize = GAME_FORMATS['team-3v3v3'].defaultRoomSize as RoomSize;
+    const roomSize = requireGameFormat('team-3v3v3').defaultRoomSize as RoomSize;
     expect(distributeRooms(11, roomSize)).toEqual([3, 3, 3, 2]);
   });
 
@@ -80,19 +79,19 @@ describe('distributeRoomsWithBye', () => {
 
 describe('validateRoomCap', () => {
   it('flags a room whose effective player count exceeds the hard cap for a team format', () => {
-    const format = GAME_FORMATS['team-3v3v3'];
+    const format = requireGameFormat('team-3v3v3');
     const message = validateRoomCap([{ roundNum: 1, rooms: [4] }], format);
     expect(message).not.toBeNull();
     expect(message).toContain('Round 1');
   });
 
   it('passes for a room at exactly the cap boundary', () => {
-    const format = GAME_FORMATS['team-2v2v2v2'];
+    const format = requireGameFormat('team-2v2v2v2');
     expect(validateRoomCap([{ roundNum: 1, rooms: [5] }], format)).toBeNull();
   });
 
   it('treats a format with no teamSize as 1 player per unit (ffa-individual)', () => {
-    const format = GAME_FORMATS['ffa-individual'];
+    const format = requireGameFormat('ffa-individual');
     expect(validateRoomCap([{ roundNum: 1, rooms: [8] }], format)).toBeNull();
   });
 });
