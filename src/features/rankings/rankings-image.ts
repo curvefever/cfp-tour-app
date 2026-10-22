@@ -23,7 +23,6 @@ const ROW_GROUNDS = ['#113148', '#0b253a'];
 const BRAND = '#34a3ce';
 const TEXT = '#cce6f7';
 const MUTED = '#8fb3cc';
-const MEDALS = { gold: '#e8b923', silver: '#b8c4cc', bronze: '#c27c3e' };
 
 /** The canvas only draws with a web font once it is loaded, so load the weights it uses before drawing. */
 async function loadAppFont(): Promise<void> {
@@ -66,7 +65,7 @@ function drawRow(
   const baseline = box.y + box.height / 2 + 5;
   context.textAlign = 'right';
   context.font = RANK_FONT;
-  context.fillStyle = row.medal ? MEDALS[row.medal] : MUTED;
+  context.fillStyle = MUTED;
   context.fillText(row.rank, box.x + 40, baseline);
   context.font = WHERE_FONT;
   context.fillStyle = MUTED;

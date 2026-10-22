@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { rankingsImageLayout } from './rankings-image-layout';
+import { podiumCardHeight, rankingsImageLayout } from './rankings-image-layout';
 
 const rows = (count: number) => Array.from({ length: count }, (_, index) => `row ${index + 1}`);
 const columnSizes = (count: number) => {
   const { cells } = rankingsImageLayout(rows(count), { width: 1200 });
   return [0, 1, 2].map((column) => cells.filter((cell) => cell.column === column).length);
 };
+
+const podiumSizes = [
+  { height: podiumCardHeight({ first: false, hasMembers: false }) },
+  { height: podiumCardHeight({ first: true, hasMembers: false }) },
+  { height: podiumCardHeight({ first: false, hasMembers: false }) },
+];
 
 describe('rankingsImageLayout', () => {
   it.each([37, 43, 53, 13, 31, 2, 0])('fills the columns evenly for %i rows', (count) => {
@@ -42,5 +48,92 @@ describe('rankingsImageLayout', () => {
       expect(cell.x + cell.width).toBeLessThanOrEqual(1200 - layout.padding + 0.001);
       expect(cell.y + cell.height).toBeLessThanOrEqual(layout.height - layout.padding);
     }
+  });
+});
+
+describe('rankingsImageLayout with a podium', () => {
+  const layoutOf = (count: number, podium = podiumSizes) =>
+    rankingsImageLayout(rows(count), { width: 1200, podium });
+
+  it('places the cards in the order given, side by side', () => {
+    const { podium } = layoutOf(34);
+    expect(podium).toHaveLength(3);
+    expect(podium[0]?.x).toBeLessThan(podium[1]?.x ?? 0);
+    expect(podium[1]?.x).toBeLessThan(podium[2]?.x ?? 0);
+    expect(podium.map((card) => card.height)).toEqual(podiumSizes.map((size) => size.height));
+  });
+
+  it('makes the first place the tallest card and lines the bottoms up', () => {
+    const { podium } = layoutOf(34);
+    const [second, first, third] = podium;
+    expect(first?.height).toBeGreaterThan(second?.height ?? Infinity);
+    expect(first?.height).toBeGreaterThan(third?.height ?? Infinity);
+    const bottoms = podium.map((card) => card.y + card.height);
+    expect(new Set(bottoms).size).toBe(1);
+  });
+
+  it('centres the row of cards: the left margin equals the right margin', () => {
+    const { podium } = layoutOf(34);
+    const left = podium[0]?.x ?? 0;
+    const last = podium.at(-1);
+    expect(left).toBe(1200 - ((last?.x ?? 0) + (last?.width ?? 0)));
+  });
+
+  it.each([1, 2])('still centres the row with %i card(s)', (count) => {
+    const { podium } = layoutOf(34, podiumSizes.slice(0, count));
+    const last = podium.at(-1);
+    expect(podium).toHaveLength(count);
+    expect(podium[0]?.x).toBe(1200 - ((last?.x ?? 0) + (last?.width ?? 0)));
+  });
+
+  it('starts the list exactly 32 below the lowest card', () => {
+    const { podium, cells } = layoutOf(34);
+    const lowest = Math.max(...podium.map((card) => card.y + card.height));
+    expect(cells[0]?.y).toBe(lowest + 32);
+  });
+
+  it('starts the list exactly 32 below the header without a podium', () => {
+    const { header, cells, podium } = rankingsImageLayout(rows(34), { width: 1200 });
+    expect(podium).toEqual([]);
+    expect(cells[0]?.y).toBe(header.y + header.height + 32);
+  });
+
+  it('keeps the podium 30 below the header and the header at the padding', () => {
+    const { header, podium, padding } = layoutOf(34);
+    expect([header.x, header.y]).toEqual([padding, padding]);
+    const tallest = Math.min(...podium.map((card) => card.y));
+    expect(tallest).toBe(header.y + header.height + 30);
+  });
+
+  it('makes a team card with members taller than one without', () => {
+    expect(podiumCardHeight({ first: false, hasMembers: true })).toBeGreaterThan(
+      podiumCardHeight({ first: false, hasMembers: false }),
+    );
+    expect(podiumCardHeight({ first: true, hasMembers: true })).toBeGreaterThan(
+      podiumCardHeight({ first: true, hasMembers: false }),
+    );
+  });
+
+  it('puts the podium cards on a team podium at their own heights, the tallest setting the line', () => {
+    const sizes = [
+      { height: podiumCardHeight({ first: false, hasMembers: true }) },
+      { height: podiumCardHeight({ first: true, hasMembers: false }) },
+      { height: podiumCardHeight({ first: false, hasMembers: false }) },
+    ];
+    const { podium } = layoutOf(34, sizes);
+    expect(new Set(podium.map((card) => card.y + card.height)).size).toBe(1);
+    expect(podium.map((card) => card.height)).toEqual(sizes.map((size) => size.height));
+  });
+
+  it.each([31, 37, 43, 53])('fits every cell inside the image with a podium and %i rows', (count) => {
+    const layout = layoutOf(count);
+    expect(layout.cells).toHaveLength(count);
+    const lowest = Math.max(...layout.podium.map((card) => card.y + card.height));
+    for (const cell of layout.cells) {
+      expect(cell.y).toBeGreaterThanOrEqual(lowest + 32);
+      expect(cell.y + cell.height).toBeLessThanOrEqual(layout.height - layout.padding);
+    }
+    const lastBottom = Math.max(...layout.cells.map((cell) => cell.y + cell.height));
+    expect(lastBottom).toBe(layout.height - layout.padding);
   });
 });
