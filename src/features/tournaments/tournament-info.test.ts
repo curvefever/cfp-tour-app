@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatScheduledAt, scheduledParts, tournamentFormatLine } from './tournament-info';
+import { formatScheduledAt, scheduledDay, scheduledParts, tournamentFormatLine } from './tournament-info';
 
 describe('tournamentFormatLine', () => {
   it('joins the game format, the pooling phase and the bracket', () => {
@@ -132,5 +132,19 @@ describe('scheduledParts', () => {
         far === null ? date : `${date} · ${far}`,
       );
     }
+  });
+});
+
+describe('scheduledDay', () => {
+  it('names the weekday, day, month and year with no time', () => {
+    expect(scheduledDay(Date.UTC(2026, 9, 18, 18, 0), { timeZone: 'UTC' })).toBe('Sunday 18 October 2026');
+  });
+
+  it('is the day in the given time zone: shortly after midnight in Paris is still the day before in New York', () => {
+    const afterMidnightInParis = Date.UTC(2026, 9, 18, 1, 30); // Sun 18 Oct 03:30 CEST, Sat 17 Oct 21:30 EDT
+    expect(scheduledDay(afterMidnightInParis, { timeZone: 'Europe/Paris' })).toBe('Sunday 18 October 2026');
+    expect(scheduledDay(afterMidnightInParis, { timeZone: 'America/New_York' })).toBe(
+      'Saturday 17 October 2026',
+    );
   });
 });

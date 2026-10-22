@@ -97,6 +97,20 @@ export function scheduledParts(
   return { date, relative: options.relative === false ? null : relativePart(scheduledMs, nowMs) };
 }
 
+/** The scheduled day without a time, in the viewer's time zone: "Sunday 18 October 2026". */
+export function scheduledDay(scheduledMs: number, options: Pick<DateFormatOptions, 'timeZone'> = {}): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: options.timeZone,
+  }).formatToParts(new Date(scheduledMs));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((entry) => entry.type === type)?.value ?? '';
+  return `${part('weekday')} ${part('day')} ${part('month')} ${part('year')}`;
+}
+
 /** The two parts in one line: "Sat 18 Oct, 20:00 CEST · in 2 days" (just the date without the relative part). */
 export function formatScheduledAt(
   scheduledMs: number,
