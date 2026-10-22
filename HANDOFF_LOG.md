@@ -6,6 +6,52 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Rankings download image: logo, podium, date and player count (done — 2026-10-22)
+
+Planner/reviewer and implementer sessions; three build stages on `test` (`56a6c3b`, `988e3de`, `22ffc13`) plus this close-out. `main` was not touched; nothing of this build is in production until the organiser says so. Plan: `plans/2026-10-22-rankings-export.md`.
+
+**What the organiser asked for.** The PNG from "Download image" is shared on Discord and social media after (or during) a tournament. It showed a "CFP TOURNAMENT HUB" text line, the title, a FINAL/LIVE RANKINGS label and the three-column list. It should carry the Curve Fever Pro logo, the podium (the roadmap item of 2026-10-15), the date and the number of players, and no longer the platform's name.
+
+### Decisions (organiser, 2026-10-22)
+- **Header layout B** (mockup approved): the logo at the left, a 2 px rule in the frame colour, then three lines: the label, the title, the date-and-count line.
+- **The logo** is the one the organiser supplied (`public/rankings-logo.png`, 1280 × 720, transparent). "CFP TOURNAMENT HUB" is dropped.
+- **Podium after the Final**, as the page draws it: second · first · third, medal bars, the ordinal, the name, a team's members, the Final line; the list under it starts after the podium entries (normally 4th). **While in play: no podium.**
+- **Date: the scheduled day, no time** ("Sunday 18 October 2026"); no scheduled date, no date. **Count:** "37 players", "13 teams · 39 players"; in play " · 12 still in" is added.
+- **32 px between the podium and the list** is the organiser's explicit request (the first mockup let the podium touch the list); `rankings-image-layout.test.ts` pins it exactly.
+
+### Planner decisions (open to correction)
+- **What is counted: the units the image lists**, i.e. still in, finalists, eliminated, and withdrawn who played. A withdrawn unit that played counts, a swapped-out player counts as well as the one who came in, reserves who never joined don't. The count always equals the number of names on the image. A team format counts units, and the sum of `members.length` for the players.
+- **Correction made at the stage 1 review:** the plan said `stillActive`, `eliminatedList` and `dnfList` "are the same units after the Final". They are not: once the Final is complete `rankings.ts` leaves `active` empty and the finalists are only in `data.finalists` (which `eliminatedList` excludes). The finalists are counted too (`listedUnits` in `rankings-image-header.ts`); only one of `stillActive` and `finalists` is ever non-empty.
+- **The day is the downloader's own calendar day** (the browser's time zone), like every date the app shows; the image names no zone. A tournament at 23:30 CEST downloaded in New York says the day before.
+- **The logo is optional at draw time:** if it fails to load the header is drawn without it (no rule, text at the left padding). The download never fails because of the logo.
+- **Podium names and members are one line cut with "…"**, like the list rows; wrapping stays the open item it was.
+- **Two interpretations made by the implementer, accepted at the stage 3 review:** the text starts 28 px after the rule's right edge (mirroring the 28 px between the logo and the rule); the three header lines have line boxes of 16 (label), 40 (title) and 22 (date line) with 6 px between them, the block centred on the logo's height.
+
+### What changed
+- `rankings-image-header.ts` (new, pure): `rankingsImageHeader(state, data, { timeZone })` gives the label, the live flag, the title, the date, the count and the "still in" text. `scheduledDay` (in `tournament-info.ts`) builds the day from `formatToParts`, so the result doesn't depend on the ICU version's punctuation.
+- `rankings-image-layout.ts`: the layout returns `header`, `podium` boxes and the cells; the podium cards are bottom-aligned and centred, 30 below the header; the list starts 32 below the podium (or the header). `podiumCardMetrics` / `podiumCardHeight` hold the card sizes, shared by the layout and the drawing.
+- `rankings-image-rows.ts`: after the Final the rows are `finalStanding().rest` only. **`ImageRow.medal` was removed** (no list row can carry one); the medal colours are now only on the podium cards.
+- `rankings-image-style.ts` (new): the fonts, colours (the card ground, frame and live red added) and `fitText`, shared by the three files that draw, so no constant lives twice.
+- `rankings-image-masthead.ts` (new): `loadRankingsLogo`, and the header drawing (logo, rule, red dot, label, title, date line with the count in the bright weight).
+- `rankings-image-podium.ts` (new): `podiumSizes` and `drawPodiumCard`. `rankings-image.ts` now only loads, lays out and draws the pieces.
+- **A shared first place draws two tall "1st" cards**, as the page does (seen on the test site's "E5 live check teams 20").
+
+### Testing
+- **Counts used:** 37, 31, 1, 43 and 53 rows/units; 13 teams of three (39 players) and 1 team; the finished fixtures of 10, 31 and 37 units.
+- **Stage 1:** `rankings-image-header.test.ts` (10) and `tournament-info.test.ts` (+2): 37, 31 and 1 player; 13 teams → "13 teams · 39 players"; a withdrawn unit that played and a swapped-out one counted (37 + 2 = 39), one that never played not; a reserve who never joined not counted; the finalists counted; "still in" in play and null after the Final; the label and live flag; the title fallback; the day in Europe/Paris and America/New_York either side of midnight (two different days); no date → null.
+- **Stage 2:** `rankings-image-layout.test.ts` (podium cases: order, first place tallest, bottoms aligned, centred with 3, 2 and 1 cards, **the first list row exactly 32 below the lowest card** and 32 below the header without a podium, the podium 30 below the header, a team card taller than one without, every cell inside the image at 31, 37, 43 and 53 rows) and `rankings-image-rows.test.ts` (after the Final of 37 units: 34 rows starting at "4"; a shared 3rd: the second unit on 3rd opens the list).
+- **Reviews:** the reviewer's mutations were each caught: stage 1 (finalists dropped, withdrawn dropped, teams as one player, "still in" after the Final, a wrong unit count); stage 2 (list gap 0, the list ignoring the podium, cards top-aligned, podium off-centre, members ignored in the height, the first three back in the rows); stage 3 (members line dropped, first and other paddings swapped).
+- **Live check (test site, implementer, after `22ffc13`, as a viewer):** "E5 live check teams 20" (finished, teams, shared first place: members under the names, list from 4th), "D7 live check FFA 13" (finished, 21 players, no members lines, list 4 to 21) and "B16 live check teams 13" (in play: red dot, "13 teams · 26 players · 13 still in", no podium). **Not live-checked: an image of a tournament with no scheduled date** (every tournament on the test site has one); it is a single branch and the stage 1 tests cover it.
+- The canvas drawing files have no unit tests, as before; the layout and the text are pure and tested.
+
+### Out of scope
+- Wrapping long names in the image (stays in `docs/open-items.md`).
+- Members under team names in the list rows.
+- A time or time zone on the date.
+- Any change to the Rankings page itself, or to the PNG's width, scale or filename.
+
+---
+
 ## Bracket scrollbar, title bar marks, early eliminations in Rankings, Qualification gap colour (done — 2026-10-19)
 
 Planner/reviewer and implementer sessions; five stages on `test`, one commit each, plus a test-gap commit and a flaky-test fix. `main` was not touched; nothing of this build is in production until the organiser says so.
