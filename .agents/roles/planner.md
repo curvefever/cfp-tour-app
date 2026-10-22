@@ -16,7 +16,7 @@ The report says where to look; the code says whether it's right.
 - Read every changed production hunk: `git show <commit> -- <file>` or `git diff -W` (whole changed functions), not whole files. Open more of a file only where a change depends on code outside the hunk (callers, shared helpers, invariants the plan names).
 - For tests, check the names and assertions of the cases the plan requires. Read a test body in full only when its assertion could pass without the behaviour being present.
 - Run the related tests and mutation checks (`AGENTS.md`, "Checks and tests"): break the change on purpose, confirm a test fails, restore it. They catch what reading misses.
-- At the final review only: run the full suite, lint/format/types over every file the plan changed, and e2e if the plan lists it.
+- At the final review only: lint/format/types over every file the plan changed, e2e if the plan lists it, and the full suite only if the build touched shared code (`AGENTS.md`, "When the full suite runs"; record the result in the log entry either way).
 - Check the report's claims you rely on; don't restate the diff back.
 
 ## Reporting findings

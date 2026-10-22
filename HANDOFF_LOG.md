@@ -47,7 +47,7 @@ Planner/reviewer and implementer sessions; three build stages on `test` (`56a6c3
 ### Final review (planner)
 - Lint, prettier and types are clean over the 12 source and test files the build changed (`rankings-image*.ts`, `tournament-info.ts` and their tests).
 - The docs (`views.md` item 7, `roadmap.md`, `open-items.md`) match the build, in present tense.
-- **The full suite was not run:** the organiser asked to skip it for this build. Every stage's related tests passed (256, 263, 258). No e2e was planned.
+- **Full suite: not run (no shared code).** The build touched only `src/features/rankings/` and one new function in `src/features/tournaments/tournament-info.ts`. Every stage's related tests passed (256, 263, 258), and no e2e was planned. The organiser deferred the full run to the next build. That build, or the push to `main` (`AGENTS.md`, "When the full suite runs"), covers this one.
 - No findings.
 
 ### Out of scope

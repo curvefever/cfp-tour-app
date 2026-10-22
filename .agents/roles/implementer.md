@@ -5,7 +5,7 @@ You execute an approved plan from `plans/`. The plan file stands in for Plan Mod
 ## Each stage
 
 1. Build the stage.
-2. Run the stage checks: lint, format, types and related tests on the stage's files (`AGENTS.md`, "Checks and tests"), plus whatever the stage's **Checks** line lists. Never run the full `pnpm test`: the reviewer runs it once, at the final review.
+2. Run the stage checks: lint, format, types and related tests on the stage's files (`AGENTS.md`, "Checks and tests"), plus whatever the stage's **Checks** line lists. Never run the full `pnpm test`: the reviewer runs it when `AGENTS.md`, "When the full suite runs" calls for it.
 3. Commit on `test` and report (below). Wait for the go-ahead before the next stage.
 
 - Keep commits local. Push to `test` only when a live check needs the deployed build, and once the work is finished and reviewed: the reviewer reads commits on the same machine, and every push redeploys the test site, which may be in use for another agent's live check.

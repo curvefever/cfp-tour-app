@@ -55,12 +55,25 @@ Never run a full build, `pnpm lint` or `pnpm format:check`: check only what chan
 | Types           | `pnpm typecheck 2>&1 \| grep -E "<changed paths>"`               | Same as lint                                                                                                                                   |
 | Related tests   | `pnpm exec vitest related --run <changed source and test files>` | Implementer/solo: every stage, before committing. Reviewer: every stage, with its mutation checks                                              |
 | Mutation checks | break the change on purpose, rerun the covering test file        | Reviewer: every stage. Solo: skip                                                                                                              |
-| Full suite      | `pnpm test`                                                      | Reviewer: once, final review. Solo: once, before reporting done. Implementer: never                                                            |
+| Full suite      | `pnpm test`                                                      | Only in the cases of "When the full suite runs" below, at most once for the same code. Reviewer or solo; implementer: never                    |
 | Smoke e2e       | `pnpm run test:e2e`                                              | Only when the plan lists it (routing, tab shell, auth wall). Reviewer: final review. Solo: before reporting done                               |
 | Live check      | built-in browser, see below                                      | Only when the plan lists it (a solo session decides). Implementer/solo: at that stage. Reviewer: repeats only a point the code leaves in doubt |
 | Code review     | `/code-review` low effort, or one review subagent                | Solo, non-trivial builds only: once, at the end. Never in a split session                                                                      |
 
 What the tests cover, and what they don't: `docs/platform.md`, "Tests".
+
+### When the full suite runs
+
+`vitest related` finds only the tests that import a changed file; the full suite also catches behaviour that travels through shared state or fixtures. It runs in **one** of these two cases, **never both for the same code**:
+
+1. **At the end of a build that touches shared code**: `src/domain/`, `src/features/sync/`, `src/features/tournament/`, `src/features/shell/`, `src/components/ui/`, `src/lib/` or `src/routes/`. The reviewer runs it at the final review; a solo session before reporting done.
+2. **Before a push to `main`**, only if no passing full run already covers the code being pushed. **A run from case 1 covers it: when the push is asked for, don't run the suite again.**
+
+A full run covers the code until a source or test file changes. Commits that change only docs (`HANDOFF_LOG.md`, `docs/`, plans) leave it valid. A later code commit, or a merge into `main` that brings in code the run didn't have, needs one new run before the push.
+
+A build that touches no shared code ends without a full run: its related tests (and, in a split session, the mutation checks) are enough. The next full run, case 1 or 2, covers it.
+
+**Record it in the build's `HANDOFF_LOG.md` entry**: "Full suite: passed on `<commit>`" or "Full suite: not run (no shared code)". Whoever pushes to `main` reads those lines to see whether a run already covers the push.
 
 ## Live checks and login
 
