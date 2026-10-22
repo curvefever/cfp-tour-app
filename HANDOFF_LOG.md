@@ -6,6 +6,40 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Stale-tab guards: the server checks the draw at the start, and refuses admin tabs from an older build (done — 2026-10-22)
+
+Implementer session, three commits on `test`: `fca52da` (stage 1), `7f22a77` (stage 2), `0a45559` (stage 3). Decision (organiser, 2026-10-18): the server refuses writes from old tabs and the tab shows a banner (option A).
+
+**The incident and its diagnosis.** On 2026-10-18 production tournament 1792339397443 (2v2v2v2, qualification table into a waterfall) was started on a stale draw: Round 1 seated `team_1792339900734_*` ids, the roster held `team_1792339921404_*` ids (24 teams, a draw built for 23). The fix that redraws on a roster reload (main a87e35f) was live at 15:18Z, the reload happened at 16:12Z, and replaying it with the current code redraws correctly. `RosterPanel` is the only path that loads a roster, so the write almost certainly came from an admin tab loaded before the deploy and still running the old rules. Two gaps let it through: nothing told a tab that a new bundle was live, and the server accepted its writes; and Confirm & Start's stale-draw refusal (`scheduleMatchesRoster`) ran only in the browser, so `startTournament` never checked it.
+
+**Stage 1 — the start refuses a stale draw on the server.** `pre-start-roster.ts` gained `STALE_DRAW_MESSAGE` and `staleDrawRefusal(state)`, shared with `SchedulePreviewPanel` (its local copy is gone). `applyPatchToStored` moved from the patch test into `tournament-patch.ts` (the multi-path update on a copy of a stored value; the test helper wraps it, so the round-trip tests now exercise the production function). `startDrawRefusal(stored, patch, tournamentId)` (`tournaments/start-guard.ts`, pure) judges the stored tournament with the start's patch applied, because the patch carries the starting tab's unsent edits. `startTournament` calls it after `planStart` and before `claimFirebaseFlag`, so a refusal never leaves `started` set on a tournament that did not start. One whole-tournament read per start.
+
+**Stage 2 — every server call carries its build id; old tabs are refused.** `vite.config.ts` computes one id per `vite build` (or `vite dev` start) and exposes it as `__TOUR_BUILD_ID__` with a top-level `define` (so Vitest replaces it too). A function middleware registered globally in `src/start.ts` adds the `x-tour-build` header to every server function call. `requireCurrentBuild()` (`version/build-guard.server.ts`) is the first line of `requireTourAdminPermission()`, so every privileged server function refuses a call from another build, or with no header, with "A new version of the Tournament Hub is live — reload the page to keep editing." `getLiveBuild` is a public GET returning the server's id.
+
+**Stage 3 — the banner.** `useLiveBuildCheck(enabled)` asks `getLiveBuild` on window focus and when the tab becomes visible (at most once a minute: `isBuildCheckDue`), and every five minutes while visible; a failed ask is ignored; nothing is asked on mount. `AppShell` shows `NewVersionBanner` (a danger alert with a Reload button, placed like the viewer's "Live connection lost" alert) to an unlocked admin only.
+
+**Testing.**
+- `start-guard.test.ts` (11): the incident shape (generated for 23 teams of 2v2v2v2 into a waterfall with a Qual source, the roster replaced by 24 new teams) refused with exactly `STALE_DRAW_MESSAGE`; the same stored state with a `curRound`-only patch refused; a matching stored state whose start patch replaces `players` refused; a stale stored state whose patch carries the redrawn schedule accepted; matching draws accepted at 31, 37, 43 and 53 FFA individuals (qualification table into single elimination) and at 23 teams of 2v2v2v2; the exact-count waterfall at 16 → 15 (redraw refused, short room) accepted; nothing generated accepted. The FFA cases use `qualAdv: '16'`: single elimination refuses 8.
+- `tournament-patch.test.ts` (+2 direct cases for `applyPatchToStored`; the round-trip tests unchanged), `pre-start-roster.test.ts` (+2 `staleDrawRefusal`; `testRuntime`, `generated`, `TEAM_QUAL_GRAPH`, `EXACT_COUNT_GRAPH` moved into `test-fixtures.ts`), `build-id.test.ts` (4: the refusal for the same id, another id, no header and an empty header; the id replaced under Vitest; `isBuildCheckDue` at never, 59 s and 60 s), `NewVersionBanner.render.test.tsx` (4: an admin with another live build sees the banner and Reload after a focus; the same id shows nothing; a viewer is not asked; a failed ask is ignored), and a `getLiveBuild` mock in `AppShell.render.test.tsx`.
+- **Replay of the incident** (read-only): production `environments/prod/tournaments/1792339397443` read over the public REST read into a scratch test outside `src/`; `startDrawRefusal(raw, { curRound: 0 }, '1792339397443')` returns the stale-draw message. The scratch test is deleted.
+- **Local dev server**: a call from a current tab carries `x-tour-build` and gets past the build guard to the sign-in error; with the previous server's id in the header, or none, the call is refused with the version message, before the sign-in error.
+- **Test site** (planner, after pushing stages 1 and 2, `c6cf555..7f22a77`): a fresh tab (bundle `index-BteYwnSy.js`, signed in as Lead Mod) created test-run tournament 1792675106151, saved its name and the Qualification Table pooling through patch writes, loaded 31 FFA players, generated (qualification table, advance 24, into single elimination) and Confirm & Start succeeded (round 1 rooms 8/8/8/7), so the server raised no false refusal and the client and server bundles of one `pnpm build` share the build id. A tab loaded before the push (bundle `index-oIfmbC80.js`) opened the same tournament without a reload and a score typed in Room A never reached Firebase (`scores` stayed empty); the Admin sync line read "Sync error: viewers may be seeing stale data (A new version of the Tournament Hub is live — reload t…".
+- **Not yet checked**: the banner on the test site (needs an admin tab loaded after the stage 3 deploy, then a second deploy and a focus on that tab).
+- `AppShell.render.test.tsx` prints a Vitest worker "Timeout calling onTaskUpdate" after its 264 tests pass; it does the same with the stage 3 edits stashed, so it is not from this build.
+
+**Rollout.** The first deploy of this build refuses every admin tab that is open at that moment (it sends no build id) until it is reloaded; afterwards each deploy does the same to tabs loaded before it. Don't deploy to `main` mid-tournament without telling the hosts.
+
+**Out of scope.**
+- Server-side checks of other rules an old tab could break (a roster reload without redraw, a waterfall edit): the build check makes the server refuse old tabs instead of re-validating each rule.
+- Re-validating anything else at the start (a tournament started with no rounds, a draw for the wrong format).
+- Repairing tournament 1792339397443's stored data: a separate, organiser-approved production write.
+- A commit hash or release notes in the banner; passing the commit through the CI workflow (owned by the CFP developer who set up the pipeline).
+- A banner or forced reload for viewers: an old viewer tab shows the old display rules until reloaded.
+- Saving an old tab's unsent edits across the reload: an edit typed after a deploy and not yet sent is refused and typed again after the reload.
+- Serving several builds at once (rolling deploys): the deploy replaces one container, and a few seconds of refusals during the swap are accepted.
+
+---
+
 ## Line endings: `.gitattributes` keeps text files LF (done — 2026-10-22)
 
 Implementer session, one commit on `test`: `e92a8c7`, raised during the team-formats build.

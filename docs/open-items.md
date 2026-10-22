@@ -13,6 +13,7 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 - **For an admin, the sticky "Next Round" panel covers the Bracket's sticky scrollbar** while the page is scrolled to the middle of a bracket taller than the screen (`BracketView.tsx`, the panel is `sticky bottom-2.5 z-20` and sits over the bar). Viewers have no panel and always see the bar. Whether the bar should sit above the panel for admins is a design question for the organiser.
 
 ## Accepted limitations (not building without an organiser request)
+- **After a deploy, an edit typed in a tab loaded before it and not yet sent is refused** (the build check); it is typed again after the reload. A viewer tab keeps the old display rules until it is reloaded.
 - **iOS Safari does not draw the Bracket's styled scrollbar** (`game-scrollbar`): it ignores scrollbar styling and shows its own overlay bar only while scrolling, so an iPhone or iPad viewer gets no permanent cue that the rounds strip extends sideways. No other cue (edge fade, arrow) is built.
 - **Player confirmations are readable by anyone who can read the database**, like the rest of the tournament state; only the display is admin-only (`state.confirmations`, `docs/rules.md`, "Roster changes").
 - **A refilled team slot gives the slot's earlier scores to the newcomer** for the automatic confirmation (a score counts for whoever holds the member slot now, as in `scoring.ts`), so a member who joins after the slot scored shows as confirmed.
