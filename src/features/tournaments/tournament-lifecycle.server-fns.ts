@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { tournamentWinners } from '../../domain/tournament/rankings';
 import { requireTourAdminPermission } from '../auth/server/tour-permissions.server';
 import { claimFirebaseFlag, readFirebaseOnce } from '../sync/firebase-admin.server';
+import { startDrawRefusal } from './start-guard';
 import {
   validateCreateInput,
   validateStartInput,
@@ -109,6 +110,9 @@ export const startTournament = createServerFn({ method: 'POST' })
     const paths = requestPaths(data.tournamentId);
     const plan = planStart(paths, await readStoredFacts(paths), data.patch, serverNow());
     if (!plan.ok) throw new Error(plan.message);
+    // Before the claim: a refusal after it would leave `started` set on a tournament that never started.
+    const refusal = startDrawRefusal(await readFirebaseOnce(paths.tournament), data.patch, data.tournamentId);
+    if (refusal) throw new Error(refusal);
     if (!(await claimFirebaseFlag(`${paths.tournament}/started`))) {
       throw new Error('This tournament has already started.');
     }

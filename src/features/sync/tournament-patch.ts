@@ -86,3 +86,22 @@ export function buildTournamentPatch(previous: object, next: object): Record<str
   }
   return Object.keys(patch).length ? patch : null;
 }
+
+/**
+ * `stored` (a value as Firebase holds it) after the multi-path update `patch`, without touching `stored`:
+ * each path is set on a copy, `null` deletes, a missing parent is created.
+ */
+export function applyPatchToStored(stored: unknown, patch: Record<string, unknown>): Record<string, unknown> {
+  const root = (isPlainObject(stored) ? JSON.parse(JSON.stringify(stored)) : {}) as TournamentRecord;
+  for (const [path, value] of Object.entries(patch)) {
+    const segments = path.split('/');
+    const last = segments.pop()!;
+    const parent = segments.reduce<TournamentRecord>((node, segment) => {
+      node[segment] ??= {};
+      return node[segment] as TournamentRecord;
+    }, root);
+    if (value === null) delete parent[last];
+    else parent[last] = value;
+  }
+  return root;
+}

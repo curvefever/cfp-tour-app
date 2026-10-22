@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { unitLabelPluralLower } from '../../../domain/tournament/formats';
-import { scheduleMatchesRoster } from '../../../domain/tournament/pre-start-roster';
+import { staleDrawRefusal } from '../../../domain/tournament/pre-start-roster';
 import { Alert, Button, SectionPanel } from '../../../components/ui';
 import { transitionRefusal } from '../../tournaments/tournament-lifecycle';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { schedulePreviewRows } from './schedule-preview-rows';
-
-const STALE_DRAW =
-  'The roster changed since the schedule was generated — click Generate again before starting.';
 
 /** The generated rounds, and the Confirm & Start button; nothing before a schedule is generated or once started. */
 export function SchedulePreviewPanel() {
@@ -31,7 +28,7 @@ export function SchedulePreviewPanel() {
       testRun: state.lifecycle?.testRun ?? false,
       title: state.title,
       scheduledAt: state.info?.scheduledAt ?? null,
-    }) ?? (scheduleMatchesRoster(state) ? null : STALE_DRAW);
+    }) ?? staleDrawRefusal(state);
 
   if (!state.rounds.length || state.started) return null;
   return (

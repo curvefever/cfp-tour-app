@@ -53,3 +53,11 @@ export function scheduleMatchesRoster(state: TournamentState): boolean {
     )
   );
 }
+
+export const STALE_DRAW_MESSAGE =
+  'The roster changed since the schedule was generated — click Generate again before starting.';
+
+/** Confirm & Start's refusal of a draw that no longer fits the roster; null when it fits. */
+export function staleDrawRefusal(state: TournamentState): string | null {
+  return scheduleMatchesRoster(state) ? null : STALE_DRAW_MESSAGE;
+}

@@ -14,25 +14,14 @@ import {
   unmarshalFromFirebase,
 } from './firebase-marshal';
 import { simulateFirebaseStorage } from './firebase-storage-simulation';
-import { buildTournamentPatch } from './tournament-patch';
+import { applyPatchToStored, buildTournamentPatch } from './tournament-patch';
 import { validatePatchInput } from './tournament-write.shared';
 
 type Json = Record<string, unknown>;
 
 /** Applies a patch to a stored value the way Firebase's multi-path `update()` does, then reads it back. */
 function applyUpdate(stored: unknown, patch: Record<string, unknown>): unknown {
-  const root = JSON.parse(JSON.stringify(stored)) as Json;
-  for (const [path, value] of Object.entries(patch)) {
-    const segments = path.split('/');
-    const last = segments.pop()!;
-    const parent = segments.reduce<Json>((node, segment) => {
-      node[segment] ??= {};
-      return node[segment] as Json;
-    }, root);
-    if (value === null) delete parent[last];
-    else parent[last] = value;
-  }
-  return simulateFirebaseStorage(root);
+  return simulateFirebaseStorage(applyPatchToStored(stored, patch));
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -218,5 +207,24 @@ describe('buildTournamentPatch on real tournaments', () => {
     const patch = buildTournamentPatch(previous, next)!;
     expect(Object.keys(patch)).toEqual([`scores/${secondKey}`]);
     expect(JSON.stringify(patch).length).toBeLessThan(100);
+  });
+});
+
+describe('applyPatchToStored', () => {
+  it('sets a nested path under a missing parent and deletes a key set to null', () => {
+    const stored = { title: 'T', scores: { a: 1, b: 2 } };
+    expect(applyPatchToStored(stored, { 'scores/c': 3, 'info/scheduledAt': 5, 'scores/a': null })).toEqual({
+      title: 'T',
+      scores: { b: 2, c: 3 },
+      info: { scheduledAt: 5 },
+    });
+  });
+
+  it('leaves the stored value untouched and counts anything but a plain object as empty', () => {
+    const stored = { scores: { a: 1 } };
+    applyPatchToStored(stored, { 'scores/a': 9, title: 'X' });
+    expect(stored).toEqual({ scores: { a: 1 } });
+    expect(applyPatchToStored(null, { title: 'X' })).toEqual({ title: 'X' });
+    expect(applyPatchToStored([1, 2], { title: 'X' })).toEqual({ title: 'X' });
   });
 });

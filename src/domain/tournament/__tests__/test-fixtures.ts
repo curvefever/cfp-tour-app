@@ -1,11 +1,14 @@
 import { getGameFormat } from '../formats';
-import type { IdSource, RandomSource } from '../runtime';
+import { generateTournament } from '../generation';
+import { createTournamentRuntime, type IdSource, type RandomSource } from '../runtime';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type {
   GameFormatDefinition,
   GameFormatKey,
   RoundAssignment,
   TournamentRound,
   TournamentRoster,
+  TournamentState,
 } from '../types';
 
 /** Deterministic RandomSource yielding a fixed sequence, cycling if exhausted. */
@@ -81,3 +84,56 @@ export function rosterFor(gameFormat: GameFormatKey, count: number): TournamentR
     members: Array.from({ length: teamSize }, (_unused, slot) => ({ name: `${'abcdef'[slot]}${index}` })),
   }));
 }
+
+export type Setup = Parameters<typeof createDefaultSetup>[0];
+
+/** A deterministic runtime: fixed ids and a seeded generator, so a redraw is repeatable. */
+export function testRuntime() {
+  let seed = 12345;
+  return createTournamentRuntime({
+    ids: fixedIdSource(),
+    random: {
+      next: () => {
+        seed = (seed * 1664525 + 1013904223) % 4294967296;
+        return seed / 4294967296;
+      },
+    },
+  });
+}
+
+/** Generated but not started: the state the organiser sees on Setup before Confirm & Start. */
+export function generated(count: number, setup: Setup = {}): TournamentState {
+  const gameFormat = setup.gameFormat ?? 'ffa-individual';
+  const result = generateTournament(
+    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
+    createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '16', ...setup }),
+    testRuntime(),
+  );
+  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
+  return result.state;
+}
+
+export const TEAM_QUAL_GRAPH = `
+ROUNDS:
+R1 = 2x4
+R1C = 4
+R2 = 4
+Final = 4 FINAL
+
+ROUTES:
+Qual: 1-8->R1, 9-12->R1C
+R1.A: 1-2->R2, 3-4->eliminated
+R1.B: 1-2->R2, 3-4->eliminated
+R1C: 1->Final, 2-4->eliminated
+R2: 1-3->Final, 4->eliminated
+`;
+
+export const EXACT_COUNT_GRAPH = `
+ROUNDS:
+R1 = 2x8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->Final, 5-8->eliminated
+R1.B: 1-4->Final, 5-8->eliminated
+`;

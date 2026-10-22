@@ -2,41 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
 import { addReserveUnit, addWalkUpIndividual, removeRosterUnit, type ReserveAddResult } from '../mutations';
 import { reloadRosterBeforeStart, removeUnitBeforeStart } from '../pre-start-edits';
-import { regenerateForRoster, scheduleMatchesRoster } from '../pre-start-roster';
+import {
+  regenerateForRoster,
+  scheduleMatchesRoster,
+  STALE_DRAW_MESSAGE,
+  staleDrawRefusal,
+} from '../pre-start-roster';
 import { rosterKeys } from '../roster';
 import { distributeRooms } from '../room-distribution';
-import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState, TournamentTeam } from '../types';
-import { fixedIdSource, rosterFor } from './test-fixtures';
-
-type Setup = Parameters<typeof createDefaultSetup>[0];
-
-/** A deterministic runtime: fixed ids and a seeded generator, so a redraw is repeatable. */
-function testRuntime() {
-  let seed = 12345;
-  return createTournamentRuntime({
-    ids: fixedIdSource(),
-    random: {
-      next: () => {
-        seed = (seed * 1664525 + 1013904223) % 4294967296;
-        return seed / 4294967296;
-      },
-    },
-  });
-}
-
-/** Generated but not started: the state the organiser sees on Setup before Confirm & Start. */
-function generated(count: number, setup: Setup = {}): TournamentState {
-  const gameFormat = setup.gameFormat ?? 'ffa-individual';
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
-    createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '16', ...setup }),
-    testRuntime(),
-  );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return result.state;
-}
+import {
+  EXACT_COUNT_GRAPH,
+  generated,
+  rosterFor,
+  TEAM_QUAL_GRAPH,
+  testRuntime,
+  type Setup,
+} from './test-fixtures';
 
 function added(result: ReserveAddResult): TournamentState {
   if (result.status !== 'added') throw new Error(`expected an add, got ${JSON.stringify(result)}`);
@@ -65,31 +48,6 @@ const GROUP_STAGE: Setup = {
   poolingPhase: 'group-stage',
   oddCountStrategy: 'bye',
 };
-
-const TEAM_QUAL_GRAPH = `
-ROUNDS:
-R1 = 2x4
-R1C = 4
-R2 = 4
-Final = 4 FINAL
-
-ROUTES:
-Qual: 1-8->R1, 9-12->R1C
-R1.A: 1-2->R2, 3-4->eliminated
-R1.B: 1-2->R2, 3-4->eliminated
-R1C: 1->Final, 2-4->eliminated
-R2: 1-3->Final, 4->eliminated
-`;
-
-const EXACT_COUNT_GRAPH = `
-ROUNDS:
-R1 = 2x8
-Final = 8 FINAL
-
-ROUTES:
-R1.A: 1-4->Final, 5-8->eliminated
-R1.B: 1-4->Final, 5-8->eliminated
-`;
 
 describe('adding a reserve before Confirm & Start redraws the schedule', () => {
   it.each([31, 37, 43, 53])(
@@ -480,5 +438,20 @@ describe('scheduleMatchesRoster', () => {
     const start = generated(37, FFA_QUAL);
     const players = (start.players as string[]).map((name) => (name === 'P3' ? 'Q3' : name));
     expect(scheduleMatchesRoster({ ...start, players })).toBe(false);
+  });
+});
+
+describe('staleDrawRefusal', () => {
+  it('gives the message when every roster id is new', () => {
+    const start = generated(20, { gameFormat: 'team-2v2v2v2', qualAdv: '8' });
+    const players = (start.players as TournamentTeam[]).map((team) => ({
+      ...team,
+      teamId: `new_${team.teamId}`,
+    }));
+    expect(staleDrawRefusal({ ...start, players })).toBe(STALE_DRAW_MESSAGE);
+  });
+
+  it('is null right after generation', () => {
+    expect(staleDrawRefusal(generated(37, FFA_QUAL))).toBeNull();
   });
 });
