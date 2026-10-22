@@ -13,6 +13,10 @@ vi.mock('../sync/firebase-client', async (importOriginal) => ({
   subscribeServerClockOffset: () => () => {},
 }));
 vi.mock('../presence/presence.server-fns', () => ({ setSetupPresence: () => Promise.resolve(null) }));
+vi.mock('../version/build-id.server-fns', async () => {
+  const { TOUR_BUILD_ID } = await import('../version/build-id');
+  return { getLiveBuild: () => Promise.resolve(TOUR_BUILD_ID) };
+});
 
 // jsdom has no layout engine: the few browser APIs the tabs read are stubbed with their "nothing matches" answers.
 window.matchMedia ??= (query) =>

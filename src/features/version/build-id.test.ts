@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OUTDATED_TAB_MESSAGE, outdatedBuildRefusal, TOUR_BUILD_ID } from './build-id';
+import { isBuildCheckDue, OUTDATED_TAB_MESSAGE, outdatedBuildRefusal, TOUR_BUILD_ID } from './build-id';
 
 describe('outdatedBuildRefusal', () => {
   it('is null for the live build', () => {
@@ -18,5 +18,13 @@ describe('outdatedBuildRefusal', () => {
 describe('TOUR_BUILD_ID', () => {
   it('is replaced at build time, also under Vitest', () => {
     expect(TOUR_BUILD_ID).toMatch(/\S/);
+  });
+});
+
+describe('isBuildCheckDue', () => {
+  it('is due when never checked and once the minimum gap has passed, not before', () => {
+    expect(isBuildCheckDue(null, 1_000_000)).toBe(true);
+    expect(isBuildCheckDue(1_000_000 - 59_000, 1_000_000)).toBe(false);
+    expect(isBuildCheckDue(1_000_000 - 60_000, 1_000_000)).toBe(true);
   });
 });

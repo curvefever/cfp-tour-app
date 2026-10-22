@@ -10,3 +10,11 @@ export const OUTDATED_TAB_MESSAGE =
 export function outdatedBuildRefusal(sent: string | null, live: string): string | null {
   return sent === live ? null : OUTDATED_TAB_MESSAGE;
 }
+
+export const BUILD_CHECK_INTERVAL_MS = 5 * 60_000;
+export const BUILD_CHECK_MIN_GAP_MS = 60_000;
+
+/** True when no check has run yet or the last one was at least `BUILD_CHECK_MIN_GAP_MS` ago. */
+export function isBuildCheckDue(lastCheckedAt: number | null, now: number): boolean {
+  return lastCheckedAt === null || now - lastCheckedAt >= BUILD_CHECK_MIN_GAP_MS;
+}

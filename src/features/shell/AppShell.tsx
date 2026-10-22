@@ -12,6 +12,8 @@ import { StandingsView } from '../standings/StandingsView';
 import { TournamentsView } from '../tournaments/TournamentsView';
 import { UNAVAILABLE_DETAIL, UNAVAILABLE_NOTICE } from '../tournaments/visit';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { NewVersionBanner } from '../version/NewVersionBanner';
+import { useLiveBuildCheck } from '../version/useLiveBuildCheck';
 import { AppHeader } from './AppHeader';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { effectiveTab, tabContextFor, visibleTabs } from './tabs';
@@ -36,6 +38,7 @@ export function AppShell() {
   const app = useTournamentApp();
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
+  const buildOutdated = useLiveBuildCheck(app.unlocked);
   const tabContext = tabContextFor({
     state: app.state,
     summary: app.tournaments.summaries.find((entry) => entry.id === app.state.tournamentId),
@@ -69,6 +72,7 @@ export function AppShell() {
           ⚠ Live connection lost — what you&apos;re seeing may be out of date. Reload to try reconnecting.
         </Alert>
       ) : null}
+      {app.unlocked && buildOutdated ? <NewVersionBanner /> : null}
       <main
         className='mx-auto max-w-7xl px-6 py-5 max-[700px]:px-3 max-[700px]:py-3.5'
         data-hydrated={app.hydrated ? 'true' : 'false'}
