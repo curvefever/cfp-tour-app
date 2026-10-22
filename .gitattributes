@@ -1,0 +1,11 @@
+# Text files are LF everywhere, whatever core.autocrlf says (.prettierrc: endOfLine lf).
+* text=auto eol=lf
+
+# Binary files: never converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
