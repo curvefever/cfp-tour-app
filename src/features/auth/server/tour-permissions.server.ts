@@ -1,9 +1,12 @@
 import { getRequest } from "@tanstack/react-start/server";
 import { ACCESS_TOKEN_KEY, PID_STORAGE_KEY, canAdminTour, type AuthSnapshot } from "../auth.shared";
 import { readCookieValue } from "../../../lib/cookies";
+import { requireCurrentBuild } from "../../version/build-guard.server";
 import { getCachedAuthSnapshot } from "./auth-session-cache.server";
 
 export async function requireTourAdminPermission(): Promise<AuthSnapshot> {
+  // Every privileged write goes through here, so this is the one place an old tab is turned away.
+  requireCurrentBuild();
   const request = getRequest();
   const cookies = request.headers.get("cookie") || undefined;
   const token = readCookieValue(cookies, ACCESS_TOKEN_KEY);

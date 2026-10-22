@@ -5,7 +5,12 @@ import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 import { configDefaults } from 'vitest/config';
 
+// One id per `vite build` (or `vite dev` start), shared by the client and server bundles of that build.
+const buildId = process.env.TOUR_BUILD_ID ?? new Date().toISOString();
+process.env.TOUR_BUILD_ID = buildId;
+
 export default defineConfig({
+  define: { __TOUR_BUILD_ID__: JSON.stringify(buildId) },
   server: {
     port: 3000,
   },
