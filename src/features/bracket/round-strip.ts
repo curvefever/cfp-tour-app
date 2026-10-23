@@ -127,3 +127,19 @@ export function defaultStripSelection(state: TournamentState): number {
   const holding = boxHoldingRound(boxes, currentColumn(state).start);
   return holding >= 0 ? holding : Math.max(0, boxes.length - 1);
 }
+
+/** What the phone shows: one box of the Bracket, or the standings column. */
+export type StripPick = { kind: 'box'; index: number } | { kind: 'standings' };
+
+/** The key of the strip item that stands for `pick`: its own box, the group holding it, or the standings. */
+export function pickedItemKey(items: readonly RoundStripItem[], pick: StripPick): string | undefined {
+  return items.find((item) =>
+    pick.kind === 'standings' ? item.kind === 'standings' : item.boxes.includes(pick.index),
+  )?.key;
+}
+
+/** The title of every box, by box index: what a group's list shows. */
+export function roundStripBoxLabels(state: TournamentState): string[] {
+  const labels = bracketRoundLabels(state);
+  return bracketBoxes(state).map((box) => boxLabel(state, box, labels));
+}

@@ -39,7 +39,7 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
     <button
       aria-expanded='true'
       aria-label={`Fold ${title}`}
-      className='flex size-7 shrink-0 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
+      className='flex size-7 shrink-0 cursor-pointer items-center justify-center max-[700px]:hidden focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
       onClick={onToggle}
     >
       <svg aria-hidden='true' height='18' viewBox='0 0 16 16' width='18'>

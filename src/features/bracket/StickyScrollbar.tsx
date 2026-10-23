@@ -52,7 +52,7 @@ export function StickyScrollbar({ target }: { target: RefObject<HTMLElement | nu
       aria-hidden
       className={
         size.scrollWidth > size.clientWidth
-          ? 'game-scrollbar sticky bottom-0 overflow-x-auto bg-background'
+          ? 'game-scrollbar sticky bottom-0 overflow-x-auto bg-background max-[700px]:hidden'
           : 'hidden'
       }
       onScroll={lead}

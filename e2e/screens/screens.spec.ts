@@ -103,6 +103,25 @@ async function captureFullBracket(page: Page, fixtureId: string, name: string, w
   await page.setViewportSize({ width, height });
 }
 
+/** The page is never wider than the viewport: nothing makes a phone scroll sideways. */
+async function expectNoSidewaysPageScroll(page: Page, width: number): Promise<void> {
+  const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(scrollWidth, 'no sideways page scroll').toBeLessThanOrEqual(width);
+}
+
+/** The Bracket's round strip on a phone: the standings item, then a round picked from the group's list. */
+async function capturePhoneStrip(page: Page, fixtureId: string): Promise<void> {
+  const strip = page.getByRole('tablist', { name: 'Rounds' });
+  await strip.getByRole('tab', { name: /^Qualification/ }).click();
+  await capture(page, fixtureId, 'bracket-standings-390');
+  await strip.getByRole('tab', { name: /^R1–3/ }).click();
+  await capture(page, fixtureId, 'bracket-group-menu-390');
+  await page.getByRole('menuitem', { name: /^Round 2/ }).click();
+  await capture(page, fixtureId, 'bracket-group-pick-390');
+  await expectNoSidewaysPageScroll(page, 390);
+  await strip.getByRole('tab', { name: /^Round 4/ }).click();
+}
+
 /** Hovers the n-th exit icon of the Bracket and saves the area around its pop-up. */
 async function captureExitPopup(page: Page, fixtureId: string, nth: number, width: number): Promise<void> {
   const icon = page.getByRole('button', { name: /Where players go from/ }).nth(nth);
@@ -154,6 +173,10 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
+          if (tab === 'Bracket' && width === WIDTHS[1]) {
+            await expectNoSidewaysPageScroll(page, width);
+            if (fixture.id === 'ffa37-quarters') await capturePhoneStrip(page, fixture.id);
+          }
           if (tab === 'Bracket' && width === WIDTHS[0]) {
             await captureFullBracket(page, fixture.id, 'bracket-full', width);
             // The "?" (and the notes icon before it) sit at the far right of the follow row.

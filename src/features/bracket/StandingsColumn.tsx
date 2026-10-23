@@ -22,6 +22,7 @@ import { PhaseBadge } from './PhaseBadge';
 import { FoldedBox } from './FoldedBox';
 import { standingsNames } from '../standings/standings-names';
 import { standingsExitLines } from './exit-lines';
+import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
 
 function StandingsRows({
   display,
@@ -99,6 +100,7 @@ export function StandingsColumn({
   collapsed,
   onToggle,
   onOpenFullTable,
+  phoneShown = true,
 }: {
   display: StandingsDisplay;
   state: TournamentState;
@@ -108,23 +110,22 @@ export function StandingsColumn({
   /** Absent in a read-only view: the column then stays open. */
   onToggle?: () => void;
   onOpenFullTable?: () => void;
+  /** The column is the box a phone shows (`RoundStrip`): always open there, whatever its fold state; hidden when not. */
+  phoneShown?: boolean;
 }) {
   const names = standingsNames(display.kind);
   const followedStanding = followKey ? standingFor(display, followKey) : null;
-  if (collapsed && onToggle !== undefined) {
-    return (
-      <div className='shrink-0' data-standings-column>
-        <FoldedBox onUnfold={onToggle} title={names.title}>
-          {followedStanding ? (
-            <div className='text-base font-bold text-cfp-sky'>#{followedStanding.rank}</div>
-          ) : null}
-        </FoldedBox>
-      </div>
-    );
-  }
+  const foldedOnDesktop = collapsed && onToggle !== undefined;
   const exitLines = display.tables[0] ? standingsExitLines(display.tables[0], display, labels) : [];
-  return (
-    <div className='relative flex w-82.5 min-w-82.5 shrink-0 flex-col gap-4.5' data-standings-column>
+  const open = (
+    <div
+      className={cn(
+        'relative flex w-82.5 min-w-82.5 shrink-0 flex-col gap-4.5',
+        phoneFullWidthClass,
+        foldedOnDesktop ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
+      )}
+      data-standings-column
+    >
       <ColumnTitleBar
         badge={<PhaseBadge phase={display.phase} />}
         extra={
@@ -163,5 +164,19 @@ export function StandingsColumn({
         ) : null}
       </div>
     </div>
+  );
+  if (!foldedOnDesktop) return open;
+  // Folded on a desktop; a phone shows the column open, so its body is rendered only while it is the shown one.
+  return (
+    <>
+      <div className='shrink-0 max-[700px]:hidden' data-standings-column>
+        <FoldedBox onUnfold={onToggle} title={names.title}>
+          {followedStanding ? (
+            <div className='text-base font-bold text-cfp-sky'>#{followedStanding.rank}</div>
+          ) : null}
+        </FoldedBox>
+      </div>
+      {phoneShown ? open : null}
+    </>
   );
 }

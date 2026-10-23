@@ -6,6 +6,7 @@ import { Button, CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { compactScoreClass } from './ScoreFields';
+import { phoneFullWidthClass } from './phone-box';
 
 /**
  * A sibling box to the Final's own column, one per Final round that has ever had a game flagged anonymous --
@@ -20,12 +21,14 @@ export function AnonymousFinalCard({
   round,
   editable,
   activeTab,
+  className,
 }: {
   state: TournamentState;
   roundIndex: number;
   round: TournamentRound;
   editable: boolean;
   activeTab: number;
+  className?: string;
 }) {
   const app = useTournamentApp();
   const progress = anonymousFinalsProgressState(state, round);
@@ -33,7 +36,13 @@ export function AnonymousFinalCard({
   const readyToConnect = isPlainFinalFullyScored(state, roundIndex, round);
   const anonymousGames = round.anonymousGames ?? [];
   return (
-    <div className='w-82.5 min-w-82.5 shrink-0 rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame'>
+    <div
+      className={cn(
+        'w-82.5 min-w-82.5 shrink-0 rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame',
+        phoneFullWidthClass,
+        className,
+      )}
+    >
       <div className='flex h-8.5 items-center bg-cfp-game-fold pl-3 text-base font-semibold tracking-[0.04em] uppercase'>
         🎭 Anonymous matches
       </div>

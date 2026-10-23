@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
-import { defaultStripSelection, roundStrip } from './round-strip';
+import { defaultStripSelection, pickedItemKey, roundStrip, roundStripBoxLabels } from './round-strip';
 
 /** A fixture tournament as the app holds it, with the round in play moved to `curRound` when given. */
 function fixtureAt(id: string, curRound?: number): TournamentState {
@@ -206,5 +206,43 @@ describe('defaultStripSelection', () => {
     expect(defaultStripSelection(fixtureAt('waterfall-column-19', 3))).toBe(3);
     expect(defaultStripSelection(fixtureAt('waterfall-column-19', 5))).toBe(4);
     expect(defaultStripSelection(fixtureAt('double-elim-1v1-16', 5))).toBe(3);
+  });
+});
+
+describe('pickedItemKey and roundStripBoxLabels', () => {
+  const state = fixtureAt('ffa37-quarters');
+  const items = roundStrip(state, describeStandings(state));
+
+  it('maps a pick to the item that stands for it: a group for its boxes, the standings for itself', () => {
+    expect(pickedItemKey(items, { kind: 'box', index: 1 })).toBe('group');
+    expect(pickedItemKey(items, { kind: 'box', index: 3 })).toBe('box-3');
+    expect(pickedItemKey(items, { kind: 'standings' })).toBe('standings');
+    expect(
+      pickedItemKey(
+        items.filter((item) => item.kind !== 'standings'),
+        { kind: 'standings' },
+      ),
+    ).toBeUndefined();
+  });
+
+  it('names every box by its own title', () => {
+    expect(roundStripBoxLabels(state)).toEqual([
+      'Round 1',
+      'Round 2',
+      'Round 3',
+      'Round 4',
+      'Round 5',
+      'Semis',
+      'Final',
+    ]);
+    expect(roundStripBoxLabels(fixtureAt('double-elim-1v1-16'))).toEqual([
+      'Round 1',
+      'Round 2',
+      'Round 3',
+      'Round 5',
+      'Round 8',
+      'Round 11',
+      'Grand Final',
+    ]);
   });
 });

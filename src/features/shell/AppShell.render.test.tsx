@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
@@ -340,5 +340,89 @@ describe('Bracket tab, a waterfall column of two rounds', () => {
 
     expect(view.queryAllByRole('heading', { name: 'Round 5 Lower' })).toHaveLength(1);
     expect(view.queryAllByRole('button', { name: /Next Round/ }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Bracket tab on a phone: the round strip', () => {
+  const HIDDEN = 'max-[700px]:hidden';
+  const quarters = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
+    return fixture;
+  };
+
+  /** The element of the rounds row that holds the column titled `title` (open: its heading). */
+  const boxOf = (view: ReturnType<typeof renderApp>, title: string) => {
+    let element: HTMLElement | null = view.getAllByRole('heading', { name: title })[0] ?? null;
+    while (element && element.parentElement?.id !== 'br-rounds') element = element.parentElement;
+    if (!element) throw new Error(`no box titled ${title}`);
+    return element;
+  };
+  const tab = (view: ReturnType<typeof renderApp>, name: string) => view.getByRole('tab', { name });
+  const selectedTabs = (view: ReturnType<typeof renderApp>) =>
+    view.getAllByRole('tab').filter((candidate) => candidate.getAttribute('aria-selected') === 'true');
+
+  it('has one tab per item, the box in play selected and shown, the others hidden on a phone', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'bracket' });
+
+    expect(view.getAllByRole('tab').map((entry) => entry.textContent)).toEqual([
+      'R1–3✓done',
+      'Qualification',
+      'Round 4now',
+      'Round 5',
+      'Semis',
+      'Final',
+    ]);
+    expect(selectedTabs(view).map((entry) => entry.textContent)).toEqual(['Round 4now']);
+    expect(boxOf(view, 'Round 4').className).not.toContain(HIDDEN);
+    expect(boxOf(view, 'Round 5').className).toContain(HIDDEN);
+    expect(boxOf(view, 'Final').className).toContain(HIDDEN);
+    expect(
+      view.getByRole('heading', { name: 'Qualification' }).closest('[data-standings-column]')?.className,
+    ).toContain(HIDDEN);
+  });
+
+  it('shows the box of another tab, and the standings column from its own tab', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'bracket' });
+
+    fireEvent.click(tab(view, 'Semis'));
+    expect(selectedTabs(view).map((entry) => entry.textContent)).toEqual(['Semis']);
+    expect(boxOf(view, 'Semis').className).not.toContain(HIDDEN);
+    expect(boxOf(view, 'Round 4').className).toContain(HIDDEN);
+
+    fireEvent.click(tab(view, 'Qualification'));
+    expect(selectedTabs(view).map((entry) => entry.textContent)).toEqual(['Qualification']);
+    const standings = view.getByRole('heading', { name: 'Qualification' }).closest('[data-standings-column]');
+    expect(standings?.className).not.toContain(HIDDEN);
+    expect(boxOf(view, 'Semis').className).toContain(HIDDEN);
+  });
+
+  it('opens the group as a list of its boxes; picking one shows it open and keeps the group selected', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'bracket' });
+
+    fireEvent.click(tab(view, 'R1–3 done'));
+    expect(view.getAllByRole('menuitem').map((entry) => entry.textContent)).toEqual([
+      'Round 1✓done',
+      'Round 2✓done',
+      'Round 3✓done',
+    ]);
+
+    fireEvent.click(view.getByRole('menuitem', { name: 'Round 2 done' }));
+    expect(view.queryByRole('menu')).toBeNull();
+    expect(selectedTabs(view).map((entry) => entry.textContent)).toEqual(['R1–3✓done']);
+    // Round 2 is folded on a desktop: its open body is there for the phone, its folded box is hidden on a phone.
+    expect(boxOf(view, 'Round 2').className).not.toContain(HIDDEN);
+    expect(view.getByRole('button', { name: 'Show Round 2' }).className).toContain(HIDDEN);
+    expect(boxOf(view, 'Round 4').className).toContain(HIDDEN);
+  });
+
+  it('closes the group list with Escape', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'bracket' });
+
+    fireEvent.click(tab(view, 'R1–3 done'));
+    expect(view.queryByRole('menu')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(view.queryByRole('menu')).toBeNull();
   });
 });

@@ -15,6 +15,15 @@ import { isFinalComplete } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
+import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
+import { RoundStrip } from './RoundStrip';
+import {
+  type StripPick,
+  defaultStripSelection,
+  pickedItemKey,
+  roundStrip,
+  roundStripBoxLabels,
+} from './round-strip';
 import { AnonymousFinalCard } from './AnonymousFinalCard';
 import { ColumnTitleBar } from './ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
@@ -23,11 +32,11 @@ import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
 import { roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
-import { isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
+import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
-/** The width-affecting classes of an open round column. */
+/** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
 export function roundColumnWidthClass() {
-  return 'w-82.5 min-w-82.5 shrink-0';
+  return cn('w-82.5 min-w-82.5 shrink-0', phoneFullWidthClass);
 }
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
@@ -40,6 +49,7 @@ export function RoundColumn({
   gameCount,
   label,
   onToggle,
+  phoneShown = true,
   progress,
 }: {
   children: ReactNode;
@@ -52,18 +62,19 @@ export function RoundColumn({
   gameCount?: RoundGameCount | null;
   label: string;
   onToggle?: () => void;
+  /** The box is the one a phone shows (`RoundStrip`): always open there, whatever its fold state; others are hidden. */
+  phoneShown?: boolean;
   /** The admin's rooms-scored tracker on the title bar (`ColumnTitleBar`); a folded box shows none. */
   progress?: RoomsScored | null;
 }) {
-  if (collapsed) {
-    return (
-      <FoldedBox done={folded.done} onUnfold={onToggle} title={label}>
-        <FoldedRoundBody summary={folded} />
-      </FoldedBox>
-    );
-  }
-  return (
-    <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
+  const open = (
+    <div
+      className={cn(
+        roundColumnWidthClass(),
+        'flex flex-col gap-4.5',
+        collapsed ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
+      )}
+    >
       <ColumnTitleBar
         expected={expected}
         gameCount={gameCount}
@@ -74,6 +85,16 @@ export function RoundColumn({
       />
       <div className='flex flex-col gap-5.5'>{children}</div>
     </div>
+  );
+  if (!collapsed) return open;
+  // Folded on a desktop; a phone shows the same box open, so its body is rendered only while it is the shown one.
+  return (
+    <>
+      <FoldedBox className='max-[700px]:hidden' done={folded.done} onUnfold={onToggle} title={label}>
+        <FoldedRoundBody summary={folded} />
+      </FoldedBox>
+      {phoneShown ? open : null}
+    </>
   );
 }
 
@@ -153,6 +174,24 @@ function WaveBoxBody({
 }
 
 /**
+ * What a phone shows (`RoundStrip`): the visitor's pick, or the default (the box in play) until they pick, and again
+ * whenever the column in play changes. A pick that no longer exists falls back to the default.
+ */
+function useStripPick(state: TournamentState, hasStandings: boolean) {
+  const start = currentColumn(state).start;
+  const [chosen, setChosen] = useState<StripPick | null>(null);
+  const [seenStart, setSeenStart] = useState(start);
+  if (seenStart !== start) {
+    setSeenStart(start);
+    setChosen(null);
+  }
+  const boxCount = bracketBoxes(state).length;
+  const valid = chosen !== null && (chosen.kind === 'standings' ? hasStandings : chosen.index < boxCount);
+  const pick: StripPick = valid ? chosen : { kind: 'box', index: defaultStripSelection(state) };
+  return { pick, selectPick: setChosen };
+}
+
+/**
  * Renders a tournament's rounds as one flowing row of boxes, one per
  * `bracketBoxes()` entry. A double-elimination winners-bracket (WB) round
  * and every losers-bracket (LB) round immediately following it share one
@@ -194,6 +233,9 @@ export function BracketRounds({
 }) {
   const boxes = bracketBoxes(state);
   const standings = useMemo(() => describeStandings(state), [state]);
+  const { pick, selectPick } = useStripPick(state, standings !== null);
+  const stripItems = roundStrip(state, standings);
+  const boxShown = (boxIndex: number) => pick.kind === 'box' && pick.index === boxIndex;
   const finalRoundIndex = useMemo(() => state.rounds.findIndex((round) => round.isFinal), [state.rounds]);
   const finalRound = finalRoundIndex >= 0 ? state.rounds[finalRoundIndex] : null;
   const finalProgress = finalRound ? finalsProgressState(state, finalRoundIndex, finalRound) : null;
@@ -203,7 +245,7 @@ export function BracketRounds({
   const finalComplete = useMemo(() => isFinalComplete(state), [state]);
   const isNow = (roundIndex: number) => showsNowPill(state, roundIndex, finalComplete);
   const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
-  function renderSingle(roundIndex: number) {
+  function renderSingle(roundIndex: number, shown: boolean) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
       <RoundColumn
@@ -215,6 +257,7 @@ export function BracketRounds({
         key={roundIndex}
         label={labels[roundIndex]?.label ?? ''}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
+        phoneShown={shown}
         progress={progressOf(roundIndex)}
       >
         <RoundBody
@@ -240,6 +283,7 @@ export function BracketRounds({
           round={finalRound}
           editable={editable && isCurrentRound(state, roundIndex)}
           activeTab={finalTab}
+          className={phoneHiddenClass(shown)}
         />
       </Fragment>
     );
@@ -248,7 +292,7 @@ export function BracketRounds({
    * A waterfall column of several rounds, played together: one column whose title bar is the first round's,
    * then each further round under a title bar of its own (name and games, no NOW pill and no fold control).
    */
-  function renderColumn(box: Extract<BracketBox, { kind: 'column' }>) {
+  function renderColumn(box: Extract<BracketBox, { kind: 'column' }>, shown: boolean) {
     const [first, ...others] = box.roundIndices;
     const collapsed = collapse?.[first] ?? bracketRoundDefaultCollapsed(state, first);
     const bodyOf = (roundIndex: number) => (
@@ -272,6 +316,7 @@ export function BracketRounds({
         key={first}
         label={labels[first]?.label ?? ''}
         onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
+        phoneShown={shown}
         progress={progressOf(first)}
       >
         {bodyOf(first)}
@@ -289,7 +334,7 @@ export function BracketRounds({
       </RoundColumn>
     );
   }
-  function renderWave(box: Extract<BracketBox, { kind: 'wave' }>) {
+  function renderWave(box: Extract<BracketBox, { kind: 'wave' }>, shown: boolean) {
     const constituents = [box.winnersRoundIndex, ...box.losersRoundIndices];
     const lastIndex = Math.max(...constituents);
     const collapsed = collapse?.[box.winnersRoundIndex] ?? bracketRoundDefaultCollapsed(state, lastIndex);
@@ -306,6 +351,7 @@ export function BracketRounds({
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
+        phoneShown={shown}
         progress={sumProgress(constituents.map(progressOf))}
       >
         <WaveBoxBody
@@ -322,21 +368,29 @@ export function BracketRounds({
   }
   return (
     <div>
+      <RoundStrip
+        boxLabels={roundStripBoxLabels(state)}
+        items={stripItems}
+        onSelect={selectPick}
+        selectedKey={pickedItemKey(stripItems, pick)}
+      />
       <div
         className={cn('flex max-w-full items-start gap-7 overflow-x-auto pb-3', hiddenScrollbarClass)}
         id='br-rounds'
         ref={strip}
       >
-        {boxes.map((box) => {
-          if (box.kind === 'column') return renderColumn(box);
-          if (box.kind === 'wave') return renderWave(box);
+        {boxes.map((box, boxIndex) => {
+          const shown = boxShown(boxIndex);
+          if (box.kind === 'column') return renderColumn(box, shown);
+          if (box.kind === 'wave') return renderWave(box, shown);
           if (!standings || box.roundIndex !== standings.lastStandingsRoundIndex)
-            return renderSingle(box.roundIndex);
+            return renderSingle(box.roundIndex, shown);
           return (
             <Fragment key={box.roundIndex}>
-              {renderSingle(box.roundIndex)}
+              {renderSingle(box.roundIndex, shown)}
               <StandingsColumn
                 display={standings}
+                phoneShown={pick.kind === 'standings'}
                 state={state}
                 labels={labels}
                 followKey={followKey}
