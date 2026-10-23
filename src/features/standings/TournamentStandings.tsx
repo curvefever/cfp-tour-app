@@ -29,7 +29,7 @@ function TableTitle({
       <PhaseBadge phase={display.phase} />
       <div className='relative'>
         <ExitIcon
-          buttonClassName='rounded-xs bg-foreground/10'
+          iconClassName='rounded-xs bg-foreground/10'
           label={`Where players go from ${table.label}`}
           lines={standingsExitLines(table, display, labels)}
           popupClassName='top-9 right-auto left-0'

@@ -12,7 +12,7 @@ import {
 import { cn } from './cn';
 
 export const controlClassName =
-  'w-full h-10 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 aria-invalid:border-warning disabled:cursor-not-allowed disabled:opacity-70';
+  'w-full h-10 max-[700px]:h-11 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 aria-invalid:border-warning disabled:cursor-not-allowed disabled:opacity-70';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...props },
@@ -26,7 +26,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     return (
       <textarea
         ref={ref}
-        className={cn(controlClassName, 'h-auto min-h-28 resize-y py-2 leading-7', className)}
+        className={cn(
+          controlClassName,
+          'h-auto min-h-28 resize-y py-2 leading-7 max-[700px]:h-auto',
+          className,
+        )}
         {...props}
       />
     );
