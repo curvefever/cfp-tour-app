@@ -8,14 +8,14 @@ import { configKey, simulate, type Config, type Kind, type Mode } from './simula
 
 /**
  * Seeding simulation on the real engine. Run (simulate, one shard of the jobs):
- *   pnpm exec tsx scripts/seeding-simulation/run.ts --runs 300 --out <dir> [--shard 0/4] [--only ffa-37]
+ *   pnpm exec tsx scripts/seeding-simulation/run.ts --runs 300 --out <dir> [--shard 0/4] [--only ffa-37] [--mode C] [--tag C-]
  * then merge the shards into the markdown report:
  *   pnpm exec tsx scripts/seeding-simulation/run.ts --report <dir> <report.md>
  * Not part of `pnpm test`. Results are not a recommendation: see the report's header.
  */
 
 const COUNTS: Record<Kind, number[]> = { '2v2v2v2': [25, 31, 37, 43, 53], ffa: [37, 43, 53] };
-const MODES: Mode[] = ['A', 'B'];
+const MODES: Mode[] = ['A', 'B', 'C'];
 export const NOISES = [0.7, 1.2];
 
 export interface Job {
@@ -64,8 +64,11 @@ function simulateShard(args: string[]): void {
   if (!out) throw new Error('--out <dir> is required');
   const [shard, shards] = (option(args, '--shard') ?? '0/1').split('/').map(Number);
   const only = option(args, '--only');
+  const mode = option(args, '--mode');
+  const tag = option(args, '--tag') ?? '';
   const jobs = allJobs()
     .filter((job) => !only || configKey(job.config).startsWith(only))
+    .filter((job) => !mode || job.config.mode === mode)
     .filter((_, index) => index % shards === shard);
   mkdirSync(out, { recursive: true });
   const results: JobResult[] = [];
@@ -73,7 +76,7 @@ function simulateShard(args: string[]): void {
     const started = Date.now();
     results.push(runJob(job, runs));
     console.log(`${configKey(job.config)} noise ${job.noise}: ${runs} runs in ${Date.now() - started} ms`);
-    writeFileSync(join(out, `shard-${shard}.json`), JSON.stringify(results));
+    writeFileSync(join(out, `shard-${tag}${shard}.json`), JSON.stringify(results));
   }
 }
 

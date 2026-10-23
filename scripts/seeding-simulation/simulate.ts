@@ -9,8 +9,8 @@ import { applyPolicy, type Policy } from './policies';
 import { gaussian, seededRandom } from './random';
 
 export type Kind = '2v2v2v2' | 'ffa';
-/** A: four qualification rounds, the first not counted (the audited tournament). B: three rounds, all counted. */
-export type Mode = 'A' | 'B';
+/** A: four qualification rounds, the first not counted (the audited tournament). B: three rounds, all counted. C: four rounds, all counted. */
+export type Mode = 'A' | 'B' | 'C';
 
 export interface Config {
   kind: Kind;
@@ -52,7 +52,7 @@ function buildTournament(config: Config, random: () => number): TournamentState 
     scheduleLogic: 'single-elimination',
     poolingPhase: 'qual-table',
     qualAdv: String(CUT[config.kind]),
-    qualRoundsOverride: config.mode === 'A' ? '4' : '3',
+    qualRoundsOverride: config.mode === 'B' ? '3' : '4',
     nonCountingRounds: config.mode === 'A' ? '1' : '0',
   });
   const result = generateTournament(

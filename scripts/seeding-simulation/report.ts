@@ -17,6 +17,7 @@ const KIND_LABEL: Record<Kind, string> = { '2v2v2v2': '2v2v2v2 Survival Teams', 
 const MODE_LABEL: Record<Mode, string> = {
   A: '4 qualification rounds, round 1 not counted',
   B: '3 qualification rounds, all counted',
+  C: '4 qualification rounds, all counted',
 };
 
 const HEADER = `# Seeding simulation results
@@ -38,7 +39,7 @@ Numbers only: this report makes no recommendation. The planner and the organiser
 ## Policies
 
 1. **current**: the engine as built after stage 1.
-2. **neutral first counted round**: the first counted round is drawn with every tier equal and rematch avoidance only (a random order, then the fixed draw's way of filling rooms, smaller-room spread included). Later rounds as current. With 3 all-counted rounds the first counted round is round 1, which is already random, so this row equals policy 1.
+2. **neutral first counted round**: the first counted round is drawn with every tier equal and rematch avoidance only (a random order, then the fixed draw's way of filling rooms, smaller-room spread included). Later rounds as current. When every round counts (3 or 4 rounds) the first counted round is round 1, which is already random, so this row equals policy 1.
 3. **last round by standings**: the last round is the current standings cut into the round's room sizes, best room first. Earlier rounds as current.
 4. **2 + 3 together.**
 5. **standings every round**: every counted round after the first is drawn by cutting the standings into rooms (Swiss-like, reference only). The first counted round is the engine's.
@@ -50,7 +51,7 @@ Numbers only: this report makes no recommendation. The planner and the organiser
 - **Top-cut hit**: of the true top-cut units (by hidden strength), how many are in the final table's top cut.
 - **Top-half hit**: of the true top half-cut units, how many are in the final table's top half-cut.
 - **Rank corr.**: Pearson correlation between a unit's final table position and its true strength rank (1 = the table orders everyone exactly by strength).
-- **Carry-over** (4-round setup only): for units of middle true strength (middle third), the average final points after finishing 1st in round 1 minus after finishing last, minus the same gap under random rooms.
+- **Carry-over** (the 4-round setup with round 1 not counted only): for units of middle true strength (middle third), the average final points after finishing 1st in round 1 minus after finishing last, minus the same gap under random rooms.
 - **Tied for 1st**: units on the top points total (1 = no tie).
 - **Strength~opp.**: correlation, across units, between own strength and the average strength of the opponents met in counted rounds (negative = strong units meet weaker opponents).
 - **Repeats**: pairings beyond the first meeting in a tournament, all qualification rounds.
@@ -88,6 +89,9 @@ function table(kind: Kind, mode: Mode, noise: number, jobs: JobResult[]): string
   return [
     `### ${KIND_LABEL[kind]}, noise ${noise}, ${MODE_LABEL[mode]} (${runs} runs per row)`,
     '',
+    ...(mode === 'A'
+      ? []
+      : ['Policy 2 equals policy 1 here (round 1 is already random); the carry-over is n/a.', '']),
     `| Units | Policy | Top-${cut} hit | Top-${cut / 2} hit | Rank corr. | Carry-over | Tied for 1st | Strength~opp. | Repeats | Seat spread |`,
     '|---|---|---|---|---|---|---|---|---|---|',
     ...lines,
@@ -95,11 +99,49 @@ function table(kind: Kind, mode: Mode, noise: number, jobs: JobResult[]): string
   ].join('\n');
 }
 
-export function writeReport(jobs: JobResult[]): string {
-  const sections: string[] = [HEADER];
+const SETUP_LABEL: Record<Mode, string> = {
+  A: 'A: 4 rounds, round 1 not counted',
+  B: 'B: 3 rounds, all counted',
+  C: 'C: 4 rounds, all counted',
+};
+
+/** The current draw (policy 1) under each qualification setup, averaged over the unit counts. */
+function comparison(jobs: JobResult[]): string {
+  const lines: string[] = [];
   for (const kind of ['2v2v2v2', 'ffa'] as const) {
     for (const noise of [...new Set(jobs.map((job) => job.noise))].sort()) {
-      for (const mode of ['A', 'B'] as const) sections.push(table(kind, mode, noise, jobs));
+      for (const mode of ['A', 'B', 'C'] as const) {
+        const selected = jobs.filter(
+          (job) => job.config.kind === kind && job.config.mode === mode && job.noise === noise,
+        );
+        if (selected.length === 0) continue;
+        const average = (key: MetricKey) =>
+          selected.reduce((sum, job) => sum + mean(job.cells.current.sums[key], job.cells.current.runs), 0) /
+          selected.length;
+        lines.push(
+          `| ${KIND_LABEL[kind]} | ${noise} | ${SETUP_LABEL[mode]} | ${fmt(average('topCutHit'))} | ${fmt(average('rankCorrelation'), 3)} | ${fmt(average('tiedForFirst'))} | ${fmt(average('repeatPairings'), 1)} |`,
+        );
+      }
+    }
+  }
+  if (lines.length === 0) return '';
+  return [
+    '### The current draw (policy 1) under each qualification setup, averaged over the unit counts',
+    '',
+    `Top-cut hit is of ${CUT['2v2v2v2']} (2v2v2v2) or ${CUT.ffa} (FFA). Repeats are pairings beyond the first meeting over all qualification rounds, so a 4-round setup has more of them.`,
+    '',
+    '| Format | Noise | Setup | Top-cut hit | Rank corr. | Tied for 1st | Repeats |',
+    '|---|---|---|---|---|---|---|',
+    ...lines,
+    '',
+  ].join('\n');
+}
+
+export function writeReport(jobs: JobResult[]): string {
+  const sections: string[] = [HEADER, comparison(jobs)];
+  for (const kind of ['2v2v2v2', 'ffa'] as const) {
+    for (const noise of [...new Set(jobs.map((job) => job.noise))].sort()) {
+      for (const mode of ['A', 'B', 'C'] as const) sections.push(table(kind, mode, noise, jobs));
     }
   }
   return sections.filter(Boolean).join('\n');
