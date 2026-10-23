@@ -74,7 +74,7 @@ export function AppHeader({
       className='sticky top-0 z-50 border-b border-cfp-mid-header-border bg-background px-6 max-[700px]:px-3.5'
       data-look='middle'
     >
-      <div className='mx-auto flex min-h-15 max-w-310 flex-wrap items-center gap-x-6 gap-y-2'>
+      <div className='mx-auto flex min-h-15 max-w-310 flex-wrap items-center gap-x-6 gap-y-2 max-[700px]:gap-x-2'>
         <button
           className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground max-[700px]:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           aria-label='CFP Tournament Hub'
