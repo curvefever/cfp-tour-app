@@ -227,19 +227,19 @@ describe('rounds the spread does not touch are drawn as before', () => {
     const { state } = playToRound(startSpread(spreadConfig('2v2v2v2', 12)), 3);
     expect(state.assignments.slice(1).map(roomsOf)).toEqual([
       [
-        ['t1', 't10', 't7', 't4'],
-        ['t5', 't2', 't11', 't8'],
-        ['t9', 't6', 't3', 't12'],
+        ['t12', 't3', 't5', 't1'],
+        ['t7', 't10', 't2', 't8'],
+        ['t4', 't6', 't11', 't9'],
       ],
       [
-        ['t1', 't6', 't11', 't4'],
-        ['t5', 't10', 't3', 't8'],
-        ['t9', 't2', 't7', 't12'],
+        ['t8', 't1', 't6', 't12'],
+        ['t5', 't4', 't2', 't10'],
+        ['t9', 't7', 't3', 't11'],
       ],
       [
-        ['t1', 't2', 't3', 't12'],
-        ['t5', 't6', 't7', 't4'],
-        ['t9', 't10', 't11', 't8'],
+        ['t10', 't9', 't6', 't1'],
+        ['t11', 't8', 't4', 't3'],
+        ['t12', 't5', 't7', 't2'],
       ],
     ]);
   });
@@ -247,18 +247,18 @@ describe('rounds the spread does not touch are drawn as before', () => {
   it('a round that does not count toward the standings (11 teams, rooms of 4, 4 and 3)', () => {
     const { state } = playToRound(startSpread(spreadConfig('2v2v2v2', 11, { nonCounting: 2 })), 1);
     expect(roomsOf(state.assignments[1])).toEqual([
-      ['t1', 't10', 't7', 't4'],
-      ['t5', 't2', 't11', 't8'],
-      ['t9', 't6', 't3'],
+      ['t10', 't3', 't5', 't1'],
+      ['t7', 't11', 't2', 't8'],
+      ['t4', 't6', 't9'],
     ]);
   });
 
   it('a warm-up with no pooling phase (11 teams, rooms of 4, 4 and 3)', () => {
     const { state } = playToRound(startSpread(spreadConfig('2v2v2v2', 11, { pooling: 'none' })), 1);
     expect(roomsOf(state.assignments[1])).toEqual([
-      ['t1', 't10', 't7', 't4'],
-      ['t5', 't2', 't11', 't8'],
-      ['t9', 't6', 't3'],
+      ['t10', 't3', 't5', 't1'],
+      ['t7', 't11', 't2', 't8'],
+      ['t4', 't6', 't9'],
     ]);
   });
 });

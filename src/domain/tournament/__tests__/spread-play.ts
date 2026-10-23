@@ -1,7 +1,7 @@
 import { buildAdvancementTiers } from '../advancement';
 import { getGameFormat } from '../formats';
 import { addWalkUpIndividual, addWalkUpTeam } from '../mutations';
-import { scoreKeysForPosition } from '../scoring';
+import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
 import { recordRoomHistory } from '../seeding';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentState } from '../types';
@@ -100,7 +100,7 @@ export function scoreByHash(state: TournamentState): { state: TournamentState; p
       room: entry.room as number,
       position: slot,
       numGames: round.numGames ?? 1,
-      teamSize: teamSizeOf(state) || undefined,
+      teamSize: scoredTeamSize(state),
     });
     keys.forEach((key, index) => {
       scores[key] = index === 0 ? (value.get(entry.name) as number) : 1;
