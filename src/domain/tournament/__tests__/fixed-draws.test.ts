@@ -97,6 +97,39 @@ describe('buildFixedRoomSchedule', () => {
     expect(smartRepeats).toBeLessThan(naiveRepeats);
   });
 
+  it('draws rounds that do not count toward the standings as before, whatever their room sizes (25 units, rooms of 4 and 3)', () => {
+    const roster = names(25);
+    const rounds = [0, 1].map(() => ({
+      rooms: [4, 4, 4, 4, 3, 3, 3],
+      byeCount: 0,
+      excludeFromStandings: true,
+    }));
+    const rooms = (assignments: Array<{ name: string; room: number | null }>) =>
+      [1, 2, 3, 4, 5, 6, 7].map((room) =>
+        assignments.filter((entry) => entry.room === room).map((entry) => entry.name),
+      );
+    expect(buildFixedRoomSchedule(roster, rounds).rounds.map(rooms)).toEqual([
+      [
+        ['P1', 'P8', 'P15', 'P22'],
+        ['P2', 'P9', 'P16', 'P23'],
+        ['P3', 'P10', 'P17', 'P24'],
+        ['P4', 'P11', 'P18', 'P25'],
+        ['P5', 'P12', 'P19'],
+        ['P6', 'P13', 'P20'],
+        ['P7', 'P14', 'P21'],
+      ],
+      [
+        ['P1', 'P9', 'P17', 'P25'],
+        ['P2', 'P8', 'P18', 'P24'],
+        ['P3', 'P11', 'P15', 'P23'],
+        ['P4', 'P10', 'P16', 'P22'],
+        ['P5', 'P14', 'P20'],
+        ['P6', 'P12', 'P21'],
+        ['P7', 'P13', 'P19'],
+      ],
+    ]);
+  });
+
   it('spreads byes fairly across rounds (no one sits out twice before everyone has sat out once)', () => {
     const roster = names(9);
     const rounds = Array.from({ length: 4 }, () => ({ rooms: [4, 4], byeCount: 1 }));
