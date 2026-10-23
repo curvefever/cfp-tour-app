@@ -3,6 +3,7 @@ import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
+import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { renderApp, tabsFor, type AppRole } from './test-app';
 
@@ -176,6 +177,39 @@ describe('Players tab, drawn rooms and the start', () => {
     const view = renderApp(drawn(), { role: 'admin', tab: 'rankings' });
 
     expect(view.queryAllByText(/Round 1 · Room/).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Bracket, the expected draw', () => {
+  const CUTOFF_PLACEHOLDER = 'Qualifier from standings (seed TBD)';
+
+  /** The last qualification round of the pooling fixture, with every room scored or one score missing. */
+  const lastQualification = (complete: boolean): FixtureTournament => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-pooling');
+    if (!fixture) throw new Error('the ffa37-pooling fixture is missing');
+    const scored = scoreByHash(fixture.state).state;
+    const missing = `r${scored.curRound}-rm1-p0`;
+    const { [missing]: _removed, ...scores } = scored.scores;
+    return { ...fixture, state: complete ? scored : { ...scored, scores } };
+  };
+
+  it.each(ROLES)(
+    'shows %s the next round with its units and an EXPECTED tag once the round in play is scored',
+    (role) => {
+      const view = renderApp(lastQualification(true), { role, tab: 'bracket' });
+
+      expect(view.queryAllByText('EXPECTED')).toHaveLength(1);
+      expect(view.queryAllByText(CUTOFF_PLACEHOLDER)).toHaveLength(0);
+      // The rounds after it keep their placeholders, with no tag of their own.
+      expect(view.queryAllByText(/ · \d+(st|nd|rd|th)$/).length).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(ROLES)('shows %s placeholders and no tag while a room of the round in play is unscored', (role) => {
+    const view = renderApp(lastQualification(false), { role, tab: 'bracket' });
+
+    expect(view.queryAllByText('EXPECTED')).toHaveLength(0);
+    expect(view.queryAllByText(CUTOFF_PLACEHOLDER).length).toBeGreaterThan(0);
   });
 });
 

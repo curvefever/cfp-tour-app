@@ -8,6 +8,15 @@ function gameCountText({ games, upTo }: RoundGameCount): string {
   return `${upTo ? 'UP TO ' : ''}${games} ${games === 1 ? 'GAME' : 'GAMES'}`;
 }
 
+/** A small caps tag after a title bar's name: the game count, EXPECTED. */
+function TitleTag({ children }: { children: ReactNode }) {
+  return (
+    <span className='rounded-xs bg-foreground/10 px-1.75 py-0.75 text-[11px] leading-none font-extrabold text-cfp-text-soft'>
+      {children}
+    </span>
+  );
+}
+
 /** The admin's "4/6": rooms fully scored out of the round's rooms, green once all are in. */
 function RoomsScoredTag({ progress: { scored, total } }: { progress: RoomsScored }) {
   const label = `${scored} of ${total} rooms scored`;
@@ -55,6 +64,7 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
 export function ColumnTitleBar({
   badge,
   className,
+  expected = false,
   extra,
   gameCount,
   now = false,
@@ -65,6 +75,8 @@ export function ColumnTitleBar({
   /** A status tag after the title (the standings column's TEMPORARY / FINAL). */
   badge?: ReactNode;
   className?: string;
+  /** The round's line-up is the expected draw, not yet made (`expectedNextColumn`). */
+  expected?: boolean;
   extra?: ReactNode;
   gameCount?: RoundGameCount | null;
   now?: boolean;
@@ -86,11 +98,8 @@ export function ColumnTitleBar({
           NOW
         </Badge>
       ) : null}
-      {gameCount ? (
-        <span className='rounded-xs bg-foreground/10 px-1.75 py-0.75 text-[11px] leading-none font-extrabold text-cfp-text-soft'>
-          {gameCountText(gameCount)}
-        </span>
-      ) : null}
+      {gameCount ? <TitleTag>{gameCountText(gameCount)}</TitleTag> : null}
+      {expected ? <TitleTag>EXPECTED</TitleTag> : null}
       {badge}
       <div className='ml-auto flex shrink-0 items-center'>
         {progress && progress.total > 0 ? <RoomsScoredTag progress={progress} /> : null}

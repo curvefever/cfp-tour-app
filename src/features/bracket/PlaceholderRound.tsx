@@ -4,9 +4,10 @@ import {
   bracketRoundLabels,
   projectedSlotLabelText,
 } from '../../domain/tournament/bracket';
+import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { unitDisplay } from '../../domain/tournament/roster';
-import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
+import type { RoundAssignment, TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
@@ -55,19 +56,38 @@ function FutureRoom({
   );
 }
 
+/** Splits a line-up into the units of each room (1-based room number) and the units sitting the round out. */
+function unitsByRoom(lineUp: RoundAssignment[], byes: string[] = []) {
+  const byRoom = new Map<number, string[]>();
+  const sittingOut = [...byes];
+  for (const entry of lineUp) {
+    if (entry.room === null) {
+      if (!sittingOut.includes(entry.name)) sittingOut.push(entry.name);
+    } else {
+      byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
+    }
+  }
+  return { byRoom, byes: sittingOut };
+}
+
 export function PlaceholderRound({
-  round,
+  round: plannedRound,
   roundIndex,
   state,
   projected,
   labels,
+  expected = null,
 }: {
   round: TournamentRound;
   roundIndex: number;
   state: TournamentState;
   projected: ProjectedSlotLabel[][] | null;
   labels: ReturnType<typeof bracketRoundLabels>;
+  /** The draw Next Round would make from the results so far: shown as known units in its rooms. */
+  expected?: ExpectedRound | null;
 }) {
+  // The expected draw can be shaped differently from the plan (a round re-fitted to the units arriving).
+  const round = expected ? { ...plannedRound, rooms: expected.rooms } : plannedRound;
   if (!round.rooms.length) return <div className='text-sm text-muted'>Not yet seeded</div>;
   const rule = roundExitRule(state, roundIndex);
   // Where the places of a room go: its bands for a bracket round, what a place earns for a pooling round.
@@ -78,18 +98,16 @@ export function PlaceholderRound({
   const knownRow = (name: string, index: number) => (
     <SlotRow index={index} key={name} known label={unitDisplay(state, name).label} />
   );
-  if (round.fixedRoomAssignments) {
-    // A pre-published draw -- the real room assignment is already fully decided at generation time (see
-    // fixed-draws.ts / docs/seeding.md), so show it directly instead of a projected/TBD placeholder.
-    const byRoom = new Map<number, string[]>();
-    const byes: string[] = [];
-    for (const entry of round.fixedRoomAssignments) {
-      if (entry.room === null) {
-        byes.push(entry.name);
-      } else {
-        byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
-      }
-    }
+  const knownLineUp = expected
+    ? { lineUp: expected.assignments, byes: expected.byes }
+    : round.fixedRoomAssignments
+      ? { lineUp: round.fixedRoomAssignments, byes: [] }
+      : null;
+  if (knownLineUp) {
+    // The real room assignment is already decided (a pre-published fixed draw, see fixed-draws.ts and
+    // docs/seeding.md) or fully determined by the results (the expected draw), so show it directly
+    // instead of a projected/TBD placeholder.
+    const { byRoom, byes } = unitsByRoom(knownLineUp.lineUp, knownLineUp.byes);
     return (
       <>
         {round.rooms.map((_, roomIndex) => (

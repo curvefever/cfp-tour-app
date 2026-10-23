@@ -9,6 +9,7 @@ import {
   projectFutureRoundSlots,
   roundGameCount,
 } from '../../domain/tournament/bracket';
+import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { isFinalComplete } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -34,6 +35,7 @@ export function RoundColumn({
   children,
   collapsed = false,
   current = false,
+  expected = false,
   folded,
   gameCount,
   label,
@@ -43,6 +45,8 @@ export function RoundColumn({
   children: ReactNode;
   collapsed?: boolean;
   current?: boolean;
+  /** The column holds the expected draw (the EXPECTED tag on its title bar). */
+  expected?: boolean;
   /** What the folded box shows when the column is collapsed. */
   folded: FoldedRoundSummary;
   gameCount?: RoundGameCount | null;
@@ -61,6 +65,7 @@ export function RoundColumn({
   return (
     <div className={cn(roundColumnWidthClass(), 'flex flex-col gap-4.5')}>
       <ColumnTitleBar
+        expected={expected}
         gameCount={gameCount}
         now={current}
         onToggle={onToggle}
@@ -96,6 +101,7 @@ function WaveBoxBody({
   editable,
   followKey,
   projectedSlots,
+  expectedDraw,
   labels,
 }: {
   state: TournamentState;
@@ -103,6 +109,7 @@ function WaveBoxBody({
   editable: boolean;
   followKey: string | null;
   projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
+  expectedDraw: Map<number, ExpectedRound> | null;
   labels: ReturnType<typeof bracketRoundLabels>;
 }) {
   const hasLosers = box.losersRoundIndices.length > 0;
@@ -117,6 +124,7 @@ function WaveBoxBody({
           followKey={followKey}
           projected={projectedSlots[box.winnersRoundIndex] ?? null}
           labels={labels}
+          expected={expectedDraw?.get(box.winnersRoundIndex) ?? null}
         />
       </div>
       {hasLosers ? (
@@ -134,6 +142,7 @@ function WaveBoxBody({
                 followKey={followKey}
                 projected={projectedSlots[roundIndex] ?? null}
                 labels={labels}
+                expected={expectedDraw?.get(roundIndex) ?? null}
               />
             </div>
           ))}
@@ -161,6 +170,7 @@ export function BracketRounds({
   state,
   labels,
   projectedSlots,
+  expectedDraw = null,
   editable,
   followKey,
   collapse,
@@ -172,6 +182,8 @@ export function BracketRounds({
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
   projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
+  /** The draw of the next column as Next Round would make it now, while it is determined (`expectedNextColumn`). */
+  expectedDraw?: Map<number, ExpectedRound> | null;
   editable: boolean;
   followKey: string | null;
   collapse?: Record<number, boolean>;
@@ -197,6 +209,7 @@ export function BracketRounds({
       <RoundColumn
         collapsed={collapsed}
         current={isNow(roundIndex)}
+        expected={expectedDraw?.has(roundIndex) ?? false}
         folded={foldedRoundSummary(state, roundIndex, followKey)}
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
@@ -211,6 +224,7 @@ export function BracketRounds({
           followKey={followKey}
           projected={projectedSlots[roundIndex] ?? null}
           labels={labels}
+          expected={expectedDraw?.get(roundIndex) ?? null}
           finalTab={roundIndex === finalRoundIndex ? finalTab : undefined}
           onFinalTabChange={roundIndex === finalRoundIndex ? setFinalTabOverride : undefined}
         />
@@ -245,12 +259,14 @@ export function BracketRounds({
         followKey={followKey}
         projected={projectedSlots[roundIndex] ?? null}
         labels={labels}
+        expected={expectedDraw?.get(roundIndex) ?? null}
       />
     );
     return (
       <RoundColumn
         collapsed={collapsed}
         current={isNow(first)}
+        expected={expectedDraw?.has(first) ?? false}
         folded={foldedColumnSummary(state, box.roundIndices, followKey)}
         gameCount={roundGameCount(state, first)}
         key={first}
@@ -262,6 +278,7 @@ export function BracketRounds({
         {others.map((roundIndex) => (
           <div className='flex flex-col gap-4.5' key={roundIndex}>
             <ColumnTitleBar
+              expected={expectedDraw?.has(roundIndex) ?? false}
               gameCount={roundGameCount(state, roundIndex)}
               progress={progressOf(roundIndex)}
               title={labels[roundIndex]?.label ?? ''}
@@ -280,6 +297,7 @@ export function BracketRounds({
       <RoundColumn
         collapsed={collapsed}
         current={constituents.some(isNow)}
+        expected={constituents.some((roundIndex) => expectedDraw?.has(roundIndex))}
         folded={{
           ...foldedRoundSummary(state, box.winnersRoundIndex, followKey),
           done: isRoundDone(state, lastIndex),
@@ -296,6 +314,7 @@ export function BracketRounds({
           editable={editable}
           followKey={followKey}
           projectedSlots={projectedSlots}
+          expectedDraw={expectedDraw}
           labels={labels}
         />
       </RoundColumn>

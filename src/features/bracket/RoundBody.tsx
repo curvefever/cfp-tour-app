@@ -1,5 +1,6 @@
 import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
+import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
@@ -27,6 +28,7 @@ export function RoundBody({
   followKey,
   projected,
   labels,
+  expected = null,
   finalTab,
   onFinalTabChange,
 }: {
@@ -36,6 +38,8 @@ export function RoundBody({
   followKey: string | null;
   projected: ProjectedSlotLabel[][] | null;
   labels: ReturnType<typeof bracketRoundLabels>;
+  /** The expected draw of this round while it is not drawn yet (`expectedNextColumn`). */
+  expected?: ExpectedRound | null;
   finalTab?: number;
   onFinalTabChange?: (tab: number) => void;
 }) {
@@ -53,6 +57,7 @@ export function RoundBody({
           state={state}
           projected={projected}
           labels={labels}
+          expected={expected}
         />
         {roundIndex === nextColumnStart(state) ? <JoiningPanel state={state} /> : null}
       </>

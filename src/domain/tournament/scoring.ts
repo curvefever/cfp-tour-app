@@ -81,6 +81,21 @@ function getUnitScoreForGame(
   return computeTeamScore(values, rule, getDefenderIndex(state, team?.teamId, roundIndex));
 }
 
+/** The rooms (1-based) of a round that have units, in order. */
+export function occupiedRooms(state: Pick<TournamentState, 'assignments'>, roundIndex: number): number[] {
+  const assignments = state.assignments[roundIndex] ?? [];
+  return [...new Set(assignments.flatMap((entry) => (entry.room === null ? [] : [entry.room])))].sort(
+    (first, second) => first - second,
+  );
+}
+
+/** Whether every unit of the room has a score (every game, in a round of several games). */
+export function isRoomScored(state: TournamentState, roundIndex: number, room: number): boolean {
+  return (state.assignments[roundIndex] ?? [])
+    .filter((entry) => entry.room === room)
+    .every((_, position) => getUnitScore(state, roundIndex, room, position, null) !== null);
+}
+
 export function getUnitScore(
   state: TournamentState,
   roundIndex: number,

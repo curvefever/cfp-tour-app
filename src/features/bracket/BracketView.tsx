@@ -5,6 +5,7 @@ import {
   bracketRoundLabels,
   projectFutureRoundSlots,
 } from '../../domain/tournament/bracket';
+import { expectedNextColumn } from '../../domain/tournament/expected-draw';
 import { resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import { drawnAheadStatus } from '../../domain/tournament/redraw';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -47,6 +48,7 @@ export function BracketView() {
   const follow = useMemo(() => bracketFollowStatus(app.state, followKey), [app.state, followKey]);
   const labels = bracketRoundLabels(app.state);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
+  const expectedDraw = useMemo(() => expectedNextColumn(app.state), [app.state]);
   if (!app.state.rounds.length) {
     return (
       <>
@@ -121,6 +123,7 @@ export function BracketView() {
         state={app.state}
         labels={labels}
         projectedSlots={projectedSlots}
+        expectedDraw={expectedDraw}
         editable={editable}
         followKey={followKey}
         collapse={collapse}
