@@ -141,6 +141,18 @@ async function captureFollowRow(page: Page, fixture: FixtureTournament): Promise
   await page.locator('#br-follow-input').fill('');
 }
 
+/** The Standings tab on a phone: a row tapped open, then the explanation unfolded. */
+async function capturePhoneStandings(page: Page, fixtureId: string): Promise<void> {
+  const rows = page.locator('#st-content').getByRole('button', { expanded: false });
+  await rows.filter({ hasText: 'Player 09' }).click();
+  await rows.filter({ hasText: 'Player 11' }).click();
+  await capture(page, fixtureId, 'qualification-rows-open-390');
+  await expectNoSidewaysPageScroll(page, 390);
+  await page.getByRole('button', { name: 'How qualification works' }).click();
+  await capture(page, fixtureId, 'qualification-explained-390');
+  await expectNoSidewaysPageScroll(page, 390);
+}
+
 /** A control a finger can hit: at least 44 px each way. */
 async function expectTapTarget(control: Locator): Promise<void> {
   await expect(control).toBeVisible();
@@ -213,6 +225,10 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
+          if (STANDINGS_TABS.includes(tab) && width === WIDTHS[1]) {
+            await expectNoSidewaysPageScroll(page, width);
+            if (fixture.id === 'ffa37-quarters') await capturePhoneStandings(page, fixture.id);
+          }
           if (tab === 'Bracket' && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);
             await captureBracketPanels(page, fixture, width);

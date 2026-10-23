@@ -426,3 +426,81 @@ describe('Bracket tab on a phone: the round strip', () => {
     expect(view.queryByRole('menu')).toBeNull();
   });
 });
+
+describe('Standings tab on a phone: the compact list', () => {
+  const quarters = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
+    return fixture;
+  };
+  const rowOf = (view: ReturnType<typeof renderApp>, name: string) =>
+    view
+      .getAllByRole('button', { expanded: false })
+      .find((button) => button.textContent?.includes(name) && button.className.includes('min-h-11'));
+
+  it('shows the table for a desktop and the list for a phone, one hidden by CSS each', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
+
+    expect(view.getByRole('table').parentElement?.className).toContain('max-[700px]:hidden');
+    const row = rowOf(view, 'Player 08');
+    expect(row?.closest('div[class*="min-[701px]:hidden"]')).not.toBeNull();
+    expect(row?.textContent).toContain('8 · 8 · 6');
+  });
+
+  it('unfolds a row on tap to its round lines and tie-break, and folds it on a second tap', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
+    const row = rowOf(view, 'Player 08');
+    if (!row) throw new Error('no Player 08 row');
+
+    fireEvent.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('true');
+    const detail = view.getByText('Round 3 · 66 · 3rd · 6 pts');
+    expect(detail.parentElement?.id).toBe(row.getAttribute('aria-controls'));
+    expect(view.getByText('Tie-break 142%')).toBeDefined();
+
+    fireEvent.click(row);
+    expect(row.getAttribute('aria-expanded')).toBe('false');
+    expect(view.queryByText('Round 3 · 66 · 3rd · 6 pts')).toBeNull();
+  });
+
+  it('lets several rows stay open, and gives both of two units on one whole percent the precise value', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
+
+    fireEvent.click(rowOf(view, 'Player 09') as HTMLElement);
+    fireEvent.click(rowOf(view, 'Player 11') as HTMLElement);
+
+    expect(view.getByText('Tie-break 113% (113.05%)')).toBeDefined();
+    expect(view.getByText('Tie-break 113% (112.62%)')).toBeDefined();
+  });
+
+  it('names the rounds in a row as the table header does, for Swiss too', () => {
+    const swiss = fixtureTournaments().find((entry) => entry.id === 'teams-4v4-13');
+    if (!swiss) throw new Error('the teams-4v4-13 fixture is missing');
+    const view = renderApp(swiss, { role: 'viewer', tab: 'standings' });
+    const headers = within(view.getByRole('table'))
+      .getAllByRole('columnheader')
+      .map((header) => header.textContent)
+      .filter((text) => text?.startsWith('Round'));
+
+    const listHead = view.getAllByText('Pos').find((element) => element.tagName === 'SPAN');
+    const firstRow = listHead?.parentElement?.parentElement?.querySelector('button');
+    if (!firstRow) throw new Error('no row');
+    fireEvent.click(firstRow);
+    const lines = firstRow.parentElement?.querySelectorAll('[id] > div') ?? [];
+    expect([...lines].slice(0, headers.length).map((line) => line.textContent?.split(' · ')[0])).toEqual(
+      headers,
+    );
+  });
+
+  it('folds the explanation into one line that unfolds, open on a desktop', () => {
+    const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
+    const toggle = view.getByRole('button', { name: 'How qualification works' });
+    const text = view.getByText(/After 3 of 3 rounds|These are the final standings|After \d of \d rounds/);
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(text.parentElement?.className).toContain('max-[700px]:hidden');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(text.parentElement?.className).not.toContain('max-[700px]:hidden');
+  });
+});

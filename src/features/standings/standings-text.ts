@@ -1,6 +1,6 @@
 import { largestRoomSize } from '../../domain/tournament/advancement';
 import { formatStandingValue, standardPoints } from '../../domain/tournament/scoring';
-import type { StandingsDisplay } from '../../domain/tournament/standings-display';
+import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
 import { ordinal, placeOrdinal } from '../../lib/ordinal';
 
@@ -112,4 +112,14 @@ export function sharesWholePercent(
 /** The tie-break as a whole percent of the room average ("147%"); "—" when the unit has no played round. */
 export function formatTieBreak(roomShare: number | null | undefined): string {
   return roomShare === null || roomShare === undefined ? '—' : `${Math.round(roomShare * 100)}%`;
+}
+
+/** A counted round's name in a standings table's header and in a phone row's detail: "Round 3". */
+export function standingsRoundLabel(state: TournamentState, roundIndex: number): string {
+  return `Round ${state.rounds[roundIndex].roundNum}`;
+}
+
+/** `sharesWholePercent` for the entries of one standings table, as every display of it asks. */
+export function entriesSharingPercent(entries: StandingsDisplayTable['entries']): boolean[] {
+  return sharesWholePercent(entries.map((entry) => ({ points: entry.totalFP, share: entry.roomShare })));
 }

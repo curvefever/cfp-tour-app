@@ -10,6 +10,7 @@ import { columnTitleClassName } from '../../components/ui';
 import { ExitIcon } from '../bracket/ExitIcon';
 import { standingsExitLines } from '../bracket/exit-lines';
 import { PhaseBadge } from '../bracket/PhaseBadge';
+import { StandingsCompactList } from './StandingsCompactList';
 import { StandingsTable } from './StandingsTable';
 
 /** A table's title row: its name, TEMPORARY or FINAL, and the exit icon saying where each run of standings goes. */
@@ -57,6 +58,16 @@ export function TournamentStandings({
         <section className='flex min-w-0 flex-col gap-3' key={table.key}>
           <TableTitle display={display} labels={labels} table={table} />
           <StandingsTable
+            className='max-[700px]:hidden'
+            display={display}
+            followKey={followKey}
+            marks={marks[table.key]}
+            state={state}
+            table={table}
+            unitLabel={unitLabel}
+          />
+          <StandingsCompactList
+            className='min-[701px]:hidden'
             display={display}
             followKey={followKey}
             marks={marks[table.key]}

@@ -14,7 +14,13 @@ import {
   standingsGroupStarts,
   standingsRowResult,
 } from '../tournament/components/result-row';
-import { formatTieBreak, formatTieBreakPrecise, roundCells, sharesWholePercent } from './standings-text';
+import {
+  entriesSharingPercent,
+  formatTieBreak,
+  formatTieBreakPrecise,
+  roundCells,
+  standingsRoundLabel,
+} from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 
@@ -22,7 +28,7 @@ type Entry = StandingsDisplayTable['entries'][number];
 const NUMBER_CELL = 'w-15 px-2 text-right tabular-nums';
 const HEAD_CELL = 'bg-cfp-game-frame px-2 py-0 text-xs text-cfp-text-soft';
 
-function TieMark({ placed, pending }: { placed: boolean; pending: boolean }) {
+export function TieMark({ placed, pending }: { placed: boolean; pending: boolean }) {
   if (placed)
     return (
       <span className='ml-1.5' title='Placed by a cut-off tie-break'>
@@ -60,7 +66,7 @@ function StandingsHead({
         {roundIndexes.map((roundIndex) => (
           <TableHeadCell className={cn(HEAD_CELL, 'px-1.5 pt-3 text-center')} colSpan={3} key={roundIndex}>
             <span className='block border-b-2 border-primary pb-1.25 text-[13px] text-foreground'>
-              Round {state.rounds[roundIndex].roundNum}
+              {standingsRoundLabel(state, roundIndex)}
             </span>
           </TableHeadCell>
         ))}
@@ -167,6 +173,7 @@ function GroupGap({ columnCount }: { columnCount: number }) {
  * beside the place, a gap between groups of rows instead of a cut line. It scrolls sideways inside its frame.
  */
 export function StandingsTable({
+  className,
   display,
   followKey,
   marks,
@@ -174,6 +181,7 @@ export function StandingsTable({
   table,
   unitLabel,
 }: {
+  className?: string;
   display: StandingsDisplay;
   followKey: string | null;
   marks: CutTieMarks | undefined;
@@ -183,11 +191,14 @@ export function StandingsTable({
 }) {
   const roundIndexes = tableRoundIndexes(state, table);
   const groupStarts = standingsGroupStarts(table);
-  const sharesPercent = sharesWholePercent(
-    table.entries.map((entry) => ({ points: entry.totalFP, share: entry.roomShare })),
-  );
+  const sharesPercent = entriesSharingPercent(table.entries);
   return (
-    <div className='max-w-full overflow-x-auto rounded-xs bg-cfp-game-card outline-2 outline-cfp-game-frame'>
+    <div
+      className={cn(
+        'max-w-full overflow-x-auto rounded-xs bg-cfp-game-card outline-2 outline-cfp-game-frame',
+        className,
+      )}
+    >
       <table className='w-full border-collapse'>
         <StandingsHead roundIndexes={roundIndexes} state={state} unitLabel={unitLabel} />
         <tbody>
