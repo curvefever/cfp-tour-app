@@ -104,7 +104,7 @@ export function ExitIcon({
           {touch ? (
             <button
               aria-label='Close'
-              className='absolute top-1 right-1 flex size-7 cursor-pointer items-center justify-center text-muted'
+              className='absolute top-0 right-0 flex size-11 cursor-pointer items-center justify-center text-muted'
               onClick={() => setOpen(false)}
               type='button'
             >
@@ -112,7 +112,7 @@ export function ExitIcon({
             </button>
           ) : null}
           {lines.map((line, index) => (
-            <div className='flex items-center gap-2' key={index}>
+            <div className={cn('flex items-center gap-2', touch && 'pr-8')} key={index}>
               {line.tone ? <Stripe className='h-4' tone={line.tone} /> : null}
               <span className='font-bold'>{line.places}</span>
               <span className='text-muted'>{line.where}</span>

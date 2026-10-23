@@ -114,6 +114,7 @@ async function captureBracketPanels(page: Page, fixture: FixtureTournament, widt
   if (fixture.notesPanel) {
     await page.getByRole('button', { name: 'Notes about this tournament' }).click();
     await expect(page.getByRole('dialog', { name: 'Notes' })).toBeVisible();
+    if (width < 701) await expectTapTarget(page.getByRole('button', { name: 'Close' }));
     await page.screenshot({
       path: `${OUTPUT_DIR}/${fixture.id}/notes-panel-${width}.png`,
       clip: { x: 0, y: 0, width, height: 640 },
@@ -123,6 +124,7 @@ async function captureBracketPanels(page: Page, fixture: FixtureTournament, widt
   if (fixture.infoBox) {
     await page.getByRole('button', { name: 'How to read the bracket' }).click();
     await expect(page.getByRole('dialog', { name: 'How to read the bracket' })).toBeVisible();
+    if (width < 701) await expectTapTarget(page.getByRole('button', { name: 'Close' }));
     await page.screenshot({
       path: `${OUTPUT_DIR}/${fixture.id}/info-box-${width}.png`,
       clip: { x: 0, y: 0, width, height: 760 },
@@ -137,6 +139,14 @@ async function captureFollowRow(page: Page, fixture: FixtureTournament): Promise
   await page.locator('#br-follow-input').fill(fixture.follow);
   await capture(page, fixture.id, 'bracket-follow-390');
   await page.locator('#br-follow-input').fill('');
+}
+
+/** A control a finger can hit: at least 44 px each way. */
+async function expectTapTarget(control: Locator): Promise<void> {
+  await expect(control).toBeVisible();
+  const box = await control.boundingBox();
+  expect(box?.width ?? 0, 'tap target width').toBeGreaterThanOrEqual(44);
+  expect(box?.height ?? 0, 'tap target height').toBeGreaterThanOrEqual(44);
 }
 
 /** The Bracket's round strip on a phone: the standings item, then a round picked from the group's list. */
@@ -321,7 +331,7 @@ test.describe('screenshots with touch', () => {
       await icon.tap();
       const popup = page.getByRole('tooltip');
       await expect(popup).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+      await expectTapTarget(page.getByRole('button', { name: 'Close' }));
       const edges = await popup.evaluate((element) => {
         const { left, right } = element.getBoundingClientRect();
         return { left, right };

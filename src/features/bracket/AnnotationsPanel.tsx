@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Textarea, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { PanelCloseButton } from './PanelCloseButton';
 import {
   addAnnotation,
   annotationsNewestFirst,
@@ -88,14 +89,7 @@ export function AnnotationsPanel({ onClose }: { onClose(): void }) {
     >
       <div className='flex items-center justify-between'>
         <h2 className='text-[15px] font-extrabold tracking-[0.04em] uppercase'>Notes</h2>
-        <button
-          aria-label='Close'
-          className='flex size-7 cursor-pointer items-center justify-center rounded-xs bg-foreground/12 text-base font-bold'
-          onClick={onClose}
-          type='button'
-        >
-          ×
-        </button>
+        <PanelCloseButton onClose={onClose} />
       </div>
       {!annotations.length ? <p className='text-sm text-muted'>No notes yet.</p> : null}
       {annotationsNewestFirst(annotations).map((entry) => (

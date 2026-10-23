@@ -1,6 +1,7 @@
 import { cn } from '../../components/ui';
 import { Stripe } from '../tournament/components/ResultStripe';
 import { bracketLegend } from './bracket-legend';
+import { PanelCloseButton } from './PanelCloseButton';
 import type { TournamentState } from '../../domain/tournament/types';
 
 /** The plain circled "?" at the far right of the follow row. */
@@ -44,14 +45,7 @@ export function BracketInfoBox({ state, onClose }: { state: TournamentState; onC
     >
       <div className='flex items-center justify-between'>
         <h2 className='text-[15px] font-extrabold tracking-[0.04em] uppercase'>How to read the bracket</h2>
-        <button
-          aria-label='Close'
-          className='flex size-7 cursor-pointer items-center justify-center rounded-xs bg-foreground/12 text-base font-bold'
-          onClick={onClose}
-          type='button'
-        >
-          ×
-        </button>
+        <PanelCloseButton onClose={onClose} />
       </div>
       <div className='flex flex-col gap-1.5'>
         {legend.rows.map((row) => (
