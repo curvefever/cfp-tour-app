@@ -3,7 +3,7 @@ import { POLICIES, type Policy } from './policies';
 import { CUT, type Kind, type Mode } from './simulate';
 import type { JobResult } from './run';
 
-const POLICY_LABEL: Record<Policy, string> = {
+const POLICY_LABEL: Partial<Record<Policy, string>> = {
   current: '1 current',
   'neutral-first': '2 neutral first counted round',
   'last-by-standings': '3 last round by standings',

@@ -8,6 +8,7 @@ import {
 } from '../../src/domain/tournament/seeding';
 import { smallerRoomSeatsBefore, splitForSmallerRooms } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';
+import { drawAroundCuts, profileOf, type Kind, type ProfileKey } from './cuts';
 import { shuffled } from './random';
 
 /**
@@ -23,9 +24,22 @@ export const POLICIES = [
   'standings-every-round',
   'random-rooms',
 ] as const;
-export type Policy = (typeof POLICIES)[number];
+/** Part 2: the last counted round drawn around the cuts of a stake profile, without and with the smaller-room spread. */
+export const PART2_POLICIES = [
+  'current',
+  'last-by-standings',
+  'cuts-P1',
+  'cuts-P2',
+  'cuts-P3',
+  'cuts-spread-P1',
+  'cuts-spread-P2',
+  'cuts-spread-P3',
+  'random-rooms',
+] as const;
+export type Policy = (typeof POLICIES)[number] | (typeof PART2_POLICIES)[number];
 
 interface DrawContext {
+  kind: Kind;
   state: TournamentState;
   next: number;
   firstCounted: number;
@@ -114,8 +128,15 @@ function randomDraw({ state, next, random }: DrawContext): RoundAssignment[] {
   return chunkInto(shuffled(seatedNames(state, next), random), state.rounds[next].rooms);
 }
 
+function aroundCutsDraw(policy: Policy, { state, next, kind }: DrawContext): RoundAssignment[] | null {
+  const match = /^cuts(-spread)?-(P[123])$/.exec(policy);
+  if (!match) return null;
+  return drawAroundCuts(state, next, profileOf(match[2] as ProfileKey, kind), match[1] !== undefined);
+}
+
 function draw(policy: Policy, context: DrawContext): RoundAssignment[] | null {
   const { next, firstCounted, lastRound } = context;
+  if (next === lastRound && policy.startsWith('cuts')) return aroundCutsDraw(policy, context);
   const neutralFirst = policy === 'neutral-first' || policy === 'neutral-first+last-by-standings';
   const lastByStandings = policy === 'last-by-standings' || policy === 'neutral-first+last-by-standings';
   if (neutralFirst && next === firstCounted) return neutralDraw(context);
@@ -130,7 +151,7 @@ export function applyPolicy(
   state: TournamentState,
   next: number,
   policy: Policy,
-  options: { firstCounted: number; lastRound: number; random: () => number },
+  options: { firstCounted: number; lastRound: number; random: () => number; kind: Kind },
 ): TournamentState {
   const own = draw(policy, { state, next, ...options });
   if (!own) return state;

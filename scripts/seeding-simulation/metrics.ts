@@ -2,6 +2,7 @@ import { computeQualificationStandings } from '../../src/domain/tournament/advan
 import { isCountedPoolingRound } from '../../src/domain/tournament/pooling';
 import { countSmallerRoomSeats } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment } from '../../src/domain/tournament/types';
+import { HALF, PROFILE_KEYS, cutLines, profileOf, swingOf } from './cuts';
 import { CUT, type Config, type RunResult } from './simulate';
 
 export const METRICS = [
@@ -12,6 +13,11 @@ export const METRICS = [
   'strengthVsOpponents',
   'repeatPairings',
   'seatSpread',
+  'misP1',
+  'misP2',
+  'misP3',
+  'oppHalf',
+  'oppFull',
 ] as const;
 export type MetricKey = (typeof METRICS)[number];
 
@@ -23,10 +29,17 @@ export interface Carry {
   lastCount: number;
 }
 
+/** Pairs inside a cut's points window that ended on opposite sides of it, and how many had the truly stronger unit above. */
+export interface Decided {
+  correct: number;
+  pairs: number;
+}
+
 export interface Cell {
   runs: number;
   sums: Record<MetricKey, number>;
   carry: Carry;
+  decided: { half: Decided; full: Decided };
 }
 
 export function emptyCell(): Cell {
@@ -34,6 +47,7 @@ export function emptyCell(): Cell {
     runs: 0,
     sums: Object.fromEntries(METRICS.map((key) => [key, 0])) as Record<MetricKey, number>,
     carry: { firstSum: 0, firstCount: 0, lastSum: 0, lastCount: 0 },
+    decided: { half: { correct: 0, pairs: 0 }, full: { correct: 0, pairs: 0 } },
   };
 }
 
@@ -105,6 +119,86 @@ function seatSpread(run: RunResult): number {
   return Math.max(...values) - Math.min(...values);
 }
 
+/** Value handed to the wrong units: the sum over units of |v(true rank) - v(final rank)| / 2 (lower is better). */
+function misplacement(
+  config: Config,
+  run: RunResult,
+  finalOrder: string[],
+): Record<'misP1' | 'misP2' | 'misP3', number> {
+  const trueOrder = [...run.strengths.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
+  const trueRank = new Map(trueOrder.map((name, index) => [name, index + 1]));
+  const out = { misP1: 0, misP2: 0, misP3: 0 };
+  for (const key of PROFILE_KEYS) {
+    const { value } = profileOf(key, config.kind);
+    let total = 0;
+    finalOrder.forEach((name, index) => {
+      total += Math.abs(value(trueRank.get(name) as number) - value(index + 1));
+    });
+    out[`mis${key}` as 'misP1'] = total / 2;
+  }
+  return out;
+}
+
+function lastRoomSizes(run: RunResult): number[] {
+  const last = run.finalState.assignments[run.qualRounds - 1];
+  const sizes = new Map<number, number>();
+  for (const { room } of last) if (room !== null) sizes.set(room, (sizes.get(room) ?? 0) + 1);
+  return [...sizes.values()];
+}
+
+/** The mean true strength of a unit's opponents in the last round. */
+function opponentStrength(run: RunResult, name: string): number {
+  const last = run.finalState.assignments[run.qualRounds - 1];
+  const room = last.find((entry) => entry.name === name)?.room;
+  const others = last.filter((entry) => entry.room === room && entry.name !== name);
+  return others.reduce((sum, entry) => sum + (run.strengths.get(entry.name) as number), 0) / others.length;
+}
+
+/** Last-round opposition of the unit ranked #c before the round minus that of #c+1 (0 = the same). */
+function oppositionAtCut(run: RunResult, cut: number): number {
+  const { order } = run.beforeLast;
+  return opponentStrength(run, order[cut - 1]) - opponentStrength(run, order[cut]);
+}
+
+/** Among the units within one swing of the cut's points line, the pairs that end on opposite sides of it. */
+function decidedAtCut(run: RunResult, finalOrder: string[], cut: number): Decided {
+  const { order, points } = run.beforeLast;
+  const swing = swingOf(Math.max(...lastRoomSizes(run)));
+  const [line] = cutLines(
+    order.map((name) => points.get(name) as number),
+    [{ position: cut, weight: 1 }],
+  );
+  const inside = order.filter((name) => Math.abs((points.get(name) as number) - line) <= swing);
+  const finalRank = new Map(finalOrder.map((name, index) => [name, index + 1]));
+  const result = { correct: 0, pairs: 0 };
+  for (let a = 0; a < inside.length; a += 1) {
+    for (let b = a + 1; b < inside.length; b += 1) {
+      const first = inside[a];
+      const second = inside[b];
+      const firstAbove = (finalRank.get(first) as number) <= cut;
+      if (firstAbove === (finalRank.get(second) as number) <= cut) continue;
+      result.pairs += 1;
+      const above = firstAbove ? first : second;
+      const below = firstAbove ? second : first;
+      if ((run.strengths.get(above) as number) > (run.strengths.get(below) as number)) result.correct += 1;
+    }
+  }
+  return result;
+}
+
+/** Adds one run's cut-decision counts to a cell. */
+export function addDecided(cell: Cell, config: Config, run: RunResult): void {
+  const finalOrder = computeQualificationStandings(run.finalState).map((entry) => entry.name);
+  for (const [key, cut] of [
+    ['half', HALF[config.kind]],
+    ['full', CUT[config.kind]],
+  ] as const) {
+    const counts = decidedAtCut(run, finalOrder, cut);
+    cell.decided[key].correct += counts.correct;
+    cell.decided[key].pairs += counts.pairs;
+  }
+}
+
 export function measure(config: Config, run: RunResult): Record<MetricKey, number> {
   const standings = computeQualificationStandings(run.finalState);
   const byStrength = [...run.strengths.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name);
@@ -126,6 +220,13 @@ export function measure(config: Config, run: RunResult): Record<MetricKey, numbe
     strengthVsOpponents: strengthVsOpponents(run),
     repeatPairings: repeatPairings(run),
     seatSpread: seatSpread(run),
+    ...misplacement(
+      config,
+      run,
+      standings.map((entry) => entry.name),
+    ),
+    oppHalf: oppositionAtCut(run, HALF[config.kind]),
+    oppFull: oppositionAtCut(run, CUT[config.kind]),
   };
 }
 

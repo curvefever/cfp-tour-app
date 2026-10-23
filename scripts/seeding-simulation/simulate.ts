@@ -1,3 +1,4 @@
+import { computeQualificationStandings } from '../../src/domain/tournament/advancement';
 import { generateTournament } from '../../src/domain/tournament/generation';
 import { getGameFormat } from '../../src/domain/tournament/formats';
 import { createTournamentRuntime } from '../../src/domain/tournament/runtime';
@@ -5,20 +6,21 @@ import { scoredTeamSize, scoreKeysForPosition } from '../../src/domain/tournamen
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type { TournamentState, TournamentTeam } from '../../src/domain/tournament/types';
+import { CUT, type Kind } from './cuts';
 import { applyPolicy, type Policy } from './policies';
 import { gaussian, seededRandom } from './random';
 
-export type Kind = '2v2v2v2' | 'ffa';
 /** A: four qualification rounds, the first not counted (the audited tournament). B: three rounds, all counted. C: four rounds, all counted. */
 export type Mode = 'A' | 'B' | 'C';
+
+export { CUT };
+export type { Kind };
 
 export interface Config {
   kind: Kind;
   count: number;
   mode: Mode;
 }
-
-export const CUT: Record<Kind, number> = { '2v2v2v2': 16, ffa: 24 };
 
 export function configKey(config: Config): string {
   return `${config.kind}-${config.count}-${config.mode}`;
@@ -34,6 +36,8 @@ export interface RunResult {
   roundOnePlaces: Map<string, { place: number; roomSize: number }>;
   qualRounds: number;
   firstCounted: number;
+  /** The standings before the last qualification round: the units best first, with their points. */
+  beforeLast: { order: string[]; points: Map<string, number> };
 }
 
 function buildTournament(config: Config, random: () => number): TournamentState {
@@ -100,6 +104,14 @@ function scoreRound(
   return { state: { ...state, scores }, places };
 }
 
+function standingsBefore(state: TournamentState): RunResult['beforeLast'] {
+  const standings = computeQualificationStandings(state);
+  return {
+    order: standings.map((entry) => entry.name),
+    points: new Map(standings.map((entry) => [entry.name, entry.totalFP ?? 0])),
+  };
+}
+
 export function simulate(config: Config, policy: Policy, noise: number, seed: number): RunResult {
   const random = seededRandom(seed);
   let state = buildTournament(config, random);
@@ -108,7 +120,9 @@ export function simulate(config: Config, policy: Policy, noise: number, seed: nu
   const strengths = new Map(state.assignments[0].map((entry) => [entry.name, gaussian(random)] as const));
   const policyRandom = seededRandom(seed ^ 0x9e3779b9);
   let roundOnePlaces = new Map<string, { place: number; roomSize: number }>();
+  let beforeLast = { order: [] as string[], points: new Map<string, number>() };
   for (let round = 0; round < qualRounds; round += 1) {
+    if (round === qualRounds - 1) beforeLast = standingsBefore(state);
     const scored = scoreRound(state, strengths, noise, random);
     if (round === 0) roundOnePlaces = scored.places;
     if (round === qualRounds - 1) {
@@ -122,7 +136,8 @@ export function simulate(config: Config, policy: Policy, noise: number, seed: nu
       firstCounted,
       lastRound: qualRounds - 1,
       random: policyRandom,
+      kind: config.kind,
     });
   }
-  return { strengths, finalState: state, roundOnePlaces, qualRounds, firstCounted };
+  return { strengths, finalState: state, roundOnePlaces, qualRounds, firstCounted, beforeLast };
 }
