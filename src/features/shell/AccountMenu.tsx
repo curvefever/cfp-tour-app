@@ -37,7 +37,7 @@ export function AccountMenu({
       <button
         aria-expanded={open}
         aria-haspopup='menu'
-        className='cursor-pointer rounded px-1.5 py-1 text-[13px] whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+        className='cursor-pointer rounded px-1.5 py-1 text-[13px] max-[700px]:flex max-[700px]:min-h-11 max-[700px]:min-w-11 max-[700px]:items-center max-[700px]:justify-center whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
         onClick={() => setOpen((current) => !current)}
       >
         <span className='max-[700px]:hidden'>Signed in{role ? ` · ${role}` : ''}</span>
