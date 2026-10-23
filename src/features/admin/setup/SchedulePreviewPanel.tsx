@@ -1,34 +1,13 @@
-import { useState } from 'react';
 import { unitLabelPluralLower } from '../../../domain/tournament/formats';
-import { staleDrawRefusal } from '../../../domain/tournament/pre-start-roster';
-import { Alert, Button, SectionPanel } from '../../../components/ui';
-import { transitionRefusal } from '../../tournaments/tournament-lifecycle';
+import { SectionPanel } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { ConfirmStartBar } from './ConfirmStartBar';
 import { schedulePreviewRows } from './schedule-preview-rows';
 
-/** The generated rounds, and the Confirm & Start button; nothing before a schedule is generated or once started. */
+/** The generated rounds, and (on a desktop) the Confirm & Start button; nothing before a schedule is generated or once started. */
 export function SchedulePreviewPanel() {
-  const { state, setup, startTournamentNow } = useTournamentApp();
-  const [starting, setStarting] = useState(false);
-  const [startError, setStartError] = useState('');
+  const { state, setup } = useTournamentApp();
   const unit = unitLabelPluralLower(setup.gameFormat);
-
-  async function confirmAndStart() {
-    setStartError('');
-    setStarting(true);
-    const message = await startTournamentNow();
-    setStarting(false);
-    if (message) setStartError(message);
-  }
-
-  const startRefusal =
-    transitionRefusal('start', {
-      status: state.lifecycle?.status ?? 'draft',
-      started: false,
-      testRun: state.lifecycle?.testRun ?? false,
-      title: state.title,
-      scheduledAt: state.info?.scheduledAt ?? null,
-    }) ?? staleDrawRefusal(state);
 
   if (!state.rounds.length || state.started) return null;
   return (
@@ -50,16 +29,7 @@ export function SchedulePreviewPanel() {
           {state.confirmedCount ?? state.players.length} {unit}.
         </p>
       </SectionPanel>
-      {startRefusal ? <p className='text-xs text-muted'>{startRefusal}</p> : null}
-      {startError ? <Alert tone='danger'>{startError}</Alert> : null}
-      <Button
-        className='h-12 w-full text-base font-extrabold'
-        variant='primary'
-        disabled={Boolean(startRefusal) || starting}
-        onClick={() => void confirmAndStart()}
-      >
-        {starting ? 'Starting…' : 'Confirm & Start'}
-      </Button>
+      <ConfirmStartBar />
     </div>
   );
 }

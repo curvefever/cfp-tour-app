@@ -5,6 +5,7 @@ import { applyTournamentSettings } from '../../domain/tournament/tournament-sett
 import type { TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { InfoContentPanel } from './InfoContentPanel';
+import { ConfirmStartBar } from './setup/ConfirmStartBar';
 import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
 import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
@@ -63,6 +64,7 @@ export function SetupView() {
       <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
         <SchedulePreviewPanel />
       </aside>
+      <ConfirmStartBar pinned />
     </div>
   );
 }

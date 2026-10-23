@@ -126,7 +126,7 @@ export function FormatPanel({
     setupDerived(setup, state, lbQualifiers);
   return (
     <SectionPanel title='FORMAT'>
-      <div className='grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-x-4'>
+      <div className='grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-4'>
         <GameFormatFields gameFormat={setup.gameFormat} onChange={changeFormat} />
         <PresenceField htmlFor='cfg-schedule-logic' label='Schedule logic'>
           <Select

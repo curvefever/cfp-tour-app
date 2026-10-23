@@ -532,3 +532,35 @@ describe('Rankings tab on a phone', () => {
     expect(view.getAllByRole('button', { name: 'Download image' })).toHaveLength(1);
   });
 });
+
+describe('Setup on a phone: Confirm & Start', () => {
+  const drawn = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'drawn-ffa-31');
+    if (!fixture) throw new Error('the drawn-ffa-31 fixture is missing');
+    return fixture;
+  };
+
+  it('has an inline copy under the preview (hidden on a phone) and a pinned copy at the end (hidden on a desktop)', () => {
+    const view = renderApp(drawn(), { role: 'admin', tab: 'admin' });
+    const buttons = view.getAllByRole('button', { name: 'Confirm & Start' });
+    const bars = buttons.map((button) => button.closest('[data-confirm-start]') as HTMLElement);
+
+    expect(buttons).toHaveLength(2);
+    const inline = bars.find((bar) => bar.dataset.confirmStart === 'inline');
+    const pinned = bars.find((bar) => bar.dataset.confirmStart === 'pinned');
+    expect(inline?.className).toContain('max-[700px]:hidden');
+    expect(pinned?.className).toContain('min-[701px]:hidden');
+    expect(pinned?.className).toContain('sticky');
+    expect(pinned?.className).toContain('bottom-0');
+    // The pinned bar is a child of the page itself, so it can stay at the screen's bottom along the whole page.
+    expect(pinned?.parentElement?.id).toBe('panel-setup');
+  });
+
+  it('shows neither once the tournament has started', () => {
+    const started = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!started) throw new Error('the ffa37-quarters fixture is missing');
+    const view = renderApp(started, { role: 'admin', tab: 'admin' });
+
+    expect(view.queryAllByRole('button', { name: 'Confirm & Start' })).toHaveLength(0);
+  });
+});
