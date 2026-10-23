@@ -84,7 +84,7 @@ export function ExitIcon({
         aria-expanded={open}
         aria-label={label}
         className={cn(
-          'flex size-7 cursor-pointer items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current',
+          'flex size-7 cursor-pointer items-center justify-center max-[700px]:-m-2 max-[700px]:size-11 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-current',
           buttonClassName,
         )}
         onClick={touch ? () => setOpen((current) => !current) : undefined}

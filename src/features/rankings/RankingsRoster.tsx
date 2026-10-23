@@ -30,13 +30,14 @@ import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { destinationLabel } from '../bracket/exit-text';
-import { Button, Input, Select } from '../../components/ui';
+import { Button, Input, Select, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
 import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
+import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
 import { memberPlaceholders, noMembersMessage, parseWalkUpTeam, teamLinePlaceholder } from './walk-up-team';
 import { nextColumnStart, roundInPlayOf } from '../../domain/tournament/round-columns';
 
@@ -343,7 +344,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
                   <ReserveChipName confirmations={confirmations} name={key} state={state} />
                   <Button
                     aria-label={`Add ${key}`}
-                    className='size-6 min-h-0 p-0 text-warning'
+                    className={cn(CHIP_BUTTON, 'text-warning')}
                     onClick={() => add(key)}
                     size='sm'
                     variant='ghost'
@@ -352,7 +353,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
                   </Button>
                   <Button
                     aria-label={`Remove ${key}`}
-                    className='size-6 min-h-0 p-0 text-warning'
+                    className={cn(CHIP_BUTTON, 'text-warning')}
                     onClick={() => app.updateState((current) => removeReserveUnit(current, key))}
                     size='sm'
                     variant='ghost'
@@ -458,7 +459,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                 <span className='flex gap-1'>
                   <Button
                     aria-label={`Rename team ${team.teamName}`}
-                    className='w-8.5 px-0'
+                    className={ICON_BUTTON}
                     size='sm'
                     title='Rename team'
                     onClick={() => {
@@ -483,7 +484,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                   </Button>
                   <Button
                     aria-label={`Swap team ${team.teamName}`}
-                    className='w-8.5 px-0'
+                    className={ICON_BUTTON}
                     size='sm'
                     disabled={!swapsOpen}
                     title={swapTitle('Swap team')}
@@ -541,7 +542,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                   </Button>
                   <Button
                     aria-label={`Remove team ${team.teamName}`}
-                    className='w-8.5 px-0'
+                    className={ICON_BUTTON}
                     size='sm'
                     title='Remove team'
                     variant='danger'
@@ -642,7 +643,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       defender !== memberIndex ? (
                         <Button
                           aria-label={`Make ${member.name} defender`}
-                          className='w-8.5 px-0'
+                          className={ICON_BUTTON}
                           size='sm'
                           title='Make defender'
                           onClick={() =>
@@ -654,7 +655,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       ) : null}
                       <Button
                         aria-label={`Rename ${member.name}`}
-                        className='w-8.5 px-0'
+                        className={ICON_BUTTON}
                         size='sm'
                         title='Rename member'
                         onClick={() => {
@@ -669,7 +670,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                       </Button>
                       <Button
                         aria-label={`Remove ${member.name}`}
-                        className='w-8.5 px-0'
+                        className={ICON_BUTTON}
                         size='sm'
                         title='Remove member'
                         variant='danger'

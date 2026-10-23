@@ -15,7 +15,7 @@ export interface HeaderAccount {
 }
 
 const tabClassName =
-  'flex cursor-pointer items-center px-3.5 max-[700px]:px-2 text-[15px] font-semibold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
+  'flex cursor-pointer items-center px-3.5 max-[700px]:min-w-11 max-[700px]:px-2 text-[15px] font-semibold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
 
 function TabButton({
   active,
@@ -76,7 +76,7 @@ export function AppHeader({
     >
       <div className='mx-auto flex min-h-15 max-w-310 flex-wrap items-center gap-x-6 gap-y-2'>
         <button
-          className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground max-[700px]:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           aria-label='CFP Tournament Hub'
           onClick={onHome}
         >

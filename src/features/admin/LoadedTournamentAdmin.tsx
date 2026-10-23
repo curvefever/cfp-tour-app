@@ -16,7 +16,7 @@ export function LoadedTournamentAdmin() {
   return (
     <div className='mx-auto flex max-w-295 flex-col gap-5'>
       <button
-        className='w-fit cursor-pointer text-[15px] font-bold text-cfp-sky hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+        className='w-fit cursor-pointer text-[15px] font-bold text-cfp-sky hover:underline max-[700px]:min-h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
         onClick={() => void app.unloadTournament()}
       >
         ← All tournaments

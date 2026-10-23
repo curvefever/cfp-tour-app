@@ -4,10 +4,11 @@ import { isManuallyConfirmed, setConfirmed } from '../../domain/tournament/confi
 import { Button, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamConfirmationText } from './confirmation-view';
+import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
 
 const SIZES = {
-  row: 'w-8.5 px-0 max-[700px]:h-11 max-[700px]:w-11',
-  chip: 'size-6 min-h-0 p-0 text-xs',
+  row: ICON_BUTTON,
+  chip: `${CHIP_BUTTON} text-xs`,
 } as const;
 
 /** The first control of a player row: ✓ on green when confirmed, ? on red when not, so the state is not only colour. A score confirms the player and locks the toggle. */

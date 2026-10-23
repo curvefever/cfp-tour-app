@@ -208,6 +208,26 @@ async function capturePhoneStandings(page: Page, fixtureId: string): Promise<voi
   await expectNoSidewaysPageScroll(page, 390);
 }
 
+/** Every visible control of a phone page is at least 44 px each way (a link inside a sentence is not a control). */
+async function expectNoSmallControls(page: Page): Promise<void> {
+  const small = await page.evaluate(() => {
+    const controls = document.querySelectorAll(
+      'button, a[href], input, select, textarea, [role="tab"], [role="menuitem"]',
+    );
+    return [...controls].flatMap((element) => {
+      const style = getComputedStyle(element);
+      const { width, height } = element.getBoundingClientRect();
+      const hidden = style.display === 'none' || style.visibility === 'hidden' || width === 0 || height === 0;
+      const sentenceLink = element.tagName === 'A' && element.closest('p, li') !== null;
+      const label = (element.getAttribute('aria-label') ?? element.textContent ?? '').trim().slice(0, 40);
+      return hidden || sentenceLink || (width >= 43.5 && height >= 43.5)
+        ? []
+        : [`${label} ${Math.round(width)}x${Math.round(height)}`];
+    });
+  });
+  expect(small, 'controls under 44 px').toEqual([]);
+}
+
 /** A control a finger can hit: at least 44 px each way. */
 async function expectTapTarget(control: Locator): Promise<void> {
   await expect(control).toBeVisible();
@@ -280,6 +300,7 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
+          if (width === WIDTHS[1]) await expectNoSmallControls(page);
           if (tab === 'Info' && width === WIDTHS[1]) await expectPhoneInfo(page, fixture);
           if ((tab === 'Rankings' || tab === 'Players') && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);

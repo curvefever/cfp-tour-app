@@ -4,7 +4,7 @@ import { hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoundStripItem, StripPick } from './round-strip';
 
 const tabClassName =
-  'flex h-11 shrink-0 cursor-pointer items-center gap-1.5 rounded-xs bg-cfp-game-fold px-3 text-[13px] font-extrabold tracking-[0.02em] whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
+  'flex h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xs bg-cfp-game-fold px-3 text-[13px] font-extrabold tracking-[0.02em] whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary';
 /** How much of the next tab stays showing when the strip scrolls to a tab. */
 const TAB_PEEK = 12;
 

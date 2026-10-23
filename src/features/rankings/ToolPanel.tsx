@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, SectionPanel, cn } from '../../components/ui';
+import { ICON_BUTTON } from './tool-buttons';
 
 /** A panel of the Organiser tools block: the shared section panel, with an optional muted count and orange note at the right of its header. */
 export function ToolPanel({
@@ -80,7 +81,7 @@ export function ToolIconButton({
   return (
     <Button
       aria-label={label}
-      className='w-8.5 px-0 max-[700px]:h-11 max-[700px]:w-11'
+      className={ICON_BUTTON}
       disabled={disabled}
       onClick={onClick}
       size='sm'

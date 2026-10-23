@@ -109,7 +109,7 @@ export function InfoView() {
         </section>
       ) : null}
       <a
-        className='w-fit text-base font-bold text-cfp-sky hover:underline'
+        className='flex w-fit items-center text-base font-bold text-cfp-sky hover:underline max-[700px]:min-h-11'
         href={GENERAL_RULES_URL}
         rel='noopener noreferrer'
         target='_blank'
