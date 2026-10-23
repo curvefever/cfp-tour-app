@@ -78,7 +78,10 @@ export function RankingsContent({
 
 function DownloadImageButton({ state }: { state: TournamentState }) {
   return (
-    <Button className='gap-2' onClick={() => void downloadRankingsImage(state)}>
+    <Button
+      className='gap-2 max-[700px]:size-11 max-[700px]:justify-center max-[700px]:px-0'
+      onClick={() => void downloadRankingsImage(state)}
+    >
       <svg aria-hidden='true' height='16' viewBox='0 0 16 16' width='16'>
         <path
           d='M8 2 V10 M4.5 6.8 L8 10.2 L11.5 6.8 M2.5 13.5 H13.5'
@@ -89,7 +92,7 @@ function DownloadImageButton({ state }: { state: TournamentState }) {
           strokeWidth='2'
         />
       </svg>
-      Download image
+      <span className='max-[700px]:sr-only'>Download image</span>
     </Button>
   );
 }

@@ -30,7 +30,7 @@ export function ColumnRows({
       {rows.map((row, index) => (
         <li
           className={cn(
-            'mb-0.75 flex min-h-10.5 break-inside-avoid items-center gap-2.5 rounded-xs px-3 py-1',
+            'mb-0.75 flex min-h-10.5 break-inside-avoid items-center gap-2.5 rounded-xs px-3 py-1 max-[700px]:flex-wrap max-[700px]:gap-y-0',
             ground === 'card' ? 'bg-cfp-game-card' : rowSurfaceClasses(index, false),
           )}
           key={row.key}
@@ -44,7 +44,11 @@ export function ColumnRows({
               <span className='wrap-break-word text-[13px] text-muted'>{joinMembers(row.members)}</span>
             ) : null}
           </span>
-          {row.note ? <span className='shrink-0 text-sm text-muted'>{row.note}</span> : null}
+          {row.note ? (
+            <span className='shrink-0 text-sm text-muted max-[700px]:basis-full max-[700px]:pb-0.5 max-[700px]:pl-10'>
+              {row.note}
+            </span>
+          ) : null}
         </li>
       ))}
     </ol>

@@ -80,7 +80,7 @@ export function ToolIconButton({
   return (
     <Button
       aria-label={label}
-      className='w-8.5 px-0'
+      className='w-8.5 px-0 max-[700px]:h-11 max-[700px]:w-11'
       disabled={disabled}
       onClick={onClick}
       size='sm'

@@ -6,7 +6,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamConfirmationText } from './confirmation-view';
 
 const SIZES = {
-  row: 'w-8.5 px-0',
+  row: 'w-8.5 px-0 max-[700px]:h-11 max-[700px]:w-11',
   chip: 'size-6 min-h-0 p-0 text-xs',
 } as const;
 

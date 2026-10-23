@@ -141,6 +141,34 @@ async function captureFollowRow(page: Page, fixture: FixtureTournament): Promise
   await page.locator('#br-follow-input').fill('');
 }
 
+/**
+ * On a phone the podium shows what is first across the top, the others side by side under it (when there is a
+ * podium). Units level on a rank share it, so several cards can be "first".
+ */
+async function expectPodiumStacked(page: Page): Promise<void> {
+  const podium = page.getByRole('region', { name: 'Podium' });
+  if ((await podium.count()) === 0) return;
+  const cards = await podium.evaluate((section) =>
+    [...section.children].map((card) => {
+      const { top, bottom, left, width } = card.getBoundingClientRect();
+      return { place: card.textContent?.slice(0, 3) ?? '', top, bottom, left, width };
+    }),
+  );
+  const first = cards.filter((card) => card.place === '1st');
+  const others = cards.filter((card) => card.place !== '1st');
+  expect(first.length, 'a first place').toBeGreaterThan(0);
+  for (const card of first) expect(card.width, `${card.place} spans the page`).toBeGreaterThan(300);
+  const lowestFirst = Math.max(...first.map((card) => card.bottom));
+  for (const card of others)
+    expect(card.top, `${card.place} is under 1st`).toBeGreaterThanOrEqual(lowestFirst);
+  if (others.length === 2) {
+    const [left, right] = [...others].sort((one, two) => one.left - two.left);
+    expect(right.top, 'the two cards share a line').toBeLessThan(left.bottom);
+    expect(left.top, 'the two cards share a line').toBeLessThan(right.bottom);
+    expect(left.width, 'two cards side by side').toBeLessThan(300);
+  }
+}
+
 /** The Standings tab on a phone: a row tapped open, then the explanation unfolded. */
 async function capturePhoneStandings(page: Page, fixtureId: string): Promise<void> {
   const rows = page.locator('#st-content').getByRole('button', { expanded: false });
@@ -225,6 +253,10 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
+          if ((tab === 'Rankings' || tab === 'Players') && width === WIDTHS[1]) {
+            await expectNoSidewaysPageScroll(page, width);
+            await expectPodiumStacked(page);
+          }
           if (STANDINGS_TABS.includes(tab) && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);
             if (fixture.id === 'ffa37-quarters') await capturePhoneStandings(page, fixture.id);

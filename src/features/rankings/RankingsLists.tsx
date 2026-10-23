@@ -28,7 +28,12 @@ interface ListRow {
 
 function RankingRow({ index, row }: { index: number; row: ListRow }) {
   return (
-    <li className={cn('flex min-h-10.5 items-center gap-2.5 px-3 py-1', rowSurfaceClasses(index, false))}>
+    <li
+      className={cn(
+        'flex min-h-10.5 items-center gap-2.5 px-3 py-1 max-[700px]:flex-wrap max-[700px]:gap-y-0',
+        rowSurfaceClasses(index, false),
+      )}
+    >
       <span className='w-7.5 shrink-0 text-right text-[15px] font-extrabold text-muted'>{row.rank}</span>
       {/* The stripe grows with the text, not the row's minimum height: its margin leaves 22 px beside one 24 px
           line, or beside a name and member line (24 + 20 px). A row without a result keeps the stripe's place. */}
@@ -45,7 +50,10 @@ function RankingRow({ index, row }: { index: number; row: ListRow }) {
           ) : null}
         </span>
       </span>
-      <span className='shrink-0 text-sm text-muted'>{row.where}</span>
+      {/* On a phone the line of where the unit stands drops under the name (past the place and the stripe). */}
+      <span className='shrink-0 text-sm text-muted empty:hidden max-[700px]:basis-full max-[700px]:pb-0.5 max-[700px]:pl-13.5'>
+        {row.where}
+      </span>
     </li>
   );
 }

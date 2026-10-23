@@ -504,3 +504,31 @@ describe('Standings tab on a phone: the compact list', () => {
     expect(text.parentElement?.className).not.toContain('max-[700px]:hidden');
   });
 });
+
+describe('Rankings tab on a phone', () => {
+  const finished = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-finished');
+    if (!fixture) throw new Error('the ffa37-finished fixture is missing');
+    return fixture;
+  };
+
+  it('keeps the podium in 2nd · 1st · 3rd order for a desktop, but puts 1st first and full width on a phone', () => {
+    const view = renderApp(finished(), { role: 'viewer', tab: 'rankings' });
+    const cards = [...view.getByRole('region', { name: 'Podium' }).children] as HTMLElement[];
+
+    expect(cards.map((card) => card.textContent?.slice(0, 3))).toEqual(['2nd', '1st', '3rd']);
+    const [second, first, third] = cards;
+    expect(first.className).toContain('max-[700px]:order-first');
+    expect(first.className).toContain('max-[700px]:basis-full');
+    for (const card of [second, third]) {
+      expect(card.className).not.toContain('max-[700px]:order-first');
+      expect(card.className).toContain('max-[700px]:basis-[calc(50%-9px)]');
+    }
+  });
+
+  it('has one Download image button, named the same whatever its look', () => {
+    const view = renderApp(finished(), { role: 'viewer', tab: 'rankings' });
+
+    expect(view.getAllByRole('button', { name: 'Download image' })).toHaveLength(1);
+  });
+});
