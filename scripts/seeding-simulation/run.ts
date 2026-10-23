@@ -13,7 +13,7 @@ import { configKey, simulate, type Config, type Kind, type Mode } from './simula
  * then merge the shards into the markdown report:
  *   pnpm exec tsx scripts/seeding-simulation/run.ts --report <dir> <report.md>
  * Part 2 (rooms built around the cuts; setups A and C; its own policies and metrics): add --part 2 to the run, and to
- * the report `--part2 <dir2> [--illustration <tournament.json>]` after the first directory's report.
+ * the report `--part2 <dir2> [--illustration <tournament.json>] [--part2-before <dir3>]` after the first directory's report.
  * Not part of `pnpm test`. Results are not a recommendation: see the report's header.
  */
 
@@ -99,7 +99,9 @@ function report(args: string[]): void {
   const dir2 = option(args, '--part2');
   const part2Results = dir2 ? readShards(dir2) : [];
   const illustration = option(args, '--illustration');
-  const text = writeReport(results) + (dir2 ? writePart2Report(part2Results, illustration) : '');
+  const beforeDir = option(args, '--part2-before');
+  const before = beforeDir ? readShards(beforeDir) : [];
+  const text = writeReport(results) + (dir2 ? writePart2Report(part2Results, illustration, before) : '');
   writeFileSync(target, text);
   console.log(`wrote ${target} from ${results.length} jobs and ${part2Results.length} part 2 jobs`);
 }

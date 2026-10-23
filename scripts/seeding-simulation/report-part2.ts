@@ -25,6 +25,7 @@ Part 1 cut the standings into rooms from the top (#1–4, #5–8, …). That put
 - **Swing** S = standardPoints(1, largest room) − standardPoints(largest room, largest room) (3 in 2v2v2v2, 7 in FFA): the most a unit can move on points in one round.
 - **Cut lines.** A cut c (between #c and #c+1) sits at the points line L_c = the mean of their points. **A room edge** between standings positions k and k+1 sits at the mean of their points L_k.
 - **Edge cost** = Σ over the profile's cuts c of w_c × max(0, S − |L_k − L_c|) / S: an edge on a cut line costs the cut's full weight, an edge a swing or more from every cut costs nothing. An edge that splits units on equal points adds 0.1.
+- **Rank term (added after the first part 2 run).** Points alone can't tell where to split a block of units on equal points when a cut falls inside it (every edge inside the block costs the same, and the tie-break then put the edge exactly on the cut rank). So when the points line of a cut c falls inside such a block (#c and #c+1 on the same points), an edge that splits that block pays an extra w_c × max(0, R − |k − c|) / R, with R the largest room size and k the edge's rank position = (the rank of the block's first unit − 1) + (the number of the block's units placed in rooms above the edge). It applies to policies 6 and 7 alike, in the partition search and in the hill-climb. In policy 7 each group is drawn on its own, so k counts the block's units of the group being drawn that sit above the edge (the other group's units of the block are not counted).
 - **Partition.** Every order of the round's room sizes is tried (multiset permutations: 35 for [4,4,4,4,3,3,3], 364 for 53 teams, 35 for FFA [8,8,8,8,7,7,7]); each order cuts the standings into consecutive rooms; the order with the lowest total edge cost is kept.
 - **Rematches.** Then the two units either side of each edge are swapped while edge cost + 0.05 × repeat pairings goes down (the edge line after a swap is the mean of the lowest points in the upper room and the highest in the lower one).
 - **Stake profiles** give each final rank a value v(rank); a cut's weight is w_c = v(c) − v(c+1).
@@ -107,13 +108,55 @@ function table(kind: Kind, mode: Mode, noise: number, jobs: JobResult[]): string
   ].join('\n');
 }
 
-export function writePart2Report(jobs: JobResult[], illustrationPath: string | undefined): string {
+const BEFORE_AFTER_POLICIES: Policy[] = ['cuts-P2', 'cuts-spread-P2'];
+
+/** Policies 6/P2 and 7/P2 before and after the rank term, at noise 0.7, averaged over the unit counts. */
+function beforeAfter(after: JobResult[], before: JobResult[]): string {
+  const lines: string[] = [];
+  for (const kind of ['2v2v2v2', 'ffa'] as const) {
+    for (const mode of ['A', 'C'] as const) {
+      const pick = (jobs: JobResult[]) =>
+        jobs.filter((job) => job.config.kind === kind && job.config.mode === mode && job.noise === 0.7);
+      for (const policy of BEFORE_AFTER_POLICIES) {
+        for (const [label, jobs] of [
+          ['before', pick(before)],
+          ['after', pick(after)],
+        ] as const) {
+          if (jobs.length === 0) continue;
+          const cells = jobs.map((job) => job.cells[policy]);
+          const mean = (key: MetricKey) => average(cells.map((cell) => cell.sums[key] / cell.runs));
+          const decided = (key: 'half' | 'full') => average(cells.map((cell) => share(cell, key)));
+          lines.push(
+            `| ${KIND_LABEL[kind]} | ${mode} | ${POLICY_LABEL[policy]?.slice(0, 5)} | ${label} | ${fmt(mean('oppHalf'), 3)} | ${fmt(mean('oppFull'), 3)} | ${fmt(decided('half'), 3)} | ${fmt(decided('full'), 3)} | ${fmt(mean('misP2'))} | ${fmt(mean('repeatPairings'), 1)} |`,
+          );
+        }
+      }
+    }
+  }
+  return [
+    '### Before and after the rank term: policies 6/P2 and 7/P2, noise 0.7',
+    '',
+    'Averaged over the unit counts of each format; "before" is the first part 2 run (points-only edge cost), "after" the run with the rank term. Setup A: round 1 not counted, C: all four rounds counted. The other policies do not use the edge cost, so their rows are unchanged.',
+    '',
+    '| Format | Setup | Policy | Run | Opp. half cut | Opp. top cut | Decided half cut | Decided top cut | Mis. P2 | Repeats |',
+    '|---|---|---|---|---|---|---|---|---|---|',
+    ...lines,
+    '',
+  ].join('\n');
+}
+
+export function writePart2Report(
+  jobs: JobResult[],
+  illustrationPath: string | undefined,
+  beforeJobs: JobResult[] = [],
+): string {
   const sections = [HEADER];
   for (const noise of [0.7, 1.2]) {
     for (const kind of ['2v2v2v2', 'ffa'] as const) {
       for (const mode of ['A', 'C'] as const) sections.push(table(kind, mode, noise, jobs));
     }
   }
+  if (beforeJobs.length > 0) sections.push(beforeAfter(jobs, beforeJobs));
   if (illustrationPath) sections.push(illustrate(JSON.parse(readFileSync(illustrationPath, 'utf8'))));
   return sections.filter(Boolean).join('\n');
 }

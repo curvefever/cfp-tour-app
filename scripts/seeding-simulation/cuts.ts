@@ -70,19 +70,55 @@ export function cutLines(points: number[], cuts: Cut[]): number[] {
   return cuts.map(({ position }) => ((points[position - 1] ?? 0) + (points[position] ?? 0)) / 2);
 }
 
+/** A cut whose points line falls inside a block of units on equal points (the units on the points of #c and #c+1). */
+interface Block {
+  cut: Cut;
+  points: number;
+  /** The rank of the block's first unit. */
+  firstRank: number;
+}
+
 interface EdgeModel {
   cuts: Cut[];
   lines: number[];
   swing: number;
+  /** The largest room size: the reach of the rank term. */
+  reach: number;
+  blocks: Block[];
 }
 
-/** What a room edge costs: its full weight on a cut line, nothing a swing or more from every cut; a tie split by it adds a small term. */
-function edgeCost(upperLowest: number, lowerHighest: number, model: EdgeModel): number {
+/** The cuts that fall inside a block of equal points, from the standings points before the round (best first). */
+function blocksAround(points: number[], cuts: Cut[]): Block[] {
+  return cuts.flatMap((cut) => {
+    const above = points[cut.position - 1];
+    if (above === undefined || above !== points[cut.position]) return [];
+    return [{ cut, points: above, firstRank: points.indexOf(above) + 1 }];
+  });
+}
+
+/**
+ * What a room edge costs: its full weight on a cut line, nothing a swing or more from every cut; a tie split by it adds
+ * a small term. An edge that splits a block of equal points holding a cut also pays a rank term, w_c × max(0, R − |k − c|)
+ * / R, with k the edge's rank position (the block's first rank − 1 plus its units placed in rooms above the edge, given by
+ * `aboveCount`) and R the largest room size: when the block has to be split, the split goes as far from the cut rank as
+ * the room sizes allow.
+ */
+function edgeCost(
+  upperLowest: number,
+  lowerHighest: number,
+  aboveCount: (points: number) => number,
+  model: EdgeModel,
+): number {
   const line = (upperLowest + lowerHighest) / 2;
   let cost = upperLowest === lowerHighest ? TIE_TERM : 0;
   model.cuts.forEach((cut, index) => {
     cost += (cut.weight * Math.max(0, model.swing - Math.abs(line - model.lines[index]))) / model.swing;
   });
+  for (const block of model.blocks) {
+    if (upperLowest !== block.points || lowerHighest !== block.points) continue;
+    const rank = block.firstRank - 1 + aboveCount(block.points);
+    cost += (block.cut.weight * Math.max(0, model.reach - Math.abs(rank - block.cut.position))) / model.reach;
+  }
   return cost;
 }
 
@@ -123,7 +159,8 @@ function partitionCost(points: number[], order: number[], model: EdgeModel): num
   let cost = 0;
   for (let room = 0; room < order.length - 1; room += 1) {
     end += order[room];
-    cost += edgeCost(points[end - 1], points[end], model);
+    const unitsAbove = (value: number) => points.slice(0, end).filter((entry) => entry === value).length;
+    cost += edgeCost(points[end - 1], points[end], unitsAbove, model);
   }
   return cost;
 }
@@ -156,7 +193,11 @@ function roomsCost(
   for (let room = 0; room < rooms.length - 1; room += 1) {
     const lowest = Math.min(...rooms[room].map((unit) => points[unit]));
     const highest = Math.max(...rooms[room + 1].map((unit) => points[unit]));
-    cost += edgeCost(lowest, highest, model);
+    const unitsAbove = (value: number) =>
+      rooms
+        .slice(0, room + 1)
+        .reduce((sum, members) => sum + members.filter((unit) => points[unit] === value).length, 0);
+    cost += edgeCost(lowest, highest, unitsAbove, model);
   }
   let pairs = 0;
   for (const members of rooms) {
@@ -220,6 +261,8 @@ export function drawAroundCuts(
     cuts: profile.cuts,
     lines: cutLines(points, profile.cuts),
     swing: swingOf(Math.max(...sizes)),
+    reach: Math.max(...sizes),
+    blocks: blocksAround(points, profile.cuts),
   };
   const repeatsOf = (first: string, second: string) => {
     const last = state.roomHistory[roomPairKey(first, second)];

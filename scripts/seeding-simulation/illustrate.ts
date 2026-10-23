@@ -85,7 +85,35 @@ function describeDraw(
   const repeatLines = repeats.map(
     ([first, second, round]) => `  - repeat: ${label(first)} – ${label(second)} (last met in round ${round})`,
   );
-  return [`#### ${title}: ${repeats.length} repeat pairings`, '', ...lines, ...repeatLines, ''].join('\n');
+  return [
+    `#### ${title}: ${repeats.length} repeat pairings`,
+    '',
+    ...lines,
+    ...repeatLines,
+    blockLine(rooms, standings, 8),
+    '',
+  ].join('\n');
+}
+
+/** Where the block of units on the points of #8 and #9 (the 8|9 cut) landed, and whether #8 and #9 share a room. */
+function blockLine(rooms: string[][], standings: Map<string, Standing>, cut: number): string {
+  const byRank = [...standings.values()].sort((a, b) => a.rank - b.rank);
+  const above = byRank[cut - 1];
+  const below = byRank[cut];
+  if (above.points !== below.points) {
+    return `- #${cut} and #${cut + 1} are on different points, so no block of equal points holds the ${cut}|${cut + 1} cut.`;
+  }
+  const block = byRank.filter((entry) => entry.points === above.points);
+  const roomOf = (name: string) => rooms.findIndex((room) => room.includes(name));
+  const places = [...new Set(block.map((entry) => roomOf(entry.name)))]
+    .sort((a, b) => a - b)
+    .map((room) => {
+      const ranks = block.filter((entry) => roomOf(entry.name) === room).map((entry) => `#${entry.rank}`);
+      return `Room ${String.fromCharCode(65 + room)}: ${ranks.join(', ')}`;
+    });
+  const shared = roomOf(above.name) === roomOf(below.name);
+  const range = `#${block[0].rank}–#${block[block.length - 1].rank}`;
+  return `- The ${above.points}-point block (${range}) lands as ${places.join(' | ')}; #${cut} and #${cut + 1} ${shared ? 'share a room' : 'do not share a room'}.`;
 }
 
 /** The markdown section for the stored record `raw` (the parsed JSON of the REST read). */
