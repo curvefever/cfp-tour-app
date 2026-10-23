@@ -158,7 +158,7 @@ describe('Players tab, drawn rooms and the start', () => {
     const view = renderApp(drawn(), { role: 'viewer', tab: 'rankings' });
 
     expect(view.queryAllByText(/31 players registered so far/)).toHaveLength(1);
-    expect(view.queryAllByText(/Round 1 ·/)).toHaveLength(0);
+    expect(view.queryAllByText(/Round 1 · Room/)).toHaveLength(0);
     expect(view.queryByRole('button', { name: /Download image/ })).toBeNull();
   });
 
@@ -175,7 +175,7 @@ describe('Players tab, drawn rooms and the start', () => {
   it('still shows an admin the drawn rooms', () => {
     const view = renderApp(drawn(), { role: 'admin', tab: 'rankings' });
 
-    expect(view.queryAllByText(/Round 1 ·/).length).toBeGreaterThan(0);
+    expect(view.queryAllByText(/Round 1 · Room/).length).toBeGreaterThan(0);
   });
 });
 

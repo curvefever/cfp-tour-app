@@ -15,7 +15,7 @@ import { advanceTournamentRound } from '../transitions';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
 import { SPREADSHEET_GRAPH, buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
-import { scoreCurrentRound as scoreTeamRound } from './play-through';
+import { buildState, scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource } from './test-fixtures';
 
 function project(rounds: TournamentRound[], curRound: number) {
@@ -253,9 +253,13 @@ describe('projectFutureRoundSlots', () => {
     // every room's rank-2); distributed round-robin (rotating one room per
     // tier) into 2 target rooms of size 2 each: room1 <- [R1r1, R2r2],
     // room2 <- [R2r1, R1r2] -- each target room draws from both source
-    // rooms AND both rank tiers, instead of one tier's worth per room.
-    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Room 1A, Rank 1', 'Room 1B, Rank 2']);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 1', 'Room 1A, Rank 2']);
+    // rooms AND both rank tiers, instead of one tier's worth per room. The target
+    // has two rooms, so its slots show the places only.
+    expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual(['Round 1 · 1st', 'Round 1 · 2nd']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Round 1 · 1st', 'Round 1 · 2nd']);
+    expect(result[1]?.flat().map((slot) => (slot.kind === 'room-rank' ? slot.room : null))).toEqual([
+      1, 2, 2, 1,
+    ]);
   });
 
   it('projects a no-elim (e.g. "None" pooling warmup) round using each room\'s own size -- nobody is cut, but within-room rank still carries forward, and room sizes can differ; every target room\'s slot count always matches its own declared size exactly', () => {
@@ -271,11 +275,11 @@ describe('projectFutureRoundSlots', () => {
     // (size 2) <- [R2r1, R1r2] -- room1 spans all three rank tiers instead
     // of only ranks 1-2.
     expect(result[1]?.[0].map(projectedSlotLabelText)).toEqual([
-      'Room 1A, Rank 1',
-      'Room 1B, Rank 2',
-      'Room 1A, Rank 3',
+      'Round 1 · 1st',
+      'Round 1 · 2nd',
+      'Round 1 · 3rd',
     ]);
-    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Room 1B, Rank 1', 'Room 1A, Rank 2']);
+    expect(result[1]?.[1].map(projectedSlotLabelText)).toEqual(['Round 1 · 1st', 'Round 1 · 2nd']);
   });
 
   it('resolves every round in a chain of no-elim rounds feeding a real elimination round -- poisoning no longer cascades past a no-elim predecessor', () => {
@@ -792,7 +796,7 @@ describe('bracketBoxes -- a waterfall column of several rounds', () => {
 });
 
 describe('projectFutureRoundSlots -- a waterfall source is named by its own label', () => {
-  it('names a several-room source with its room and a one-room source plainly: the live graph in column 1', () => {
+  it('names a several-room source by its label and place, and a one-room source plainly: the live graph in column 1', () => {
     const bracket = advanceWhile(liveTournament(19));
     const slots = projectFutureRoundSlots(bracket);
     const text = (label: string) =>
@@ -800,9 +804,9 @@ describe('projectFutureRoundSlots -- a waterfall source is named by its own labe
         room.map(projectedSlotLabelText),
       );
     const round6 = text('Round 6').flat();
-    expect(round6).toContain('Round 5 Upper · Room A, Rank 3');
-    expect(round6).toContain('Round 5 Lower · Room A, Rank 1');
-    expect(round6.every((line) => /^Round 5 (Upper|Lower) · Room [AB], Rank \d$/.test(line))).toBe(true);
+    expect(round6).toContain('Round 5 Upper · 3rd');
+    expect(round6).toContain('Round 5 Lower · 1st');
+    expect(round6.every((line) => /^Round 5 (Upper|Lower) · \d(st|nd|rd|th)$/.test(line))).toBe(true);
     expect(text('Semi-B').flat()).toContain('Semi A, Rank 3');
     expect(text('Semi-B').flat()).toContain('Round 7, Rank 1');
   });
@@ -815,5 +819,111 @@ describe('projectFutureRoundSlots -- a waterfall source is named by its own labe
     expect(lines).toContain('6B, Rank 1');
     expect(lines).toContain('6C, Rank 1');
     expect(lines.some((line) => /^Room /.test(line))).toBe(false);
+  });
+});
+
+describe('projectFutureRoundSlots -- places only where the real draw spreads units over several rooms', () => {
+  const texts = (slots: ReturnType<typeof project>[number]) =>
+    (slots ?? []).map((room) => room.map(projectedSlotLabelText));
+
+  function projectedQualification(setup: Parameters<typeof createDefaultSetup>[0], count: number) {
+    const state = buildState({
+      label: 'places',
+      count,
+      teams: setup?.gameFormat !== 'ffa-individual',
+      setup,
+    });
+    if (!state) throw new Error('generation refused');
+    return { rounds: state.rounds, slots: project(state.rounds, state.curRound) };
+  }
+
+  const countBy = (lines: string[]) =>
+    Object.fromEntries(
+      [...new Set(lines)].map((line) => [line, lines.filter((other) => other === line).length]),
+    );
+
+  it('a qualification round of 37 FFA players (rooms of 8, 8, 7, 7, 7) shows no room letter, and the right ordinals', () => {
+    const { rounds, slots } = projectedQualification(
+      {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '16',
+      },
+      37,
+    );
+    const rooms = texts(slots[1]);
+    expect(rooms.map((room) => room.length)).toEqual(rounds[1].rooms);
+    const lines = rooms.flat();
+    expect(lines.some((line) => /Room|Rank/.test(line))).toBe(false);
+    expect(countBy(lines)).toEqual({
+      'Round 1 · 1st': 5,
+      'Round 1 · 2nd': 5,
+      'Round 1 · 3rd': 5,
+      'Round 1 · 4th': 5,
+      'Round 1 · 5th': 5,
+      'Round 1 · 6th': 5,
+      'Round 1 · 7th': 5,
+      'Round 1 · 8th': 2,
+    });
+  });
+
+  it('a qualification round of 25 2v2v2v2 teams shows places 1st to 4th only', () => {
+    const { slots } = projectedQualification(
+      {
+        gameFormat: 'team-2v2v2v2',
+        teamScoringRule: 'survival-teams',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '16',
+      },
+      25,
+    );
+    const lines = texts(slots[1]).flat();
+    expect(lines.some((line) => /Room|Rank/.test(line))).toBe(false);
+    expect(countBy(lines)).toEqual({
+      'Round 1 · 1st': 7,
+      'Round 1 · 2nd': 7,
+      'Round 1 · 3rd': 7,
+      'Round 1 · 4th': 4,
+    });
+  });
+
+  it('a Semis of two rooms fed by a cut shows places, and the one-room Final after it keeps its exact labels', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [3, 3, 3, 3], players: 12, advPerRoom: 2, luckyCount: 0 }),
+      buildRound({ roundNum: 2, rooms: [4, 4], players: 8, isSemis: true, advPerRoom: 2, luckyCount: 0 }),
+      buildRound({ roundNum: 3, rooms: [4], players: 4, isFinal: true, advPerRoom: 4, luckyCount: 0 }),
+    ];
+    const result = project(rounds, 0);
+    expect(countBy(texts(result[1]).flat())).toEqual({ 'Round 1 · 1st': 4, 'Round 1 · 2nd': 4 });
+    expect(texts(result[2])[0]).toEqual([
+      'Room 2A, Rank 1',
+      'Room 2B, Rank 1',
+      'Room 2A, Rank 2',
+      'Room 2B, Rank 2',
+    ]);
+  });
+
+  it('a waterfall round of two rooms fed by two source rooms names the source round and the place', () => {
+    const rounds = [
+      buildRound({
+        roundNum: 1,
+        rooms: [4, 4],
+        players: 8,
+        isWaterfall: true,
+        customLabel: 'Round 5-1',
+        waterfallRoutes: [
+          [1, 1, 'eliminated', 'eliminated'],
+          [1, 1, 'eliminated', 'eliminated'],
+        ],
+      }),
+      buildRound({ roundNum: 2, rooms: [2, 2], players: 4, isWaterfall: true, customLabel: 'Round 6' }),
+    ];
+    const result = project(rounds, 0);
+    expect(texts(result[1])).toEqual([
+      ['Round 5-1 · 1st', 'Round 5-1 · 2nd'],
+      ['Round 5-1 · 1st', 'Round 5-1 · 2nd'],
+    ]);
   });
 });

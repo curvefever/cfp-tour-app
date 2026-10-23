@@ -1,3 +1,4 @@
+import { ordinal } from '../../lib/ordinal';
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import type { TournamentRound, TournamentState } from './types';
@@ -177,7 +178,17 @@ export function roomLetter(room: number): string {
 }
 
 export type ProjectedSlotLabel =
-  | { kind: 'room-rank'; room: number; rank: number; advPerRoom: number; sourceRound: number }
+  | {
+      kind: 'room-rank';
+      room: number;
+      rank: number;
+      advPerRoom: number;
+      sourceRound: number;
+      /** The source round's own label, as the Bracket shows it ("Round 2"). */
+      sourceLabel: string;
+      /** False where the real draw spreads the units over several rooms: only the place is shown. */
+      roomKnown: boolean;
+    }
   | {
       kind: 'waterfall-rank';
       room: number;
@@ -186,6 +197,8 @@ export type ProjectedSlotLabel =
       /** The source round's own label, as the Bracket shows it ("Round 5 Upper"). */
       sourceLabel: string;
       sourceRoomCount: number;
+      /** False where the real draw spreads the units over several rooms: only the place is shown. */
+      roomKnown: boolean;
     }
   | { kind: 'standings-rank'; rank: number }
   | { kind: 'lucky' }
@@ -195,10 +208,12 @@ export type ProjectedSlotLabel =
 export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
   switch (slot.kind) {
     case 'room-rank': {
+      if (!slot.roomKnown) return `${slot.sourceLabel} · ${ordinal(slot.rank)}`;
       const tag = `${slot.sourceRound}${roomLetter(slot.room)}`;
       return slot.advPerRoom === 1 ? `Winner of Room ${tag}` : `Room ${tag}, Rank ${slot.rank}`;
     }
     case 'waterfall-rank': {
+      if (!slot.roomKnown) return `${slot.sourceLabel} · ${ordinal(slot.rank)}`;
       // Always rank-precise, unlike 'room-rank' -- a waterfall band's own
       // rank is already known exactly from the organiser's graph (no
       // top-N-cutoff concept to collapse into a bare "Winner of Room X"),
@@ -440,6 +455,8 @@ export function projectFutureRoundSlots(
       continue;
     }
 
+    // A target of several rooms is drawn from results, so a slot can't name the room it comes from, only the place.
+    const roomKnown = round.rooms.length === 1;
     const pool: ProjectedSlotLabel[] = [];
     const resolvedWaterfallSources = new Set<number>();
     for (const { sourceIndex, edge } of predecessors) {
@@ -479,6 +496,7 @@ export function projectFutureRoundSlots(
                 sourceRound,
                 sourceLabel,
                 sourceRoomCount: source.rooms.length,
+                roomKnown,
               });
             }
           }
@@ -523,7 +541,15 @@ export function projectFutureRoundSlots(
           for (let room = 1; room <= sourceRoomSizes.length; room += 1) {
             const roomSize = sourceRoomSizes[room - 1];
             if (rank > roomSize) continue;
-            pool.push({ kind: 'room-rank', room, rank, advPerRoom: roomSize, sourceRound });
+            pool.push({
+              kind: 'room-rank',
+              room,
+              rank,
+              advPerRoom: roomSize,
+              sourceRound,
+              sourceLabel,
+              roomKnown,
+            });
           }
         }
         continue;
@@ -532,7 +558,7 @@ export function projectFutureRoundSlots(
       // Tier-major (rank outer, room inner) -- see the function doc comment above.
       for (let rank = 1; rank <= advPerRoom; rank += 1) {
         for (let room = 1; room <= source.rooms.length; room += 1)
-          pool.push({ kind: 'room-rank', room, rank, advPerRoom, sourceRound });
+          pool.push({ kind: 'room-rank', room, rank, advPerRoom, sourceRound, sourceLabel, roomKnown });
       }
       for (let i = 0; i < source.luckyCount; i += 1) pool.push({ kind: 'lucky' });
     }
