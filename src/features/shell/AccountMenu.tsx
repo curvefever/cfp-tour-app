@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 
-/** "Signed in · <role>" in the header: a button that opens a one-item menu to sign out. */
+/**
+ * "Signed in · <role>" in the header: a button that opens a one-item menu to sign out. On a phone the button is a
+ * circle with the name's initial instead (CSS only).
+ */
 export function AccountMenu({
   name,
   role,
@@ -37,7 +40,14 @@ export function AccountMenu({
         className='cursor-pointer rounded px-1.5 py-1 text-[13px] whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
         onClick={() => setOpen((current) => !current)}
       >
-        Signed in{role ? ` · ${role}` : ''}
+        <span className='max-[700px]:hidden'>Signed in{role ? ` · ${role}` : ''}</span>
+        <span
+          aria-label={`Signed in as ${name}${role ? ` · ${role}` : ''}`}
+          className='flex size-7.5 items-center justify-center rounded-full bg-surface-hover text-sm font-bold text-foreground uppercase min-[701px]:hidden'
+          role='img'
+        >
+          {name.trim().charAt(0)}
+        </span>
       </button>
       {open ? (
         <div

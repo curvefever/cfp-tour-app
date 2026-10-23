@@ -223,10 +223,8 @@ test.describe('screenshots of the viewer tabs', () => {
         screenshots: {},
       });
       await open(page, '/');
-      await page
-        .getByRole('navigation', { name: 'Tournament sections' })
-        .getByRole('button', { name: /Tournaments/ })
-        .click();
+      // On a phone this button sits in the header line, outside the tab row; only one is ever visible.
+      await page.getByRole('button', { name: 'Tournaments', exact: true }).click();
       await capture(page, 'tournament-list', fileName('Tournaments', String(width)));
     });
 

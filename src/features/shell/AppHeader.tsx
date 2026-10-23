@@ -15,14 +15,16 @@ export interface HeaderAccount {
 }
 
 const tabClassName =
-  'flex cursor-pointer items-center px-3.5 text-[15px] font-semibold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
+  'flex cursor-pointer items-center px-3.5 max-[700px]:px-2 text-[15px] font-semibold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
 
 function TabButton({
   active,
+  className,
   onSelect,
   tab,
 }: {
   active: boolean;
+  className?: string;
   onSelect: (tab: ActiveTab) => void;
   tab: HeaderTab;
 }) {
@@ -32,6 +34,7 @@ function TabButton({
       className={cn(
         tabClassName,
         active && 'font-bold text-foreground shadow-[inset_0_-3px_0_var(--app-primary)]',
+        className,
       )}
       onClick={() => onSelect(tab.key)}
     >
@@ -43,6 +46,7 @@ function TabButton({
 /**
  * The top bar (always the middle look): the logo and "CFP Tournament Hub", the tabs and the signed-in admin. Tournaments stands apart;
  * the loaded tournament's tabs sit together on a lighter band. With no tournament loaded, a divider sets Admin apart.
+ * On a phone (CSS only) the name reads "CFP Tour Hub", Tournaments moves up beside it, and the tabs fill a second line.
  */
 export function AppHeader({
   account,
@@ -73,20 +77,44 @@ export function AppHeader({
       <div className='mx-auto flex min-h-15 max-w-310 flex-wrap items-center gap-x-6 gap-y-2'>
         <button
           className='flex cursor-pointer items-center gap-2.5 text-xl font-bold whitespace-nowrap text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          aria-label='CFP Tournament Hub'
           onClick={onHome}
         >
           <img alt='' aria-hidden='true' className='h-7 w-auto' height={28} src={logoUrl} width={26} />
-          CFP Tournament Hub
+          <span aria-hidden='true' className='max-[700px]:hidden'>
+            CFP Tournament Hub
+          </span>
+          <span aria-hidden='true' className='min-[701px]:hidden'>
+            CFP Tour Hub
+          </span>
         </button>
+        {list ? (
+          <TabButton
+            active={activeTab === list.key}
+            className='min-h-11 min-[701px]:hidden'
+            onSelect={onSelectTab}
+            tab={list}
+          />
+        ) : null}
         <nav
           aria-label='Tournament sections'
-          className='flex min-h-15 min-w-0 flex-1 items-stretch overflow-x-auto max-[700px]:order-last max-[700px]:min-h-11 max-[700px]:basis-full'
+          className={cn(
+            'flex min-h-15 min-w-0 flex-1 items-stretch overflow-x-auto max-[700px]:order-last max-[700px]:min-h-11 max-[700px]:basis-full',
+            others.length === 0 && 'max-[700px]:hidden',
+          )}
         >
-          {list ? <TabButton active={activeTab === list.key} onSelect={onSelectTab} tab={list} /> : null}
+          {list ? (
+            <TabButton
+              active={activeTab === list.key}
+              className='max-[700px]:hidden'
+              onSelect={onSelectTab}
+              tab={list}
+            />
+          ) : null}
           {tournamentLoaded && others.length > 0 ? (
             <div
               aria-label='This tournament'
-              className='ml-5.5 flex items-stretch border-x border-surface-hover bg-surface px-1.5'
+              className='ml-5.5 flex items-stretch border-x border-surface-hover bg-surface px-1.5 max-[700px]:ml-0 max-[700px]:px-0 max-[700px]:w-full max-[700px]:justify-around max-[700px]:border-x-0'
               role='group'
             >
               {buttons}
@@ -96,7 +124,7 @@ export function AppHeader({
             <>
               <div
                 aria-hidden='true'
-                className='mx-2.5 my-4.5 ml-5.5 w-px self-stretch bg-cfp-mid-header-border'
+                className='mx-2.5 my-4.5 ml-5.5 w-px self-stretch bg-cfp-mid-header-border max-[700px]:hidden'
               />
               {buttons}
             </>
