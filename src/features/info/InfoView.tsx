@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PageHeading } from '../../components/ui';
+import { PageHeading, cn } from '../../components/ui';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
@@ -22,11 +22,17 @@ function useScheduledParts(scheduledAt: number | null): ScheduledParts | null {
   return scheduledAt === null ? null : parts;
 }
 
-/** Leaves the loaded tournament. Only here: a player could read "Exit tournament" as unregistering. */
-function ExitTournamentButton({ onExit }: { onExit: () => void }) {
+/**
+ * Leaves the loaded tournament. Only here: a player could read "Exit tournament" as unregistering. Next to the
+ * heading on a desktop, at the end of the page on a phone: the page renders two, one hidden by CSS at each width.
+ */
+function ExitTournamentButton({ className, onExit }: { className?: string; onExit: () => void }) {
   return (
     <button
-      className='flex h-10 cursor-pointer items-center gap-2 rounded border border-input-border px-3.5 text-sm font-bold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+      className={cn(
+        'flex h-10 cursor-pointer items-center gap-2 rounded border border-input-border px-3.5 text-sm font-bold whitespace-nowrap text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+        className,
+      )}
       onClick={onExit}
     >
       <span aria-hidden='true' className='text-[15px]'>
@@ -79,7 +85,7 @@ export function InfoView() {
   return (
     <div className='mx-auto flex max-w-270 flex-col gap-6'>
       <PageHeading
-        actions={<ExitTournamentButton onExit={() => void exitTournament()} />}
+        actions={<ExitTournamentButton className='max-[700px]:hidden' onExit={() => void exitTournament()} />}
         className='mb-0'
         label='Info'
         title={title}
@@ -110,6 +116,7 @@ export function InfoView() {
       >
         General tournament rules →
       </a>
+      <ExitTournamentButton className='min-[701px]:hidden' onExit={() => void exitTournament()} />
     </div>
   );
 }

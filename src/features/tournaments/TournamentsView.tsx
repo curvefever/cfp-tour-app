@@ -150,7 +150,7 @@ export function TournamentsView({ onLogIn }: { onLogIn: () => void }) {
       )}
       {app.unlocked ? null : (
         <button
-          className='mt-8 ml-auto block cursor-pointer text-sm font-bold text-muted hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+          className='mt-8 ml-auto block cursor-pointer text-sm font-bold text-muted hover:underline max-[700px]:mx-auto max-[700px]:min-h-11 max-[700px]:px-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
           onClick={onLogIn}
         >
           Log in as admin

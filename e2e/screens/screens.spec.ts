@@ -169,6 +169,30 @@ async function expectPodiumStacked(page: Page): Promise<void> {
   }
 }
 
+/** The Info tab on a phone: Exit tournament view ends the page, the lobby screenshots are small thumbnails in one row. */
+async function expectPhoneInfo(page: Page, fixture: FixtureTournament): Promise<void> {
+  await expectNoSidewaysPageScroll(page, 390);
+  const exit = page.getByRole('button', { name: 'Exit tournament view' });
+  await expect(exit, 'one visible Exit button').toHaveCount(1);
+  const exitTop = await exit.evaluate((element) => element.getBoundingClientRect().top + window.scrollY);
+  const rulesBottom = await page
+    .getByRole('link', { name: /General tournament rules/ })
+    .evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY);
+  expect(exitTop, 'Exit comes after the rules link').toBeGreaterThanOrEqual(rulesBottom);
+  if (!fixture.screenshotIds?.length) return;
+  const thumbs = await page.getByRole('button', { name: 'Lobby screenshot' }).evaluateAll((elements) =>
+    elements.map((element) => {
+      const { top, width, height } = element.getBoundingClientRect();
+      return { top, width, height };
+    }),
+  );
+  expect(thumbs.length, 'a thumbnail per screenshot').toBe(fixture.screenshotIds.length);
+  for (const thumb of thumbs) {
+    expect([thumb.width, thumb.height], 'a 160 x 100 thumbnail').toEqual([160, 100]);
+    expect(thumb.top, 'all in one row').toBe(thumbs[0].top);
+  }
+}
+
 /** The Standings tab on a phone: a row tapped open, then the explanation unfolded. */
 async function capturePhoneStandings(page: Page, fixtureId: string): Promise<void> {
   const rows = page.locator('#st-content').getByRole('button', { expanded: false });
@@ -253,6 +277,7 @@ test.describe('screenshots of the viewer tabs', () => {
         for (const tab of fixture.tabs) {
           await nav.getByRole('button', { name: new RegExp(tab) }).click();
           await capture(page, fixture.id, fileName(tab, String(width)));
+          if (tab === 'Info' && width === WIDTHS[1]) await expectPhoneInfo(page, fixture);
           if ((tab === 'Rankings' || tab === 'Players') && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);
             await expectPodiumStacked(page);
@@ -344,6 +369,13 @@ test.describe('screenshots of the viewer tabs', () => {
         .getByRole('button', { name: 'Log in as admin' })
         .evaluate((element) => getComputedStyle(element).position);
       expect(position, 'the link is part of the page, not fixed to the screen').not.toBe('fixed');
+      if (width < 701) {
+        // On a phone it is centred, and a finger can hit it.
+        const box = await page.getByRole('button', { name: 'Log in as admin' }).boundingBox();
+        expect((box?.x ?? 0) + (box?.width ?? 0) / 2, 'the link is centred').toBeCloseTo(width / 2, -1);
+        expect(box?.height ?? 0, 'the link is a 44 px target').toBeGreaterThanOrEqual(44);
+        await expectNoSidewaysPageScroll(page, width);
+      }
     });
 
     test(`the unavailable-link notice at ${width}px`, async ({ page }) => {

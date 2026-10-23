@@ -8,10 +8,11 @@ export function ScreenshotGallery({ tournamentId, imageIds }: { tournamentId: st
   if (!imageIds.length) return null;
   return (
     <>
-      <div className='grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-3'>
+      {/* A phone shows one row of small thumbnails that scrolls sideways inside its own frame. */}
+      <div className='grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-3 max-[700px]:flex max-[700px]:gap-2 max-[700px]:overflow-x-auto max-[700px]:p-0.5'>
         {imageIds.map((imageId) => (
           <ScreenshotThumb
-            className='aspect-[16/10] h-auto w-full rounded-xs border-0 bg-cfp-game-fold outline-2 outline-cfp-game-frame'
+            className='aspect-[16/10] h-auto w-full rounded-xs border-0 bg-cfp-game-fold outline-2 outline-cfp-game-frame max-[700px]:h-25 max-[700px]:w-40 max-[700px]:shrink-0'
             imageId={imageId}
             key={imageId}
             onOpen={setOpenSrc}
