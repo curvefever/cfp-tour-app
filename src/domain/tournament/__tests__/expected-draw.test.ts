@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { expectedNextColumn } from '../expected-draw';
-import { currentColumn } from '../round-columns';
+import { removeRosterUnit } from '../mutations';
+import { currentColumn, nextColumnStart } from '../round-columns';
 import { scoreKeysForPosition, scoredTeamSize } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
@@ -95,6 +96,67 @@ describe('expectedNextColumn equals what Next Round then draws', () => {
       expect(round.assignments).toEqual(next.assignments[roundIndex]);
     }
     expect(expectEveryStepToMatch(start)).toBeGreaterThan(4);
+  });
+});
+
+/** R1's bottom bands (ranks 5-8) route on to R3, so one withdrawal from R1 leaves R3 a seat short. */
+const BOTTOM_ROUTES_ON = `
+ROUNDS:
+R1 = 2x8
+R2 = 8
+R3 = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1
+R1.A: 1-4->R2, 5-8->R3
+R1.B: 1-4->R2, 5-8->R3
+R2: 1-4->Final, 5-8->eliminated
+R3: 1-4->Final, 5-8->eliminated
+`;
+
+/** The unit in the room holding the most units. */
+function fromFullestRoom(state: TournamentState): string {
+  const seated = state.assignments[state.curRound].filter((entry) => entry.room !== null);
+  const size = (room: number | null) => seated.filter((entry) => entry.room === room).length;
+  return [...seated].sort((a, b) => size(b.room) - size(a.room) || (a.room ?? 0) - (b.room ?? 0))[0].name;
+}
+
+describe('expectedNextColumn follows the shape the advance fits, not the planned one', () => {
+  it('a withdrawal from R1 leaves R3 a seat short: the expected room is 7, the planned 8, and Next Round draws the same', () => {
+    let state = buildQualWaterfall(37, BOTTOM_ROUTES_ON, {}, { columns: true });
+    const r1 = state.rounds.findIndex((round) => round.customLabel === 'R1');
+    while (state.curRound < r1) state = advanced(scoreColumn(state));
+    state = removeRosterUnit(state, fromFullestRoom(state));
+
+    const scored = scoreColumn(state);
+    const r3 = scored.rounds.findIndex((round) => round.customLabel === 'R3');
+    const expected = expectedNextColumn(scored);
+    const next = advanced(scored);
+
+    expect(scored.rounds[r3].rooms).toEqual([8]);
+    expect(expected?.get(r3)?.rooms).toEqual([7]);
+    expect(expected?.get(r3)?.rooms).toEqual(next.rounds[r3].rooms);
+    expect(expected?.get(r3)?.assignments).toEqual(next.assignments[r3]);
+  });
+
+  it('a plan that no longer matches the units arriving: the expected draw has the rooms the advance fits', () => {
+    const scored = scoreColumn(startSpread(FFA_QUAL));
+    const next = nextColumnStart(scored);
+    const cut = scored.rounds[next];
+    expect(cut.rooms.length).toBeGreaterThan(1);
+    // A stale plan: the next round planned with one more room than the units arriving fill.
+    const stale = {
+      ...scored,
+      rounds: scored.rounds.map((round, index) =>
+        index === next ? { ...round, rooms: [...round.rooms, 1] } : round,
+      ),
+    };
+    const expected = expectedNextColumn(stale);
+    const drawn = advanced(stale);
+    expect(stale.rounds[next].rooms).toHaveLength(cut.rooms.length + 1);
+    expect(expected?.get(next)?.rooms).toEqual(drawn.rounds[next].rooms);
+    expect(expected?.get(next)?.rooms).toHaveLength(cut.rooms.length);
   });
 });
 

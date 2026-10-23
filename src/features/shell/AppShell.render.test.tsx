@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
+import { nextColumnStart } from '../../domain/tournament/round-columns';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { renderApp, tabsFor, type AppRole } from './test-app';
 
@@ -204,6 +205,23 @@ describe('Bracket, the expected draw', () => {
       expect(view.queryAllByText(/ · \d+(st|nd|rd|th)$/).length).toBeGreaterThan(0);
     },
   );
+
+  it('shows the rooms the next round will really have, not a stale plan with one room more', () => {
+    const fixture = lastQualification(true);
+    const next = nextColumnStart(fixture.state);
+    const planned = fixture.state.rounds[next].rooms;
+    const rounds = fixture.state.rounds.map((round, index) =>
+      index === next ? { ...round, rooms: [...round.rooms, 1] } : round,
+    );
+
+    const view = renderApp(
+      { ...fixture, state: { ...fixture.state, rounds } },
+      { role: 'viewer', tab: 'bracket' },
+    );
+
+    const column = view.getByText('EXPECTED').closest('[class*="min-w-82.5"]') as HTMLElement;
+    expect(within(column).queryAllByText(/^Room [A-Z]$/)).toHaveLength(planned.length);
+  });
 
   it.each(ROLES)('shows %s placeholders and no tag while a room of the round in play is unscored', (role) => {
     const view = renderApp(lastQualification(false), { role, tab: 'bracket' });
