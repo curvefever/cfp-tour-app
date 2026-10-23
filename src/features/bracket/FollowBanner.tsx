@@ -2,13 +2,17 @@ import { useMemo } from 'react';
 import { type BracketFollowStatus } from '../../domain/tournament/bracket';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
+import { cn } from '../../components/ui';
 import { followBannerText } from './follow-text';
 
 /** The follow banner's bar: "Following Dune" and what comes after it. Shared by the Bracket and the Standings tab. */
-export function FollowBar({ name, detail }: { name: string; detail: string }) {
+export function FollowBar({ className, name, detail }: { className?: string; name: string; detail: string }) {
   return (
     <div
-      className='flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xs bg-cfp-game-banner px-3.5 py-1'
+      className={cn(
+        'flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-xs bg-cfp-game-banner px-3.5 py-1',
+        className,
+      )}
       role='status'
     >
       <span className='text-[15px] font-extrabold tracking-[0.03em] uppercase'>Following {name}</span>
@@ -22,10 +26,12 @@ export function FollowBar({ name, detail }: { name: string; detail: string }) {
  * No close button: emptying the follow box stops following.
  */
 export function FollowBanner({
+  className,
   state,
   followKey,
   follow,
 }: {
+  className?: string;
   state: TournamentState;
   followKey: string | null;
   follow: BracketFollowStatus | null;
@@ -33,5 +39,5 @@ export function FollowBanner({
   const standings = useMemo(() => describeStandings(state), [state]);
   if (!followKey) return null;
   const { name, detail } = followBannerText(state, follow, standings, followKey);
-  return <FollowBar detail={detail} name={name} />;
+  return <FollowBar className={className} detail={detail} name={name} />;
 }

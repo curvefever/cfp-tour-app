@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   fixtureTournaments,
   fixtureIndexEntry,
@@ -109,6 +109,36 @@ async function expectNoSidewaysPageScroll(page: Page, width: number): Promise<vo
   expect(scrollWidth, 'no sideways page scroll').toBeLessThanOrEqual(width);
 }
 
+/** The notes panel and the "?" box of the Bracket, when the fixture asks for them, saved with the top of the page. */
+async function captureBracketPanels(page: Page, fixture: FixtureTournament, width: number): Promise<void> {
+  if (fixture.notesPanel) {
+    await page.getByRole('button', { name: 'Notes about this tournament' }).click();
+    await expect(page.getByRole('dialog', { name: 'Notes' })).toBeVisible();
+    await page.screenshot({
+      path: `${OUTPUT_DIR}/${fixture.id}/notes-panel-${width}.png`,
+      clip: { x: 0, y: 0, width, height: 640 },
+    });
+    await page.getByRole('button', { name: 'Close' }).click();
+  }
+  if (fixture.infoBox) {
+    await page.getByRole('button', { name: 'How to read the bracket' }).click();
+    await expect(page.getByRole('dialog', { name: 'How to read the bracket' })).toBeVisible();
+    await page.screenshot({
+      path: `${OUTPUT_DIR}/${fixture.id}/info-box-${width}.png`,
+      clip: { x: 0, y: 0, width, height: 760 },
+    });
+    await page.getByRole('button', { name: 'Close' }).click();
+  }
+}
+
+/** A followed unit on a phone: the follow row (input, icons) with its banner on a line of its own. */
+async function captureFollowRow(page: Page, fixture: FixtureTournament): Promise<void> {
+  if (!fixture.follow) return;
+  await page.locator('#br-follow-input').fill(fixture.follow);
+  await capture(page, fixture.id, 'bracket-follow-390');
+  await page.locator('#br-follow-input').fill('');
+}
+
 /** The Bracket's round strip on a phone: the standings item, then a round picked from the group's list. */
 async function capturePhoneStrip(page: Page, fixtureId: string): Promise<void> {
   const strip = page.getByRole('tablist', { name: 'Rounds' });
@@ -175,6 +205,8 @@ test.describe('screenshots of the viewer tabs', () => {
           await capture(page, fixture.id, fileName(tab, String(width)));
           if (tab === 'Bracket' && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);
+            await captureBracketPanels(page, fixture, width);
+            await captureFollowRow(page, fixture);
             if (fixture.id === 'ffa37-quarters') await capturePhoneStrip(page, fixture.id);
           }
           if (tab === 'Bracket' && width === WIDTHS[0]) {
@@ -193,24 +225,7 @@ test.describe('screenshots of the viewer tabs', () => {
               const fits = await standingsTitle.evaluate((title) => title.scrollWidth <= title.clientWidth);
               expect(fits, 'the standings title fits').toBe(true);
             }
-            if (fixture.notesPanel) {
-              await page.getByRole('button', { name: 'Notes about this tournament' }).click();
-              await expect(page.getByRole('dialog', { name: 'Notes' })).toBeVisible();
-              await page.screenshot({
-                path: `${OUTPUT_DIR}/${fixture.id}/notes-panel-${width}.png`,
-                clip: { x: 0, y: 0, width, height: 640 },
-              });
-              await page.getByRole('button', { name: 'Close' }).click();
-            }
-            if (fixture.infoBox) {
-              await page.getByRole('button', { name: 'How to read the bracket' }).click();
-              await expect(page.getByRole('dialog', { name: 'How to read the bracket' })).toBeVisible();
-              await page.screenshot({
-                path: `${OUTPUT_DIR}/${fixture.id}/info-box-${width}.png`,
-                clip: { x: 0, y: 0, width, height: 760 },
-              });
-              await page.getByRole('button', { name: 'Close' }).click();
-            }
+            await captureBracketPanels(page, fixture, width);
             for (const nth of fixture.exitPopups ?? []) await captureExitPopup(page, fixture.id, nth, width);
             if (fixture.follow) {
               await page.locator('#br-follow-input').fill(fixture.follow);
@@ -292,32 +307,45 @@ test.describe('screenshots with touch', () => {
     viewport: { width: 390, height: 844 },
   });
 
-  test('the exit pop-up of a room opens on tap and has a close button', async ({ page }) => {
+  test('the exit pop-ups open on tap, have a close button and stay inside the screen', async ({ page }) => {
     const errors = collectConsoleErrors(page);
     const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
     if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
     await serve(page, servedFor(fixture));
     await open(page, `/?t=${fixture.id}`);
-    // Round 4's Room A is the sixth exit icon (Round 3 has five rooms).
-    const icon = page.getByRole('button', { name: /Where players go from/ }).nth(5);
-    // Bring the whole column to the left edge, so the pop-up (as wide as a card) is fully on the screen.
-    await icon.evaluate((element) =>
-      element.closest('.relative')?.scrollIntoView({ inline: 'start', block: 'center' }),
+    const fixtureId = fixture.id;
+    mkdirSync(`${OUTPUT_DIR}/${fixtureId}`, { recursive: true });
+
+    // Each pop-up opens on tap, shows its close button and lies fully inside the 390 px screen, with no scrolling first.
+    async function checkPopup(icon: Locator, picture: string): Promise<void> {
+      await icon.tap();
+      const popup = page.getByRole('tooltip');
+      await expect(popup).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+      const edges = await popup.evaluate((element) => {
+        const { left, right } = element.getBoundingClientRect();
+        return { left, right };
+      });
+      expect(edges.left, 'the pop-up starts inside the screen').toBeGreaterThanOrEqual(0);
+      expect(edges.right, 'the pop-up ends inside the screen').toBeLessThanOrEqual(390);
+      const box = await icon.boundingBox();
+      if (!box) throw new Error('the exit icon has no box');
+      await page.screenshot({
+        path: `${OUTPUT_DIR}/${fixtureId}/${picture}-390.png`,
+        clip: { x: 0, y: Math.max(0, box.y - 6), width: 390, height: 260 },
+      });
+      await page.getByRole('button', { name: 'Close' }).tap();
+      await expect(page.getByRole('tooltip')).toHaveCount(0);
+    }
+
+    // The shown box is Round 4: its Room A is the first exit icon on the page.
+    await checkPopup(page.getByRole('button', { name: /Where players go from/ }).first(), 'exit-popup-touch');
+    // The standings column is a tab of its own on a phone.
+    await page.getByRole('tab', { name: /^Qualification/ }).tap();
+    await checkPopup(
+      page.getByRole('button', { name: 'Where players go from qualification' }),
+      'exit-popup-touch-standings',
     );
-    await icon.tap();
-    await expect(page.getByRole('tooltip')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
-    const box = await icon.boundingBox();
-    if (!box) throw new Error('the exit icon has no box');
-    const x = Math.max(0, box.x - 300);
-    const y = Math.max(0, box.y - 6);
-    mkdirSync(`${OUTPUT_DIR}/${fixture.id}`, { recursive: true });
-    await page.screenshot({
-      path: `${OUTPUT_DIR}/${fixture.id}/exit-popup-touch-390.png`,
-      clip: { x, y, width: Math.min(390 - x, 390), height: 260 },
-    });
-    await page.getByRole('button', { name: 'Close' }).tap();
-    await expect(page.getByRole('tooltip')).toHaveCount(0);
     expect(errors, 'expected zero console errors').toEqual([]);
   });
 });

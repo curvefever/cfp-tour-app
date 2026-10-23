@@ -97,14 +97,19 @@ export function BracketView() {
           Follow a player
         </label>
         <Input
-          className='h-11 w-60 rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep text-[15px] font-semibold'
+          className='h-11 w-60 rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep text-[15px] font-semibold max-[700px]:w-auto max-[700px]:min-w-0 max-[700px]:flex-1'
           id='br-follow-input'
           placeholder='Follow a player or team…'
           type='text'
           value={query}
           onChange={(event) => chooseFollow(event.target.value)}
         />
-        <FollowBanner state={app.state} followKey={followKey} follow={follow} />
+        <FollowBanner
+          className='max-[700px]:order-last max-[700px]:basis-full'
+          state={app.state}
+          followKey={followKey}
+          follow={follow}
+        />
         <div className='ml-auto flex'>
           <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
           <InfoToggle open={infoOpen} onToggle={() => setInfoOpen((open) => !open)} />
