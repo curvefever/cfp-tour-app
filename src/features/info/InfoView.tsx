@@ -116,7 +116,10 @@ export function InfoView() {
       >
         General tournament rules →
       </a>
-      <ExitTournamentButton className='min-[701px]:hidden' onExit={() => void exitTournament()} />
+      <ExitTournamentButton
+        className='self-start max-[700px]:h-11 min-[701px]:hidden'
+        onExit={() => void exitTournament()}
+      />
     </div>
   );
 }

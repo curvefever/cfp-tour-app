@@ -179,6 +179,9 @@ async function expectPhoneInfo(page: Page, fixture: FixtureTournament): Promise<
     .getByRole('link', { name: /General tournament rules/ })
     .evaluate((element) => element.getBoundingClientRect().bottom + window.scrollY);
   expect(exitTop, 'Exit comes after the rules link').toBeGreaterThanOrEqual(rulesBottom);
+  const exitBox = await exit.boundingBox();
+  expect(exitBox?.height ?? 0, 'Exit is a 44 px target').toBeGreaterThanOrEqual(44);
+  expect(exitBox?.width ?? 999, 'Exit keeps its own width').toBeLessThan(300);
   if (!fixture.screenshotIds?.length) return;
   const thumbs = await page.getByRole('button', { name: 'Lobby screenshot' }).evaluateAll((elements) =>
     elements.map((element) => {
