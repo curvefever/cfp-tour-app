@@ -42,6 +42,7 @@ Numbers only: this report makes no recommendation. The planner and the organiser
 3. **last round by standings**: the last round is the current standings cut into the round's room sizes, best room first. Earlier rounds as current.
 4. **2 + 3 together.**
 5. **standings every round**: every counted round after the first is drawn by cutting the standings into rooms (Swiss-like, reference only). The first counted round is the engine's.
+- Policies 3 to 5 are prototypes that cut the standings into rooms with no rematch avoidance and no smaller-room split, so their repeat and seat-spread figures show the prototype, not what a full build would give.
 - **random rooms** (baseline only): every round after round 1 is a random draw. It supplies the carry-over baseline.
 
 ## Metrics (means over the runs)
