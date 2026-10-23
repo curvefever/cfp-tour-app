@@ -5,6 +5,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { spreadConfig, startSpread } from './spread-play';
 
 /**
  * Invariant: a re-draw equals a first advance from the corrected state, i.e.
@@ -134,6 +135,12 @@ describe('Next Round after Previous re-draws like a first advance', () => {
     );
     expect(atRound.rounds[atRound.curRound].isQual).toBe(true);
     expectRedrawEquivalence(atRound, 3);
+  });
+
+  it('FFA qualification table, 37 players: re-advance into a counted round whose rooms differ in size', () => {
+    const atRound = playUntil(startSpread(spreadConfig('ffa', 37)), 0, (state) => state.curRound === 1);
+    expect(atRound.rounds[atRound.curRound + 1].rooms).toEqual([8, 8, 7, 7, 7]);
+    expectRedrawEquivalence(atRound, 0);
   });
 
   describe('FFA, no pooling, 37 players', () => {

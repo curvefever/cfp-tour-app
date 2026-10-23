@@ -18,6 +18,11 @@ const IDEAL_GROUP_SIZE = 4;
 /** A pooling round (warm-up, qualification table, Swiss or group stage): never an elimination round, Semis or the Final. */
 export const isPoolingRound = (round: TournamentRound): boolean =>
   (round.isQual || !!round.isSwiss || round.isNoElim) && !round.isFinal && !round.isSemis;
+
+/** A qualification or Swiss round whose result counts toward the standings (the rule of `computeQualificationStandings`). */
+export const isCountedPoolingRound = (round: TournamentRound): boolean =>
+  (round.isQual || !!round.isSwiss) && !round.excludeFromStandings;
+
 export const GROUP_SIZE_BOUNDS = {
   min: 3,
   max: 5,

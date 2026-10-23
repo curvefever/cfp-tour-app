@@ -1,6 +1,8 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
+import { isCountedPoolingRound } from './pooling';
+import { smallerRoomSeatsBefore, splitForSmallerRooms } from './smaller-room-seats';
 import type { RandomSource } from './runtime';
 import type {
   PendingBracketSeed,
@@ -505,6 +507,50 @@ export function assignWaveToRooms(
 }
 
 /**
+ * Fills `roomNumbers` with `members` (best tier first), one wave at a time: a wave seats one candidate in
+ * every room that is still open at that depth (a room of size s takes part in waves 0..s-1), assigned by
+ * assignWaveToRooms. The balance mean is taken over `roomNumbers` only. `roomSizes` is indexed by
+ * room number - 1.
+ */
+function fillRoomsByWaves(options: {
+  members: WaveMember[];
+  roomNumbers: number[];
+  roomSizes: number[];
+  roomHistory: Record<string, number>;
+  targetRoundIndex: number;
+  diversityWeight: number;
+  balanceWeight: number;
+}): Array<{ name: string; room: number }> {
+  const { members, roomNumbers, roomSizes, roomHistory, targetRoundIndex, diversityWeight, balanceWeight } =
+    options;
+  const maxWave = Math.max(0, ...roomNumbers.map((room) => roomSizes[room - 1]));
+  const roomMembersSoFar = new Map<number, string[]>(roomNumbers.map((room) => [room, []]));
+  const roomBalanceSoFar = new Map<number, number>(roomNumbers.map((room) => [room, 0]));
+  const result: Array<{ name: string; room: number }> = [];
+  let cursor = 0;
+  for (let wave = 0; wave < maxWave; wave += 1) {
+    const waveRooms = roomNumbers.filter((room) => roomSizes[room - 1] > wave);
+    const waveMembers = members.slice(cursor, cursor + waveRooms.length);
+    cursor += waveRooms.length;
+    if (waveMembers.length === 0) continue;
+    const assigned = assignWaveToRooms(waveMembers, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
+      roomHistory,
+      targetRoundIndex,
+      allRoomNumbers: roomNumbers,
+      diversityWeight,
+      balanceWeight,
+    });
+    for (const { name, room } of assigned) {
+      roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
+      const tierRank = waveMembers.find((member) => member.name === name)?.tierRank ?? 0;
+      roomBalanceSoFar.set(room, (roomBalanceSoFar.get(room) ?? 0) + tierRank);
+      result.push({ name, room });
+    }
+  }
+  return result;
+}
+
+/**
  * Replaces snakeSeed for every ordinary room-based reseed (no-elim/pooling
  * warmup, Qualification Table, and real single-elimination/team-format
  * cuts) -- NOT Kings Valley, double-elimination's WB/LB pooled pipeline,
@@ -550,8 +596,6 @@ export function tieredSeed(options: {
     tier.members.map((member) => ({ name: member.name, tierRank: tier.rank })),
   );
 
-  const allRoomNumbers = nextRound.rooms.map((_, index) => index + 1);
-  const maxWave = Math.max(0, ...nextRound.rooms);
   let diversityWeight: number;
   let balanceWeight: number;
   if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
@@ -562,34 +606,38 @@ export function tieredSeed(options: {
     balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
   }
 
-  const roomMembersSoFar = new Map<number, string[]>(allRoomNumbers.map((room) => [room, []]));
-  const roomBalanceSoFar = new Map<number, number>(allRoomNumbers.map((room) => [room, 0]));
-  const result: Array<{ name: string; room: number }> = [];
-  let cursor = 0;
-  for (let wave = 0; wave < maxWave; wave += 1) {
-    const waveRooms = nextRound.rooms
-      .map((size, index) => ({ size, room: index + 1 }))
-      .filter(({ size }) => size > wave)
-      .map(({ room }) => room);
-    const members = flat.slice(cursor, cursor + waveRooms.length).map((entry) => ({
-      name: entry.name,
-      tierRank: entry.tierRank,
-    }));
-    cursor += waveRooms.length;
-    if (members.length === 0) continue;
-    const assigned = assignWaveToRooms(members, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
+  const allRoomNumbers = nextRound.rooms.map((_, index) => index + 1);
+  const fill = (members: WaveMember[], roomNumbers: number[]) =>
+    fillRoomsByWaves({
+      members,
+      roomNumbers,
+      roomSizes: nextRound.rooms,
       roomHistory: state.roomHistory,
       targetRoundIndex,
-      allRoomNumbers,
       diversityWeight,
       balanceWeight,
     });
-    for (const { name, room } of assigned) {
-      roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
-      const tierRank = members.find((member) => member.name === name)?.tierRank ?? 0;
-      roomBalanceSoFar.set(room, (roomBalanceSoFar.get(room) ?? 0) + tierRank);
-      result.push({ name, room });
-    }
+
+  // Counted pooling rounds with mixed room sizes: the smaller rooms are filled apart, by the units that
+  // have held the fewest smaller-room seats, so those seats are spread evenly (smaller-room-seats.ts).
+  const split = isCountedPoolingRound(nextRound)
+    ? splitForSmallerRooms(
+        flat,
+        nextRound.rooms,
+        smallerRoomSeatsBefore(state, targetRoundIndex),
+        new Set(lateJoinersOf(state, roundIndex)),
+      )
+    : null;
+  let result: Array<{ name: string; room: number }>;
+  if (split) {
+    const largeRooms = allRoomNumbers.filter((room) => !split.smallRooms.includes(room));
+    const placed = [...fill(split.small, split.smallRooms), ...fill(split.large, largeRooms)];
+    const position = new Map(flat.map((member, index) => [member.name, index]));
+    result = placed.sort(
+      (first, second) => (position.get(first.name) ?? 0) - (position.get(second.name) ?? 0),
+    );
+  } else {
+    result = fill(flat, allRoomNumbers);
   }
 
   const seeded: RoundAssignment[] = result.map(({ name, room }) => ({

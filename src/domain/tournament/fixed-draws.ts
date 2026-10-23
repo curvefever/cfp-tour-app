@@ -1,5 +1,6 @@
 import { circleMethodSchedule } from './pooling';
-import { assignWaveToRooms, recordRoomHistory, selectPoolingBye } from './seeding';
+import { assignWaveToRooms, recordRoomHistory, selectPoolingBye, type WaveMember } from './seeding';
+import { countSmallerRoomSeats, splitForSmallerRooms } from './smaller-room-seats';
 import type { RoundAssignment, TournamentRound } from './types';
 
 /**
@@ -57,6 +58,39 @@ export function buildFixedSwissSchedule(roster: string[], roundCount: number): R
   return rounds;
 }
 
+/** One wave at a time, as the live path does, with every tier equal: repeat avoidance is the only signal. */
+function fillFixedRooms(
+  members: WaveMember[],
+  roomNumbers: number[],
+  roomSizes: number[],
+  roomHistory: Record<string, number>,
+  roundIndex: number,
+): RoundAssignment[] {
+  const maxWave = Math.max(0, ...roomNumbers.map((room) => roomSizes[room - 1]));
+  const roomMembersSoFar = new Map<number, string[]>(roomNumbers.map((room) => [room, []]));
+  const roomBalanceSoFar = new Map<number, number>(roomNumbers.map((room) => [room, 0]));
+  const assignments: RoundAssignment[] = [];
+  let cursor = 0;
+  for (let wave = 0; wave < maxWave; wave += 1) {
+    const waveRooms = roomNumbers.filter((room) => roomSizes[room - 1] > wave);
+    const waveMembers = members.slice(cursor, cursor + waveRooms.length);
+    cursor += waveRooms.length;
+    if (waveMembers.length === 0) continue;
+    const assigned = assignWaveToRooms(waveMembers, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
+      roomHistory,
+      targetRoundIndex: roundIndex,
+      allRoomNumbers: roomNumbers,
+      diversityWeight: 1,
+      balanceWeight: 0,
+    });
+    for (const { name, room } of assigned) {
+      roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
+      assignments.push({ name, room, isLucky: false });
+    }
+  }
+  return assignments;
+}
+
 /**
  * Qual-table's fixed schedule -- room size can exceed 2 and vary round to
  * round, so circleMethodSchedule's pairwise construction doesn't apply.
@@ -77,7 +111,7 @@ export function buildFixedSwissSchedule(roster: string[], roundCount: number): R
  */
 export function buildFixedRoomSchedule(
   roster: string[],
-  rounds: ReadonlyArray<Pick<TournamentRound, 'rooms' | 'byeCount'>>,
+  rounds: ReadonlyArray<Pick<TournamentRound, 'rooms' | 'byeCount' | 'excludeFromStandings'>>,
 ): FixedRoomScheduleResult {
   let roomHistory: Record<string, number> = {};
   const poolingByeCounts: Record<string, number> = {};
@@ -98,29 +132,25 @@ export function buildFixedRoomSchedule(
     }
 
     const allRoomNumbers = round.rooms.map((_, index) => index + 1);
-    const maxWave = Math.max(0, ...round.rooms);
-    const roomMembersSoFar = new Map<number, string[]>(allRoomNumbers.map((room) => [room, []]));
-    const roomBalanceSoFar = new Map<number, number>(allRoomNumbers.map((room) => [room, 0]));
-    const roomAssignments: RoundAssignment[] = [];
-    let cursor = 0;
-
-    for (let wave = 0; wave < maxWave; wave += 1) {
-      const waveRooms = allRoomNumbers.filter((room) => round.rooms[room - 1] > wave);
-      const members = pool.slice(cursor, cursor + waveRooms.length).map((name) => ({ name, tierRank: 0 }));
-      cursor += waveRooms.length;
-      if (members.length === 0) continue;
-      const assigned = assignWaveToRooms(members, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
-        roomHistory,
-        targetRoundIndex: roundIndex,
-        allRoomNumbers,
-        diversityWeight: 1,
-        balanceWeight: 0,
-      });
-      for (const { name, room } of assigned) {
-        roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
-        roomAssignments.push({ name, room, isLucky: false });
-      }
-    }
+    // A counted round with mixed room sizes fills its smaller rooms apart, by the units with the fewest
+    // smaller-room seats so far (smaller-room-seats.ts); a fixed draw refuses late joiners, so none go last.
+    const members = pool.map((name) => ({ name, tierRank: 0 }));
+    const countedLineUps = result.filter((_, index) => !rounds[index].excludeFromStandings);
+    const split = round.excludeFromStandings
+      ? null
+      : splitForSmallerRooms(members, round.rooms, countSmallerRoomSeats(countedLineUps), new Set());
+    const roomAssignments = split
+      ? [
+          ...fillFixedRooms(split.small, split.smallRooms, round.rooms, roomHistory, roundIndex),
+          ...fillFixedRooms(
+            split.large,
+            allRoomNumbers.filter((room) => !split.smallRooms.includes(room)),
+            round.rooms,
+            roomHistory,
+            roundIndex,
+          ),
+        ]
+      : fillFixedRooms(members, allRoomNumbers, round.rooms, roomHistory, roundIndex);
 
     const roundAssignments = [...roomAssignments, ...byeAssignments];
     result.push(roundAssignments);
