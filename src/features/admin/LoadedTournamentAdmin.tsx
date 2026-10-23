@@ -22,7 +22,7 @@ export function LoadedTournamentAdmin() {
         ← All tournaments
       </button>
       <PageHeading
-        actions={app.state.started ? <CopyViewerLink /> : undefined}
+        actions={app.state.started ? <CopyViewerLink className='max-[700px]:hidden' /> : undefined}
         className='mb-0 items-end'
         label={app.state.started ? 'Admin' : 'Setup'}
         title={title}
@@ -39,6 +39,7 @@ export function LoadedTournamentAdmin() {
           <div className='flex flex-col gap-5'>
             {app.state.started ? <SyncStatusLine /> : null}
             <TournamentStatusPanel />
+            {app.state.started ? <CopyViewerLink className='min-[701px]:hidden max-[700px]:w-full' /> : null}
             {app.state.started ? <RunningAdmin /> : <SetupView />}
           </div>
         </PresenceProvider>

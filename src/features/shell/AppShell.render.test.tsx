@@ -564,3 +564,52 @@ describe('Setup on a phone: Confirm & Start', () => {
     expect(view.queryAllByRole('button', { name: 'Confirm & Start' })).toHaveLength(0);
   });
 });
+
+describe('Admin tab on a phone', () => {
+  const quarters = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
+    return fixture;
+  };
+
+  it('has a Copy viewer link at the heading for a desktop and a full-width one under the status for a phone', () => {
+    const view = renderApp(quarters(), { role: 'admin', tab: 'admin' });
+    const links = view.getAllByRole('button', { name: 'Copy viewer link' });
+    const status = view.getByRole('region', { name: 'Tournament status' });
+
+    expect(links).toHaveLength(2);
+    const [desktop, phone] = [
+      links.find((link) => link.className.includes('max-[700px]:hidden')),
+      links.find((link) => link.className.includes('min-[701px]:hidden')),
+    ];
+    expect(desktop).toBeDefined();
+    expect(phone?.className).toContain('max-[700px]:w-full');
+    // The phone copy follows the status panel directly.
+    expect(status.nextElementSibling).toBe(phone);
+  });
+
+  it('makes the status panel buttons full width on a phone', () => {
+    const view = renderApp(quarters(), { role: 'admin', tab: 'admin' });
+    const status = view.getByRole('region', { name: 'Tournament status' });
+
+    expect(within(status).getByRole('button', { name: 'Finish tournament' }).className).toContain(
+      'max-[700px]:w-full',
+    );
+  });
+
+  it('lists each room once with its status word and scores in, the same cells for a table and a card', () => {
+    const view = renderApp(quarters(), { role: 'admin', tab: 'admin' });
+    const rooms = view.getByRole('region', { name: 'Tournament progress' });
+
+    for (const [room, status, scores] of [
+      ['Room A', 'Scored', '8/8'],
+      ['Room B', 'Scored', '8/8'],
+      ['Room C', 'Not started', '0/8'],
+    ]) {
+      const row = within(rooms).getByText(room, { exact: true }).parentElement;
+      expect(row?.textContent).toContain(status);
+      expect(row?.textContent).toContain(scores);
+    }
+    expect(within(rooms).getAllByText('Room A', { exact: true })).toHaveLength(1);
+  });
+});

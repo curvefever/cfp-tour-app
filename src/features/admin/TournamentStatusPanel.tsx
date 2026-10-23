@@ -78,6 +78,7 @@ export function TournamentStatusPanel() {
         </p>
         {actions.map(({ action, refusal }) => (
           <Button
+            className='max-[700px]:w-full'
             key={action}
             variant={buttonVariant(action, Boolean(refusal))}
             disabled={Boolean(refusal) || working !== null}
