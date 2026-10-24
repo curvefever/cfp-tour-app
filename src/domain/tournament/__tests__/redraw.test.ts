@@ -623,6 +623,21 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       const seed = waiting.find((entry) => entry.name === name) as (typeof waiting)[number];
       expectSteppedForwardUnchanged({ [destination]: [...waiting, seed] });
     });
+
+    it('a lucky loser no recorded round sent: steps forward unchanged', () => {
+      // A unit waiting from before the round advanced from, listed as a lucky loser of a later round.
+      const shared = playUntil(build(DE_SHARED_FINAL_37), 0, withFarPool);
+      const { name: stray, destination: target } = farPoolUnit(shared) as {
+        name: string;
+        destination: number;
+      };
+      const advanced = advanceOk(scoreRound(shared, 0, false));
+      const luckyLosers = advanced.luckyLosers.map((names, index) =>
+        index === target ? [...names, stray] : names,
+      );
+      expect(drawnAheadStatus(back(advanced), shared.curRound)).toBe('redraw');
+      expect(drawnAheadStatus(back({ ...advanced, luckyLosers }), shared.curRound)).toBe('locked');
+    });
   });
 
   it.each([
@@ -643,6 +658,44 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     const stepped = advanceOk(back(withScore));
     expect(stepped.curRound).toBe(next);
     expect(stepped.assignments).toEqual(first.assignments);
+  });
+});
+
+/**
+ * After every advance, Previous and Next Round re-draw to the same state, with nothing corrected. A drawn
+ * round lists its byes in its line-up as well as in `byes`, so a bye that came from an earlier source is the
+ * case the guard must not count twice.
+ */
+describe('Previous and Next Round after every advance reproduce the state', () => {
+  const deRace = (count: number): SweepConfig => ({ ...DE_RACE_37, label: `de race ${count}`, count });
+  const deShared = (count: number): SweepConfig => ({
+    ...DE_SHARED_FINAL_37,
+    label: `de shared ${count}`,
+    count,
+  });
+  const SWEEP: Array<[string, SweepConfig]> = [
+    ...[31, 37, 43, 53].flatMap((count): Array<[string, SweepConfig]> => [
+      [`double elimination race 1v1, ${count} players`, deRace(count)],
+      [`double elimination shared final FFA, ${count} players`, deShared(count)],
+    ]),
+    ['waterfall second-chance-16', waterfallExample('second-chance-16', 16)],
+    ['waterfall spreadsheet-32', waterfallExample('spreadsheet-32', 32)],
+  ];
+
+  it.each(SWEEP)('%s', (_name, config) => {
+    let state = build(config);
+    let advances = 0;
+    for (let guard = 0; guard < 80; guard += 1) {
+      const result = advanceTournamentRound(scoreRound(state, 0, false));
+      if (result.status !== 'advanced') break;
+      advances += 1;
+      const advanced = result.state;
+      const earlier = back(advanced);
+      expect(drawnAheadStatus(earlier, earlier.curRound), `after advance ${advances}`).toBe('redraw');
+      expect(view(advanceOk(earlier)), `after advance ${advances}`).toEqual(view(advanced));
+      state = advanced;
+    }
+    expect(advances).toBeGreaterThan(3);
   });
 });
 

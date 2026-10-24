@@ -91,10 +91,12 @@ function replayExplainsPools(state: TournamentState, roundIndex: number): boolea
     JSON.stringify(actual) === JSON.stringify(sortedNames(replayed ?? []));
 
   for (let index = keep + 1; index < state.rounds.length; index += 1) {
+    // A drawn round lists its byes in its line-up too (room null): count each unit once.
+    const seated = lineUp(index);
     const held = [
       ...(state.pendingBracketSeeds[index] ?? []).map((seed) => seed.name),
-      ...lineUp(index),
-      ...(state.byes[index] ?? []),
+      ...seated,
+      ...(state.byes[index] ?? []).filter((name) => !seated.includes(name)),
     ];
     const replayedPool = replay.pools.get(index)?.map((seed) => seed.name);
     if (!same(outsideRedone(held), replayedPool)) return false;
