@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
+import { removeRosterUnit, swapIndividual, swapWindowOpen } from '../mutations';
 import { discardDrawsAfter, drawnAheadStatus } from '../redraw';
+import { currentColumn, nextColumnStart, previousColumnStart } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { spreadConfig, startSpread } from './spread-play';
 
 /**
@@ -19,6 +22,7 @@ const VIEW_KEYS = [
   'luckyLosers',
   'roomHistory',
   'poolingByeCounts',
+  'pendingBracketSeeds',
   'rounds',
   'curRound',
 ] as const;
@@ -35,12 +39,25 @@ function advanceOk(state: TournamentState): TournamentState {
   return result.state;
 }
 
+/** Previous: back to the first round of the column before the one in play. */
 function back(state: TournamentState): TournamentState {
-  return { ...state, curRound: state.curRound - 1 };
+  return { ...state, curRound: previousColumnStart(state) ?? state.curRound - 1 };
 }
 
-/** Scores the current round; `reversed` flips every room's order, which changes who advances. */
+/** Scores every round of the column in play; `reversed` flips every room's order, which changes who advances. */
 function scoreRound(state: TournamentState, teamSize: number, reversed: boolean): TournamentState {
+  const { start, end } = currentColumn(state);
+  let scored = state;
+  for (let index = start; index <= end; index += 1) {
+    scored = {
+      ...scoreOneRound({ ...scored, curRound: index }, teamSize, reversed),
+      curRound: state.curRound,
+    };
+  }
+  return scored;
+}
+
+function scoreOneRound(state: TournamentState, teamSize: number, reversed: boolean): TournamentState {
   if (!reversed) return scoreCurrentRound(state, teamSize);
   const scored = scoreCurrentRound(state, teamSize);
   const round = state.rounds[state.curRound];
@@ -91,10 +108,16 @@ function isFirstElimination(round: TournamentState['rounds'][number]): boolean {
 }
 
 /** `editChangesDraw` is false for predetermined draws (fixed, group stage), where scores can't move anyone. */
-function expectRedrawEquivalence(atRound: TournamentState, teamSize: number, editChangesDraw = true): void {
+function expectRedrawEquivalence(
+  atRound: TournamentState,
+  teamSize: number,
+  editChangesDraw = true,
+  poolsMayCarryIt = false,
+): void {
   // No edit: the re-draw reproduces the first advance exactly.
+  const next = nextColumnStart(atRound);
   const first = advanceOk(scoreRound(atRound, teamSize, false));
-  expect(first.assignments[atRound.curRound + 1]?.length).toBeGreaterThan(0);
+  expect(first.assignments[next]?.length).toBeGreaterThan(0);
   expect(view(advanceOk(back(first)))).toEqual(view(first));
 
   // A score edit in the round advanced from: the re-draw equals advancing the corrected state.
@@ -103,7 +126,11 @@ function expectRedrawEquivalence(atRound: TournamentState, teamSize: number, edi
   expect(view(redone)).toEqual(view(expected));
   // The edit must really change the next draw, or the check proves nothing.
   if (editChangesDraw) {
-    expect(redone.assignments[atRound.curRound + 1]).not.toEqual(first.assignments[atRound.curRound + 1]);
+    // A correction in a bracket round may only move units into a round drawn later: its pools show it.
+    const poolsChanged =
+      poolsMayCarryIt &&
+      JSON.stringify(redone.pendingBracketSeeds) !== JSON.stringify(first.pendingBracketSeeds);
+    if (!poolsChanged) expect(redone.assignments[next]).not.toEqual(first.assignments[next]);
   }
 }
 
@@ -314,62 +341,310 @@ describe('Next Round steps forward unchanged when the drawn-ahead round is locke
     expect(stepped.assignments).toEqual(first.assignments);
     expect(stepped).toEqual({ ...withScore, curRound: 3, reserveOpen: stepped.reserveOpen });
   });
-
-  it('double elimination, 37 FFA players: steps forward; pools and lucky losers are untouched', () => {
-    const state = build({
-      label: 'de 37',
-      count: 37,
-      teams: false,
-      setup: { ...FFA, scheduleLogic: 'double-elimination-shared-final', poolingPhase: 'none' },
-    });
-    expectLockedStepForward(state, 0);
-  });
-
-  it('double elimination, 1v1 with 37 players: steps forward; pools and lucky losers are untouched', () => {
-    const state = build({
-      label: 'de h2h 37',
-      count: 37,
-      teams: false,
-      setup: { ...H2H, scheduleLogic: 'double-elimination', poolingPhase: 'none' },
-    });
-    expectLockedStepForward(state, 0);
-  });
-
-  it('waterfall (the 16-player example): steps forward; pools and lucky losers are untouched', () => {
-    const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'second-chance-16');
-    const state = build({
-      label: 'waterfall 16',
-      count: 16,
-      teams: false,
-      setup: {
-        ...FFA,
-        scheduleLogic: 'waterfall-bracket',
-        poolingPhase: 'qual-table',
-        qualAdv: '16',
-        waterfallGraph: example?.text ?? '',
-      },
-    });
-    expectLockedStepForward(state, 0);
-  });
 });
 
-/** Plays to the first bracket/waterfall round that has a next round, advances, goes back and advances again. */
-function expectLockedStepForward(start: TournamentState, teamSize: number): void {
-  const atRound = playUntil(start, teamSize, (state) => {
-    const round = state.rounds[state.curRound];
-    return Boolean(
-      (round.bracket || round.isWaterfall) && !round.isFinal && state.rounds[state.curRound + 1],
+type Stop = (state: TournamentState) => boolean;
+
+const isBracketRound: Stop = (state) => {
+  const round = state.rounds[state.curRound];
+  return Boolean(
+    (round.bracket || round.isWaterfall) && !round.isFinal && state.rounds[nextColumnStart(state)],
+  );
+};
+
+/** The first unit waiting in the pool of a round after the column in play, with that round. */
+function farPoolUnit(state: TournamentState): { name: string; destination: number } | null {
+  const { end } = currentColumn(state);
+  for (const [key, seeds] of Object.entries(state.pendingBracketSeeds)) {
+    if (Number(key) > end && seeds.length > 0) return { name: seeds[0].name, destination: Number(key) };
+  }
+  return null;
+}
+
+/** A bracket round reached while later rounds' pools already hold units from earlier rounds. */
+const withFarPool: Stop = (state) => isBracketRound(state) && farPoolUnit(state) !== null;
+const atLabel =
+  (label: string): Stop =>
+  (state) =>
+    state.rounds[state.curRound].customLabel === label;
+
+const DE_RACE_37: SweepConfig = {
+  label: 'de h2h 37',
+  count: 37,
+  teams: false,
+  setup: { ...H2H, scheduleLogic: 'double-elimination', poolingPhase: 'none' },
+};
+const DE_SHARED_FINAL_37: SweepConfig = {
+  label: 'de 37',
+  count: 37,
+  teams: false,
+  setup: { ...FFA, scheduleLogic: 'double-elimination-shared-final', poolingPhase: 'none' },
+};
+
+function waterfallExample(id: string, count: number): SweepConfig {
+  return {
+    label: `waterfall ${id}`,
+    count,
+    teams: false,
+    setup: {
+      ...FFA,
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      qualAdv: String(count),
+      waterfallGraph: WATERFALL_EXAMPLES.find((entry) => entry.id === id)?.text ?? '',
+    },
+  };
+}
+
+/** Its first round routes every unit on, so nobody is eliminated until the second column. */
+const SWAP_WATERFALL_16: SweepConfig = {
+  label: 'waterfall nobody out in R1',
+  count: 16,
+  teams: false,
+  setup: {
+    ...FFA,
+    scheduleLogic: 'waterfall-bracket',
+    poolingPhase: 'qual-table',
+    qualAdv: '16',
+    waterfallGraph: `
+ROUNDS:
+R1 = 2x8
+R2 = 8 COLUMN 2
+R3 = 8 COLUMN 3
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->R2, 5-8->R3
+R1.B: 1-4->R2, 5-8->R3
+R2: 1-4->Final, 5-8->eliminated
+R3: 1-4->Final, 5-8->eliminated
+`,
+  },
+};
+
+const FIRST_AND_LATER: Array<[string, Stop]> = [
+  ['first bracket round', isBracketRound],
+  ['later round, pools already hold units', withFarPool],
+];
+
+const REDRAW_CASES: Array<{ name: string; start: () => TournamentState; stops: Array<[string, Stop]> }> = [
+  { name: 'double elimination race 1v1, 37 players', start: () => build(DE_RACE_37), stops: FIRST_AND_LATER },
+  {
+    name: 'double elimination shared final FFA, 37 players',
+    start: () => build(DE_SHARED_FINAL_37),
+    stops: FIRST_AND_LATER,
+  },
+  {
+    name: 'double elimination shared final after a qualification table, 37 players',
+    start: () => build(DE_AFTER_QUAL),
+    stops: FIRST_AND_LATER,
+  },
+  {
+    name: 'waterfall second-chance-16',
+    start: () => build(waterfallExample('second-chance-16', 16)),
+    stops: FIRST_AND_LATER,
+  },
+  {
+    name: 'waterfall spreadsheet-32 (simultaneous columns)',
+    start: () => build(waterfallExample('spreadsheet-32', 32)),
+    stops: [
+      ['first column (R5)', atLabel('R5')],
+      ['column of three rounds (SemiA, R6B, R6C)', atLabel('SemiA')],
+      ['column after it, SemiB waiting in a pool (R7A)', atLabel('R7A')],
+    ],
+  },
+  {
+    name: 'waterfall with a Qual source, 43 players',
+    start: () => buildQualWaterfall(43, QUAL_GRAPH, {}, { columns: true }),
+    stops: FIRST_AND_LATER,
+  },
+];
+
+const REDRAW_STOPS = REDRAW_CASES.flatMap(({ name, start, stops }) =>
+  stops.map(([depth, stop], index) => ({ name: `${name}, ${depth}`, start, stop, first: index === 0 })),
+);
+
+describe('Next Round re-draws a corrected double elimination or waterfall round', () => {
+  it.each(REDRAW_STOPS)(
+    '$name: no edit reproduces the advance, a correction re-routes',
+    ({ start, stop }) => {
+      const atRound = playUntil(start(), 0, stop);
+      expect(drawnAheadStatus(back(advanceOk(scoreRound(atRound, 0, false))), atRound.curRound)).toBe(
+        'redraw',
+      );
+      expectRedrawEquivalence(atRound, 0, true, true);
+    },
+  );
+
+  it('the Grand Final names the finalist of the corrected winners final', () => {
+    const atRound = playUntil(
+      build(DE_RACE_37),
+      0,
+      (state) => state.rounds[state.rounds[state.curRound].winnersTo ?? -1]?.bracket === 'grand-final',
+    );
+    const grandFinal = atRound.rounds[atRound.curRound].winnersTo as number;
+    const first = advanceOk(scoreRound(atRound, 0, false));
+    const redone = advanceOk(scoreRound(back(first), 0, true));
+    const expected = advanceOk(scoreRound(atRound, 0, true));
+    expect(view(redone)).toEqual(view(expected));
+    // The Grand Final is drawn once the losers final is played: play on from each version to it.
+    const finalist = (state: TournamentState) =>
+      playUntil(state, 0, (reached) => reached.curRound === grandFinal).rounds[grandFinal].wbFinalistName;
+    expect(finalist(redone)).toBeDefined();
+    expect(finalist(redone)).toBe(finalist(expected));
+    expect(finalist(redone)).not.toBe(finalist(first));
+  });
+
+  it('correcting the last qualification round re-draws with empty waterfall pools', () => {
+    const atRound = playUntil(buildQualWaterfall(43, QUAL_GRAPH, {}, { columns: true }), 0, (state) =>
+      Boolean(state.rounds[nextColumnStart(state)]?.isWaterfall),
+    );
+    expect(atRound.rounds[atRound.curRound].isQual).toBe(true);
+    expect(Object.values(advanceOk(scoreRound(atRound, 0, false)).pendingBracketSeeds).flat()).toEqual([]);
+    expectRedrawEquivalence(atRound, 0);
+  });
+
+  describe('a withdrawal or a swap between the advance and the correction', () => {
+    /**
+     * The room history of a withdrawn unit's pairings is not compared: re-drawing rewinds it from the
+     * line-ups, which no longer hold the unit, while a withdrawal before the advance leaves it as recorded.
+     */
+    function viewWithout(state: TournamentState, gone: string | null) {
+      const kept = Object.entries(state.roomHistory).filter(
+        ([pair]) => !pair.split('|').includes(gone ?? ''),
+      );
+      return { ...view(state), roomHistory: Object.fromEntries(kept) };
+    }
+
+    /** Applies the change after the advance (then goes back) and before it: the corrected re-draw must agree. */
+    function expectSameAsAdvancingFromChanged(
+      atRound: TournamentState,
+      change: (state: TournamentState) => TournamentState,
+      gone: string | null,
+    ): void {
+      const first = advanceOk(scoreRound(atRound, 0, false));
+      const changed = change(back(first));
+      expect(drawnAheadStatus(changed, atRound.curRound)).toBe('redraw');
+      const redone = advanceOk(scoreRound(changed, 0, true));
+      const expected = advanceOk(scoreRound(change(atRound), 0, true));
+      expect(viewWithout(redone, gone)).toEqual(viewWithout(expected, gone));
+    }
+
+    const WITHDRAWABLE: Array<{ name: string; start: () => TournamentState }> = [
+      { name: 'double elimination race 1v1, 37 players', start: () => build(DE_RACE_37) },
+      { name: 'double elimination shared final FFA, 37 players', start: () => build(DE_SHARED_FINAL_37) },
+      {
+        name: 'waterfall with a Qual source routing every unit, 43 players (R1C waits)',
+        start: () => buildQualWaterfall(43, ALL_ROUTED_GRAPHS[43]),
+      },
+      { name: 'waterfall spreadsheet-32', start: () => build(waterfallExample('spreadsheet-32', 32)) },
+    ];
+
+    it.each(WITHDRAWABLE)('$name: a unit waiting in a far pool withdraws', ({ start }) => {
+      const atRound = playUntil(start(), 0, withFarPool);
+      const name = farPoolUnit(atRound)?.name as string;
+      expectSameAsAdvancingFromChanged(atRound, (state) => removeRosterUnit(state, name), name);
+    });
+
+    // A swap needs the window still open after the advance, so the round advanced from eliminates nobody.
+    const keepsSwapWindowOpen: Stop = (state) => {
+      if (!isBracketRound(state)) return false;
+      const advanced = advanceOk(scoreRound(state, 0, false));
+      return swapWindowOpen(advanced) && farPoolUnit(advanced) !== null;
+    };
+    const SWAPPABLE: Array<{ name: string; start: () => TournamentState }> = [
+      { name: 'double elimination race 1v1, 37 players', start: () => build(DE_RACE_37) },
+      { name: 'double elimination shared final FFA, 37 players', start: () => build(DE_SHARED_FINAL_37) },
+      {
+        name: 'waterfall whose first round eliminates nobody, 16 players',
+        start: () => build(SWAP_WATERFALL_16),
+      },
+    ];
+
+    it.each(SWAPPABLE)('$name: a unit waiting in a pool is swapped', ({ start }) => {
+      const atRound = playUntil(start(), 0, keepsSwapWindowOpen);
+      const first = advanceOk(scoreRound(atRound, 0, false));
+      const name = farPoolUnit(first)?.name as string;
+      const swap = (state: TournamentState) => swapIndividual(state, name, 'Sub');
+      expect(swap(back(first))).not.toEqual(back(first));
+      expectSameAsAdvancingFromChanged(atRound, swap, null);
+    });
+
+    it.each(REDRAW_STOPS.filter(({ first }) => first))(
+      '$name: a unit drawn into the next round withdraws, so the re-advance fits it short',
+      ({ start, stop }) => {
+        const atRound = playUntil(start(), 0, stop);
+        const next = nextColumnStart(atRound);
+        const first = advanceOk(scoreRound(atRound, 0, false));
+        const name = first.assignments[next].find((entry) => entry.room !== null)?.name as string;
+        expectSameAsAdvancingFromChanged(atRound, (state) => removeRosterUnit(state, name), name);
+        const redone = advanceOk(scoreRound(removeRosterUnit(back(first), name), 0, true));
+        const seats = redone.rounds[next].rooms.reduce((total, size) => total + size, 0);
+        expect(seats).toBe(redone.assignments[next].filter((entry) => entry.room !== null).length);
+      },
     );
   });
-  const first = advanceOk(scoreRound(atRound, teamSize, false));
-  const backAgain = back(first);
-  expect(drawnAheadStatus(backAgain, atRound.curRound)).toBe('locked');
-  const stepped = advanceOk(backAgain);
-  expect(stepped.curRound).toBe(atRound.curRound + 1);
-  expect(stepped.pendingBracketSeeds).toEqual(backAgain.pendingBracketSeeds);
-  expect(stepped.luckyLosers).toEqual(backAgain.luckyLosers);
-  expect(view(stepped)).toEqual(view({ ...backAgain, curRound: atRound.curRound + 1 }));
-}
+
+  describe('when the recorded results do not explain the pools', () => {
+    // A unit waiting from before the round advanced from; one that came from it is re-sent by the re-draw.
+    const waitsPastNextRound: Stop = (state) =>
+      isBracketRound(state) &&
+      Object.entries(state.pendingBracketSeeds).some(
+        ([index, seeds]) => Number(index) > nextColumnStart(state) && seeds.length > 0,
+      );
+    const atRound = playUntil(build(DE_RACE_37), 0, waitsPastNextRound);
+    const first = advanceOk(scoreRound(atRound, 0, false));
+    const destination = Object.keys(atRound.pendingBracketSeeds)
+      .map(Number)
+      .find(
+        (index) => index > nextColumnStart(atRound) && atRound.pendingBracketSeeds[index].length > 0,
+      ) as number;
+    const waiting = first.pendingBracketSeeds[destination];
+    const name = waiting[0].name;
+
+    function expectSteppedForwardUnchanged(pools: TournamentState['pendingBracketSeeds']): void {
+      const backAgain = back({ ...first, pendingBracketSeeds: { ...first.pendingBracketSeeds, ...pools } });
+      expect(drawnAheadStatus(backAgain, atRound.curRound)).toBe('locked');
+      const stepped = advanceOk(backAgain);
+      expect(stepped.curRound).toBe(nextColumnStart(atRound));
+      expect(stepped.pendingBracketSeeds).toEqual(backAgain.pendingBracketSeeds);
+      expect(view(stepped)).toEqual(view({ ...backAgain, curRound: nextColumnStart(atRound) }));
+    }
+
+    it('the untouched state re-draws', () => {
+      expect(drawnAheadStatus(back(first), atRound.curRound)).toBe('redraw');
+    });
+
+    it('a unit dropped from a pool: steps forward unchanged', () => {
+      expectSteppedForwardUnchanged({ [destination]: waiting.filter((seed) => seed.name !== name) });
+    });
+
+    it('a unit added to a pool twice: steps forward unchanged', () => {
+      const seed = waiting.find((entry) => entry.name === name) as (typeof waiting)[number];
+      expectSteppedForwardUnchanged({ [destination]: [...waiting, seed] });
+    });
+  });
+
+  it.each([
+    ['double elimination', () => build(DE_SHARED_FINAL_37)],
+    ['waterfall', () => build(waterfallExample('second-chance-16', 16))],
+  ])('%s: a score in the drawn-ahead round locks it', (_name, start) => {
+    const atRound = playUntil(start(), 0, isBracketRound);
+    const first = advanceOk(scoreRound(atRound, 0, false));
+    const next = nextColumnStart(atRound);
+    const [key] = scoreKeysForPosition({
+      roundIndex: next,
+      room: 1,
+      position: 0,
+      numGames: first.rounds[next].numGames ?? 1,
+    });
+    const withScore = { ...first, scores: { ...first.scores, [key]: 5 } };
+    expect(drawnAheadStatus(back(withScore), atRound.curRound)).toBe('locked');
+    const stepped = advanceOk(back(withScore));
+    expect(stepped.curRound).toBe(next);
+    expect(stepped.assignments).toEqual(first.assignments);
+  });
+});
 
 describe('drawnAheadStatus', () => {
   const config: SweepConfig = {
@@ -407,25 +682,33 @@ describe('drawnAheadStatus', () => {
     expect(drawnAheadStatus(scored, finalIndex - 1)).toBe('locked');
   });
 
-  it('is "locked" when the round advanced from is double elimination or waterfall', () => {
+  it('is "redraw" when the round advanced from is double elimination or waterfall and the pools are explained', () => {
     const state = build(config);
     const drawn = { ...state, assignments: [state.assignments[0], state.assignments[0]] };
     for (const flag of [{ bracket: 'WB' }, { isWaterfall: true }] as const) {
       const rounds = state.rounds.map((round, index) => (index === 0 ? { ...round, ...flag } : round));
-      expect(drawnAheadStatus({ ...drawn, rounds } as TournamentState, 0)).toBe('locked');
+      expect(drawnAheadStatus({ ...drawn, rounds } as TournamentState, 0)).toBe('redraw');
     }
   });
 
-  it('is "locked" when a double elimination round between the current and the last drawn round was advanced from', () => {
+  it('is "locked" when a drawn round holds a unit the recorded results do not explain', () => {
+    const state = build(config);
+    // Round 1 is drawn with a unit round 0 never held, which no replay of the rounds before 0 can explain.
+    const drawn = { ...state, assignments: [state.assignments[0].slice(1), state.assignments[0]] };
+    const rounds = state.rounds.map((round, index) =>
+      index === 0 ? { ...round, isWaterfall: true } : round,
+    );
+    expect(drawnAheadStatus({ ...drawn, rounds }, 0)).toBe('locked');
+  });
+
+  it('is "redraw" when a double elimination round between the current and the last drawn round was advanced from', () => {
     const start = build(DE_AFTER_QUAL);
     const atRound = playUntil(start, 0, (state) => Boolean(state.rounds[state.curRound + 1]?.bracket));
     const r = atRound.curRound;
     const drawnOnce = { ...atRound, assignments: [...atRound.assignments, atRound.assignments[r]] };
-    // The first bracket round is only drawn: the generic path seeded it, so it still re-draws.
     expect(drawnAheadStatus(drawnOnce, r)).toBe('redraw');
-    // The bracket round was advanced from (the next round is drawn too): its pending seeds can't be rebuilt.
     const drawnTwice = { ...drawnOnce, assignments: [...drawnOnce.assignments, atRound.assignments[r]] };
-    expect(drawnAheadStatus(drawnTwice, r)).toBe('locked');
+    expect(drawnAheadStatus(drawnTwice, r)).toBe('redraw');
   });
 });
 

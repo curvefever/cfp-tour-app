@@ -212,12 +212,13 @@ describe('going back and forward over a column', () => {
   const start = enterBracket(liveTournament(19), 2);
   const inSecondColumn = advance(scoreColumn(start, 2));
 
-  it('steps forward unchanged after Previous from column 2 to column 1', () => {
+  it('re-draws column 2 after Previous from column 2 to column 1, the same when nothing was corrected', () => {
     const back = { ...inSecondColumn, curRound: start.curRound };
-    expect(drawnAheadStatus(back, back.curRound)).toBe('locked');
+    expect(drawnAheadStatus(back, back.curRound)).toBe('redraw');
     const forward = advance(back);
     expect(forward.curRound).toBe(inSecondColumn.curRound);
     expect(forward.assignments).toEqual(inSecondColumn.assignments);
+    expect(forward.pendingBracketSeeds).toEqual(inSecondColumn.pendingBracketSeeds);
   });
 
   it('re-draws every round of column 1 from the qualification round when nothing in it is scored', () => {
