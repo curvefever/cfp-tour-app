@@ -97,7 +97,7 @@ describe('buildFixedRoomSchedule', () => {
     expect(smartRepeats).toBeLessThan(naiveRepeats);
   });
 
-  it('draws rounds that do not count toward the standings as before, whatever their room sizes (25 units, rooms of 4 and 3)', () => {
+  it('spreads the smaller-room seats of rounds that do not count too (25 units, rooms of 4 and 3)', () => {
     const roster = names(25);
     const rounds = [0, 1].map(() => ({
       rooms: [4, 4, 4, 4, 3, 3, 3],
@@ -108,24 +108,25 @@ describe('buildFixedRoomSchedule', () => {
       [1, 2, 3, 4, 5, 6, 7].map((room) =>
         assignments.filter((entry) => entry.room === room).map((entry) => entry.name),
       );
+    // Round 1 strides its 9 smaller seats over the roster; round 2 gives its 9 to units that had none.
     expect(buildFixedRoomSchedule(roster, rounds).rounds.map(rooms)).toEqual([
       [
-        ['P1', 'P8', 'P15', 'P22'],
-        ['P2', 'P9', 'P16', 'P23'],
-        ['P3', 'P10', 'P17', 'P24'],
-        ['P4', 'P11', 'P18', 'P25'],
-        ['P5', 'P12', 'P19'],
-        ['P6', 'P13', 'P20'],
-        ['P7', 'P14', 'P21'],
+        ['P1', 'P8', 'P14', 'P20'],
+        ['P3', 'P9', 'P15', 'P22'],
+        ['P4', 'P11', 'P17', 'P23'],
+        ['P6', 'P12', 'P18', 'P25'],
+        ['P2', 'P10', 'P19'],
+        ['P5', 'P13', 'P21'],
+        ['P7', 'P16', 'P24'],
       ],
       [
-        ['P1', 'P9', 'P17', 'P25'],
-        ['P2', 'P8', 'P18', 'P24'],
-        ['P3', 'P11', 'P15', 'P23'],
-        ['P4', 'P10', 'P16', 'P22'],
-        ['P5', 'P14', 'P20'],
-        ['P6', 'P12', 'P21'],
-        ['P7', 'P13', 'P19'],
+        ['P2', 'P7', 'P13', 'P20'],
+        ['P3', 'P12', 'P16', 'P21'],
+        ['P5', 'P9', 'P19', 'P23'],
+        ['P6', 'P10', 'P17', 'P24'],
+        ['P1', 'P11', 'P18'],
+        ['P4', 'P14', 'P22'],
+        ['P8', 'P15', 'P25'],
       ],
     ]);
   });

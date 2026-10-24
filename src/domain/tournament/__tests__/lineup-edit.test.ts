@@ -387,10 +387,18 @@ describe('line-up edit: reinstating after a pooling bye, lucky losers, repeated 
     const state = advance(playToFirstElimination(build(37, { poolingPhase: 'qual-table', qualAdv: '24' })));
     const lucky = state.luckyLosers[state.curRound][0];
     expect(lucky).toBeDefined();
+    const draft = draftOf(state);
+    const luckyRoom = draft.find((entry) => entry.name === lucky)!.room!;
+    // The lucky loser's room must still hold more units than advance from it: refill it from a larger room.
+    const spare = state.rounds[state.curRound].advPerRoom! + 1;
+    const donor = draft.find(
+      (entry) => entry.room !== luckyRoom && inRoom(draft, entry.room!).length > spare,
+    )!;
+    donor.room = luckyRoom;
     const edited = unwrap(
       applyLineupEdit(
         state,
-        draftOf(state).filter((entry) => entry.name !== lucky),
+        draft.filter((entry) => entry.name !== lucky),
       ),
     );
     expect(edited.luckyLosers[edited.curRound]).not.toContain(lucky);

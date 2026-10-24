@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { countSmallerRoomSeats, smallerRoomSeatsBefore, splitForSmallerRooms } from '../smaller-room-seats';
-import type { RoundAssignment, TournamentState } from '../types';
+import {
+  NO_POINTS_SEAT_WEIGHT,
+  countSmallerRoomSeats,
+  smallerRoomSeatWeight,
+  smallerRoomSeatsBefore,
+  splitForSmallerRooms,
+  spreadsSmallerRoomSeats,
+} from '../smaller-room-seats';
+import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import {
   JOINER,
   addLateJoiner,
@@ -27,6 +34,18 @@ function lineUp(rooms: string[][]): RoundAssignment[] {
 }
 
 describe('countSmallerRoomSeats', () => {
+  it('weighs each line-up by its own weight, 1 where none is given', () => {
+    const first = lineUp([
+      ['a', 'b', 'c'],
+      ['d', 'e'],
+    ]);
+    const second = lineUp([
+      ['a', 'd'],
+      ['b', 'c', 'e'],
+    ]);
+    expect(countSmallerRoomSeats([first, second], [0.5])).toEqual({ d: 1.5, e: 0.5, a: 1 });
+  });
+
   it('counts a seat in any room below the largest room of that line-up, per round', () => {
     const first = lineUp([
       ['a', 'b', 'c'],
@@ -52,7 +71,7 @@ describe('countSmallerRoomSeats', () => {
 });
 
 describe('smallerRoomSeatsBefore', () => {
-  it('reads only the counted pooling rounds before the round being drawn', () => {
+  it('weighs the seats of every spreading round before the round being drawn: 0.5 where no points are earned', () => {
     const uneven = lineUp([
       ['a', 'b', 'c'],
       ['d', 'e'],
@@ -62,13 +81,46 @@ describe('smallerRoomSeatsBefore', () => {
         { isQual: true, isNoElim: true, excludeFromStandings: true },
         { isQual: true, isNoElim: true },
         { isNoElim: true },
+        { isNoElim: false },
+        { isSemis: true, isNoElim: false },
         { isQual: true, isNoElim: true },
       ],
-      assignments: [uneven, uneven, uneven, uneven],
+      assignments: [uneven, uneven, uneven, uneven, uneven, uneven],
     } as unknown as TournamentState;
-    // Round 0 is not counted, round 2 is a warm-up, round 3 is the one being drawn.
-    expect(smallerRoomSeatsBefore(state, 3)).toEqual({ d: 1, e: 1 });
-    expect(smallerRoomSeatsBefore(state, 1)).toEqual({});
+    // Uncounted round 0 and warm-up 2 weigh 0.5 each, counted round 1 and elimination round 3 weigh 1; the Semis
+    // keep their own draw and add nothing; round 5 is the one being drawn.
+    expect(smallerRoomSeatsBefore(state, 5)).toEqual({ d: 3, e: 3 });
+    expect(smallerRoomSeatsBefore(state, 1)).toEqual({ d: 0.5, e: 0.5 });
+    expect(smallerRoomSeatsBefore(state, 0)).toEqual({});
+  });
+});
+
+describe('which rounds spread their smaller-room seats, and what a seat weighs', () => {
+  const round = (flags: Partial<TournamentRound>) => flags as TournamentRound;
+
+  it.each<[string, Partial<TournamentRound>, boolean]>([
+    ['a warm-up', { isNoElim: true }, true],
+    ['a counted qualification round', { isQual: true, isNoElim: true }, true],
+    ['an uncounted qualification round', { isQual: true, isNoElim: true, excludeFromStandings: true }, true],
+    ['a Swiss round', { isSwiss: true, isNoElim: true }, true],
+    ['an ordinary elimination round', { isNoElim: false }, true],
+    ['a group-stage round', { isGroupStage: true, isNoElim: true }, false],
+    ['a Semis round', { isSemis: true }, false],
+    ['the Final', { isFinal: true }, false],
+    ['a waterfall round', { isWaterfall: true }, false],
+    ['a Kings Valley round', { isKingsValley: true }, false],
+    ['a double-elimination round', { bracket: 'winners' }, false],
+  ])('%s: spreads %s', (_name, flags, spreads) => {
+    expect(spreadsSmallerRoomSeats(round(flags))).toBe(spreads);
+  });
+
+  it.each<[string, Partial<TournamentRound>, number]>([
+    ['a warm-up', { isNoElim: true }, NO_POINTS_SEAT_WEIGHT],
+    ['an uncounted qualification round', { isQual: true, isNoElim: true, excludeFromStandings: true }, 0.5],
+    ['a counted qualification round', { isQual: true, isNoElim: true }, 1],
+    ['an elimination round', { isNoElim: false }, 1],
+  ])('%s weighs %s', (_name, flags, weight) => {
+    expect(smallerRoomSeatWeight(round(flags))).toBe(weight);
   });
 });
 
@@ -243,23 +295,25 @@ describe('rounds the spread does not touch are drawn as before', () => {
       ],
     ]);
   });
+});
 
-  it('a round that does not count toward the standings (11 teams, rooms of 4, 4 and 3)', () => {
+describe('rounds that earn no points spread their smaller-room seats too (11 teams, rooms of 4, 4 and 3)', () => {
+  const smallRoom = (state: TournamentState, roundIndex: number) => roomsOf(state.assignments[roundIndex])[2];
+
+  it('a round that does not count toward the standings', () => {
     const { state } = playToRound(startSpread(spreadConfig('2v2v2v2', 11, { nonCounting: 2 })), 1);
+    expect(smallRoom(state, 0)).toEqual(['t9', 't10', 't11']);
     expect(roomsOf(state.assignments[1])).toEqual([
-      ['t10', 't3', 't5', 't1'],
-      ['t7', 't11', 't2', 't8'],
-      ['t4', 't6', 't9'],
+      ['t10', 't6', 't3', 't8'],
+      ['t7', 't11', 't9', 't2'],
+      ['t4', 't5', 't1'],
     ]);
   });
 
-  it('a warm-up with no pooling phase (11 teams, rooms of 4, 4 and 3)', () => {
+  it('a warm-up with no pooling phase', () => {
     const { state } = playToRound(startSpread(spreadConfig('2v2v2v2', 11, { pooling: 'none' })), 1);
-    expect(roomsOf(state.assignments[1])).toEqual([
-      ['t10', 't3', 't5', 't1'],
-      ['t7', 't11', 't2', 't8'],
-      ['t4', 't6', 't9'],
-    ]);
+    expect(smallRoom(state, 0)).toEqual(['t9', 't10', 't11']);
+    expect(smallRoom(state, 1)).toEqual(['t4', 't5', 't1']);
   });
 });
 

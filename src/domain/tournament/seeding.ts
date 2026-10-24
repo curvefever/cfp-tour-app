@@ -1,8 +1,7 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
-import { isCountedPoolingRound } from './pooling';
-import { smallerRoomSeatsBefore, splitForSmallerRooms } from './smaller-room-seats';
+import { smallerRoomSeatsBefore, spreadsSmallerRoomSeats, splitForSmallerRooms } from './smaller-room-seats';
 import type { RandomSource } from './runtime';
 import type {
   PendingBracketSeed,
@@ -618,9 +617,9 @@ export function tieredSeed(options: {
       balanceWeight,
     });
 
-  // Counted pooling rounds with mixed room sizes: the smaller rooms are filled apart, by the units that
-  // have held the fewest smaller-room seats, so those seats are spread evenly (smaller-room-seats.ts).
-  const split = isCountedPoolingRound(nextRound)
+  // Rounds with mixed room sizes: the smaller rooms are filled apart, by the units that have held the
+  // fewest smaller-room seats, so those seats are spread evenly (smaller-room-seats.ts).
+  const split = spreadsSmallerRoomSeats(nextRound)
     ? splitForSmallerRooms(
         flat,
         nextRound.rooms,

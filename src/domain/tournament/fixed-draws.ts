@@ -1,6 +1,6 @@
 import { circleMethodSchedule } from './pooling';
 import { assignWaveToRooms, recordRoomHistory, selectPoolingBye, type WaveMember } from './seeding';
-import { countSmallerRoomSeats, splitForSmallerRooms } from './smaller-room-seats';
+import { countSmallerRoomSeats, NO_POINTS_SEAT_WEIGHT, splitForSmallerRooms } from './smaller-room-seats';
 import type { RoundAssignment, TournamentRound } from './types';
 
 /**
@@ -132,13 +132,16 @@ export function buildFixedRoomSchedule(
     }
 
     const allRoomNumbers = round.rooms.map((_, index) => index + 1);
-    // A counted round with mixed room sizes fills its smaller rooms apart, by the units with the fewest
-    // smaller-room seats so far (smaller-room-seats.ts); a fixed draw refuses late joiners, so none go last.
+    // A round with mixed room sizes fills its smaller rooms apart, by the units with the fewest smaller-room
+    // seats so far (smaller-room-seats.ts); a fixed draw refuses late joiners, so none go last.
     const members = pool.map((name) => ({ name, tierRank: 0 }));
-    const countedLineUps = result.filter((_, index) => !rounds[index].excludeFromStandings);
-    const split = round.excludeFromStandings
-      ? null
-      : splitForSmallerRooms(members, round.rooms, countSmallerRoomSeats(countedLineUps), new Set());
+    const seatWeights = rounds.map((earlier) => (earlier.excludeFromStandings ? NO_POINTS_SEAT_WEIGHT : 1));
+    const split = splitForSmallerRooms(
+      members,
+      round.rooms,
+      countSmallerRoomSeats(result, seatWeights),
+      new Set(),
+    );
     const roomAssignments = split
       ? [
           ...fillFixedRooms(split.small, split.smallRooms, round.rooms, roomHistory, roundIndex),
