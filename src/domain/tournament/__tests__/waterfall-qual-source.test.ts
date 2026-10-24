@@ -10,7 +10,8 @@ import {
 import { addReserveUnit, removeRosterUnit, resolveTournamentTie } from '../mutations';
 import { distributeRooms } from '../room-distribution';
 import { scoreKeysForPosition } from '../scoring';
-import { advanceTournamentRound, routeStandings } from '../transitions';
+import { routeStandings } from '../bracket-replay';
+import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentStanding } from '../types';
 import { playThrough, playWithRemovals, scoreCurrentRound } from './play-through';
 import {

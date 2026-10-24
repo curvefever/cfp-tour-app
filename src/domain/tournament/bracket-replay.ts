@@ -4,8 +4,8 @@ import {
   orderedQualificationTable,
 } from './advancement';
 import { rosterKeys } from './roster';
-import { routeStandings, routeWaterfallRound } from './transitions';
-import type { PendingBracketSeed, TournamentState } from './types';
+import type { PendingBracketSeed, TournamentRound, TournamentStanding, TournamentState } from './types';
+import { waterfallDestination } from './waterfall-bracket';
 
 /**
  * Where the units of the bracket rounds already advanced from sit now, rebuilt from the recorded results:
@@ -77,6 +77,71 @@ export function doubleEliminationContributions(
   }
   if (round.losersTo != null) additions.set(round.losersTo, seedsFor(result.losers));
   return { additions, lucky };
+}
+
+/**
+ * Ranks every occupant of a waterfall round within their own room
+ * (buildAdvancementTiers, called once over the WHOLE room, not a pre-split
+ * winners/losers list) and looks up each occupant's own band via
+ * `round.waterfallRoutes[room-1][rank]` (tier.rank is already 0-indexed, the
+ * same convention waterfallRoutes itself uses for "rank - 1"). Returns the
+ * additions grouped by destination round index -- NOT yet folded into
+ * `state.pendingBracketSeeds`, so a replay (waterfall-live-edit.ts) can
+ * inspect a round's outcome against a hypothetical routing without mutating
+ * any pool. `round` is passed separately from `state.rounds[roundIndex]` so
+ * a caller can rank against the live scores while routing through an edited
+ * (not-yet-committed) round object.
+ */
+export function routeWaterfallRound(
+  state: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): Map<number, PendingBracketSeed[]> {
+  const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
+  const tiers = buildAdvancementTiers(state, roundIndex, names);
+
+  const additionsByDestination = new Map<number, PendingBracketSeed[]>();
+  for (const tier of tiers) {
+    for (const member of tier.members) {
+      const destination = waterfallDestination(round, member.sourceRoom, tier.rank);
+      if (destination === null) continue;
+      const additions = additionsByDestination.get(destination) ?? [];
+      additions.push({ name: member.name, isLucky: false, tierRank: tier.rank, pct: member.pct });
+      additionsByDestination.set(destination, additions);
+    }
+  }
+  return additionsByDestination;
+}
+
+/**
+ * Sends the qualification table's final standings through the last
+ * qualification round's `standingsRoutes` (the Qual source of a waterfall
+ * graph): position i of the ordered table goes to `standingsRoutes[i]`, and a
+ * position routed 'eliminated' or past the end of the routing goes nowhere.
+ * `ordered` is the table with every cut-off tie resolution applied
+ * (orderedQualificationTable). Each destination's arrivals are numbered in
+ * standings order (`tierRank`), with the standing's room share as `pct`, so a
+ * round fed only by Qual is seeded in standings order. Same shape as
+ * routeWaterfallRound: additions only, no pool is touched.
+ */
+export function routeStandings(
+  ordered: Array<Pick<TournamentStanding, 'name' | 'roomShare'>>,
+  round: TournamentRound,
+): Map<number, PendingBracketSeed[]> {
+  const additionsByDestination = new Map<number, PendingBracketSeed[]>();
+  for (const [position, standing] of ordered.entries()) {
+    const destination = round.standingsRoutes?.[position];
+    if (typeof destination !== 'number') continue;
+    const additions = additionsByDestination.get(destination) ?? [];
+    additions.push({
+      name: standing.name,
+      isLucky: false,
+      tierRank: additions.length,
+      pct: standing.roomShare ?? 0,
+    });
+    additionsByDestination.set(destination, additions);
+  }
+  return additionsByDestination;
 }
 
 export interface BracketReplay {
