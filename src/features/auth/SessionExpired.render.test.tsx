@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent } from '@testing-library/react';
+import { act, cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
 import { renderApp, type AppRole } from '../shell/test-app';
@@ -11,9 +11,12 @@ vi.mock('../../lib/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api')>()),
   ...api,
 }));
-const sessionCheck = vi.hoisted((): { answer: SessionCheck } => ({ answer: 'valid' }));
+const sessionCheck = vi.hoisted((): { answer: SessionCheck; asks: number } => ({ answer: 'valid', asks: 0 }));
 vi.mock('./server/session-check.server-fns', () => ({
-  checkSession: () => Promise.resolve(sessionCheck.answer),
+  checkSession: () => {
+    sessionCheck.asks += 1;
+    return Promise.resolve(sessionCheck.answer);
+  },
 }));
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),
@@ -54,18 +57,19 @@ const expire = () => act(() => signalSessionExpired(Date.now()));
 beforeEach(() => {
   api.postJSON.mockReset();
   sessionCheck.answer = 'valid';
+  sessionCheck.asks = 0;
 });
 afterEach(cleanup);
 
-/** Types credentials into the open dialog and submits them; CFP accepts them as a Tour Host. */
-async function signInThroughDialog(view: ReturnType<typeof renderTab>) {
+/**
+ * Types credentials into the open dialog and submits them; CFP accepts them as a Tour Host. The sign-in
+ * settles over several awaits and state updates, so each test waits for its own outcome with `waitFor`.
+ */
+function submitSignIn(view: ReturnType<typeof renderTab>) {
   api.postJSON.mockResolvedValueOnce({ username: 'Host', roles: [Role.TOUR_HOST], accessToken: 'new' });
   fireEvent.change(view.getByLabelText('Email'), { target: { value: 'host@example.com' } });
   fireEvent.change(view.getByLabelText('Password'), { target: { value: 'secret' } });
-  await act(() => {
-    fireEvent.submit(view.getByLabelText('Email').closest('form')!);
-    return Promise.resolve();
-  });
+  fireEvent.submit(view.getByLabelText('Email').closest('form')!);
 }
 
 describe('the expired-session banner and dialog', () => {
@@ -103,9 +107,12 @@ describe('the expired-session banner and dialog', () => {
       context: { unlockAdmin },
     });
     expire();
-    await signInThroughDialog(view);
-    expect(view.queryByText(DIALOG)).toBeNull();
-    expect(view.queryByText(BANNER)).toBeNull();
+    submitSignIn(view);
+    // Closing the dialog and `unlockAdmin` (were it called) happen in the same handler.
+    await waitFor(() => {
+      expect(view.queryByText(DIALOG)).toBeNull();
+      expect(view.queryByText(BANNER)).toBeNull();
+    });
     expect(unlockAdmin).not.toHaveBeenCalled();
   });
 
@@ -117,27 +124,28 @@ describe('the expired-session banner and dialog', () => {
       context: { unlockAdmin },
     });
     fireEvent.click(view.getByRole('button', { name: 'Log in as admin' }));
-    await signInThroughDialog(view);
-    expect(unlockAdmin).toHaveBeenCalledTimes(1);
+    submitSignIn(view);
+    await waitFor(() => expect(unlockAdmin).toHaveBeenCalledTimes(1));
+    expect(view.queryByText(DIALOG)).toBeNull();
   });
 
   it('raises the banner when the proactive check answers expired on focus', async () => {
     sessionCheck.answer = 'expired';
     const view = renderTab('admin');
-    await act(() => {
+    act(() => {
       window.dispatchEvent(new Event('focus'));
-      return Promise.resolve();
     });
-    expect(view.queryByText(BANNER)).not.toBeNull();
+    await waitFor(() => expect(view.queryByText(BANNER)).not.toBeNull());
   });
 
   it('ignores a proactive check that answers unknown', async () => {
     sessionCheck.answer = 'unknown';
     const view = renderTab('admin');
-    await act(() => {
+    act(() => {
       window.dispatchEvent(new Event('focus'));
-      return Promise.resolve();
     });
+    await waitFor(() => expect(sessionCheck.asks).toBe(1));
+    await act(() => Promise.resolve());
     expect(view.queryByText(BANNER)).toBeNull();
   });
 
