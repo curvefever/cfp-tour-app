@@ -4,6 +4,7 @@ import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
 import { SessionExpiredBanner } from '../auth/SessionExpiredBanner';
+import { useSessionCheck } from '../auth/useSessionCheck';
 import { BracketView } from '../bracket/BracketView';
 import { InfoView } from '../info/InfoView';
 import { AdminTournamentList } from '../admin/AdminTournamentList';
@@ -40,6 +41,7 @@ export function AppShell() {
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const buildOutdated = useLiveBuildCheck(app.unlocked);
+  useSessionCheck(app.unlocked && !auth.sessionExpired);
   const expiryPrompted = useRef(false);
 
   // The dialog opens by itself once per expiry; Cancel leaves the banner to open it again.

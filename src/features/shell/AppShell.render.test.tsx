@@ -15,6 +15,7 @@ vi.mock('../sync/firebase-client', async (importOriginal) => ({
   subscribeServerClockOffset: () => () => {},
 }));
 vi.mock('../presence/presence.server-fns', () => ({ setSetupPresence: () => Promise.resolve(null) }));
+vi.mock('../auth/server/session-check.server-fns', () => ({ checkSession: () => Promise.resolve('valid') }));
 vi.mock('../version/build-id.server-fns', async () => {
   const { TOUR_BUILD_ID } = await import('../version/build-id');
   return { getLiveBuild: () => Promise.resolve(TOUR_BUILD_ID) };

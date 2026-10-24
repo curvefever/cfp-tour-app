@@ -30,7 +30,7 @@ function mount(initialAuth: AuthSnapshot) {
   );
 }
 
-const expire = () => act(() => signalSessionExpired());
+const expire = (startedAt = Date.now()) => act(() => signalSessionExpired(startedAt));
 const signIn = () => act(() => auth.login('host@example.com', 'secret'));
 
 beforeEach(() => {
@@ -105,6 +105,16 @@ describe('AuthProvider when the CFP session ends', () => {
     expect(auth.canAdmin).toBe(true);
     expect(auth.sessionExpired).toBe(true);
     expect(auth.error).toMatch(/does not have Tournament Hub admin access/);
+  });
+
+  it('ignores a signal from a call that began before the last sign-in, and heeds one that began after', async () => {
+    mount(HOST);
+    api.postJSON.mockResolvedValueOnce({ username: 'Host', roles: [Role.TOUR_HOST], accessToken: 'new' });
+    await signIn();
+    expire(Date.now() - 60_000);
+    expect(auth.sessionExpired).toBe(false);
+    expire(Date.now() + 1);
+    expect(auth.sessionExpired).toBe(true);
   });
 
   it('clears sessionExpired on sign-out, and a late signal does not bring it back', () => {

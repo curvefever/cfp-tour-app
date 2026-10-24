@@ -8,6 +8,9 @@ export const CFP_INVALID_TOKEN_CODE = 700;
 /** What the server throws when the organiser's CFP session has ended (no cookie, or a token CFP refuses). */
 export const SESSION_EXPIRED_MESSAGE = "Your CFP session has expired — sign in again.";
 
+/** What `checkSession` answers: `unknown` is any failure that is not CFP refusing the token. */
+export type SessionCheck = 'valid' | 'expired' | 'unknown';
+
 /** Recognised by message: that is all that survives a server function's error serialisation. */
 export function isSessionExpiredError(error: unknown): boolean {
   return error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE;

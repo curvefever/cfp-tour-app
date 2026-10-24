@@ -166,14 +166,16 @@ export function AuthProvider({
   const [sessionExpired, setSessionExpired] = useState(false);
   const sessionExpiredRef = useRef(false);
   const signedInAsAdminRef = useRef(false);
+  const lastSignInAtRef = useRef(0);
   sessionExpiredRef.current = sessionExpired;
   signedInAsAdminRef.current = canAdminTour(state.roles);
 
   // Only a signed-in admin tab can have a session to lose: a viewer, or a tab that just signed out, ignores it.
   useEffect(
     () =>
-      onSessionExpired(() => {
-        if (signedInAsAdminRef.current) setSessionExpired(true);
+      onSessionExpired((startedAt) => {
+        // A call that began before the last sign-in was refused with the old token: it says nothing now.
+        if (signedInAsAdminRef.current && startedAt >= lastSignInAtRef.current) setSessionExpired(true);
       }),
     [],
   );
@@ -234,6 +236,7 @@ export function AuthProvider({
       const username = getUsernameFromPayload(response.username);
       saveAccessToken(token);
       saveUsername(username);
+      lastSignInAtRef.current = Date.now();
       setSessionExpired(false);
       setState({
         error: null,

@@ -86,10 +86,15 @@ export function testAppContext(
 }
 
 /** Renders the app shell on one tab of a fixture, as a signed-out viewer or as a Tour Host. */
-export function renderApp(fixture: FixtureTournament, options: { role: AppRole; tab: ActiveTab }) {
+export function renderApp(
+  fixture: FixtureTournament,
+  options: { role: AppRole; tab: ActiveTab; context?: Partial<TournamentAppContext> },
+) {
   return render(
     <AuthProvider initialAuth={authOf(options.role)}>
-      <TournamentContext.Provider value={testAppContext(fixture, options.role, options.tab)}>
+      <TournamentContext.Provider
+        value={{ ...testAppContext(fixture, options.role, options.tab), ...options.context }}
+      >
         <AppShell />
       </TournamentContext.Provider>
     </AuthProvider>,

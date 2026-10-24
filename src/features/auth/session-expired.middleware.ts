@@ -4,10 +4,11 @@ import { signalSessionExpired } from './session-expired-signal';
 
 /** Every server call passes here, so an ended CFP session is noticed once for all of them, then rethrown. */
 export const sessionExpiredMiddleware = createMiddleware({ type: 'function' }).client(async ({ next }) => {
+  const startedAt = Date.now();
   try {
     return await next();
   } catch (error) {
-    if (isSessionExpiredError(error)) signalSessionExpired();
+    if (isSessionExpiredError(error)) signalSessionExpired(startedAt);
     throw error;
   }
 });

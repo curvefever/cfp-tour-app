@@ -1,16 +1,14 @@
 import { getRequest } from "@tanstack/react-start/server";
 import {
   ACCESS_TOKEN_KEY,
-  CFP_INVALID_TOKEN_CODE,
   PID_STORAGE_KEY,
   SESSION_EXPIRED_MESSAGE,
   canAdminTour,
   type AuthSnapshot,
 } from "../auth.shared";
-import { ApiError } from "../../../lib/api";
 import { readCookieValue } from "../../../lib/cookies";
 import { requireCurrentBuild } from "../../version/build-guard.server";
-import { getCachedAuthSnapshot } from "./auth-session-cache.server";
+import { getCachedAuthSnapshot, isInvalidTokenError } from "./auth-session-cache.server";
 
 export async function requireTourAdminPermission(): Promise<AuthSnapshot> {
   // Every privileged write goes through here, so this is the one place an old tab is turned away.
@@ -26,7 +24,7 @@ export async function requireTourAdminPermission(): Promise<AuthSnapshot> {
     token,
   }).catch((error: unknown) => {
     // Only CFP's own "invalid token" answer is an expiry; a network failure or a CFP 5xx is not.
-    if (error instanceof ApiError && error.code === CFP_INVALID_TOKEN_CODE) throw new Error(SESSION_EXPIRED_MESSAGE);
+    if (isInvalidTokenError(error)) throw new Error(SESSION_EXPIRED_MESSAGE);
     throw error;
   });
   if (!canAdminTour(snapshot.roles)) {

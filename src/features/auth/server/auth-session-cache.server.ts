@@ -1,4 +1,5 @@
 import {
+  CFP_INVALID_TOKEN_CODE,
   NET_VERSION,
   extractAccountRoles,
   getUserIdFromPayload,
@@ -6,7 +7,7 @@ import {
   type AuthRolePayload,
   type AuthSnapshot,
 } from '../auth.shared';
-import { postJSON } from '../../../lib/api';
+import { ApiError, postJSON } from '../../../lib/api';
 
 const AUTH_SESSION_CACHE_TTL_MS = 60 * 1000;
 
@@ -76,6 +77,11 @@ async function fetchAuthSnapshot({
     userId: getUserIdFromPayload(response, username),
     username,
   };
+}
+
+/** True for CFP's own "invalid token" answer; a network failure or a CFP 5xx is not one. */
+export function isInvalidTokenError(error: unknown): boolean {
+  return error instanceof ApiError && error.code === CFP_INVALID_TOKEN_CODE;
 }
 
 export async function getCachedAuthSnapshot(request: AuthSessionRequest): Promise<AuthSnapshot> {
