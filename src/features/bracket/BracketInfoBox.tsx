@@ -59,15 +59,24 @@ export function BracketInfoBox({ state, onClose }: { state: TournamentState; onC
           </div>
         ))}
       </div>
+      <div className={sectionClassName}>
+        <div className='text-[13px] font-extrabold tracking-[0.04em] uppercase'>How rooms are drawn</div>
+        <p className='text-[13px] leading-normal text-cfp-text-soft'>
+          Most rounds are drawn from the round before: players are ranked by the place they finished in their
+          room, every room winner first, then every runner-up, and so on. Within a place, the higher score
+          relative to the room&apos;s average ranks first, so a smaller room gives no head start. When rooms
+          differ in size, the seats in the smaller ones are spread evenly over the tournament; once players
+          are knocked out, a seat that could go to several players goes to the best ranked.
+        </p>
+      </div>
       {legend.luckyLosers ? (
         <div className={sectionClassName}>
           <div className='text-[13px] font-extrabold tracking-[0.04em] text-cfp-green uppercase'>
             ★ Lucky losers
           </div>
           <p className='text-[13px] leading-normal text-cfp-text-soft'>
-            Some rounds keep spots for the best players who just missed out. Once every room of the round is
-            scored, those players are compared by their score relative to their room&apos;s average, so a
-            smaller room gives no head start. Until then they show as undecided, with a star.
+            Some rounds keep spots for the best players who just missed out, ranked the same way once every
+            room of the round is scored. Until then they show as undecided, with a star.
           </p>
         </div>
       ) : null}
