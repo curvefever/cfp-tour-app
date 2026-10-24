@@ -437,10 +437,10 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     expect(lateJoinersOf(playRound(joined), 1)).toEqual([]);
   });
 
-  it('FFA qual table at 37 (rooms [8,8,7,7,7]): the joiner is in tier 4 with share 5/37, not tier 0', () => {
+  it('FFA qual table at 37 (rooms [8,8,7,7,7]): the joiner is in tier 4 with relative score 1 (an average unit), not tier 0', () => {
     const state = joinAndScore(build(37, FFA_QUAL), ['Late']);
     expect(state.rounds[0].rooms).toEqual([8, 8, 7, 7, 7]);
-    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 4, pct: 5 / 37, sourceRoom: 0 });
+    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 4, pct: 1, sourceRoom: 0 });
   });
 
   it.each([
@@ -462,10 +462,10 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     },
   );
 
-  it('FFA qual table at 19 (rooms [7,6,6]): the joiner is in tier 3, the 4th place of the largest room, with share 3/19', () => {
+  it('FFA qual table at 19 (rooms [7,6,6]): the joiner is in tier 3, the 4th place of the largest room, with relative score 1', () => {
     const state = joinAndScore(build(19, FFA_QUAL), ['Late']);
     expect(state.rounds[0].rooms).toEqual([7, 6, 6]);
-    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 3, pct: 3 / 19, sourceRoom: 0 });
+    expect(tierOf(state, 0, 'Late')).toEqual({ rank: 3, pct: 1, sourceRoom: 0 });
   });
 
   describe('head-to-head qualification table at 37, byes', () => {
@@ -476,12 +476,12 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
       oddCountStrategy: 'bye',
     } as const;
 
-    it('a bye unit keeps tier 0 with share 1; the joiner goes to the losers tier with share 1/2', () => {
+    it('a bye unit keeps tier 0 with the largest room size (2) as score; the joiner goes to the losers tier with relative score 1', () => {
       const start = build(37, setup);
       const bye = start.byes[0][0];
       const state = joinAndScore(start, ['Late']);
-      expect(tierOf(state, 0, bye)).toEqual({ rank: 0, pct: 1, sourceRoom: 0 });
-      expect(tierOf(state, 0, 'Late')).toEqual({ rank: 1, pct: 18 / 36, sourceRoom: 0 });
+      expect(tierOf(state, 0, bye)).toEqual({ rank: 0, pct: 2, sourceRoom: 0 });
+      expect(tierOf(state, 0, 'Late')).toEqual({ rank: 1, pct: 1, sourceRoom: 0 });
     });
 
     it('36 registered plus a joiner is 37: the bye goes to a regular unit, never the joiner, even when only the joiner has had none', () => {

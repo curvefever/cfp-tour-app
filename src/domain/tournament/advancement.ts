@@ -757,7 +757,7 @@ export function computeStandingsCutoffAdvancing(
 
 export interface AdvancementTierMember {
   name: string;
-  /** score / own-room total in the round just completed -- an in-tier tiebreak only, never meaningfully comparable across tiers (a room-winner's dominance margin only says something about their own specific opponents). */
+  /** Score relative to the room average in the round just completed (1 = average; `relativeRoomShare`) -- the in-tier order only, never comparable across tiers. Relative, so rooms of different sizes compare. */
   pct: number;
   sourceRoom: number;
 }
@@ -790,14 +790,14 @@ export function buildAdvancementTiers(
   if (round) {
     for (let room = 1; room <= round.rooms.length; room += 1) {
       const scored = orderRoomWithPlaces(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
-      const roomTotal = scored.reduce((total, { entry }) => total + entry.score, 0);
+      const roomEntries = scored.map(({ entry }) => entry);
       for (const { entry, place } of scored) {
         const rank = place - 1;
         if (!remaining.has(entry.name)) continue;
         remaining.delete(entry.name);
         const member: AdvancementTierMember = {
           name: entry.name,
-          pct: roomTotal > 0 ? entry.score / roomTotal : 0,
+          pct: relativeRoomShare(entry.score, roomEntries),
           sourceRoom: room,
         };
         byRank.set(rank, [...(byRank.get(rank) ?? []), member]);
@@ -805,22 +805,18 @@ export function buildAdvancementTiers(
     }
   }
 
-  // Units with no room: a bye counts as a win (tier 0, share 1); a late joiner is an unknown, seeded as an average unit.
+  // Units with no room: a bye counts as a win (tier 0, the highest relative score the round allows: a unit that took
+  // all its room's points); a late joiner is an unknown, seeded as an average unit (relative score 1).
+  const largestRoom = Math.max(1, ...(round?.rooms ?? []));
   const joiners = lateJoinersOf(state, roundIndex).filter((name) => remaining.has(name));
   const joinerSet = new Set(joiners);
   const byeMembers = [...remaining]
     .filter((name) => !joinerSet.has(name))
-    .map((name): AdvancementTierMember => ({ name, pct: 1, sourceRoom: 0 }));
+    .map((name): AdvancementTierMember => ({ name, pct: largestRoom, sourceRoom: 0 }));
   if (byeMembers.length > 0) byRank.set(0, [...(byRank.get(0) ?? []), ...byeMembers]);
   if (joiners.length > 0 && round) {
     const averageRank = Math.floor(Math.max(0, ...round.rooms) / 2);
-    const seated = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room !== null).length;
-    const averageShare = seated > 0 ? round.rooms.length / seated : 1;
-    const joinerMembers = joiners.map((name): AdvancementTierMember => ({
-      name,
-      pct: averageShare,
-      sourceRoom: 0,
-    }));
+    const joinerMembers = joiners.map((name): AdvancementTierMember => ({ name, pct: 1, sourceRoom: 0 }));
     byRank.set(averageRank, [...(byRank.get(averageRank) ?? []), ...joinerMembers]);
   }
 

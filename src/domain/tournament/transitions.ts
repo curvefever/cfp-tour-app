@@ -360,8 +360,8 @@ function advanceDoubleElimination(
   // Tag every contribution with its room-rank tier + in-tier pct at the
   // moment it's pushed -- buildAdvancementTiers already ranks EVERY occupant
   // of a room (not just advancers), so a "loser" lands at their own actual
-  // room-rank position and a carried-over bye folds to rank 0/pct 1, exactly
-  // like the generic reseeding path. Captured here, not at finalize time,
+  // room-rank position and a carried-over bye folds to rank 0 with the round's
+  // largest relative score, exactly like the generic reseeding path. Captured here, not at finalize time,
   // because a target round's pool can accumulate from more than one source
   // round (see transitions.ts's own pendingBracketSeeds accumulation below) --
   // by finalize time there is no single round left to re-derive this from.

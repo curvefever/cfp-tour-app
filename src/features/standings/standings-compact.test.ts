@@ -43,16 +43,16 @@ describe('FFA 37 after Round 3', () => {
   const { table, roundIndexes, detail } = tableOf(stateOf('ffa37-quarters'));
 
   it('lists the points of the three counted rounds on one line', () => {
-    expect(compactRoundPoints(byName(table, 'Player 08'), roundIndexes)).toBe('8 · 8 · 6');
+    expect(compactRoundPoints(byName(table, 'Player 26'), roundIndexes)).toBe('8 · 8 · 6');
     expect(compactRoundPoints(byName(table, 'Player 09'), roundIndexes)).toBe('8 · 1 · 8');
   });
 
   it('unfolds a row into score, place and points per round, then the tie-break', () => {
-    expect(detail(byName(table, 'Player 08'))).toEqual([
-      'Round 1 · 74 · 1st · 8 pts',
+    expect(detail(byName(table, 'Player 26'))).toEqual([
+      'Round 1 · 84 · 1st · 8 pts',
       'Round 2 · 78 · 1st · 8 pts',
       'Round 3 · 66 · 3rd · 6 pts',
-      'Tie-break 142%',
+      'Tie-break 144%',
     ]);
   });
 
@@ -61,8 +61,8 @@ describe('FFA 37 after Round 3', () => {
   });
 
   it('adds the two-decimal tie-break to both units on the same points and whole percent', () => {
-    expect(detail(byName(table, 'Player 09')).at(-1)).toBe('Tie-break 113% (113.05%)');
-    expect(detail(byName(table, 'Player 11')).at(-1)).toBe('Tie-break 113% (112.62%)');
+    expect(detail(byName(table, 'Player 16')).at(-1)).toBe('Tie-break 110% (109.99%)');
+    expect(detail(byName(table, 'Player 08')).at(-1)).toBe('Tie-break 110% (109.86%)');
   });
 
   it('adds nothing for a unit alone on its whole percent', () => {
@@ -124,9 +124,9 @@ describe('a shared place from a shared-points tie', () => {
   const { table, roundIndexes, detail } = tableOf(shared);
 
   it('puts "=" before the place and shows the shared points, in both forms', () => {
+    expect(detail(byName(table, 'Player 26'))[2]).toBe('Round 3 · 80 · =1st · 7.5 pts');
     expect(detail(byName(table, 'Player 08'))[2]).toBe('Round 3 · 80 · =1st · 7.5 pts');
-    expect(detail(byName(table, 'Player 15'))[2]).toBe('Round 3 · 80 · =1st · 7.5 pts');
-    expect(compactRoundPoints(byName(table, 'Player 15'), roundIndexes)).toBe('7 · 7 · 7.5');
+    expect(compactRoundPoints(byName(table, 'Player 08'), roundIndexes)).toBe('8 · 7 · 7.5');
   });
 });
 
@@ -140,8 +140,8 @@ describe('2v2v2v2 with 13 teams', () => {
     expect(detail(leader)).toEqual([
       'Round 1 · 29 · 2nd · 3 pts',
       'Round 2 · 54 · 1st · 4 pts',
-      'Round 3 · 40 · 1st · 4 pts',
-      'Tie-break 122%',
+      'Round 3 · 38 · 1st · 4 pts',
+      'Tie-break 118%',
     ]);
   });
 });

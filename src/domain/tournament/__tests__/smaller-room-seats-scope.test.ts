@@ -126,7 +126,7 @@ describe('fixed draws spread the smaller-room seats of every round', () => {
   });
 });
 
-describe('rounds with their own mechanism are drawn as before (captured from b56d7d1)', () => {
+describe('rounds with their own mechanism are drawn as before (captured from b56d7d1; double elimination re-captured for the relative order, rounds 6 on)', () => {
   function drawsOf(kind: SpreadKind, count: number, scheduleLogic: string): string[] {
     const base = spreadConfig(kind, count, { pooling: 'none' });
     const config = { ...base, setup: { ...base.setup, scheduleLogic } } as typeof base;
@@ -177,19 +177,19 @@ const DOUBLE_ELIMINATION_24 = [
   'R3 4,4,4,4,4,4 :: t8,t1,t23,t14 | t5,t2,t24,t18 | t6,t3,t17,t16 | t9,t21,t20,t15 | t4,t13,t12,t10 | t7,t22,t11,t19',
   'R4 4,4,4,3,3 :: t14,t10,t7,t6 | t15,t17,t12,t2 | t11,t5,t13,t21 | t16,t19,t8 | t18,t9,t1',
   'R5 4,4,3 :: t19,t24,t4,t23 | t18,t14,t3,t22 | t13,t17,t20',
-  'R6 4,3,3,3 :: t8,t5,t12,t15 | t9,t7,t21 | t2,t16,t10 | t6,t1,t11',
-  'R7 4,3,3,3 :: t20,t23,t11,t15 | t3,t13,t19 | t4,t16,t18 | t17,t22,t21',
-  'R8 3,3,3 :: t2,t9,t8 | t1,t5,t10 | t7,t6,t12',
-  'R9 4,4,4 :: t13,t22,t23,t2 | t21,t18,t19,t12 | t16,t20,t3,t11',
-  'R10 4,3 :: t6,t5,t9,t10 | t8,t7,t1',
-  'R11 3,3,3 :: t23,t21,t16 | t20,t22,t10 | t18,t11,t19',
-  'R12 3,3 :: t7,t6,t8 | t5,t1,t9',
-  'R13 4,4 :: t16,t22,t18,t1 | t10,t19,t23,t6',
-  'R14 4 :: t9,t8,t7,t5',
-  'R15 4,3 :: t22,t6,t18,t8 | t23,t1,t19',
-  'R16 3 :: t5,t7,t9',
-  'R17 3,3 :: t1,t6,t18 | t8,t19,t9',
-  'R18 4 :: t18,t7,t8,t5',
+  'R6 4,3,3,3 :: t8,t5,t12,t15 | t2,t1,t10 | t9,t7,t16 | t6,t21,t11',
+  'R7 4,3,3,3 :: t3,t19,t13,t15 | t4,t18,t21 | t20,t22,t10 | t23,t17,t16',
+  'R8 3,3,3 :: t6,t2,t11 | t5,t8,t9 | t1,t7,t12',
+  'R9 4,4,4 :: t21,t15,t16,t11 | t23,t20,t10,t19 | t13,t22,t18,t12',
+  'R10 4,3 :: t7,t8,t2,t5 | t6,t9,t1',
+  'R11 3,3,3 :: t21,t19,t8 | t23,t18,t16 | t22,t11,t20',
+  'R12 3,3 :: t5,t1,t2 | t6,t7,t9',
+  'R13 4,4 :: t19,t16,t22,t1 | t11,t18,t8,t6',
+  'R14 4 :: t5,t9,t2,t7',
+  'R15 4,3 :: t22,t8,t18,t9 | t6,t1,t19',
+  'R16 3 :: t5,t7,t2',
+  'R17 3,3 :: t8,t6,t5 | t1,t9,t19',
+  'R18 4 :: t8,t9,t2,t7',
 ];
 
 const KINGS_VALLEY_FFA_40 = [

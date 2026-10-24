@@ -305,7 +305,7 @@ describe('rounds that earn no points spread their smaller-room seats too (11 tea
     expect(smallRoom(state, 0)).toEqual(['t9', 't10', 't11']);
     expect(roomsOf(state.assignments[1])).toEqual([
       ['t10', 't6', 't3', 't8'],
-      ['t7', 't11', 't9', 't2'],
+      ['t7', 't11', 't2', 't9'],
       ['t4', 't5', 't1'],
     ]);
   });

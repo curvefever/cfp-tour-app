@@ -443,21 +443,21 @@ describe('Standings tab on a phone: the compact list', () => {
     const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
 
     expect(view.getByRole('table').parentElement?.className).toContain('max-[700px]:hidden');
-    const row = rowOf(view, 'Player 08');
+    const row = rowOf(view, 'Player 26');
     expect(row?.closest('div[class*="min-[701px]:hidden"]')).not.toBeNull();
     expect(row?.textContent).toContain('8 · 8 · 6');
   });
 
   it('unfolds a row on tap to its round lines and tie-break, and folds it on a second tap', () => {
     const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
-    const row = rowOf(view, 'Player 08');
-    if (!row) throw new Error('no Player 08 row');
+    const row = rowOf(view, 'Player 26');
+    if (!row) throw new Error('no Player 26 row');
 
     fireEvent.click(row);
     expect(row.getAttribute('aria-expanded')).toBe('true');
     const detail = view.getByText('Round 3 · 66 · 3rd · 6 pts');
     expect(detail.parentElement?.id).toBe(row.getAttribute('aria-controls'));
-    expect(view.getByText('Tie-break 142%')).toBeDefined();
+    expect(view.getByText('Tie-break 144%')).toBeDefined();
 
     fireEvent.click(row);
     expect(row.getAttribute('aria-expanded')).toBe('false');
@@ -467,11 +467,11 @@ describe('Standings tab on a phone: the compact list', () => {
   it('lets several rows stay open, and gives both of two units on one whole percent the precise value', () => {
     const view = renderApp(quarters(), { role: 'viewer', tab: 'standings' });
 
-    fireEvent.click(rowOf(view, 'Player 09') as HTMLElement);
-    fireEvent.click(rowOf(view, 'Player 11') as HTMLElement);
+    fireEvent.click(rowOf(view, 'Player 16') as HTMLElement);
+    fireEvent.click(rowOf(view, 'Player 08') as HTMLElement);
 
-    expect(view.getByText('Tie-break 113% (113.05%)')).toBeDefined();
-    expect(view.getByText('Tie-break 113% (112.62%)')).toBeDefined();
+    expect(view.getByText('Tie-break 110% (109.99%)')).toBeDefined();
+    expect(view.getByText('Tie-break 110% (109.86%)')).toBeDefined();
   });
 
   it('names the rounds in a row as the table header does, for Swiss too', () => {

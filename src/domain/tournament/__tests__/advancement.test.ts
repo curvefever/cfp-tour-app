@@ -1272,16 +1272,17 @@ describe('buildAdvancementTiers', () => {
       ],
       scores: { 'r0-rm1-p0': 100, 'r0-rm1-p1': 50, 'r0-rm2-p0': 10, 'r0-rm2-p1': 90 },
     });
-    // Room 1: P1=100 (rank0, pct 100/150=.667), P2=50 (rank1, pct .333).
-    // Room 2: sorted desc -> P4=90 (rank0, pct 90/100=.9), P3=10 (rank1, pct .1).
+    // pct is the score relative to the room average (score / room total x units).
+    // Room 1: P1=100 (rank0, pct 100/150 x 2 = 1.333), P2=50 (rank1, pct .667).
+    // Room 2: sorted desc -> P4=90 (rank0, pct 90/100 x 2 = 1.8), P3=10 (rank1, pct .2).
     const tiers = buildAdvancementTiers(state, 0, ['P1', 'P2', 'P3', 'P4']);
     expect(tiers.map((tier) => tier.rank)).toEqual([0, 1]);
-    // Rank 0: P4's pct (.9) beats P1's (.667) -- both are room winners, only
+    // Rank 0: P4's pct (1.8) beats P1's (1.333) -- both are room winners, only
     // their OWN room's pct decides tiebreak order between them.
     expect(tiers[0].members.map((member) => member.name)).toEqual(['P4', 'P1']);
-    expect(tiers[0].members[0].pct).toBeCloseTo(0.9);
-    expect(tiers[0].members[1].pct).toBeCloseTo(100 / 150);
-    // Rank 1: P2's pct (.333) beats P3's (.1).
+    expect(tiers[0].members[0].pct).toBeCloseTo(1.8);
+    expect(tiers[0].members[1].pct).toBeCloseTo((100 / 150) * 2);
+    // Rank 1: P2's pct (.667) beats P3's (.2).
     expect(tiers[1].members.map((member) => member.name)).toEqual(['P2', 'P3']);
   });
 
@@ -1307,7 +1308,7 @@ describe('buildAdvancementTiers', () => {
     expect(tiers[1].members.map((member) => member.name)).toEqual(['P3']);
   });
 
-  it('folds a carried-over bye (present in `names` but absent from every room) into rank 0 with pct 1', () => {
+  it("folds a carried-over bye (present in `names` but absent from every room) into rank 0 with the round's largest room size as pct", () => {
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
       rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2, isNoElim: true })],
@@ -1322,13 +1323,102 @@ describe('buildAdvancementTiers', () => {
     });
     const tiers = buildAdvancementTiers(state, 0, ['P1', 'P2', 'P5']);
     expect(tiers.map((tier) => tier.rank)).toEqual([0, 1]);
-    // P5 (pct 1, a bye "beats" everyone by construction) sorts ahead of P1
-    // (real room winner, pct .667) within rank 0.
+    // P5 (pct 2, the largest room size: a bye "beats" everyone by construction) sorts ahead of P1
+    // (real room winner, pct 1.333) within rank 0.
     expect(tiers[0].members.map((member) => member.name)).toEqual(['P5', 'P1']);
     const bye = tiers[0].members.find((member) => member.name === 'P5');
-    expect(bye?.pct).toBe(1);
+    expect(bye?.pct).toBe(2);
     expect(bye?.sourceRoom).toBe(0);
     expect(tiers[1].members.map((member) => member.name)).toEqual(['P2']);
+  });
+
+  describe('the order inside a place is the score relative to the room average', () => {
+    /** One round of rooms of the given sizes; room scores listed best first, units named `<room letter><position>`. */
+    function playedRooms(roomScores: number[][], byes: string[] = []) {
+      const assignments = roomScores.flatMap((scores, roomIndex) =>
+        scores.map((_, position) => ({
+          name: `${'ABC'[roomIndex]}${position + 1}`,
+          room: roomIndex + 1,
+          isLucky: false,
+        })),
+      );
+      const scores = Object.fromEntries(
+        roomScores.flatMap((room, roomIndex) =>
+          room.map((score, position) => [`r0-rm${roomIndex + 1}-p${position}`, score] as const),
+        ),
+      );
+      return createDefaultTournamentState({
+        gameFormat: 'ffa-individual',
+        rounds: [
+          buildRound({
+            roundNum: 1,
+            rooms: roomScores.map((room) => room.length),
+            players: assignments.length,
+            isNoElim: true,
+          }),
+        ],
+        assignments: [assignments],
+        scores,
+        byes: [byes],
+      });
+    }
+    const tiersOf = (state: TournamentState) =>
+      buildAdvancementTiers(
+        state,
+        0,
+        state.assignments[0].map((entry) => entry.name).concat(state.byes[0] ?? []),
+      );
+
+    it('puts the winner of a room of four with 639 of 1494 ahead of the winner of a room of three with 143 of 330', () => {
+      // Raw shares: 143/330 = .433 beats 639/1494 = .428; against their rooms' averages 1.30 loses to 1.71.
+      const state = playedRooms([
+        [143, 99, 88],
+        [639, 595, 138, 122],
+      ]);
+      const [winners] = tiersOf(state);
+      expect(winners.members.map((member) => member.name)).toEqual(['B1', 'A1']);
+      expect(winners.members[0].pct).toBeCloseTo(1.71, 2);
+      expect(winners.members[1].pct).toBeCloseTo(1.3, 2);
+    });
+
+    it('keeps the raw-share order when every room has the same size', () => {
+      const state = playedRooms([
+        [60, 30, 10],
+        [50, 30, 20],
+        [45, 35, 20],
+      ]);
+      const tiers = tiersOf(state);
+      expect(tiers[0].members.map((member) => member.name)).toEqual(['A1', 'B1', 'C1']);
+      expect(tiers[1].members.map((member) => member.name)).toEqual(['C2', 'A2', 'B2']);
+      expect(tiers[2].members.map((member) => member.name)).toEqual(['B3', 'C3', 'A3']);
+    });
+
+    it("puts a bye first in tier 0 with the round's largest room size as its score", () => {
+      const state = playedRooms(
+        [
+          [143, 99, 88],
+          [639, 595, 138, 122],
+        ],
+        ['Bye'],
+      );
+      const [winners] = tiersOf(state);
+      expect(winners.members.map((member) => member.name)).toEqual(['Bye', 'B1', 'A1']);
+      expect(winners.members[0]).toEqual({ name: 'Bye', pct: 4, sourceRoom: 0 });
+    });
+
+    it('gives every unit of an all-zero room a score of 1, kept in room then name order', () => {
+      const state = playedRooms([
+        [0, 0, 0],
+        [0, 0, 0, 0],
+      ]);
+      const members = tiersOf(state).flatMap((tier) => tier.members);
+      expect(members).toHaveLength(7);
+      expect(members.every((member) => member.pct === 1)).toBe(true);
+      for (const tier of tiersOf(state)) {
+        const keys = tier.members.map((member) => `${member.sourceRoom}${member.name}`);
+        expect(keys).toEqual([...keys].sort());
+      }
+    });
   });
 });
 
