@@ -14,7 +14,7 @@ Handle "uncomfortable" registration counts automatically. Whatever the headcount
 | `docs/rules.md` | formats, pooling and bracket phases (incl. Kings Valley, waterfall), Semis/Final, scoring, roster changes |
 | `docs/seeding.md` | how units are placed in rooms between rounds; Bracket's future-round projections |
 | `docs/views.md` | any tab's UI; the design principles for viewer-facing work |
-| `docs/platform.md` | login and permissions, Firebase sync, persistence, deployment, what the tests cover |
+| `docs/platform.md` | login and permissions, Firebase sync, persistence, deployment, what the tests cover, driving the app by script in a live check |
 | `docs/open-items.md` | planning a feature, diagnosing a bug, closing out a build |
 | `docs/roadmap.md` | larger future projects not started yet |
 | `HANDOFF_LOG.md` | why something is the way it is — `grep` an entry title, function or date; don't read it whole |

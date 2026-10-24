@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Roadmap and open-items cleanup (done — 2026-10-24)
+
+Planner/reviewer session, docs only, after the push of `test` to `main` (`493e365`). Every roadmap entry was checked against the code: none is built (FFA rooms still 6–8, `roomHistory` still the last round only, no expected room in the follow text, no wave-combination search), so none was removed. Changes, approved by the organiser:
+- `docs/roadmap.md`: entries grouped under Login and accounts, Formats and bracket structure, Late joiners, Seeding and draws, Viewer features; the CFP-token entry points to the log instead of a local plan file; "Seeding qualification rounds by results" keeps the question and a summary, the simulation figures stay in the 2026-10-23 log entry; the audit's three "keep in mind" points moved to the entry below, with a roadmap entry kept so they get reviewed (organiser's request).
+- `docs/open-items.md`: "Partial automated test coverage" cut to the gap and a pointer to `docs/platform.md`; the three phone gaps grouped in one entry; the Next Round panel over the Bracket scrollbar moved to "Awaiting organiser feedback"; the finished-tournament-without-winner note moved to the accepted limitations; the "?" box density removed from the redesign leftovers (the organiser trimmed the box on 2026-10-24); "Notes for live checks and the screenshot harness" moved to `docs/platform.md` as "Live checks by script".
+- Kept open: lucky losers across room sizes, Round 1 "NOW" before the start (`showsNowPill` still reads only the current round), the Kings Valley size limit, "Two levels of where do I stand".
+
+Full suite: not run (docs only).
+
+---
+
+## Audit of tournament 1792339397443: observations kept for review (audit 2026-10-22, written up 2026-10-24)
+
+The view-only audit of production tournament `1792339397443` (25 teams of 2v2v2v2, qualification table of 4 rounds with round 1 not counted, waterfall) gave rise to several roadmap projects and builds (smaller-room seat spread, the seeding simulation, the stale-tab guards). These three points are not projects; they sat in `docs/roadmap.md` and were moved here in the roadmap cleanup of 2026-10-24, with a roadmap entry kept so they get reviewed.
+- **Shared points can decide a cut.** GOAT's 2.5 from a shared 2nd/3rd in a room of 3 put it 16th, the last qualifying place; ranked instead, it would have had 7 (and lost the place on the tie-break) or 8. The organiser's rule text asks for shared points in qualification; sharing is never neutral at a boundary.
+- **A late joiner is seeded slightly below average.** The middle tier is `floor(largest room / 2)`: with rooms of 4 the 3rd place (the room average is 2.5th), in FFA rooms of 8 the 5th (average 4.5th). Consistent rounding; it didn't hurt the joiner there (14th, qualified).
+- **Lower-band units play more rounds to reach the Final** in a graph like that one (Ski ba bop played 4 bracket rounds to reach Semi B, Semi A's teams 2). A property of the graph, not of the engine.
+
+---
+
 ## Order within a finishing place by relative score, best first for tied smaller-room seats after eliminations (done — 2026-10-24)
 
 Planner/reviewer and implementer sessions; two stages on `test`, stage 1 `3ea73ab`, stage 2 (tests, docs, this entry) `5f5289d`, final review the commit after it; nothing pushed, `main` not touched. Plan: `plans/2026-10-24-relative-order-best-first.md`.
