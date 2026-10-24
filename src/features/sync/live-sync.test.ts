@@ -508,6 +508,37 @@ describe('SyncCoordinator', () => {
       expect(transport.update).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps a score whose push was refused, and sends it on the next flush', async () => {
+      const stored = createDefaultTournamentState();
+      const update = vi
+        .fn<SyncTransport['update']>()
+        .mockRejectedValueOnce(new Error('Your CFP session has expired — sign in again.'))
+        .mockResolvedValue(undefined);
+      const { coordinator } = startWriter(stored, { update });
+      const typed = createDefaultTournamentState({ scores: { a: 5 } });
+      coordinator.updateLocal(stored, typed);
+      await vi.advanceTimersByTimeAsync(400);
+      expect(statuses.at(-1)).toEqual({
+        kind: 'error',
+        message: 'Your CFP session has expired — sign in again.',
+      });
+
+      await coordinator.flush();
+      expect(update).toHaveBeenLastCalledWith('t1', { scores: { a: 5 } });
+      expect(statuses.at(-1)).toEqual({ kind: 'active' });
+    });
+
+    it('does not let a snapshot take back a score whose push was refused', async () => {
+      const stored = createDefaultTournamentState();
+      const update = vi.fn<SyncTransport['update']>().mockRejectedValue(new Error('expired'));
+      const { coordinator, handlers } = startWriter(stored, { update });
+      coordinator.updateLocal(stored, createDefaultTournamentState({ scores: { a: 5 } }));
+      await vi.advanceTimersByTimeAsync(400);
+
+      handlers.onValue(marshalForFirebase(stored));
+      expect(remoteStates.at(-1)?.scores.a).toBe(5);
+    });
+
     it('does not let the dirty scores of the tournament it left protect the next one', () => {
       const stored = createDefaultTournamentState({ scores: { a: 0 } });
       const { coordinator, handlers } = startWriter(stored);

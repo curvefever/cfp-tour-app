@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ActiveTab } from '../../domain/tournament/types';
 import { CfpLoginModal } from '../auth/CfpLoginModal';
 import { formatAccountRole } from '../auth/auth.shared';
 import { useAuth } from '../auth/AuthProvider';
+import { SessionExpiredBanner } from '../auth/SessionExpiredBanner';
 import { BracketView } from '../bracket/BracketView';
 import { InfoView } from '../info/InfoView';
 import { AdminTournamentList } from '../admin/AdminTournamentList';
@@ -39,6 +40,18 @@ export function AppShell() {
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
   const buildOutdated = useLiveBuildCheck(app.unlocked);
+  const expiryPrompted = useRef(false);
+
+  // The dialog opens by itself once per expiry; Cancel leaves the banner to open it again.
+  useEffect(() => {
+    if (!auth.sessionExpired) {
+      expiryPrompted.current = false;
+      return;
+    }
+    if (expiryPrompted.current) return;
+    expiryPrompted.current = true;
+    setLoginOpen(true);
+  }, [auth.sessionExpired]);
   const tabContext = tabContextFor({
     state: app.state,
     summary: app.tournaments.summaries.find((entry) => entry.id === app.state.tournamentId),
@@ -73,6 +86,9 @@ export function AppShell() {
         </Alert>
       ) : null}
       {app.unlocked && buildOutdated ? <NewVersionBanner /> : null}
+      {app.unlocked && auth.sessionExpired ? (
+        <SessionExpiredBanner onSignIn={() => setLoginOpen(true)} />
+      ) : null}
       <main
         className='mx-auto max-w-7xl px-6 py-5 max-[700px]:px-3 max-[700px]:py-3.5'
         data-hydrated={app.hydrated ? 'true' : 'false'}
@@ -159,7 +175,8 @@ export function AppShell() {
         open={loginOpen}
         onCancel={() => setLoginOpen(false)}
         onSignedIn={() => {
-          app.unlockAdmin();
+          // An expired tab is still unlocked: signing in again must not move it to the Admin tab.
+          if (!app.unlocked) app.unlockAdmin();
           setLoginOpen(false);
         }}
       />

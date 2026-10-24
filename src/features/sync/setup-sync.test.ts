@@ -243,6 +243,21 @@ describe('SetupSync', () => {
     expect(transport.update).toHaveBeenCalledTimes(1);
   });
 
+  it('sends a field whose push was refused on the next flush, with no further edit', async () => {
+    const update = vi
+      .fn<SetupTransport['update']>()
+      .mockRejectedValueOnce(new Error('expired'))
+      .mockResolvedValue(undefined);
+    const stored = setupWith();
+    const { sync } = start(stored, { update });
+    sync.updateLocal(stored, setupWith({ qualAdv: '9' }));
+    await vi.advanceTimersByTimeAsync(400);
+    expect(errors).toEqual(['expired']);
+    await sync.flush();
+    expect(update).toHaveBeenLastCalledWith('t1', { qualAdv: '9' });
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
   it('fills a field the stored setup lacks with its default', () => {
     const { handlers } = start(setupWith());
     handlers.onValue(marshalForFirebase({ qualAdv: '3' }));

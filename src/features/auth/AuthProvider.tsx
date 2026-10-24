@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type PropsWithChildren,
 } from "react";
@@ -22,6 +23,7 @@ import {
 } from "./auth.shared";
 import { postJSON } from "../../lib/api";
 import { readCookieValue } from "../../lib/cookies";
+import { onSessionExpired } from "./session-expired-signal";
 
 type AuthStatus = "checking" | "anonymous" | "submitting" | "authenticated";
 
@@ -47,6 +49,8 @@ type AuthState = {
 
 type AuthContextValue = AuthState & {
   canAdmin: boolean;
+  /** The CFP session ended while this tab was signed in: the tab stays an admin tab until it signs in again. */
+  sessionExpired: boolean;
   clearError(): void;
   login(email: string, password: string): Promise<boolean>;
   logout(): void;
@@ -159,6 +163,20 @@ export function AuthProvider({
   initialAuth = getAnonymousAuthSnapshot(),
 }: PropsWithChildren<{ initialAuth?: AuthSnapshot }>) {
   const [state, setState] = useState<AuthState>(() => stateFromSnapshot(initialAuth));
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const sessionExpiredRef = useRef(false);
+  const signedInAsAdminRef = useRef(false);
+  sessionExpiredRef.current = sessionExpired;
+  signedInAsAdminRef.current = canAdminTour(state.roles);
+
+  // Only a signed-in admin tab can have a session to lose: a viewer, or a tab that just signed out, ignores it.
+  useEffect(
+    () =>
+      onSessionExpired(() => {
+        if (signedInAsAdminRef.current) setSessionExpired(true);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (!isBrowser()) return;
@@ -216,6 +234,7 @@ export function AuthProvider({
       const username = getUsernameFromPayload(response.username);
       saveAccessToken(token);
       saveUsername(username);
+      setSessionExpired(false);
       setState({
         error: null,
         roles,
@@ -225,14 +244,21 @@ export function AuthProvider({
       });
       return true;
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to sign in.";
+      if (sessionExpiredRef.current) {
+        // An expired tab keeps its admin identity, so a mistyped password leaves its edits where they are.
+        setState((current) => ({ ...current, error: message, status: "authenticated" }));
+        return false;
+      }
       clearAccessToken();
       clearUsername();
-      setState(anonymousState(error instanceof Error ? error.message : "Unable to sign in."));
+      setState(anonymousState(message));
       return false;
     }
   }
 
   function logout(): void {
+    setSessionExpired(false);
     clearAccessToken();
     clearUsername();
     setState(anonymousState());
@@ -246,7 +272,8 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         ...state,
-        canAdmin: state.status === "authenticated" && canAdminTour(state.roles),
+        canAdmin: (state.status === "authenticated" || sessionExpired) && canAdminTour(state.roles),
+        sessionExpired,
         clearError,
         login,
         logout,

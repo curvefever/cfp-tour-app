@@ -86,11 +86,11 @@ export class SetupSync {
     );
   }
 
-  /** Sends what is waiting now instead of after the debounce, e.g. before leaving the tournament. */
+  /** Sends what is waiting now instead of after the debounce, e.g. before leaving the tournament or signing in again. */
   async flush(): Promise<void> {
-    if (!this.timer) return;
-    clearTimeout(this.timer);
+    if (this.timer) clearTimeout(this.timer);
     this.timer = null;
+    // A push that failed leaves no timer behind, but its fields are still dirty: `push` sends them.
     await this.push();
   }
 

@@ -25,6 +25,7 @@ import {
   type LastView,
 } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
+import { useFlushAfterSignInAgain } from '../auth/useFlushAfterSignInAgain';
 import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { SyncCoordinator, withoutServerOwned, type SyncStatus, type SyncTransport } from '../sync/live-sync';
@@ -274,6 +275,9 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const flushPending = useCallback(async () => {
     await Promise.all([sync.current?.flush(), setupSync.current?.flush()]);
   }, []);
+
+  // Signing in again after an expired session sends what the tab kept meanwhile, without another keystroke.
+  useFlushAfterSignInAgain(auth.sessionExpired, auth.canAdmin, () => void flushPending());
 
   /** Makes `tournamentId` the loaded tournament; its state and Setup form follow from the database. */
   const adoptTournament = useCallback(

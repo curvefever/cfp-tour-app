@@ -35,6 +35,11 @@ export function CfpLoginModal({
   return (
     <Modal title="Sign in with CFP" titleId="admin-dialog-title">
       <form onSubmit={(event) => void submit(event)}>
+        {auth.sessionExpired ? (
+          <p className="mb-4 text-sm font-bold leading-relaxed">
+            Your CFP session has expired. Sign in again to keep editing: your changes are kept.
+          </p>
+        ) : null}
         <p className="mb-4 text-sm leading-relaxed text-muted">
           Tournament Hub administration is available to CFP tour hosts, moderators, developers, and administrators.
         </p>
