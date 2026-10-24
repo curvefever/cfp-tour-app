@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { buildAdvancementTiers } from '../advancement';
 import { removeRosterUnit } from '../mutations';
 import {
   isFullFieldRound,
   seatsPerTier,
+  smallerRoomSeatsBefore,
   splitByFinishingPlace,
   splitForSmallerRooms,
 } from '../smaller-room-seats';
@@ -96,15 +98,46 @@ describe('splitByFinishingPlace', () => {
     expect(split?.small.map((member) => member.tierRank).sort()).toEqual([0, 1]);
   });
 
-  it('inside a tier the seats go to the units with the fewest so far, ties strided over the tier', () => {
+  it('inside a tier the seats go to the units with the fewest so far, ties best first in the tier order', () => {
     const order = tierMembers([6, 6]);
     const seats = { 'T0-0': 1, 'T0-1': 1 };
-    // Rooms [4,4,2,2]: 4 smaller seats, 2 per tier. Tier 0: the four with none, strided over 4 -> picks 1 and 3 of those.
+    // Rooms [4,4,2,2]: 4 smaller seats, 2 per tier. Tier 0: the four with none, the first two of those.
     const split = splitByFinishingPlace(order, [4, 4, 2, 2], seats, new Set());
     const tier0 = names(split?.small ?? []).filter((name) => name.startsWith('T0'));
-    expect(tier0).toEqual(['T0-3', 'T0-5']);
+    expect(tier0).toEqual(['T0-2', 'T0-3']);
     expect(tier0).not.toContain('T0-0');
     expect(tier0).not.toContain('T0-1');
+  });
+
+  describe('units tied on the seats so far take them best first, in the order of their place', () => {
+    const member = (name: string, tierRank: number) => ({ name, tierRank });
+    const smallNames = (split: ReturnType<typeof splitByFinishingPlace>) => names(split?.small ?? []);
+
+    it('Round 4 of the 17-team tournament: the lucky losers m (1) and h, l, g (1.5) share 2 seats: m and h', () => {
+      const lucky = ['h', 'l', 'm', 'g'].map((name) => member(name, 2));
+      const seats = { h: 1.5, l: 1.5, m: 1, g: 1.5 };
+      const split = splitByFinishingPlace(lucky, [3, 1, 1], seats, new Set());
+      expect(smallNames(split)).toEqual(['h', 'm']);
+    });
+
+    it('Round 6: the seconds o, i, d (all 1.5) take 2 seats as o, i; the thirds k, a, j as k, a', () => {
+      const seconds = ['o', 'i', 'd'].map((name) => member(name, 1));
+      const thirds = ['k', 'a', 'j'].map((name) => member(name, 2));
+      const seats = Object.fromEntries([...seconds, ...thirds].map(({ name }) => [name, 1.5]));
+      expect(smallNames(splitByFinishingPlace(seconds, [3, 1, 1], seats, new Set()))).toEqual(['o', 'i']);
+      expect(smallNames(splitByFinishingPlace(thirds, [3, 1, 1], seats, new Set()))).toEqual(['k', 'a']);
+    });
+
+    it('a late joiner is still last for the seats, whatever its place in the order', () => {
+      const tier = ['joiner', 'b', 'c', 'd'].map((name) => member(name, 0));
+      const split = splitByFinishingPlace(tier, [3, 1, 1], {}, new Set(['joiner']));
+      expect(smallNames(split)).toEqual(['b', 'c']);
+    });
+
+    it('the whole field still strides: one seat among three tied units takes the middle one', () => {
+      const field = ['a', 'b', 'c'].map((name) => member(name, 0));
+      expect(names(splitForSmallerRooms(field, [2, 1], {}, new Set())?.small ?? [])).toEqual(['b']);
+    });
   });
 
   it('puts a late joiner last inside its tier', () => {
@@ -217,6 +250,55 @@ function placeShares(state: TournamentState, places: Places[]) {
   return checked;
 }
 
+/**
+ * For every mixed-size round drawn after eliminations: within each finishing place (in the order the draw
+ * reads it), the units given a smaller-room seat against the units not given one. A violation is a unit with
+ * a seat that has more seats so far than one without, or the same count and a later place in the order.
+ */
+function seatOrderChecks(state: TournamentState) {
+  const violations: string[] = [];
+  let tiedPairs = 0;
+  for (let index = 1; index < state.rounds.length; index += 1) {
+    const round = state.rounds[index];
+    const lineUp = state.assignments[index] ?? [];
+    const sizes = new Map<number, number>();
+    for (const { room } of lineUp) if (room !== null) sizes.set(room, (sizes.get(room) ?? 0) + 1);
+    const largest = Math.max(0, ...sizes.values());
+    const afterEliminations = !isFullFieldRound(state.rounds, index) && !round.isSemis && !round.isFinal;
+    if (!afterEliminations || ![...sizes.values()].some((size) => size < largest)) continue;
+    const seated = lineUp.filter((entry) => entry.room !== null);
+    const hasSmallSeat = new Set(
+      seated.filter((entry) => (sizes.get(entry.room as number) ?? 0) < largest).map((entry) => entry.name),
+    );
+    const tally = smallerRoomSeatsBefore(state, index);
+    const seatsOf = (name: string) => tally[name] ?? 0;
+    const tiers = buildAdvancementTiers(
+      state,
+      index - 1,
+      seated.map((entry) => entry.name),
+    );
+    for (const { members } of tiers) {
+      const ordered = members.map((member) => member.name);
+      for (const [position, taken] of ordered.entries()) {
+        if (!hasSmallSeat.has(taken)) continue;
+        for (const [otherPosition, other] of ordered.entries()) {
+          if (hasSmallSeat.has(other)) continue;
+          if (seatsOf(taken) === seatsOf(other)) tiedPairs += 1;
+          const earns =
+            seatsOf(taken) < seatsOf(other) ||
+            (seatsOf(taken) === seatsOf(other) && position < otherPosition);
+          if (!earns) {
+            violations.push(
+              `R${index + 1} ${taken} (${seatsOf(taken)}) has a seat, ${other} (${seatsOf(other)}) does not`,
+            );
+          }
+        }
+      }
+    }
+  }
+  return { violations, tiedPairs };
+}
+
 describe('the draws after eliminations share the smaller-room seats per finishing place', () => {
   // [format, units, how many the qualification table sends on]: FFA cuts of 20+ give a bracket round of mixed rooms.
   const SHAPES: Array<[SpreadKind, number, string]> = [
@@ -240,6 +322,15 @@ describe('the draws after eliminations share the smaller-room seats per finishin
     },
   );
 
+  it.each(SHAPES)(
+    '%s at %i (%s advance): inside every place the seats go to the fewest so far, then best first',
+    (kind, count, qualAdv) => {
+      const base = spreadConfig(kind, count);
+      const { state } = playToFinal(startSpread({ ...base, setup: { ...base.setup, qualAdv } }));
+      expect(seatOrderChecks(state).violations).toEqual([]);
+    },
+  );
+
   it.each<[SpreadKind, number]>([
     ['2v2v2v2', 17],
     ['2v2v2v2', 31],
@@ -249,5 +340,15 @@ describe('the draws after eliminations share the smaller-room seats per finishin
     expect(checked.length).toBeGreaterThan(0);
     expect(Math.min(...checked.map(({ round }) => round))).toBe(3);
     for (const { actual, expected } of checked) expect(actual).toEqual(expected);
+    expect(seatOrderChecks(state).violations).toEqual([]);
+  });
+
+  it('the tie rule is exercised: some unit with a seat is tied on the count with a unit without', () => {
+    const total = SHAPES.reduce((sum, [kind, count, qualAdv]) => {
+      const base = spreadConfig(kind, count);
+      const { state } = playToFinal(startSpread({ ...base, setup: { ...base.setup, qualAdv } }));
+      return sum + seatOrderChecks(state).tiedPairs;
+    }, 0);
+    expect(total).toBeGreaterThan(0);
   });
 });

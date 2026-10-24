@@ -7,7 +7,9 @@ import { advanceScored, roomsOf, spreadConfig, startSpread, type SpreadKind } fr
 /**
  * Units are ordered inside a finishing place by their score relative to the room average, which is the old raw
  * share times a constant when every room of the source round is the same size: those draws do not change. The
- * literals were captured from 4fc0129 (raw share) and cover the draws whose source round has rooms of one size.
+ * literals were captured from 4fc0129 (raw share) and cover the draws made from rounds with rooms of one size.
+ * The rounds drawn with rooms of mixed sizes after eliminations are left out: their tied smaller-room seats go
+ * best first (smaller-room-seats-places.test.ts).
  */
 
 /** Every round's room sizes and line-up as drawn, from the first round to the Final. */
@@ -49,16 +51,16 @@ function inOrder(state: TournamentState): TournamentState {
 }
 
 describe('rooms of one size are drawn as before the relative order (captured from 4fc0129)', () => {
-  it('FFA 32 (rooms of 8), pooling none, to Round 4', () => {
-    expect(drawsOf(startSpread(config('ffa', 32, 'none'))).slice(0, 4)).toEqual(FFA_32);
+  it('FFA 32 (rooms of 8), pooling none, Rounds 1-3', () => {
+    expect(drawsOf(startSpread(config('ffa', 32, 'none'))).slice(0, 3)).toEqual(FFA_32);
   });
 
-  it('2v2v2v2 16 (rooms of 4), pooling none, to Round 5', () => {
-    expect(drawsOf(startSpread(config('2v2v2v2', 16, 'none'))).slice(0, 5)).toEqual(TEAMS_16);
+  it('2v2v2v2 16 (rooms of 4), pooling none, Rounds 1-3', () => {
+    expect(drawsOf(startSpread(config('2v2v2v2', 16, 'none'))).slice(0, 3)).toEqual(TEAMS_16);
   });
 
-  it('2v2v2v2 24 qualification table (rooms of 4), to Round 6', () => {
-    expect(drawsOf(startSpread(config('2v2v2v2', 24, 'qual-table'))).slice(0, 6)).toEqual(QUAL_24);
+  it('2v2v2v2 24 qualification table (rooms of 4), Rounds 1-5', () => {
+    expect(drawsOf(startSpread(config('2v2v2v2', 24, 'qual-table'))).slice(0, 5)).toEqual(QUAL_24);
   });
 
   it('double elimination with a shared Final, 16 teams of 2v2v2v2, to Round 5', () => {
@@ -76,15 +78,12 @@ const FFA_32 = [
   'R1 8,8,8,8 :: P1,P2,P3,P4,P5,P6,P7,P8 | P9,P10,P11,P12,P13,P14,P15,P16 | P17,P18,P19,P20,P21,P22,P23,P24 | P25,P26,P27,P28,P29,P30,P31,P32',
   'R2 8,8,8,8 :: P16,P28,P18,P1,P32,P20,P5,P9 | P29,P14,P2,P21,P19,P6,P11,P25 | P23,P3,P30,P12,P7,P10,P26,P24 | P8,P22,P15,P31,P13,P27,P17,P4',
   'R3 8,8,8,8 :: P12,P17,P1,P2,P6,P27,P23,P32 | P13,P10,P19,P5,P8,P25,P28,P30 | P11,P18,P15,P7,P26,P20,P22,P29 | P16,P14,P3,P4,P9,P24,P21,P31',
-  'R4 7,7,7,6 :: P1,P29,P9,P23,P24,P11,P15 | P5,P2,P20,P22,P27,P14,P16 | P7,P4,P6,P21,P26,P13,P19 | P3,P8,P28,P25,P10,P12',
 ];
 
 const TEAMS_16 = [
   'R1 4,4,4,4 :: t1,t2,t3,t4 | t5,t6,t7,t8 | t9,t10,t11,t12 | t13,t14,t15,t16',
   'R2 4,4,4,4 :: t12,t6,t14,t1 | t13,t10,t2,t8 | t7,t3,t11,t15 | t4,t16,t5,t9',
   'R3 4,4,4,4 :: t8,t1,t5,t11 | t6,t4,t15,t10 | t7,t2,t14,t16 | t9,t3,t13,t12',
-  'R4 4,3,3,3 :: t15,t10,t5,t1 | t14,t8,t9 | t11,t13,t4 | t12,t16,t7',
-  'R5 4,4,3 :: t7,t9,t11,t13 | t8,t4,t12,t16 | t1,t5,t10',
 ];
 
 const QUAL_24 = [
@@ -93,7 +92,6 @@ const QUAL_24 = [
   'R3 4,4,4,4,4,4 :: t8,t1,t23,t14 | t5,t2,t24,t18 | t6,t3,t17,t16 | t9,t21,t20,t15 | t4,t13,t12,t10 | t7,t22,t11,t19',
   'R4 4,4,4,4,4,4 :: t14,t17,t7,t4 | t15,t19,t13,t24 | t11,t5,t1,t20 | t16,t9,t2,t23 | t18,t12,t21,t3 | t10,t8,t6,t22',
   'R5 4,4,4,4 :: t3,t1,t13,t11 | t9,t4,t5,t15 | t8,t2,t21,t14 | t7,t24,t6,t12',
-  'R6 4,3,3,3 :: t9,t6,t24,t12 | t3,t5,t13 | t8,t2,t4 | t7,t1,t21',
 ];
 
 const DOUBLE_ELIMINATION_16 = [

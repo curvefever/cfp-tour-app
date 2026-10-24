@@ -94,17 +94,22 @@ function smallerRoomsOf(
   return { smallRooms, seatCount: Math.min(order.length, seatCount) };
 }
 
+/** How the members tied at the boundary count share the seats left: `stride` spreads the picks over the group, `best-first` takes the group's first. */
+type TieRule = 'stride' | 'best-first';
+
 /**
- * The names of the `count` members of `group` (best tier first) who take smaller-room seats: the fewest
- * seats so far first, the units in `lastForSmaller` after every other unit whatever their count. Among the
- * members tied at the boundary count the picks are strided over `group`, so the smaller rooms keep a mix of
- * tiers.
+ * The names of the `count` members of `group` (best first) who take smaller-room seats: the fewest seats so
+ * far first, the units in `lastForSmaller` after every other unit whatever their count. The members tied at
+ * the boundary count share the seats left by `tieRule`: `stride` spreads the picks over `group`, so the
+ * smaller rooms keep a mix of tiers; `best-first` gives them to the first of the tied members in `group`'s
+ * order.
  */
 function pickForSmallerRooms(
   group: WaveMember[],
   count: number,
   seats: Record<string, number>,
   lastForSmaller: ReadonlySet<string>,
+  tieRule: TieRule,
 ): Set<string> {
   if (count === 0) return new Set();
   const keyOf = (member: WaveMember): [number, number] => [
@@ -121,7 +126,8 @@ function pickForSmallerRooms(
   const tied = group.filter((member) => isBefore(keyOf(member), boundary) === 0);
   const remaining = count - picked.size;
   for (let index = 0; index < remaining; index += 1) {
-    picked.add(tied[Math.floor(((index + 0.5) * tied.length) / remaining)].name);
+    const position = tieRule === 'stride' ? Math.floor(((index + 0.5) * tied.length) / remaining) : index;
+    picked.add(tied[position].name);
   }
   return picked;
 }
@@ -149,7 +155,8 @@ export function splitForSmallerRooms(
 ): SmallerRoomSplit | null {
   const shape = smallerRoomsOf(order, roomSizes);
   if (!shape) return null;
-  return splitOf(order, shape.smallRooms, pickForSmallerRooms(order, shape.seatCount, seats, lastForSmaller));
+  const picked = pickForSmallerRooms(order, shape.seatCount, seats, lastForSmaller, 'stride');
+  return splitOf(order, shape.smallRooms, picked);
 }
 
 /**
@@ -172,7 +179,9 @@ export function seatsPerTier(tierSizes: number[], seatCount: number): number[] {
  * The split for a round drawn after eliminations: results come first, so the smaller-room seats are shared
  * between the finishing places in proportion to their size (`seatsPerTier`), lucky losers in their own
  * place, instead of going to whoever has the fewest so far. Inside a tier the seats go to the units with
- * the fewest (late joiners last, ties strided over the tier). Same result shape as `splitForSmallerRooms`.
+ * the fewest (late joiners last); units tied on that count take the seats best first in the tier's order
+ * (relative score), because a seat that goes to one of them in any case is better given to the one that
+ * earned it. Same result shape as `splitForSmallerRooms`.
  */
 export function splitByFinishingPlace(
   order: WaveMember[],
@@ -191,7 +200,7 @@ export function splitByFinishingPlace(
   );
   const picked = new Set(
     tiers.flatMap(([, members], index) => [
-      ...pickForSmallerRooms(members, shares[index], seats, lastForSmaller),
+      ...pickForSmallerRooms(members, shares[index], seats, lastForSmaller, 'best-first'),
     ]),
   );
   return splitOf(order, shape.smallRooms, picked);
