@@ -20,6 +20,30 @@ export function getApiBaseURL(hostname?: string): string {
   return "https://api.curvefever.pro";
 }
 
+/** A refusal from the API, with the API's own numeric code (e.g. 700 for a token it no longer accepts). */
+export class ApiError extends Error {
+  readonly code: number | undefined;
+  readonly status: number;
+
+  constructor(message: string, status: number, code?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+type ErrorBody = {
+  code?: unknown;
+  data?: { code?: unknown; message?: string };
+  message?: string;
+};
+
+function errorCode(body: ErrorBody | null): number | undefined {
+  const code = body?.code ?? body?.data?.code;
+  return typeof code === "number" ? code : undefined;
+}
+
 export async function postJSON<TResponse>(
   path: string,
   payload: object,
@@ -30,12 +54,10 @@ export async function postJSON<TResponse>(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const responseBody = (await response.json().catch(() => null)) as {
-    data?: { message?: string };
-    message?: string;
-  } | null;
+  const responseBody = (await response.json().catch(() => null)) as ErrorBody | null;
   if (!response.ok) {
-    throw new Error(responseBody?.data?.message || responseBody?.message || "Unable to complete the request.");
+    const message = responseBody?.data?.message || responseBody?.message || "Unable to complete the request.";
+    throw new ApiError(message, response.status, errorCode(responseBody));
   }
   return responseBody as TResponse;
 }

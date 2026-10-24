@@ -3,6 +3,15 @@ export const USERNAME_STORAGE_KEY = "cf-tour-username";
 export const PID_STORAGE_KEY = "pid";
 export const NET_VERSION = -1;
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
+/** CFP's code for a token it no longer accepts. */
+export const CFP_INVALID_TOKEN_CODE = 700;
+/** What the server throws when the organiser's CFP session has ended (no cookie, or a token CFP refuses). */
+export const SESSION_EXPIRED_MESSAGE = "Your CFP session has expired — sign in again.";
+
+/** Recognised by message: that is all that survives a server function's error serialisation. */
+export function isSessionExpiredError(error: unknown): boolean {
+  return error instanceof Error && error.message === SESSION_EXPIRED_MESSAGE;
+}
 
 export enum Role {
   ADMIN = 0,

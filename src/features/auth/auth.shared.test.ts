@@ -8,6 +8,8 @@ import {
   getAnonymousAuthSnapshot,
   getUserIdFromPayload,
   getUsernameFromPayload,
+  isSessionExpiredError,
+  SESSION_EXPIRED_MESSAGE,
 } from './auth.shared';
 
 describe('Tournament Hub admin roles', () => {
@@ -140,5 +142,17 @@ describe('formatAccountRole', () => {
   it('falls back to "Role {id}" for a reserved/unknown role id', () => {
     expect(formatAccountRole(2)).toBe('Role 2');
     expect(formatAccountRole(999)).toBe('Role 999');
+  });
+});
+
+describe('isSessionExpiredError', () => {
+  it('recognises the fixed message, however the error was rebuilt', () => {
+    expect(isSessionExpiredError(new Error(SESSION_EXPIRED_MESSAGE))).toBe(true);
+  });
+
+  it('ignores every other error and non-errors', () => {
+    expect(isSessionExpiredError(new Error('Sync error'))).toBe(false);
+    expect(isSessionExpiredError(SESSION_EXPIRED_MESSAGE)).toBe(false);
+    expect(isSessionExpiredError(null)).toBe(false);
   });
 });

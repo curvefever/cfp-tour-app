@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getApiBaseURL, postJSON } from './api';
+import { ApiError, getApiBaseURL, postJSON } from './api';
 
 describe('getApiBaseURL', () => {
   afterEach(() => {
@@ -82,5 +82,36 @@ describe('postJSON', () => {
       vi.fn(() => Promise.resolve({ ok: false, json: () => Promise.reject(new Error('bad body')) })),
     );
     await expect(postJSON('/things', {})).rejects.toThrow('Unable to complete the request.');
+  });
+
+  it("throws an ApiError carrying CFP's code and the HTTP status", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ code: 700, message: 'INVALID_TOKEN | Invalid or expired token' }),
+        }),
+      ),
+    );
+    const error = await postJSON('/auth/logintoken', {}).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      code: 700,
+      status: 401,
+      message: 'INVALID_TOKEN | Invalid or expired token',
+    });
+  });
+
+  it('leaves the code undefined when the error body has none', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({ ok: false, status: 500, json: () => Promise.reject(new Error('bad body')) }),
+      ),
+    );
+    const error = await postJSON('/things', {}).catch((caught: unknown) => caught);
+    expect(error).toMatchObject({ code: undefined, status: 500 });
   });
 });
