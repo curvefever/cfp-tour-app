@@ -8,6 +8,7 @@ import {
   refreshRoundStandings,
   roomBasedComputeAdvancement,
 } from './advancement';
+import { doubleEliminationContributions } from './bracket-replay';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
@@ -352,55 +353,15 @@ function advanceDoubleElimination(
     };
   }
   const state = cloneForTransition(input);
-  const result = doubleEliminationComputeAdvancement(state, roundIndex);
-  if (state.byes[roundIndex]?.length) {
-    result.winners = [...state.byes[roundIndex].map((name) => ({ name })), ...result.winners];
-  }
-
-  // Tag every contribution with its room-rank tier + in-tier pct at the
-  // moment it's pushed -- buildAdvancementTiers already ranks EVERY occupant
-  // of a room (not just advancers), so a "loser" lands at their own actual
-  // room-rank position and a carried-over bye folds to rank 0 with the round's
-  // largest relative score, exactly like the generic reseeding path. Captured
-  // here, not at finalize time, because a target round's pool can accumulate
-  // from more than one source round (see transitions.ts's own
-  // pendingBracketSeeds accumulation below) -- by finalize time there is no
-  // single round left to re-derive this from.
-  const tierByName = new Map(
-    buildAdvancementTiers(state, roundIndex, [
-      ...result.winners.map(({ name }) => name),
-      ...result.losers.map(({ name }) => name),
-    ]).flatMap((tier) =>
-      tier.members.map((member) => [member.name, { tierRank: tier.rank, pct: member.pct }] as const),
-    ),
-  );
-  const tagFor = (name: string) => tierByName.get(name) ?? { tierRank: 0, pct: 1 };
+  const { additions, lucky } = doubleEliminationContributions(state, roundIndex);
 
   const nextIndex = roundIndex + 1;
   const winnersTarget = round.winnersTo;
   const losersTarget = round.losersTo;
-  const pendingWinners =
-    winnersTarget != null
-      ? [
-          ...(state.pendingBracketSeeds[winnersTarget] ?? []),
-          ...result.winners.map(({ name }) => ({
-            name,
-            isLucky: false,
-            ...tagFor(name),
-          })),
-        ]
-      : null;
-  const pendingLosers =
-    losersTarget != null
-      ? [
-          ...(state.pendingBracketSeeds[losersTarget] ?? []),
-          ...result.losers.map(({ name }) => ({
-            name,
-            isLucky: false,
-            ...tagFor(name),
-          })),
-        ]
-      : null;
+  const pendingAt = (target: number | null | undefined) =>
+    target != null ? [...(state.pendingBracketSeeds[target] ?? []), ...(additions.get(target) ?? [])] : null;
+  const pendingWinners = pendingAt(winnersTarget);
+  const pendingLosers = pendingAt(losersTarget);
 
   let poolAtNext = [...(state.pendingBracketSeeds[nextIndex] ?? [])];
   if (winnersTarget === nextIndex) poolAtNext = pendingWinners ?? [];
@@ -430,8 +391,11 @@ function advanceDoubleElimination(
   if (losersTarget != null) {
     state.pendingBracketSeeds[losersTarget] = pendingLosers ?? [];
   }
-  if (winnersTarget != null && result.luckyNames.length) {
-    state.luckyLosers[winnersTarget] = [...(state.luckyLosers[winnersTarget] ?? []), ...result.luckyNames];
+  if (winnersTarget != null && lucky.has(winnersTarget)) {
+    state.luckyLosers[winnersTarget] = [
+      ...(state.luckyLosers[winnersTarget] ?? []),
+      ...(lucky.get(winnersTarget) ?? []),
+    ];
   }
   state.curRound = nextIndex;
   const fitFailure = finalizeDoubleEliminationRound(state, nextIndex, chosenByes);

@@ -1,9 +1,10 @@
-import { isQualCutoffKey, orderedQualificationTable } from './advancement';
+import { isQualCutoffKey } from './advancement';
+import { currentUnit, replayBracketPools } from './bracket-replay';
 import { rosterKeys } from './roster';
 import { currentColumn, isRoundDone, isRoundReached } from './round-columns';
 import { rewindRoomHistory } from './seeding';
 import { roundHasAnyScore } from './scoring';
-import { routeStandings, routeWaterfallRound, seedRoundFromPendingPool } from './transitions';
+import { seedRoundFromPendingPool } from './transitions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   declaredWaterfallRooms,
@@ -27,21 +28,6 @@ export type WaterfallGraphEditResult =
 
 const MISSING_CONFIG_MESSAGE =
   "Can't save — this tournament's gamemode configuration is missing a room size or Finals format. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
-
-/**
- * Maps a name from a recorded line-up to the unit that is in the tournament now: itself if still registered,
- * the unit that replaced it if it was swapped out (followed through further swaps), else null (a withdrawal).
- */
-function currentUnit(state: TournamentState, roster: Set<string>, name: string): string | null {
-  let current = name;
-  for (let hops = 0; hops <= state.withdrawnUnits.length; hops += 1) {
-    if (roster.has(current)) return current;
-    const next = state.withdrawnUnits.find((unit) => unit.name === current)?.replacedBy;
-    if (next === undefined) return null;
-    current = next;
-  }
-  return null;
-}
 
 function sameNameSet(assignments: string[], seeds: PendingBracketSeed[]): boolean {
   const existing = new Set(assignments);
@@ -232,34 +218,13 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     tieResolutions,
   };
 
-  // Replay every already-played waterfall round (up to, but not including,
-  // the current column -- it hasn't been advanced from yet) under the new
-  // routing, accumulating per-destination pools exactly as advanceTournamentRound
-  // would across a sequence of real advances.
-  // Recorded line-ups still hold the units that withdrew or were swapped out: a replayed pool keeps only
-  // the units now in the tournament (a swapped-out unit becomes its replacement), so a withdrawal never
-  // moves anyone else up into the empty seat.
+  // Replay every advance before the current column (it hasn't been advanced from yet) under the new
+  // routing, accumulating per-destination pools exactly as advanceTournamentRound would across a
+  // sequence of real advances. Recorded line-ups still hold the units that withdrew or were swapped
+  // out: a replayed pool keeps only the units now in the tournament (a swapped-out unit becomes its
+  // replacement), so a withdrawal never moves anyone else up into the empty seat.
   const roster = new Set(rosterKeys(state.players));
-  const replayPools = new Map<number, PendingBracketSeed[]>();
-  const addToReplay = (additions: Map<number, PendingBracketSeed[]>) => {
-    for (const [destination, seeds] of additions) {
-      const current = seeds.flatMap((seed) => {
-        const name = currentUnit(state, roster, seed.name);
-        return name === null ? [] : [{ ...seed, name }];
-      });
-      replayPools.set(destination, [...(replayPools.get(destination) ?? []), ...current]);
-    }
-  };
-  // Once the bracket is entered, the qualification table has already been routed through the Qual source:
-  // replay the order it was routed in (a table recomputed now has lost the withdrawn units, shifting every rank).
-  if (standingsSource && reachedCount > 0) {
-    const exitOrder =
-      state.rounds[qualIndex].standingsExitOrder ?? orderedQualificationTable(working).ordered;
-    addToReplay(routeStandings(exitOrder, working.rounds[qualIndex]));
-  }
-  for (let index = firstWaterfallIndex; isRoundDone(state, index); index += 1) {
-    addToReplay(routeWaterfallRound(working, index, working.rounds[index]));
-  }
+  const { pools: replayPools } = replayBracketPools(working, currentColumn(state).start);
 
   // Compare every reached round against what the new routing would have
   // produced -- except, without a Qual source, the entry round (which has no
