@@ -83,6 +83,18 @@ describe('expectedNextColumn equals what Next Round then draws', () => {
     expect(expectEveryStepToMatch(started(SINGLE_ELIMINATION_43))).toBeGreaterThan(3);
   });
 
+  it.each<['ffa' | '2v2v2v2', number]>([
+    ['2v2v2v2', 25],
+    ['ffa', 31],
+  ])(
+    '%s at %i, warm-ups then elimination: the mixed-size rounds match too, spread and shares included',
+    (kind, count) => {
+      const start = startSpread(spreadConfig(kind, count, { pooling: 'none' }));
+      expect(start.rounds.filter((round) => new Set(round.rooms).size > 1).length).toBeGreaterThan(2);
+      expect(expectEveryStepToMatch(start)).toBeGreaterThan(3);
+    },
+  );
+
   it('a qualification table feeding a waterfall: the entry column is two rounds, drawn together', () => {
     const start = buildQualWaterfall(37, undefined, {}, { columns: true });
     let state = start;
