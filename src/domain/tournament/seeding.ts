@@ -1,7 +1,13 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
-import { smallerRoomSeatsBefore, spreadsSmallerRoomSeats, splitForSmallerRooms } from './smaller-room-seats';
+import {
+  isFullFieldRound,
+  smallerRoomSeatsBefore,
+  splitByFinishingPlace,
+  splitForSmallerRooms,
+  spreadsSmallerRoomSeats,
+} from './smaller-room-seats';
 import type { RandomSource } from './runtime';
 import type {
   PendingBracketSeed,
@@ -617,10 +623,14 @@ export function tieredSeed(options: {
       balanceWeight,
     });
 
-  // Rounds with mixed room sizes: the smaller rooms are filled apart, by the units that have held the
-  // fewest smaller-room seats, so those seats are spread evenly (smaller-room-seats.ts).
+  // Rounds with mixed room sizes: the smaller rooms are filled apart so their seats are spread evenly
+  // (smaller-room-seats.ts): by the units that have held the fewest while the whole field is still in,
+  // shared between the finishing places once units have been eliminated.
+  const splitRound = isFullFieldRound(state.rounds, targetRoundIndex)
+    ? splitForSmallerRooms
+    : splitByFinishingPlace;
   const split = spreadsSmallerRoomSeats(nextRound)
-    ? splitForSmallerRooms(
+    ? splitRound(
         flat,
         nextRound.rooms,
         smallerRoomSeatsBefore(state, targetRoundIndex),

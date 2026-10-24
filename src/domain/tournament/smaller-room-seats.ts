@@ -1,4 +1,4 @@
-import { isCountedPoolingRound } from './pooling';
+import { isPoolingRound } from './pooling';
 import type { WaveMember } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
@@ -34,10 +34,15 @@ export function spreadsSmallerRoomSeats(round: TournamentRound): boolean {
   return !ownMechanism;
 }
 
-/** How much a smaller-room seat of `round` weighs in the tally: less where the round earns no points. */
-export function smallerRoomSeatWeight(round: TournamentRound): number {
-  const earnsPoints = isCountedPoolingRound(round) || !round.isNoElim;
-  return earnsPoints ? 1 : NO_POINTS_SEAT_WEIGHT;
+/** The flags that tell whether a round earns points. */
+export type SeatWeightRound = Partial<
+  Pick<TournamentRound, 'isQual' | 'isSwiss' | 'isNoElim' | 'excludeFromStandings'>
+>;
+
+/** How much a smaller-room seat of `round` weighs in the tally: less where the round earns no points (a warm-up, an uncounted round). */
+export function smallerRoomSeatWeight(round: SeatWeightRound): number {
+  const warmUp = round.isNoElim && !round.isQual && !round.isSwiss;
+  return warmUp || round.excludeFromStandings ? NO_POINTS_SEAT_WEIGHT : 1;
 }
 
 /**
@@ -77,6 +82,58 @@ export function smallerRoomSeatsBefore(
   );
 }
 
+/** The smaller rooms of a line-up and how many seats they hold; null when every room is the same size. */
+function smallerRoomsOf(
+  order: WaveMember[],
+  roomSizes: number[],
+): { smallRooms: number[]; seatCount: number } | null {
+  const largest = Math.max(0, ...roomSizes);
+  const smallRooms = roomSizes.flatMap((size, index) => (size < largest ? [index + 1] : []));
+  if (smallRooms.length === 0) return null;
+  const seatCount = smallRooms.reduce((sum, room) => sum + roomSizes[room - 1], 0);
+  return { smallRooms, seatCount: Math.min(order.length, seatCount) };
+}
+
+/**
+ * The names of the `count` members of `group` (best tier first) who take smaller-room seats: the fewest
+ * seats so far first, the units in `lastForSmaller` after every other unit whatever their count. Among the
+ * members tied at the boundary count the picks are strided over `group`, so the smaller rooms keep a mix of
+ * tiers.
+ */
+function pickForSmallerRooms(
+  group: WaveMember[],
+  count: number,
+  seats: Record<string, number>,
+  lastForSmaller: ReadonlySet<string>,
+): Set<string> {
+  if (count === 0) return new Set();
+  const keyOf = (member: WaveMember): [number, number] => [
+    lastForSmaller.has(member.name) ? 1 : 0,
+    seats[member.name] ?? 0,
+  ];
+  const isBefore = (first: [number, number], second: [number, number]) =>
+    first[0] - second[0] || first[1] - second[1];
+  const ranked = [...group].sort((first, second) => isBefore(keyOf(first), keyOf(second)));
+  const boundary = keyOf(ranked[count - 1]);
+  const picked = new Set(
+    ranked.filter((member) => isBefore(keyOf(member), boundary) < 0).map((member) => member.name),
+  );
+  const tied = group.filter((member) => isBefore(keyOf(member), boundary) === 0);
+  const remaining = count - picked.size;
+  for (let index = 0; index < remaining; index += 1) {
+    picked.add(tied[Math.floor(((index + 0.5) * tied.length) / remaining)].name);
+  }
+  return picked;
+}
+
+function splitOf(order: WaveMember[], smallRooms: number[], picked: Set<string>): SmallerRoomSplit {
+  return {
+    smallRooms,
+    small: order.filter((member) => picked.has(member.name)),
+    large: order.filter((member) => !picked.has(member.name)),
+  };
+}
+
 /**
  * Splits `order` (best tier first) into who takes the seats of the rooms below the largest size and who
  * takes the rest. The units with the fewest smaller-room seats so far take them; the units in
@@ -90,35 +147,76 @@ export function splitForSmallerRooms(
   seats: Record<string, number>,
   lastForSmaller: ReadonlySet<string>,
 ): SmallerRoomSplit | null {
-  const largest = Math.max(0, ...roomSizes);
-  const smallRooms = roomSizes.flatMap((size, index) => (size < largest ? [index + 1] : []));
-  if (smallRooms.length === 0) return null;
+  const shape = smallerRoomsOf(order, roomSizes);
+  if (!shape) return null;
+  return splitOf(order, shape.smallRooms, pickForSmallerRooms(order, shape.seatCount, seats, lastForSmaller));
+}
 
-  const seatCount = Math.min(
-    order.length,
-    smallRooms.reduce((sum, room) => sum + roomSizes[room - 1], 0),
+/**
+ * How many of `seatCount` smaller-room seats each tier takes, in proportion to its size (largest remainder:
+ * the floors first, the leftover seats to the largest fractional parts, the better tier first on equal
+ * parts). `tierSizes` is in tier order, best first; no tier gets more seats than it has units.
+ */
+export function seatsPerTier(tierSizes: number[], seatCount: number): number[] {
+  const total = tierSizes.reduce((sum, size) => sum + size, 0);
+  const shares = tierSizes.map((size) => Math.floor((seatCount * size) / total));
+  const leftover = seatCount - shares.reduce((sum, share) => sum + share, 0);
+  const byRemainder = tierSizes
+    .map((size, tier) => ({ tier, remainder: (seatCount * size) % total }))
+    .sort((first, second) => second.remainder - first.remainder || first.tier - second.tier);
+  for (const { tier } of byRemainder.slice(0, leftover)) shares[tier] += 1;
+  return shares;
+}
+
+/**
+ * The split for a round drawn after eliminations: results come first, so the smaller-room seats are shared
+ * between the finishing places in proportion to their size (`seatsPerTier`), lucky losers in their own
+ * place, instead of going to whoever has the fewest so far. Inside a tier the seats go to the units with
+ * the fewest (late joiners last, ties strided over the tier). Same result shape as `splitForSmallerRooms`.
+ */
+export function splitByFinishingPlace(
+  order: WaveMember[],
+  roomSizes: number[],
+  seats: Record<string, number>,
+  lastForSmaller: ReadonlySet<string>,
+): SmallerRoomSplit | null {
+  const shape = smallerRoomsOf(order, roomSizes);
+  if (!shape) return null;
+  const byTier = new Map<number, WaveMember[]>();
+  for (const member of order) byTier.set(member.tierRank, [...(byTier.get(member.tierRank) ?? []), member]);
+  const tiers = [...byTier].sort(([first], [second]) => first - second);
+  const shares = seatsPerTier(
+    tiers.map(([, members]) => members.length),
+    shape.seatCount,
   );
-  const keyOf = (member: WaveMember): [number, number] => [
-    lastForSmaller.has(member.name) ? 1 : 0,
-    seats[member.name] ?? 0,
-  ];
-  const isBefore = (first: [number, number], second: [number, number]) =>
-    first[0] - second[0] || first[1] - second[1];
-  const ranked = [...order].sort((first, second) => isBefore(keyOf(first), keyOf(second)));
-  if (seatCount === 0) return { smallRooms, small: [], large: order };
-
-  const boundary = keyOf(ranked[seatCount - 1]);
   const picked = new Set(
-    ranked.filter((member) => isBefore(keyOf(member), boundary) < 0).map((member) => member.name),
+    tiers.flatMap(([, members], index) => [
+      ...pickForSmallerRooms(members, shares[index], seats, lastForSmaller),
+    ]),
   );
-  const tied = order.filter((member) => isBefore(keyOf(member), boundary) === 0);
-  const remaining = seatCount - picked.size;
-  for (let index = 0; index < remaining; index += 1) {
-    picked.add(tied[Math.floor(((index + 0.5) * tied.length) / remaining)].name);
-  }
-  return {
-    smallRooms,
-    small: order.filter((member) => picked.has(member.name)),
-    large: order.filter((member) => !picked.has(member.name)),
-  };
+  return splitOf(order, shape.smallRooms, picked);
+}
+
+/**
+ * Whether nobody has been eliminated before round `roundIndex`, read from the stored rounds: every pooling
+ * round is drawn from the whole field; a later round is when every round before it advances all it seats
+ * (`advTotal` reaches `players`; a warm-up does, and a withdrawal's refit keeps it) and no qualification
+ * table, Swiss or group stage before it cuts the pool at its exit (the next round seats fewer than it did).
+ */
+export function isFullFieldRound(rounds: TournamentRound[], roundIndex: number): boolean {
+  const round = rounds[roundIndex];
+  if (!round) return false;
+  if (isPoolingRound(round)) return true;
+  return rounds.slice(0, roundIndex).every((earlier, index) => {
+    const next = rounds[index + 1];
+    const cutAtExit = isExitOfPoolingPhase(earlier, next) && next.players < earlier.players;
+    return earlier.advTotal >= earlier.players && !cutAtExit;
+  });
+}
+
+/** The last round of a qualification table, Swiss phase or group stage: the standings cut the pool after it. */
+function isExitOfPoolingPhase(round: TournamentRound, next: TournamentRound | undefined): boolean {
+  const standings = (candidate?: TournamentRound) => Boolean(candidate?.isQual || candidate?.isSwiss);
+  if (round.isGroupStage) return !next?.isGroupStage;
+  return standings(round) && !standings(next);
 }

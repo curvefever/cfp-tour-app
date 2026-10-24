@@ -1,6 +1,11 @@
 import { circleMethodSchedule } from './pooling';
 import { assignWaveToRooms, recordRoomHistory, selectPoolingBye, type WaveMember } from './seeding';
-import { countSmallerRoomSeats, NO_POINTS_SEAT_WEIGHT, splitForSmallerRooms } from './smaller-room-seats';
+import {
+  countSmallerRoomSeats,
+  smallerRoomSeatWeight,
+  splitForSmallerRooms,
+  type SeatWeightRound,
+} from './smaller-room-seats';
 import type { RoundAssignment, TournamentRound } from './types';
 
 /**
@@ -111,7 +116,7 @@ function fillFixedRooms(
  */
 export function buildFixedRoomSchedule(
   roster: string[],
-  rounds: ReadonlyArray<Pick<TournamentRound, 'rooms' | 'byeCount' | 'excludeFromStandings'>>,
+  rounds: ReadonlyArray<Pick<TournamentRound, 'rooms' | 'byeCount'> & SeatWeightRound>,
 ): FixedRoomScheduleResult {
   let roomHistory: Record<string, number> = {};
   const poolingByeCounts: Record<string, number> = {};
@@ -135,7 +140,7 @@ export function buildFixedRoomSchedule(
     // A round with mixed room sizes fills its smaller rooms apart, by the units with the fewest smaller-room
     // seats so far (smaller-room-seats.ts); a fixed draw refuses late joiners, so none go last.
     const members = pool.map((name) => ({ name, tierRank: 0 }));
-    const seatWeights = rounds.map((earlier) => (earlier.excludeFromStandings ? NO_POINTS_SEAT_WEIGHT : 1));
+    const seatWeights = rounds.map(smallerRoomSeatWeight);
     const split = splitForSmallerRooms(
       members,
       round.rooms,
