@@ -6,6 +6,45 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Expired CFP session: one clear message, a sign-in dialog, nothing typed is lost (done — 2026-10-24)
+
+Planner/reviewer and implementer sessions; three commits on `test` (E1 `775df28`, E2 `057f055`, E3 `c99c444`), pushed to `test` for the live check; `main` was not touched. Plan: `plans/2026-10-24-expired-session.md`.
+
+**Context.** Test tournament 1792830379312 (a clean draft, 17 teams) could not be published or started: the server answered "Invalid or expired token". That text is CFP's (`POST /auth/logintoken` answers HTTP 401 with `{"code":700,"message":"INVALID_TOKEN | Invalid or expired token"}`), thrown by `postJSON` through `requireTourAdminPermission` and shown raw. The Admin tab never noticed: the token was re-checked only on a page load, so an open tab kept `canAdmin` after CFP stopped accepting it, and every write failed (score sync: "Sync error: viewers may be seeing stale data (Invalid or expired token)"). Why the token ended is not known (roadmap: "How CFP handles login tokens, and silent session renewal").
+
+**Decisions** (S1–S7 of the plan; organiser-approved 2026-10-24, E3 included).
+- S1: one fixed `SESSION_EXPIRED_MESSAGE` for both causes (no cookie, CFP code 700). CFP's answer is recognised by its code, not its wording (`ApiError` with `code` and `status`); a network failure or a CFP 5xx is not an expiry and passes through. The role refusal keeps its own wording.
+- S2: the tab stays an admin tab. `canAdmin` does not flip to false (it would make the tab a viewer, and the merge with no dirty keys would take back unsent scores); `AuthProvider` gets `sessionExpired` instead. `canAdmin` is `(authenticated || sessionExpired) && canAdminTour(roles)`, so it also holds while a sign-in request is pending, and a refused sign-in while expired keeps the identity and only sets the error.
+- S3: one client function middleware wraps every server call (the root-cause place; the repo has about six sites that catch server-call errors). Checked in TanStack Start's source (`executeMiddleware`, 1.167.16): the error thrown by the final client step rejects `await next()`, so no fallback to the catch sites was needed.
+- S4: `SessionExpiredBanner` (the `NewVersionBanner` look and place); the sign-in dialog opens once per expiry, Cancel leaves the banner, `CfpLoginModal` shows one extra line.
+- S5: signing in again clears the flag and flushes both sync layers at once; another account is a normal sign-in; no admin access keeps the error in the dialog. An expired tab is not moved to the Admin tab when it signs in again (`onSignedIn` calls `unlockAdmin` only for a locked tab).
+- S6: reload behaviour unchanged (a dead token answers anonymous).
+- S7: the proactive check: `checkSession` (public GET; answers as a value, never throws, so the middleware cannot signal twice) and `useSessionCheck` (focus, visibility, 5 minutes while visible, 60 s gap via `isBuildCheckDue`, nothing on mount, only while the tab is unlocked and not expired); only `expired` raises the signal.
+
+**Found while building (planner confirmed).**
+- `flush()` of `SyncCoordinator` and `SetupSync` returned early when no debounce timer was pending, but a failed push leaves no timer, so a flush after signing in would have sent nothing. It now always calls `push()`, which no-ops without a base, a diff or in viewer mode; every caller (leaving a tournament, signing in again) now also retries a failed push.
+- A call that began before a sign-in and failed after it would have re-raised the flag. The signal carries the call's start time and `AuthProvider` ignores one earlier than the last successful sign-in.
+- Signing out also clears the flag; `useFlushAfterSignInAgain` flushes only while `canAdmin` is still true, so a sign-out does not flush into a dead cookie and re-raise the flag. The listener ignores the signal unless the tab holds admin roles.
+
+**What each chunk did.**
+- **E1 — server** (`api.ts`, `auth.shared.ts`, `tour-permissions.server.ts`): `ApiError`, `SESSION_EXPIRED_MESSAGE`, `isSessionExpiredError`, the mapping in `requireTourAdminPermission`; `tour-permissions.test.ts` (7), `api.test.ts` (+2), `auth.shared.test.ts` (+2).
+- **E2 — client**: `session-expired-signal.ts`, `session-expired.middleware.ts` (registered in `src/start.ts`), `AuthProvider`, `CfpLoginModal`, `SessionExpiredBanner`, `AppShell`, `useFlushAfterSignInAgain` (used by `TournamentProvider`), the two `flush()` changes; tests as listed in `docs/platform.md`, "Tests".
+- **E3 — proactive check and review fixes** (`session-check.server.ts`, `session-check.server-fns.ts`, `useSessionCheck.ts`, `isInvalidTokenError` shared with `requireTourAdminPermission`, the late-signal guard, the stay-on-the-tab test; `renderApp` in `shell/test-app.tsx` takes an optional context override).
+
+**Testing.** No tournament logic, so awkward counts do not apply; the risk tested is lost edits: an unsent score survives the refused push (a snapshot from another admin does not take it back) and goes out on the next flush; an unsent Setup field the same. Mutation checks, all caught: every `ApiError` mapped to the expired message; the no-cookie mapping; the old early-return `flush()`; `canAdmin` without `|| sessionExpired`; `unlockAdmin` called unconditionally; the late-signal guard removed; the hook signalling on anything but `expired`; the check mapping every error to `expired`. Eslint and the typecheck clean over the changed files; prettier clean except `AuthProvider.tsx`, `CfpLoginModal.tsx`, `auth.shared.ts`, `tour-permissions.server.ts`, `api.ts`, whose double-quote style predates the build and was kept (the working copies are CRLF, so `prettier --check` needs `--end-of-line auto`). The three AppShell render test files mock `checkSession`.
+A flake found by the first full run: in `SessionExpired.render.test.tsx` the sign-in tests settled with `await act(() => { fireEvent.submit(...); return Promise.resolve(); })`, which drains a fixed number of microtasks while `login()` awaits the mocked `postJSON` and then sets state in several steps; under load the first test ("keeps an expired tab on the tab it was on when it signs in again") failed once (3146 tests, 1 failed; a second full run and three isolated runs passed). Hardened in `dbafb75`: the tests submit, then `waitFor` their own outcome (the dialog closed, the banner gone, `unlockAdmin` called once or not at all; the proactive-check tests wait for the banner or for the ask). Proof: five isolated runs and two runs together with `src/features/auth` and `src/features/shell` all pass, and the `unlockAdmin` mutation still fails the first test.
+Full suite: passed on `dbafb75` (121 files, 3146 tests).
+Smoke e2e: passed on `c99c444` (7 tests).
+Live check (test site): <RESULT — pending>.
+
+**Out of scope (parked).**
+- Why the token ended, and a silent renewal (`/auth/logintoken` already returns a fresh `accessToken` that `restoreSession` stores but the server-side check never does): a separate build, after the organiser asks CFP (`docs/roadmap.md`, "How CFP handles login tokens, and silent session renewal").
+- A role removed mid-session: signing in again does not help, so it keeps its own message.
+- Telling "expired" from "CFP unreachable" in `getInitialAuth` on a reload.
+- Special-casing the raw "Sync error" line that may show beside the banner.
+
+---
+
 ## Visual redesign, phase G: phone layouts (done — 2026-10-23)
 
 Planner/reviewer and implementer sessions; sixteen commits on `test`, pushed to `test` for the live check; `main` was not touched. Plan: `plans/2026-10-23-phone-layouts.md` (it replaced phase G of `plans/2026-10-14-visual-redesign.md`, drafted before phases A–F, the room density build and eight later builds changed the Bracket, Rankings, Admin and the header). Boards: the design canvas's `Phone*.dc.html`, from which only the phone *arrangement* was taken (names, sizes and content decided later won over the boards). Commits: G1 `771d50d` (+ `e6b3a30`), G2a `e37f9a3`, G2b `891baf3`, G2c `081b85a` (+ `a586b6a`), G3a `9dce909`, G3b `d952d26`, G4 `97f58a3`, G5 `5f884bb` (+ `41ffb8b`), G6 `1275822`, G7 `48f28e7`, G8 `0fa8c1f` (+ `8c2e76b`), the live-check fix `0134de9`.
