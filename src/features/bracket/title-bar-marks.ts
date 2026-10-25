@@ -1,4 +1,5 @@
 import { isCurrentRound } from '../../domain/tournament/round-columns';
+import { roundNote } from '../../domain/tournament/round-notes';
 import type { TournamentState } from '../../domain/tournament/types';
 import { type RoomsScored, roomsScored } from './still-playing';
 
@@ -36,4 +37,9 @@ export function sumProgress(parts: Array<RoomsScored | null>): RoomsScored | nul
     scored: counted.reduce((sum, part) => sum + part.scored, 0),
     total: counted.reduce((sum, part) => sum + part.total, 0),
   };
+}
+
+/** Whether any round of the tournament has a settings note (`roundNote`): the Bracket then shows bands, or none at all. */
+export function hasRoundNotes(state: TournamentState): boolean {
+  return state.rounds.some((round) => roundNote(state.info?.roundNotes, round) !== '');
 }

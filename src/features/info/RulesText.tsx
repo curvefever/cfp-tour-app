@@ -14,7 +14,7 @@ function Inline({ part }: { part: RulesInline }) {
   return <>{part.text}</>;
 }
 
-function Inlines({ parts }: { parts: RulesInline[] }) {
+export function Inlines({ parts }: { parts: RulesInline[] }) {
   return (
     <>
       {parts.map((part, index) => (

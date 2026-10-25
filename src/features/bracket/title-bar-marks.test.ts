@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { isFinalComplete } from '../../domain/tournament/rankings';
-import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
-import type { TournamentRound } from '../../domain/tournament/types';
-import { roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
+import { createDefaultInfo, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import type { TournamentInfo, TournamentRound } from '../../domain/tournament/types';
+import { hasRoundNotes, roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
 
 const names = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
@@ -91,5 +91,28 @@ describe('sumProgress', () => {
 
   it('is null when no round of the box is in play', () => {
     expect(sumProgress([null, null])).toBeNull();
+  });
+});
+
+describe('hasRoundNotes', () => {
+  const withNotes = (roundNotes: TournamentInfo['roundNotes']) => ({
+    ...twoRounds(),
+    info: { ...createDefaultInfo(), roundNotes },
+  });
+
+  it('is false without notes', () => {
+    expect(hasRoundNotes(twoRounds())).toBe(false);
+    expect(hasRoundNotes(withNotes(undefined))).toBe(false);
+  });
+
+  it('is true when a stage note reaches a round', () => {
+    expect(hasRoundNotes(withNotes({ stages: { final: 'Target score: high' } }))).toBe(true);
+    expect(hasRoundNotes(withNotes({ stages: { bracket: 'Target score: high' } }))).toBe(true);
+  });
+
+  it('is false when the notes reach no round of this tournament', () => {
+    expect(hasRoundNotes(withNotes({ stages: { semis: 'S' } }))).toBe(false);
+    expect(hasRoundNotes(withNotes({ rounds: { R1: 'x' } }))).toBe(false);
+    expect(hasRoundNotes(withNotes({ stages: { final: '   ' } }))).toBe(false);
   });
 });

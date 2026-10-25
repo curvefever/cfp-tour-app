@@ -12,6 +12,7 @@ import {
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { isFinalComplete } from '../../domain/tournament/rankings';
+import { roundNote } from '../../domain/tournament/round-notes';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
@@ -31,13 +32,22 @@ import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
-import { roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
+import { hasRoundNotes, roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
+import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
 export function roundColumnWidthClass() {
   return cn('w-82.5 min-w-82.5 shrink-0', phoneFullWidthClass);
 }
+
+/**
+ * The rounds strip of a tournament with bands, on a desktop: a grid of three rows (title bar, band, body) that every
+ * box spans, the open ones as subgrids, so the bands take the height of the tallest and the rooms start level.
+ * The body row is flexible so a tall folded box or the standings column never stretches the other two.
+ */
+const bandedStripClass =
+  'min-[701px]:grid min-[701px]:auto-cols-max min-[701px]:grid-flow-col min-[701px]:grid-rows-[2.875rem_auto_1fr] min-[701px]:justify-start min-[701px]:gap-y-0 min-[701px]:*:row-span-3';
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
 export function RoundColumn({
@@ -48,6 +58,7 @@ export function RoundColumn({
   folded,
   gameCount,
   label,
+  note = null,
   onToggle,
   phoneShown = true,
   progress,
@@ -61,21 +72,25 @@ export function RoundColumn({
   folded: FoldedRoundSummary;
   gameCount?: RoundGameCount | null;
   label: string;
+  /** The round's settings note ('' for none) when the tournament has bands, null when it has none: no band then. */
+  note?: string | null;
   onToggle?: () => void;
   /** The box is the one a phone shows (`RoundStrip`): always open there, whatever its fold state; others are hidden. */
   phoneShown?: boolean;
   /** The admin's rooms-scored tracker on the title bar (`ColumnTitleBar`); a folded box shows none. */
   progress?: RoomsScored | null;
 }) {
+  const banded = note !== null;
   const open = (
     <div
       className={cn(
         roundColumnWidthClass(),
-        'flex flex-col gap-4.5',
-        collapsed ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
+        'flex flex-col',
+        collapsed ? 'hidden max-[700px]:flex' : cn(phoneHiddenClass(phoneShown), banded && alignedBoxClass),
       )}
     >
       <ColumnTitleBar
+        attached={banded}
         expected={expected}
         gameCount={gameCount}
         now={current}
@@ -83,7 +98,8 @@ export function RoundColumn({
         progress={progress}
         title={label}
       />
-      <div className='flex flex-col gap-5.5'>{children}</div>
+      {banded ? <RoundSettingsBand note={note} /> : null}
+      <div className='mt-4.5 flex flex-col gap-5.5'>{children}</div>
     </div>
   );
   if (!collapsed) return open;
@@ -245,6 +261,10 @@ export function BracketRounds({
   const finalComplete = useMemo(() => isFinalComplete(state), [state]);
   const isNow = (roundIndex: number) => showsNowPill(state, roundIndex, finalComplete);
   const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
+  const banded = useMemo(() => hasRoundNotes(state), [state]);
+  /** The note a round's band shows; null when the tournament has no note anywhere (no bands at all). */
+  const noteOf = (roundIndex: number) =>
+    banded && state.rounds[roundIndex] ? roundNote(state.info?.roundNotes, state.rounds[roundIndex]) : null;
   function renderSingle(roundIndex: number, shown: boolean) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
@@ -256,6 +276,7 @@ export function BracketRounds({
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
         label={labels[roundIndex]?.label ?? ''}
+        note={noteOf(roundIndex)}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(roundIndex)}
@@ -315,20 +336,23 @@ export function BracketRounds({
         gameCount={roundGameCount(state, first)}
         key={first}
         label={labels[first]?.label ?? ''}
+        note={noteOf(first)}
         onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(first)}
       >
         {bodyOf(first)}
         {others.map((roundIndex) => (
-          <div className='flex flex-col gap-4.5' key={roundIndex}>
+          <div className='flex flex-col' key={roundIndex}>
             <ColumnTitleBar
+              attached={banded}
               expected={expectedDraw?.has(roundIndex) ?? false}
               gameCount={roundGameCount(state, roundIndex)}
               progress={progressOf(roundIndex)}
               title={labels[roundIndex]?.label ?? ''}
             />
-            <div className='flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
+            {banded ? <RoundSettingsBand note={noteOf(roundIndex) ?? ''} /> : null}
+            <div className='mt-4.5 flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
           </div>
         ))}
       </RoundColumn>
@@ -350,6 +374,7 @@ export function BracketRounds({
         gameCount={roundGameCount(state, box.winnersRoundIndex)}
         key={box.winnersRoundIndex}
         label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
+        note={noteOf(box.winnersRoundIndex)}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={sumProgress(constituents.map(progressOf))}
@@ -375,7 +400,11 @@ export function BracketRounds({
         selectedKey={pickedItemKey(stripItems, pick)}
       />
       <div
-        className={cn('flex max-w-full items-start gap-7 overflow-x-auto pb-3', hiddenScrollbarClass)}
+        className={cn(
+          'flex max-w-full items-start gap-7 overflow-x-auto pb-3',
+          banded && bandedStripClass,
+          hiddenScrollbarClass,
+        )}
         id='br-rounds'
         ref={strip}
       >
@@ -391,6 +420,7 @@ export function BracketRounds({
               <StandingsColumn
                 display={standings}
                 phoneShown={pick.kind === 'standings'}
+                banded={banded}
                 state={state}
                 labels={labels}
                 followKey={followKey}

@@ -23,6 +23,7 @@ import { FoldedBox } from './FoldedBox';
 import { standingsNames } from '../standings/standings-names';
 import { standingsExitLines } from './exit-lines';
 import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
+import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
 
 function StandingsRows({
   display,
@@ -30,6 +31,8 @@ function StandingsRows({
   state,
   table,
 }: {
+  /** Other rounds have a settings band: the column gets an empty one, so its table starts level with their rooms. */
+  banded?: boolean;
   display: StandingsDisplay;
   followKey: string | null;
   state: TournamentState;
@@ -93,6 +96,7 @@ function StandingsRows({
  * chevron). Deliberately not a round. Folded, it is the same small box as a folded round.
  */
 export function StandingsColumn({
+  banded = false,
   display,
   state,
   labels,
@@ -102,6 +106,8 @@ export function StandingsColumn({
   onOpenFullTable,
   phoneShown = true,
 }: {
+  /** Other rounds have a settings band: the column gets an empty one, so its table starts level with their rooms. */
+  banded?: boolean;
   display: StandingsDisplay;
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
@@ -120,13 +126,16 @@ export function StandingsColumn({
   const open = (
     <div
       className={cn(
-        'relative flex w-82.5 min-w-82.5 shrink-0 flex-col gap-4.5',
+        'relative flex w-82.5 min-w-82.5 shrink-0 flex-col',
         phoneFullWidthClass,
-        foldedOnDesktop ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
+        foldedOnDesktop
+          ? 'hidden max-[700px]:flex'
+          : cn(phoneHiddenClass(phoneShown), banded && alignedBoxClass),
       )}
       data-standings-column
     >
       <ColumnTitleBar
+        attached={banded}
         badge={<PhaseBadge phase={display.phase} />}
         extra={
           <ExitIcon
@@ -138,7 +147,13 @@ export function StandingsColumn({
         onToggle={onToggle}
         title={names.title}
       />
-      <div className='overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame'>
+      {banded ? <RoundSettingsBand empty note='' /> : null}
+      <div
+        className={cn(
+          'mt-4.5 overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame',
+          banded && 'min-[701px]:self-start',
+        )}
+      >
         {display.phase !== 'upcoming' ? (
           display.tables.map((table) => (
             <StandingsRows

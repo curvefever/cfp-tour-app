@@ -62,6 +62,7 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
  * exit icon) and the fold chevron.
  */
 export function ColumnTitleBar({
+  attached = false,
   badge,
   className,
   expected = false,
@@ -72,6 +73,8 @@ export function ColumnTitleBar({
   progress = null,
   title,
 }: {
+  /** A settings band follows directly under the bar: its bottom corners are square. */
+  attached?: boolean;
   /** A status tag after the title (the standings column's TEMPORARY / FINAL). */
   badge?: ReactNode;
   className?: string;
@@ -89,6 +92,7 @@ export function ColumnTitleBar({
     <div
       className={cn(
         'flex h-11.5 items-center gap-1.5 rounded bg-cfp-game-title pr-1.5 pl-3.5 whitespace-nowrap',
+        attached && 'rounded-b-none',
         className,
       )}
     >

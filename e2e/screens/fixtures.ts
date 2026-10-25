@@ -6,6 +6,7 @@ import { withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type {
   PersistedSetup,
+  RoundNotes,
   TournamentAnnotation,
   TournamentRound,
   TournamentState,
@@ -34,6 +35,7 @@ export interface FixtureTournament {
   /** The viewer tabs the spec captures for this fixture, by their button label. */
   tabs: string[];
   rulesText?: string;
+  roundNotes?: RoundNotes;
   screenshotIds?: string[];
   /** A unit to follow in the Bracket: the spec types it into the follow box and captures that too. */
   follow?: string;
@@ -554,6 +556,16 @@ function waterfallColumn(): TournamentState {
   return { ...scored, curRound: inBracket.curRound };
 }
 
+/** Round settings notes of every shape: a pooling note of one line, rounds of three and two lines, a Final note, and rounds without one. */
+const COLUMN_NOTES: RoundNotes = {
+  stages: { pooling: 'Target score: **50**' },
+  rounds: {
+    'Round 5 Upper': 'Target score: **80**\nMap size: large\nPowers: Ghost and Zap',
+    'Round 5 Lower': 'Target score: **80**\nMap size: small',
+    Final: 'Target score: **120**',
+  },
+};
+
 type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;
 
 /** A tournament before Confirm & Start, as the app stores it after Load roster: the roster and its format, nothing generated. */
@@ -639,7 +651,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
-    entry('waterfall-column-19', waterfallColumn()),
+    entry('waterfall-column-19', waterfallColumn(), { roundNotes: COLUMN_NOTES }),
     entry('upcoming-info', upcoming(), {
       setup: FFA_SETUP,
       tabs: ['Info', 'Players'],
@@ -668,6 +680,7 @@ export function loadedState(fixture: FixtureTournament): TournamentState {
     info: {
       scheduledAt: scheduledAtOf(fixture),
       rulesText: fixture.rulesText ?? '',
+      ...(fixture.roundNotes ? { roundNotes: fixture.roundNotes } : {}),
       screenshots: fixture.screenshotIds ?? [],
     },
   };
