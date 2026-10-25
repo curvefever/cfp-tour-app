@@ -17,6 +17,7 @@ Handle "uncomfortable" registration counts automatically. Whatever the headcount
 | `docs/platform.md` | login and permissions, Firebase sync, persistence, deployment, what the tests cover, driving the app by script in a live check |
 | `docs/open-items.md` | planning a feature, diagnosing a bug, closing out a build |
 | `docs/roadmap.md` | larger future projects not started yet |
+| `docs/real-scores.md` | anything that depends on what real scores look like per game mode: tie-breaks, lucky losers, relative scores, simulations |
 | `HANDOFF_LOG.md` | why something is the way it is — `grep` an entry title, function or date; don't read it whole |
 
 ## Code map
