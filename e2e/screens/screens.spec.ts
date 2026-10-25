@@ -356,25 +356,43 @@ test.describe('screenshots of the viewer tabs', () => {
       });
     }
 
-    test(`the round settings hidden: title bar buttons open the notes at ${width}px`, async ({ page }) => {
-      const fixture = fixtureTournaments().find((entry) => entry.id === 'waterfall-column-19');
-      if (!fixture) throw new Error('the waterfall-column-19 fixture is missing');
-      await page.setViewportSize({ width, height: 900 });
-      await page.addInitScript(() => window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden'));
-      await serve(page, servedFor(fixture));
-      await open(page, `/?t=${fixture.id}`);
-      await page
-        .getByRole('navigation', { name: 'Tournament sections' })
-        .getByRole('button', { name: /Bracket/ })
-        .click();
-      await expect(page.locator('button[aria-label="Round settings"][aria-pressed="false"]')).toBeVisible();
-      await expect(page.getByRole('note')).toHaveCount(0);
-      await capture(page, fixture.id, fileName('Settings hidden', String(width)));
-      const button = page.locator('button[aria-label="Round settings"][aria-expanded]:visible').first();
-      await button.focus();
-      await expect(page.getByRole('tooltip')).toBeVisible();
-      await capture(page, fixture.id, fileName('Settings hidden popup', String(width)));
-    });
+    // The pop-up button to open, by its place among the visible title bar buttons: the first round with a note, and, in the
+    // double elimination wave box, the losers round (third with a note; second on a phone, which shows one box).
+    for (const [fixtureId, popupIndex] of [
+      ['waterfall-column-19', 0],
+      ['double-elim-1v1-16', width === WIDTHS[0] ? 2 : 1],
+    ] as const) {
+      test(`the round settings hidden in ${fixtureId}: title bar buttons open the notes at ${width}px`, async ({
+        page,
+      }) => {
+        const fixture = fixtureTournaments().find((entry) => entry.id === fixtureId);
+        if (!fixture) throw new Error(`the ${fixtureId} fixture is missing`);
+        await page.setViewportSize({ width, height: 900 });
+        await page.addInitScript(() =>
+          window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden'),
+        );
+        await serve(page, servedFor(fixture));
+        await open(page, `/?t=${fixture.id}`);
+        await page
+          .getByRole('navigation', { name: 'Tournament sections' })
+          .getByRole('button', { name: /Bracket/ })
+          .click();
+        await expect(page.locator('button[aria-label="Round settings"][aria-pressed="false"]')).toBeVisible();
+        await expect(page.getByRole('note')).toHaveCount(0);
+        await capture(page, fixture.id, fileName('Settings hidden', String(width)));
+        const button = page
+          .locator('button[aria-label="Round settings"][aria-expanded]:visible')
+          .nth(popupIndex);
+        await button.focus();
+        await expect(page.getByRole('tooltip')).toBeVisible();
+        // The viewport, not the whole page: the button is scrolled into view and the sticky header would cover the pop-up
+        // anywhere else in a full-page capture.
+        await page.waitForTimeout(400);
+        await page.screenshot({
+          path: `${OUTPUT_DIR}/${fixture.id}/${fileName('Settings hidden popup', String(width))}.png`,
+        });
+      });
+    }
 
     test(`the tournament list at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

@@ -1,5 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { infoWithRoundNote, roundNoteRows, type RoundNoteRow } from '../../domain/tournament/round-notes';
+import {
+  infoWithRoundNote,
+  roundNoteRowLabel,
+  roundNoteRows,
+  type RoundNoteRow,
+} from '../../domain/tournament/round-notes';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { Textarea } from '../../components/ui';
 import { EditingTag } from '../presence/EditingTag';
@@ -8,10 +13,6 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 
 const HELP = "Shown under each round's title on the Bracket. **bold** works; a new line starts a new line.";
 const MAX_NOTE_LENGTH = 160;
-
-function rowName(row: RoundNoteRow): string {
-  return row.orphan ? `${row.name} · not in the schedule` : row.name;
-}
 
 /** Sizes a textarea to its content, so a longer note grows the box instead of scrolling inside it. */
 function useAutoGrow(value: string) {
@@ -45,7 +46,7 @@ function RoundNoteRowFields({ row, id }: { row: RoundNoteRow; id: string }) {
   return (
     <>
       <label className='pt-1.25 text-sm leading-5 font-bold wrap-break-word' htmlFor={id}>
-        {rowName(row)}
+        {roundNoteRowLabel(row)}
       </label>
       <Textarea
         className='min-h-8.5 resize-none overflow-hidden py-1 text-sm leading-5'

@@ -566,6 +566,16 @@ const COLUMN_NOTES: RoundNotes = {
   Final: 'Target score: **120**',
 };
 
+/** A wave box with one losers round (WB Round 3 and LB Round 4, both with a note) and one with two (WB Round 5, only LB Round 6 has one). */
+const DOUBLE_ELIMINATION_NOTES: RoundNotes = {
+  'Round 2': 'Target score: **40**',
+  'WB Round 3': 'Target score: **60**',
+  'LB Round 4': 'Powers: **Zap** only',
+  'WB Round 5': 'Target score: **60**',
+  'LB Round 6': 'Powers: Ghost\nMap: large',
+  'Grand Final': 'Target score: **100**',
+};
+
 type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;
 
 /** A tournament before Confirm & Start, as the app stores it after Load roster: the roster and its format, nothing generated. */
@@ -649,7 +659,11 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('teams-5v5-final', teams5v5FinalComplete(), { status: 'finished', tabs: NO_STANDINGS_TABS }),
     entry('teams-2x5-23', teams2x5Pooling()),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
-    entry('double-elim-1v1-16', doubleElimination(), { tabs: NO_STANDINGS_TABS, infoBox: true }),
+    entry('double-elim-1v1-16', doubleElimination(), {
+      tabs: NO_STANDINGS_TABS,
+      infoBox: true,
+      roundNotes: DOUBLE_ELIMINATION_NOTES,
+    }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('waterfall-column-19', waterfallColumn(), { roundNotes: COLUMN_NOTES }),
     entry('upcoming-info', upcoming(), {

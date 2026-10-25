@@ -29,6 +29,11 @@ function storedNotes(notes: RoundNotes | undefined): Array<[string, string]> {
   );
 }
 
+/** What the editor calls a row: the round's name, marked when no round of the schedule has it now. */
+export function roundNoteRowLabel(row: RoundNoteRow): string {
+  return row.orphan ? `${row.name} · not in the schedule` : row.name;
+}
+
 /** The note of the round with this name, trimmed; '' for none. */
 export function roundNote(notes: RoundNotes | undefined, name: string): string {
   const note = notes && Object.hasOwn(notes, name) ? notes[name] : '';

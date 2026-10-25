@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { infoWithRoundNote, roundNote, roundNoteNames, roundNoteRows, setRoundNote } from '../round-notes';
+import {
+  infoWithRoundNote,
+  roundNote,
+  roundNoteNames,
+  roundNoteRowLabel,
+  roundNoteRows,
+  setRoundNote,
+} from '../round-notes';
 import { createDefaultInfo } from '../state-defaults';
 import type { RoundNotes, TournamentState } from '../types';
 import { QUAL_GRAPH } from './qual-waterfall';
@@ -230,5 +237,14 @@ describe('infoWithRoundNote', () => {
     };
     expect(infoWithRoundNote(old, 'Round 1', 'a').roundNotes).toEqual({ 'Round 1': 'a' });
     expect('roundNotes' in infoWithRoundNote(old, 'Round 1', '')).toBe(false);
+  });
+});
+
+describe('roundNoteRowLabel', () => {
+  it("is the round's name, and marks a name that no round of the schedule has now", () => {
+    expect(roundNoteRowLabel({ name: 'Round 4', note: '' })).toBe('Round 4');
+    expect(roundNoteRowLabel({ name: 'Round 4', note: 'x', orphan: true })).toBe(
+      'Round 4 · not in the schedule',
+    );
   });
 });

@@ -34,6 +34,7 @@ import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
 import { hasRoundNotes, roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
 import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
+import { RoundSettingsPopup } from './RoundSettingsPopup';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
@@ -124,6 +125,42 @@ function WaveLabel({ children }: { children: ReactNode }) {
 }
 
 /**
+ * The heading of a losers round in a wave box ("Losers bracket", or "Round N" when the box holds several), with the
+ * round's own settings band under it (its own height, quiet without a note), or, while the bands are hidden, the
+ * round's pop-up button at the right.
+ */
+function WaveRoundHeading({
+  children,
+  note,
+  popupNote,
+  small,
+}: {
+  children: ReactNode;
+  note: string | null;
+  popupNote: string;
+  small: boolean;
+}) {
+  const heading = small ? (
+    <div className='text-xs font-bold text-muted'>{children}</div>
+  ) : (
+    <WaveLabel>{children}</WaveLabel>
+  );
+  return (
+    <div className='flex flex-col gap-1.5'>
+      {popupNote ? (
+        <div className='flex items-center justify-between'>
+          {heading}
+          <RoundSettingsPopup note={popupNote} />
+        </div>
+      ) : (
+        heading
+      )}
+      {note !== null ? <RoundSettingsBand className='rounded' note={note} /> : null}
+    </div>
+  );
+}
+
+/**
  * A `wave` box's content: the winners-bracket (WB) round's own rooms,
  * followed -- only when this wave actually has losers-bracket (LB) rounds
  * trailing it, which isn't guaranteed (the FFA/team shared-final
@@ -144,6 +181,8 @@ function WaveBoxBody({
   projectedSlots,
   expectedDraw,
   labels,
+  noteOf,
+  popupNoteOf,
 }: {
   state: TournamentState;
   box: Extract<BracketBox, { kind: 'wave' }>;
@@ -152,8 +191,12 @@ function WaveBoxBody({
   projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
   expectedDraw: Map<number, ExpectedRound> | null;
   labels: ReturnType<typeof bracketRoundLabels>;
+  /** A round's band note (null: no band shows) and the note its pop-up button opens ('' for none). */
+  noteOf: (roundIndex: number) => string | null;
+  popupNoteOf: (roundIndex: number) => string;
 }) {
   const hasLosers = box.losersRoundIndices.length > 0;
+  const severalLosers = box.losersRoundIndices.length > 1;
   return (
     <>
       <div className='flex flex-col gap-5.5'>
@@ -170,12 +213,16 @@ function WaveBoxBody({
       </div>
       {hasLosers ? (
         <div className='flex flex-col gap-5.5'>
-          <WaveLabel>Losers bracket</WaveLabel>
+          {severalLosers ? <WaveLabel>Losers bracket</WaveLabel> : null}
           {box.losersRoundIndices.map((roundIndex) => (
             <div className='flex flex-col gap-5.5' key={roundIndex}>
-              {box.losersRoundIndices.length > 1 ? (
-                <div className='text-xs font-bold text-muted'>Round {state.rounds[roundIndex]?.roundNum}</div>
-              ) : null}
+              <WaveRoundHeading
+                note={noteOf(roundIndex)}
+                popupNote={popupNoteOf(roundIndex)}
+                small={severalLosers}
+              >
+                {severalLosers ? `Round ${state.rounds[roundIndex]?.roundNum}` : 'Losers bracket'}
+              </WaveRoundHeading>
               <RoundBody
                 state={state}
                 roundIndex={roundIndex}
@@ -402,6 +449,8 @@ export function BracketRounds({
           projectedSlots={projectedSlots}
           expectedDraw={expectedDraw}
           labels={labels}
+          noteOf={noteOf}
+          popupNoteOf={popupNoteOf}
         />
       </RoundColumn>
     );

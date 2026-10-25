@@ -726,3 +726,37 @@ describe('Round settings editor', () => {
     expect(view.queryAllByText("Generate the schedule to add each round's settings.")).toHaveLength(1);
   });
 });
+
+describe('Bracket tab, the round settings of a double elimination wave box', () => {
+  const waveFixture = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'double-elim-1v1-16');
+    if (!fixture) throw new Error('the double-elim-1v1-16 fixture is missing');
+    return fixture;
+  };
+
+  afterEach(() => window.localStorage.clear());
+
+  it('gives the winners round the box band and each losers round its own band, quiet without a note', () => {
+    const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
+
+    const bands = view.queryAllByRole('note', { name: 'Round settings' }).map((band) => band.textContent);
+    expect(bands).toContain('Target score: 60');
+    expect(bands).toContain('Powers: Zap only');
+    expect(bands).toContain('Powers: GhostMap: large');
+    expect(view.queryAllByText('No specific settings').length).toBeGreaterThan(0);
+  });
+
+  it('puts a losers round note on a button at its sub-label while the settings are hidden', () => {
+    window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden');
+    const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
+
+    expect(view.queryAllByRole('note')).toHaveLength(0);
+    const buttons = view.queryAllByRole('button', { name: 'Round settings', expanded: false });
+    const losers = buttons.find((button) =>
+      button.parentElement?.parentElement?.textContent?.includes('Losers bracket'),
+    );
+    expect(losers).toBeTruthy();
+    fireEvent.mouseEnter(losers as HTMLElement);
+    expect(within(view.getByRole('tooltip')).getByText('Zap')).toBeTruthy();
+  });
+});
