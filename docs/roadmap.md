@@ -32,5 +32,7 @@ This file contains future projects and architectural questions not yet scoped or
 
 ## Viewer features
 
+- **Round notes linked to CFP room settings** — raised by the organiser 2026-10-25 with the round settings notes build. A note could one day be built from the actual settings of a CFP room instead of free text, if CFP ever exposes them; free text for now. Check first whether the target score is the setting that changes most often between rounds.
+
 - **"What do I need?" line for a followed player during pooling** — raised during the Standings rethink (2026-10-05) and parked by the organiser: during qualification/Swiss/group-stage rounds, tell a followed player what result in their current room would keep them inside the qualifying cut (e.g. "needs to finish top 2 in Room C to stay safe"). Speculative by nature: the answer depends on every other room's results, so it would need a clear definition first (guaranteed vs likely, worst case over the other rooms) and wording that never promises more than the standings can know. Natural home: Bracket's follow banner, beside the standings rank.
 - **The follow box naming the expected room** — with the "Expected" draw (the next round's exact line-up once the round in play is fully scored), the followed player's box could say where they are expected next ("Expected next: Round 3 · Room B"). Not part of the build that added the expected draw.
