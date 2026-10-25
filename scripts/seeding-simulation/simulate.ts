@@ -44,7 +44,13 @@ export interface RunResult {
   beforeLast: { order: string[]; points: Map<string, number> };
 }
 
-function buildTournament(config: Config, random: () => number): TournamentState {
+/** A started tournament of `count` units of a kind, drawn with the given Setup settings on top of single elimination. */
+export function startTournament(
+  field: { kind: Kind; count: number },
+  settings: NonNullable<Parameters<typeof createDefaultSetup>[0]>,
+  random: () => number,
+): TournamentState {
+  const config = field;
   const teams = config.kind === '2v2v2v2';
   const teamSize = getGameFormat(GAME_FORMAT[config.kind])?.teamSize ?? 0;
   const players = teams
@@ -58,22 +64,32 @@ function buildTournament(config: Config, random: () => number): TournamentState 
     gameFormat: GAME_FORMAT[config.kind],
     ...(teams ? { teamScoringRule: 'survival-teams' as const } : {}),
     scheduleLogic: 'single-elimination',
-    poolingPhase: 'qual-table',
-    qualAdv: String(CUT[config.kind]),
-    qualRoundsOverride: config.mode === 'B' ? '3' : '4',
-    nonCountingRounds: config.mode === 'A' ? '1' : '0',
+    ...settings,
   });
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: config.count, players }),
     setup,
     createTournamentRuntime({ random: { next: random } }),
   );
-  if (result.status !== 'generated') throw new Error(`generation refused: ${configKey(config)}`);
+  if (result.status !== 'generated') throw new Error(`generation refused: ${config.kind}-${config.count}`);
   return { ...result.state, started: true };
 }
 
+function buildTournament(config: Config, random: () => number): TournamentState {
+  return startTournament(
+    config,
+    {
+      poolingPhase: 'qual-table',
+      qualAdv: String(CUT[config.kind]),
+      qualRoundsOverride: config.mode === 'B' ? '3' : '4',
+      nonCountingRounds: config.mode === 'A' ? '1' : '0',
+    },
+    random,
+  );
+}
+
 /** Scores the current round: each seated unit performs at its strength plus noise, and the model hands a room's distinct integer scores out in that order. */
-function scoreRound(
+export function scoreRound(
   state: TournamentState,
   strengths: Map<string, number>,
   noise: number,

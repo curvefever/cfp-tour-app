@@ -1,0 +1,110 @@
+import { roomBasedComputeAdvancement } from '../../src/domain/tournament/advancement';
+import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
+import type { TournamentState } from '../../src/domain/tournament/types';
+import { relativeScores, shareBeaten } from './calibrate';
+import { gaussian, seededRandom } from './random';
+import { scoreRound, startTournament, type Kind } from './simulate';
+import type { ScoreModel } from './score-model';
+
+/**
+ * Shape E: warm-up rounds, then single elimination (`poolingPhase: 'none'`), played with the engine's own advancement.
+ * Every elimination round with mixed room sizes before the Semis is recorded as it was scored, so any cut rule can be
+ * applied to it after the fact.
+ */
+
+export interface EliminationUnit {
+  name: string;
+  room: number;
+  roomSize: number;
+  /** 0 = best of its room. */
+  place: number;
+  /** Score ÷ room average. */
+  relative: number;
+  /** (room size − place − 1) ÷ (room size − 1). */
+  share: number;
+  /** 1 = the truly strongest unit among those in this round. */
+  trueRank: number;
+}
+
+export interface EliminationRound {
+  /** 0 for the first measured round of the run. */
+  order: number;
+  roundIndex: number;
+  advPerRoom: number;
+  luckyCount: number;
+  /** The units that advance under the engine's own rule. */
+  engine: Set<string>;
+  units: EliminationUnit[];
+}
+
+export interface EliminationRun {
+  kind: Kind;
+  count: number;
+  /** Measure the first elimination round whatever its room sizes (equal-room controls) instead of the mixed ones. */
+  control: boolean;
+  /** Stop after this many measured rounds. */
+  rounds: number;
+}
+
+function hasMixedRooms(rooms: number[]): boolean {
+  return new Set(rooms).size > 1;
+}
+
+function recordRound(
+  state: TournamentState,
+  scored: ReturnType<typeof scoreRound>,
+  strengths: Map<string, number>,
+  order: number,
+): EliminationRound {
+  const roundIndex = state.curRound;
+  const round = state.rounds[roundIndex];
+  const names = scored.rooms.flatMap((room) => room.units);
+  const byStrength = [...names].sort((a, b) => (strengths.get(b) as number) - (strengths.get(a) as number));
+  const units = scored.rooms.flatMap((room, index) => {
+    const relative = relativeScores(room.scores);
+    return room.units.map((name, place) => ({
+      name,
+      room: index + 1,
+      roomSize: room.units.length,
+      place,
+      relative: relative[place],
+      share: shareBeaten(place, room.units.length),
+      trueRank: byStrength.indexOf(name) + 1,
+    }));
+  });
+  const engine = roomBasedComputeAdvancement(scored.state, roundIndex).advancing.map((entry) => entry.name);
+  return {
+    order,
+    roundIndex,
+    advPerRoom: round.advPerRoom ?? 0,
+    luckyCount: round.luckyCount,
+    engine: new Set(engine),
+    units,
+  };
+}
+
+/** Plays a tournament of the kind to its Semis (or until enough rounds are measured) and returns the measured rounds. */
+export function simulateElimination(
+  run: EliminationRun,
+  noise: number,
+  seed: number,
+  model: ScoreModel,
+): EliminationRound[] {
+  const random = seededRandom(seed);
+  let state = startTournament(run, { poolingPhase: 'none' }, random);
+  const strengths = new Map(state.assignments[0].map((entry) => [entry.name, gaussian(random)] as const));
+  const modelRandom = seededRandom(seed ^ 0x85ebca6b);
+  const measured: EliminationRound[] = [];
+  while (measured.length < run.rounds) {
+    const round = state.rounds[state.curRound];
+    if (round.isSemis || round.isFinal) break;
+    const scored = scoreRound(state, strengths, noise, random, model, modelRandom);
+    const worth = !round.isNoElim && (run.control || hasMixedRooms(round.rooms));
+    if (worth) measured.push(recordRound(state, scored, strengths, measured.length));
+    if (measured.length >= run.rounds) break;
+    const advanced = advanceTournamentRound(scored.state);
+    if (advanced.status !== 'advanced') throw new Error(`no advance: ${advanced.status}`);
+    state = advanced.state;
+  }
+  return measured;
+}

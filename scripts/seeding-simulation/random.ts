@@ -34,3 +34,13 @@ export function runSeed(configKey: string, noise: number, run: number): number {
   }
   return hash >>> 0;
 }
+
+/** A seed for one run of one scenario of the room-size study, the same for every option so they see the same strengths. */
+export function scenarioSeed(scenario: string, level: string, margins: string, run: number): number {
+  let hash = 2166136261;
+  for (const char of `${scenario}|${level}|${margins}|${run}`) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}

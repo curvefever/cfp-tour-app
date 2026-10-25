@@ -12,7 +12,8 @@ import {
 } from './calibrate';
 import { loadSources, observations, poolObservations, POOLS, type RoomObservation } from './real-rooms';
 import { fittedModels, momentsKey, recordingModel, spreadOf, type Moments } from './matched-model';
-import { runSeed } from './random';
+import { simulateElimination } from './elimination';
+import { runSeed, scenarioSeed } from './random';
 import { LEGACY_MODEL, NOISE, parametricModel, type Level, type ScoreModel } from './score-model';
 import { simulate, type Kind } from './simulate';
 
@@ -188,6 +189,12 @@ function printParametric(noises: Record<Level, number>, runs: number): void {
 /** The mean and SD of a room's performance spread per room size, for every kind and level, from qualifications under the app's draw. */
 const MOMENT_COUNTS: Record<Kind, number[]> = { ffa: [32, 37, 40, 43], '2v2v2v2': [24, 25, 31, 32, 37, 53] };
 
+/** The counts whose elimination rounds supply the room sizes a qualification never has. */
+const ELIMINATION_COUNTS: Record<Kind, number[]> = {
+  ffa: [32, 37, 40, 43],
+  '2v2v2v2': [16, 17, 24, 31, 37, 53],
+};
+
 function momentsOf(kind: Kind, level: Level, runs: number): Record<string, Moments> {
   const sink = new Map<number, number[][]>();
   for (const count of MOMENT_COUNTS[kind]) {
@@ -196,6 +203,19 @@ function momentsOf(kind: Kind, level: Level, runs: number): Record<string, Momen
       simulate({ kind, count, mode: 'A' }, 'current', NOISE[level], seed, recordingModel(sink));
     }
   }
+  const fallback = new Map<number, number[][]>();
+  for (const count of ELIMINATION_COUNTS[kind]) {
+    for (let run = 0; run < runs / 4; run += 1) {
+      const seed = scenarioSeed(`moments-E-${kind}-${count}`, level, 'nothing', run);
+      simulateElimination(
+        { kind, count, control: false, rounds: 99 },
+        NOISE[level],
+        seed,
+        recordingModel(fallback),
+      );
+    }
+  }
+  for (const [size, rooms] of fallback) if (!sink.has(size)) sink.set(size, rooms);
   return Object.fromEntries(
     [...sink].map(([size, rooms]) => {
       const spreads = rooms.map(spreadOf);
