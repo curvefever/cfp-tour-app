@@ -140,32 +140,38 @@ describe('settingsFromSnapshot with round settings notes', () => {
     settings: settingsFromForm(createDefaultSetup()),
     info: { rulesText: '', roundNotes },
   });
+  const notesOf = (raw: unknown) => {
+    const result = settingsFromSnapshot(raw);
+    return result.ok ? result.roundNotes : 'not ok';
+  };
 
-  it('carries the stage and round notes of the source', () => {
-    const roundNotes = { stages: { pooling: 'Target score: normal' }, rounds: { R1C: 'Map: large' } };
-    expect(settingsFromSnapshot(rawWith(roundNotes))).toMatchObject({ ok: true, roundNotes });
+  it('carries the notes of the source, by round name', () => {
+    const roundNotes = { 'Round 1': 'Powers: Ghost', 'WB Round 3': 'Target score: high', Final: 'x' };
+    expect(notesOf(rawWith(roundNotes))).toEqual(roundNotes);
   });
 
-  it('drops malformed entries: unknown stages, bad labels, blank and non-string values', () => {
-    const result = settingsFromSnapshot(
-      rawWith({
-        stages: { pooling: ' a ', unknown: 'x', final: '   ', bracket: 5 },
-        rounds: { 'R 1': 'ok', 'bad/label': 'x', '-R1': 'x', R2: ['x'] },
-      }),
-    );
-    expect(result.ok && result.roundNotes).toEqual({
-      stages: { pooling: 'a' },
-      rounds: { 'R 1': 'ok' },
-    });
+  it('drops malformed entries: keys Firebase cannot store, long names, blank and non-string values', () => {
+    expect(
+      notesOf(
+        rawWith({
+          'Round 1': ' a ',
+          'bad/name': 'x',
+          'bad.name': 'x',
+          [`${'N'.repeat(61)}`]: 'x',
+          [`${'N'.repeat(60)}`]: 'long but fine',
+          Blank: '   ',
+          Count: 5,
+          List: ['x'],
+          stages: { pooling: 'old shape' },
+        }),
+      ),
+    ).toEqual({ 'Round 1': 'a', [`${'N'.repeat(60)}`]: 'long but fine' });
   });
 
   it('gives no notes when none survive or the source has none', () => {
-    const empty = settingsFromSnapshot(rawWith({ stages: { pooling: '' }, rounds: 'nope' }));
-    expect(empty).toMatchObject({ ok: true });
-    expect(empty.ok && empty.roundNotes).toBeUndefined();
-    const missing = settingsFromSnapshot({ title: 'Old', settings: settingsFromForm(createDefaultSetup()) });
-    expect(missing.ok && missing.roundNotes).toBeUndefined();
-    const notAMap = settingsFromSnapshot(rawWith('text'));
-    expect(notAMap.ok && notAMap.roundNotes).toBeUndefined();
+    expect(notesOf(rawWith({ Blank: '', stages: { pooling: 'x' } }))).toBeUndefined();
+    expect(notesOf({ title: 'Old', settings: settingsFromForm(createDefaultSetup()) })).toBeUndefined();
+    expect(notesOf(rawWith('text'))).toBeUndefined();
+    expect(notesOf(rawWith(['x']))).toBeUndefined();
   });
 });

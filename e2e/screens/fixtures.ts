@@ -556,14 +556,14 @@ function waterfallColumn(): TournamentState {
   return { ...scored, curRound: inBracket.curRound };
 }
 
-/** Round settings notes of every shape: a pooling note of one line, rounds of three and two lines, a Final note, and rounds without one. */
+/** Round settings notes of every shape: one line, three lines, two lines, a Final note, a different note on each pooling round and rounds without one. */
 const COLUMN_NOTES: RoundNotes = {
-  stages: { pooling: 'Target score: **50**' },
-  rounds: {
-    'Round 5 Upper': 'Target score: **80**\nMap size: large\nPowers: Ghost and Zap',
-    'Round 5 Lower': 'Target score: **80**\nMap size: small',
-    Final: 'Target score: **120**',
-  },
+  'Round 1': 'Powers: **Ghost**',
+  'Round 2': 'Powers: **Zap**',
+  'Round 3': 'Target score: **50**',
+  'Round 5 Upper': 'Target score: **80**\nMap size: large\nPowers: Ghost and Zap',
+  'Round 5 Lower': 'Target score: **80**\nMap size: small',
+  Final: 'Target score: **120**',
 };
 
 type LoadedRoster = Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>;

@@ -311,15 +311,8 @@ export interface TournamentLifecycle {
   finishedAt: number | null;
 }
 
-/** The kinds of round a stage note covers: see round-notes.ts. */
-export type RoundNoteStage = 'pooling' | 'bracket' | 'semis' | 'final';
-
-/** Short free-text settings notes shown on the Bracket under a round's title bar. Both maps hold only non-blank text. */
-export interface RoundNotes {
-  stages?: Partial<Record<RoundNoteStage, string>>;
-  /** Waterfall rounds only, keyed by the graph's round label (`normalizeRoundLabel`), kept apart from the stages so a round named "Final" can't collide with the `final` stage. */
-  rounds?: Record<string, string>;
-}
+/** Short free-text settings notes shown on the Bracket under a round's title bar: the round's name (`roundNoteNames`) to its note, non-blank text only. */
+export type RoundNotes = Record<string, string>;
 
 export interface TournamentInfo {
   /** Epoch milliseconds of the scheduled start; null while undecided. */

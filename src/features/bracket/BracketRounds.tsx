@@ -12,7 +12,7 @@ import {
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { isFinalComplete } from '../../domain/tournament/rankings';
-import { roundNote } from '../../domain/tournament/round-notes';
+import { roundNote, roundNoteNames } from '../../domain/tournament/round-notes';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
@@ -270,8 +270,8 @@ export function BracketRounds({
   const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
   const hasNotes = useMemo(() => hasRoundNotes(state), [state]);
   const banded = hasNotes && showSettings;
-  const textOf = (roundIndex: number) =>
-    state.rounds[roundIndex] ? roundNote(state.info?.roundNotes, state.rounds[roundIndex]) : '';
+  const noteNames = useMemo(() => roundNoteNames(state), [state]);
+  const textOf = (roundIndex: number) => roundNote(state.info?.roundNotes, noteNames[roundIndex] ?? '');
   /** The note a round band shows; null when no band shows (no note anywhere, or the settings are hidden). */
   const noteOf = (roundIndex: number) => (banded ? textOf(roundIndex) : null);
   /** The note a round title bar button opens: only while the bands are hidden. */

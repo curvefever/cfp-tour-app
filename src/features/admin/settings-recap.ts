@@ -193,7 +193,7 @@ const TITLES: RecapTitle[] = ['FORMAT', 'POOLING', 'SCORING', 'BRACKET'];
  * The Setup form of a tournament: as typed when it was generated, or, for one generated before that was
  * kept, rebuilt from what its state records.
  */
-export function settingsOf(state: TournamentState): TournamentSettings {
+function settingsOf(state: TournamentState): TournamentSettings {
   const stored = readTournamentSettings(state.settings);
   if (stored) return stored;
   const { cfg, gamemodeConfig: config } = state;

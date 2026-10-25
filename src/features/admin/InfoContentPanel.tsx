@@ -148,11 +148,10 @@ export function ScreenshotsControl() {
 
 /** What visitors read on the Info tab besides the date: the specific rules and the lobby screenshots. */
 export function InfoContentPanel() {
-  const { setup } = useTournamentApp();
   return (
     <SectionPanel title='INFO FOR VISITORS'>
       <RulesTextField />
-      <RoundNotesField setup={setup} />
+      <RoundNotesField />
       <ScreenshotsControl />
     </SectionPanel>
   );

@@ -105,14 +105,18 @@ describe('hasRoundNotes', () => {
     expect(hasRoundNotes(withNotes(undefined))).toBe(false);
   });
 
-  it('is true when a stage note reaches a round', () => {
-    expect(hasRoundNotes(withNotes({ stages: { final: 'Target score: high' } }))).toBe(true);
-    expect(hasRoundNotes(withNotes({ stages: { bracket: 'Target score: high' } }))).toBe(true);
+  it("is true when a round has a note of its own, by the round's name", () => {
+    expect(hasRoundNotes(withNotes({ Final: 'Target score: high' }))).toBe(true);
+    expect(hasRoundNotes(withNotes({ 'Round 1': 'Powers: Ghost' }))).toBe(true);
   });
 
-  it('is false when the notes reach no round of this tournament', () => {
-    expect(hasRoundNotes(withNotes({ stages: { semis: 'S' } }))).toBe(false);
-    expect(hasRoundNotes(withNotes({ rounds: { R1: 'x' } }))).toBe(false);
-    expect(hasRoundNotes(withNotes({ stages: { final: '   ' } }))).toBe(false);
+  it('is false when the notes belong to no round of this tournament, or are blank', () => {
+    expect(hasRoundNotes(withNotes({ 'Round 9': 'x' }))).toBe(false);
+    expect(hasRoundNotes(withNotes({ Final: '   ' }))).toBe(false);
+  });
+
+  it('ignores the stage notes of an earlier build', () => {
+    const old = { stages: { final: 'x' }, rounds: { Final: 'y' } } as unknown as TournamentInfo['roundNotes'];
+    expect(hasRoundNotes(withNotes(old))).toBe(false);
   });
 });

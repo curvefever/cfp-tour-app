@@ -4,7 +4,6 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { RulesTextField, ScreenshotsControl } from './InfoContentPanel';
 import { RoundNotesField } from './RoundNotesField';
 import { ScheduledTimeField } from './ScheduledTimeField';
-import { settingsOf } from './settings-recap';
 
 /** What visitors read on the Info tab, kept editable while the tournament runs: its name and time, the rules, the round settings and the screenshots. */
 export function RunningInfoPanel() {
@@ -38,7 +37,7 @@ export function RunningInfoPanel() {
             <ScreenshotsControl />
           </div>
         </div>
-        <RoundNotesField setup={settingsOf(state)} />
+        <RoundNotesField />
       </div>
     </SectionPanel>
   );
