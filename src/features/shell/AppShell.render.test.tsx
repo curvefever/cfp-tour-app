@@ -2,9 +2,10 @@
 import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
-import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
+import { fixtureTournaments, loadedState, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
 import { nextColumnStart } from '../../domain/tournament/round-columns';
+import { roundNoteNames } from '../../domain/tournament/round-notes';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { renderApp, tabsFor, type AppRole } from './test-app';
 
@@ -677,5 +678,51 @@ describe('Bracket tab, the round settings notes', () => {
     expect(view.queryAllByRole('button', { name: 'Round settings' })).toHaveLength(0);
     expect(view.queryAllByRole('note')).toHaveLength(0);
     expect(view.queryAllByText('No specific settings')).toHaveLength(0);
+  });
+});
+
+describe('Round settings editor', () => {
+  const fixtureOf = (id: string) => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === id);
+    if (!fixture) throw new Error(`the ${id} fixture is missing`);
+    return fixture;
+  };
+  const boxesOf = (view: ReturnType<typeof renderApp>) => [
+    ...view.container.querySelectorAll<HTMLTextAreaElement>('textarea[id^="info-round-note-"]'),
+  ];
+
+  it.each(['drawn-ffa-31', 'waterfall-column-19'])(
+    'gives an admin one one-line box per round of %s, named after the round, in schedule order',
+    (id) => {
+      const fixture = fixtureOf(id);
+      const view = renderApp(fixture, { role: 'admin', tab: 'admin' });
+      const boxes = boxesOf(view);
+
+      expect(boxes.map((box) => box.id)).toEqual(boxes.map((_box, index) => `info-round-note-${index}`));
+      expect(boxes.map((box) => view.container.querySelector(`label[for="${box.id}"]`)?.textContent)).toEqual(
+        roundNoteNames(loadedState(fixture)),
+      );
+      expect(boxes.length).toBeGreaterThan(3);
+      expect(boxes.every((box) => box.rows === 1 && box.maxLength === 160)).toBe(true);
+      expect(boxes.every((box) => box.placeholder === 'No specific settings')).toBe(true);
+      expect(view.queryAllByText(/Generate the schedule to add/)).toHaveLength(0);
+    },
+  );
+
+  it('shows the stored note of each round in its own box', () => {
+    const view = renderApp(fixtureOf('waterfall-column-19'), { role: 'admin', tab: 'admin' });
+
+    expect((view.getByLabelText('Round 1') as HTMLTextAreaElement).value).toBe('Powers: **Ghost**');
+    expect((view.getByLabelText('Round 5 Upper') as HTMLTextAreaElement).value).toBe(
+      'Target score: **80**\nMap size: large\nPowers: Ghost and Zap',
+    );
+    expect((view.getByLabelText('Round 6') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('asks the organiser to generate the schedule first when there are no rounds', () => {
+    const view = renderApp(fixtureOf('upcoming-info'), { role: 'admin', tab: 'admin' });
+
+    expect(boxesOf(view)).toHaveLength(0);
+    expect(view.queryAllByText("Generate the schedule to add each round's settings.")).toHaveLength(1);
   });
 });
