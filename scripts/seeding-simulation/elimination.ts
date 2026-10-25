@@ -35,6 +35,8 @@ export interface EliminationRound {
   /** The units that advance under the engine's own rule. */
   engine: Set<string>;
   units: EliminationUnit[];
+  /** Relative scores of every scored room of the tournament so far, this round included, by room size. */
+  sizePools: Map<number, number[]>;
 }
 
 export interface EliminationRun {
@@ -50,11 +52,26 @@ function hasMixedRooms(rooms: number[]): boolean {
   return new Set(rooms).size > 1;
 }
 
+/** The engine's own formula, so that equal shares tie exactly as they do for the engine's lucky-loser race. */
+function roomRelatives(scores: number[]): number[] {
+  const entries = scores.map((score) => ({ score }));
+  return scores.map((score) => relativeRoomShare(score, entries));
+}
+
+function addToPools(pools: Map<number, number[]>, scored: ReturnType<typeof scoreRound>): void {
+  for (const room of scored.rooms) {
+    const pool = pools.get(room.units.length) ?? [];
+    pool.push(...roomRelatives(room.scores));
+    pools.set(room.units.length, pool);
+  }
+}
+
 function recordRound(
   state: TournamentState,
   scored: ReturnType<typeof scoreRound>,
   strengths: Map<string, number>,
   order: number,
+  pools: Map<number, number[]>,
 ): EliminationRound {
   const roundIndex = state.curRound;
   const round = state.rounds[roundIndex];
@@ -62,9 +79,7 @@ function recordRound(
   const byStrength = [...names].sort((a, b) => (strengths.get(b) as number) - (strengths.get(a) as number));
   const byRoomNumber = [...scored.rooms].sort((a, b) => a.room - b.room);
   const units = byRoomNumber.flatMap((room) => {
-    // The engine's own formula, so that equal shares tie exactly as they do for the engine's lucky-loser race.
-    const entries = room.scores.map((score) => ({ score }));
-    const relative = room.scores.map((score) => relativeRoomShare(score, entries));
+    const relative = roomRelatives(room.scores);
     return room.units.map((name, place) => ({
       name,
       room: room.room,
@@ -83,6 +98,7 @@ function recordRound(
     luckyCount: round.luckyCount,
     engine: new Set(engine),
     units,
+    sizePools: new Map([...pools].map(([size, values]) => [size, [...values]])),
   };
 }
 
@@ -98,12 +114,14 @@ export function simulateElimination(
   const strengths = new Map(state.assignments[0].map((entry) => [entry.name, gaussian(random)] as const));
   const modelRandom = seededRandom(seed ^ 0x85ebca6b);
   const measured: EliminationRound[] = [];
+  const pools = new Map<number, number[]>();
   while (measured.length < run.rounds) {
     const round = state.rounds[state.curRound];
     if (round.isSemis || round.isFinal) break;
     const scored = scoreRound(state, strengths, noise, random, model, modelRandom);
+    addToPools(pools, scored);
     const worth = !round.isNoElim && (run.control || hasMixedRooms(round.rooms));
-    if (worth) measured.push(recordRound(state, scored, strengths, measured.length));
+    if (worth) measured.push(recordRound(state, scored, strengths, measured.length, pools));
     if (measured.length >= run.rounds) break;
     const advanced = advanceTournamentRound(scored.state);
     if (advanced.status !== 'advanced') throw new Error(`no advance: ${advanced.status}`);

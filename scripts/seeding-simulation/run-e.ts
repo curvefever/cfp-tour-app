@@ -1,5 +1,12 @@
-import { advancing, E_OPTIONS, type EOption } from './cut-rules';
-import { addRound, emptyAccumulator, largestRoom, recordDifference, type Accumulator } from './elim-measures';
+import { advancing, ALL_E_OPTIONS, decide, isNeutralRule, sizeGroups, type EOption } from './cut-rules';
+import {
+  addRound,
+  emptyAccumulator,
+  largestRoom,
+  recordDifference,
+  type Accumulator,
+  type RankCounts,
+} from './elim-measures';
 import { simulateElimination, type EliminationRound } from './elimination';
 import { scoreModelFor } from './matched-model';
 import { scenarioSeed, seededRandom, shuffled } from './random';
@@ -14,6 +21,12 @@ export interface Cell {
   /** Rounds in which the option advances exactly the units `E0` does. */
   sameAsE0: number;
   rounds: number;
+  /** Every unit of the round as one group (smaller rooms against the others), not only the bubble: the average unit's gap. */
+  all: RankCounts;
+  /** Rounds with a leftover elimination (size-proportional rules) and how often it fell on the smaller rooms. */
+  leftover: { rounds: number; toSmaller: number };
+  /** Rounds where the rule advanced a number other than k, or took more than one from a group's fair share; units that won their room but were eliminated. */
+  breaches: { count: number; share: number; winnersOut: number };
 }
 
 /** The round as the schedule draws it: all options advance `k`, `perRoom` from each room and `lucky` more. */
@@ -48,15 +61,49 @@ export interface EResult {
 
 function emptyCells(): Record<EOption, Cell> {
   return Object.fromEntries(
-    E_OPTIONS.map((option) => [
+    ALL_E_OPTIONS.map((option) => [
       option,
-      { real: emptyAccumulator(), placebo: emptyAccumulator(), sameAsE0: 0, rounds: 0 },
+      {
+        real: emptyAccumulator(),
+        placebo: emptyAccumulator(),
+        sameAsE0: 0,
+        rounds: 0,
+        all: { advantaged: 0, advantagedWon: 0, others: 0, othersWon: 0 },
+        leftover: { rounds: 0, toSmaller: 0 },
+        breaches: { count: 0, share: 0, winnersOut: 0 },
+      },
     ]),
   ) as Record<EOption, Cell>;
 }
 
 function sameSet(first: Set<string>, second: Set<string>): boolean {
   return first.size === second.size && [...first].every((name) => second.has(name));
+}
+
+function addAll(
+  counts: RankCounts,
+  round: EliminationRound,
+  advantaged: Set<string>,
+  result: Set<string>,
+): void {
+  for (const unit of round.units) {
+    const group = advantaged.has(unit.name) ? 'advantaged' : 'others';
+    counts[group] += 1;
+    if (result.has(unit.name)) counts[`${group}Won`] += 1;
+  }
+}
+
+/** Every rule advances k; a size-proportional rule takes `floor(e_g)` or one more from each group; nobody who won their room goes out. */
+function checkRound(cell: Cell, option: EOption, round: EliminationRound, result: Set<string>): void {
+  if (result.size !== round.engine.size) cell.breaches.count += 1;
+  if (isNeutralRule(option)) {
+    const wrong = sizeGroups(round).some((group) => {
+      const out = group.ranked.filter((unit) => !result.has(unit.name)).length;
+      return out < group.whole || out > group.whole + 1;
+    });
+    if (wrong) cell.breaches.share += 1;
+  }
+  cell.breaches.winnersOut += round.units.filter((unit) => unit.place === 0 && !result.has(unit.name)).length;
 }
 
 function addToCells(cells: Record<EOption, Cell>, round: EliminationRound, random: () => number): void {
@@ -66,10 +113,16 @@ function addToCells(cells: Record<EOption, Cell>, round: EliminationRound, rando
   const labels = new Set(shuffled(names, random).slice(0, advantaged.size));
   const reference = advancing('E0', round);
   let referenceKept = 0;
-  for (const option of E_OPTIONS) {
-    const result = advancing(option, round);
+  for (const option of ALL_E_OPTIONS) {
+    const { advancing: result, leftover } = decide(option, round);
     cells[option].rounds += 1;
     if (sameSet(result, reference)) cells[option].sameAsE0 += 1;
+    addAll(cells[option].all, round, advantaged, result);
+    checkRound(cells[option], option, round, result);
+    if (leftover !== null) {
+      cells[option].leftover.rounds += 1;
+      if (leftover < window) cells[option].leftover.toSmaller += 1;
+    }
     const kept = addRound(cells[option].real, round, advantaged, result);
     addRound(cells[option].placebo, round, labels, result);
     if (option === 'E0') referenceKept = kept;
