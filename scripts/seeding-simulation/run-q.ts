@@ -68,7 +68,7 @@ export interface QResult {
   repeats: Record<'Q0' | 'QK', number>;
 }
 
-function emptyCell(): QCell {
+export function emptyCell(): QCell {
   return { real: emptyAccumulator(), placebo: emptyAccumulator(), tieDecided: 0, runs: 0 };
 }
 
@@ -77,7 +77,7 @@ function minimumSeats(units: QualUnit[]): number {
 }
 
 /** Adds one qualification, ranked under `option`, to a cell; returns the true top-k kept. */
-function addQualification(
+export function addQualification(
   cell: QCell,
   option: QOption,
   units: QualUnit[],
@@ -164,7 +164,7 @@ function repeatPairings(result: RunResult): number {
   return [...seen.values()].reduce((sum, times) => sum + Math.max(0, times - 1), 0);
 }
 
-function sameOrder(result: RunResult, units: QualUnit[]): boolean {
+export function sameOrder(result: RunResult, units: QualUnit[]): boolean {
   const engine = computeQualificationStandings(result.finalState).map((entry) => entry.name);
   const mine = standingsUnder('Q0', units).order.map((unit) => unit.name);
   return engine.length === mine.length && engine.every((name, index) => name === mine[index]);
