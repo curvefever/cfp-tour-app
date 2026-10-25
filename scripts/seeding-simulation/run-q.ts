@@ -1,15 +1,15 @@
 import { computeQualificationStandings } from '../../src/domain/tournament/advancement';
 import { smallerRoomSeatsBefore } from '../../src/domain/tournament/smaller-room-seats';
+import { CUT } from './cuts';
 import {
   addObservations,
   emptyAccumulator,
-  summarise,
+  recordDifference,
   type Accumulator,
   type Observation,
-  type Summary,
 } from './elim-measures';
-import { CUT } from './cuts';
 import { scoreModelFor } from './matched-model';
+import type { Policy } from './policies';
 import { byesApply } from './q-draws';
 import {
   cutDecidedByTieBreak,
@@ -23,13 +23,10 @@ import {
 import { scenarioSeed, seededRandom, shuffled } from './random';
 import { NOISE, type Level, type Margins } from './score-model';
 import { simulate, type Kind, type RunResult } from './simulate';
-import type { Policy } from './policies';
 
 /**
  * Shape Q scenarios: a qualification table of four rounds, the first not counted, cut at 16 (2v2v2v2) or 24 (FFA).
- *   pnpm exec tsx scripts/seeding-simulation/run-q.ts --trial
- *   pnpm exec tsx scripts/seeding-simulation/run-q.ts --draw-check [--runs 40]   the rebuilt draw equals the engine's
- *   pnpm exec tsx scripts/seeding-simulation/run-q.ts --kind ffa --count 37 --level ffa-like --margins little --runs 200
+ * One base run serves the re-scoring rules; the neutral bye and the seats by stake have runs of their own.
  */
 
 export interface QScenario {
@@ -40,7 +37,7 @@ export interface QScenario {
   runs: number;
 }
 
-interface QCell {
+export interface QCell {
   real: Accumulator;
   placebo: Accumulator;
   /** Runs in which equal primary values straddled the cut. */
@@ -48,30 +45,38 @@ interface QCell {
   runs: number;
 }
 
-/** Mean of a measure by true-strength quarter and room size: the theory check. */
-type Theory = Map<string, { sum: number; count: number }>;
+/** Smaller-room seats in the stake rounds (the second counted round on): how many there were and how many went to units in the bubble. */
+interface BubbleSeats {
+  bubble: number;
+  total: number;
+}
 
 export interface QResult {
   scenario: QScenario;
   /** Null where the option does not exist for the scenario (an FFA table, byes that do not apply). */
   cells: Record<QOption, QCell | null>;
-  theory: { Q0: Theory; QS: Theory; relative: Theory };
+  /** Sums of a measure by strength quarter and room size, keyed `<measure>|<quarter>|<size>` (quarter 0 = strongest). */
+  theory: Record<string, { sum: number; count: number }>;
   /** Runs in which the tool's `Q0` order differs from `computeQualificationStandings`. */
   orderMismatches: number;
   /** Runs in which the smaller-room seat counts differ by more than 1. */
   seatSpreadBreaches: number;
+  /** Over all runs: how many units held each number of smaller-room seats (`base`, `QK`) or byes (`QB`), keyed by the number. */
+  seatSplit: Record<'base' | 'QK' | 'QB', Record<string, number>>;
+  bubbleSeats: Record<'Q0' | 'QK', BubbleSeats>;
+  /** Repeat pairings over the four qualification rounds, summed over runs. */
+  repeats: Record<'Q0' | 'QK', number>;
 }
 
 function emptyCell(): QCell {
   return { real: emptyAccumulator(), placebo: emptyAccumulator(), tieDecided: 0, runs: 0 };
 }
 
-function seatCounts(units: QualUnit[]): { min: number; max: number } {
-  const seats = units.map((unit) => unit.seats);
-  return { min: Math.min(...seats), max: Math.max(...seats) };
+function minimumSeats(units: QualUnit[]): number {
+  return Math.min(...units.map((unit) => unit.seats));
 }
 
-/** Adds one qualification, ranked under `option`, to a cell. */
+/** Adds one qualification, ranked under `option`, to a cell; returns the true top-k kept. */
 function addQualification(
   cell: QCell,
   option: QOption,
@@ -79,7 +84,7 @@ function addQualification(
   advantage: (unit: QualUnit) => boolean,
   random: () => number,
   cut: number,
-): void {
+): number {
   const standing = standingsUnder(option, units);
   const qualified = new Set(standing.order.slice(0, cut).map((unit) => unit.name));
   const window = largestRoomOf(units);
@@ -96,7 +101,7 @@ function addQualification(
       advantaged: labels(unit),
       won: qualified.has(unit.name),
     }));
-  addObservations(cell.real, observe(advantage), cut, window);
+  const kept = addObservations(cell.real, observe(advantage), cut, window);
   addObservations(
     cell.placebo,
     observe((unit) => placebo.has(unit.name)),
@@ -105,24 +110,58 @@ function addQualification(
   );
   if (cutDecidedByTieBreak(standing, cut)) cell.tieDecided += 1;
   cell.runs += 1;
+  return kept;
 }
 
 function addTheory(theory: QResult['theory'], units: QualUnit[]): void {
   const top = largestRoomOf(units);
-  const bump = (map: Theory, key: string, value: number) => {
-    const found = map.get(key) ?? { sum: 0, count: 0 };
-    map.set(key, { sum: found.sum + value, count: found.count + 1 });
+  const bump = (key: string, value: number) => {
+    const found = theory[key] ?? { sum: 0, count: 0 };
+    theory[key] = { sum: found.sum + value, count: found.count + 1 };
   };
   for (const unit of units) {
     const quarter = Math.floor(((unit.trueRank - 1) * 4) / units.length);
     for (const round of unit.rounds) {
       if (!round) continue;
-      const key = `${quarter}|${round.size}`;
-      bump(theory.Q0, key, Math.max(0, top + 1 - round.place));
-      bump(theory.QS, key, 1 + ((top - 1) * (round.size - round.place)) / (round.size - 1));
-      bump(theory.relative, key, round.relative);
+      bump(`Q0|${quarter}|${round.size}`, Math.max(0, top + 1 - round.place));
+      bump(`QS|${quarter}|${round.size}`, 1 + ((top - 1) * (round.size - round.place)) / (round.size - 1));
+      bump(`relative|${quarter}|${round.size}`, round.relative);
     }
   }
+}
+
+function addHistogram(histogram: Record<string, number>, values: number[]): void {
+  for (const value of values) histogram[value] = (histogram[value] ?? 0) + 1;
+}
+
+function addBubbleSeats(seats: BubbleSeats, units: QualUnit[], cut: number): void {
+  const window = largestRoomOf(units);
+  for (const unit of units) {
+    for (const round of unit.rounds.slice(1)) {
+      if (!round?.smaller) continue;
+      seats.total += 1;
+      if (unit.trueRank >= cut - window + 1 && unit.trueRank <= cut + window) seats.bubble += 1;
+    }
+  }
+}
+
+function repeatPairings(result: RunResult): number {
+  const seen = new Map<string, number>();
+  for (let round = 0; round < result.qualRounds; round += 1) {
+    const rooms = new Map<number, string[]>();
+    for (const { name, room } of result.finalState.assignments[round]) {
+      if (room !== null) rooms.set(room, [...(rooms.get(room) ?? []), name]);
+    }
+    for (const names of rooms.values()) {
+      for (let a = 0; a < names.length; a += 1) {
+        for (let b = a + 1; b < names.length; b += 1) {
+          const key = names[a] < names[b] ? `${names[a]}|${names[b]}` : `${names[b]}|${names[a]}`;
+          seen.set(key, (seen.get(key) ?? 0) + 1);
+        }
+      }
+    }
+  }
+  return [...seen.values()].reduce((sum, times) => sum + Math.max(0, times - 1), 0);
 }
 
 function sameOrder(result: RunResult, units: QualUnit[]): boolean {
@@ -148,9 +187,16 @@ export function runQScenario(scenario: QScenario): QResult {
     QOption,
     QCell | null
   >;
-  const theory: QResult['theory'] = { Q0: new Map(), QS: new Map(), relative: new Map() };
-  let orderMismatches = 0;
-  let seatSpreadBreaches = 0;
+  const result: QResult = {
+    scenario,
+    cells,
+    theory: {},
+    orderMismatches: 0,
+    seatSpreadBreaches: 0,
+    seatSplit: { base: {}, QK: {}, QB: {} },
+    bubbleSeats: { Q0: { bubble: 0, total: 0 }, QK: { bubble: 0, total: 0 } },
+    repeats: { Q0: 0, QK: 0 },
+  };
   let byesUsed = true;
   const run = (policy: Policy, seed: number) => simulate(config, policy, NOISE[level], seed, model);
   for (let index = 0; index < runs; index += 1) {
@@ -158,20 +204,59 @@ export function runQScenario(scenario: QScenario): QResult {
     const random = seededRandom(seed ^ 0x27d4eb2f);
     const base = run('current', seed);
     const units = extractUnits(base);
-    const seats = seatCounts(units);
-    const moreSeats = (unit: QualUnit) => unit.seats > seats.min;
-    if (!sameOrder(base, units)) orderMismatches += 1;
-    if (seatSpreadBreach(base)) seatSpreadBreaches += 1;
-    addTheory(theory, units);
-    for (const option of BASE_OPTIONS)
-      addQualification(cells[option] as QCell, option, units, moreSeats, random, cut);
-    const stake = extractUnits(run('QK', seed));
-    const stakeSeats = seatCounts(stake);
-    addQualification(cells.QK as QCell, 'QK', stake, (unit) => unit.seats > stakeSeats.min, random, cut);
+    const fewest = minimumSeats(units);
+    if (!sameOrder(base, units)) result.orderMismatches += 1;
+    if (seatSpreadBreach(base)) result.seatSpreadBreaches += 1;
+    addTheory(result.theory, units);
+    addHistogram(
+      result.seatSplit.base,
+      units.map((unit) => unit.seats),
+    );
+    addBubbleSeats(result.bubbleSeats.Q0, units, cut);
+    result.repeats.Q0 += repeatPairings(base);
+    let referenceKept = 0;
+    for (const option of BASE_OPTIONS) {
+      const kept = addQualification(
+        cells[option] as QCell,
+        option,
+        units,
+        (u) => u.seats > fewest,
+        random,
+        cut,
+      );
+      if (option === 'Q0') referenceKept = kept;
+      else recordDifference((cells[option] as QCell).real, kept, referenceKept);
+    }
+    const stakeRun = run('QK', seed);
+    const stake = extractUnits(stakeRun);
+    const stakeFewest = minimumSeats(stake);
+    const keptStake = addQualification(
+      cells.QK as QCell,
+      'QK',
+      stake,
+      (u) => u.seats > stakeFewest,
+      random,
+      cut,
+    );
+    recordDifference((cells.QK as QCell).real, keptStake, referenceKept);
+    addHistogram(
+      result.seatSplit.QK,
+      stake.map((unit) => unit.seats),
+    );
+    addBubbleSeats(result.bubbleSeats.QK, stake, cut);
+    result.repeats.QK += repeatPairings(stakeRun);
     if (byesApply(base.finalState.rounds[base.firstCounted].rooms, count)) {
       const byes = extractUnits(run('QB', seed));
       const hadBye = (unit: QualUnit) => unit.rounds.some((round) => round === null);
-      addQualification(cells.QB as QCell, 'QB', byes, hadBye, random, cut);
+      const keptBye = addQualification(cells.QB as QCell, 'QB', byes, hadBye, random, cut);
+      recordDifference((cells.QB as QCell).real, keptBye, referenceKept);
+      addHistogram(
+        result.seatSplit.QB,
+        byes.map((unit) => unit.rounds.filter((round) => round === null).length),
+      );
+      const drawn = extractUnits(run('QBr', seed));
+      const keptDrawn = addQualification(cells.QBr as QCell, 'QBr', drawn, hadBye, random, cut);
+      recordDifference((cells.QBr as QCell).real, keptDrawn, referenceKept);
     } else {
       byesUsed = false;
     }
@@ -180,94 +265,9 @@ export function runQScenario(scenario: QScenario): QResult {
     cells.Q0c = null;
     cells.QSc = null;
   }
-  if (!byesUsed) cells.QB = null;
-  return { scenario, cells, theory, orderMismatches, seatSpreadBreaches };
-}
-
-function describe(cell: QCell | null, applicable = true): string {
-  if (!cell) return 'n/a';
-  const summary: Summary = summarise(cell.real);
-  const placebo = summarise(cell.placebo);
-  const gap = Number.isNaN(summary.gap) ? 'n/a' : `${summary.gap.toFixed(1)} ± ${summary.error.toFixed(1)}`;
-  const tie = applicable ? `, tie-break decides ${Math.round((100 * cell.tieDecided) / cell.runs)}%` : '';
-  const empty = Number.isNaN(placebo.gap) ? 'n/a' : `${placebo.gap.toFixed(1)} ± ${placebo.error.toFixed(1)}`;
-  return `gap ${gap} · top-k kept ${summary.kept.toFixed(2)}${tie} | placebo ${empty}`;
-}
-
-/** Mean of a theory measure at the smaller room size minus at the largest, per strength quarter. */
-function theoryDifference(theory: Theory): string {
-  const sizes = [...new Set([...theory.keys()].map((key) => Number(key.split('|')[1])))].sort(
-    (a, b) => a - b,
-  );
-  if (sizes.length < 2) return 'one room size';
-  const small = sizes[sizes.length - 2];
-  const large = sizes[sizes.length - 1];
-  const mean = (quarter: number, size: number) => {
-    const found = theory.get(`${quarter}|${size}`);
-    return found ? found.sum / found.count : Number.NaN;
-  };
-  return [0, 1, 2, 3].map((quarter) => (mean(quarter, small) - mean(quarter, large)).toFixed(2)).join(' ');
-}
-
-function print(result: QResult): void {
-  const { scenario } = result;
-  console.log(
-    `Q ${scenario.kind} ${scenario.count} ${scenario.level} margins ${scenario.margins}, ${scenario.runs} runs; Q0 order mismatches ${result.orderMismatches}, seat-spread breaches ${result.seatSpreadBreaches}`,
-  );
-  for (const option of Q_OPTIONS) {
-    console.log(`  ${option}: ${describe(result.cells[option], option !== 'QR')}`);
+  if (!byesUsed) {
+    cells.QB = null;
+    cells.QBr = null;
   }
-  console.log(`  theory, smaller minus largest room by strength quarter (strongest first):`);
-  console.log(`    Q0 points ${theoryDifference(result.theory.Q0)}`);
-  console.log(`    QS points ${theoryDifference(result.theory.QS)}`);
-  console.log(`    relative score ${theoryDifference(result.theory.relative)}`);
-}
-
-/** The draw rebuilt from the engine's pieces (`engine-like`) against the engine's own, over whole qualifications. */
-function drawCheck(runs: number): void {
-  const fields: Array<[Kind, number]> = [
-    ['ffa', 37],
-    ['ffa', 43],
-    ['2v2v2v2', 25],
-    ['2v2v2v2', 31],
-    ['2v2v2v2', 53],
-  ];
-  for (const [kind, count] of fields) {
-    const lineUps = (policy: Policy, seed: number) =>
-      JSON.stringify(
-        simulate({ kind, count, mode: 'A' }, policy, NOISE['ffa-like'], seed).finalState.assignments.map(
-          (round) => round.map((entry) => [entry.name, entry.room]),
-        ),
-      );
-    let different = 0;
-    for (let run = 0; run < runs; run += 1) {
-      const seed = scenarioSeed(`draw-${kind}-${count}`, 'ffa-like', 'none', run);
-      if (lineUps('current', seed) !== lineUps('engine-like', seed)) different += 1;
-    }
-    console.log(`${kind} ${count}: ${different} of ${runs} qualifications with a different line-up`);
-  }
-}
-
-function option(args: string[], name: string, fallback: string): string {
-  const index = args.indexOf(name);
-  return index === -1 ? fallback : args[index + 1];
-}
-
-const args = process.argv.slice(2);
-if (args.includes('--draw-check')) {
-  drawCheck(Number(option(args, '--runs', '40')));
-} else if (args.includes('--trial')) {
-  const trial = { margins: 'little', runs: 200 } as const;
-  print(runQScenario({ kind: '2v2v2v2', count: 25, level: 'team-like', ...trial }));
-  print(runQScenario({ kind: 'ffa', count: 37, level: 'ffa-like', ...trial }));
-} else if (args.includes('--kind')) {
-  print(
-    runQScenario({
-      kind: option(args, '--kind', 'ffa') as Kind,
-      count: Number(option(args, '--count', '37')),
-      level: option(args, '--level', 'ffa-like') as Level,
-      margins: option(args, '--margins', 'little') as Margins,
-      runs: Number(option(args, '--runs', '200')),
-    }),
-  );
+  return result;
 }

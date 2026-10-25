@@ -16,6 +16,7 @@ import {
 } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';
 import { CUT, type Kind } from './cuts';
+import { shuffled } from './random';
 
 /**
  * The qualification draws of shape Q that the engine does not make: a neutral bye in place of smaller rooms (`QB`) and
@@ -137,8 +138,24 @@ function byeCounts({ state, next, firstCounted }: QDrawContext): Record<string, 
   return counts;
 }
 
+/** The byes drawn at random among the units with the fewest so far: no link to how a unit finished the previous round. */
+function randomByeSplit(
+  order: WaveMember[],
+  byes: number,
+  counts: Record<string, number>,
+  random: () => number,
+): Split {
+  const ranked = shuffled(order, random).sort((a, b) => (counts[a.name] ?? 0) - (counts[b.name] ?? 0));
+  const picked = new Set(ranked.slice(0, byes).map((member) => member.name));
+  return {
+    smallRooms: [],
+    small: order.filter((member) => picked.has(member.name)),
+    large: order.filter((member) => !picked.has(member.name)),
+  };
+}
+
 /** `QB`: rooms of the largest size and a few byes. The bye units sit out, so the next draw reads them as late joiners (average units). */
-export function byeDraw(context: QDrawContext): RoundAssignment[] | null {
+export function byeDraw(context: QDrawContext, random?: () => number): RoundAssignment[] | null {
   const { state, next } = context;
   const sizes = state.rounds[next].rooms;
   const order = engineOrder(context);
@@ -147,7 +164,10 @@ export function byeDraw(context: QDrawContext): RoundAssignment[] | null {
   const rooms = Math.floor(order.length / largest);
   const byes = order.length - rooms * largest;
   const shape = [...Array<number>(rooms).fill(largest), byes];
-  const split = splitForSmallerRooms(order, shape, byeCounts(context), new Set());
+  const counts = byeCounts(context);
+  const split = random
+    ? randomByeSplit(order, byes, counts, random)
+    : splitForSmallerRooms(order, shape, counts, new Set());
   if (!split) return null;
   const roomNumbers = Array.from({ length: rooms }, (_, index) => index + 1);
   const placed = fillByWaves(split.large, roomNumbers, context, shape);

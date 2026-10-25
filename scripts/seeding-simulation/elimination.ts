@@ -1,7 +1,7 @@
-import { roomBasedComputeAdvancement } from '../../src/domain/tournament/advancement';
+import { relativeRoomShare, roomBasedComputeAdvancement } from '../../src/domain/tournament/advancement';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type { TournamentState } from '../../src/domain/tournament/types';
-import { relativeScores, shareBeaten } from './calibrate';
+import { shareBeaten } from './calibrate';
 import { gaussian, seededRandom } from './random';
 import { scoreRound, startTournament, type Kind } from './simulate';
 import type { ScoreModel } from './score-model';
@@ -60,11 +60,14 @@ function recordRound(
   const round = state.rounds[roundIndex];
   const names = scored.rooms.flatMap((room) => room.units);
   const byStrength = [...names].sort((a, b) => (strengths.get(b) as number) - (strengths.get(a) as number));
-  const units = scored.rooms.flatMap((room, index) => {
-    const relative = relativeScores(room.scores);
+  const byRoomNumber = [...scored.rooms].sort((a, b) => a.room - b.room);
+  const units = byRoomNumber.flatMap((room) => {
+    // The engine's own formula, so that equal shares tie exactly as they do for the engine's lucky-loser race.
+    const entries = room.scores.map((score) => ({ score }));
+    const relative = room.scores.map((score) => relativeRoomShare(score, entries));
     return room.units.map((name, place) => ({
       name,
-      room: index + 1,
+      room: room.room,
       roomSize: room.units.length,
       place,
       relative: relative[place],

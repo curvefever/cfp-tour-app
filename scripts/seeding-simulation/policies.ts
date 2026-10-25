@@ -38,7 +38,7 @@ export const PART2_POLICIES = [
   'random-rooms',
 ] as const;
 /** Shape Q's own draws: the engine's draw rebuilt without a change (a check), a neutral bye, seats by stake. */
-export type QPolicy = 'engine-like' | 'QB' | 'QK';
+export type QPolicy = 'engine-like' | 'QB' | 'QBr' | 'QK';
 export type Policy = (typeof POLICIES)[number] | (typeof PART2_POLICIES)[number] | QPolicy;
 
 interface DrawContext {
@@ -137,16 +137,22 @@ function aroundCutsDraw(policy: Policy, { state, next, kind }: DrawContext): Rou
   return drawAroundCuts(state, next, profileOf(match[2] as ProfileKey, kind), match[1] !== undefined);
 }
 
-function qDraw(policy: QPolicy, { state, next, firstCounted, kind }: DrawContext): RoundAssignment[] | null {
+function qDraw(
+  policy: QPolicy,
+  { state, next, firstCounted, kind, random }: DrawContext,
+): RoundAssignment[] | null {
   const context = { state, next, firstCounted, kind };
   if (policy === 'engine-like') return engineLikeDraw(context);
   if (next < firstCounted) return null;
-  return policy === 'QB' ? byeDraw(context) : stakeDraw(context);
+  if (policy === 'QK') return stakeDraw(context);
+  return byeDraw(context, policy === 'QBr' ? random : undefined);
 }
 
 function draw(policy: Policy, context: DrawContext): RoundAssignment[] | null {
   const { next, firstCounted, lastRound } = context;
-  if (policy === 'engine-like' || policy === 'QB' || policy === 'QK') return qDraw(policy, context);
+  if (policy === 'engine-like' || policy === 'QB' || policy === 'QBr' || policy === 'QK') {
+    return qDraw(policy, context);
+  }
   if (next === lastRound && policy.startsWith('cuts')) return aroundCutsDraw(policy, context);
   const neutralFirst = policy === 'neutral-first' || policy === 'neutral-first+last-by-standings';
   const lastByStandings = policy === 'last-by-standings' || policy === 'neutral-first+last-by-standings';

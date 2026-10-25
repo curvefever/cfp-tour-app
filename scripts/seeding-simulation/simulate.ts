@@ -99,12 +99,12 @@ export function scoreRound(
 ): {
   state: TournamentState;
   places: Map<string, { place: number; roomSize: number }>;
-  rooms: RoomObservation[];
+  rooms: Array<RoomObservation & { room: number }>;
 } {
   const roundIndex = state.curRound;
   const scores = { ...state.scores };
   const places = new Map<string, { place: number; roomSize: number }>();
-  const rooms: RoomObservation[] = [];
+  const rooms: Array<RoomObservation & { room: number }> = [];
   const byRoom = new Map<number, string[]>();
   for (const { name, room } of state.assignments[roundIndex]) {
     if (room !== null) byRoom.set(room, [...(byRoom.get(room) ?? []), name]);
@@ -120,7 +120,7 @@ export function scoreRound(
       modelRandom,
     );
     const value = new Map(ranked.map((name, place) => [name, roomScores[place]] as const));
-    rooms.push({ round: roundIndex, qualification: true, units: ranked, scores: roomScores });
+    rooms.push({ round: roundIndex, qualification: true, units: ranked, scores: roomScores, room });
     names.forEach((name, position) => {
       const keys = scoreKeysForPosition({ roundIndex, room, position, teamSize: scoredTeamSize(state) });
       keys.forEach((key, index) => {

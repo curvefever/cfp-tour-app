@@ -3,7 +3,7 @@ import type { EliminationRound } from './elimination';
 /**
  * The two main numbers of the study for one rule and one round: the room gap (percentage points, 0 = fair) and the
  * true top-k kept. The gap is measured only for the units whose true rank is within W of the cut (W = the largest room
- * size): away from the cut a gap changes nothing.
+ * size): away from the cut a gap changes nothing. Everything here is plain data so a job's result can be saved.
  */
 
 export interface RankCounts {
@@ -15,14 +15,17 @@ export interface RankCounts {
 }
 
 export interface Accumulator {
-  ranks: Map<number, RankCounts>;
+  /** By true rank. */
+  ranks: Record<string, RankCounts>;
   /** Of the k truly strongest units, summed over runs, how many advanced. */
   kept: number;
   runs: number;
+  /** Per-run difference of `kept` to the reference option's (the same run, the same strengths). */
+  difference: { sum: number; sumSquares: number; count: number };
 }
 
 export function emptyAccumulator(): Accumulator {
-  return { ranks: new Map(), kept: 0, runs: 0 };
+  return { ranks: {}, kept: 0, runs: 0, difference: { sum: 0, sumSquares: 0, count: 0 } };
 }
 
 export function largestRoom(round: EliminationRound): number {
@@ -36,17 +39,18 @@ export interface Observation {
   won: boolean;
 }
 
-/** Adds one round, or one qualification, of observations; `k` units advance, and the bubble reaches `window` ranks either side of the cut. */
+/** Adds one round, or one qualification, of observations; `k` units advance, and the bubble reaches `window` ranks either side of the cut. Returns the true top-k kept this time. */
 export function addObservations(
   accumulator: Accumulator,
   observations: Observation[],
   k: number,
   window: number,
-): void {
+): number {
+  let kept = 0;
   for (const { trueRank, advantaged, won } of observations) {
-    if (trueRank <= k && won) accumulator.kept += 1;
+    if (trueRank <= k && won) kept += 1;
     if (trueRank < k - window + 1 || trueRank > k + window) continue;
-    const counts = accumulator.ranks.get(trueRank) ?? {
+    const counts = accumulator.ranks[trueRank] ?? {
       advantaged: 0,
       advantagedWon: 0,
       others: 0,
@@ -59,9 +63,19 @@ export function addObservations(
       counts.others += 1;
       if (won) counts.othersWon += 1;
     }
-    accumulator.ranks.set(trueRank, counts);
+    accumulator.ranks[trueRank] = counts;
   }
+  accumulator.kept += kept;
   accumulator.runs += 1;
+  return kept;
+}
+
+/** Notes how many more (or fewer) true top-k units an option kept than the reference did in the same run. */
+export function recordDifference(accumulator: Accumulator, kept: number, referenceKept: number): void {
+  const difference = kept - referenceKept;
+  accumulator.difference.sum += difference;
+  accumulator.difference.sumSquares += difference * difference;
+  accumulator.difference.count += 1;
 }
 
 export function addRound(
@@ -69,13 +83,13 @@ export function addRound(
   round: EliminationRound,
   advantaged: Set<string>,
   advancing: Set<string>,
-): void {
+): number {
   const observations = round.units.map((unit) => ({
     trueRank: unit.trueRank,
     advantaged: advantaged.has(unit.name),
     won: advancing.has(unit.name),
   }));
-  addObservations(accumulator, observations, round.engine.size, largestRoom(round));
+  return addObservations(accumulator, observations, round.engine.size, largestRoom(round));
 }
 
 export interface Summary {
@@ -88,6 +102,9 @@ export interface Summary {
   skipped: number;
   /** Mean of the true top-k kept per run. */
   kept: number;
+  /** Mean per-run difference to the reference option, and two standard errors of it; NaN when none was recorded. */
+  keptDifference: number;
+  keptDifferenceError: number;
 }
 
 export function summarise(accumulator: Accumulator): Summary {
@@ -95,7 +112,7 @@ export function summarise(accumulator: Accumulator): Summary {
   let varianceSum = 0;
   let used = 0;
   let skipped = 0;
-  for (const counts of accumulator.ranks.values()) {
+  for (const counts of Object.values(accumulator.ranks)) {
     if (counts.advantaged === 0 || counts.others === 0) {
       skipped += 1;
       continue;
@@ -106,11 +123,16 @@ export function summarise(accumulator: Accumulator): Summary {
     varianceSum += (a * (1 - a)) / counts.advantaged + (b * (1 - b)) / counts.others;
     used += 1;
   }
+  const { sum, sumSquares, count } = accumulator.difference;
+  const mean = count === 0 ? Number.NaN : sum / count;
+  const variance = count < 2 ? Number.NaN : (sumSquares - count * mean * mean) / (count - 1);
   return {
     gap: used === 0 ? Number.NaN : (100 * gapSum) / used,
     error: used === 0 ? Number.NaN : (200 * Math.sqrt(varianceSum)) / used,
     ranks: used,
     skipped,
     kept: accumulator.kept / Math.max(accumulator.runs, 1),
+    keptDifference: mean,
+    keptDifferenceError: 2 * Math.sqrt(Math.max(variance, 0) / Math.max(count, 1)),
   };
 }

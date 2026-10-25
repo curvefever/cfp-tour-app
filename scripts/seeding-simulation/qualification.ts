@@ -7,7 +7,9 @@ import type { RunResult } from './simulate';
  * read from the run: room size, place, relative score, or a bye.
  */
 
-export const Q_OPTIONS = ['Q0', 'QS', 'QH', 'QR', 'Q0c', 'QSc', 'QB', 'QK'] as const;
+export const Q_OPTIONS = ['Q0', 'QS', 'QH', 'QR', 'Q0c', 'QSc', 'QB', 'QK', 'QBr'] as const;
+/** The options of the main tables: `QBr` (the neutral bye with the byes drawn at random) is a selection check kept to the appendix. */
+export const Q_TABLE_OPTIONS = Q_OPTIONS.filter((option) => option !== 'QBr');
 export type QOption = (typeof Q_OPTIONS)[number];
 
 /** The community FFA table of the spreadsheets: 10, 8, 6, 5, 4, 3, 2, 1. */
@@ -18,6 +20,8 @@ export interface PlayedRound {
   /** 1 = best. */
   place: number;
   relative: number;
+  /** The room was smaller than the round's largest. */
+  smaller: boolean;
 }
 
 export interface QualUnit {
@@ -59,7 +63,9 @@ export function extractUnits(result: RunResult): QualUnit[] {
     trueRank: index + 1,
     rounds: played.map((round) => {
       const found = round.get(name);
-      return found ? { size: found.size, place: found.place, relative: found.relative } : null;
+      return found
+        ? { size: found.size, place: found.place, relative: found.relative, smaller: found.smaller }
+        : null;
     }),
     seats: played.filter((round) => round.get(name)?.smaller).length,
   }));
