@@ -8,7 +8,9 @@ import { advanceTournamentRound } from '../../src/domain/tournament/transitions'
 import type { TournamentState, TournamentTeam } from '../../src/domain/tournament/types';
 import { CUT, type Kind } from './cuts';
 import { applyPolicy, type Policy } from './policies';
+import type { RoomObservation } from './real-rooms';
 import { gaussian, seededRandom } from './random';
+import { LEGACY_MODEL, type ScoreModel } from './score-model';
 
 /** A: four qualification rounds, the first not counted (the audited tournament). B: three rounds, all counted. C: four rounds, all counted. */
 export type Mode = 'A' | 'B' | 'C';
@@ -36,6 +38,8 @@ export interface RunResult {
   roundOnePlaces: Map<string, { place: number; roomSize: number }>;
   qualRounds: number;
   firstCounted: number;
+  /** Every qualification round's rooms as scored: units and scores best first. */
+  rooms: RoomObservation[];
   /** The standings before the last qualification round: the units best first, with their points. */
   beforeLast: { order: string[]; points: Map<string, number> };
 }
@@ -68,16 +72,23 @@ function buildTournament(config: Config, random: () => number): TournamentState 
   return { ...result.state, started: true };
 }
 
-/** Scores the current round: each seated unit performs at its strength plus noise, and a room's scores are distinct integers in that order. */
+/** Scores the current round: each seated unit performs at its strength plus noise, and the model hands a room's distinct integer scores out in that order. */
 function scoreRound(
   state: TournamentState,
   strengths: Map<string, number>,
   noise: number,
   random: () => number,
-): { state: TournamentState; places: Map<string, { place: number; roomSize: number }> } {
+  model: ScoreModel,
+  modelRandom: () => number,
+): {
+  state: TournamentState;
+  places: Map<string, { place: number; roomSize: number }>;
+  rooms: RoomObservation[];
+} {
   const roundIndex = state.curRound;
   const scores = { ...state.scores };
   const places = new Map<string, { place: number; roomSize: number }>();
+  const rooms: RoomObservation[] = [];
   const byRoom = new Map<number, string[]>();
   for (const { name, room } of state.assignments[roundIndex]) {
     if (room !== null) byRoom.set(room, [...(byRoom.get(room) ?? []), name]);
@@ -88,12 +99,12 @@ function scoreRound(
     );
     const ranked = [...names].sort((a, b) => (performance.get(b) as number) - (performance.get(a) as number));
     ranked.forEach((name, place) => places.set(name, { place, roomSize: names.length }));
-    const value = new Map<string, number>();
-    let previous = Number.POSITIVE_INFINITY;
-    for (const name of ranked) {
-      previous = Math.min(Math.round(1000 + 100 * (performance.get(name) as number)), previous - 1);
-      value.set(name, previous);
-    }
+    const roomScores = model.roomScores(
+      ranked.map((name) => performance.get(name) as number),
+      modelRandom,
+    );
+    const value = new Map(ranked.map((name, place) => [name, roomScores[place]] as const));
+    rooms.push({ round: roundIndex, qualification: true, units: ranked, scores: roomScores });
     names.forEach((name, position) => {
       const keys = scoreKeysForPosition({ roundIndex, room, position, teamSize: scoredTeamSize(state) });
       keys.forEach((key, index) => {
@@ -101,7 +112,7 @@ function scoreRound(
       });
     });
   }
-  return { state: { ...state, scores }, places };
+  return { state: { ...state, scores }, places, rooms };
 }
 
 function standingsBefore(state: TournamentState): RunResult['beforeLast'] {
@@ -112,18 +123,27 @@ function standingsBefore(state: TournamentState): RunResult['beforeLast'] {
   };
 }
 
-export function simulate(config: Config, policy: Policy, noise: number, seed: number): RunResult {
+export function simulate(
+  config: Config,
+  policy: Policy,
+  noise: number,
+  seed: number,
+  model: ScoreModel = LEGACY_MODEL,
+): RunResult {
   const random = seededRandom(seed);
   let state = buildTournament(config, random);
   const qualRounds = state.rounds.filter((round) => round.isQual).length;
   const firstCounted = state.rounds.findIndex((round) => round.isQual && !round.excludeFromStandings);
   const strengths = new Map(state.assignments[0].map((entry) => [entry.name, gaussian(random)] as const));
   const policyRandom = seededRandom(seed ^ 0x9e3779b9);
+  const modelRandom = seededRandom(seed ^ 0x85ebca6b);
+  const rooms: RoomObservation[] = [];
   let roundOnePlaces = new Map<string, { place: number; roomSize: number }>();
   let beforeLast = { order: [] as string[], points: new Map<string, number>() };
   for (let round = 0; round < qualRounds; round += 1) {
     if (round === qualRounds - 1) beforeLast = standingsBefore(state);
-    const scored = scoreRound(state, strengths, noise, random);
+    const scored = scoreRound(state, strengths, noise, random, model, modelRandom);
+    rooms.push(...scored.rooms);
     if (round === 0) roundOnePlaces = scored.places;
     if (round === qualRounds - 1) {
       state = scored.state;
@@ -139,5 +159,5 @@ export function simulate(config: Config, policy: Policy, noise: number, seed: nu
       kind: config.kind,
     });
   }
-  return { strengths, finalState: state, roundOnePlaces, qualRounds, firstCounted, beforeLast };
+  return { strengths, finalState: state, roundOnePlaces, qualRounds, firstCounted, rooms, beforeLast };
 }

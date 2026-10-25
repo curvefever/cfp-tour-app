@@ -16,7 +16,7 @@ What room scores in real Curve Fever Pro tournaments look like, per game mode. R
 | Teams survival | 2v2v2v2 | app tournament `1792339397443` (production) | 36 | the exception below |
 | 1v1 | individual-1v1 | organiser spreadsheet, May 17 | 72 | rooms of 2 only |
 
-The spreadsheets are the organiser's local files (not tracked). FFA Random Powers was looked at and left out: its results are close to random by design.
+The spreadsheets are the organiser's local files (not tracked). An anonymised extract of the rooms (names replaced by ids, absentees flagged) is tracked in `scripts/seeding-simulation/real-rooms.json`; the simulation reads it. FFA Random Powers was looked at and left out: its results are close to random by design.
 
 ## Score scale grows with the room
 

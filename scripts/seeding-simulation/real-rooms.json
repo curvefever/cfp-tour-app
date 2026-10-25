@@ -1,0 +1,5111 @@
+{
+  "note": "Real room scores, player and team names replaced by per-source ids. See docs/real-scores.md.",
+  "sources": [
+    {
+      "key": "ffa-classic",
+      "mode": "Classic FFA",
+      "kind": "ffa",
+      "origin": "spreadsheet \"[OFFICIAL] Classic FFA Tournament _ Sep. 20\", sheet \"Matches 40p\" (qualification rounds 0-4)",
+      "absentRule": "score below 1 (Colosseum: 0 or 1), or the \"-empty-\" placeholder",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 307.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 379.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u4",
+              "score": 287.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 331.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 111.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 226.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 235.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u8",
+              "score": 132.5,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 232.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 263.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 132.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u14",
+              "score": 195.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 432.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 355.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 87.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 194.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 177.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 411.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 291.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 274.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 333.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 206.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 232.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 248.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 36.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 387.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 202.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 414.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 253.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 146.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 310.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 96.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u15",
+              "score": 363.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 281.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u16",
+              "score": 356.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 319.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u9",
+              "score": 411.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 195.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 235.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 140.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 263.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u5",
+              "score": 214.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 287.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 172.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 250.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 204.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 358.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 167.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 179.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 434.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 74.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 334.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 112.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 306.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 386.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 254.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 235.5,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 186.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 359.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 235.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 399.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u8",
+              "score": 308.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 331.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 284.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 414.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 333.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 338.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 285.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 392.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u34",
+              "score": 232.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 156.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 284.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 298.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 374.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 125.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 384.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 209.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u35",
+              "score": 305.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 94.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 256.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 255.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 413.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 155.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 457.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 338.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 248.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 223.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 230.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 300.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u8",
+              "score": 270.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 365.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 224.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 50.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 379.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 324.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 248.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 162.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 237.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 216.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 321.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 427.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 386.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 267.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 339.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u35",
+              "score": 236.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 192.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 105.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 0.5,
+              "absent": true
+            },
+            {
+              "unit": "u26",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u33",
+              "score": 197.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 310.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 197.5,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 398.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 394.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 303.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 40.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 131.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 357.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 451.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u8",
+              "score": 212.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 231.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 256.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 243.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 0.2,
+              "absent": true
+            },
+            {
+              "unit": "u13",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u23",
+              "score": 306.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 183.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 138.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 170.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 263.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 236.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u12",
+              "score": 259.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 176.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 366.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 274.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 84.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 221.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 376.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u12",
+              "score": 278.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 136.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 204.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u39",
+              "score": 303.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 172.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 296.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 326.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 387.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 229.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 457.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 230.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 42.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 226.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u21",
+              "score": 250.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 351.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 0.5,
+              "absent": true
+            },
+            {
+              "unit": "u33",
+              "score": 177.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 202.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 0.2,
+              "absent": true
+            },
+            {
+              "unit": "u28",
+              "score": 0.1,
+              "absent": true
+            },
+            {
+              "unit": "u30",
+              "score": 130.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 148.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 257.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u37",
+              "score": 255.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 239.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 259.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u17",
+              "score": 313.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 0.1,
+              "absent": true
+            },
+            {
+              "unit": "u36",
+              "score": 121.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 200.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 146.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u6",
+              "score": 184.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 324.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 225.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 88.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 255.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 0.1,
+              "absent": true
+            },
+            {
+              "unit": "u24",
+              "score": 205.0,
+              "absent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ffa-colosseum",
+      "mode": "FFA Colosseum",
+      "kind": "ffa",
+      "origin": "spreadsheet \"[OFFICIAL] FFA Colosseum Tournament 4_2025\", sheet \"Schedule - 40P\" (qualification rounds 0-3, then bracket rounds; slots whose name was not filled in are unlinked units)",
+      "absentRule": "score below 1 (Colosseum: 0 or 1), or the \"-empty-\" placeholder",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u2",
+              "score": 191.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 279.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 216.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u6",
+              "score": 181.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 157.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 239.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "unlinked-1",
+              "score": 136.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 293.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 131.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 351.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-2",
+              "score": 234.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 121.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 114.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 383.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 276.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 256.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 227.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 243.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-3",
+              "score": 178.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 97.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-4",
+              "score": 212.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-5",
+              "score": 200.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 186.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 199.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 93.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 80.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-6",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u7",
+              "score": 310.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 272.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 316.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 368.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 283.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 395.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 127.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 232.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u24",
+              "score": 184.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 271.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 181.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 182.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 215.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 241.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 224.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 269.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 211.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 163.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 172.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 360.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 306.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 236.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u26",
+              "score": 248.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 138.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 230.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 198.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 285.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 288.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 172.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 196.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 217.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 137.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 173.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 139.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 216.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 128.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 106.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 156.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 259.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u23",
+              "score": 296.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 299.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 203.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 286.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 285.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 324.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 192.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 368.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 280.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 244.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-7",
+              "score": 91.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 318.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 173.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 220.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 211.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-8",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 434.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 376.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 268.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 253.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-9",
+              "score": 407.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 225.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u14",
+              "score": 120.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u22",
+              "score": 332.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 321.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 351.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 279.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 242.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 354.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 250.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 150.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 416.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 393.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 255.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 235.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 225.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 230.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 305.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 204.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 387.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 318.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 311.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 126.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 367.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 271.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 3,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u26",
+              "score": 283.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 128.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 213.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 139.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 134.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u16",
+              "score": 231.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 171.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 120.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 193.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 230.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u17",
+              "score": 203.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u29",
+              "score": 340.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 331.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 210.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 300.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-10",
+              "score": 297.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 359.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 168.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 268.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u23",
+              "score": 241.0,
+              "absent": false
+            },
+            {
+              "unit": "u29",
+              "score": 197.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-11",
+              "score": 112.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-12",
+              "score": 223.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-13",
+              "score": 334.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 222.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 175.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-14",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 358.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 179.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 253.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-15",
+              "score": 136.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 236.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 221.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-16",
+              "score": 151.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-17",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 4,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u8",
+              "score": 311.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 207.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 335.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 69.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 223.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 122.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 375.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 323.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 5,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u37",
+              "score": 156.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 232.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 131.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 280.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 229.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 181.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u26",
+              "score": 261.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 44.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 354.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 280.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 270.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 297.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 161.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 307.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 323.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-18",
+              "score": 214.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 215.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 199.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 174.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 168.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-19",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u30",
+              "score": 193.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u37",
+              "score": 125.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 213.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 319.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u30",
+              "score": 228.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 161.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 215.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-20",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u32",
+              "score": 269.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 216.0,
+              "absent": false
+            },
+            {
+              "unit": "u31",
+              "score": 139.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 432.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 186.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-21",
+              "score": 205.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 257.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 6,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 324.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 290.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 321.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 274.0,
+              "absent": false
+            },
+            {
+              "unit": "u33",
+              "score": 200.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 403.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 187.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 297.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u27",
+              "score": 320.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 170.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 348.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 403.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 230.0,
+              "absent": false
+            },
+            {
+              "unit": "u34",
+              "score": 320.1,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 142.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u28",
+              "score": 321.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 251.0,
+              "absent": false
+            },
+            {
+              "unit": "u35",
+              "score": 332.0,
+              "absent": false
+            },
+            {
+              "unit": "unlinked-22",
+              "score": 260.0,
+              "absent": false
+            },
+            {
+              "unit": "u32",
+              "score": 374.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 112.0,
+              "absent": false
+            },
+            {
+              "unit": "u36",
+              "score": 145.0,
+              "absent": false
+            },
+            {
+              "unit": "u40",
+              "score": 185.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "unlinked-23",
+              "score": 97.0,
+              "absent": false
+            },
+            {
+              "unit": "u27",
+              "score": 376.0,
+              "absent": false
+            },
+            {
+              "unit": "u28",
+              "score": 293.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 152.0,
+              "absent": false
+            },
+            {
+              "unit": "u26",
+              "score": 155.0,
+              "absent": false
+            },
+            {
+              "unit": "u38",
+              "score": 175.0,
+              "absent": false
+            },
+            {
+              "unit": "u37",
+              "score": 279.0,
+              "absent": false
+            },
+            {
+              "unit": "u39",
+              "score": 127.0,
+              "absent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "2v2v2v2-classic",
+      "mode": "Classic Teams",
+      "kind": "2v2v2v2",
+      "origin": "spreadsheet \"[OFFICIAL] 2v2v2v2 Classic Teams _ Jun. 13\", sheet \"Schedule\" (qualification rounds 1-3; team score = both members)",
+      "absentRule": "score below 1 (Colosseum: 0 or 1), or the \"-empty-\" placeholder",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 460.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 591.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 726.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 304.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 455.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 441.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 501.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 396.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 722.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 640.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 582.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 371.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 668.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 734.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 537.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 759.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 452.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 511.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 637.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 824.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 365.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 630.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 525.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 334.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 413.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 228.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 612.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 792.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 518.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 579.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 450.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u3",
+              "score": 708.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 611.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 538.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 185.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u7",
+              "score": 0.0,
+              "absent": true
+            },
+            {
+              "unit": "u10",
+              "score": 175.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 410.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 420.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 682.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 687.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 725.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 520.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 382.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 614.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 397.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 0.0,
+              "absent": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "2v2v2v2-syb",
+      "mode": "Save Your Buddy",
+      "kind": "2v2v2v2",
+      "origin": "spreadsheet \"[OFFICIAL] 2v2v2v2 Save Your Buddy _ Feb. 18\", sheet \"2v2v2v2 SYB\" (qualification rounds 0-3, then bracket rounds; score = defender)",
+      "absentRule": "score below 1 (Colosseum: 0 or 1), or the \"-empty-\" placeholder",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 384.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 199.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 291.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 346.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 343.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 414.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u7",
+              "score": 357.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 277.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 404.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 178.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 0,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u9",
+              "score": 314.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 373.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 356.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 317.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 231.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 358.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 254.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 277.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 254.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 267.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 358.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 315.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 263.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 350.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 289.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 186.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 165.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 300.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 266.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 360.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 255.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 203.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 235.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 393.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 10,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 361.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 361.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 369.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 226.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 11,
+          "room": 0,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 356.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 281.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 338.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 273.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u9",
+              "score": 243.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 325.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 411.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 339.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 367.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 233.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 347.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 303.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 385.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 315.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 371.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 323.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 368.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 283.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 102.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 233.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u10",
+              "score": 291.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 422.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 312.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 380.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 289.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 368.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 196.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 214.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 280.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 194.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 104.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 188.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 294.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 142.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 355.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 258.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 251.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 250.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 163.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 194.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 139.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 265.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 251.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 396.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 366.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 169.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 271.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 233.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 383.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 225.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 371.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 195.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 325.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 244.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 165.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 367.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 315.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 345.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 260.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 305.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 122.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 180.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 179.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 302.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 250.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u7",
+              "score": 174.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 204.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 124.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u8",
+              "score": 229.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 356.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 277.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 221.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 430.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 188.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 204.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 261.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 329.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 300.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 219.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 213.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u14",
+              "score": 353.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 272.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 246.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 294.0,
+              "absent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ffa-test-1792087808730",
+      "mode": "FFA (test-site event)",
+      "kind": "ffa",
+      "origin": "app tournament 1792087808730 on test, rounds before the Final",
+      "absentRule": "score at most 2",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 221.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 321.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 179.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 164.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 1.0,
+              "absent": true
+            },
+            {
+              "unit": "u6",
+              "score": 328.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 260.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 2.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u9",
+              "score": 167.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 1.0,
+              "absent": true
+            },
+            {
+              "unit": "u11",
+              "score": 262.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 85.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 228.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 198.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 338.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 2.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 293.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 201.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 342.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 295.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 279.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 1.0,
+              "absent": true
+            },
+            {
+              "unit": "u5",
+              "score": 2.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 352.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 277.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 286.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 149.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 205.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 143.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 1.0,
+              "absent": true
+            },
+            {
+              "unit": "u10",
+              "score": 2.0,
+              "absent": true
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 367.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 404.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 401.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 395.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 134.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 158.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 88.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 367.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 219.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 313.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 154.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 193.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 184.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 97.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u15",
+              "score": 325.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 247.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 250.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 295.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 180.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 155.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u11",
+              "score": 309.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 257.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 217.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 269.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 101.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 113.0,
+              "absent": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "teams-survival-1792339397443",
+      "mode": "Teams survival",
+      "kind": "2v2v2v2",
+      "origin": "app tournament 1792339397443 on prod; points only from deaths, low targets: reference only, not for calibration",
+      "absentRule": "none",
+      "rooms": [
+        {
+          "round": 0,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 25.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 28.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u4",
+              "score": 30.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 16.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 7.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u9",
+              "score": 5.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 0.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 5.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 7.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 5,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u17",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 13.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 0,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 1.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u10",
+              "score": 16.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 2.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 20.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 5.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 15.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u22",
+              "score": 21.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 4.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 5,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 7.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 4.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u18",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 9.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 3.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 1,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u5",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 10.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 10.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 7.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u18",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 14.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 16.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u12",
+              "score": 9.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 5.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 4.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u22",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 8.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 10.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 5,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 4.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 2.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 8.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 4.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 2,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 11.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 9.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 1,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u1",
+              "score": 9.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u3",
+              "score": 11.0,
+              "absent": false
+            },
+            {
+              "unit": "u24",
+              "score": 3.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 2,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u23",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u6",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u9",
+              "score": 9.0,
+              "absent": false
+            },
+            {
+              "unit": "u15",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 3,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u2",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u21",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u20",
+              "score": 4.0,
+              "absent": false
+            },
+            {
+              "unit": "u8",
+              "score": 5.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 4,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u22",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u10",
+              "score": 8.0,
+              "absent": false
+            },
+            {
+              "unit": "u7",
+              "score": 6.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 5,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 12.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 7.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 8.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 6,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u19",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 8.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 9.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 3,
+          "room": 7,
+          "qualification": true,
+          "entries": [
+            {
+              "unit": "u18",
+              "score": 13.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 7.0,
+              "absent": false
+            },
+            {
+              "unit": "u11",
+              "score": 7.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 27.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 22.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 9.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 14.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 4,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u18",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 17.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 3.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 27.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 24.0,
+              "absent": false
+            },
+            {
+              "unit": "u5",
+              "score": 22.0,
+              "absent": false
+            },
+            {
+              "unit": "u16",
+              "score": 11.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 5,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u6",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u13",
+              "score": 29.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 24.0,
+              "absent": false
+            },
+            {
+              "unit": "u17",
+              "score": 22.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 6,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u4",
+              "score": 29.0,
+              "absent": false
+            },
+            {
+              "unit": "u2",
+              "score": 26.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 19.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 22.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u13",
+              "score": 24.0,
+              "absent": false
+            },
+            {
+              "unit": "u12",
+              "score": 18.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 25.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 28.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 7,
+          "room": 2,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 28.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 21.0,
+              "absent": false
+            },
+            {
+              "unit": "u18",
+              "score": 14.0,
+              "absent": false
+            },
+            {
+              "unit": "u14",
+              "score": 15.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 8,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 27.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 25.0,
+              "absent": false
+            },
+            {
+              "unit": "u25",
+              "score": 21.0,
+              "absent": false
+            },
+            {
+              "unit": "u1",
+              "score": 23.0,
+              "absent": false
+            }
+          ]
+        },
+        {
+          "round": 9,
+          "room": 1,
+          "qualification": false,
+          "entries": [
+            {
+              "unit": "u21",
+              "score": 21.0,
+              "absent": false
+            },
+            {
+              "unit": "u19",
+              "score": 15.0,
+              "absent": false
+            },
+            {
+              "unit": "u22",
+              "score": 26.0,
+              "absent": false
+            },
+            {
+              "unit": "u23",
+              "score": 28.0,
+              "absent": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
