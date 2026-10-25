@@ -1,6 +1,6 @@
 import { relativeScores } from './calibrate';
 import type { Kind } from './cuts';
-import { loadSources, poolObservations, POOLS, type RoomObservation } from './real-rooms';
+import type { RoomObservation } from './real-rooms';
 import { gaussian } from './random';
 
 /**
@@ -14,7 +14,7 @@ export interface ScoreModel {
 }
 
 /** Each score is a rounded step down from the previous one, so a room's scores are distinct. */
-function distinctDownwards(values: number[]): number[] {
+export function distinctDownwards(values: number[]): number[] {
   let previous = Number.POSITIVE_INFINITY;
   return values.map((value) => {
     previous = Math.min(Math.round(value), previous - 1);
@@ -58,7 +58,7 @@ function interpolated(relative: number[], size: number): number[] {
 }
 
 /** The pool's size nearest to `size` that has enough rooms (the larger one when two are equally near). */
-function poolSizeFor(pools: Map<number, number[][]>, size: number): number {
+function poolSizeFor(pools: ProfilePools, size: number): number {
   const usable = [...pools]
     .filter(([, rooms]) => rooms.length >= MIN_POOL_ROOMS)
     .map(([poolSize]) => poolSize);
@@ -69,22 +69,34 @@ function poolSizeFor(pools: Map<number, number[][]>, size: number): number {
   });
 }
 
-/** "Margins add nothing": a random real room of the same effective size lends its relative scores, handed out by place. */
-export function profileModel(rooms: RoomObservation[]): ScoreModel {
-  const pools = new Map<number, number[][]>();
+/** The real rooms of each effective size, as relative scores best first. */
+export type ProfilePools = Map<number, number[][]>;
+
+export function profilePools(rooms: RoomObservation[]): ProfilePools {
+  const pools: ProfilePools = new Map();
   for (const room of rooms) {
     const size = room.units.length;
     pools.set(size, [...(pools.get(size) ?? []), relativeScores(room.scores)]);
   }
+  return pools;
+}
+
+/** The real profiles to draw a room of `size` from: those of the same size, or of the nearest size with enough rooms, read at the same share beaten. */
+export function profilesOfSize(pools: ProfilePools, size: number): number[][] {
+  const poolSize = poolSizeFor(pools, size);
+  const rooms = pools.get(poolSize) as number[][];
+  return poolSize === size ? rooms : rooms.map((room) => interpolated(room, size));
+}
+
+/** "Margins add nothing": a random real room of the same effective size lends its relative scores, handed out by place. */
+export function profileModel(rooms: RoomObservation[]): ScoreModel {
+  const pools = profilePools(rooms);
   return {
     label: 'real profiles',
     roomScores(performances, random) {
-      const size = performances.length;
-      const poolSize = poolSizeFor(pools, size);
-      const candidates = pools.get(poolSize) as number[][];
-      const picked = candidates[Math.floor(random() * candidates.length)];
-      const relative = poolSize === size ? picked : interpolated(picked, size);
-      return distinctDownwards(relative.map((value) => 1000 * value));
+      const profiles = profilesOfSize(pools, performances.length);
+      const picked = profiles[Math.floor(random() * profiles.length)];
+      return distinctDownwards(picked.map((value) => 1000 * value));
     },
   };
 }
@@ -95,25 +107,18 @@ export type Level = 'ffa-like' | 'team-like';
 /** Fitted by `fit.ts --noise` (FFA 37 and 2v2v2v2 37, shape Q, the app's draw, 1000 runs): the noise of `strength + noise × N(0,1)`. */
 export const NOISE: Record<Level, number> = { 'ffa-like': 0.746, 'team-like': 1.189 };
 
-/** Fitted by `fit.ts --margins` (600 runs): the margin noise, from the FFA pool's gap between the two correlations (0.60 against 0.57). */
-export const MARGIN_TAU = 0.31;
+/** The level each kind's own events sit at: where it was fitted. */
+export const OWN_LEVEL: Record<Kind, Level> = { ffa: 'ffa-like', '2v2v2v2': 'team-like' };
 
-/** Fitted by `fit.ts --margins`: the scale of the parametric model per kind and level, from the relative-score profiles and spread of the kind's pool. */
+/** Superseded by the matched rooms (it left the last of a smaller room 8–11 points too strong in statistic 4); kept for the fit report only. */
+export const MARGIN_TAU = 0.31;
 export const MARGIN_C: Record<Kind, Record<Level, number>> = {
   ffa: { 'ffa-like': 0.274, 'team-like': 0.224 },
   '2v2v2v2': { 'ffa-like': 0.221, 'team-like': 0.183 },
 };
 
-/** "nothing": real profiles; "little": the parametric model. */
+/** "nothing": real profiles; "little": matched rooms. */
 export type Margins = 'nothing' | 'little';
 
-export function scoreModelFor(kind: Kind, level: Level, margins: Margins): ScoreModel {
-  return margins === 'nothing'
-    ? profileModel(poolObservations(loadSources(), POOLS[kind]))
-    : parametricModel(MARGIN_C[kind][level], MARGIN_TAU);
-}
-
-/** Both margin models of a kind and level, for the fit check. */
-export function fittedModels(kind: Kind, level: Level): ScoreModel[] {
-  return [scoreModelFor(kind, level, 'nothing'), scoreModelFor(kind, level, 'little')];
-}
+/** How closely a unit's room follows its performance spread under "margins add a little": 1, the strongest the matching can be (decided after the fit scans; the correlation gap stays short of the real one). */
+export const MATCH_RHO = 1;

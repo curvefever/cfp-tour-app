@@ -119,3 +119,13 @@ export function correlation(pairs: UnitPair[]): Correlation {
     pairs: pairs.length,
   };
 }
+
+/** Statistic 4: the share of pairs where the second-to-last of a room of `large` units has a higher relative score than the last of a room of `small`. */
+export function crossSizeShare(rooms: RoomObservation[], large: number, small: number): number {
+  const lastOf = (size: number, place: number) =>
+    rooms.filter((room) => room.units.length === size).map((room) => relativeScores(room.scores)[place]);
+  const candidates = lastOf(large, large - 2);
+  const others = lastOf(small, small - 1);
+  const wins = candidates.reduce((sum, a) => sum + others.filter((b) => a > b).length, 0);
+  return wins / (candidates.length * others.length);
+}

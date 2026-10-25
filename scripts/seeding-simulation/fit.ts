@@ -1,5 +1,8 @@
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import {
   consecutivePairs,
+  crossSizeShare,
   correlation,
   placeProfiles,
   withinRoomSpread,
@@ -8,22 +11,18 @@ import {
   type UnitPair,
 } from './calibrate';
 import { loadSources, observations, poolObservations, POOLS, type RoomObservation } from './real-rooms';
+import { fittedModels, momentsKey, recordingModel, spreadOf, type Moments } from './matched-model';
 import { runSeed } from './random';
-import {
-  fittedModels,
-  LEGACY_MODEL,
-  NOISE,
-  parametricModel,
-  type Level,
-  type ScoreModel,
-} from './score-model';
+import { LEGACY_MODEL, NOISE, parametricModel, type Level, type ScoreModel } from './score-model';
 import { simulate, type Kind } from './simulate';
 
 /**
  * Calibration of the score model against real events (`docs/real-scores.md`).
  *   pnpm exec tsx scripts/seeding-simulation/fit.ts --real             the statistics on the real data
  *   pnpm exec tsx scripts/seeding-simulation/fit.ts --noise [--runs n]  the noise of each predictability level
- *   pnpm exec tsx scripts/seeding-simulation/fit.ts --margins [--runs n] c per kind and level, tau
+ *   pnpm exec tsx scripts/seeding-simulation/fit.ts --moments [--runs n] the performance-spread moments (performance-moments.json)
+ *   pnpm exec tsx scripts/seeding-simulation/fit.ts --parametric [--runs n] c and tau of the superseded parametric model
+ *   pnpm exec tsx scripts/seeding-simulation/fit.ts --counts [--runs n]   the correlation at other counts
  *   pnpm exec tsx scripts/seeding-simulation/fit.ts --check [--runs n]   the fit of the fitted models
  * Qualification rounds are simulated as shape Q plays them: four rounds, the first not counted, the app's draw.
  */
@@ -42,14 +41,24 @@ const LEVEL_FIELDS = {
   'team-like': { kind: '2v2v2v2', count: 37 },
 } as const;
 
+/** The room sizes statistic 4 compares: the second-to-last of the larger against the last of the smaller. */
+const LUCKY_LOSER_SIZES: Record<Kind, [number, number]> = { ffa: [8, 7], '2v2v2v2': [4, 3] };
+
 interface Observed {
   profiles: Map<number, PlaceProfile>;
+  luckyLoser: number;
   spread: number;
   correlation: Correlation;
 }
 
-function observed(rooms: RoomObservation[], pairs: UnitPair[]): Observed {
-  return { profiles: placeProfiles(rooms), spread: withinRoomSpread(rooms), correlation: correlation(pairs) };
+function observed(kind: Kind, rooms: RoomObservation[], pairs: UnitPair[]): Observed {
+  const [large, small] = LUCKY_LOSER_SIZES[kind];
+  return {
+    luckyLoser: crossSizeShare(rooms, large, small),
+    profiles: placeProfiles(rooms),
+    spread: withinRoomSpread(rooms),
+    correlation: correlation(pairs),
+  };
 }
 
 function realTarget(kind: Kind): Observed {
@@ -58,7 +67,10 @@ function realTarget(kind: Kind): Observed {
   const pairs = sources
     .filter((source) => CORRELATION_SOURCES[kind].includes(source.key))
     .flatMap((source) => consecutivePairs(observations(source).filter((room) => room.qualification)));
-  return observed(rooms, pairs);
+  const result = observed(kind, rooms, pairs);
+  const [large, small] = LUCKY_LOSER_SIZES[kind];
+  const luckyRooms = poolObservations(sources, CORRELATION_SOURCES[kind]);
+  return { ...result, luckyLoser: crossSizeShare(luckyRooms, large, small) };
 }
 
 function simulated(kind: Kind, count: number, noise: number, model: ScoreModel, runs: number): Observed {
@@ -70,7 +82,7 @@ function simulated(kind: Kind, count: number, noise: number, model: ScoreModel, 
     rooms.push(...result.rooms);
     pairs.push(...consecutivePairs(result.rooms));
   }
-  return observed(rooms, pairs);
+  return observed(kind, rooms, pairs);
 }
 
 /** The root of a decreasing function by bisection. */
@@ -154,7 +166,7 @@ function fitTau(field: Field, c: number, gap: number): number {
   return excess(0) <= 0 ? 0 : bisect(excess, 0, 2, 8);
 }
 
-function printMargins(noises: Record<Level, number>, runs: number): void {
+function printParametric(noises: Record<Level, number>, runs: number): void {
   const ffa = { kind: 'ffa', count: 37, noise: noises['ffa-like'], runs } as const;
   const real = realTarget('ffa').correlation;
   const gap = real.relative - real.share;
@@ -173,11 +185,57 @@ function printMargins(noises: Record<Level, number>, runs: number): void {
   }
 }
 
-function describe(label: string, found: Observed): void {
+/** The mean and SD of a room's performance spread per room size, for every kind and level, from qualifications under the app's draw. */
+const MOMENT_COUNTS: Record<Kind, number[]> = { ffa: [32, 37, 40, 43], '2v2v2v2': [24, 25, 31, 32, 37, 53] };
+
+function momentsOf(kind: Kind, level: Level, runs: number): Record<string, Moments> {
+  const sink = new Map<number, number[][]>();
+  for (const count of MOMENT_COUNTS[kind]) {
+    for (let run = 0; run < runs; run += 1) {
+      const seed = runSeed(`moments-${kind}-${count}`, NOISE[level], run);
+      simulate({ kind, count, mode: 'A' }, 'current', NOISE[level], seed, recordingModel(sink));
+    }
+  }
+  return Object.fromEntries(
+    [...sink].map(([size, rooms]) => {
+      const spreads = rooms.map(spreadOf);
+      const mean = spreads.reduce((sum, value) => sum + value, 0) / spreads.length;
+      return [momentsKey(kind, level, size), { mean, sd: spreadOf(spreads) }];
+    }),
+  );
+}
+
+function printMoments(runs: number): void {
+  const moments: Record<string, Moments> = {};
+  for (const kind of Object.keys(POOLS) as Kind[]) {
+    for (const level of Object.keys(LEVEL_FIELDS) as Level[])
+      Object.assign(moments, momentsOf(kind, level, runs));
+  }
+  const path = fileURLToPath(new URL('./performance-moments.json', import.meta.url));
+  writeFileSync(path, JSON.stringify(moments, null, 1));
+  console.log(`wrote ${Object.keys(moments).length} entries to ${path}`);
+}
+
+/** The acceptance numbers of a model against the real pool: lucky-loser points, largest place-median gap, spread, correlation gap. */
+function distances(real: Observed, found: Observed): string {
+  let median = 0;
+  for (const [size, profile] of real.profiles) {
+    const other = found.profiles.get(size);
+    if (profile.rooms < 5 || !other) continue;
+    profile.medians.forEach((value, place) => {
+      median = Math.max(median, Math.abs(value - other.medians[place]));
+    });
+  }
+  const gap = (observed: Observed) => observed.correlation.relative - observed.correlation.share;
+  return `lucky-loser ${Math.round(100 * (found.luckyLoser - real.luckyLoser))} pts, place medians max ${two(median)}, spread ${two(found.spread - real.spread)}, correlation gap ${two(gap(found) - gap(real))}`;
+}
+
+function describe(real: Observed, label: string, found: Observed): void {
   const sizes = [...found.profiles].filter(([, profile]) => profile.rooms >= 5).sort((a, b) => b[0] - a[0]);
   console.log(
-    `  ${label}: spread ${two(found.spread)}, correlation relative ${two(found.correlation.relative)} share ${two(found.correlation.share)}`,
+    `  ${label}: spread ${two(found.spread)}, correlation relative ${two(found.correlation.relative)} share ${two(found.correlation.share)}, lucky-loser pairs ${Math.round(100 * found.luckyLoser)}%`,
   );
+  console.log(`    off real by: ${distances(real, found)}`);
   for (const [size, profile] of sizes) console.log(`    size ${size}: ${profile.medians.map(two).join(' ')}`);
 }
 
@@ -185,13 +243,31 @@ function describe(label: string, found: Observed): void {
 function printCheck(models: (kind: Kind, level: Level) => ScoreModel[], runs: number): void {
   for (const kind of Object.keys(POOLS) as Kind[]) {
     console.log(`== ${kind}: real pool`);
-    describe('real', realTarget(kind));
+    const real = realTarget(kind);
+    describe(real, 'real', real);
     for (const level of Object.keys(LEVEL_FIELDS) as Level[]) {
       console.log(`== ${kind} at ${level} (noise ${three(NOISE[level])})`);
       for (const model of models(kind, level)) {
-        describe(model.label, simulated(kind, 37, NOISE[level], model, runs));
+        describe(real, model.label, simulated(kind, 37, NOISE[level], model, runs));
       }
     }
+  }
+}
+
+/** The share-beaten correlation of other counts at the noise fitted on 37. */
+function printCounts(runs: number): void {
+  const fields: Array<[Kind, number, Level]> = [
+    ['2v2v2v2', 25, 'team-like'],
+    ['2v2v2v2', 37, 'team-like'],
+    ['2v2v2v2', 53, 'team-like'],
+    ['ffa', 37, 'ffa-like'],
+    ['ffa', 43, 'ffa-like'],
+  ];
+  for (const [kind, count, level] of fields) {
+    const found = simulated(kind, count, NOISE[level], LEGACY_MODEL, runs).correlation.share;
+    console.log(
+      `${kind} ${count} at ${level}: share correlation ${two(found)} (target ${two(realTarget(kind).correlation.share)})`,
+    );
   }
 }
 
@@ -199,7 +275,9 @@ function main(args: string[]): void {
   const runs = Number(args[args.indexOf('--runs') + 1] || 400);
   if (args.includes('--real')) printReal();
   if (args.includes('--noise')) printNoise(runs);
-  if (args.includes('--margins')) printMargins(NOISE, runs);
+  if (args.includes('--moments')) printMoments(runs);
+  if (args.includes('--parametric')) printParametric(NOISE, runs);
+  if (args.includes('--counts')) printCounts(runs);
   if (args.includes('--check')) printCheck(fittedModels, runs);
 }
 
