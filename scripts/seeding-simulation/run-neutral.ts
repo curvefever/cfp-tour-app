@@ -1,13 +1,20 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { NEUTRAL_OPTIONS, type EOption } from './cut-rules';
+import { neutralJobs } from './neutral-jobs';
 import { allUnitsGap, fairShare } from './neutral-measures';
+import { writeNeutralReport } from './report-neutral';
 import { runEScenario, type Cell, type EResult } from './run-e';
 import { summarise } from './elim-measures';
 import { OWN_LEVEL } from './score-model';
 import type { Kind } from './simulate';
+import { jobKey, type Job, type JobResult } from './study-jobs';
 
 /**
- * The neutral elimination cut (`plans/2026-10-25-neutral-elimination-cut.md`), trial of stage 1:
- *   pnpm exec tsx scripts/seeding-simulation/run-neutral.ts --trial [--runs 300]
+ * The neutral elimination cut (`plans/2026-10-25-neutral-elimination-cut.md`):
+ *   trial:    pnpm exec tsx scripts/seeding-simulation/run-neutral.ts --trial [--runs 300]
+ *   simulate: pnpm exec tsx scripts/seeding-simulation/run-neutral.ts --runs 3000 --out <dir> [--shard 0/6] [--only E-ffa-43]
+ *   report:   pnpm exec tsx scripts/seeding-simulation/run-neutral.ts --report <dir> <report.md>
  * Not part of `pnpm test`.
  */
 
@@ -74,4 +81,50 @@ function trial(runs: number): void {
 }
 
 const args = process.argv.slice(2);
-if (args.includes('--trial')) trial(Number(args[args.indexOf('--runs') + 1] || 300));
+
+function option(name: string, fallback?: string): string | undefined {
+  const index = args.indexOf(name);
+  return index === -1 ? fallback : args[index + 1];
+}
+
+function runJob(job: Job, runs: number): JobResult {
+  const { kind, count, level, margins, control } = job;
+  return {
+    job,
+    result: runEScenario({ kind, count, level, margins, runs, rounds: control ? 1 : 99, control }),
+  };
+}
+
+function simulateShard(): void {
+  const runs = Number(option('--runs', '3000'));
+  const out = option('--out') as string;
+  const [shard, shards] = (option('--shard', '0/1') as string).split('/').map(Number);
+  const only = option('--only');
+  mkdirSync(out, { recursive: true });
+  const jobs = neutralJobs()
+    .filter((job) => !only || jobKey(job).startsWith(only))
+    .filter((_, index) => index % shards === shard);
+  for (const job of jobs) {
+    const path = join(out, `${jobKey(job)}.json`);
+    if (existsSync(path)) continue;
+    const started = Date.now();
+    writeFileSync(path, JSON.stringify(runJob(job, runs)));
+    console.log(`${jobKey(job)}: ${runs} runs in ${Math.round((Date.now() - started) / 1000)} s`);
+  }
+}
+
+function report(): void {
+  const dir = option('--report') as string;
+  const target = args[args.indexOf('--report') + 2];
+  const results = new Map<string, JobResult>();
+  for (const job of neutralJobs()) {
+    const path = join(dir, `${jobKey(job)}.json`);
+    if (existsSync(path)) results.set(jobKey(job), JSON.parse(readFileSync(path, 'utf8')) as JobResult);
+  }
+  writeFileSync(target, writeNeutralReport(results));
+  console.log(`wrote ${target}`);
+}
+
+if (args.includes('--trial')) trial(Number(option('--runs', '300')));
+else if (args.includes('--report')) report();
+else if (args.includes('--out')) simulateShard();

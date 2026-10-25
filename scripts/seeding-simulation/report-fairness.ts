@@ -15,14 +15,14 @@ import { jobKey, type Job, type JobResult, type Shape } from './study-jobs';
 
 type Results = Map<string, JobResult>;
 
-interface Variant {
+export interface Variant {
   label: string;
   level: (kind: Kind) => Level;
   margins: Margins;
 }
 
 const other = (level: Level): Level => (level === 'ffa-like' ? 'team-like' : 'ffa-like');
-const VARIANTS: Variant[] = [
+export const VARIANTS: Variant[] = [
   { label: 'own level, margins "a little"', level: (kind) => OWN_LEVEL[kind], margins: 'little' },
   {
     label: 'the other level, margins "a little"',
@@ -36,9 +36,9 @@ const VARIANTS: Variant[] = [
     margins: 'nothing',
   },
 ];
-const MAIN = VARIANTS[0];
+export const MAIN = VARIANTS[0];
 
-interface Column {
+export interface Column {
   kind: Kind;
   count: number;
 }
@@ -65,7 +65,7 @@ const Q_CONTROLS: Column[] = [
 ];
 
 const NAMES: Record<Kind, string> = { '2v2v2v2': '2v2v2v2', ffa: 'FFA' };
-const label = (column: Column) => `${NAMES[column.kind]} ${column.count}`;
+export const label = (column: Column) => `${NAMES[column.kind]} ${column.count}`;
 
 function find(results: Results, shape: Shape, column: Column, variant: Variant, control = false) {
   const job: Job = {
@@ -84,26 +84,26 @@ const findE = (results: Results, column: Column, variant: Variant, control = fal
 const findQ = (results: Results, column: Column, variant: Variant, control = false) =>
   find(results, 'Q', column, variant, control) as QResult | undefined;
 
-function signed(value: number, digits = 1): string {
+export function signed(value: number, digits = 1): string {
   if (Number.isNaN(value)) return 'n/a';
   return `${value >= 0 ? '+' : '-'}${Math.abs(value).toFixed(digits)}`;
 }
 
-function gapText(summary: Summary): string {
+export function gapText(summary: Summary): string {
   return Number.isNaN(summary.gap) ? 'n/a' : `${signed(summary.gap)} ± ${summary.error.toFixed(1)}`;
 }
 
 /** The true top-k kept: the reference option as an absolute value, every other as the paired per-run difference to it. */
-function keptText(summary: Summary, reference: boolean, outOf: number): string {
+export function keptText(summary: Summary, reference: boolean, outOf: number): string {
   if (reference) return `${summary.kept.toFixed(2)}/${outOf}`;
   return `Δ${signed(summary.keptDifference, 2)} ± ${summary.keptDifferenceError.toFixed(2)}`;
 }
 
-function row(name: string, cells: string[]): string {
+export function row(name: string, cells: string[]): string {
   return `| ${name} | ${cells.join(' | ')} |`;
 }
 
-function tableHead(columns: Column[]): string[] {
+export function tableHead(columns: Column[]): string[] {
   return [
     row('', columns.map(label)),
     row(
@@ -113,7 +113,7 @@ function tableHead(columns: Column[]): string[] {
   ];
 }
 
-function percent(part: number, whole: number): string {
+export function percent(part: number, whole: number): string {
   return whole === 0 ? 'n/a' : `${Math.round((100 * part) / whole)}%`;
 }
 
@@ -265,12 +265,12 @@ function qControlLine(results: Results, variant: Variant): string {
 // ---------------------------------------------------------------------------------------------------------------
 // Where the other level or margins change a conclusion
 
-interface Probe {
+export interface Probe {
   gap: number;
   error: number;
 }
 
-type ProbeOf = (variant: Variant, column: Column, option: string) => Probe | undefined;
+export type ProbeOf = (variant: Variant, column: Column, option: string) => Probe | undefined;
 
 function eProbe(results: Results): ProbeOf {
   return (variant, column, option) => {
@@ -294,7 +294,12 @@ function beyond(option: Probe, reference: Probe): boolean {
 }
 
 /** A sign flip of a gap that is beyond its own error on both sides, or a difference to the reference that appears or disappears beyond 2 SE. */
-function changes(columns: Column[], options: readonly string[], reference: string, probe: ProbeOf): string[] {
+export function changes(
+  columns: Column[],
+  options: readonly string[],
+  reference: string,
+  probe: ProbeOf,
+): string[] {
   const events: Array<{ size: number; text: string }> = [];
   for (const column of columns) {
     for (const option of options) {
