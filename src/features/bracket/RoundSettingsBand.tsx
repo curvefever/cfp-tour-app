@@ -21,6 +21,19 @@ export function SlidersIcon({ size = 16, strokeWidth = 1.6 }: { size?: number; s
   );
 }
 
+/** A settings note's lines, each with the rules text's inline formatting. */
+export function RoundNoteLines({ note }: { note: string }) {
+  return (
+    <div className='min-w-0 wrap-break-word [&_strong]:font-bold [&_strong]:text-white'>
+      {roundNoteLines(note).map((parts, index) => (
+        <div key={index}>
+          <Inlines parts={parts} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The round's settings note under its title bar: the note's lines with a sliders icon, or, in a tournament where
  * other rounds have a note, a quiet "No specific settings" (`empty`: the same quiet band with no text, under the
@@ -62,13 +75,7 @@ export function RoundSettingsBand({
       <span className='mt-0.5 shrink-0 text-cfp-sky'>
         <SlidersIcon />
       </span>
-      <div className='min-w-0 wrap-break-word [&_strong]:font-bold [&_strong]:text-white'>
-        {roundNoteLines(note).map((parts, index) => (
-          <div key={index}>
-            <Inlines parts={parts} />
-          </div>
-        ))}
-      </div>
+      <RoundNoteLines note={note} />
     </div>
   );
 }

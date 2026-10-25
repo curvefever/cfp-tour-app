@@ -6,6 +6,7 @@ import {
   LEGACY_BRACKET_FOLLOW_KEY,
   LEGACY_LAST_TAB_KEY,
   LEGACY_LIVE_STATE_KEY,
+  ROUND_SETTINGS_HIDDEN_KEY,
 } from './storage-keys';
 import { createMemoryStorage } from './test-fixtures';
 import {
@@ -14,10 +15,12 @@ import {
   readBracketFollow,
   readExited,
   readLastView,
+  readRoundSettingsShown,
   saveBracketFollow,
   saveExited,
   saveLastView,
   saveLiveEnvelope,
+  saveRoundSettingsShown,
 } from './storage';
 
 const fixedIds = { tournamentId: vi.fn(() => 'minted-id') };
@@ -188,5 +191,41 @@ describe('readExited / saveExited', () => {
       readExited(createMemoryStorage({ [EXITED_KEY]: '{"tournamentId":"t1","phase":"nope"}' })),
     ).toBeNull();
     expect(readExited(createMemoryStorage({ [EXITED_KEY]: '{"phase":"ongoing"}' }))).toBeNull();
+  });
+});
+
+describe('readRoundSettingsShown / saveRoundSettingsShown', () => {
+  it('shows the settings when nothing is stored', () => {
+    expect(readRoundSettingsShown(createMemoryStorage())).toBe(true);
+  });
+
+  it('hides them once the browser chose to, and shows them again after choosing so', () => {
+    const storage = createMemoryStorage();
+    saveRoundSettingsShown(storage, false);
+    expect(readRoundSettingsShown(storage)).toBe(false);
+    saveRoundSettingsShown(storage, true);
+    expect(readRoundSettingsShown(storage)).toBe(true);
+    expect(storage.getItem(ROUND_SETTINGS_HIDDEN_KEY)).toBeNull();
+  });
+
+  it('shows them when the stored value is not the hidden marker', () => {
+    expect(readRoundSettingsShown(createMemoryStorage({ [ROUND_SETTINGS_HIDDEN_KEY]: 'x' }))).toBe(true);
+  });
+
+  it('shows them, and does not throw, when storage cannot be read or written', () => {
+    const blocked = {
+      getItem: () => {
+        throw new Error('blocked');
+      },
+      setItem: () => {
+        throw new Error('blocked');
+      },
+      removeItem: () => {
+        throw new Error('blocked');
+      },
+    };
+    expect(readRoundSettingsShown(blocked)).toBe(true);
+    expect(() => saveRoundSettingsShown(blocked, false)).not.toThrow();
+    expect(() => saveRoundSettingsShown(blocked, true)).not.toThrow();
   });
 });

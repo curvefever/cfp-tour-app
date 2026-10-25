@@ -62,6 +62,7 @@ export function RoundColumn({
   onToggle,
   phoneShown = true,
   progress,
+  settingsNote = '',
 }: {
   children: ReactNode;
   collapsed?: boolean;
@@ -79,6 +80,8 @@ export function RoundColumn({
   phoneShown?: boolean;
   /** The admin's rooms-scored tracker on the title bar (`ColumnTitleBar`); a folded box shows none. */
   progress?: RoomsScored | null;
+  /** The round's note while the bands are hidden (`ColumnTitleBar` shows a button for it); '' for none. */
+  settingsNote?: string;
 }) {
   const banded = note !== null;
   const open = (
@@ -96,6 +99,7 @@ export function RoundColumn({
         now={current}
         onToggle={onToggle}
         progress={progress}
+        settingsNote={settingsNote}
         title={label}
       />
       {banded ? <RoundSettingsBand note={note} /> : null}
@@ -233,6 +237,7 @@ export function BracketRounds({
   standingsCollapsed = false,
   onToggleStandings,
   onOpenFullTable,
+  showSettings = true,
 }: {
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
@@ -246,6 +251,8 @@ export function BracketRounds({
   standingsCollapsed?: boolean;
   onToggleStandings?: () => void;
   onOpenFullTable?: () => void;
+  /** Whether the round settings bands show; off, a round with a note has a button on its title bar instead. */
+  showSettings?: boolean;
 }) {
   const boxes = bracketBoxes(state);
   const standings = useMemo(() => describeStandings(state), [state]);
@@ -261,10 +268,14 @@ export function BracketRounds({
   const finalComplete = useMemo(() => isFinalComplete(state), [state]);
   const isNow = (roundIndex: number) => showsNowPill(state, roundIndex, finalComplete);
   const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
-  const banded = useMemo(() => hasRoundNotes(state), [state]);
-  /** The note a round's band shows; null when the tournament has no note anywhere (no bands at all). */
-  const noteOf = (roundIndex: number) =>
-    banded && state.rounds[roundIndex] ? roundNote(state.info?.roundNotes, state.rounds[roundIndex]) : null;
+  const hasNotes = useMemo(() => hasRoundNotes(state), [state]);
+  const banded = hasNotes && showSettings;
+  const textOf = (roundIndex: number) =>
+    state.rounds[roundIndex] ? roundNote(state.info?.roundNotes, state.rounds[roundIndex]) : '';
+  /** The note a round band shows; null when no band shows (no note anywhere, or the settings are hidden). */
+  const noteOf = (roundIndex: number) => (banded ? textOf(roundIndex) : null);
+  /** The note a round title bar button opens: only while the bands are hidden. */
+  const popupNoteOf = (roundIndex: number) => (hasNotes && !showSettings ? textOf(roundIndex) : '');
   function renderSingle(roundIndex: number, shown: boolean) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
@@ -280,6 +291,7 @@ export function BracketRounds({
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(roundIndex)}
+        settingsNote={popupNoteOf(roundIndex)}
       >
         <RoundBody
           state={state}
@@ -340,6 +352,7 @@ export function BracketRounds({
         onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(first)}
+        settingsNote={popupNoteOf(first)}
       >
         {bodyOf(first)}
         {others.map((roundIndex) => (
@@ -349,6 +362,7 @@ export function BracketRounds({
               expected={expectedDraw?.has(roundIndex) ?? false}
               gameCount={roundGameCount(state, roundIndex)}
               progress={progressOf(roundIndex)}
+              settingsNote={popupNoteOf(roundIndex)}
               title={labels[roundIndex]?.label ?? ''}
             />
             {banded ? <RoundSettingsBand note={noteOf(roundIndex) ?? ''} /> : null}
@@ -378,6 +392,7 @@ export function BracketRounds({
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={sumProgress(constituents.map(progressOf))}
+        settingsNote={popupNoteOf(box.winnersRoundIndex)}
       >
         <WaveBoxBody
           state={state}

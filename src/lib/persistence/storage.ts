@@ -12,6 +12,7 @@ import {
   LEGACY_BRACKET_FOLLOW_KEY,
   LEGACY_LAST_TAB_KEY,
   LEGACY_LIVE_STATE_KEY,
+  ROUND_SETTINGS_HIDDEN_KEY,
 } from './storage-keys';
 
 export interface BrowserStorage {
@@ -63,6 +64,24 @@ export function readBracketFollow(storage: BrowserStorage): string | null {
 export function saveBracketFollow(storage: BrowserStorage, unitKey: string | null): void {
   if (unitKey === null) storage.removeItem(LEGACY_BRACKET_FOLLOW_KEY);
   else storage.setItem(LEGACY_BRACKET_FOLLOW_KEY, unitKey);
+}
+
+/** Whether this browser shows the Bracket's round settings: on unless it chose to hide them, and on when storage can't be read. */
+export function readRoundSettingsShown(storage: BrowserStorage): boolean {
+  try {
+    return storage.getItem(ROUND_SETTINGS_HIDDEN_KEY) !== 'hidden';
+  } catch {
+    return true;
+  }
+}
+
+export function saveRoundSettingsShown(storage: BrowserStorage, shown: boolean): void {
+  try {
+    if (shown) storage.removeItem(ROUND_SETTINGS_HIDDEN_KEY);
+    else storage.setItem(ROUND_SETTINGS_HIDDEN_KEY, 'hidden');
+  } catch {
+    // Storage is blocked or full: the choice then lasts until the page is closed.
+  }
 }
 
 const TOURNAMENT_TABS: readonly ActiveTab[] = ['info', 'bracket', 'standings', 'rankings'];

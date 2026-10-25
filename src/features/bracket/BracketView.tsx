@@ -9,7 +9,12 @@ import { expectedNextColumn } from '../../domain/tournament/expected-draw';
 import { resolveUnitQuery, unitDisplay } from '../../domain/tournament/roster';
 import { drawnAheadStatus } from '../../domain/tournament/redraw';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
-import { readBracketFollow, saveBracketFollow } from '../../lib/persistence/storage';
+import {
+  readBracketFollow,
+  readRoundSettingsShown,
+  saveBracketFollow,
+  saveRoundSettingsShown,
+} from '../../lib/persistence/storage';
 import { Alert, Button, ButtonRow, Input, PageHeading } from '../../components/ui';
 import { finishReminderFor } from '../tournaments/admin-actions';
 import { AnnotationsPanel, AnnotationsToggle } from './AnnotationsPanel';
@@ -19,11 +24,13 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { BracketRounds } from './BracketRounds';
 import { FollowBanner } from './FollowBanner';
+import { RoundSettingsToggle } from './RoundSettingsToggle';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
 import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
 import { unscoredRooms } from '../../domain/tournament/scoring';
 import { unscoredRoomsMessage } from './next-round-warning';
+import { hasRoundNotes } from './title-bar-marks';
 
 export function BracketView() {
   const app = useTournamentApp();
@@ -33,6 +40,7 @@ export function BracketView() {
   const [query, setQuery] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
+  const [settingsShown, setSettingsShown] = useState(true);
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   useEffect(() => {
@@ -40,6 +48,7 @@ export function BracketView() {
     const stored = readBracketFollow(window.localStorage);
     setFollowKey(stored);
     if (stored) setQuery(unitDisplay(app.state, stored).label);
+    setSettingsShown(readRoundSettingsShown(window.localStorage));
   }, [app.hydrated]);
   useEffect(() => {
     setCollapse({});
@@ -83,6 +92,10 @@ export function BracketView() {
       app.updateState(result.state);
     } else if (result.status === 'blocked') setMessage(result.message);
   }
+  function toggleSettings() {
+    saveRoundSettingsShown(window.localStorage, !settingsShown);
+    setSettingsShown(!settingsShown);
+  }
   function chooseFollow(value: string) {
     setQuery(value);
     const resolved = resolveUnitQuery(app.state, value);
@@ -111,6 +124,9 @@ export function BracketView() {
           follow={follow}
         />
         <div className='ml-auto flex'>
+          {hasRoundNotes(app.state) ? (
+            <RoundSettingsToggle shown={settingsShown} onToggle={toggleSettings} />
+          ) : null}
           <AnnotationsToggle open={notesOpen} onToggle={() => setNotesOpen((open) => !open)} />
           <InfoToggle open={infoOpen} onToggle={() => setInfoOpen((open) => !open)} />
         </div>
@@ -138,6 +154,7 @@ export function BracketView() {
         standingsCollapsed={standingsCollapsed}
         onToggleStandings={() => setStandingsCollapsed((current) => !current)}
         onOpenFullTable={() => app.setActiveTab('standings')}
+        showSettings={settingsShown}
       />
       {editable && drawnAhead !== 'none' ? (
         <div className='mt-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>

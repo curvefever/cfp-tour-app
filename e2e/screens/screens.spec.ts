@@ -356,6 +356,26 @@ test.describe('screenshots of the viewer tabs', () => {
       });
     }
 
+    test(`the round settings hidden: title bar buttons open the notes at ${width}px`, async ({ page }) => {
+      const fixture = fixtureTournaments().find((entry) => entry.id === 'waterfall-column-19');
+      if (!fixture) throw new Error('the waterfall-column-19 fixture is missing');
+      await page.setViewportSize({ width, height: 900 });
+      await page.addInitScript(() => window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden'));
+      await serve(page, servedFor(fixture));
+      await open(page, `/?t=${fixture.id}`);
+      await page
+        .getByRole('navigation', { name: 'Tournament sections' })
+        .getByRole('button', { name: /Bracket/ })
+        .click();
+      await expect(page.locator('button[aria-label="Round settings"][aria-pressed="false"]')).toBeVisible();
+      await expect(page.getByRole('note')).toHaveCount(0);
+      await capture(page, fixture.id, fileName('Settings hidden', String(width)));
+      const button = page.locator('button[aria-label="Round settings"][aria-expanded]:visible').first();
+      await button.focus();
+      await expect(page.getByRole('tooltip')).toBeVisible();
+      await capture(page, fixture.id, fileName('Settings hidden popup', String(width)));
+    });
+
     test(`the tournament list at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       // The one ongoing tournament loads by itself; its own fixture is the Quarters one.

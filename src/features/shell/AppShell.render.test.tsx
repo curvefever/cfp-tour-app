@@ -614,3 +614,68 @@ describe('Admin tab on a phone', () => {
     expect(within(rooms).getAllByText('Room A', { exact: true })).toHaveLength(1);
   });
 });
+
+describe('Bracket tab, the round settings notes', () => {
+  const withNotes = () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'waterfall-column-19');
+    if (!fixture) throw new Error('the waterfall-column-19 fixture is missing');
+    return fixture;
+  };
+  const toggleOf = (view: ReturnType<typeof renderApp>, pressed: boolean) =>
+    view.getByRole('button', { name: 'Round settings', pressed });
+  const titleBarButtons = (view: ReturnType<typeof renderApp>) =>
+    view.queryAllByRole('button', { name: 'Round settings', expanded: false });
+
+  afterEach(() => window.localStorage.clear());
+
+  it.each(ROLES)('shows %s a band on each round with a note, and the toggle pressed', (role) => {
+    const view = renderApp(withNotes(), { role, tab: 'bracket' });
+
+    expect(toggleOf(view, true).getAttribute('title')).toBe('Hide round settings');
+    const bands = view.queryAllByRole('note', { name: 'Round settings' });
+    expect(bands.length).toBeGreaterThanOrEqual(3);
+    expect(view.getAllByText('Target score:', { exact: false }).length).toBeGreaterThanOrEqual(3);
+    expect(view.queryAllByText('No specific settings').length).toBeGreaterThan(0);
+    expect(titleBarButtons(view)).toHaveLength(0);
+  });
+
+  it('hides the bands when the toggle is pressed, remembers it, and opens a note from its title bar button', () => {
+    const view = renderApp(withNotes(), { role: 'viewer', tab: 'bracket' });
+    fireEvent.click(toggleOf(view, true));
+
+    expect(toggleOf(view, false).getAttribute('title')).toBe('Show round settings');
+    expect(view.queryAllByRole('note')).toHaveLength(0);
+    expect(view.queryAllByText('No specific settings')).toHaveLength(0);
+    expect(window.localStorage.getItem('curveFFA_round_settings_hidden')).toBe('hidden');
+    const buttons = titleBarButtons(view);
+    expect(buttons.length).toBeGreaterThanOrEqual(3);
+
+    fireEvent.mouseEnter(buttons[0]);
+    expect(within(view.getByRole('tooltip')).getByText(/Target score/)).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(view.queryAllByRole('tooltip')).toHaveLength(0);
+
+    fireEvent.click(toggleOf(view, false));
+    expect(view.queryAllByRole('note', { name: 'Round settings' }).length).toBeGreaterThanOrEqual(3);
+    expect(window.localStorage.getItem('curveFFA_round_settings_hidden')).toBeNull();
+  });
+
+  it('starts hidden for a browser that chose so', () => {
+    window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden');
+    const view = renderApp(withNotes(), { role: 'viewer', tab: 'bracket' });
+
+    expect(toggleOf(view, false)).toBeTruthy();
+    expect(view.queryAllByRole('note')).toHaveLength(0);
+    expect(titleBarButtons(view).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('has no toggle, no band and no title bar button on a tournament without notes', () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
+    if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+
+    expect(view.queryAllByRole('button', { name: 'Round settings' })).toHaveLength(0);
+    expect(view.queryAllByRole('note')).toHaveLength(0);
+    expect(view.queryAllByText('No specific settings')).toHaveLength(0);
+  });
+});
