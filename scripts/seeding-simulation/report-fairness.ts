@@ -289,7 +289,7 @@ function qProbe(results: Results): ProbeOf {
 }
 
 /** Whether the option's gap differs from the reference's by more than the two errors combined. */
-function beyond(option: Probe, reference: Probe): boolean {
+export function beyond(option: Probe, reference: Probe): boolean {
   return Math.abs(option.gap - reference.gap) > Math.hypot(option.error, reference.error);
 }
 

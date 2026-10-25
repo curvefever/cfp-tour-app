@@ -6,6 +6,24 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## FFA points tables with a cut near the top (simulation, report only) (done — 2026-10-25)
+
+Planner/reviewer and implementer sessions; two stages on `test`: stage 1 `5229eda` (several cuts from the same runs, top-2 share, checks, trial), stage 2 the commit after it (full runs, report, this entry); nothing pushed. Dev tool only: nothing in `src/` changed. The plan is `plans/2026-10-25-ffa-table-top-cut.md` (with the planner's review at its end), the results `plans/2026-10-25-ffa-table-top-cut-results.md`. It extends shape Q of "Room-size fairness simulation (report only)".
+
+**Context.** The study compared the app's FFA Standard points (8, 7, …, 1, the last place of a smaller room earning nothing) with the community table (10, 8, 6, 5, 4, 3, 2, 1, used the same way), plain and scaled, with the cut at 24 of 37 and 43, and found them equal. A cut at 24 sits in the lower half of the field, where both tables step by 1; the community table's larger steps are at the top (1st–2nd–3rd 2 apart). The organiser asked for a check with the cut near the top (a top 8 into a bracket, a top 16).
+
+**What was simulated.** The study's own runs (`scenarioSeed('Q-ffa-<count>', …)`, today's draw, one simulation per run) with the standings read under `Q0`, `Q0c`, `QS`, `QH`, `QSc` at three cuts, 8 and 16 plus 24 as the reproduction check (the cut is applied after the draw, so all three come from the same runs). FFA 37 and 43; equal-room controls FFA 32 and 40; both predictability levels, both margin levels; 3000 runs (16 jobs). Measures as in the study (gap over the bubble window, true top-k kept as a paired difference to `Q0`, tie-break-decided share, placebo), plus the share of runs in which the true best unit finishes in the top 2 of the standings (absolute for `Q0`, paired difference for the others).
+
+**What was built (`scripts/seeding-simulation/`).** `top-cut.ts` (the scenario, jobs, reproduction check), `run-top-cut.ts` (`--trial`, `--out`/`--shard`, `--check24`, `--report`), `report-top-cut.ts`. The study's code is unchanged but for `export` added to three functions of `run-q.ts` (`emptyCell`, `addQualification`, `sameOrder`) and to a few helpers of `report-fairness.ts`; the study's job `Q-ffa-37-ffa-like-little` rerun with `run-study.ts` is byte-identical to its saved result.
+
+**Decisions (planner, open to correction).** The measures stay those of the study, so the new cuts compare directly with the cut at 24; the only addition is the top-2 share, because a cut at 8 seeds a bracket and a top-heavy table is meant to reward the best. Cuts 8 and 16, not 4: at a cut of 4 the bubble window would be cut off at rank 1 and the gap would not compare. The draw stays today's. **Implementer detail:** the cut-24 loop runs first and evaluates `QR` (not reported) so that the placebo labels draw from the random source in the study's order; that is why the cut-24 cells equal the study's to the count, placebo included.
+
+**Testing.** Cut 24: the cells of `Q0`, `Q0c`, `QS`, `QH`, `QSc` (gap counts per rank, placebo counts, tie counts, runs) equal the study's saved cells in 16 of 16 jobs. `Q0` against `computeQualificationStandings`: 0 mismatching runs in 16 jobs. Controls: `QS` and `QH` order equals `Q0`'s and `QSc`'s equals `Q0c`'s in 24000 of 24000 runs. Placebo gaps within ±2 SE of 0 in 118 of 120 cells. Awkward counts: FFA 37 and 43 (rooms of 8 and 7), controls 32 and 40. Checks: `prettier --check scripts/seeding-simulation` and `pnpm typecheck | grep scripts/` clean (eslint ignores `scripts/`). Full suite: not run (dev tool only).
+
+**Out of scope.** Changing the app's Standard points or default table; building scaled points (their own plan once the organiser decides); team formats (their community tables rank like Standard points), elimination rounds, other counts; tactics (playing for the win): the model has none; any recommendation.
+
+---
+
 ## Neutral elimination cut (simulation, report only) (done — 2026-10-25)
 
 Planner/reviewer and implementer sessions; two stages on `test`: stage 1 `a3033d1` (the three rules, readings, checks, trial), stage 2 the commit after it (full runs, report, this entry); nothing pushed. Dev tool only: nothing in `src/` changed. The plan is `plans/2026-10-25-neutral-elimination-cut.md` (with the planner's review at its end), the results `plans/2026-10-25-neutral-cut-results.md` (a separate file; the study's results stay in `plans/2026-10-25-room-size-fairness-results.md`). It extends the shape E part of "Room-size fairness simulation (report only)".
