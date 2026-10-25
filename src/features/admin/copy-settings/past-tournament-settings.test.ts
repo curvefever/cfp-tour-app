@@ -133,3 +133,39 @@ describe('settingsFromSnapshot with info for visitors', () => {
     expect(settingsFromSnapshot(raw)).toMatchObject({ ok: true, rulesText: '', screenshotCount: 0 });
   });
 });
+
+describe('settingsFromSnapshot with round settings notes', () => {
+  const rawWith = (roundNotes: unknown) => ({
+    title: 'Cup',
+    settings: settingsFromForm(createDefaultSetup()),
+    info: { rulesText: '', roundNotes },
+  });
+
+  it('carries the stage and round notes of the source', () => {
+    const roundNotes = { stages: { pooling: 'Target score: normal' }, rounds: { R1C: 'Map: large' } };
+    expect(settingsFromSnapshot(rawWith(roundNotes))).toMatchObject({ ok: true, roundNotes });
+  });
+
+  it('drops malformed entries: unknown stages, bad labels, blank and non-string values', () => {
+    const result = settingsFromSnapshot(
+      rawWith({
+        stages: { pooling: ' a ', unknown: 'x', final: '   ', bracket: 5 },
+        rounds: { 'R 1': 'ok', 'bad/label': 'x', '-R1': 'x', R2: ['x'] },
+      }),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      roundNotes: { stages: { pooling: 'a' }, rounds: { 'R 1': 'ok' } },
+    });
+  });
+
+  it('gives no notes when none survive or the source has none', () => {
+    const empty = settingsFromSnapshot(rawWith({ stages: { pooling: '' }, rounds: 'nope' }));
+    expect(empty).toMatchObject({ ok: true });
+    expect(empty.ok && empty.roundNotes).toBeUndefined();
+    const missing = settingsFromSnapshot({ title: 'Old', settings: settingsFromForm(createDefaultSetup()) });
+    expect(missing.ok && missing.roundNotes).toBeUndefined();
+    const notAMap = settingsFromSnapshot(rawWith('text'));
+    expect(notAMap.ok && notAMap.roundNotes).toBeUndefined();
+  });
+});

@@ -7,6 +7,7 @@ import { ScreenshotThumb } from '../info/ScreenshotThumb';
 import { MAX_SCREENSHOTS } from '../tournaments/screenshots.shared';
 import { deleteScreenshot, uploadScreenshot } from '../tournaments/screenshots.server-fns';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { RoundNotesField } from './RoundNotesField';
 
 const FORMATTING_HINT =
   'A blank line starts a paragraph, "- " a list, **bold** for bold, [text](https://address) for a link. Saved when you leave the box.';
@@ -147,9 +148,11 @@ export function ScreenshotsControl() {
 
 /** What visitors read on the Info tab besides the date: the specific rules and the lobby screenshots. */
 export function InfoContentPanel() {
+  const { setup } = useTournamentApp();
   return (
     <SectionPanel title='INFO FOR VISITORS'>
       <RulesTextField />
+      <RoundNotesField setup={setup} />
       <ScreenshotsControl />
     </SectionPanel>
   );

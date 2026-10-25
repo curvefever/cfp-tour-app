@@ -2,9 +2,11 @@ import { Input, SectionPanel } from '../../components/ui';
 import { PresenceField } from '../presence/PresenceField';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { RulesTextField, ScreenshotsControl } from './InfoContentPanel';
+import { RoundNotesField } from './RoundNotesField';
 import { ScheduledTimeField } from './ScheduledTimeField';
+import { settingsOf } from './settings-recap';
 
-/** What visitors read on the Info tab, kept editable while the tournament runs: its name and time, the rules and the screenshots. */
+/** What visitors read on the Info tab, kept editable while the tournament runs: its name and time, the rules, the round settings and the screenshots. */
 export function RunningInfoPanel() {
   const { state, updateState, readOnly } = useTournamentApp();
   return (
@@ -36,6 +38,7 @@ export function RunningInfoPanel() {
             <ScreenshotsControl />
           </div>
         </div>
+        <RoundNotesField setup={settingsOf(state)} />
       </div>
     </SectionPanel>
   );

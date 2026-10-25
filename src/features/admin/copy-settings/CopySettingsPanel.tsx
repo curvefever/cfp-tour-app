@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { TournamentSettings } from '../../../domain/tournament/types';
+import type { RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
 import { fetchSetupOnce, fetchTournamentOnce } from '../../sync/firebase-client';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { copyScreenshots } from '../../tournaments/screenshots.server-fns';
@@ -16,7 +16,12 @@ import {
 
 export interface CopySettingsProps {
   /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
-  onApply(settings: TournamentSettings, sourceTitle: string, rulesText: string): string;
+  onApply(
+    settings: TournamentSettings,
+    sourceTitle: string,
+    rulesText: string,
+    roundNotes: RoundNotes | undefined,
+  ): string;
 }
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
@@ -95,7 +100,7 @@ export function CopySettings({ onApply }: CopySettingsProps) {
         );
         return;
       }
-      const message = onApply(result.settings, result.title, result.rulesText);
+      const message = onApply(result.settings, result.title, result.rulesText, result.roundNotes);
       setConfirmation(`${message}${await copyScreenshotsFrom(tournamentId, result.screenshotCount)}`);
     } catch {
       setConfirmation('');

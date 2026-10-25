@@ -1,5 +1,6 @@
-import type { TournamentSettings } from '../../../domain/tournament/types';
+import type { RoundNoteStage, RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
 import { readTournamentSettings } from '../../../domain/tournament/tournament-settings';
+import { LABEL_PATTERN } from '../../../domain/tournament/waterfall-bracket';
 import { TOURNAMENT_ID_PATTERN } from '../../sync/tournament-write.shared';
 
 export const TOURNAMENT_NOT_FOUND_MESSAGE =
@@ -25,11 +26,40 @@ export function parseTournamentReference(input: string): string | null {
 }
 
 export type SettingsSnapshotResult =
-  | { ok: true; settings: TournamentSettings; title: string; rulesText: string; screenshotCount: number }
+  | {
+      ok: true;
+      settings: TournamentSettings;
+      title: string;
+      rulesText: string;
+      roundNotes: RoundNotes | undefined;
+      screenshotCount: number;
+    }
   | { ok: false; reason: 'not-found' | 'no-settings' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+const NOTE_STAGES: readonly RoundNoteStage[] = ['pooling', 'bracket', 'semis', 'final'];
+
+/** The text of each entry of `raw` that is a non-blank string under an accepted key. */
+function noteEntries(raw: unknown, accepts: (key: string) => boolean): Array<[string, string]> {
+  if (!isRecord(raw)) return [];
+  return Object.entries(raw).flatMap(([key, text]): Array<[string, string]> =>
+    accepts(key) && typeof text === 'string' && text.trim() ? [[key, text.trim()]] : [],
+  );
+}
+
+/** A source tournament's round settings notes, keeping only well-formed entries; `undefined` when none are. */
+function readRoundNotes(raw: unknown): RoundNotes | undefined {
+  if (!isRecord(raw)) return undefined;
+  const stages = noteEntries(raw.stages, (key) => NOTE_STAGES.includes(key as RoundNoteStage));
+  const rounds = noteEntries(raw.rounds, (key) => LABEL_PATTERN.test(key));
+  if (stages.length === 0 && rounds.length === 0) return undefined;
+  return {
+    ...(stages.length > 0 ? { stages: Object.fromEntries(stages) } : {}),
+    ...(rounds.length > 0 ? { rounds: Object.fromEntries(rounds) } : {}),
+  };
 }
 
 /**
@@ -50,5 +80,12 @@ export function settingsFromSnapshot(raw: unknown, setupRaw?: unknown): Settings
   const info = isRecord(raw.info) ? raw.info : {};
   const rulesText = typeof info.rulesText === 'string' ? info.rulesText : '';
   const screenshotCount = Array.isArray(info.screenshots) ? info.screenshots.length : 0;
-  return { ok: true, settings, title, rulesText, screenshotCount };
+  return {
+    ok: true,
+    settings,
+    title,
+    rulesText,
+    roundNotes: readRoundNotes(info.roundNotes),
+    screenshotCount,
+  };
 }

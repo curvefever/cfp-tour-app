@@ -1,5 +1,5 @@
 import { Input, SectionPanel } from '../../../components/ui';
-import type { TournamentSettings } from '../../../domain/tournament/types';
+import type { RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { CopySettings } from '../copy-settings/CopySettingsPanel';
@@ -10,7 +10,12 @@ import { usePublishMissing } from '../usePublishMissing';
 export function TournamentPanel({
   onApplyCopiedSettings,
 }: {
-  onApplyCopiedSettings: (settings: TournamentSettings, sourceTitle: string, rulesText: string) => string;
+  onApplyCopiedSettings: (
+    settings: TournamentSettings,
+    sourceTitle: string,
+    rulesText: string,
+    roundNotes: RoundNotes | undefined,
+  ) => string;
 }) {
   const { state, updateState } = useTournamentApp();
   const publishMissing = usePublishMissing();

@@ -94,6 +94,16 @@ describe('fieldOfControl', () => {
     expect(fieldOfControl('info-rules-text')).toBe('info.rulesText');
   });
 
+  it('maps every round settings textarea onto the one roundNotes field', () => {
+    expect(fieldOfControl('info-round-note-0')).toBe('info.roundNotes');
+    expect(fieldOfControl('info-round-note-7')).toBe('info.roundNotes');
+  });
+
+  it('maps no other info- id', () => {
+    expect(fieldOfControl('info-screenshot-file')).toBeNull();
+    expect(fieldOfControl('info-round-notes')).toBeNull();
+  });
+
   it('names a Setup control by its key in camel case', () => {
     expect(fieldOfControl('cfg-roster')).toBe('roster');
     expect(fieldOfControl('cfg-game-format')).toBe('gameFormat');

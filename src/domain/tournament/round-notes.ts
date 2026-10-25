@@ -14,9 +14,9 @@ export interface RoundNoteRow {
   orphan?: true;
 }
 
-type NoteSetup = Pick<PersistedSetup, 'scheduleLogic' | 'poolingPhase' | 'waterfallGraph'>;
+export type RoundNoteSetup = Pick<PersistedSetup, 'scheduleLogic' | 'poolingPhase' | 'waterfallGraph'>;
 
-const POOLING_ROW_NAMES: Record<NoteSetup['poolingPhase'], string> = {
+const POOLING_ROW_NAMES: Record<RoundNoteSetup['poolingPhase'], string> = {
   none: 'Warm-up rounds',
   'qual-table': 'Qualification rounds',
   swiss: 'Swiss rounds',
@@ -63,8 +63,8 @@ function stageRow(
   };
 }
 
-/** The rows the Setup editor and the Info tab list: stages first, then a waterfall's round labels, then orphaned label notes. */
-export function roundNoteRows(setup: NoteSetup, notes: RoundNotes | undefined): RoundNoteRow[] {
+/** The rows the Setup editor lists: stages first, then a waterfall's round labels, then orphaned label notes. */
+export function roundNoteRows(setup: RoundNoteSetup, notes: RoundNotes | undefined): RoundNoteRow[] {
   const isWaterfall = setup.scheduleLogic === 'waterfall-bracket';
   const rows = [stageRow(notes, 'pooling', POOLING_ROW_NAMES[setup.poolingPhase])];
   rows.push(

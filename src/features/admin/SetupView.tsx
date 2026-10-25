@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { generateTournament } from '../../domain/tournament/generation';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
-import type { TournamentSettings } from '../../domain/tournament/types';
+import type { RoundNotes, TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ConfirmStartBar } from './setup/ConfirmStartBar';
@@ -27,13 +27,22 @@ export function SetupView() {
     updateState(result.state);
   }
 
-  function applyCopiedSettings(settings: TournamentSettings, sourceTitle: string, rulesText: string): string {
+  function applyCopiedSettings(
+    settings: TournamentSettings,
+    sourceTitle: string,
+    rulesText: string,
+    roundNotes: RoundNotes | undefined,
+  ): string {
     const previousGameFormat = setup.gameFormat;
     updateSetup((current) => applyTournamentSettings(current, settings));
-    if (rulesText) {
+    if (rulesText || roundNotes) {
       updateState((current) => ({
         ...current,
-        info: { ...(current.info ?? createDefaultInfo()), rulesText },
+        info: {
+          ...(current.info ?? createDefaultInfo()),
+          ...(rulesText ? { rulesText } : {}),
+          ...(roundNotes ? { roundNotes } : {}),
+        },
       }));
     }
     setLbQualifiers(settings.lbQualifiers);

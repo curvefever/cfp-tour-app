@@ -94,6 +94,9 @@ const CONTROL_FIELDS: Record<string, string> = {
   'cfg-teams-per-room': 'gameFormat',
 };
 
+/** Every round settings textarea has an id with this prefix and stands for the one `info.roundNotes` field. */
+export const ROUND_NOTE_CONTROL_PREFIX = 'info-round-note-';
+
 const SETUP_KEYS = new Set<string>(Object.keys(createDefaultSetup()));
 
 /**
@@ -104,6 +107,7 @@ export function fieldOfControl(controlId: string | null | undefined): string | n
   if (!controlId) return null;
   const named = CONTROL_FIELDS[controlId];
   if (named) return named;
+  if (controlId.startsWith(ROUND_NOTE_CONTROL_PREFIX)) return 'info.roundNotes';
   if (!controlId.startsWith('cfg-')) return null;
   const key = controlId.slice(4).replace(/-([a-z0-9])/g, (_, letter: string) => letter.toUpperCase());
   return SETUP_KEYS.has(key) ? key : null;
