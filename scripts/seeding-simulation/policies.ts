@@ -9,6 +9,7 @@ import {
 import { smallerRoomSeatsBefore, splitForSmallerRooms } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';
 import { drawAroundCuts, profileOf, type Kind, type ProfileKey } from './cuts';
+import { byeDraw, engineLikeDraw, stakeDraw } from './q-draws';
 import { shuffled } from './random';
 
 /**
@@ -36,7 +37,9 @@ export const PART2_POLICIES = [
   'cuts-spread-P3',
   'random-rooms',
 ] as const;
-export type Policy = (typeof POLICIES)[number] | (typeof PART2_POLICIES)[number];
+/** Shape Q's own draws: the engine's draw rebuilt without a change (a check), a neutral bye, seats by stake. */
+export type QPolicy = 'engine-like' | 'QB' | 'QK';
+export type Policy = (typeof POLICIES)[number] | (typeof PART2_POLICIES)[number] | QPolicy;
 
 interface DrawContext {
   kind: Kind;
@@ -134,8 +137,16 @@ function aroundCutsDraw(policy: Policy, { state, next, kind }: DrawContext): Rou
   return drawAroundCuts(state, next, profileOf(match[2] as ProfileKey, kind), match[1] !== undefined);
 }
 
+function qDraw(policy: QPolicy, { state, next, firstCounted, kind }: DrawContext): RoundAssignment[] | null {
+  const context = { state, next, firstCounted, kind };
+  if (policy === 'engine-like') return engineLikeDraw(context);
+  if (next < firstCounted) return null;
+  return policy === 'QB' ? byeDraw(context) : stakeDraw(context);
+}
+
 function draw(policy: Policy, context: DrawContext): RoundAssignment[] | null {
   const { next, firstCounted, lastRound } = context;
+  if (policy === 'engine-like' || policy === 'QB' || policy === 'QK') return qDraw(policy, context);
   if (next === lastRound && policy.startsWith('cuts')) return aroundCutsDraw(policy, context);
   const neutralFirst = policy === 'neutral-first' || policy === 'neutral-first+last-by-standings';
   const lastByStandings = policy === 'last-by-standings' || policy === 'neutral-first+last-by-standings';

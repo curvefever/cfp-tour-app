@@ -29,34 +29,53 @@ export function largestRoom(round: EliminationRound): number {
   return Math.max(...round.units.map((unit) => unit.roomSize));
 }
 
-export function addRound(
+/** One unit at the cut: its true rank among the units competing, whether it had the advantage, whether it advanced or qualified. */
+export interface Observation {
+  trueRank: number;
+  advantaged: boolean;
+  won: boolean;
+}
+
+/** Adds one round, or one qualification, of observations; `k` units advance, and the bubble reaches `window` ranks either side of the cut. */
+export function addObservations(
   accumulator: Accumulator,
-  round: EliminationRound,
-  advantaged: Set<string>,
-  advancing: Set<string>,
+  observations: Observation[],
+  k: number,
+  window: number,
 ): void {
-  const k = round.engine.size;
-  const window = largestRoom(round);
-  for (const unit of round.units) {
-    const won = advancing.has(unit.name);
-    if (unit.trueRank <= k && won) accumulator.kept += 1;
-    if (unit.trueRank < k - window + 1 || unit.trueRank > k + window) continue;
-    const counts = accumulator.ranks.get(unit.trueRank) ?? {
+  for (const { trueRank, advantaged, won } of observations) {
+    if (trueRank <= k && won) accumulator.kept += 1;
+    if (trueRank < k - window + 1 || trueRank > k + window) continue;
+    const counts = accumulator.ranks.get(trueRank) ?? {
       advantaged: 0,
       advantagedWon: 0,
       others: 0,
       othersWon: 0,
     };
-    if (advantaged.has(unit.name)) {
+    if (advantaged) {
       counts.advantaged += 1;
       if (won) counts.advantagedWon += 1;
     } else {
       counts.others += 1;
       if (won) counts.othersWon += 1;
     }
-    accumulator.ranks.set(unit.trueRank, counts);
+    accumulator.ranks.set(trueRank, counts);
   }
   accumulator.runs += 1;
+}
+
+export function addRound(
+  accumulator: Accumulator,
+  round: EliminationRound,
+  advantaged: Set<string>,
+  advancing: Set<string>,
+): void {
+  const observations = round.units.map((unit) => ({
+    trueRank: unit.trueRank,
+    advantaged: advantaged.has(unit.name),
+    won: advancing.has(unit.name),
+  }));
+  addObservations(accumulator, observations, round.engine.size, largestRoom(round));
 }
 
 export interface Summary {
