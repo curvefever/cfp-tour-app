@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   roundNoteRows,
-  setRoundNote,
+  infoWithRoundNote,
   type RoundNoteRow,
   type RoundNoteSetup,
 } from '../../domain/tournament/round-notes';
@@ -30,11 +30,10 @@ function RoundNoteBox({ row, id }: { row: RoundNoteRow; id: string }) {
   function save() {
     focused.current = false;
     if (draft.trim() === row.note) return;
-    updateState((current) => {
-      const { roundNotes: previous, ...info } = current.info ?? createDefaultInfo();
-      const roundNotes = setRoundNote(previous, row.key, draft);
-      return { ...current, info: { ...info, ...(roundNotes ? { roundNotes } : {}) } };
-    });
+    updateState((current) => ({
+      ...current,
+      info: infoWithRoundNote(current.info ?? createDefaultInfo(), row.key, draft),
+    }));
   }
   return (
     <div>

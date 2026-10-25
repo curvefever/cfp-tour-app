@@ -1,5 +1,5 @@
 import { isPoolingRound } from './pooling';
-import type { PersistedSetup, RoundNoteStage, RoundNotes, TournamentRound } from './types';
+import type { PersistedSetup, RoundNoteStage, RoundNotes, TournamentInfo, TournamentRound } from './types';
 import { parseWaterfallGraph } from './waterfall-bracket';
 
 export type RoundNoteKey = { kind: 'stage'; stage: RoundNoteStage } | { kind: 'round'; label: string };
@@ -115,4 +115,11 @@ export function setRoundNote(
   const rounds = key.kind === 'round' ? withEntry(notes?.rounds, key.label, value) : notes?.rounds;
   if (!stages && !rounds) return undefined;
   return { ...(stages ? { stages } : {}), ...(rounds ? { rounds } : {}) };
+}
+
+/** The info with one note changed. The `roundNotes` key itself is removed, not left empty, when the last note is cleared. */
+export function infoWithRoundNote(info: TournamentInfo, key: RoundNoteKey, text: string): TournamentInfo {
+  const { roundNotes: previous, ...rest } = info;
+  const roundNotes = setRoundNote(previous, key, text);
+  return roundNotes ? { ...rest, roundNotes } : rest;
 }

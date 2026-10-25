@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { roundNote, roundNoteRows, roundNoteStage, setRoundNote } from '../round-notes';
+import { infoWithRoundNote, roundNote, roundNoteRows, roundNoteStage, setRoundNote } from '../round-notes';
+import { createDefaultInfo } from '../state-defaults';
 import { createDefaultSetup } from '../state-defaults';
 import type { RoundNoteStage, RoundNotes, TournamentRound, TournamentState } from '../types';
 import { QUAL_GRAPH } from './qual-waterfall';
@@ -256,5 +257,34 @@ describe('setRoundNote', () => {
     const notes: RoundNotes = { stages: { pooling: 'a' } };
     setRoundNote(notes, pooling, 'z');
     expect(notes).toEqual({ stages: { pooling: 'a' } });
+  });
+});
+
+describe('infoWithRoundNote', () => {
+  const key = { kind: 'stage', stage: 'pooling' } as const;
+  const info = {
+    ...createDefaultInfo(),
+    scheduledAt: 5,
+    rulesText: 'No pause',
+    screenshots: ['image00000001'],
+  };
+
+  it('sets a note and keeps the rest of the info', () => {
+    expect(infoWithRoundNote(info, key, 'Target score: high')).toEqual({
+      ...info,
+      roundNotes: { stages: { pooling: 'Target score: high' } },
+    });
+  });
+
+  it('removes the roundNotes key itself when the last note is cleared', () => {
+    const withNote = infoWithRoundNote(info, key, 'a');
+    const cleared = infoWithRoundNote(withNote, key, '  ');
+    expect(cleared).toEqual(info);
+    expect('roundNotes' in cleared).toBe(false);
+  });
+
+  it('keeps the other notes when one is cleared', () => {
+    const two = infoWithRoundNote(infoWithRoundNote(info, key, 'a'), { kind: 'round', label: 'R1' }, 'b');
+    expect(infoWithRoundNote(two, key, '').roundNotes).toEqual({ rounds: { R1: 'b' } });
   });
 });

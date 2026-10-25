@@ -153,9 +153,9 @@ describe('settingsFromSnapshot with round settings notes', () => {
         rounds: { 'R 1': 'ok', 'bad/label': 'x', '-R1': 'x', R2: ['x'] },
       }),
     );
-    expect(result).toMatchObject({
-      ok: true,
-      roundNotes: { stages: { pooling: 'a' }, rounds: { 'R 1': 'ok' } },
+    expect(result.ok && result.roundNotes).toEqual({
+      stages: { pooling: 'a' },
+      rounds: { 'R 1': 'ok' },
     });
   });
 
