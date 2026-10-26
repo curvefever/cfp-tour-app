@@ -17,9 +17,11 @@ import {
   SHARED_TIE_MARK,
   unscoredRooms,
   SCORING_SYSTEM_OPTION_LABELS,
+  scaledRoomPoints,
   scoredTeamSize,
   scoreKeysForPosition,
   standardPoints,
+  standardPointsTable,
   tieResolutionList,
 } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -215,6 +217,70 @@ describe('standardPoints', () => {
 
   it('floors at 0 for a place beyond the largest room size', () => {
     expect(standardPoints(5, 4)).toBe(0);
+  });
+});
+
+describe('standardPointsTable', () => {
+  it.each([
+    [10, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]],
+    [9, [10, 8, 7, 6, 5, 4, 3, 2, 1]],
+    [8, [10, 8, 6, 5, 4, 3, 2, 1]],
+    [7, [7, 6, 5, 4, 3, 2, 1]],
+    [6, [6, 5, 4, 3, 2, 1]],
+    [4, [4, 3, 2, 1]],
+    [3, [3, 2, 1]],
+    [2, [2, 1]],
+  ])('for a largest room of %i', (largestRoom, expected) => {
+    expect(standardPointsTable(largestRoom)).toEqual(expected);
+  });
+
+  it('hands out a copy, so the shared table cannot be changed by a caller', () => {
+    standardPointsTable(8).fill(0);
+    expect(standardPointsTable(8)[0]).toBe(10);
+  });
+});
+
+describe('scaledRoomPoints', () => {
+  const custom = [6, 4, 2, 0];
+  const longCustom = [10, 8, 6, 5, 4, 3, 2, 1, 0];
+
+  it.each([
+    ['FFA 8 in a room of 8', 8, 8, [10, 8, 6, 5, 4, 3, 2, 1]],
+    ['FFA 8 in a room of 7', 8, 7, [10, 7.5, 5.5, 4.5, 3.5, 2, 1]],
+    ['FFA 8 in a room of 6', 8, 6, [10, 7, 5, 4, 2.5, 1]],
+    ['FFA 7 in a room of 7', 7, 7, [7, 6, 5, 4, 3, 2, 1]],
+    ['FFA 7 in a room of 6', 7, 6, [7, 6, 4.5, 3.5, 2, 1]],
+    ['FFA 6 in a room of 5', 6, 5, [6, 5, 3.5, 2.5, 1]],
+    ['largest room 9 in a room of 8', 9, 8, [10, 8, 6.5, 5.5, 4.5, 3.5, 2, 1]],
+    ['largest room 10 in a room of 9', 10, 9, [10, 9, 8, 6.5, 5.5, 4.5, 3.5, 2, 1]],
+    ['2v2v2v2 in a room of 4', 4, 4, [4, 3, 2, 1]],
+    ['2v2v2v2 in a room of 3', 4, 3, [4, 2.5, 1]],
+    ['3v3v3 in a room of 2', 3, 2, [3, 1]],
+  ])('Standard points, %s', (_label, largestRoom, roomSize, expected) => {
+    expect(scaledRoomPoints(standardPointsTable(largestRoom), largestRoom, roomSize)).toEqual(expected);
+  });
+
+  it('scales a Custom table the same way', () => {
+    expect(scaledRoomPoints(custom, 4, 3)).toEqual([6, 3, 0]);
+  });
+
+  it('uses only the first largest-room-size entries of a longer Custom table', () => {
+    expect(scaledRoomPoints(longCustom, 8, 8)).toEqual([10, 8, 6, 5, 4, 3, 2, 1]);
+    expect(scaledRoomPoints(longCustom, 8, 7)).toEqual([10, 7.5, 5.5, 4.5, 3.5, 2, 1]);
+  });
+
+  it('gives a lone unit the first entry and an empty room nothing', () => {
+    expect(scaledRoomPoints(standardPointsTable(8), 8, 1)).toEqual([10]);
+    expect(scaledRoomPoints(standardPointsTable(8), 8, 0)).toEqual([]);
+  });
+
+  it('rounds half points up, exactly', () => {
+    // Standard 8, room of 3: places read positions 1, 4.5, 8 -> 10, 4.5 (halfway between 5 and 4), 1.
+    expect(scaledRoomPoints(standardPointsTable(8), 8, 3)).toEqual([10, 4.5, 1]);
+    // Custom 4 entries, room of 2: first and last only.
+    expect(scaledRoomPoints([6, 4, 2, 1], 4, 2)).toEqual([6, 1]);
+    // Room of 4: positions 1, 3.33, 5.67, 8 -> 5.67 rounds to 5.5 and 3.33 to 3.5.
+    expect(scaledRoomPoints(standardPointsTable(8), 8, 4)).toEqual([10, 5.5, 3.5, 1]);
   });
 });
 

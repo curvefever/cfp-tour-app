@@ -573,6 +573,7 @@ export function generateTournament(
     finalSize: finalOverride || roomSize.ideal,
     scoring: config.scoring,
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
+    pointsVersion: 2,
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

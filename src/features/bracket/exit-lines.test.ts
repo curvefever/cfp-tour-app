@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildState } from '../../domain/tournament/__tests__/play-through';
+import { buildState, withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
 import {
   QUAL_GRAPH,
   buildQualWaterfall,
@@ -92,7 +92,7 @@ function pooling(
     },
   });
   if (!state) throw new Error('generation failed');
-  return state;
+  return withEarlierPointsRule(state);
 }
 
 /** The room sizes of a round, as seated. */

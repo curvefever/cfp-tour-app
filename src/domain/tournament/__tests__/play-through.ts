@@ -23,6 +23,12 @@ export interface SweepConfig {
   teams: boolean;
 }
 
+/** The state as a tournament stored before the scaled-points rule scores it (no `pointsVersion`): for tests of the earlier rule, or ones whose expectations were captured under it. */
+export function withEarlierPointsRule(state: TournamentState): TournamentState {
+  const { pointsVersion: _pointsVersion, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
 export function buildState(config: SweepConfig): TournamentState | null {
   const teamSize = getGameFormat(config.setup?.gameFormat ?? 'team-3v3v3')?.teamSize ?? 3;
   const players = config.teams

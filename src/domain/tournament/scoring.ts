@@ -184,6 +184,43 @@ export function standardPoints(place: number, maxRoomSize: number): number {
   return Math.max(0, maxRoomSize + 1 - place);
 }
 
+/** Standard tables for the largest rooms; smaller formats keep maxRoomSize…1. */
+const LARGE_ROOM_STANDARD_TABLES: Record<number, readonly number[]> = {
+  10: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+  9: [10, 8, 7, 6, 5, 4, 3, 2, 1],
+  8: [10, 8, 6, 5, 4, 3, 2, 1],
+};
+
+/** The Standard table of a format whose largest room is `maxRoomSize`, 1st first. */
+export function standardPointsTable(maxRoomSize: number): number[] {
+  return [
+    ...(LARGE_ROOM_STANDARD_TABLES[maxRoomSize] ??
+      Array.from({ length: maxRoomSize }, (_, index) => standardPoints(index + 1, maxRoomSize))),
+  ];
+}
+
+/**
+ * The points of each place in a room of `roomSize` units, 1st first, from a table for rooms of `maxRoomSize`.
+ * The largest room reads the table as it is. A smaller room reads it at its share of opponents beaten: place p
+ * sits at position 1 + (maxRoomSize − 1)(p − 1)/(roomSize − 1), interpolated linearly and rounded to the
+ * nearest half point (half up), so 1st and last always earn the table's first and last entries. Integer
+ * arithmetic keeps the rounding exact. A lone unit earns the first entry.
+ */
+export function scaledRoomPoints(table: readonly number[], maxRoomSize: number, roomSize: number): number[] {
+  const used = table.slice(0, maxRoomSize);
+  if (roomSize >= maxRoomSize) return used;
+  if (roomSize < 2) return used.slice(0, Math.max(roomSize, 0));
+  const gaps = roomSize - 1;
+  return Array.from({ length: roomSize }, (_, index) => {
+    const steps = (maxRoomSize - 1) * index;
+    const lower = Math.floor(steps / gaps);
+    const rest = steps - lower * gaps;
+    const from = used[lower] ?? 0;
+    const scaledByGaps = from * gaps + ((used[lower + 1] ?? 0) - from) * rest;
+    return Math.floor((4 * scaledByGaps + gaps) / (2 * gaps)) / 2;
+  });
+}
+
 /** Organiser-supplied rank->points table lookup (1-indexed rank, highest rank first). A rank beyond the table's own length (shouldn't happen given generation.ts's validation) falls back to 0. */
 export function positionalPoints(rank: number, table: readonly number[]): number {
   return table[rank - 1] ?? 0;

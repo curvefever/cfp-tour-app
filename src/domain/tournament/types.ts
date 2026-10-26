@@ -232,6 +232,8 @@ export interface MaterializedGamemodeConfig {
   scoring: ScoringSystemKey;
   /** Organiser-supplied rank->points table (highest rank first), only present when scoring === 'positional-points'. See generation.ts for validation. */
   positionalPointsTable?: number[];
+  /** Which points rule the tournament scores with. Absent = the earlier rule (Standard = largest room size down to 1, a Custom table read place by place, whatever the room size); 2 = the new Standard tables, with a smaller room reading the table scaled to its size (scoring.ts). generation.ts writes 2; a stored tournament without it keeps its points. */
+  pointsVersion?: 2;
   drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */

@@ -20,15 +20,17 @@ import {
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
+  roomPointsByPlace,
 } from '../advancement';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, resolveTournamentTie, setRoundScore, shareTiedPoints } from '../mutations';
 import { roundExitRule } from '../room-exits';
+import { scoreKeysForPosition } from '../scoring';
 import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentStanding, TournamentState } from '../types';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, scoreCurrentRound, withEarlierPointsRule } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
@@ -2310,7 +2312,7 @@ describe('shared points for a tie in a pooling room', () => {
 
   function ffaRound(count: number, extra: SetupOverrides = {}): TournamentState {
     const state = buildState({ label: 'shared', count, teams: false, setup: { ...FFA, ...extra } });
-    return scoreCurrentRound(state as TournamentState, 0);
+    return scoreCurrentRound(withEarlierPointsRule(state as TournamentState), 0);
   }
 
   function roomWithSize(state: TournamentState, minSize: number): number {
@@ -2512,5 +2514,164 @@ describe('shared points for a tie in a pooling room', () => {
     const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
     expect([tierOf(shared, names[1]), tierOf(shared, names[2])]).toEqual([1, 1]);
     expect(tierOf(shared, names[3])).toBe(3);
+  });
+});
+
+describe('scaled points in smaller rooms (pointsVersion 2)', () => {
+  type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
+
+  const ffaSetup: SetupOverrides = {
+    gameFormat: 'ffa-individual',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'qual-table',
+    qualAdv: '16',
+  };
+  const TABLE_8 = [10, 8, 6, 5, 4, 3, 2, 1];
+  const FFA_ROOMS: Record<number, number[]> = {
+    8: TABLE_8,
+    7: [10, 7.5, 5.5, 4.5, 3.5, 2, 1],
+  };
+  const TEAM_ROOMS: Record<number, number[]> = {
+    4: [4, 3, 2, 1],
+    3: [4, 2.5, 1],
+  };
+  const EARLIER_FFA_ROOMS: Record<number, number[]> = {
+    8: [8, 7, 6, 5, 4, 3, 2, 1],
+    7: [8, 7, 6, 5, 4, 3, 2],
+  };
+  const EARLIER_TEAM_ROOMS: Record<number, number[]> = {
+    4: [4, 3, 2, 1],
+    3: [4, 3, 2],
+  };
+
+  /** Round 1 scored (every score distinct, seat 1 highest): each room's size and its units' totals by seat. */
+  function totalsByRoom(state: TournamentState, teamSize: number) {
+    const scored = scoreCurrentRound(state, teamSize);
+    const standings = computeQualificationStandings(scored);
+    return scored.rounds[0].rooms.map((size, index) => ({
+      size,
+      totals: scored.assignments[0]
+        .filter((entry) => entry.room === index + 1)
+        .map((entry) => standings.find((standing) => standing.name === entry.name)?.totalFP),
+    }));
+  }
+
+  function build(count: number, teams: boolean, setup: SetupOverrides): TournamentState {
+    const state = buildState({ label: `${count}`, count, teams, setup });
+    if (!state) throw new Error('generation failed');
+    return state;
+  }
+
+  const ffa = (count: number) => build(count, false, ffaSetup);
+  const teams = (count: number) =>
+    build(count, true, { ...ffaSetup, gameFormat: 'team-2v2v2v2', qualAdv: '8' });
+
+  it.each([
+    [37, [8, 8, 7, 7, 7]],
+    [43, [8, 7, 7, 7, 7, 7]],
+  ])('FFA %i: each room totals follow the scaled table of its own size', (count, rooms) => {
+    const result = totalsByRoom(ffa(count), 0);
+    expect(result.map((room) => room.size)).toEqual(rooms);
+    for (const { size, totals } of result) expect(totals).toEqual(FFA_ROOMS[size]);
+  });
+
+  it.each([31, 53])('2v2v2v2 %i: each room totals follow the scaled table of its own size', (count) => {
+    const result = totalsByRoom(teams(count), 2);
+    expect(new Set(result.map((room) => room.size))).toEqual(new Set([4, 3]));
+    for (const { size, totals } of result) expect(totals).toEqual(TEAM_ROOMS[size]);
+  });
+
+  it.each([
+    ['FFA 37', 37, false, EARLIER_FFA_ROOMS, 0],
+    ['FFA 43', 43, false, EARLIER_FFA_ROOMS, 0],
+    ['2v2v2v2 31', 31, true, EARLIER_TEAM_ROOMS, 2],
+    ['2v2v2v2 53', 53, true, EARLIER_TEAM_ROOMS, 2],
+  ])(
+    '%s without pointsVersion gives exactly the earlier totals',
+    (_label, count, isTeams, expected, teamSize) => {
+      const state = withEarlierPointsRule(isTeams ? teams(count) : ffa(count));
+      for (const { size, totals } of totalsByRoom(state, teamSize)) expect(totals).toEqual(expected[size]);
+    },
+  );
+
+  it("reads the table of the format's largest room for any room size, whatever the round holds", () => {
+    const state = ffa(37);
+    expect(roomPointsByPlace(state, 7)).toEqual(FFA_ROOMS[7]);
+    expect(roomPointsByPlace(state, 8)).toEqual(TABLE_8);
+  });
+
+  it('reads a Custom table longer than the largest room only up to that room size', () => {
+    const state = build(37, false, {
+      ...ffaSetup,
+      scoring: 'positional-points',
+      positionalPointsTable: '10,8,6,5,4,3,2,1,0',
+    });
+    expect(roomPointsByPlace(state, 8)).toEqual(TABLE_8);
+    expect(roomPointsByPlace(state, 7)).toEqual(FFA_ROOMS[7]);
+    expect(roomPointsByPlace(withEarlierPointsRule(state), 7)).toEqual([10, 8, 6, 5, 4, 3, 2, 1, 0]);
+  });
+
+  describe('shared places', () => {
+    const roomOfSize = (state: TournamentState, size: number) =>
+      state.rounds[state.curRound].rooms.findIndex((entry) => entry === size) + 1;
+
+    function scoreRoomBySeat(state: TournamentState, room: number, head: number[], teamSize = 0) {
+      const names = state.assignments[state.curRound]
+        .filter((entry) => entry.room === room)
+        .map((entry) => entry.name);
+      const scores = { ...state.scores };
+      names.forEach((_, seat) => {
+        const keys = scoreKeysForPosition({
+          roundIndex: state.curRound,
+          room,
+          position: seat,
+          numGames: 1,
+          teamSize: teamSize || undefined,
+        });
+        // A team's score is the sum of its members': the first key carries the value, the others 0.
+        keys.forEach((key, index) => {
+          scores[key] = index === 0 ? (head[seat] ?? 100 - seat * 10) : 0;
+        });
+      });
+      return { state: { ...state, scores }, names };
+    }
+
+    const totalOf = (state: TournamentState, name: string) =>
+      computeQualificationStandings(state).find((entry) => entry.name === name)?.totalFP;
+
+    it('a shared 2nd-3rd place in a room of 7 under largest room 8 earns (7.5 + 5.5) / 2 = 6.5', () => {
+      const base = scoreCurrentRound(ffa(37), 0);
+      const room = roomOfSize(base, 7);
+      const { state, names } = scoreRoomBySeat(base, room, [900, 500, 500, 400]);
+      const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
+      expect(totalOf(shared, names[1])).toBe(6.5);
+      expect(totalOf(shared, names[2])).toBe(6.5);
+      expect(totalOf(shared, names[3])).toBe(4.5);
+    });
+
+    it('a shared place in a room of 3 earns (2.5 + 1) / 2 = 1.75, not rounded', () => {
+      const base = scoreCurrentRound(teams(31), 2);
+      const room = roomOfSize(base, 3);
+      const { state, names } = scoreRoomBySeat(base, room, [900, 500, 500], 2);
+      const shared = shareTiedPoints(state, `r0-rm${room}-s500`, [names[1], names[2]]);
+      expect(totalOf(shared, names[1])).toBe(1.75);
+      expect(totalOf(shared, names[2])).toBe(1.75);
+    });
+  });
+
+  it('a lone unit in a started round earns first-place points like a bye: 10 under largest room 8, 8 without pointsVersion', () => {
+    const state = ffa(37);
+    const loneName = state.assignments[0].find((entry) => entry.room === 1)?.name;
+    const alone = {
+      ...state,
+      assignments: [
+        state.assignments[0].filter((entry) => entry.room !== 1 || entry.name === loneName),
+        ...state.assignments.slice(1),
+      ],
+    };
+    const pointsOf = (current: TournamentState) =>
+      computeQualificationStandings(current).find((standing) => standing.name === loneName)?.totalFP;
+    expect(pointsOf(alone)).toBe(10);
+    expect(pointsOf(withEarlierPointsRule(alone))).toBe(8);
   });
 });

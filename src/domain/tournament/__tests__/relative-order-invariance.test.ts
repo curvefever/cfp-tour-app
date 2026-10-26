@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { recordRoomHistory } from '../seeding';
 import type { RoundAssignment, TournamentState } from '../types';
+import { withEarlierPointsRule } from './play-through';
 import { buildQualWaterfall } from './qual-waterfall';
 import { advanceScored, roomsOf, spreadConfig, startSpread, type SpreadKind } from './spread-play';
 
@@ -70,7 +71,7 @@ describe('rooms of one size are drawn as before the relative order (captured fro
   });
 
   it('waterfall fed by a 24-player FFA qualification table (every room of 8), all 7 rounds', () => {
-    expect(drawsOf(inOrder(buildQualWaterfall(24))).slice(0, 7)).toEqual(WATERFALL_24);
+    expect(drawsOf(inOrder(withEarlierPointsRule(buildQualWaterfall(24)))).slice(0, 7)).toEqual(WATERFALL_24);
   });
 });
 

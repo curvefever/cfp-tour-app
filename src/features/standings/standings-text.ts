@@ -1,5 +1,5 @@
-import { largestRoomSize } from '../../domain/tournament/advancement';
-import { formatStandingValue, standardPoints } from '../../domain/tournament/scoring';
+import { largestRoomSize, roomPointsByPlace } from '../../domain/tournament/advancement';
+import { formatStandingValue } from '../../domain/tournament/scoring';
 import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
 import { ordinal, placeOrdinal } from '../../lib/ordinal';
@@ -11,12 +11,9 @@ export function standingsProgressSentence(display: StandingsDisplay): string {
   return `After ${display.roundsDone} of ${display.roundsTotal} rounds.`;
 }
 
-/** Points earned by each place, 1st first: the organiser's table under Custom points, else the largest room size down to 1. */
+/** Points earned by each place of the tournament's largest room, 1st first (the rule itself lives in advancement.ts). */
 export function pointsPerPlace(state: TournamentState): number[] {
-  if (state.gamemodeConfig.scoring === 'positional-points')
-    return state.gamemodeConfig.positionalPointsTable ?? [];
-  const largestRoom = largestRoomSize(state);
-  return Array.from({ length: largestRoom }, (_, index) => standardPoints(index + 1, largestRoom));
+  return roomPointsByPlace(state, largestRoomSize(state));
 }
 
 function pointsSentence(state: TournamentState): string {

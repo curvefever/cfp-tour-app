@@ -49,6 +49,16 @@ describe('normalizeLiveTournamentState', () => {
     expect(state.annotations).toBeUndefined();
   });
 
+  it('keeps the points version through the Firebase round trip, and leaves it absent on a tournament stored without it', () => {
+    const stored = (gamemodeConfig: object) =>
+      normalizeLiveTournamentState(
+        unmarshalFromFirebase(marshalForFirebase({ title: 'Cup', gamemodeConfig })),
+        fixedIds,
+      );
+    expect(stored({ scoring: 'fairpoints', pointsVersion: 2 }).gamemodeConfig.pointsVersion).toBe(2);
+    expect(stored({ scoring: 'fairpoints' }).gamemodeConfig.pointsVersion).toBeUndefined();
+  });
+
   it('pads player/reserve member arrays to teamSize for a team format', () => {
     const state = normalizeLiveTournamentState(
       {

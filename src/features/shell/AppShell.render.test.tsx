@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, loadedState, type FixtureTournament } from '../../../e2e/screens/fixtures';
+import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
 import { nextColumnStart } from '../../domain/tournament/round-columns';
 import { roundNoteNames } from '../../domain/tournament/round-notes';
@@ -433,7 +434,7 @@ describe('Standings tab on a phone: the compact list', () => {
   const quarters = () => {
     const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa37-quarters');
     if (!fixture) throw new Error('the ffa37-quarters fixture is missing');
-    return fixture;
+    return { ...fixture, state: withEarlierPointsRule(fixture.state) };
   };
   const rowOf = (view: ReturnType<typeof renderApp>, name: string) =>
     view

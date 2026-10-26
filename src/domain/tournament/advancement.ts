@@ -5,9 +5,10 @@ import {
   groupByScore,
   orderRoomByScore,
   orderRoomWithPlaces,
-  positionalPoints,
   readTieResolution,
+  scaledRoomPoints,
   standardPoints,
+  standardPointsTable,
   tieResolutionList,
 } from './scoring';
 import { rosterKeys } from './roster';
@@ -482,17 +483,28 @@ export function largestRoomSize(state: TournamentState): number {
   return state.gamemodeConfig.roomSize?.max ?? Math.max(0, ...state.rounds.flatMap((round) => round.rooms));
 }
 
-/** Points for a place in one counted round: the organiser's table under Custom points, else Standard points. */
-function pointsForPlace(state: TournamentState, place: number): number {
-  return state.gamemodeConfig.scoring === 'positional-points'
-    ? positionalPoints(place, state.gamemodeConfig.positionalPointsTable ?? [])
-    : standardPoints(place, largestRoomSize(state));
+/**
+ * The points of each place, 1st first, in a counted pooling room of `roomSize` units. With `pointsVersion` 2 it is the
+ * Standard table (or the Custom table's first L entries) read at the room's size; without it, the earlier rule:
+ * the same list in every room, Standard from the largest room size down to 1, a Custom table whole.
+ */
+export function roomPointsByPlace(state: TournamentState, roomSize: number): number[] {
+  const { scoring, positionalPointsTable, pointsVersion } = state.gamemodeConfig;
+  const largestRoom = largestRoomSize(state);
+  const custom = scoring === 'positional-points';
+  if (pointsVersion !== 2) {
+    return custom
+      ? (positionalPointsTable ?? [])
+      : Array.from({ length: largestRoom }, (_, index) => standardPoints(index + 1, largestRoom));
+  }
+  const table = custom ? (positionalPointsTable ?? []) : standardPointsTable(largestRoom);
+  return scaledRoomPoints(table, largestRoom, roomSize);
 }
 
-/** The points a shared place earns: the average of the points of the `count` places it covers. */
-function pointsForSharedPlace(state: TournamentState, place: number, count: number): number {
+/** The points a shared place earns: the average, unrounded, of the points of the `count` places it covers. */
+function pointsForSharedPlace(roomPoints: readonly number[], place: number, count: number): number {
   let total = 0;
-  for (let offset = 0; offset < count; offset += 1) total += pointsForPlace(state, place + offset);
+  for (let offset = 0; offset < count; offset += 1) total += roomPoints[place + offset - 1] ?? 0;
   return total / count;
 }
 
@@ -524,6 +536,11 @@ function materializeStandings(entries: StandingAccumulator[]): TournamentStandin
     .sort(compareStandings);
 }
 
+/** The units placed in a room (its line-up), scored or not. */
+function roomUnitCount(state: TournamentState, roundIndex: number, room: number): number {
+  return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length;
+}
+
 /**
  * A room with exactly one assigned unit is not a match (its opponent was
  * removed, or the seeder left an odd unit alone): the standings credit the
@@ -532,7 +549,7 @@ function materializeStandings(entries: StandingAccumulator[]): TournamentStandin
  * normal match. Advancement is unaffected: a lone unit already advances.
  */
 export function isUncontestedRoom(state: TournamentState, roundIndex: number, room: number): boolean {
-  return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length === 1;
+  return roomUnitCount(state, roundIndex, room) === 1;
 }
 
 /** Display option: `liveRound` is the round still being played; its partly scored rooms are left out of the standings until their last score lands. Advancement and mutations omit it. */
@@ -542,8 +559,7 @@ export interface StandingsOptions {
 
 /** True once every unit assigned to the room has a score. */
 export function isRoomFullyScored(state: TournamentState, roundIndex: number, room: number): boolean {
-  const assigned = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length;
-  return scoreRoom(state, roundIndex, room, null).length === assigned;
+  return scoreRoom(state, roundIndex, room, null).length === roomUnitCount(state, roundIndex, room);
 }
 
 function isHeldBackLiveRoom(
@@ -583,7 +599,14 @@ function walkoverNames(state: TournamentState, roundIndex: number, round: Tourna
 }
 
 function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutcome {
-  return { roundIndex, score: null, rank: null, points: pointsForPlace(state, 1), bye: true, share: null };
+  return {
+    roundIndex,
+    score: null,
+    rank: null,
+    points: roomPointsByPlace(state, 1)[0] ?? 0,
+    bye: true,
+    share: null,
+  };
 }
 
 /** Every scored unit of a room with its result, best place first. */
@@ -593,12 +616,13 @@ function roomOutcomes(
   room: number,
 ): Array<RoundOutcome & { name: string }> {
   const scored = scoreRoom(state, roundIndex, room, null);
+  const roomPoints = roomPointsByPlace(state, roomUnitCount(state, roundIndex, room));
   return orderRoomWithPlaces(scored, roundIndex, room, state).map(({ entry, place, sharedBy }) => ({
     name: entry.name,
     roundIndex,
     score: entry.score,
     rank: place,
-    points: pointsForSharedPlace(state, place, sharedBy),
+    points: pointsForSharedPlace(roomPoints, place, sharedBy),
     bye: false,
     share: relativeRoomShare(entry.score, scored),
     ...(sharedBy > 1 ? { shared: true } : {}),

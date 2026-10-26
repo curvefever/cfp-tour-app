@@ -821,6 +821,19 @@ describe('generateTournament -- positional-points scoring', () => {
     expect(result.state.gamemodeConfig.positionalPointsTable).toEqual([10, 8, 6, 5, 4, 3, 2, 1]);
   });
 
+  it('writes pointsVersion 2 into the gamemodeConfig it builds, with or without pooling', () => {
+    const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
+    for (const poolingPhase of ['qual-table', 'none'] as const) {
+      const result = generateTournament(
+        state,
+        createDefaultSetup({ poolingPhase }),
+        createTournamentRuntime(),
+      );
+      expect(result.status).toBe('generated');
+      if (result.status === 'generated') expect(result.state.gamemodeConfig.pointsVersion).toBe(2);
+    }
+  });
+
   it('defaults to fairpoints scoring with no positionalPointsTable when the field is left blank', () => {
     const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table' });

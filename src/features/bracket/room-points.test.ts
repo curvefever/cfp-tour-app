@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import {
+  buildState,
+  scoreCurrentRound,
+  withEarlierPointsRule,
+} from '../../domain/tournament/__tests__/play-through';
 import { shareTiedPoints } from '../../domain/tournament/mutations';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { scoreKeysForPosition } from '../../domain/tournament/scoring';
@@ -24,7 +28,7 @@ function start(
     },
   });
   if (!state) throw new Error('generation failed');
-  return state;
+  return withEarlierPointsRule(state);
 }
 
 /** Scores the given rooms of the current round: the first seat highest, descending by seat. */
