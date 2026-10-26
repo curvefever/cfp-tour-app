@@ -7,7 +7,7 @@ import type { TournamentRound, TournamentState } from './types';
  * room lose its fair share of the eliminations, instead of every room advancing the same number. The units
  * of one size are ranked together, and an elimination that does not divide evenly (a spare cut) falls on the
  * size whose next in line ranks lowest against every room of that size so far. A room's winner always advances
- * while the round keeps at least one unit per room. Rule and reasoning: `plans/2026-10-26-fair-cut.md`.
+ * while the round keeps at least one unit per room. Rule and reasoning: `docs/rules.md`, "Lucky losers".
  */
 
 /** A place that only some of a group's units get through from: the lucky chances ("★"). */

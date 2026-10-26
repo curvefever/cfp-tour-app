@@ -272,7 +272,7 @@ describe('fairCutShape: safeguard and constructed shapes', () => {
   });
 });
 
-// Rooms A–G of 4 and H of 3 (see plans/2026-10-26-fair-cut.md).
+// Rooms A–G of 4 and H of 3 (`docs/rules.md`, "Lucky losers").
 const WORKED_SCORES = [
   [40, 30, 20, 10],
   [35, 30, 25, 10],
@@ -749,6 +749,27 @@ describe('double elimination', () => {
     const result = doubleEliminationComputeAdvancement(scored, index);
     expect(result.winners).toHaveLength(29);
     expect(result.losers).toHaveLength(8);
+    expect(new Set(result.winners.map((entry) => entry.name))).toEqual(
+      names(fairCutAdvancement(scored, index)),
+    );
+    // The earlier rule gives the same counts (5 + 4); the sets differ for some scores.
+    const differs = Array.from({ length: 10 }, (_, seed) =>
+      seatedAndScored(state, index, randomScores(round.rooms, seed + 1)),
+    ).some((candidate) => {
+      const fair = doubleEliminationComputeAdvancement(candidate, index);
+      const today = doubleEliminationComputeAdvancement(withEarlierCutRule(candidate), index);
+      return (
+        fair.winners
+          .map((entry) => entry.name)
+          .sort()
+          .join() !==
+        today.winners
+          .map((entry) => entry.name)
+          .sort()
+          .join()
+      );
+    });
+    expect(differs).toBe(true);
     const { additions } = doubleEliminationContributions(scored, index);
     expect((additions.get(round.losersTo as number) ?? []).map((seed) => seed.name).sort()).toEqual(
       result.losers.map((entry) => entry.name).sort(),
@@ -886,5 +907,53 @@ describe('a score correction after Previous', () => {
     expect(through(advanced).has(roomA[2])).toBe(true);
     expect(through(redrawn).has(roomA[3])).toBe(true);
     expect(through(redrawn).has(roomA[2])).toBe(false);
+  });
+});
+
+describe('a score correction after Previous in a double-elimination round', () => {
+  it('the replay re-routes the drop: a unit corrected to the top of its room moves from the losers bracket to the winners', () => {
+    const state = generate('FFA 37 DE', 37, {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'double-elimination-shared-final',
+      poolingPhase: 'none',
+    });
+    const index = firstEliminationIndex(state);
+    let current = state;
+    for (let round = 0; round < index; round += 1) {
+      const result = advanceTournamentRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
+      if (result.status !== 'advanced') throw new Error(result.status);
+      current = result.state;
+    }
+    const round = current.rounds[index];
+    const advanceTo = (from: TournamentState): TournamentState => {
+      const result = advanceTournamentRound(from);
+      if (result.status !== 'advanced') throw new Error(result.status);
+      return result.state;
+    };
+    const distinct = randomScores(round.rooms, 4).map((room) =>
+      room.map((score, slot) => score * 100 + slot),
+    );
+    const scored = scoreRooms(current, index, distinct);
+    const advanced = advanceTo(scored);
+    const dropped = doubleEliminationComputeAdvancement(scored, index).losers[0].name;
+
+    // Previous, then that unit's score turns out to be 100000.
+    const corrected = distinct.map((room) => [...room]);
+    const droppedRoom = current.assignments[index].find((entry) => entry.name === dropped)?.room as number;
+    const roomPosition = current.assignments[index]
+      .filter((entry) => entry.room === droppedRoom)
+      .findIndex((e) => e.name === dropped);
+    corrected[droppedRoom - 1][roomPosition] = 100000;
+    const redrawn = advanceTo(scoreRooms({ ...advanced, curRound: index }, index, corrected));
+    const direct = advanceTo(scoreRooms(current, index, corrected));
+
+    const seatedIn = (from: TournamentState, target: number) =>
+      from.assignments[target].some((entry) => entry.name === dropped && entry.room !== null);
+    expect(seatedIn(advanced, index + 1)).toBe(true);
+    expect(seatedIn(redrawn, index + 1)).toBe(false);
+    expect(redrawn.assignments[index + 1]).toEqual(direct.assignments[index + 1]);
+    expect(redrawn.pendingBracketSeeds).toEqual(direct.pendingBracketSeeds);
+    const winnersPool = redrawn.pendingBracketSeeds[round.winnersTo as number] ?? [];
+    expect(winnersPool.some((seed) => seed.name === dropped)).toBe(true);
   });
 });
