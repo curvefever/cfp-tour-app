@@ -69,7 +69,7 @@ describe('settingsRecapGroups', () => {
     const state = stateOf({ poolingPhase: 'qual-table', qualAdv: '24' });
     const scaled = { ...state, gamemodeConfig: { ...state.gamemodeConfig, pointsVersion: 2 as const } };
     expect(itemsOf(settingsRecapGroups(scaled))['Scoring system']).toBe(
-      'Standard points (10, 8, 6, 5, 4, 3, 2, 1 in rooms of 8; else 1st = room size, −1 per place; smaller rooms scaled)',
+      'Standard points (FFA: 10, 8, 6, 5, 4, 3, 2, 1; other formats: 1st = largest room size, −1 per place; smaller rooms scaled)',
     );
     expect(itemsOf(settingsRecapGroups(state))['Scoring system']).toBe(
       'Standard points (1st = largest room size, −1 per place)',

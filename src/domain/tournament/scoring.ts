@@ -229,7 +229,7 @@ export function positionalPoints(rank: number, table: readonly number[]): number
 /** How Setup names each scoring system (players only ever see "Points"); a new tournament scores with the scaled rule. */
 export const SCORING_SYSTEM_OPTION_LABELS: Record<ScoringSystemKey, string> = {
   fairpoints:
-    'Standard points (10, 8, 6, 5, 4, 3, 2, 1 in rooms of 8; else 1st = room size, −1 per place; smaller rooms scaled)',
+    'Standard points (FFA: 10, 8, 6, 5, 4, 3, 2, 1; other formats: 1st = largest room size, −1 per place; smaller rooms scaled)',
   'positional-points': 'Custom points table',
 };
 
