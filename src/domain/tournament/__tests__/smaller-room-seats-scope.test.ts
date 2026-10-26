@@ -10,6 +10,7 @@ import {
   startSpread,
   type SpreadKind,
 } from './spread-play';
+import { withEarlierCutRule } from './play-through';
 
 /** Every mixed-size room round spreads its smaller-room seats: warm-ups, uncounted rounds, elimination rounds. */
 
@@ -130,7 +131,7 @@ describe('rounds with their own mechanism are drawn as before (captured from b56
   function drawsOf(kind: SpreadKind, count: number, scheduleLogic: string): string[] {
     const base = spreadConfig(kind, count, { pooling: 'none' });
     const config = { ...base, setup: { ...base.setup, scheduleLogic } } as typeof base;
-    let state = startSpread(config);
+    let state = withEarlierCutRule(startSpread(config));
     const lines: string[] = [];
     for (let guard = 0; guard < 30; guard += 1) {
       const round = state.rounds[state.curRound];

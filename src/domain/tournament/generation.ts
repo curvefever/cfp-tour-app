@@ -574,6 +574,7 @@ export function generateTournament(
     scoring: config.scoring,
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
     pointsVersion: 2,
+    cutVersion: 2,
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

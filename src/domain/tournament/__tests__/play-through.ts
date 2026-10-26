@@ -29,6 +29,12 @@ export function withEarlierPointsRule(state: TournamentState): TournamentState {
   return { ...state, gamemodeConfig };
 }
 
+/** The state as a tournament stored before the fair cut (no `cutVersion`): for tests of the earlier cut, or ones whose expectations were captured under it. */
+export function withEarlierCutRule(state: TournamentState): TournamentState {
+  const { cutVersion: _cutVersion, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
 export function buildState(config: SweepConfig): TournamentState | null {
   const teamSize = getGameFormat(config.setup?.gameFormat ?? 'team-3v3v3')?.teamSize ?? 3;
   const players = config.teams

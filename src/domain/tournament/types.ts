@@ -234,6 +234,8 @@ export interface MaterializedGamemodeConfig {
   positionalPointsTable?: number[];
   /** Which points rule the tournament scores with. Absent = the earlier rule (Standard = largest room size down to 1, a Custom table read place by place, whatever the room size); 2 = the new Standard tables, with a smaller room reading the table scaled to its size (scoring.ts). generation.ts writes 2; a stored tournament without it keeps its points. */
   pointsVersion?: 2;
+  /** Which cut an elimination round makes. Absent = the earlier cut (every room advances the same number, the rest are lucky losers across rooms); 2 = the fair cut (fair-cut.ts: each room size loses its share, a room's winner always advances) in single elimination, Semis and double elimination winners and losers rounds. generation.ts writes 2; a stored tournament without it keeps its cut. */
+  cutVersion?: 2;
   drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */

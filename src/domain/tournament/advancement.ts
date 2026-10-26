@@ -1,3 +1,4 @@
+import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import {
@@ -46,7 +47,7 @@ export function compareStandings(first: TournamentStanding, second: TournamentSt
   return (second.roomShare ?? 0) - (first.roomShare ?? 0);
 }
 
-interface ScoredUnit {
+export interface ScoredUnit {
   name: string;
   score: number;
 }
@@ -74,7 +75,7 @@ interface CutoffTieCluster {
   groupLabel?: string;
 }
 
-function scoreRoom(
+export function scoreRoom(
   state: TournamentState,
   roundIndex: number,
   room: number,
@@ -537,7 +538,7 @@ function materializeStandings(entries: StandingAccumulator[]): TournamentStandin
 }
 
 /** The units placed in a room (its line-up), scored or not. */
-function roomUnitCount(state: TournamentState, roundIndex: number, room: number): number {
+export function roomUnitCount(state: TournamentState, roundIndex: number, room: number): number {
   return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length;
 }
 
@@ -741,6 +742,11 @@ export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: 
     return computeGroupStageAdvancement(state);
   }
 
+  if (usesFairCut(state, roundIndex)) {
+    const { advancing, luckyNames } = fairCutAdvancement(state, roundIndex);
+    return { advancing, luckyNames };
+  }
+
   const direct: Array<{ name: string; isLucky: boolean }> = [];
   const luckyPool: LuckyLoserCandidate[] = [];
   for (let room = 1; room <= round.rooms.length; room += 1) {
@@ -870,6 +876,14 @@ export function doubleEliminationComputeAdvancement(
   roundIndex: number,
 ): DoubleEliminationAdvancementResult {
   const round = state.rounds[roundIndex];
+  if (usesFairCut(state, roundIndex)) {
+    const { advancing, eliminated, luckyNames } = fairCutAdvancement(state, roundIndex);
+    return {
+      winners: advancing.map(({ name }) => ({ name })),
+      losers: eliminated.map((name) => ({ name })),
+      luckyNames,
+    };
+  }
   const direct: Array<{ name: string }> = [];
   const losers: Array<{ name: string }> = [];
   const luckyPool: LuckyLoserCandidate[] = [];

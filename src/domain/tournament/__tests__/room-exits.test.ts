@@ -8,7 +8,7 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { waterfallBracketPhase, type OrderedWaterfallGraph } from '../waterfall-bracket';
-import { scoreCurrentRound } from './play-through';
+import { scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { buildAssignments, buildRound } from './test-fixtures';
 
@@ -289,10 +289,12 @@ describe('roundExitRule -- double elimination', () => {
     // The one shape a race bracket can never produce (luckyCount is always 0
     // there): a shared-Final WB round whose lucky-chance rank falls back to
     // `{ drop: losersTo }`, not 'eliminate'.
-    const state = generate(37, {
-      gameFormat: 'ffa-individual',
-      scheduleLogic: 'double-elimination-shared-final',
-    });
+    const state = withEarlierCutRule(
+      generate(37, {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'double-elimination-shared-final',
+      }),
+    );
     const luckyWb = state.rounds.findIndex((round) => round.bracket === 'winners' && round.luckyCount > 0);
     expect(luckyWb).toBeGreaterThanOrEqual(0); // sanity check on the fixture, not the function under test
 

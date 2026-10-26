@@ -30,7 +30,7 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentStanding, TournamentState } from '../types';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { buildState, scoreCurrentRound, withEarlierPointsRule } from './play-through';
+import { buildState, scoreCurrentRound, withEarlierCutRule, withEarlierPointsRule } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
@@ -882,12 +882,14 @@ describe('computeLuckyLoserStandings', () => {
 
   it('43 individual players, first elimination round: the lucky losers are the top candidates by relative share', () => {
     // 43 rather than 37: its first elimination round (rooms of 8, 7, 7, 7, 7, 7) has 5 lucky losers; 37's lucky-loser rounds have equal rooms or a single lucky loser.
-    let state = buildState({
-      label: 'ffa 43',
-      count: 43,
-      teams: false,
-      setup: { gameFormat: 'ffa-individual' },
-    }) as TournamentState;
+    let state = withEarlierCutRule(
+      buildState({
+        label: 'ffa 43',
+        count: 43,
+        teams: false,
+        setup: { gameFormat: 'ffa-individual' },
+      }) as TournamentState,
+    );
     for (let round = 0; round < 2; round += 1) {
       const result = advanceTournamentRound(scoreCurrentRound(state, 0));
       if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
