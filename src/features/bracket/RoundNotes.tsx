@@ -1,10 +1,12 @@
 import { computeLuckyLoserStandings } from '../../domain/tournament/advancement';
 import { roomLetter } from '../../domain/tournament/bracket';
+import { fairCutRace } from '../../domain/tournament/fair-cut';
 import { lateJoinersOf } from '../../domain/tournament/late-joiners';
 import { cn } from '../../components/ui';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { formatTieBreak, formatTieBreakPrecise, sharesWholePercent } from '../standings/standings-text';
+import { spareCutText } from './spare-cut-text';
 import { roomsStillPlaying, stillPlayingText } from './still-playing';
 
 /**
@@ -19,6 +21,8 @@ export function LuckyLoserStandingsPanel({
   state: TournamentState;
   roundIndex: number;
 }) {
+  const race = fairCutRace(state, roundIndex);
+  if (race) return <FairCutRacePanel state={state} roundIndex={roundIndex} race={race} />;
   const standings = computeLuckyLoserStandings(state, roundIndex);
   if (!standings?.length) return null;
   const spots = state.rounds[roundIndex].luckyCount;
@@ -47,6 +51,72 @@ export function LuckyLoserStandingsPanel({
           </span>
         </div>
       ))}
+      {playing ? <div className='text-[13px] text-muted'>{playing}</div> : null}
+    </div>
+  );
+}
+
+function spotsText(minSpots: number, maxSpots: number): string {
+  const range = minSpots === maxSpots ? `${maxSpots}` : `${minSpots}–${maxSpots}`;
+  return `${range} ${maxSpots === 1 ? 'SPOT' : 'SPOTS'}`;
+}
+
+/**
+ * The lucky-loser race under the fair cut with several room sizes: one list per size that has spots (the largest
+ * first), each unit with its share of its room total, the unit in line for a spare cut tagged, and under the lists
+ * the spare cut as it stands. The "?" box explains the rule.
+ */
+function FairCutRacePanel({
+  state,
+  roundIndex,
+  race,
+}: {
+  state: TournamentState;
+  roundIndex: number;
+  race: NonNullable<ReturnType<typeof fairCutRace>>;
+}) {
+  const playing = stillPlayingText(roomsStillPlaying(state, roundIndex));
+  const label = (name: string) => unitDisplay(state, name).label;
+  const round = state.rounds[roundIndex];
+  const spare = spareCutText(race.spareCuts, label, round.bracket === 'winners' && round.losersTo != null);
+  if (race.groups.length === 0) return null;
+  return (
+    <div className='flex flex-col gap-1.5 rounded-xs bg-cfp-game-deep px-3 py-2.5 outline-2 outline-dashed outline-cfp-green-dim'>
+      {race.groups.map((group) => {
+        const sharesPercent = sharesWholePercent(
+          group.units.map((entry) => ({ points: null, share: entry.relative })),
+        );
+        return (
+          <div className='flex flex-col gap-1.5' key={group.size}>
+            <div className='text-[13px] font-extrabold tracking-[0.05em] text-cfp-green'>
+              ★ {group.rooms === 1 ? 'ROOM' : 'ROOMS'} OF {group.size} ·{' '}
+              {spotsText(group.minSpots, group.maxSpots)}
+            </div>
+            {group.units.map((entry, index) => (
+              <div className='flex items-center gap-2 text-[15px]' key={entry.name}>
+                <span className='w-4 shrink-0 font-bold text-muted'>{index + 1}</span>
+                <span className='min-w-0 flex-1 wrap-break-word font-bold'>
+                  {label(entry.name)}
+                  {entry.spareCut ? (
+                    <span className='ml-1.5 text-[12px] font-bold text-cfp-green'>spare cut?</span>
+                  ) : null}
+                </span>
+                <span className='shrink-0 text-muted'>Room {roomLetter(entry.room)}</span>
+                <span
+                  className={cn(
+                    'w-11 shrink-0 text-right font-extrabold',
+                    sharesPercent[index] && 'underline decoration-dotted',
+                  )}
+                  title={formatTieBreakPrecise(entry.relative)}
+                >
+                  {formatTieBreak(entry.relative)}
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+      {spare ? <div className='text-[13px] text-cfp-text-soft'>{spare}</div> : null}
       {playing ? <div className='text-[13px] text-muted'>{playing}</div> : null}
     </div>
   );

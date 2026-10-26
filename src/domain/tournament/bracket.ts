@@ -1,4 +1,5 @@
 import { ordinal } from '../../lib/ordinal';
+import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import type { TournamentRound, TournamentState } from './types';
@@ -411,8 +412,23 @@ function seatedRoomSizes(
   return planned.map((_, index) => seated.filter((entry) => entry.room === index + 1).length);
 }
 
+/** The room-rank slots a source room sends on under the fair cut, per room (tier-major order is kept by the caller), and the lucky slots left of the round's target. */
+function fairCutSlotPlan(
+  source: TournamentRound,
+  roomSizes: number[],
+): { directPerRoom: number[]; lucky: number } {
+  const { groups } = fairCutShape(roomSizes, fairCutSurvivors(source, roomSizes));
+  const directPerRoom = roomSizes.map((size, index) => {
+    const group = groups.find((candidate) => candidate.rooms.includes(index + 1));
+    return group ? group.direct : Math.min(size, 1);
+  });
+  const lucky = source.advTotal - source.byeCount - directPerRoom.reduce((sum, direct) => sum + direct, 0);
+  return { directPerRoom, lucky: Math.max(0, lucky) };
+}
+
 export function projectFutureRoundSlots(
-  state: Pick<TournamentState, 'rounds' | 'curRound'> & Partial<Pick<TournamentState, 'assignments'>>,
+  state: Pick<TournamentState, 'rounds' | 'curRound'> &
+    Partial<Pick<TournamentState, 'assignments' | 'gamemodeConfig'>>,
 ): Record<number, ProjectedSlotLabel[][] | null> {
   const { rounds } = state;
   const labels = bracketRoundLabels({ rounds });
@@ -552,6 +568,26 @@ export function projectFutureRoundSlots(
             });
           }
         }
+        continue;
+      }
+      if (state.gamemodeConfig?.cutVersion === 2 && roundCoversFairCut(source)) {
+        // The fair cut: each room size sends its own number of places on, the rest of the target are lucky losers.
+        const { directPerRoom, lucky } = fairCutSlotPlan(source, seatedRoomSizes(state, sourceIndex));
+        for (let rank = 1; rank <= Math.max(0, ...directPerRoom); rank += 1) {
+          for (const [index, direct] of directPerRoom.entries()) {
+            if (rank <= direct)
+              pool.push({
+                kind: 'room-rank',
+                room: index + 1,
+                rank,
+                advPerRoom: direct,
+                sourceRound,
+                sourceLabel,
+                roomKnown,
+              });
+          }
+        }
+        for (let i = 0; i < lucky; i += 1) pool.push({ kind: 'lucky' });
         continue;
       }
       const advPerRoom = source.advPerRoom ?? 0;

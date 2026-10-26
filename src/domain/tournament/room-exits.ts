@@ -1,4 +1,5 @@
 import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
+import { roundFairCutShape, usesFairCut, type FairCutGroup } from './fair-cut';
 import { kingsValleyRoundMoves, type KingsValleyRoomBandCounts } from './kings-valley';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 import { waterfallDestination } from './waterfall-bracket';
@@ -19,7 +20,17 @@ import { waterfallDestination } from './waterfall-bracket';
 export type RoomExitBand =
   | { kind: 'advance'; fromRank: number; toRank: number; destination: number } // absolute round index
   | { kind: 'drop'; fromRank: number; toRank: number; destination: number } // double-elim: to the losers bracket
-  | { kind: 'lucky-chance'; rank: number; spots: number; otherwise: 'eliminate' | { drop: number } }
+  | {
+      kind: 'lucky-chance';
+      rank: number;
+      /** The most units that can advance from this place, over all rooms of the group (today's `luckyCount` without the fair cut). */
+      spots: number;
+      otherwise: 'eliminate' | { drop: number };
+      /** The fair cut with two or more room sizes only: the fewest spots, and the group of rooms the spots are shared over. */
+      minSpots?: number;
+      size?: number;
+      rooms?: number;
+    }
   | { kind: 'eliminate'; fromRank: number; toRank: number }
   // Kings Valley -- three separate members (not one `'promote' | 'stay' | 'demote'` kind field)
   // so a consumer's `band.kind === 'promote'` check discriminates cleanly via Extract<>,
@@ -122,6 +133,44 @@ function cutRoomBands(
 }
 
 /**
+ * A room's bands under the fair cut: its group's always-through places, then a lucky-chance band for each place
+ * with spots (two in a row only when the cap pushes several spare cuts onto one size), the rest out or dropped.
+ * With several room sizes the lucky bands carry their range and group, which the pop-up names.
+ */
+function fairCutRoomBands(
+  group: FairCutGroup,
+  sizes: number,
+  actualSize: number,
+  advanceDestination: number,
+  rest: 'eliminate' | { drop: number },
+): RoomExitBand[] {
+  const bands: RoomExitBand[] = [];
+  const advanceTo = Math.min(group.direct, actualSize);
+  if (advanceTo > 0) {
+    bands.push({ kind: 'advance', fromRank: 1, toRank: advanceTo, destination: advanceDestination });
+  }
+  let rank = advanceTo + 1;
+  for (const place of group.chancePlaces) {
+    if (place.maxSpots <= 0 || place.place > actualSize) continue;
+    bands.push({
+      kind: 'lucky-chance',
+      rank: place.place,
+      spots: place.maxSpots,
+      otherwise: rest,
+      ...(sizes > 1 ? { minSpots: place.minSpots, size: group.size, rooms: group.rooms.length } : {}),
+    });
+    rank = place.place + 1;
+  }
+  if (rank > actualSize) return bands;
+  bands.push(
+    rest === 'eliminate'
+      ? { kind: 'eliminate', fromRank: rank, toRank: actualSize }
+      : { kind: 'drop', fromRank: rank, toRank: actualSize, destination: rest.drop },
+  );
+  return bands;
+}
+
+/**
  * Kings Valley's promote/stay/demote-or-eliminate split for one room, in
  * rank order -- mirrors kingsValleyComputeAdvancement's own band maths
  * exactly (advancement.ts). `band` is this room's own entry from
@@ -213,6 +262,30 @@ function perRoomRule(
   };
 }
 
+/** A covered round under the fair cut: single elimination and Semis send the rest out, double elimination winners and losers rounds drop them (or eliminate them from a losers round). */
+function fairCutRule(
+  state: TournamentState,
+  roundIndex: number,
+  assignments: RoundAssignment[] | undefined,
+): RoundExitRule {
+  const round = state.rounds[roundIndex];
+  const { groups } = roundFairCutShape(state, roundIndex);
+  const doubleElimination = Boolean(round.bracket);
+  const rest: 'eliminate' | { drop: number } =
+    doubleElimination && round.losersTo != null ? { drop: round.losersTo } : 'eliminate';
+  const advanceDestination = doubleElimination ? (round.winnersTo ?? roundIndex + 1) : roundIndex + 1;
+  return perRoomRule(round, assignments, (roomIndex, actualSize) => {
+    const group = groups.find((candidate) => candidate.rooms.includes(roomIndex + 1));
+    if (!group) {
+      // A room of one unit: it advances alone (a single-elimination room draws no bands, as before).
+      return doubleElimination && actualSize === 1
+        ? [{ kind: 'advance', fromRank: 1, toRank: 1, destination: advanceDestination }]
+        : [];
+    }
+    return fairCutRoomBands(group, groups.length, actualSize, advanceDestination, rest);
+  });
+}
+
 /**
  * The one structural description of how a round's occupants exit it --
  * never re-decides advancement, only describes what the real transition
@@ -262,6 +335,10 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
     return perRoomRule(round, assignments, (roomIndex, actualSize) =>
       waterfallRoomBands(round, roomIndex, actualSize),
     );
+  }
+
+  if (usesFairCut(state, roundIndex)) {
+    return fairCutRule(state, roundIndex, assignments);
   }
 
   if (round.bracket === 'winners' || round.bracket === 'losers') {

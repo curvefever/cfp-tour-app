@@ -26,6 +26,15 @@ function rankRange(from: number, to: number): string {
   return from === to ? `${from}` : `${from}–${to}`;
 }
 
+/** "2 spots", or with several room sizes "2–3 spots, rooms of 4" / "0–1 spot, room of 3". */
+function luckySpots(band: Extract<RoomExitBand, { kind: 'lucky-chance' }>): string {
+  const spots = `${band.spots} spot${band.spots === 1 ? '' : 's'}`;
+  if (band.size === undefined) return spots;
+  const range = band.minSpots === band.spots ? `${band.spots}` : `${band.minSpots}–${band.spots}`;
+  const group = band.rooms === 1 ? `room of ${band.size}` : `rooms of ${band.size}`;
+  return `${range} spot${band.spots === 1 ? '' : 's'}, ${group}`;
+}
+
 function roomBandLine(band: RoomExitBand, bands: RoomExitBand[], labels: Labels): ExitLine {
   switch (band.kind) {
     case 'advance':
@@ -41,11 +50,7 @@ function roomBandLine(band: RoomExitBand, bands: RoomExitBand[], labels: Labels)
         where: `→ ${destinationLabel(band.destination, labels)}`,
       };
     case 'lucky-chance':
-      return {
-        tone: 'dashed',
-        places: `${band.rank} ★`,
-        where: `lucky loser? (${band.spots} spot${band.spots === 1 ? '' : 's'})`,
-      };
+      return { tone: 'dashed', places: `${band.rank} ★`, where: `lucky loser? (${luckySpots(band)})` };
     case 'eliminate':
       return { tone: 'red', places: rankRange(band.fromRank, band.toRank), where: 'out' };
     case 'promote':

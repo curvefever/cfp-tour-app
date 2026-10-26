@@ -216,13 +216,14 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 | Sentence | Built in | Example output |
 | --- | --- | --- |
 | Room title | [room-title.ts:14](src/features/bracket/room-title.ts:14) | Final · Semi A · Group B · Room A · Room C |
-| Exit pop-up, bracket room | [exit-lines.ts:69](src/features/bracket/exit-lines.ts:69) | 1 → Semis · 2–3 → R1C · 4 ★ lucky loser? (2 spots) · 5–8 out · 1 → Room A (Kings Valley) · stay |
+| Exit pop-up, bracket room | [exit-lines.ts:69](src/features/bracket/exit-lines.ts:69) | 1 → Semis · 2–3 → R1C · 4 ★ lucky loser? (2 spots) · 5–8 out · with `cutVersion` and several room sizes: 4 ★ lucky loser? (2–3 spots, rooms of 4) · 3 ★ lucky loser? (0–1 spot, room of 3) · 1 → Room A (Kings Valley) · stay |
 | Exit pop-up, pooling room | [exit-lines.ts:95](src/features/bracket/exit-lines.ts:95) | 1st +8 / 2nd +7 … 7th +2 points · All → qualification · All seeding only, not counted · All → Round 4 |
 | Exit pop-up, standings | [exit-lines.ts:118](src/features/bracket/exit-lines.ts:118) | 1–16 → R1 · 17–24 → R1C · 25–37 out · 1–2 (each group) → Round 4 · 3+ out · All → Semis |
 | Follow banner | [follow-text.ts:86](src/features/bracket/follow-text.ts:86) | Quarters · Room B · 4th → Semi B · Out in Quarters · Room B · 7th · Round 3 · Bye · Round 2 · Room B · #6 in qualification · Group B · Room A · #2 in group · Out in qualification · #25 · Not in this bracket |
 | Follow banner on Standings tab | [follow-text.ts:128](src/features/bracket/follow-text.ts:128) | #14 · → Round 4 · #30 · out · Not in these standings |
 | Colour key row | [bracket-legend.ts:64](src/features/bracket/bracket-legend.ts:64) | Through = Advances or qualifies · Through to R1B or R2 = A second group of places · Lucky loser = Qualified on a spare spot ★ · Out = Eliminated · Undecided = Not settled yet, or a tie-break pending · Losers bracket = Dropped, still playing · Promoted / Stays / Demoted = Kings Valley: moves up a room / same room / moves down a room (rows shown only where the tournament has such rounds) |
-| Lucky loser race box | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) | ★ LUCKY LOSER RACE · 2 SPOTS, then "Room C still playing." / "Rooms B and C still playing." / "Rooms A, B and C still playing." |
+| Lucky loser race box (one room size, and tournaments without `cutVersion`) | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) | ★ LUCKY LOSER RACE · 2 SPOTS, then "Room C still playing." / "Rooms B and C still playing." / "Rooms A, B and C still playing." |
+| Lucky loser race box, fair cut with several room sizes | [RoundNotes.tsx:91](src/features/bracket/RoundNotes.tsx:91) | ★ ROOMS OF 4 · 2–3 SPOTS, a list of units, ★ ROOM OF 3 · 0–1 SPOT, then "Spare cut: Team Cedar is in the bottom 14% of rooms of 4 so far, Team Dune in the bottom 21% of rooms of 3. Team Cedar goes out." (… "drops to the losers bracket." in a double-elimination winners round) |
 | Tie banners | [TieBanners.tsx:20](src/features/bracket/TieBanners.tsx:20) | ⚠ Tie-break required — Room B (score 123) · ⚖ Group A qualification tie at the cut-off (45 pts) · ⚖ Qualification tie between 24th and 25th (45 pts) · Ranked so far: A > B — tied: C, D — pick who ranks next |
 | Slot labels of undrawn rooms | [bracket.ts:167](src/domain/tournament/bracket.ts:167) | Winner of Room 2B · Room 2B, Rank 3 · Qualification #7 · ★ Lucky loser (any room) · Qualifier from standings (seed TBD) |
 
@@ -286,6 +287,8 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 | `How to read the bracket` | fixed | viewer | [BracketInfoBox.tsx:46](src/features/bracket/BracketInfoBox.tsx:46) | CSS caps (title) |
 | `Close` | fixed | viewer | [BracketInfoBox.tsx:48](src/features/bracket/BracketInfoBox.tsx:48) |  |
 | `★ Lucky losers` | fixed | viewer | [BracketInfoBox.tsx:71](src/features/bracket/BracketInfoBox.tsx:71) | CSS caps (title) |
+| `Each room size loses its fair share of the cut. Within a size, places count first, then score relative to the room's average. A spare cut falls on whichever next in line ranks lower against every room of their size so far.` | fixed | viewer | [bracket-legend.ts:24](src/features/bracket/bracket-legend.ts:24) | the "★ Lucky losers" paragraph of a tournament with `cutVersion` |
+| `Spare spots are awarded to players by score relative to their room's average.` | fixed | viewer | [bracket-legend.ts:26](src/features/bracket/bracket-legend.ts:26) | the same paragraph for a tournament without `cutVersion` |
 | `Some rounds keep spots for the best players who just missed out. Once every room of the round is scored, those players are compared by their score relative to their room's average, so a smaller room gives no head start. Until then they show as undecided, with a star.` | fixed | viewer | [BracketInfoBox.tsx:74](src/features/bracket/BracketInfoBox.tsx:74) |  |
 | `The arrow icon on a room shows who goes where from that room.` | fixed | viewer | [BracketInfoBox.tsx:81](src/features/bracket/BracketInfoBox.tsx:81) |  |
 
@@ -334,7 +337,8 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 | `→ {destinationLabel}` | built | viewer | [exit-lines.ts:35](src/features/bracket/exit-lines.ts:35) |  |
 | `→ {destinationLabel}` | built | viewer | [exit-lines.ts:41](src/features/bracket/exit-lines.ts:41) |  |
 | `{rank} ★` | built | viewer | [exit-lines.ts:46](src/features/bracket/exit-lines.ts:46) |  |
-| `lucky loser? ({spots} spot{∅ / s})` | built | viewer | [exit-lines.ts:47](src/features/bracket/exit-lines.ts:47) |  |
+| `lucky loser? ({spots} spot{∅ / s})` | built | viewer | [exit-lines.ts:53](src/features/bracket/exit-lines.ts:53) | one room size, and tournaments without `cutVersion` |
+| `lucky loser? ({min}–{max} spot{∅ / s}, room(s) of {size})` | built | viewer | [exit-lines.ts:30](src/features/bracket/exit-lines.ts:30) | fair cut with several room sizes; "{max} spot(s)" alone when min = max; "room of" for one room, "rooms of" for several |
 | `out` | fixed | viewer | [exit-lines.ts:50](src/features/bracket/exit-lines.ts:50) | lower case on screen |
 | `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:55](src/features/bracket/exit-lines.ts:55) |  |
 | `stay` | fixed | viewer | [exit-lines.ts:58](src/features/bracket/exit-lines.ts:58) | lower case on screen |
@@ -504,7 +508,9 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `★ LUCKY LOSER RACE ·` | fixed | viewer | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) |  |
+| `★ LUCKY LOSER RACE ·` | fixed | viewer | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) | one room size, and tournaments without `cutVersion` |
+| `★ {ROOM / ROOMS} OF {size} · {min–max / max} {SPOT / SPOTS}` | built | viewer | [RoundNotes.tsx:91](src/features/bracket/RoundNotes.tsx:91) | fair cut with several room sizes, one list per size with spots |
+| `spare cut?` | fixed | viewer | [RoundNotes.tsx:101](src/features/bracket/RoundNotes.tsx:101) | tag on the unit in line for a spare cut |
 | `SPOT` | fixed | viewer | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) |  |
 | `SPOTS` | fixed | viewer | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) |  |
 | `Room` | fixed | viewer | [RoundNotes.tsx:33](src/features/bracket/RoundNotes.tsx:33) |  |
@@ -1044,8 +1050,19 @@ Setup of a draft: TOURNAMENT, FORMAT, ROSTER, SCHEDULE PREVIEW panels, the water
 | --- | --- | --- | --- | --- |
 | `{up to / ∅}{count} game(s)` | built | admin | [schedule-preview-rows.ts:20](src/features/admin/setup/schedule-preview-rows.ts:20) |  |
 | `{room sizes joined by " · "} {players / teams}` | built | admin | [schedule-preview-rows.ts:26](src/features/admin/setup/schedule-preview-rows.ts:26) |  |
-| `incl. {count} lucky loser(s)` | built | admin | [schedule-preview-rows.ts:30](src/features/admin/setup/schedule-preview-rows.ts:30) |  |
-| `{advTotal} advance{lucky}` | built | admin | [schedule-preview-rows.ts:31](src/features/admin/setup/schedule-preview-rows.ts:31) |  |
+| `incl. {count} lucky loser(s)` | built | admin | [schedule-preview-rows.ts:55](src/features/admin/setup/schedule-preview-rows.ts:55) | one room size, and tournaments without `cutVersion` |
+| `{advTotal} advance: {rooms of n / the room of n} {lose / loses} {min–max / n}, …` | built | admin | [schedule-preview-rows.ts:46](src/features/admin/setup/schedule-preview-rows.ts:46) | fair cut with several room sizes, e.g. "26 advance: rooms of 4 lose 4–5, the room of 3 loses 0–1" |
+| `{advTotal} advance{lucky}` | built | admin | [schedule-preview-rows.ts:56](src/features/admin/setup/schedule-preview-rows.ts:56) |  |
+
+### spare-cut-text.ts — The spare-cut line under the lucky-loser lists
+
+| Text | Kind | Who | Where | Note |
+| --- | --- | --- | --- | --- |
+| `Spare cut` / `Spare cuts` | fixed | viewer | [spare-cut-text.ts:36](src/features/bracket/spare-cut-text.ts:36) |  |
+| `{name} is in the bottom {n}% of rooms of {size} so far` | built | viewer | [spare-cut-text.ts:7](src/features/bracket/spare-cut-text.ts:7) | the first contender; the next ones read "{name} in the bottom {n}% of rooms of {size}" |
+| `{name} is in a room with no scores yet` | built | viewer | [spare-cut-text.ts:6](src/features/bracket/spare-cut-text.ts:6) |  |
+| `{names} goes out.` / `go out.` | built | viewer | [spare-cut-text.ts:35](src/features/bracket/spare-cut-text.ts:35) |  |
+| `{names} drops to the losers bracket.` / `drop to …` | built | viewer | [spare-cut-text.ts:34](src/features/bracket/spare-cut-text.ts:34) | double-elimination winners round |
 
 ### SchedulePreviewPanel.tsx — Setup: SCHEDULE PREVIEW panel
 

@@ -9,6 +9,12 @@ import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { type RoomExitBand } from '../../domain/tournament/room-exits';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
+import { roundExitRule } from '../../domain/tournament/room-exits';
+import {
+  SE_2V2V2V2,
+  firstEliminationIndex,
+  generate,
+} from '../../domain/tournament/__tests__/fair-cut-fixtures';
 import { poolingExitLines, roomExitLines, standingsExitLines } from './exit-lines';
 
 const labels = (names: string[]) => names.map((label, index) => ({ label, roundNumber: index + 1 }));
@@ -353,5 +359,45 @@ describe('standingsExitLines: a table nobody is cut from, and a group stage', ()
       ['red', '3+'],
     ]);
     expect(lines[1].where).toBe('out');
+  });
+});
+
+describe('roomExitLines -- the fair cut with several room sizes', () => {
+  const state = generate('2v2v2v2 31', 31, SE_2V2V2V2);
+  const index = firstEliminationIndex(state);
+  const rule = roundExitRule(state, index);
+  const rooms = rule.kind === 'per-room' ? rule.rooms : [];
+  const labels = bracketRoundLabels(state);
+
+  it('names the range and the room size on the lucky line of a room of 4 and of the room of 3', () => {
+    expect(roomExitLines(rooms[0], labels).map((line) => [line.places, line.where])).toEqual([
+      ['1–3', expect.stringContaining('→')],
+      ['4 ★', 'lucky loser? (2–3 spots, rooms of 4)'],
+    ]);
+    expect(roomExitLines(rooms[7], labels)[1]).toEqual({
+      tone: 'dashed',
+      places: '3 ★',
+      where: 'lucky loser? (0–1 spot, room of 3)',
+    });
+  });
+
+  it('says "2 spots" when the count is exact', () => {
+    const lines = roomExitLines(
+      [{ kind: 'lucky-chance', rank: 4, spots: 2, minSpots: 2, size: 4, rooms: 7, otherwise: 'eliminate' }],
+      labels,
+    );
+    expect(lines[0].where).toBe('lucky loser? (2 spots, rooms of 4)');
+  });
+
+  it('keeps the single-size wording', () => {
+    const equal = generate('2v2v2v2 24', 24, SE_2V2V2V2);
+    const at = equal.rounds.findIndex(
+      (round, roundIndex) => roundIndex >= firstEliminationIndex(equal) && round.luckyCount > 0,
+    );
+    expect(at).toBeGreaterThan(0);
+    const equalRule = roundExitRule(equal, at);
+    if (equalRule.kind !== 'per-room') throw new Error('no per-room rule');
+    const where = roomExitLines(equalRule.rooms[0], bracketRoundLabels(equal)).map((line) => line.where);
+    expect(where.some((text) => /^lucky loser\? \(\d+ spots?\)$/.test(text))).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
+import { usesFairCut } from '../../domain/tournament/fair-cut';
 import type { TournamentState } from '../../domain/tournament/types';
 import type { StripeTone } from '../tournament/components/result-row';
 
@@ -16,7 +17,13 @@ export interface BracketLegend {
   rows: LegendRow[];
   /** The tournament has rounds with lucky-loser spots: the box adds a paragraph on how they work. */
   luckyLosers: boolean;
+  /** The paragraph on how lucky-loser spots are awarded: the fair cut's rule for a tournament with `cutVersion`, else the earlier sentence. */
+  luckyText: string;
 }
+
+const FAIR_CUT_LUCKY_TEXT =
+  "Each room size loses its fair share of the cut. Within a size, places count first, then score relative to the room's average. A spare cut falls on whichever next in line ranks lower against every room of their size so far.";
+const EARLIER_LUCKY_TEXT = "Spare spots are awarded to players by score relative to their room's average.";
 
 /** The distinct advance destinations of a room's bands, in the order the bands list them. */
 function advanceDestinations(bands: RoomExitBand[]): number[] {
@@ -26,6 +33,14 @@ function advanceDestinations(bands: RoomExitBand[]): number[] {
       destinations.push(band.destination);
   }
   return destinations;
+}
+
+/** A fair-cut round has a place where only some units of a room size advance. */
+function hasLuckyChance(state: TournamentState, roundIndex: number): boolean {
+  const rule = roundExitRule(state, roundIndex);
+  return (
+    rule.kind === 'per-room' && rule.rooms.some((bands) => bands.some((band) => band.kind === 'lucky-chance'))
+  );
 }
 
 /** The names of the second and the third destination any round can send units to (waterfall rooms and Qual sources). */
@@ -62,7 +77,9 @@ function extraDestinations(state: TournamentState): { second: string[]; third: s
  * drop bands come from double elimination, while a waterfall round has only advance and eliminate bands.
  */
 export function bracketLegend(state: TournamentState): BracketLegend {
-  const luckyLosers = state.rounds.some((round) => round.luckyCount > 0 && !round.isNoElim);
+  const luckyLosers = state.rounds.some((round, index) =>
+    usesFairCut(state, index) ? hasLuckyChance(state, index) : round.luckyCount > 0 && !round.isNoElim,
+  );
   const doubleElimination = state.rounds.some(
     (round) => round.bracket === 'winners' || round.bracket === 'losers',
   );
@@ -97,5 +114,6 @@ export function bracketLegend(state: TournamentState): BracketLegend {
       { tone: 'orange', name: 'Demoted', meaning: 'Kings Valley: moves down a room' },
     );
   }
-  return { rows, luckyLosers };
+  const luckyText = state.gamemodeConfig.cutVersion === 2 ? FAIR_CUT_LUCKY_TEXT : EARLIER_LUCKY_TEXT;
+  return { rows, luckyLosers, luckyText };
 }

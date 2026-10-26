@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import { buildRound } from '../../../domain/tournament/__tests__/test-fixtures';
+import {
+  SE_2V2V2V2,
+  SE_FFA,
+  firstEliminationIndex,
+  generate,
+  withRoundShape,
+} from '../../../domain/tournament/__tests__/fair-cut-fixtures';
+import { withEarlierCutRule } from '../../../domain/tournament/__tests__/play-through';
 import { schedulePreviewRows } from './schedule-preview-rows';
 
 function stateOf(rounds: ReturnType<typeof buildRound>[]) {
@@ -72,5 +80,33 @@ describe('schedulePreviewRows', () => {
       'players',
     );
     expect(rows[0]).toEqual({ name: 'Round 1', meta: '2 matches', detail: '' });
+  });
+});
+
+describe('schedulePreviewRows -- the fair cut', () => {
+  it('says what each room size loses instead of the lucky-loser count', () => {
+    const state = generate('2v2v2v2 31', 31, SE_2V2V2V2);
+    const index = firstEliminationIndex(state);
+    expect(schedulePreviewRows(state, 'teams')[index].detail).toBe(
+      '4 · 4 · 4 · 4 · 4 · 4 · 4 · 3 teams, 26 advance: rooms of 4 lose 4–5, the room of 3 loses 0–1',
+    );
+  });
+
+  it('says "lose 2" when there is no spare range', () => {
+    const base = generate('FFA 37', 37, SE_FFA);
+    const index = firstEliminationIndex(base);
+    const shaped = withRoundShape(base, index, { rooms: [4, 4, 2, 2], advTotal: 9 });
+    expect(schedulePreviewRows(shaped, 'players')[index].detail).toBe(
+      '4 · 4 · 2 · 2 players, 9 advance: rooms of 4 lose 2, rooms of 2 lose 1',
+    );
+  });
+
+  it('keeps the earlier wording for equal rooms and for a tournament without cutVersion', () => {
+    const equal = generate('FFA 40', 40, SE_FFA);
+    const rows = schedulePreviewRows(equal, 'players');
+    expect(rows[firstEliminationIndex(equal)].detail).not.toContain('advance:');
+    const earlier = withEarlierCutRule(generate('2v2v2v2 31', 31, SE_2V2V2V2));
+    const detail = schedulePreviewRows(earlier, 'teams')[firstEliminationIndex(earlier)].detail;
+    expect(detail).toBe('4 · 4 · 4 · 4 · 4 · 4 · 4 · 3 teams, 26 advance incl. 2 lucky losers');
   });
 });

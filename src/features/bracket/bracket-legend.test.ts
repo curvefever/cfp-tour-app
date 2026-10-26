@@ -3,6 +3,7 @@ import { buildState } from '../../domain/tournament/__tests__/play-through';
 import { QUAL_GRAPH, buildQualWaterfall } from '../../domain/tournament/__tests__/qual-waterfall';
 import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
+import { withEarlierCutRule } from '../../domain/tournament/__tests__/play-through';
 import { bracketLegend } from './bracket-legend';
 
 function generated(count: number, setup: Partial<PersistedSetup>, teams = false): TournamentState {
@@ -125,5 +126,29 @@ R1D: 1-2->Final, 3-8->eliminated
     expect(purple?.name).toMatch(/^Through to /);
     expect(purple?.name).toContain('R6C');
     expect(legend.rows.map((row) => row.name)).not.toContain('Losers bracket');
+  });
+});
+
+describe('bracketLegend -- the fair cut', () => {
+  const mixed = generated(43, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+
+  it('explains the fair cut for a tournament with cutVersion, and the earlier sentence without it', () => {
+    expect(bracketLegend(mixed).luckyLosers).toBe(true);
+    expect(bracketLegend(mixed).luckyText).toContain('fair share of the cut');
+    expect(bracketLegend(withEarlierCutRule(mixed)).luckyText).toBe(
+      "Spare spots are awarded to players by score relative to their room's average.",
+    );
+  });
+
+  it('shows the lucky-loser row where a covered round has spots, even when its stored luckyCount is 0', () => {
+    // 2v2v2v2 37: the first elimination round stores luckyCount 0, but its rooms of 4 and 3 share a spare cut.
+    const state = generated(
+      37,
+      { gameFormat: 'team-2v2v2v2', scheduleLogic: 'single-elimination', poolingPhase: 'none' },
+      true,
+    );
+    const first = state.rounds.find((round) => !round.isNoElim && !round.isFinal);
+    expect(first?.luckyCount).toBe(0);
+    expect(bracketLegend(state).luckyLosers).toBe(true);
   });
 });

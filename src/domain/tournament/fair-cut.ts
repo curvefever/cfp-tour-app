@@ -184,10 +184,17 @@ export function fairCutSurvivors(round: TournamentRound, lineUps: readonly numbe
   return Math.max(0, round.advTotal - round.byeCount - lone);
 }
 
-/** Every covered round's line-ups: the real ones once the round is drawn, the planned sizes before. */
-function roundLineUps(state: TournamentState, roundIndex: number): number[] {
+/** A covered round's line-ups: the real ones once the round is drawn, the planned room sizes before. */
+export function roundLineUps(state: TournamentState, roundIndex: number): number[] {
   const round = state.rounds[roundIndex];
+  if (!(state.assignments[roundIndex] ?? []).length) return [...round.rooms];
   return round.rooms.map((_, index) => roomUnitCount(state, roundIndex, index + 1));
+}
+
+/** The cut's shape for a round: from the real line-ups once drawn, from the planned sizes before. */
+export function roundFairCutShape(state: TournamentState, roundIndex: number): FairCutShape {
+  const lineUps = roundLineUps(state, roundIndex);
+  return fairCutShape(lineUps, fairCutSurvivors(state.rounds[roundIndex], lineUps));
 }
 
 /**
@@ -198,7 +205,12 @@ function roundLineUps(state: TournamentState, roundIndex: number): number[] {
 export function usesFairCut(state: TournamentState, roundIndex: number): boolean {
   const round = state.rounds[roundIndex];
   if (!round || state.gamemodeConfig.cutVersion !== 2) return false;
-  if (round.isFinal || round.isNoElim || isStandingsCutoffRound(state, roundIndex)) return false;
+  return roundCoversFairCut(round) && !isStandingsCutoffRound(state, roundIndex);
+}
+
+/** The kind of round the fair cut covers, whatever the tournament's version (a standings cut-off is a Qual, Swiss or group-stage round, which this leaves out). */
+export function roundCoversFairCut(round: TournamentRound): boolean {
+  if (round.isFinal || round.isNoElim) return false;
   if (round.bracket) return round.bracket === 'winners' || round.bracket === 'losers';
   return !(
     round.isQual ||
@@ -253,7 +265,7 @@ export interface FairCutGroupResult extends FairCutGroup {
   ranked: FairCutUnit[];
   /** How many units the rank keeps once the spare cuts the group took are counted. */
   keep: number;
-  /** The units at the first chance place, best first: the group's lucky-loser race. Empty when the group has no chance place. */
+  /** The units at the group's chance places, place first and best first within a place: the group's lucky-loser race. Empty when the group has no chance place. */
   candidates: FairCutUnit[];
 }
 
@@ -360,8 +372,8 @@ export function fairCutAdvancement(state: TournamentState, roundIndex: number): 
         luckyUnits.push(unit);
       }
     }
-    const firstChance = shape.chancePlaces[0]?.place;
-    const candidates = ranked[index].filter((unit) => unit.place === firstChance);
+    const chancePlaces = new Set(shape.chancePlaces.map((place) => place.place));
+    const candidates = ranked[index].filter((unit) => chancePlaces.has(unit.place));
     return { ...shape, ranked: ranked[index], keep, candidates };
   });
   const luckyNames = luckyUnits
@@ -381,4 +393,60 @@ export function fairCutAdvancement(state: TournamentState, roundIndex: number): 
   }
   advancing.push(...luckyNames.map((name) => ({ name, isLucky: true })));
   return { advancing, luckyNames, eliminated, groups, spareCuts };
+}
+
+/** One unit in a group's lucky-loser race. */
+export interface FairCutRaceUnit {
+  name: string;
+  room: number;
+  relative: number;
+  /** Among the lucky losers if the round ended now. */
+  leading: boolean;
+  /** Its group can still take a spare cut, and this unit is the one in line for it. */
+  spareCut: boolean;
+}
+
+/** The lucky-loser race of one room size. */
+export interface FairCutRaceGroup {
+  size: number;
+  rooms: number;
+  minSpots: number;
+  maxSpots: number;
+  units: FairCutRaceUnit[];
+}
+
+export interface FairCutRace {
+  groups: FairCutRaceGroup[];
+  spareCuts: SpareCutResult[];
+}
+
+/**
+ * The live lucky-loser race of a covered round with two or more room sizes: per size that has lucky spots, its
+ * chance-place units best first, and the spare-cut contests as they stand. Null for any other round. Read from
+ * `fairCutAdvancement`, so it can never disagree with the advance.
+ */
+export function fairCutRace(state: TournamentState, roundIndex: number): FairCutRace | null {
+  if (!usesFairCut(state, roundIndex)) return null;
+  const result = fairCutAdvancement(state, roundIndex);
+  if (result.groups.length < 2) return null;
+  const leading = new Set(result.luckyNames);
+  const inLine = new Set(result.spareCuts.flatMap((cut) => cut.contenders.map((entry) => entry.unit.name)));
+  const groups = result.groups
+    .filter((group) => group.maxSpots > 0)
+    .map((group): FairCutRaceGroup => ({
+      size: group.size,
+      rooms: group.rooms.length,
+      minSpots: group.minSpots,
+      maxSpots: group.maxSpots,
+      units: group.candidates
+        .filter((unit) => unit.roomScored)
+        .map((unit) => ({
+          name: unit.name,
+          room: unit.room,
+          relative: unit.relative,
+          leading: leading.has(unit.name),
+          spareCut: group.mayTakeSpare && inLine.has(unit.name),
+        })),
+    }));
+  return { groups, spareCuts: result.spareCuts };
 }

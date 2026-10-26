@@ -64,9 +64,7 @@ export function BracketInfoBox({ state, onClose }: { state: TournamentState; onC
           <div className='text-[13px] font-extrabold tracking-[0.04em] text-cfp-green uppercase'>
             ★ Lucky losers
           </div>
-          <p className='text-[13px] leading-normal text-cfp-text-soft'>
-            Spare spots are awarded to players by score relative to their room&apos;s average.
-          </p>
+          <p className='text-[13px] leading-normal text-cfp-text-soft'>{legend.luckyText}</p>
         </div>
       ) : null}
       <div className='border-t border-cfp-game-fold pt-2.5 text-[13px] leading-normal text-cfp-text-soft'>

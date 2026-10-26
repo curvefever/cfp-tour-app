@@ -1,6 +1,7 @@
 import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
+import { usesFairCut } from '../../domain/tournament/fair-cut';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
@@ -109,7 +110,9 @@ export function RoundBody({
           teamMap={teamMap}
         />
       ))}
-      {round.luckyCount > 0 && !round.isNoElim && isCurrentRound(state, roundIndex) ? (
+      {(round.luckyCount > 0 || usesFairCut(state, roundIndex)) &&
+      !round.isNoElim &&
+      isCurrentRound(state, roundIndex) ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}
       {(state.byes[roundIndex] ?? []).map((name) => (
