@@ -4,11 +4,20 @@ export type Measure = (text: string) => number;
 /** What stands between two members on a line, as on the page. */
 export const MEMBER_SEPARATOR = ' · ';
 
-/** `base` cut so that it and an ellipsis fit the width. */
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/** The characters of `text` as they are seen: an emoji, a flag or an accented letter stays whole. */
+function visibleCharacters(text: string): string[] {
+  return Array.from(graphemes.segment(text), ({ segment }) => segment);
+}
+
+/** `base` cut, between whole characters, so that it and an ellipsis fit the width. */
 function withEllipsis(measure: Measure, base: string, width: number): string {
-  let length = base.length;
-  while (length > 0 && measure(`${base.slice(0, length).trimEnd()}…`) > width) length--;
-  return `${base.slice(0, length).trimEnd()}…`;
+  const characters = visibleCharacters(base);
+  const cut = (length: number) => `${characters.slice(0, length).join('').trimEnd()}…`;
+  let length = characters.length;
+  while (length > 0 && measure(cut(length)) > width) length--;
+  return cut(length);
 }
 
 /**

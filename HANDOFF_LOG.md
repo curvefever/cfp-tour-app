@@ -6,6 +6,21 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Rankings image: names cut between whole characters (done — 2026-10-26)
+
+Solo session, one commit on `test`; nothing pushed.
+
+**Context.** The organiser asked whether emoji work in player and team names. They do: `UNSTORABLE_NAME_CHARACTERS` (`roster.ts`) refuses only `. # $ [ ] /` and control characters, and `roster.test.ts` already lets `'🔥 Fire'` through; the pages draw names as typed. The one weak spot was the Rankings image: `withEllipsis` (`rankings-image-wrap.ts`) shortened a too-wide word one UTF-16 code unit at a time, so the "…" could land inside an emoji (a lone surrogate, a broken symbol), inside a ZWJ sequence such as 👨‍👩‍👧 (half a family), between a flag's two regional indicators, or between a letter and its combining accent.
+
+**What was built.** `withEllipsis` now cuts by grapheme (`Intl.Segmenter`, granularity `grapheme`, through `visibleCharacters`), so it only ever drops whole visible characters. Nothing else changed: wrapping still breaks at spaces, and a name that fits is drawn as before.
+
+**Testing.** `rankings-image-wrap.test.ts`: a word wider than its line with a family emoji, a flag and a combining accent placed where a code-unit cut would still fit the width; each comes out as `abcdefgh…`. Related tests (5 files, 323 tests) pass; eslint, prettier and types clean on the two files. No live check: the change is inside the pure wrapping helper the drawing code calls, and the canvas drawing is untouched.
+Full suite: not run (no shared code).
+
+**Out of scope.** Emoji that look alike but differ by a hidden variation selector (❤ and ❤️) count as different names and don't find each other in search; not normalised, as it only matters for near-identical emoji names. How emoji look in the image depends on the downloader's system emoji font.
+
+---
+
 ## Scaled points in smaller rooms, new Standard tables (done — 2026-10-26)
 
 Planner/reviewer and implementer sessions; two stages on `test`: stage 1 `7a78e84` (the rule, the standings, the version), stage 2 the commit after it (what players and organisers read, docs, this entry); nothing pushed. The plan is `plans/2026-10-26-scaled-points.md`.

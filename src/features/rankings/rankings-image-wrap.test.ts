@@ -27,6 +27,17 @@ describe('wrapText', () => {
     expect(measure(lines[1])).toBeLessThanOrEqual(50);
   });
 
+  it('never cuts inside an emoji, a flag or an accented letter', () => {
+    const family = '👨‍👩‍👧';
+    const flag = '🇫🇷';
+    const accented = 'é';
+    // A cut by code units would end these lines with a piece of the symbol, still within the width.
+    const cutAt = (symbol: string) => wrapText(measure, `abcdefgh${symbol}ij`, 100, 1)[0];
+    expect(cutAt(family)).toBe('abcdefgh…');
+    expect(cutAt(flag)).toBe('abcdefgh…');
+    expect(cutAt(accented)).toBe('abcdefgh…');
+  });
+
   it('is empty for an empty text', () => {
     expect(wrapText(measure, '', 100, 3)).toEqual([]);
     expect(wrapText(measure, '   ', 100, 3)).toEqual([]);
