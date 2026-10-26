@@ -1,13 +1,27 @@
 import { computeLuckyLoserStandings } from '../../domain/tournament/advancement';
 import { roomLetter } from '../../domain/tournament/bracket';
-import { fairCutRace } from '../../domain/tournament/fair-cut';
+import { fairCutRace, usesFairCut } from '../../domain/tournament/fair-cut';
 import { lateJoinersOf } from '../../domain/tournament/late-joiners';
 import { cn } from '../../components/ui';
+import { isCurrentRound } from '../../domain/tournament/round-columns';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { formatTieBreak, formatTieBreakPrecise, sharesWholePercent } from '../standings/standings-text';
 import { spareCutText } from './spare-cut-text';
 import { roomsStillPlaying, stillPlayingText } from './still-playing';
+
+/**
+ * Whether the round in play has a lucky-loser race to show: an elimination round with stored lucky-loser spots, or
+ * any round the fair cut covers (it can have spots that the stored `luckyCount` does not, e.g. 2v2v2v2 37 round 1).
+ */
+export function showsLuckyRace(state: TournamentState, roundIndex: number): boolean {
+  const round = state.rounds[roundIndex];
+  return (
+    (round.luckyCount > 0 || usesFairCut(state, roundIndex)) &&
+    !round.isNoElim &&
+    isCurrentRound(state, roundIndex)
+  );
+}
 
 /**
  * The lucky-loser race of a round, under its rooms: how many spots there are, the candidates by their share of

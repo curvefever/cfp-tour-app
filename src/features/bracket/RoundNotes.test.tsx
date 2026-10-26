@@ -8,7 +8,7 @@ import {
   seatedAndScored,
 } from '../../domain/tournament/__tests__/fair-cut-fixtures';
 import { withEarlierCutRule } from '../../domain/tournament/__tests__/play-through';
-import { LuckyLoserStandingsPanel } from './RoundNotes';
+import { LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
 
 afterEach(cleanup);
 
@@ -44,5 +44,26 @@ describe('the lucky-loser race under the fair cut', () => {
     const view = render(<LuckyLoserStandingsPanel roundIndex={index} state={state} />);
     expect(view.container.textContent).toContain('LUCKY LOSER RACE · 2 SPOTS');
     expect(view.container.textContent).not.toContain('spare cut?');
+  });
+});
+
+describe('showsLuckyRace', () => {
+  // 2v2v2v2 37: the first elimination round is stored as 3 per room + 0 lucky losers, yet its rooms of 4 and 3 share spots.
+  const state = generate('2v2v2v2 37', 37, SE_2V2V2V2);
+  const index = firstEliminationIndex(state);
+  const atRound = { ...state, curRound: index };
+
+  it('shows for a fair-cut round whose stored lucky-loser count is 0', () => {
+    expect(state.rounds[index].luckyCount).toBe(0);
+    expect(showsLuckyRace(atRound, index)).toBe(true);
+  });
+
+  it('does not show for the same round without cutVersion', () => {
+    expect(showsLuckyRace(withEarlierCutRule(atRound), index)).toBe(false);
+  });
+
+  it('does not show for a warm-up round or a round not in play', () => {
+    expect(showsLuckyRace({ ...atRound, curRound: 0 }, 0)).toBe(false);
+    expect(showsLuckyRace({ ...atRound, curRound: 0 }, index)).toBe(false);
   });
 });

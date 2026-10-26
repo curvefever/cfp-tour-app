@@ -1,7 +1,6 @@
 import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
-import { usesFairCut } from '../../domain/tournament/fair-cut';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
@@ -13,7 +12,7 @@ import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
 import { roomPoints } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
-import { JoiningPanel, LuckyLoserStandingsPanel } from './RoundNotes';
+import { JoiningPanel, LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
 import { isCurrentRound, isRoundReached, nextColumnStart } from '../../domain/tournament/round-columns';
 
 /** The organiser decided this tie: picked who ranks next, or shared the points. */
@@ -110,9 +109,7 @@ export function RoundBody({
           teamMap={teamMap}
         />
       ))}
-      {(round.luckyCount > 0 || usesFairCut(state, roundIndex)) &&
-      !round.isNoElim &&
-      isCurrentRound(state, roundIndex) ? (
+      {showsLuckyRace(state, roundIndex) ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}
       {(state.byes[roundIndex] ?? []).map((name) => (

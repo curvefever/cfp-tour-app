@@ -147,8 +147,10 @@ describe('bracketLegend -- the fair cut', () => {
       { gameFormat: 'team-2v2v2v2', scheduleLogic: 'single-elimination', poolingPhase: 'none' },
       true,
     );
-    const first = state.rounds.find((round) => !round.isNoElim && !round.isFinal);
-    expect(first?.luckyCount).toBe(0);
-    expect(bracketLegend(state).luckyLosers).toBe(true);
+    // Every stored lucky-loser count is 0, so only the fair cut's own spots can show the row.
+    const noStored = { ...state, rounds: state.rounds.map((round) => ({ ...round, luckyCount: 0 })) };
+    expect(noStored.rounds.every((round) => round.luckyCount === 0)).toBe(true);
+    expect(bracketLegend(noStored).luckyLosers).toBe(true);
+    expect(bracketLegend(withEarlierCutRule(noStored)).luckyLosers).toBe(false);
   });
 });
