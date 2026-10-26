@@ -1,6 +1,10 @@
 import { largestRoomSize, roomPointsByPlace } from '../../domain/tournament/advancement';
 import { formatStandingValue } from '../../domain/tournament/scoring';
-import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
+import {
+  isCountedRound,
+  type StandingsDisplay,
+  type StandingsDisplayTable,
+} from '../../domain/tournament/standings-display';
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
 import { ordinal, placeOrdinal } from '../../lib/ordinal';
 
@@ -11,17 +15,39 @@ export function standingsProgressSentence(display: StandingsDisplay): string {
   return `After ${display.roundsDone} of ${display.roundsTotal} rounds.`;
 }
 
-/** Points earned by each place of the tournament's largest room, 1st first (the rule itself lives in advancement.ts). */
-export function pointsPerPlace(state: TournamentState): number[] {
-  return roomPointsByPlace(state, largestRoomSize(state));
+/** "1st = 10, 2nd = 8, …": the places of a room with what each earns. */
+function placesList(points: readonly number[]): string {
+  return points.map((value, index) => `${ordinal(index + 1)} = ${value}`).join(', ');
+}
+
+/** The sizes of the rooms played in counted rounds that are smaller than the largest room, largest first. */
+function smallerRoomSizes(state: TournamentState, largestRoom: number): number[] {
+  const sizes = state.rounds.filter(isCountedRound).flatMap((round) => round.rooms);
+  return [...new Set(sizes)].filter((size) => size >= 2 && size < largestRoom).sort((a, b) => b - a);
+}
+
+/** One sentence per smaller room size of the counted rounds, for a tournament that scales points to the room. */
+function smallerRoomSentences(state: TournamentState, largestRoom: number): string[] {
+  return smallerRoomSizes(state, largestRoom).map(
+    (size) =>
+      `In a room of ${size}: ${placesList(roomPointsByPlace(state, size))} (places spread evenly between first and last).`,
+  );
 }
 
 function pointsSentence(state: TournamentState): string {
-  const points = pointsPerPlace(state);
-  const { scoring, roomSize } = state.gamemodeConfig;
+  const { scoring, roomSize, pointsVersion } = state.gamemodeConfig;
+  const largestRoom = largestRoomSize(state);
+  const points = roomPointsByPlace(state, largestRoom);
   if (roomSize?.max === 2)
     return `Each counted round, a win earns ${points[0]} points and a loss ${points[1]}.`;
-  const places = points.map((value, index) => `${ordinal(index + 1)} = ${value}`).join(', ');
+  const places = placesList(points);
+  const source = scoring === 'positional-points' ? " from the organiser's table" : '';
+  if (pointsVersion === 2) {
+    return [
+      `Each counted round, your place in your room earns points${source}: ${places}.`,
+      ...smallerRoomSentences(state, largestRoom),
+    ].join(' ');
+  }
   if (scoring === 'positional-points') {
     return `Each counted round, your place in your room earns points from the organiser's table: ${places}.`;
   }

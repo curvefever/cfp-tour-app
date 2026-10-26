@@ -61,7 +61,8 @@ function isStandingsRound(round: TournamentRound): boolean {
   return Boolean(round.isQual || round.isSwiss || round.isGroupStage);
 }
 
-function isCountedRound(round: TournamentRound): boolean {
+/** A round whose results add to the standings: a qualification, Swiss or group round that is not marked as seeding only. */
+export function isCountedRound(round: TournamentRound): boolean {
   return isStandingsRound(round) && !round.excludeFromStandings;
 }
 

@@ -19,6 +19,7 @@ import {
   SCORING_SYSTEM_OPTION_LABELS,
   scaledRoomPoints,
   scoredTeamSize,
+  scoringSystemLabel,
   scoreKeysForPosition,
   standardPoints,
   standardPointsTable,
@@ -275,11 +276,13 @@ describe('scaledRoomPoints', () => {
   });
 
   it('rounds half points up, exactly', () => {
-    // Standard 8, room of 3: places read positions 1, 4.5, 8 -> 10, 4.5 (halfway between 5 and 4), 1.
+    // Standard 8, room of 3: 2nd reads table position 4.5, halfway between 5 and 4 points: 4.5.
     expect(scaledRoomPoints(standardPointsTable(8), 8, 3)).toEqual([10, 4.5, 1]);
+    // Room of 5: 4th reads position 6.25, between 3 and 2 points: 2.75, which is nearer 3 than 2.5.
+    expect(scaledRoomPoints(standardPointsTable(8), 8, 5)).toEqual([10, 6.5, 4.5, 3, 1]);
     // Custom 4 entries, room of 2: first and last only.
     expect(scaledRoomPoints([6, 4, 2, 1], 4, 2)).toEqual([6, 1]);
-    // Room of 4: positions 1, 3.33, 5.67, 8 -> 5.67 rounds to 5.5 and 3.33 to 3.5.
+    // Room of 4: 2nd reads position 3.33 (5.67 points, rounds to 5.5), 3rd position 5.67 (3.33 points, rounds to 3.5).
     expect(scaledRoomPoints(standardPointsTable(8), 8, 4)).toEqual([10, 5.5, 3.5, 1]);
   });
 });
@@ -304,9 +307,27 @@ describe('positionalPoints', () => {
 describe('SCORING_SYSTEM_OPTION_LABELS', () => {
   it('names the two systems for Setup without the old Fair Points / Positional Points wording', () => {
     expect(SCORING_SYSTEM_OPTION_LABELS).toEqual({
-      fairpoints: 'Standard points (1st = largest room size, −1 per place)',
+      fairpoints:
+        'Standard points (10, 8, 6, 5, 4, 3, 2, 1 in rooms of 8; else 1st = room size, −1 per place; smaller rooms scaled)',
       'positional-points': 'Custom points table',
     });
+  });
+});
+
+describe('scoringSystemLabel', () => {
+  it('names Standard points as Setup does for a tournament with pointsVersion 2', () => {
+    expect(scoringSystemLabel('fairpoints', 2)).toBe(SCORING_SYSTEM_OPTION_LABELS.fairpoints);
+  });
+
+  it('keeps the earlier Standard label for a tournament without pointsVersion', () => {
+    expect(scoringSystemLabel('fairpoints', undefined)).toBe(
+      'Standard points (1st = largest room size, −1 per place)',
+    );
+  });
+
+  it('names the Custom table the same in both', () => {
+    expect(scoringSystemLabel('positional-points', 2)).toBe('Custom points table');
+    expect(scoringSystemLabel('positional-points', undefined)).toBe('Custom points table');
   });
 });
 

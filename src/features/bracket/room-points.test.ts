@@ -90,6 +90,21 @@ describe('roomPoints', () => {
     ]);
   });
 
+  it('with pointsVersion 2 gives a room of 7 its scaled points, next to a room of 8 (37 players)', () => {
+    const earlier = start(37);
+    const state = scoreRooms(
+      { ...earlier, gamemodeConfig: { ...earlier.gamemodeConfig, pointsVersion: 2 } },
+      [1, 3],
+    );
+    const points = roomPoints(describeStandings(state), 0);
+    const pointsOfRoom = (room: number) =>
+      (state.assignments[0] ?? [])
+        .filter((entry) => entry.room === room)
+        .map((entry) => points.get(entry.name));
+    expect(pointsOfRoom(1)).toEqual([10, 8, 6, 5, 4, 3, 2, 1]);
+    expect(pointsOfRoom(3)).toEqual([10, 7.5, 5.5, 4.5, 3.5, 2, 1]);
+  });
+
   it('uses the Custom points table', () => {
     const state = scoreRooms(
       start(37, { scoring: 'positional-points', positionalPointsTable: '10,7,5,4,3,2,1,0' }),

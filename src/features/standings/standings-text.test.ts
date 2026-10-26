@@ -71,6 +71,58 @@ describe('standingsExplanation', () => {
     );
   });
 
+  describe('with pointsVersion 2: the largest room, then each smaller room of the counted rounds', () => {
+    const rounds = (...rooms: number[][]) => rooms.map((sizes) => ({ rooms: sizes }));
+
+    it('FFA: 10, 8, 6, … for 8, then a room of 7 and a room of 6, largest first', () => {
+      const state = stateWith(
+        { roomSize: { min: 6, max: 8, ideal: 8 }, pointsVersion: 2 },
+        rounds([8, 7, 6], [8, 7]),
+      );
+      expect(standingsExplanation(state, display({}, 24))[1]).toBe(
+        'Each counted round, your place in your room earns points: 1st = 10, 2nd = 8, 3rd = 6, 4th = 5, 5th = 4, 6th = 3, 7th = 2, 8th = 1. ' +
+          'In a room of 7: 1st = 10, 2nd = 7.5, 3rd = 5.5, 4th = 4.5, 5th = 3.5, 6th = 2, 7th = 1 (places spread evenly between first and last). ' +
+          'In a room of 6: 1st = 10, 2nd = 7, 3rd = 5, 4th = 4, 5th = 2.5, 6th = 1 (places spread evenly between first and last).',
+      );
+    });
+
+    it('2v2v2v2: a room of 3 next to 4, and no smaller-room sentence when every counted room has 4', () => {
+      const mixed = stateWith({ ...FOUR, pointsVersion: 2 }, rounds([4, 3], [4]));
+      expect(standingsExplanation(mixed, display({}, 16))[1]).toBe(
+        'Each counted round, your place in your room earns points: 1st = 4, 2nd = 3, 3rd = 2, 4th = 1. ' +
+          'In a room of 3: 1st = 4, 2nd = 2.5, 3rd = 1 (places spread evenly between first and last).',
+      );
+      const uniform = stateWith({ ...FOUR, pointsVersion: 2 }, rounds([4], [4]));
+      expect(standingsExplanation(uniform, display({}, 16))[1]).toBe(
+        'Each counted round, your place in your room earns points: 1st = 4, 2nd = 3, 3rd = 2, 4th = 1.',
+      );
+    });
+
+    it('ignores the rooms of a round that does not count', () => {
+      const state = stateWith({ ...FOUR, pointsVersion: 2 }, [
+        { rooms: [4, 3], excludeFromStandings: true },
+        { rooms: [4] },
+      ]);
+      expect(standingsExplanation(state, display({}, 16))[1]).not.toContain('In a room of 3');
+    });
+
+    it('a Custom table: its first entries for the largest room, scaled for a smaller one', () => {
+      const state = stateWith(
+        {
+          roomSize: { min: 3, max: 4, ideal: 4 },
+          scoring: 'positional-points',
+          positionalPointsTable: [6, 4, 2, 0, 0],
+          pointsVersion: 2,
+        },
+        rounds([4, 3]),
+      );
+      expect(standingsExplanation(state, display({}, 16))[1]).toBe(
+        "Each counted round, your place in your room earns points from the organiser's table: 1st = 6, 2nd = 4, 3rd = 2, 4th = 0. " +
+          'In a room of 3: 1st = 6, 2nd = 3, 3rd = 0 (places spread evenly between first and last).',
+      );
+    });
+  });
+
   it('drops "whatever the size of your room" when every room has the same size', () => {
     expect(
       standingsExplanation(stateWith({ roomSize: { min: 4, max: 4, ideal: 4 } }), display({}, 16))[1],

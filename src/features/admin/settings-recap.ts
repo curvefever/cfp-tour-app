@@ -7,7 +7,7 @@ import {
   getGameFormat,
   resolveOddCountStrategy,
 } from '../../domain/tournament/formats';
-import { SCORING_SYSTEM_OPTION_LABELS } from '../../domain/tournament/scoring';
+import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { readTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
@@ -36,7 +36,7 @@ type RecapTitle = 'FORMAT' | 'POOLING' | 'SCORING' | 'BRACKET';
 interface RecapEntry {
   group: RecapTitle;
   label: string;
-  value: (settings: TournamentSettings) => string;
+  value: (settings: TournamentSettings, pointsVersion: 2 | undefined) => string;
 }
 
 const orDefault = (value: string, fallback: string) => value.trim() || fallback;
@@ -136,8 +136,8 @@ const RECAP: Record<FormatField, RecapEntry> = {
   scoring: {
     group: 'SCORING',
     label: 'Scoring system',
-    value: (settings) =>
-      SCORING_SYSTEM_OPTION_LABELS[settings.poolingPhase === 'none' ? 'fairpoints' : settings.scoring],
+    value: (settings, pointsVersion) =>
+      scoringSystemLabel(settings.poolingPhase === 'none' ? 'fairpoints' : settings.scoring, pointsVersion),
   },
   positionalPointsTable: {
     group: 'SCORING',
@@ -245,7 +245,10 @@ export function settingsRecapGroups(state: TournamentState): RecapGroup[] {
     title,
     items: fields
       .filter((field) => RECAP[field].group === title)
-      .map((field) => ({ label: RECAP[field].label, value: RECAP[field].value(settings) })),
+      .map((field) => ({
+        label: RECAP[field].label,
+        value: RECAP[field].value(settings, state.gamemodeConfig.pointsVersion),
+      })),
   })).filter((group) => group.items.length > 0);
   groups.push({
     title: 'ROSTER AND SHARING',

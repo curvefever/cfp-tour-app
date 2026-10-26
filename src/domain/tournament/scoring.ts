@@ -226,11 +226,22 @@ export function positionalPoints(rank: number, table: readonly number[]): number
   return table[rank - 1] ?? 0;
 }
 
-/** How Setup and the Admin recap name each scoring system (players only ever see "Points"). */
+/** How Setup names each scoring system (players only ever see "Points"); a new tournament scores with the scaled rule. */
 export const SCORING_SYSTEM_OPTION_LABELS: Record<ScoringSystemKey, string> = {
-  fairpoints: 'Standard points (1st = largest room size, −1 per place)',
+  fairpoints:
+    'Standard points (10, 8, 6, 5, 4, 3, 2, 1 in rooms of 8; else 1st = room size, −1 per place; smaller rooms scaled)',
   'positional-points': 'Custom points table',
 };
+
+/** What the Admin recap calls Standard points in a tournament generated before `pointsVersion` existed. */
+const EARLIER_STANDARD_POINTS_LABEL = 'Standard points (1st = largest room size, −1 per place)';
+
+/** The recap's name for a tournament's scoring system: the earlier Standard label when the tournament has no `pointsVersion`. */
+export function scoringSystemLabel(system: ScoringSystemKey, pointsVersion: 2 | undefined): string {
+  return system === 'fairpoints' && pointsVersion !== 2
+    ? EARLIER_STANDARD_POINTS_LABEL
+    : SCORING_SYSTEM_OPTION_LABELS[system];
+}
 
 /** Points as shown: whole numbers stay whole, a shared place's fractional average shows one decimal ("6.5", "6.3" for 6.333…). */
 export function formatStandingValue(value: number): string {

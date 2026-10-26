@@ -1,3 +1,4 @@
+import { roomPointsByPlace } from '../../domain/tournament/advancement';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
 import {
@@ -8,7 +9,6 @@ import {
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
-import { pointsPerPlace } from '../standings/standings-text';
 import { standingsRowResult, stripeTone, type StripeTone } from '../tournament/components/result-row';
 import { destinationLabel } from './exit-text';
 import { advanceResult } from './room-row-result';
@@ -72,7 +72,7 @@ export function roomExitLines(bands: RoomExitBand[], labels: Labels): ExitLine[]
 
 /** "1st +8", then "2nd +7 … 7th +2 points": what the places of a room of `roomSize` earn, from the tournament's own scoring. */
 function pointsLines(state: TournamentState, roomSize: number): ExitLine[] {
-  const points = pointsPerPlace(state).slice(0, roomSize);
+  const points = roomPointsByPlace(state, roomSize).slice(0, roomSize);
   if (points.length === 0) return [];
   const at = (index: number) => `${ordinal(index + 1)} +${points[index]}`;
   const first = at(0);

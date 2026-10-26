@@ -146,6 +146,30 @@ describe('poolingExitLines: what the places of a room earn in a counted round', 
     });
   });
 
+  it('with pointsVersion 2, a room of 7 next to 8 reads its own scaled points (FFA 37)', () => {
+    const state = buildState({
+      label: '37',
+      count: 37,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '16',
+      },
+    }) as TournamentState;
+    expect(poolingExitLines(state, 0, 8)[0]).toEqual({
+      tone: null,
+      places: '1st +10',
+      where: '2nd +8 … 8th +1 points',
+    });
+    expect(poolingExitLines(state, 0, 7)[0]).toEqual({
+      tone: null,
+      places: '1st +10',
+      where: '2nd +7.5 … 7th +1 points',
+    });
+  });
+
   it('a 2v2v2v2 tournament with 13 teams: rooms of 4 and of 3', () => {
     const state = buildState({
       label: 'teams',
@@ -166,6 +190,11 @@ describe('poolingExitLines: what the places of a room earn in a counted round', 
       where: '2nd +3 … 4th +1 points',
     });
     expect(poolingExitLines(teams, 0, 3)[0]).toEqual({
+      tone: null,
+      places: '1st +4',
+      where: '2nd +2.5 … 3rd +1 points',
+    });
+    expect(poolingExitLines(withEarlierPointsRule(teams), 0, 3)[0]).toEqual({
       tone: null,
       places: '1st +4',
       where: '2nd +3 … 3rd +2 points',

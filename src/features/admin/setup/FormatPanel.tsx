@@ -306,6 +306,8 @@ export function FormatPanel({
                 <p className='mt-1 text-xs text-muted'>
                   Points must not increase from rank to rank, and the table needs at least one entry per unit
                   in the largest room this format can produce — points are summed across every counted round.
+                  A smaller room reads the table scaled to its size: 1st and last place keep the table's first
+                  and last points, the places between are spread evenly, in half points.
                 </p>
               </PresenceField>
             ) : null}
