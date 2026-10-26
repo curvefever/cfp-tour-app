@@ -31,6 +31,7 @@ A read-only review aid listing the wording a user can see in the app. It is not 
 | Status explanation, publish hint, finish reminder | `src/features/tournaments/admin-actions.test.ts` |
 | Section empty texts, status pills, cards | `tournaments-list.test.ts`, `tournament-index.test.ts`, `visit.test.ts` (same folder) |
 | Settings recap rows | `src/features/admin/settings-recap.test.ts`, `src/features/admin/setup/format-fields.test.ts`, `roster-status.test.ts` |
+| Scoring system names (Setup option, Admin recap) | `src/domain/tournament/__tests__/scoring.test.ts`, `src/features/admin/settings-recap.test.ts` |
 | Progress lines | `src/features/admin/progress-summary.test.ts` |
 | Copy-settings refusals | `src/features/admin/copy-settings/past-tournament-settings.test.ts` |
 | Tab labels | `src/features/shell/tabs.test.ts` |
@@ -339,7 +340,7 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 | `stay` | fixed | viewer | [exit-lines.ts:58](src/features/bracket/exit-lines.ts:58) | lower case on screen |
 | `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:63](src/features/bracket/exit-lines.ts:63) |  |
 | `{1st} +{points}` | built | viewer | [exit-lines.ts:77](src/features/bracket/exit-lines.ts:77) |  |
-| `{2nd +7} … {7th +2} points` | built | viewer | [exit-lines.ts:81](src/features/bracket/exit-lines.ts:81) |  |
+| `{2nd +7.5} … {7th +1} points` | built | viewer | [exit-lines.ts:81](src/features/bracket/exit-lines.ts:81) | the points of that room's own size: a room of 7 in FFA shows 2nd +7.5 … 7th +1 (scaled points); a tournament made before scaled points shows the same list in every room |
 | `All` | fixed | viewer | [exit-lines.ts:103](src/features/bracket/exit-lines.ts:103) |  |
 | `→ {standingsInline}` | built | viewer | [exit-lines.ts:103](src/features/bracket/exit-lines.ts:103) |  |
 | `All` | fixed | viewer | [exit-lines.ts:104](src/features/bracket/exit-lines.ts:104) |  |
@@ -572,7 +573,8 @@ The Standings tab. Its tab name, heading label and explanation title are chosen 
 | Sentence | Built in | Example output |
 | --- | --- | --- |
 | Progress sentence | [standings-text.ts:8](src/features/standings/standings-text.ts:8) | Standings start after Round 2. · After 3 of 5 rounds. · These are the final standings. |
-| Points sentence (standard) | [standings-text.ts:22](src/features/standings/standings-text.ts:22) | Each counted round, your place in your room earns points: 1st = 8, 2nd = 7, …, 8th = 1, whatever the size of your room. |
+| Points sentence (standard, scaled points) | [standings-text.ts:47](src/features/standings/standings-text.ts:47) | Each counted round, your place in your room earns points: 1st = 10, 2nd = 8, 3rd = 6, 4th = 5, 5th = 4, 6th = 3, 7th = 2, 8th = 1. In a room of 7: 1st = 10, 2nd = 7.5, 3rd = 5.5, 4th = 4.5, 5th = 3.5, 6th = 2, 7th = 1 (places spread evenly between first and last). |
+| Points sentence (standard, tournament made before scaled points) | [standings-text.ts:55](src/features/standings/standings-text.ts:55) | Each counted round, your place in your room earns points: 1st = 8, 2nd = 7, …, 8th = 1, whatever the size of your room. |
 | Points sentence (custom table / 1v1) | [standings-text.ts:22](src/features/standings/standings-text.ts:22) | Each counted round, your place in your room earns points from the organiser's table: 1st = 10, 2nd = 8, … · Each counted round, a win earns 3 points and a loss 1. |
 | Non-counting rounds | [standings-text.ts:36](src/features/standings/standings-text.ts:36) | A bye counts as a win; a missed round earns 0. Round 1 doesn't count. / Rounds 1–2 don't count. |
 | Cut sentence | [standings-text.ts:44](src/features/standings/standings-text.ts:44) | Points are added up; most points ranks first. The top 16 go through. (final: qualified; groups: "The top 2 of each group go through."; none: "Everyone goes through." / "Everyone qualified.") |
@@ -602,9 +604,11 @@ The Standings tab. Its tab name, heading label and explanation title are chosen 
 | `After {roundsDone} of {roundsTotal} rounds.` | built | viewer | [standings-text.ts:11](src/features/standings/standings-text.ts:11) |  |
 | `Each counted round, a win earns {win points} points and a loss {loss points}.` | built | viewer | [standings-text.ts:26](src/features/standings/standings-text.ts:26) |  |
 | `{ordinal} = {value}` | built | viewer | [standings-text.ts:27](src/features/standings/standings-text.ts:27) |  |
-| `Each counted round, your place in your room earns points from the organiser's table: {places}.` | built | viewer | [standings-text.ts:29](src/features/standings/standings-text.ts:29) |  |
-| `, whatever the size of your room` | fixed | viewer | [standings-text.ts:31](src/features/standings/standings-text.ts:31) |  |
-| `Each counted round, your place in your room earns points: {places}{sizeNote}.` | built | viewer | [standings-text.ts:32](src/features/standings/standings-text.ts:32) |  |
+| `Each counted round, your place in your room earns points from the organiser's table: {places}.` | built | viewer | [standings-text.ts:52](src/features/standings/standings-text.ts:52) | tournament without `pointsVersion` |
+| `, whatever the size of your room` | fixed | viewer | [standings-text.ts:54](src/features/standings/standings-text.ts:54) | tournament without `pointsVersion`, rooms of different sizes |
+| `Each counted round, your place in your room earns points: {places}{sizeNote}.` | built | viewer | [standings-text.ts:55](src/features/standings/standings-text.ts:55) | tournament without `pointsVersion` |
+| `Each counted round, your place in your room earns points{ from the organiser's table / ∅}: {places}.` | built | viewer | [standings-text.ts:47](src/features/standings/standings-text.ts:47) | tournament with `pointsVersion` 2 (scaled points); places of the largest room |
+| `In a room of {size}: {places} (places spread evenly between first and last).` | built | viewer | [standings-text.ts:33](src/features/standings/standings-text.ts:33) | `pointsVersion` 2: one sentence per smaller room size of the counted rounds, after the sentence above |
 | `Round {n} doesn't count.` | built | viewer | [standings-text.ts:40](src/features/standings/standings-text.ts:40) |  |
 | `Rounds {first}–{last} don't count.` | built | viewer | [standings-text.ts:41](src/features/standings/standings-text.ts:41) |  |
 | `go through` | fixed | viewer | [standings-text.ts:46](src/features/standings/standings-text.ts:46) |  |
@@ -962,10 +966,12 @@ Setup of a draft: TOURNAMENT, FORMAT, ROSTER, SCHEDULE PREVIEW panels, the water
 | `Non-counting rounds (optional)` | fixed | admin | [FormatPanel.tsx:259](src/features/admin/setup/FormatPanel.tsx:259) |  |
 | `Odd-count strategy` | fixed | admin | [FormatPanel.tsx:272](src/features/admin/setup/FormatPanel.tsx:272) |  |
 | `Scoring system` | fixed | admin | [FormatPanel.tsx:288](src/features/admin/setup/FormatPanel.tsx:288) |  |
+| `Standard points (FFA: 10, 8, 6, 5, 4, 3, 2, 1; other formats: 1st = largest room size, −1 per place; smaller rooms scaled)` | fixed | admin | [scoring.ts:232](src/domain/tournament/scoring.ts:232) | option of the scoring field (also the Admin recap value); wording to be reviewed by the organiser |
+| `Custom points table` | fixed | admin | [scoring.ts:233](src/domain/tournament/scoring.ts:233) | option of the scoring field (also the Admin recap value) |
 | `Custom points table` | fixed | admin | [FormatPanel.tsx:303](src/features/admin/setup/FormatPanel.tsx:303) |  |
 | `— one entry per rank, highest rank first, e.g. "10,8,6,5,4,3,2,1"` | fixed | admin | [FormatPanel.tsx:305](src/features/admin/setup/FormatPanel.tsx:305) |  |
 | `e.g. 10,8,6,5,4,3,2,1` | fixed | admin | [FormatPanel.tsx:313](src/features/admin/setup/FormatPanel.tsx:313) |  |
-| `Points must not increase from rank to rank, and the table needs at least one entry per unit in the largest room this format can produce — points are summed across every counted round.` | fixed | admin | [FormatPanel.tsx:318](src/features/admin/setup/FormatPanel.tsx:318) |  |
+| `Points must not increase from rank to rank, and the table needs at least one entry per unit in the largest room this format can produce — points are summed across every counted round. A smaller room reads the table scaled to its size: 1st and last place keep the table's first and last points, the places between are spread evenly, in half points.` | fixed | admin | [FormatPanel.tsx:307](src/features/admin/setup/FormatPanel.tsx:307) |  |
 | `Scoring system` | fixed | admin | [FormatPanel.tsx:325](src/features/admin/setup/FormatPanel.tsx:325) |  |
 | `Finals format` | fixed | admin | [FormatPanel.tsx:332](src/features/admin/setup/FormatPanel.tsx:332) |  |
 | `Grand Final — wins needed to take the title` | fixed | admin | [FormatPanel.tsx:350](src/features/admin/setup/FormatPanel.tsx:350) |  |
@@ -1341,6 +1347,7 @@ The Admin tab of a started tournament: status bar, progress, settings recap, lin
 | `Derived` | fixed | admin | [settings-recap.ts:134](src/features/admin/settings-recap.ts:134) |  |
 | `SCORING` | fixed | admin | [settings-recap.ts:137](src/features/admin/settings-recap.ts:137) |  |
 | `Scoring system` | fixed | admin | [settings-recap.ts:138](src/features/admin/settings-recap.ts:138) |  |
+| `Standard points (1st = largest room size, −1 per place)` | fixed | admin | [scoring.ts:237](src/domain/tournament/scoring.ts:237) | the recap value for a tournament without `pointsVersion` (made before scaled points); a newer one shows the Setup option name |
 | `SCORING` | fixed | admin | [settings-recap.ts:143](src/features/admin/settings-recap.ts:143) |  |
 | `Points table` | fixed | admin | [settings-recap.ts:144](src/features/admin/settings-recap.ts:144) |  |
 | `BRACKET` | fixed | admin | [settings-recap.ts:147](src/features/admin/settings-recap.ts:147) |  |
