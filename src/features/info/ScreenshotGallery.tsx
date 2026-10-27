@@ -21,12 +21,8 @@ export function ScreenshotGallery({ tournamentId, imageIds }: { tournamentId: st
         ))}
       </div>
       {openSrc ? (
-        <Modal className='max-w-[min(1200px,95vw)]' title='Lobby screenshot' titleId='screenshot-title'>
-          <img
-            alt='Lobby screenshot, full size'
-            className='max-h-[70vh] w-full object-contain'
-            src={openSrc}
-          />
+        <Modal className='max-w-[min(1200px,95vw)]' title='Screenshot' titleId='screenshot-title'>
+          <img alt='Screenshot, full size' className='max-h-[70vh] w-full object-contain' src={openSrc} />
           <ModalActions>
             <Button onClick={() => setOpenSrc(null)}>Close</Button>
           </ModalActions>

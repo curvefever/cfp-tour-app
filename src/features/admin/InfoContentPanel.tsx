@@ -92,7 +92,7 @@ export function ScreenshotsControl() {
   return (
     <div className='flex flex-col gap-2'>
       <div className='text-sm font-bold'>
-        Lobby screenshots{' '}
+        Information{' '}
         <span className='font-normal text-muted'>
           {imageIds.length} of {MAX_SCREENSHOTS}
         </span>

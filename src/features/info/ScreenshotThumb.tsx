@@ -26,7 +26,7 @@ export function ScreenshotThumb({
       onClick={() => onOpen?.(source.src)}
       type='button'
     >
-      <img alt='Lobby screenshot' className='h-full w-full object-cover' src={source.src} />
+      <img alt='Screenshot' className='h-full w-full object-cover' src={source.src} />
     </button>
   );
 }

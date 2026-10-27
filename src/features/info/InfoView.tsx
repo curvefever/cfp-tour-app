@@ -96,7 +96,7 @@ export function InfoView() {
       </section>
       {state.tournamentId && imageIds.length ? (
         <section className='flex flex-col gap-3'>
-          <ColumnTitleBar title='Lobby' />
+          <ColumnTitleBar title='Information' />
           <ScreenshotGallery tournamentId={state.tournamentId} imageIds={imageIds} />
         </section>
       ) : null}

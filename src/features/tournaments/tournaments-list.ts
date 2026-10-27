@@ -38,6 +38,12 @@ function bySchedule(a: TournamentCard, b: TournamentCard): number {
   return (a.summary.scheduledAt ?? Infinity) - (b.summary.scheduledAt ?? Infinity);
 }
 
+/** Latest first, by the scheduled date; one with no date goes by when it was finished. */
+function byDateNewestFirst(a: TournamentCard, b: TournamentCard): number {
+  const date = (card: TournamentCard) => card.summary.scheduledAt ?? card.summary.finishedAt ?? 0;
+  return date(b) - date(a);
+}
+
 /**
  * The Tournaments page's sections. A draft has no section, so it is never listed; a viewer sees what `isVisibleToViewers` allows (on
  * production no test run), an admin also sees the test runs.
@@ -62,8 +68,6 @@ export function tournamentSections(
     upcoming: cards
       .filter((card) => card.phase === 'upcoming' || card.phase === 'starting-soon')
       .sort(bySchedule),
-    finished: cards
-      .filter((card) => card.phase === 'finished')
-      .sort((a, b) => (b.summary.finishedAt ?? 0) - (a.summary.finishedAt ?? 0)),
+    finished: cards.filter((card) => card.phase === 'finished').sort(byDateNewestFirst),
   };
 }

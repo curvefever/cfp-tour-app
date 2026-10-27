@@ -6,6 +6,19 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Quick wins: Information title, finished order, follow ✕, Copy settings Close (done — 2026-10-27)
+
+Four small items from the organiser's low-importance list, built while the weekly budget was nearly spent.
+
+- **Information title**: the Info tab's screenshot section is titled INFORMATION (was LOBBY), and the Setup/running Admin label reads "Information" (was "Lobby screenshots"); the organiser preferred "Information" to "Screenshots". The image alt texts and the full-size pop-up title read "Screenshot".
+- **Finished tournaments by date**: the Tournaments page's Finished section is sorted by scheduled date, latest first, falling back to `finishedAt` for one with no date (`byDateNewestFirst`, `tournaments-list.ts`). Before, it went by when the tournament was marked finished, so an Oct 15 test finished late showed above the Oct 18 tournament.
+- **Follow ✕**: the Bracket's follow box shows a 44 px ✕ while it has text; it clears the box and stops following (`chooseFollow('')`).
+- **Copy settings Close**: the panel was already closed behind "Choose…" but couldn't be closed again; a Close button now does that.
+
+Testing: eslint, prettier, typecheck on the changed files; `vitest related` (a new test orders two finished tournaments by scheduled date against their finishing order, plus an undated one by `finishedAt`). No live check (text and small UI changes). Full suite: not run (no shared code).
+
+Out of scope: "Remove the square behind each round's Settings icon": no background was found in the code (the title-bar popup button and the follow-row toggle have none); the organiser asked to see the intended change first, so nothing was changed.
+
 ## Bracket title bars: no NOW before the start, DONE when open, NOT COUNTED (done — 2026-10-27)
 
 Solo session on `test`, one commit.

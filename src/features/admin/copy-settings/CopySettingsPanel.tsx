@@ -156,6 +156,9 @@ export function CopySettings({ onApply }: CopySettingsProps) {
               {confirmation}
             </Alert>
           ) : null}
+          <ButtonRow>
+            <Button onClick={() => setExpanded(false)}>Close</Button>
+          </ButtonRow>
         </>
       )}
     </div>

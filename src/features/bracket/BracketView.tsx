@@ -109,14 +109,27 @@ export function BracketView() {
         <label className='sr-only' htmlFor='br-follow-input'>
           Follow a player
         </label>
-        <Input
-          className='h-11 w-60 rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep text-[15px] font-semibold max-[700px]:w-auto max-[700px]:min-w-0 max-[700px]:flex-1'
-          id='br-follow-input'
-          placeholder='Follow a player or team…'
-          type='text'
-          value={query}
-          onChange={(event) => chooseFollow(event.target.value)}
-        />
+        <span className='relative w-60 max-[700px]:w-auto max-[700px]:min-w-0 max-[700px]:flex-1'>
+          <Input
+            className='h-11 w-full rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep pr-11 text-[15px] font-semibold'
+            id='br-follow-input'
+            placeholder='Follow a player or team…'
+            type='text'
+            value={query}
+            onChange={(event) => chooseFollow(event.target.value)}
+          />
+          {query ? (
+            <button
+              aria-label='Stop following'
+              className='absolute top-0 right-0 flex size-11 cursor-pointer items-center justify-center text-[18px] text-muted hover:text-foreground'
+              onClick={() => chooseFollow('')}
+              title='Stop following'
+              type='button'
+            >
+              ✕
+            </button>
+          ) : null}
+        </span>
         <FollowBanner
           className='max-[700px]:order-last max-[700px]:basis-full'
           state={app.state}

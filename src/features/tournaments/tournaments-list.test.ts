@@ -45,12 +45,36 @@ describe('tournamentSections', () => {
       summary('c', { scheduledAt: NOW + 72 * HOUR }),
       summary('a', { scheduledAt: NOW + 24 * HOUR }),
       summary('b', { scheduledAt: NOW + 48 * HOUR }),
-      summary('old', { status: 'finished', started: true, finishedAt: NOW - 100 * HOUR }),
-      summary('new', { status: 'finished', started: true, finishedAt: NOW - 2 * HOUR }),
-      summary('mid', { status: 'finished', started: true, finishedAt: NOW - 30 * HOUR }),
+      summary('old', { status: 'finished', started: true, scheduledAt: null, finishedAt: NOW - 100 * HOUR }),
+      summary('new', { status: 'finished', started: true, scheduledAt: null, finishedAt: NOW - 2 * HOUR }),
+      summary('mid', { status: 'finished', started: true, scheduledAt: null, finishedAt: NOW - 30 * HOUR }),
     ]);
     expect(ids(result.upcoming)).toEqual(['a', 'b', 'c']);
     expect(ids(result.finished)).toEqual(['new', 'mid', 'old']);
+  });
+
+  it('orders finished tournaments by their scheduled date, not by when they were finished', () => {
+    const result = sections([
+      summary('oct15', {
+        status: 'finished',
+        started: true,
+        scheduledAt: NOW - 72 * HOUR,
+        finishedAt: NOW - 2 * HOUR,
+      }),
+      summary('oct18', {
+        status: 'finished',
+        started: true,
+        scheduledAt: NOW - 24 * HOUR,
+        finishedAt: NOW - 20 * HOUR,
+      }),
+      summary('undated', {
+        status: 'finished',
+        started: true,
+        scheduledAt: null,
+        finishedAt: NOW - 48 * HOUR,
+      }),
+    ]);
+    expect(ids(result.finished)).toEqual(['oct18', 'undated', 'oct15']);
   });
 
   it('marks an upcoming tournament within the hour before its start, with no section of its own', () => {
