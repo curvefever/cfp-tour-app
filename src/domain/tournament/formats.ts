@@ -66,7 +66,7 @@ const TEAM_FORMATS = TEAM_SIZES.flatMap((teamSize) =>
 const INDIVIDUAL_FORMATS: Array<Readonly<GameFormatDefinition>> = [
   {
     key: 'ffa-individual',
-    label: 'FFA — Individual',
+    label: 'FFA',
     shortLabel: 'FFA',
     unitLabel: 'Player',
     unitLabelPlural: 'Players',

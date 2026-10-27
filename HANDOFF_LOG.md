@@ -6,6 +6,17 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## "FFA" label, Advance to bracket capped at the roster (done — 2026-10-27)
+
+- **"FFA"**: the game format reads "FFA" instead of "FFA — Individual" (`formats.ts` label and the Setup kind select, `game-format-choice.ts`). "Individual" dates from the flat format list, where the team formats were also free-for-all; with the FFA / 1v1 / Teams choice it says nothing more. The `ffa-individual` key is unchanged.
+- **Advance to bracket**: with a roster loaded, the Setup box has the registered count as its maximum and a higher number typed is lowered to it (`cappedAdvance` in `FormatPanel.tsx`, over `clampAdvanceToBracket`); a value left above the count by a smaller roster reload shows "More than the N registered: everyone advances." Generation already clamped it, so nothing changes in the schedules made; the box simply no longer shows a number that can't happen. Before a roster is loaded the box is not capped.
+
+Testing: eslint, prettier, typecheck on the changed files; `vitest related` (100 files); full suite (below). The tests that named "FFA — Individual" updated.
+
+Full suite: passed on this entry's commit (131 files, 3519 tests).
+
+Out of scope: a live check (a Setup field change, no routing).
+
 ## Waterfall shown as "Custom", View as text removed; low-importance answers (done — 2026-10-27)
 
 - **"Custom" in the app**: every label and message an organiser or viewer reads now says Custom instead of Waterfall: the schedule logic option "Custom bracket (organiser-authored)", the CUSTOM BRACKET GRAPH panel (Setup and running Admin), the recap's "Custom bracket graph" row and "N, set by the custom bracket graph", the Info tab's format line "Custom bracket", and the generation, advancement, live-edit and roster messages. Identifiers, the `waterfall-bracket` key, stored data and the docs keep "waterfall" (renaming those would touch stored tournaments for no visible gain).

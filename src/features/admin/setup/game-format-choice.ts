@@ -11,7 +11,7 @@ import type { GameFormatKey, PersistedSetup } from '../../../domain/tournament/t
 export type FormatKind = 'ffa' | '1v1' | 'teams';
 
 export const FORMAT_KIND_LABELS: Record<FormatKind, string> = {
-  ffa: 'FFA — Individual',
+  ffa: 'FFA',
   '1v1': '1v1',
   teams: 'Teams',
 };

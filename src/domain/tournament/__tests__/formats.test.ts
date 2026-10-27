@@ -72,11 +72,7 @@ describe('the team format rule', () => {
 
 describe('the five formats that existed before the rule', () => {
   const before: Array<[GameFormatKey, string, object]> = [
-    [
-      'ffa-individual',
-      'FFA — Individual',
-      { unitLabel: 'Player', defaultRoomSize: { min: 6, max: 8, ideal: 8 } },
-    ],
+    ['ffa-individual', 'FFA', { unitLabel: 'Player', defaultRoomSize: { min: 6, max: 8, ideal: 8 } }],
     [
       'team-2v2v2v2',
       '2v2v2v2',

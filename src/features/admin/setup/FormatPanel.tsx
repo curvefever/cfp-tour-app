@@ -5,6 +5,7 @@ import {
   getGameFormat,
   resolveOddCountStrategy,
 } from '../../../domain/tournament/formats';
+import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { Alert, Button, ButtonRow, Input, SectionPanel, Select } from '../../../components/ui';
@@ -55,6 +56,7 @@ export function FormatPanel({
 }) {
   const { state, setup, updateSetup } = useTournamentApp();
   const change = useSetupChange();
+  const registered = state.confirmedCount ?? null;
   const format = getGameFormat(setup.gameFormat);
   const shown = visibleFormatFields(setup);
   const raceCompatible = format?.idealRoomSize === 2 && setup.oddCountStrategy !== 'flex';
@@ -240,9 +242,15 @@ export function FormatPanel({
                   id='cfg-qual-adv'
                   type='number'
                   min='1'
+                  max={registered ?? undefined}
                   value={setup.qualAdv}
-                  onChange={(e) => change('qualAdv', e.target.value)}
+                  onChange={(e) => change('qualAdv', cappedAdvance(e.target.value, registered))}
                 />
+                {registered !== null && (parseAdvanceToBracket(setup.qualAdv) ?? 0) > registered ? (
+                  <p className='text-xs text-muted'>
+                    More than the {registered} registered: everyone advances.
+                  </p>
+                ) : null}
               </PresenceField>
             )}
             <PresenceField htmlFor='cfg-non-counting-rounds' label='Non-counting rounds (optional)'>
@@ -526,4 +534,12 @@ export function FormatPanel({
       </ButtonRow>
     </SectionPanel>
   );
+}
+
+/** "Advance to bracket" as typed, lowered to the registered count once a roster is loaded. */
+function cappedAdvance(raw: string, registered: number | null): string {
+  const requested = parseAdvanceToBracket(raw);
+  return registered !== null && requested !== null
+    ? String(clampAdvanceToBracket(requested, registered))
+    : raw;
 }

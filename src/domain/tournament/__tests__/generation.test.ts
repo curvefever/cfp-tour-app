@@ -290,7 +290,7 @@ describe('generateTournament -- pooling round-count override', () => {
 
 describe('generateTournament -- Group Stage format gating', () => {
   it.each([
-    ['ffa-individual', 20, 'FFA — Individual'],
+    ['ffa-individual', 20, 'FFA'],
     ['team-2v2v2v2', 10, '2v2v2v2'],
     ['team-3v3v3', 8, '3v3v3'],
   ] as const)(
@@ -323,7 +323,7 @@ describe('generateTournament -- Group Stage format gating', () => {
 
 describe('generateTournament -- Swiss format gating', () => {
   it.each([
-    ['ffa-individual', 20, 'FFA — Individual'],
+    ['ffa-individual', 20, 'FFA'],
     ['team-2v2v2v2', 10, '2v2v2v2'],
     ['team-3v3v3', 8, '3v3v3'],
   ] as const)(
@@ -361,7 +361,7 @@ describe('generateTournament -- double-elimination format/odd-count-strategy gat
     expect(result.status).toBe('invalid');
     if (result.status === 'invalid') {
       expect(result.message).toContain('Double elimination');
-      expect(result.message).toContain('FFA — Individual');
+      expect(result.message).toContain('FFA');
     }
   });
 

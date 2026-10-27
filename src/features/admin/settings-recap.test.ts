@@ -54,7 +54,7 @@ describe('settingsRecapGroups', () => {
     );
     expect(titles(groups)).toEqual(['FORMAT', 'POOLING', 'SCORING', 'BRACKET', 'ROSTER AND SHARING']);
     const items = itemsOf(groups);
-    expect(items['Game format']).toBe('FFA — Individual · rooms of 6–8');
+    expect(items['Game format']).toBe('FFA · rooms of 6–8');
     expect(items['Pooling phase']).toBe('Qualification Table');
     expect(items['Advance to bracket']).toBe('24');
     expect(items['Non-counting rounds']).toBe('None');
