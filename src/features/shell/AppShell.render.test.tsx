@@ -737,6 +737,15 @@ describe('Bracket tab, the round settings of a double elimination wave box', () 
 
   afterEach(() => window.localStorage.clear());
 
+  it('titles the winners round and each losers round with a title bar of its own', () => {
+    const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
+
+    for (const title of ['R3 · Winners', 'R4 · Losers', 'R5 · Winners', 'R6 · Losers']) {
+      expect(view.getAllByRole('heading', { name: title }).length).toBeGreaterThan(0);
+    }
+    expect(view.queryByText('Losers bracket', { selector: 'div' })).toBeNull();
+  });
+
   it('gives the winners round the box band and each losers round its own band, quiet without a note', () => {
     const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
 
@@ -747,17 +756,14 @@ describe('Bracket tab, the round settings of a double elimination wave box', () 
     expect(view.queryAllByText('No specific settings').length).toBeGreaterThan(0);
   });
 
-  it('puts a losers round note on a button at its sub-label while the settings are hidden', () => {
+  it('puts a losers round note on a button in its title bar while the settings are hidden', () => {
     window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden');
     const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
 
     expect(view.queryAllByRole('note')).toHaveLength(0);
-    const buttons = view.queryAllByRole('button', { name: 'Round settings', expanded: false });
-    const losers = buttons.find((button) =>
-      button.parentElement?.parentElement?.textContent?.includes('Losers bracket'),
-    );
-    expect(losers).toBeTruthy();
-    fireEvent.mouseEnter(losers as HTMLElement);
+    const bar = view.getByRole('heading', { name: 'R4 · Losers' }).parentElement as HTMLElement;
+    const losers = within(bar).getByRole('button', { name: 'Round settings', expanded: false });
+    fireEvent.mouseEnter(losers);
     expect(within(view.getByRole('tooltip')).getByText('Zap')).toBeTruthy();
   });
 });

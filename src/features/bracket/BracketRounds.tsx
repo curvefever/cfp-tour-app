@@ -32,15 +32,8 @@ import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
-import {
-  hasRoundNotes,
-  isNotCountedRound,
-  roundProgress,
-  showsNowPill,
-  sumProgress,
-} from './title-bar-marks';
+import { hasRoundNotes, isNotCountedRound, roundProgress, showsNowPill } from './title-bar-marks';
 import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
-import { RoundSettingsPopup } from './RoundSettingsPopup';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
@@ -127,125 +120,17 @@ export function RoundColumn({
   );
 }
 
-/** A small caps sub-label inside a wave box ("WINNERS BRACKET", "LOSERS BRACKET"). */
-function WaveLabel({ children }: { children: ReactNode }) {
-  return <div className='text-xs font-extrabold tracking-[0.05em] text-muted uppercase'>{children}</div>;
-}
-
 /**
- * The heading of a losers round in a wave box ("Losers bracket", or "Round N" when the box holds several), with the
- * round's own settings band under it (its own height, quiet without a note), or, while the bands are hidden, the
- * round's pop-up button at the right.
+ * A double-elimination round's title: "R3 · Winners" and "R4 · Losers" when the column holds both brackets, else
+ * "Round 3". Short, so it fits beside NOW and the rooms counter ("Round 3 · Winners bracket" needs 268 px of ~240).
  */
-function WaveRoundHeading({
-  children,
-  note,
-  popupNote,
-  small,
-}: {
-  children: ReactNode;
-  note: string | null;
-  popupNote: string;
-  small: boolean;
-}) {
-  const heading = small ? (
-    <div className='text-xs font-bold text-muted'>{children}</div>
-  ) : (
-    <WaveLabel>{children}</WaveLabel>
-  );
-  return (
-    <div className='flex flex-col gap-1.5'>
-      {popupNote ? (
-        <div className='flex items-center justify-between'>
-          {heading}
-          <RoundSettingsPopup note={popupNote} />
-        </div>
-      ) : (
-        heading
-      )}
-      {note !== null ? <RoundSettingsBand className='rounded' note={note} /> : null}
-    </div>
-  );
-}
-
-/**
- * A `wave` box's content: the winners-bracket (WB) round's own rooms,
- * followed -- only when this wave actually has losers-bracket (LB) rounds
- * trailing it, which isn't guaranteed (the FFA/team shared-final
- * double-elimination variant can defer a WB round's drops into a *later*
- * round's LB absorption, leaving `losersRoundIndices` empty) -- by a thin
- * divider and every LB round's own rooms stacked beneath it. When two LB
- * rounds land in the same wave (the head-to-head/race variant's middle
- * rounds), each gets its own small round-identifying sub-label first,
- * since `roomLetter()` restarts at "Room A" independently per round and
- * two stacked "Room A" blocks would otherwise be ambiguous about which
- * round they belong to.
- */
-function WaveBoxBody({
-  state,
-  box,
-  editable,
-  followKey,
-  projectedSlots,
-  expectedDraw,
-  labels,
-  noteOf,
-  popupNoteOf,
-}: {
-  state: TournamentState;
-  box: Extract<BracketBox, { kind: 'wave' }>;
-  editable: boolean;
-  followKey: string | null;
-  projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
-  expectedDraw: Map<number, ExpectedRound> | null;
-  labels: ReturnType<typeof bracketRoundLabels>;
-  /** A round's band note (null: no band shows) and the note its pop-up button opens ('' for none). */
-  noteOf: (roundIndex: number) => string | null;
-  popupNoteOf: (roundIndex: number) => string;
-}) {
-  const hasLosers = box.losersRoundIndices.length > 0;
-  const severalLosers = box.losersRoundIndices.length > 1;
-  return (
-    <>
-      <div className='flex flex-col gap-5.5'>
-        {hasLosers ? <WaveLabel>Winners bracket</WaveLabel> : null}
-        <RoundBody
-          state={state}
-          roundIndex={box.winnersRoundIndex}
-          editable={editable}
-          followKey={followKey}
-          projected={projectedSlots[box.winnersRoundIndex] ?? null}
-          labels={labels}
-          expected={expectedDraw?.get(box.winnersRoundIndex) ?? null}
-        />
-      </div>
-      {hasLosers ? (
-        <div className='flex flex-col gap-5.5'>
-          {severalLosers ? <WaveLabel>Losers bracket</WaveLabel> : null}
-          {box.losersRoundIndices.map((roundIndex) => (
-            <div className='flex flex-col gap-5.5' key={roundIndex}>
-              <WaveRoundHeading
-                note={noteOf(roundIndex)}
-                popupNote={popupNoteOf(roundIndex)}
-                small={severalLosers}
-              >
-                {severalLosers ? `Round ${state.rounds[roundIndex]?.roundNum}` : 'Losers bracket'}
-              </WaveRoundHeading>
-              <RoundBody
-                state={state}
-                roundIndex={roundIndex}
-                editable={editable}
-                followKey={followKey}
-                projected={projectedSlots[roundIndex] ?? null}
-                labels={labels}
-                expected={expectedDraw?.get(roundIndex) ?? null}
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </>
-  );
+function waveRoundTitle(
+  state: TournamentState,
+  roundIndex: number,
+  side: 'Winners' | 'Losers' | null,
+): string {
+  const roundNum = state.rounds[roundIndex]?.roundNum;
+  return side ? `R${roundNum} · ${side}` : `Round ${roundNum}`;
 }
 
 /**
@@ -380,20 +265,39 @@ export function BracketRounds({
    * A waterfall column of several rounds, played together: one column whose title bar is the first round's,
    * then each further round under a title bar of its own (name and games, no NOW pill and no fold control).
    */
+  const bodyOf = (roundIndex: number) => (
+    <RoundBody
+      state={state}
+      roundIndex={roundIndex}
+      editable={editable}
+      followKey={followKey}
+      projected={projectedSlots[roundIndex] ?? null}
+      labels={labels}
+      expected={expectedDraw?.get(roundIndex) ?? null}
+    />
+  );
+  /** A further round stacked in a column, under a title bar of its own (name and games, no NOW pill, no fold). */
+  function renderStacked(roundIndex: number, title: string) {
+    return (
+      <div className='flex flex-col' key={roundIndex}>
+        <ColumnTitleBar
+          attached={banded}
+          done={isRoundDone(state, roundIndex)}
+          expected={expectedDraw?.has(roundIndex) ?? false}
+          gameCount={roundGameCount(state, roundIndex)}
+          notCounted={isNotCountedRound(state, roundIndex)}
+          progress={progressOf(roundIndex)}
+          settingsNote={popupNoteOf(roundIndex)}
+          title={title}
+        />
+        {banded ? <RoundSettingsBand note={noteOf(roundIndex) ?? ''} /> : null}
+        <div className='mt-4.5 flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
+      </div>
+    );
+  }
   function renderColumn(box: Extract<BracketBox, { kind: 'column' }>, shown: boolean) {
     const [first, ...others] = box.roundIndices;
     const collapsed = collapse?.[first] ?? bracketRoundDefaultCollapsed(state, first);
-    const bodyOf = (roundIndex: number) => (
-      <RoundBody
-        state={state}
-        roundIndex={roundIndex}
-        editable={editable}
-        followKey={followKey}
-        projected={projectedSlots[roundIndex] ?? null}
-        labels={labels}
-        expected={expectedDraw?.get(roundIndex) ?? null}
-      />
-    );
     return (
       <RoundColumn
         collapsed={collapsed}
@@ -410,22 +314,7 @@ export function BracketRounds({
         settingsNote={popupNoteOf(first)}
       >
         {bodyOf(first)}
-        {others.map((roundIndex) => (
-          <div className='flex flex-col' key={roundIndex}>
-            <ColumnTitleBar
-              attached={banded}
-              done={isRoundDone(state, roundIndex)}
-              expected={expectedDraw?.has(roundIndex) ?? false}
-              gameCount={roundGameCount(state, roundIndex)}
-              notCounted={isNotCountedRound(state, roundIndex)}
-              progress={progressOf(roundIndex)}
-              settingsNote={popupNoteOf(roundIndex)}
-              title={labels[roundIndex]?.label ?? ''}
-            />
-            {banded ? <RoundSettingsBand note={noteOf(roundIndex) ?? ''} /> : null}
-            <div className='mt-4.5 flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
-          </div>
-        ))}
+        {others.map((roundIndex) => renderStacked(roundIndex, labels[roundIndex]?.label ?? ''))}
       </RoundColumn>
     );
   }
@@ -444,24 +333,21 @@ export function BracketRounds({
         }}
         gameCount={roundGameCount(state, box.winnersRoundIndex)}
         key={box.winnersRoundIndex}
-        label={`Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`}
+        label={waveRoundTitle(
+          state,
+          box.winnersRoundIndex,
+          box.losersRoundIndices.length > 0 ? 'Winners' : null,
+        )}
         note={noteOf(box.winnersRoundIndex)}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
         phoneShown={shown}
-        progress={sumProgress(constituents.map(progressOf))}
+        progress={progressOf(box.winnersRoundIndex)}
         settingsNote={popupNoteOf(box.winnersRoundIndex)}
       >
-        <WaveBoxBody
-          state={state}
-          box={box}
-          editable={editable}
-          followKey={followKey}
-          projectedSlots={projectedSlots}
-          expectedDraw={expectedDraw}
-          labels={labels}
-          noteOf={noteOf}
-          popupNoteOf={popupNoteOf}
-        />
+        {bodyOf(box.winnersRoundIndex)}
+        {box.losersRoundIndices.map((roundIndex) =>
+          renderStacked(roundIndex, waveRoundTitle(state, roundIndex, 'Losers')),
+        )}
       </RoundColumn>
     );
   }

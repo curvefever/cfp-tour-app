@@ -6,6 +6,20 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Double elimination: Winners and Losers title bars (done — 2026-10-27)
+
+**Context.** The organiser found the "WINNERS BRACKET" / "LOSERS BRACKET" small-caps sub-labels in a double-elimination wave box barely visible and asked for them to look like the stacked rounds of a waterfall column. Mockup approved with "Round 3 · Winners"; the organiser preferred "Winners bracket" if it fit.
+
+**What changed.** A wave box with losers rounds is titled "R3 · Winners" and each losers round follows under a full title bar of its own ("R4 · Losers", with DONE, games, rooms counter and settings button, no NOW pill and no fold), built by `renderStacked`, the stacked bar the waterfall column already used (extracted from `renderColumn`, so both share it). A box without losers rounds still reads "Round N". The box's rooms counter is now its winners round's (each losers bar has its own) instead of the sum. `WaveBoxBody`, `WaveRoundHeading`, `WaveLabel` and the now-unused `sumProgress` are gone.
+
+**Decision (open to correction).** "RN · Winners" rather than "Round N · Winners bracket": measured in the 296 px title bar (about 240 px for the title beside the fold chevron, about 125 px with NOW and the admin's rooms counter), "ROUND 3 · WINNERS BRACKET" needs 268 px and never fits, "ROUND 3 · WINNERS" 183 px is cut while the round is played, "R3 · WINNERS" 122 px always fits. Losers rounds keep their own round number (R4, R6…), as in the existing "LB Round N" labels.
+
+**Testing.** `AppShell.render.test.tsx`: new test for the four titles in the `double-elim-1v1-16` fixture and no old sub-label; the hidden-settings test now finds the losers button inside the "R4 · Losers" title bar. Screen captures of `double-elim-1v1-16` at 1280 and 390 px (4 passed; checked the full bracket by eye). The screen spec's follow-row check now finds the row past the follow box's ✕ wrapper (it failed since that build, which changed the input's parent).
+
+Full suite: not run here; the rename fix that follows touches the domain and runs it for both.
+
+**Out of scope.** A rename during a running tournament leaves the old name in byes, room history, pending bracket seats and groups (found while checking the "o.scott" item); fixed in the next entry.
+
 ## Follow box: no foreign team ids; screenshots pasted from the clipboard (done — 2026-10-27)
 
 - **Follow fix**: "Following team_1792345651683_2 · Not in this bracket" came from the browser's single remembered follow (`LEGACY_BRACKET_FOLLOW_KEY` in `storage.ts`, shared by every tournament): a team followed in one tournament was restored by id in another, where `unitDisplay` has no team to name it. The Bracket and Standings now restore it through `rememberedFollow` (`follow-text.ts`): a remembered key is kept only when it is one of this tournament's players or teams (roster or reserves), so a player's own name still carries over to a tournament they are in. Both views read it again when another tournament loads and once its roster arrives (`tournamentId` and `players.length > 0` in the effect's dependencies), and the Bracket's box is emptied when nothing is restored.

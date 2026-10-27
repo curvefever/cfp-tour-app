@@ -3,7 +3,7 @@ import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { isFinalComplete } from '../../domain/tournament/rankings';
 import { createDefaultInfo, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import type { TournamentInfo, TournamentRound } from '../../domain/tournament/types';
-import { hasRoundNotes, roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
+import { hasRoundNotes, roundProgress, showsNowPill } from './title-bar-marks';
 
 const names = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'];
 
@@ -84,19 +84,6 @@ describe('roundProgress', () => {
   it('is null for the race Grand Final in play', () => {
     const raceFinal: Partial<TournamentRound> = { bracket: 'grand-final', wbFinalistName: 'P1' };
     expect(roundProgress(twoRounds({ atFinal: true, final: raceFinal }), 1, true)).toBeNull();
-  });
-});
-
-describe('sumProgress', () => {
-  it('adds the rounds in play of a wave box together', () => {
-    expect(sumProgress([{ scored: 1, total: 4 }, null, { scored: 2, total: 2 }])).toEqual({
-      scored: 3,
-      total: 6,
-    });
-  });
-
-  it('is null when no round of the box is in play', () => {
-    expect(sumProgress([null, null])).toBeNull();
   });
 });
 

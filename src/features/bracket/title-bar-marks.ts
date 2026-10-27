@@ -34,16 +34,6 @@ export function roundProgress(
   return roomsScored(state, roundIndex);
 }
 
-/** A wave box's tracker: its rounds in play added together; null when none is. */
-export function sumProgress(parts: Array<RoomsScored | null>): RoomsScored | null {
-  const counted = parts.filter((part): part is RoomsScored => part !== null);
-  if (counted.length === 0) return null;
-  return {
-    scored: counted.reduce((sum, part) => sum + part.scored, 0),
-    total: counted.reduce((sum, part) => sum + part.total, 0),
-  };
-}
-
 /** Whether any round of the tournament has its own settings note: the Bracket then shows bands, or none at all. */
 export function hasRoundNotes(state: TournamentState): boolean {
   return roundNoteNames(state).some((name) => roundNote(state.info?.roundNotes, name) !== '');
