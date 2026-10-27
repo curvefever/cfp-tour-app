@@ -6,6 +6,18 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A rename reaches every stored name (done — 2026-10-27)
+
+**Context.** The organiser's old item: "o.scott" (a dot, refused since) was renamed, yet the old name kept blocking the tournament (test tournament 1792085282272, no longer stored). Dots are refused at entry now, but the question was whether a renamed player's old name could still be "remembered". It could: `renameIndividual` renamed the roster, assignments, qual table, lucky losers, tie decisions, Final scores and the confirmation, but not byes, `poolingByeCounts`, `roomHistory`, `pendingBracketSeeds` (double elimination and custom brackets: a player waiting for a later round), a fixed draw's unreached rounds (`fixedRoomAssignments`), groups, group fixtures, group byes, group standings or anonymous finalists. A player renamed mid-tournament could come back under the old name in the next round, a name no longer on the roster (and, back then, one the database could not store, which is what blocked).
+
+**What changed.** New `renameInSchedule` (`rename-unit.ts`) renames every one of those places, with room history pairs re-sorted through `roomPairKey`; `renameIndividual` spreads it in. Teams are keyed by id, so team and member renames needed nothing.
+
+**Testing.** `rename-unit.test.ts`: a running state holding "Oscar" in every place; after the rename the serialized state contains no "Oscar"; each place checked; a pair re-sorted ("Oscar|Pia" → "Pia|Zed"); rounds without fixed draws or groups unchanged. `mutations.test.ts` passes unchanged (127 tests across both files).
+
+Full suite: passed (133 files, 3529 tests) on the commit that adds `rename-unit.ts`, covering the title bars build (1d185fc) too.
+
+**Out of scope.** Names stored with a now-refused character in older tournaments are still not migrated (unchanged, see `docs/rules.md`). Swaps were not re-audited here; their doc already covers seats, pools and group fixtures.
+
 ## Double elimination: Winners and Losers title bars (done — 2026-10-27)
 
 **Context.** The organiser found the "WINNERS BRACKET" / "LOSERS BRACKET" small-caps sub-labels in a double-elimination wave box barely visible and asked for them to look like the stacked rounds of a waterfall column. Mockup approved with "Round 3 · Winners"; the organiser preferred "Winners bracket" if it fit.
@@ -16,9 +28,9 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** `AppShell.render.test.tsx`: new test for the four titles in the `double-elim-1v1-16` fixture and no old sub-label; the hidden-settings test now finds the losers button inside the "R4 · Losers" title bar. Screen captures of `double-elim-1v1-16` at 1280 and 390 px (4 passed; checked the full bracket by eye). The screen spec's follow-row check now finds the row past the follow box's ✕ wrapper (it failed since that build, which changed the input's parent).
 
-Full suite: not run here; the rename fix that follows touches the domain and runs it for both.
+Full suite: covered by the run of the rename entry above.
 
-**Out of scope.** A rename during a running tournament leaves the old name in byes, room history, pending bracket seats and groups (found while checking the "o.scott" item); fixed in the next entry.
+**Out of scope.** A rename during a running tournament leaves the old name in byes, room history, pending bracket seats and groups (found while checking the "o.scott" item); fixed in the entry above.
 
 ## Follow box: no foreign team ids; screenshots pasted from the clipboard (done — 2026-10-27)
 

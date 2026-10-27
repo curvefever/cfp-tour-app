@@ -7,6 +7,7 @@ import { lateJoinersOf } from './late-joiners';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
+import { renameInSchedule } from './rename-unit';
 import { validateRoomCap } from './room-distribution';
 import { roundInPlayOf } from './round-columns';
 import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
@@ -208,11 +209,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     ...state,
     players: players.map(rename),
     reserves: reserves.map(rename),
-    assignments: state.assignments.map((round) =>
-      round.map((entry) => ({ ...entry, name: rename(entry.name) })),
-    ),
-    qualTable: state.qualTable.map((entry) => ({ ...entry, name: rename(entry.name) })),
-    luckyLosers: state.luckyLosers.map((round) => round.map(rename)),
+    ...renameInSchedule(state, rename),
     tieResolutions: Object.fromEntries(
       Object.entries(state.tieResolutions).map(([key, value]) => [
         key,
