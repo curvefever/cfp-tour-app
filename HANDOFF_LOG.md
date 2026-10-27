@@ -6,6 +6,28 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Bracket title bars: no NOW before the start, DONE when open, NOT COUNTED (done — 2026-10-27)
+
+Solo session on `test`, one commit.
+
+**Context.** Three small Bracket marks raised by the organiser. (1) Before Confirm & Start an admin sees the drawn Bracket, and Round 1 carried the NOW pill (listed in `docs/open-items.md`). (2) DONE showed only on a folded round, so an open finished round (the previous round stays open by default) looked the same as an upcoming one. (3) A seeding-only pooling round (`excludeFromStandings`, Setup's "non-counting rounds") was named as such only on the Standings tab and in a room's exit pop-up.
+
+**What was built.**
+- `title-bar-marks.ts`: `showsNowPill` requires `state.started`, so the desktop title bars and the phone round strip both lose NOW before the start. New `isNotCountedRound`.
+- `ColumnTitleBar.tsx`: `done` (a green DONE where NOW sits; the two never meet, a round in play is not done) and `notCounted` (a NOT COUNTED tag in the game-count style, after the game count). `DoneMark` is shared with `FoldedBox.tsx`, so the folded and open DONE are the same mark.
+- `folded-round.ts`: `FoldedRoundSummary.notCounted` (a column: every round of it); `FoldedRoundBody` shows NOT COUNTED as the first body line.
+- `BracketRounds.tsx`: a round box's title bar takes `done` and `notCounted` from its folded summary; each further round of a column box from `isRoundDone` and `isNotCountedRound`.
+
+**Decisions.** Placement of NOT COUNTED chosen by the organiser: a title-bar tag (on open and folded boxes) rather than a line under the bar. Only standings rounds carry `excludeFromStandings`; warm-up rounds of the "none" pooling phase are not marked (there is no qualification for them not to count towards). The phone round strip gets no NOT COUNTED mark: the shown box's title bar has it.
+
+**Testing.** `title-bar-marks.test.ts`: no NOW before the start (the fixture now starts the tournament). `round-strip.test.ts`: the drawn-but-not-started 31 fixture had NOW on Round 1, the bug, now none. `folded-round.test.ts` (37 and 43 players): `notCounted` only for the seeding-only round. Related tests 449 passed; eslint, prettier, typecheck clean. Visual check: the `ffa37-pooling` screens fixture temporarily given two non-counting rounds (reverted, not committed): Round 1 folded "DONE" + "NOT COUNTED", Round 2 open "DONE" + "NOT COUNTED", Round 3 "NOW", all fitting the 330 px bar.
+
+Full suite: not run (no shared code).
+
+**Out of scope.** A NOT COUNTED mark on the phone strip's items; a "NEXT" label before the start (none was asked for: no mark at all).
+
+---
+
 ## Fair elimination cut (done — 2026-10-26)
 
 Planner/reviewer and implementer sessions; two stages on `test`: stage 1 `42577ac` (the rule and advancement; review fixes `8e9394e`), stage 2 the commit after it (what players and organisers see, docs, this entry); pushed to `test` for the live check. The plan is `plans/2026-10-26-fair-cut.md`.

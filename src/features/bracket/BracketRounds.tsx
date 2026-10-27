@@ -32,7 +32,13 @@ import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
-import { hasRoundNotes, roundProgress, showsNowPill, sumProgress } from './title-bar-marks';
+import {
+  hasRoundNotes,
+  isNotCountedRound,
+  roundProgress,
+  showsNowPill,
+  sumProgress,
+} from './title-bar-marks';
 import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
 import { RoundSettingsPopup } from './RoundSettingsPopup';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
@@ -95,8 +101,10 @@ export function RoundColumn({
     >
       <ColumnTitleBar
         attached={banded}
+        done={folded.done}
         expected={expected}
         gameCount={gameCount}
+        notCounted={folded.notCounted}
         now={current}
         onToggle={onToggle}
         progress={progress}
@@ -406,8 +414,10 @@ export function BracketRounds({
           <div className='flex flex-col' key={roundIndex}>
             <ColumnTitleBar
               attached={banded}
+              done={isRoundDone(state, roundIndex)}
               expected={expectedDraw?.has(roundIndex) ?? false}
               gameCount={roundGameCount(state, roundIndex)}
+              notCounted={isNotCountedRound(state, roundIndex)}
               progress={progressOf(roundIndex)}
               settingsNote={popupNoteOf(roundIndex)}
               title={labels[roundIndex]?.label ?? ''}

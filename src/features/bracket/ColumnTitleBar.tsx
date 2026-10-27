@@ -9,13 +9,18 @@ function gameCountText({ games, upTo }: RoundGameCount): string {
   return `${upTo ? 'UP TO ' : ''}${games} ${games === 1 ? 'GAME' : 'GAMES'}`;
 }
 
-/** A small caps tag after a title bar's name: the game count, EXPECTED. */
+/** A small caps tag after a title bar's name: the game count, EXPECTED, NOT COUNTED. */
 function TitleTag({ children }: { children: ReactNode }) {
   return (
     <span className='rounded-xs bg-foreground/10 px-1.75 py-0.75 text-[11px] leading-none font-extrabold text-cfp-text-soft'>
       {children}
     </span>
   );
+}
+
+/** The green DONE of a finished round, on its title bar and on its folded box. */
+export function DoneMark() {
+  return <span className='text-xs font-extrabold tracking-[0.04em] text-cfp-green'>DONE</span>;
 }
 
 /** The admin's "4/6": rooms fully scored out of the round's rooms, green once all are in. */
@@ -58,17 +63,19 @@ function FoldButton({ onToggle, title }: { onToggle: () => void; title: string }
 }
 
 /**
- * The title bar above a Bracket column: its name, a NOW pill on the current round, the game count (`roundGameCount`
- * decides when there is one), and at the right the admin's rooms-scored tracker, anything extra the column wants (an
+ * The title bar above a Bracket column: its name, a NOW pill on the current round or DONE on a finished one, the
+ * game count (`roundGameCount` decides when there is one), NOT COUNTED on a seeding-only round, and at the right the admin's rooms-scored tracker, anything extra the column wants (an
  * exit icon) and the fold chevron.
  */
 export function ColumnTitleBar({
   attached = false,
   badge,
   className,
+  done = false,
   expected = false,
   extra,
   gameCount,
+  notCounted = false,
   now = false,
   onToggle,
   progress = null,
@@ -80,10 +87,14 @@ export function ColumnTitleBar({
   /** A status tag after the title (the standings column's TEMPORARY / FINAL). */
   badge?: ReactNode;
   className?: string;
+  /** The round is finished (`isRoundDone`): a green DONE after the title. */
+  done?: boolean;
   /** The round's line-up is the expected draw, not yet made (`expectedNextColumn`). */
   expected?: boolean;
   extra?: ReactNode;
   gameCount?: RoundGameCount | null;
+  /** A pooling round played for seeding only (`isNotCountedRound`). */
+  notCounted?: boolean;
   now?: boolean;
   onToggle?: () => void;
   /** Rooms scored out of the round's rooms, for an admin on a round in play; nothing when null or without rooms. */
@@ -106,8 +117,10 @@ export function ColumnTitleBar({
           NOW
         </Badge>
       ) : null}
+      {done ? <DoneMark /> : null}
       {gameCount ? <TitleTag>{gameCountText(gameCount)}</TitleTag> : null}
       {expected ? <TitleTag>EXPECTED</TitleTag> : null}
+      {notCounted ? <TitleTag>NOT COUNTED</TitleTag> : null}
       {badge}
       <div className='ml-auto flex shrink-0 items-center'>
         {progress && progress.total > 0 ? <RoomsScoredTag progress={progress} /> : null}

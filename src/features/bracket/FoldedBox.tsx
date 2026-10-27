@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../components/ui';
+import { DoneMark } from './ColumnTitleBar';
 import type { FoldedRoundSummary } from './folded-round';
 
 /**
@@ -30,7 +31,7 @@ export function FoldedBox({
         <span className='text-[15px] font-extrabold tracking-[0.03em] whitespace-nowrap uppercase'>
           {title}
         </span>
-        {done ? <span className='text-xs font-extrabold tracking-[0.04em] text-cfp-green'>DONE</span> : null}
+        {done ? <DoneMark /> : null}
         <span className='flex-1' />
         <svg aria-hidden='true' height='18' viewBox='0 0 16 16' width='18'>
           <path
@@ -63,10 +64,16 @@ function RoomsLine({ rooms }: { rooms: number }) {
   );
 }
 
-/** The body of a folded round: its room count and, for a followed unit that played it, its room and place. */
+/**
+ * The body of a folded round: NOT COUNTED for a seeding-only round, its room count and, for a followed unit that
+ * played it, its room and place.
+ */
 export function FoldedRoundBody({ summary }: { summary: FoldedRoundSummary }) {
   return (
     <>
+      {summary.notCounted ? (
+        <div className='text-xs font-extrabold tracking-[0.04em] text-cfp-text-soft'>NOT COUNTED</div>
+      ) : null}
       <RoomsLine rooms={summary.rooms} />
       {summary.followed ? (
         <>

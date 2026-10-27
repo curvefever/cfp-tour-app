@@ -4,6 +4,7 @@ import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scori
 import type { TournamentState } from '../../domain/tournament/types';
 import { placeOrdinal } from '../../lib/ordinal';
 import { isRoundDone } from '../../domain/tournament/round-columns';
+import { isNotCountedRound } from './title-bar-marks';
 
 export interface FoldedFollowed {
   /** The followed unit's name as shown (a team's name, a player's name). */
@@ -20,6 +21,8 @@ export interface FoldedRoundSummary {
   rooms: number;
   /** A round before the current one: nothing more will be played in it. */
   done: boolean;
+  /** A pooling round played for seeding only (`isNotCountedRound`); for a column, every round of it. */
+  notCounted: boolean;
   /** The followed unit, only when it played this round. */
   followed: FoldedFollowed | null;
 }
@@ -70,6 +73,7 @@ export function foldedColumnSummary(
   return {
     rooms: parts.reduce((total, part) => total + part.rooms, 0),
     done: parts.every((part) => part.done),
+    notCounted: parts.every((part) => part.notCounted),
     followed:
       followed && roundIndices.length > 1 && label
         ? { ...followed, detail: `${label} · ${followed.detail}` }
@@ -77,7 +81,7 @@ export function foldedColumnSummary(
   };
 }
 
-/** What a folded round shows: how many rooms it had, whether it is done, and where the followed unit stood. */
+/** What a folded round shows: how many rooms it had, whether it is done or not counted, and where the followed unit stood. */
 export function foldedRoundSummary(
   state: TournamentState,
   roundIndex: number,
@@ -86,21 +90,24 @@ export function foldedRoundSummary(
   const assignments = state.assignments[roundIndex] ?? [];
   const occupied = new Set(assignments.flatMap((entry) => (entry.room === null ? [] : [entry.room])));
   const rooms = assignments.length > 0 ? occupied.size : (state.rounds[roundIndex]?.rooms.length ?? 0);
-  const done = isRoundDone(state, roundIndex);
-  if (!followKey) return { rooms, done, followed: null };
+  const marks = {
+    rooms,
+    done: isRoundDone(state, roundIndex),
+    notCounted: isNotCountedRound(state, roundIndex),
+  };
+  if (!followKey) return { ...marks, followed: null };
   const label = unitDisplay(state, followKey).label;
   if (state.byes[roundIndex]?.includes(followKey)) {
-    return { rooms, done, followed: { label, room: null, place: null, detail: 'Bye' } };
+    return { ...marks, followed: { label, room: null, place: null, detail: 'Bye' } };
   }
   const seat = assignments.find((entry) => entry.name === followKey);
-  if (!seat) return { rooms, done, followed: null };
-  if (seat.room === null) return { rooms, done, followed: { label, room: null, place: null, detail: 'Bye' } };
+  if (!seat) return { ...marks, followed: null };
+  if (seat.room === null) return { ...marks, followed: { label, room: null, place: null, detail: 'Bye' } };
   const roomPlace = placeInRoom(state, roundIndex, seat.room, followKey);
   const place = roomPlace?.place ?? null;
   const room = `Room ${roomLetter(seat.room)}`;
   return {
-    rooms,
-    done,
+    ...marks,
     followed: {
       label,
       room: seat.room,

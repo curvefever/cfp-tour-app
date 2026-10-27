@@ -20,9 +20,9 @@ function strip(state: TournamentState): string[] {
 }
 
 describe('roundStrip, FFA 37 with a qualification table', () => {
-  it('lists every round before the start, nothing folded, the table after Round 3', () => {
+  it('lists every round before the start, nothing folded or in play, the table after Round 3', () => {
     expect(strip(fixtureAt('drawn-ffa-31'))).toEqual([
-      'Round 1 ●',
+      'Round 1',
       'Round 2',
       'Round 3',
       'Qualification',

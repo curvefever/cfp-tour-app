@@ -3,9 +3,14 @@ import { roundNote, roundNoteNames } from '../../domain/tournament/round-notes';
 import type { TournamentState } from '../../domain/tournament/types';
 import { type RoomsScored, roomsScored } from './still-playing';
 
-/** NOW marks the rounds of the column in play, until the Final is complete (`isFinalComplete`). */
+/** NOW marks the rounds of the column in play, from Confirm & Start until the Final is complete (`isFinalComplete`). */
 export function showsNowPill(state: TournamentState, roundIndex: number, finalComplete: boolean): boolean {
-  return isCurrentRound(state, roundIndex) && !finalComplete;
+  return state.started && isCurrentRound(state, roundIndex) && !finalComplete;
+}
+
+/** A pooling round played for seeding only (`excludeFromStandings`): its title bar says NOT COUNTED. */
+export function isNotCountedRound(state: TournamentState, roundIndex: number): boolean {
+  return Boolean(state.rounds[roundIndex]?.excludeFromStandings);
 }
 
 /**

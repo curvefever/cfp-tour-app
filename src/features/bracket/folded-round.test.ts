@@ -34,8 +34,24 @@ describe.each([37, 43])('foldedRoundSummary with %i players', (count) => {
 
   it('counts the occupied rooms of the round, whether or not it is done', () => {
     const rooms = new Set((first.assignments[0] ?? []).map((entry) => entry.room)).size;
-    expect(foldedRoundSummary(second, 0, null)).toEqual({ rooms, done: true, followed: null });
+    expect(foldedRoundSummary(second, 0, null)).toEqual({
+      rooms,
+      done: true,
+      notCounted: false,
+      followed: null,
+    });
     expect(foldedRoundSummary(second, 1, null).done).toBe(false);
+  });
+
+  it('is not counted only for a seeding-only round', () => {
+    const seedingOnly = {
+      ...second,
+      rounds: second.rounds.map((round, index) =>
+        index === 0 ? { ...round, excludeFromStandings: true } : round,
+      ),
+    };
+    expect(foldedRoundSummary(seedingOnly, 0, null).notCounted).toBe(true);
+    expect(foldedRoundSummary(seedingOnly, 1, null).notCounted).toBe(false);
   });
 
   it('marks only rounds before the current one as done', () => {
@@ -126,7 +142,12 @@ describe('foldedColumnSummary -- a waterfall column of two rounds', () => {
   const column = [upper, upper + 1];
 
   it('counts the rooms of every round of the column, and is not done while it is in play', () => {
-    expect(foldedColumnSummary(start, column, null)).toEqual({ rooms: 4, done: false, followed: null });
+    expect(foldedColumnSummary(start, column, null)).toEqual({
+      rooms: 4,
+      done: false,
+      notCounted: false,
+      followed: null,
+    });
   });
 
   it('is done once the column has been advanced from', () => {

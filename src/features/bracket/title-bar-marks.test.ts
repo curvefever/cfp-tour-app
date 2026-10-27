@@ -18,6 +18,7 @@ function twoRounds({ atFinal = false, finalScores = {}, final = {} }: Options = 
   return createDefaultTournamentState({
     gameFormat: 'ffa-individual',
     players: names,
+    started: true,
     curRound: atFinal ? 1 : 0,
     rounds: [
       buildRound({ roundNum: 1, rooms: [4, 3], players: 7, advPerRoom: 1 }),
@@ -38,6 +39,11 @@ function twoRounds({ atFinal = false, finalScores = {}, final = {} }: Options = 
 }
 
 describe('showsNowPill', () => {
+  it('marks nothing before Confirm & Start', () => {
+    const state = { ...twoRounds(), started: false };
+    expect(showsNowPill(state, 0, isFinalComplete(state))).toBe(false);
+  });
+
   it('marks the round in play and no other', () => {
     const state = twoRounds();
     expect(showsNowPill(state, 0, isFinalComplete(state))).toBe(true);
