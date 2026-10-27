@@ -12,7 +12,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { Alert, PageHeading, cn } from '../../components/ui';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { FollowBar } from '../bracket/FollowBanner';
-import { standingsFollowDetail } from '../bracket/follow-text';
+import { rememberedFollow, standingsFollowDetail } from '../bracket/follow-text';
 import { TournamentStandings } from './TournamentStandings';
 import { standingsNames } from './standings-names';
 import { standingsExplanation } from './standings-text';
@@ -67,8 +67,9 @@ export function StandingsView() {
   const title = useTournamentTitle();
   const [followKey, setFollowKey] = useState<string | null>(null);
   useEffect(() => {
-    if (hydrated) setFollowKey(readBracketFollow(window.localStorage));
-  }, [hydrated]);
+    if (hydrated) setFollowKey(rememberedFollow(state, readBracketFollow(window.localStorage)));
+    // Read again when another tournament loads, not on every state change.
+  }, [hydrated, state.tournamentId]);
   const display = useMemo(() => describeStandings(state), [state]);
   const marks = useMemo(() => (display ? cutTieMarks(state, display) : null), [state, display]);
   if (!display || !marks) {

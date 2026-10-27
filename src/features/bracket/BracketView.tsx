@@ -24,6 +24,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { BracketRounds } from './BracketRounds';
 import { FollowBanner } from './FollowBanner';
+import { rememberedFollow } from './follow-text';
 import { RoundSettingsToggle } from './RoundSettingsToggle';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
@@ -45,11 +46,12 @@ export function BracketView() {
   const [message, setMessage] = useState('');
   useEffect(() => {
     if (!app.hydrated) return;
-    const stored = readBracketFollow(window.localStorage);
+    const stored = rememberedFollow(app.state, readBracketFollow(window.localStorage));
     setFollowKey(stored);
     if (stored) setQuery(unitDisplay(app.state, stored).label);
     setSettingsShown(readRoundSettingsShown(window.localStorage));
-  }, [app.hydrated]);
+    // Read again when another tournament loads, not on every state change.
+  }, [app.hydrated, app.state.tournamentId]);
   useEffect(() => {
     setCollapse({});
     setStandingsCollapsed(false);

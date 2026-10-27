@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { Alert, SectionPanel, Textarea } from '../../components/ui';
 import { PresenceField } from '../presence/PresenceField';
+import { imageFiles, readClipboardImages } from '../info/clipboard-images';
 import { shrinkImageFile } from '../info/image-shrink';
 import { ScreenshotThumb } from '../info/ScreenshotThumb';
 import { MAX_SCREENSHOTS } from '../tournaments/screenshots.shared';
@@ -11,6 +12,10 @@ import { RoundNotesField } from './RoundNotesField';
 
 const FORMATTING_HINT =
   'A blank line starts a paragraph, "- " a list, **bold** for bold, [text](https://address) for a link. Saved when you leave the box.';
+
+const NO_IMAGE_MESSAGE = 'The clipboard holds no image: copy a screenshot first.';
+const CLIPBOARD_REFUSED_MESSAGE =
+  'The browser did not let the page read the clipboard: press Ctrl+V instead.';
 
 function errorText(error: unknown): string {
   return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
@@ -76,6 +81,19 @@ export function ScreenshotsControl() {
     }
   }
 
+  function pasteImages(files: File[]) {
+    const images = imageFiles(files);
+    if (images.length) void upload(images);
+    else setError(NO_IMAGE_MESSAGE);
+  }
+
+  async function pasteFromButton() {
+    setError('');
+    const files = await readClipboardImages(navigator.clipboard).catch(() => null);
+    if (files) pasteImages(files);
+    else setError(CLIPBOARD_REFUSED_MESSAGE);
+  }
+
   async function remove(imageId: string) {
     if (!window.confirm('Delete this screenshot?')) return;
     setError('');
@@ -97,7 +115,14 @@ export function ScreenshotsControl() {
           {imageIds.length} of {MAX_SCREENSHOTS}
         </span>
       </div>
-      <div className='flex flex-wrap gap-2.5'>
+      <div
+        className='flex flex-wrap gap-2.5'
+        onPaste={(event) => {
+          if (busy || readOnly || room <= 0) return;
+          event.preventDefault();
+          pasteImages([...event.clipboardData.files]);
+        }}
+      >
         {imageIds.map((imageId) => (
           <div className='relative' key={imageId}>
             <ScreenshotThumb
@@ -135,6 +160,17 @@ export function ScreenshotsControl() {
               type='file'
             />
           </label>
+        ) : null}
+        {room > 0 ? (
+          <button
+            className='flex h-22.5 w-37.5 cursor-pointer items-center justify-center rounded-sm border border-dashed border-cfp-text-dim text-sm font-bold text-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50'
+            disabled={busy || readOnly}
+            onClick={() => void pasteFromButton()}
+            title='Paste a copied screenshot (or press Ctrl+V here)'
+            type='button'
+          >
+            + Paste
+          </button>
         ) : null}
       </div>
       {room > 0 ? null : (

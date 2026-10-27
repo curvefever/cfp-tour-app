@@ -8,7 +8,12 @@ import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { followBannerText, standingsFollowDetail, standingsFollowText } from './follow-text';
+import {
+  followBannerText,
+  rememberedFollow,
+  standingsFollowDetail,
+  standingsFollowText,
+} from './follow-text';
 import { roomTitle } from './room-title';
 
 function start(count: number, setup: Partial<PersistedSetup> = {}, teams = false): TournamentState {
@@ -153,6 +158,20 @@ describe('followBannerText: other cases', () => {
     const text = textFor(state, name);
     expect(text.name).toBe(text.name.trim());
     expect(text.detail).toMatch(/Room A$/);
+  });
+});
+
+describe('rememberedFollow', () => {
+  it('drops a team id this tournament does not have, keeps one it has (13 teams)', () => {
+    const state = start(13, { qualAdv: '12' }, true);
+    expect(rememberedFollow(state, 'team_1792345651683_2')).toBeNull();
+    expect(rememberedFollow(state, 't3')).toBe('t3');
+  });
+
+  it('keeps a remembered name in an individual format, on the roster or not (37 players)', () => {
+    const state = start(37);
+    expect(rememberedFollow(state, 'Nobody')).toBe('Nobody');
+    expect(rememberedFollow(state, null)).toBeNull();
   });
 });
 

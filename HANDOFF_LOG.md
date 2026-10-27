@@ -6,6 +6,15 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Follow box: no foreign team ids; screenshots pasted from the clipboard (done — 2026-10-27)
+
+- **Follow fix**: "Following team_1792345651683_2 · Not in this bracket" came from the browser's single remembered follow (`LEGACY_BRACKET_FOLLOW_KEY` in `storage.ts`, shared by every tournament): a team followed in one tournament was restored by id in another, where `unitDisplay` has no team to name it. The Bracket and Standings now restore it through `rememberedFollow` (`follow-text.ts`): in a team format a key that isn't one of this tournament's teams is dropped; a remembered name in an individual format is kept (it is what the visitor typed). Both views read it again when another tournament loads (`tournamentId` in the effect's dependencies). A per-tournament follow was not built: the remembered name still carries over between individual tournaments, which is how a player follows themselves from one tournament to the next.
+- **Paste**: the screenshots control (Setup and running Admin) has a "+ Paste" tile beside "+ Upload": it reads the clipboard's images (`readClipboardImages`, `clipboard-images.ts`) and uploads them like chosen files (shrunk, up to the limit of 4). Ctrl+V while focus is in the tiles does the same. "The clipboard holds no image: copy a screenshot first." when there is none; "The browser did not let the page read the clipboard: press Ctrl+V instead." where reading is refused or unsupported.
+
+Testing: eslint, prettier, typecheck on the changed files; `vitest related`; new tests for `rememberedFollow` (13 teams: a foreign id dropped, an own id kept; 37 players: a name kept) and the clipboard helpers. No live check: the browser pane can't put an image on the clipboard; the organiser's first paste on the test site is the check. Full suite: not run (no shared code).
+
+Out of scope: remembering a follow per tournament.
+
 ## "FFA" label, Advance to bracket capped at the roster (done — 2026-10-27)
 
 - **"FFA"**: the game format reads "FFA" instead of "FFA — Individual" (`formats.ts` label and the Setup kind select, `game-format-choice.ts`). "Individual" dates from the flat format list, where the team formats were also free-for-all; with the FFA / 1v1 / Teams choice it says nothing more. The `ffa-individual` key is unchanged.

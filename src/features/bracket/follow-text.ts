@@ -1,11 +1,12 @@
 import { type BracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { exitBandAtRank, roundExitRule } from '../../domain/tournament/room-exits';
-import { unitDisplay } from '../../domain/tournament/roster';
+import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import {
   standingFor,
   type StandingsDisplay,
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
+import { getGameFormat } from '../../domain/tournament/formats';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { placeOrdinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
@@ -159,4 +160,13 @@ function standingsDestination(
   }
   if (table.cut !== null && index >= table.cut) return 'out';
   return `→ ${destinationLabel(display.lastStandingsRoundIndex + 1, labels)}`;
+}
+
+/**
+ * The remembered follow, as this tournament can use it. The browser keeps one follow for every tournament, so a team
+ * followed elsewhere is only an id here ("team_179…"): it is dropped. A remembered name is kept, as typed text.
+ */
+export function rememberedFollow(state: TournamentState, key: string | null): string | null {
+  if (key === null || !getGameFormat(state.gameFormat)?.teamSize) return key;
+  return key in buildTeamMap(state) ? key : null;
 }
