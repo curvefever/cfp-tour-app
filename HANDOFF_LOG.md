@@ -6,6 +6,19 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Waterfall shown as "Custom", View as text removed; low-importance answers (done — 2026-10-27)
+
+- **"Custom" in the app**: every label and message an organiser or viewer reads now says Custom instead of Waterfall: the schedule logic option "Custom bracket (organiser-authored)", the CUSTOM BRACKET GRAPH panel (Setup and running Admin), the recap's "Custom bracket graph" row and "N, set by the custom bracket graph", the Info tab's format line "Custom bracket", and the generation, advancement, live-edit and roster messages. Identifiers, the `waterfall-bracket` key, stored data and the docs keep "waterfall" (renaming those would touch stored tournaments for no visible gain).
+- **View as text removed**: the graph editor's side panel had a read-only "View as text" with "Copy text". The organiser chose to remove it rather than make the text editable ("either both or none").
+- **Decisions without a change**: "Next Round →" stays green, the main "go" action of a running tournament; every other button is already blue ("New tournament" is `primary`).
+- **Answered from the code, nothing to build**: the FFA minimum with single elimination is already 12 (Semis needs 2 rooms of 6, `getMinimumBracketUnits`); Kings Valley's is 16 (2 rooms of the ideal 8), left as it is. "Starting soon" shows from 1 hour before the scheduled time. A visit that lands with exactly one starting-soon or ongoing tournament opens it; someone already on the Tournaments page is not moved (the landing is decided once per visit), and only sees the card change.
+
+Testing: eslint and prettier on the changed files, typecheck on the changed paths, the full suite; the three tests that asserted the old wording updated.
+
+Full suite: passed on this entry's commit (3518 of 3519 on the first run; the one failure was `tournament-info.test.ts` still expecting "Waterfall bracket", fixed and rerun; no source file changed after the run).
+
+Out of scope: an editable text view of the graph (a paste-to-replace import would belong with the tournament export/import item); the Kings Valley minimum.
+
 ## Quick wins: Information title, finished order, follow ✕, Copy settings Close (done — 2026-10-27)
 
 Four small items from the organiser's low-importance list, built while the weekly budget was nearly spent.

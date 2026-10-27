@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { waterfallFlowEdges, type WaterfallDraft } from '../../../domain/tournament/waterfall-draft';
-import { Alert, Button } from '../../../components/ui';
+import { Alert } from '../../../components/ui';
 import { describeFlowEdge, destinationColor, destinationName, sourceName } from './waterfall-format';
 
 export type GraphStatus = { ok: true } | { ok: false; error: string };
@@ -10,26 +9,15 @@ export function WaterfallSidePanel({
   status,
   entrantCount,
   standingsSource,
-  text,
 }: {
   draft: WaterfallDraft;
   status: GraphStatus;
   entrantCount: number | null;
   /** The graph is fed by a qualification table, so `entrantCount` is the registered head count. */
   standingsSource: boolean;
-  text: string;
 }) {
-  // Remember which text was copied, so the label reverts once the graph changes.
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const copied = copiedText === text;
   const edges = waterfallFlowEdges(draft);
   const roomCountOf = (label: string) => draft.rounds.find((round) => round.label === label)?.roomCount ?? 1;
-  const copyText = () => {
-    navigator.clipboard
-      ?.writeText(text)
-      .then(() => setCopiedText(text))
-      .catch(() => setCopiedText(null));
-  };
 
   return (
     <div className='min-w-0'>
@@ -70,16 +58,6 @@ export function WaterfallSidePanel({
           </span>
         </div>
       ))}
-
-      <details className='mt-4'>
-        <summary className='cursor-pointer text-sm text-muted'>View as text</summary>
-        <pre className='mt-2 overflow-x-auto rounded-[5px] bg-background p-3 font-mono text-xs whitespace-pre-wrap'>
-          {text}
-        </pre>
-        <Button onClick={copyText} size='sm'>
-          {copied ? 'Copied' : 'Copy text'}
-        </Button>
-      </details>
     </div>
   );
 }

@@ -151,8 +151,8 @@ describe('settingsRecapGroups', () => {
         }),
       ),
     );
-    expect(items['Advance to bracket']).toBe('24, set by the waterfall graph');
-    expect(items['Waterfall graph']).toBeDefined();
+    expect(items['Advance to bracket']).toBe('24, set by the custom bracket graph');
+    expect(items['Custom bracket graph']).toBeDefined();
   });
 
   it('lists a tournament stored before the settings snapshot from what its state records', () => {

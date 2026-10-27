@@ -447,7 +447,7 @@ function fitWaterfallRoundAt(
 }
 
 function standingsShortfallMessage(ranked: number, highestRoutedRank: number): string {
-  return `Can't advance -- the qualification table ranks ${ranked} unit(s), but the waterfall graph routes qualification ranks up to ${highestRoutedRank}. A withdrawal during qualification has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
+  return `Can't advance -- the qualification table ranks ${ranked} unit(s), but the custom bracket graph routes qualification ranks up to ${highestRoutedRank}. A withdrawal during qualification has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
 }
 
 /**

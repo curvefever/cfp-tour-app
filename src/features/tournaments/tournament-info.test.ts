@@ -36,11 +36,11 @@ describe('tournamentFormatLine', () => {
         tournamentFormatLine({ gameFormat, poolingPhase: 'none', scheduleLogic: 'waterfall-bracket' }),
       ),
     ).toEqual([
-      'FFA · Waterfall bracket',
-      '2v2v2v2 · Waterfall bracket',
-      '3v3v3 · Waterfall bracket',
-      '3v3 · Waterfall bracket',
-      '1v1 · Waterfall bracket',
+      'FFA · Custom bracket',
+      '2v2v2v2 · Custom bracket',
+      '3v3v3 · Custom bracket',
+      '3v3 · Custom bracket',
+      '1v1 · Custom bracket',
     ]);
     expect(
       tournamentFormatLine({

@@ -1355,7 +1355,7 @@ SemiB: 1-4->Final, 5-8->eliminated
       const result = generateTournament(state, form, createTournamentRuntime());
       expect(result.status).toBe('invalid');
       if (result.status === 'invalid') {
-        expect(result.message).toContain('Waterfall bracket graph');
+        expect(result.message).toContain('Custom bracket graph');
         expect(result.message).toContain('example');
         expect(result.message).not.toContain('No ROUNDS: section found');
       }

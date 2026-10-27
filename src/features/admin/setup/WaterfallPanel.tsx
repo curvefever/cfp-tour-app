@@ -16,7 +16,7 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
   return (
     <SectionPanel
       hint='route the ranks of every room that go on; the rest are out'
-      title='WATERFALL BRACKET GRAPH'
+      title='CUSTOM BRACKET GRAPH'
     >
       <WaterfallGraphEditor
         entrantCount={waterfallEntrantCount}

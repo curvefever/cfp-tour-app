@@ -83,7 +83,7 @@ const RECAP: Record<FormatField, RecapEntry> = {
   },
   waterfallGraph: {
     group: 'FORMAT',
-    label: 'Waterfall graph',
+    label: 'Custom bracket graph',
     value: () => 'Organiser-authored, shown below',
   },
   poolingPhase: {
@@ -99,7 +99,7 @@ const RECAP: Record<FormatField, RecapEntry> = {
         return orDefault(settings.qualAdv, '—');
       }
       const advancing = waterfallGraphQualAdvance(settings.waterfallGraph);
-      return advancing > 0 ? `${advancing}, set by the waterfall graph` : '—';
+      return advancing > 0 ? `${advancing}, set by the custom bracket graph` : '—';
     },
   },
   nonCountingRounds: {

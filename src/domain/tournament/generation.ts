@@ -63,7 +63,7 @@ function resolveWaterfallGraph(
     return {
       ok: false,
       message:
-        'Waterfall bracket needs its rounds and routing set up in the "Waterfall bracket graph" section below the settings. Start a blank graph there, or load one of the examples, then route the ranks that go on.',
+        'Custom bracket needs its rounds and routing set up in the "Custom bracket graph" section below the settings. Start a blank graph there, or load one of the examples, then route the ranks that go on.',
     };
   }
   const parsedGraph = parseWaterfallGraph(graphText, { allowIncomplete: true });

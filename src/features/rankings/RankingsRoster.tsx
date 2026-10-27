@@ -92,7 +92,7 @@ function handleReserveResult(
     'fixed-draw':
       "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
     'waterfall-bracket':
-      "Players can't be added to a waterfall bracket without a pooling phase — its routing is built for the exact entrant count. To replace a no-show, use ⇄ Swap until the first elimination.",
+      "Players can't be added to a custom bracket without a pooling phase — its routing is built for the exact entrant count. To replace a no-show, use ⇄ Swap until the first elimination.",
     'strict-room':
       'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",

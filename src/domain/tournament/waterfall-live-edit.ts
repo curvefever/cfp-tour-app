@@ -98,7 +98,7 @@ function redrawRounds(
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const firstWaterfallIndex = state.rounds.findIndex((round) => round.isWaterfall);
   if (firstWaterfallIndex === -1) {
-    return { ok: false, error: 'This tournament has no waterfall bracket phase to edit.' };
+    return { ok: false, error: 'This tournament has no custom bracket phase to edit.' };
   }
   const roomSize = state.gamemodeConfig.roomSize;
   const finalsGames = state.gamemodeConfig.finalsGames;

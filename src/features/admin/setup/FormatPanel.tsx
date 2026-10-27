@@ -141,7 +141,7 @@ export function FormatPanel({
               </option>
             ))}
             {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
-            <option value='waterfall-bracket'>Waterfall bracket (organiser-authored)</option>
+            <option value='waterfall-bracket'>Custom bracket (organiser-authored)</option>
           </Select>
         </PresenceField>
         {shown.has('teamScoringRule') ? (
@@ -230,8 +230,8 @@ export function FormatPanel({
               <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
                 <p className='text-sm' id='cfg-qual-adv'>
                   {derivedAdvance > 0
-                    ? `${derivedAdvance}, set by the waterfall graph`
-                    : 'not set yet — route ranks of the qualification table in the waterfall graph below'}
+                    ? `${derivedAdvance}, set by the custom bracket graph`
+                    : 'not set yet — route ranks of the qualification table in the custom bracket graph below'}
                 </p>
               </PresenceField>
             ) : (

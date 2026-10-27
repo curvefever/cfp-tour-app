@@ -112,7 +112,6 @@ function QualificationHeader({
 
 function DraftEditor({
   draft,
-  text,
   status,
   onChange,
   entrantCount,
@@ -125,7 +124,7 @@ function DraftEditor({
   allowReplace = true,
   standingsSource = false,
   onAddRanks,
-}: EditorProps & { draft: WaterfallDraft; status: GraphStatus; onAddRanks?: () => void }) {
+}: Omit<EditorProps, 'text'> & { draft: WaterfallDraft; status: GraphStatus; onAddRanks?: () => void }) {
   const [selectedLabel, setSelectedLabel] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [lastRank, setLastRank] = useState<number | null>(null);
@@ -306,7 +305,6 @@ function DraftEditor({
           entrantCount={entrantCount}
           standingsSource={standingsSource}
           status={status}
-          text={text}
         />
       </div>
     </div>
@@ -430,7 +428,6 @@ export function WaterfallGraphEditor({
         standingsSource={standingsSource}
         startedColumns={startedColumns}
         status={status}
-        text={text}
       />
     </>
   );

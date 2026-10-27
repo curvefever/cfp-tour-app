@@ -124,7 +124,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
 
   if (!editing) {
     return (
-      <ProgressSubsection title='WATERFALL BRACKET GRAPH'>
+      <ProgressSubsection title='CUSTOM BRACKET GRAPH'>
         {success ? (
           <Alert className='mb-3' tone='success'>
             {success}
@@ -150,7 +150,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   }
 
   return (
-    <ProgressSubsection title='WATERFALL BRACKET GRAPH'>
+    <ProgressSubsection title='CUSTOM BRACKET GRAPH'>
       <Alert className='mb-3' tone='info'>
         {CAUTION_MESSAGE}
       </Alert>
