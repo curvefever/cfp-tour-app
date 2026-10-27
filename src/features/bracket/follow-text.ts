@@ -1,12 +1,11 @@
 import { type BracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { exitBandAtRank, roundExitRule } from '../../domain/tournament/room-exits';
-import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
+import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import {
   standingFor,
   type StandingsDisplay,
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
-import { getGameFormat } from '../../domain/tournament/formats';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { placeOrdinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
@@ -163,10 +162,11 @@ function standingsDestination(
 }
 
 /**
- * The remembered follow, as this tournament can use it. The browser keeps one follow for every tournament, so a team
- * followed elsewhere is only an id here ("team_179…"): it is dropped. A remembered name is kept, as typed text.
+ * The remembered follow, as this tournament can use it: kept only when it is one of this tournament's players or
+ * teams. The browser keeps one follow for every tournament, so a team followed elsewhere is only an id here
+ * ("team_179…"), and a tournament still loading has no roster yet: both give null.
  */
 export function rememberedFollow(state: TournamentState, key: string | null): string | null {
-  if (key === null || !getGameFormat(state.gameFormat)?.teamSize) return key;
-  return key in buildTeamMap(state) ? key : null;
+  if (key === null) return null;
+  return [...rosterKeys(state.players), ...rosterKeys(state.reserves)].includes(key) ? key : null;
 }

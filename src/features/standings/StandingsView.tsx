@@ -66,10 +66,11 @@ export function StandingsView() {
   const { state, hydrated } = useTournamentApp();
   const title = useTournamentTitle();
   const [followKey, setFollowKey] = useState<string | null>(null);
+  const rosterLoaded = state.players.length > 0;
   useEffect(() => {
     if (hydrated) setFollowKey(rememberedFollow(state, readBracketFollow(window.localStorage)));
-    // Read again when another tournament loads, not on every state change.
-  }, [hydrated, state.tournamentId]);
+    // Read again when another tournament loads and once its roster arrives, not on every state change.
+  }, [hydrated, state.tournamentId, rosterLoaded]);
   const display = useMemo(() => describeStandings(state), [state]);
   const marks = useMemo(() => (display ? cutTieMarks(state, display) : null), [state, display]);
   if (!display || !marks) {

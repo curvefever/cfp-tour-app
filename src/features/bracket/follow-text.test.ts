@@ -168,10 +168,18 @@ describe('rememberedFollow', () => {
     expect(rememberedFollow(state, 't3')).toBe('t3');
   });
 
-  it('keeps a remembered name in an individual format, on the roster or not (37 players)', () => {
+  it('drops a team id in an individual tournament, keeps a player on its roster (37 players)', () => {
     const state = start(37);
-    expect(rememberedFollow(state, 'Nobody')).toBe('Nobody');
+    const player = state.players[0] as string;
+    expect(rememberedFollow(state, 'team_1792345651683_2')).toBeNull();
+    expect(rememberedFollow(state, 'Nobody')).toBeNull();
+    expect(rememberedFollow(state, player)).toBe(player);
     expect(rememberedFollow(state, null)).toBeNull();
+  });
+
+  it('drops everything while the tournament is still loading, with no roster yet', () => {
+    const loading = { ...start(37), players: [], reserves: [] };
+    expect(rememberedFollow(loading, 't3')).toBeNull();
   });
 });
 

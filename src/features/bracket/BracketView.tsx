@@ -44,14 +44,15 @@ export function BracketView() {
   const [settingsShown, setSettingsShown] = useState(true);
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const rosterLoaded = app.state.players.length > 0;
   useEffect(() => {
     if (!app.hydrated) return;
     const stored = rememberedFollow(app.state, readBracketFollow(window.localStorage));
     setFollowKey(stored);
-    if (stored) setQuery(unitDisplay(app.state, stored).label);
+    setQuery(stored ? unitDisplay(app.state, stored).label : '');
     setSettingsShown(readRoundSettingsShown(window.localStorage));
-    // Read again when another tournament loads, not on every state change.
-  }, [app.hydrated, app.state.tournamentId]);
+    // Read again when another tournament loads and once its roster arrives, not on every state change.
+  }, [app.hydrated, app.state.tournamentId, rosterLoaded]);
   useEffect(() => {
     setCollapse({});
     setStandingsCollapsed(false);
