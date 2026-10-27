@@ -6,6 +6,20 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Double elimination numbered by column (done — 2026-10-27)
+
+**Context.** On test tournament 1793101258705 the organiser saw the column after Round 3 titled "R4 · Winners" and "R5 · Losers": every round has its own stored `roundNum`, so the losers round beside a winners round counted as the next round. Asked for "R4 · Winners" and "R4 · Losers".
+
+**What changed.** `shownRoundNumbers()` (`bracket.ts`): in a double elimination, every round shows its column's number; a winners round and the losers round beside it share it, and two losers rounds in one column are its parts ("4.1", "4.2"). `bracketRoundLabels()` uses it, so the room placeholders ("Advanced from LB Round 3") match the titles; so do the title bars and the phone round strip (a folded group "R1–4" ends on a column, never on "4.2"). Other formats keep `roundNum`. Display only: stored rounds are untouched, so running tournaments read the new numbers at once.
+
+**Decision (open to correction).** Round notes stay keyed by the stored-number label (`storedRoundLabels()`): the Bracket labels would have moved an existing note onto a different round, and "4.1" holds a "." a Firebase key cannot. The Admin notes editor shows the Bracket's name for the row ("LB Round 3") while saving under the stored one. Parts are numbered "4.1"/"4.2" rather than lettered; the line-up correction heading and advancement messages in Admin still say the stored "Round N" (not changed here).
+
+**Testing.** `bracket.test.ts`: a winners and a losers round share column 3 while the stored label stays "LB Round 4"; two losers rounds give "2.1", "2.2" and the next column goes on at 3; a format without brackets keeps its numbers; the every-kind list now reads "LB Round 9". `round-strip.test.ts`: the 1v1-16 fixture reads Round 3, 4, 5, 6 and folded groups "R1–3", "R1–4". `round-notes.test.ts`: a note stored under "LB Round 3" shows as "LB Round 2". `AppShell.render.test.tsx`: titles R3 · Winners, R3 · Losers, R4 · Winners, R4.1 · Losers, R4.2 · Losers, and the round notes still on their rounds.
+
+Full suite: passed (133 files, 3532 tests) on this commit. Two of four runs failed `SessionExpired.render.test.tsx` (and once `NewVersionBanner.render.test.tsx`), which pass alone and in the other runs: timing under load, untouched by this build (noted in open items).
+
+**Out of scope.** Admin texts that still use the stored number (line-up correction, advance messages); renumbering stored rounds.
+
 ## A rename reaches every stored name (done — 2026-10-27)
 
 **Context.** The organiser's old item: "o.scott" (a dot, refused since) was renamed, yet the old name kept blocking the tournament (test tournament 1792085282272, no longer stored). Dots are refused at entry now, but the question was whether a renamed player's old name could still be "remembered". It could: `renameIndividual` renamed the roster, assignments, qual table, lucky losers, tie decisions, Final scores and the confirmation, but not byes, `poolingByeCounts`, `roomHistory`, `pendingBracketSeeds` (double elimination and custom brackets: a player waiting for a later round), a fixed draw's unreached rounds (`fixedRoomAssignments`), groups, group fixtures, group byes, group standings or anonymous finalists. A player renamed mid-tournament could come back under the old name in the next round, a name no longer on the roster (and, back then, one the database could not store, which is what blocked).

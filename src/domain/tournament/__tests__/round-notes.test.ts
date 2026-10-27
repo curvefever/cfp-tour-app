@@ -10,7 +10,7 @@ import {
 import { createDefaultInfo } from '../state-defaults';
 import type { RoundNotes, TournamentState } from '../types';
 import { QUAL_GRAPH } from './qual-waterfall';
-import { generated, type Setup } from './test-fixtures';
+import { buildRound, generated, type Setup } from './test-fixtures';
 
 const HEAD_TO_HEAD: Setup = { gameFormat: 'individual-1v1' };
 const WATERFALL: Setup = {
@@ -117,6 +117,18 @@ describe('roundNote', () => {
 });
 
 describe('roundNoteRows', () => {
+  it('keeps a double-elimination note under its stored name and shows the column name', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 8 }),
+      buildRound({ roundNum: 2, rooms: [2], players: 4, bracket: 'winners' }),
+      buildRound({ roundNum: 3, rooms: [2], players: 4, bracket: 'losers' }),
+    ];
+    const rows = roundNoteRows({ rounds }, { 'LB Round 3': 'Zap only' });
+    expect(rows[2]).toEqual({ name: 'LB Round 3', shown: 'LB Round 2', note: 'Zap only' });
+    expect(roundNoteRowLabel(rows[2])).toBe('LB Round 2');
+    expect(rows[1]).toEqual({ name: 'WB Round 2', note: '' });
+  });
+
   it('has one row per round in schedule order, with its note or none', () => {
     const state = generated(37, { qualAdv: '30' });
     const rows = roundNoteRows(state, { 'Round 2': 'Powers: Zap', Final: 'Target 120' });

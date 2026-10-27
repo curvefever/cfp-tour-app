@@ -123,23 +123,23 @@ describe('roundStrip, other formats', () => {
 });
 
 describe('roundStrip, double elimination 1v1 with 16', () => {
-  it('labels each wave "Round N" after its winners round, and the last box "Grand Final"', () => {
+  it('labels each wave "Round N" by its column, and the last box "Grand Final"', () => {
     const items = strip(fixtureAt('double-elim-1v1-16', 0));
     expect(items).toHaveLength(7);
-    expect(items.slice(2, 6)).toEqual(['Round 3', 'Round 5', 'Round 8', 'Round 11']);
+    expect(items.slice(2, 6)).toEqual(['Round 3', 'Round 4', 'Round 5', 'Round 6']);
     expect(items[6]).toBe('Grand Final');
   });
 
   it('a wave is done only when all of its rounds are', () => {
     // Round index 5 is the first losers round of the wave that starts at index 4: that wave is in play, not done.
-    // The group runs to the last round of the last finished box, a losers round numbered 4.
+    // The group runs to the last finished box, column 3 (its losers round is stored as round 4).
     const midWave = strip(fixtureAt('double-elim-1v1-16', 5));
-    expect(midWave).toEqual(['R1–4 ✓', 'Round 5 ●', 'Round 8', 'Round 11', 'Grand Final']);
+    expect(midWave).toEqual(['R1–3 ✓', 'Round 4 ●', 'Round 5', 'Round 6', 'Grand Final']);
     // Once index 7 is in play that wave is done and the next one is in play.
     expect(strip(fixtureAt('double-elim-1v1-16', 7))).toEqual([
-      'R1–7 ✓',
-      'Round 8 ●',
-      'Round 11',
+      'R1–4 ✓',
+      'Round 5 ●',
+      'Round 6',
       'Grand Final',
     ]);
   });
@@ -239,9 +239,9 @@ describe('pickedItemKey and roundStripBoxLabels', () => {
       'Round 1',
       'Round 2',
       'Round 3',
+      'Round 4',
       'Round 5',
-      'Round 8',
-      'Round 11',
+      'Round 6',
       'Grand Final',
     ]);
   });

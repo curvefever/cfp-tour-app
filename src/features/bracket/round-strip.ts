@@ -1,4 +1,9 @@
-import { type BracketBox, bracketBoxes, bracketRoundLabels } from '../../domain/tournament/bracket';
+import {
+  type BracketBox,
+  bracketBoxes,
+  bracketRoundLabels,
+  shownRoundNumbers,
+} from '../../domain/tournament/bracket';
 import { isFinalComplete } from '../../domain/tournament/rankings';
 import { currentColumn, isRoundDone } from '../../domain/tournament/round-columns';
 import type { StandingsDisplay } from '../../domain/tournament/standings-display';
@@ -39,7 +44,7 @@ export function boxHoldingRound(boxes: readonly BracketBox[], roundIndex: number
 
 /** A box's title: a round's own label, the first round's for a waterfall column, "Round N" for a wave. */
 function boxLabel(state: TournamentState, box: BracketBox, labels: Array<{ label: string }>): string {
-  if (box.kind === 'wave') return `Round ${state.rounds[box.winnersRoundIndex]?.roundNum}`;
+  if (box.kind === 'wave') return `Round ${shownRoundNumbers(state)[box.winnersRoundIndex]}`;
   const first = box.kind === 'single' ? box.roundIndex : box.roundIndices[0];
   return labels[first]?.label ?? '';
 }
@@ -66,12 +71,16 @@ function boxItem(
   };
 }
 
-/** "R1–3": the round numbers of the first round of the first box and the last round of the last box. */
+/**
+ * "R1–3": the shown numbers of the first round of the first box and the last round of the last box; a part of a
+ * double-elimination column ("4.2") reads as its column ("4").
+ */
 function groupLabel(state: TournamentState, grouped: BracketBox[]): string {
+  const shown = shownRoundNumbers(state);
   const first = boxRoundIndices(grouped[0])[0];
   const lastRounds = boxRoundIndices(grouped[grouped.length - 1]);
   const last = lastRounds[lastRounds.length - 1];
-  return `R${state.rounds[first]?.roundNum}–${state.rounds[last]?.roundNum}`;
+  return `R${shown[first]}–${shown[last]?.split('.')[0]}`;
 }
 
 /**

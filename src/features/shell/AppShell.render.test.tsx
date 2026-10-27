@@ -740,7 +740,7 @@ describe('Bracket tab, the round settings of a double elimination wave box', () 
   it('titles the winners round and each losers round with a title bar of its own', () => {
     const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
 
-    for (const title of ['R3 · Winners', 'R4 · Losers', 'R5 · Winners', 'R6 · Losers']) {
+    for (const title of ['R3 · Winners', 'R3 · Losers', 'R4 · Winners', 'R4.1 · Losers', 'R4.2 · Losers']) {
       expect(view.getAllByRole('heading', { name: title }).length).toBeGreaterThan(0);
     }
     expect(view.queryByText('Losers bracket', { selector: 'div' })).toBeNull();
@@ -761,7 +761,7 @@ describe('Bracket tab, the round settings of a double elimination wave box', () 
     const view = renderApp(waveFixture(), { role: 'viewer', tab: 'bracket' });
 
     expect(view.queryAllByRole('note')).toHaveLength(0);
-    const bar = view.getByRole('heading', { name: 'R4 · Losers' }).parentElement as HTMLElement;
+    const bar = view.getByRole('heading', { name: 'R3 · Losers' }).parentElement as HTMLElement;
     const losers = within(bar).getByRole('button', { name: 'Round settings', expanded: false });
     fireEvent.mouseEnter(losers);
     expect(within(view.getByRole('tooltip')).getByText('Zap')).toBeTruthy();

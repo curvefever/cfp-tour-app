@@ -4,6 +4,8 @@ import {
   bracketFollowStatus,
   bracketRoundDefaultCollapsed,
   bracketRoundLabels,
+  shownRoundNumbers,
+  storedRoundLabels,
   projectedSlotLabelText,
   projectFutureRoundSlots,
   roundGameCount,
@@ -45,16 +47,37 @@ describe('bracketRoundDefaultCollapsed', () => {
 });
 
 describe('bracketRoundLabels', () => {
-  it("labels a WB/LB round by its own roundNum, not a separate WB/LB-specific counter -- regression for a box header ('Round N') and its content (this label) citing different numbers", () => {
+  it('numbers a double-elimination round by its column: a winners round and the losers round beside it share it', () => {
     const rounds = [
       buildRound({ roundNum: 1, rooms: [4], players: 4 }), // pre-bracket, no bracket tag
       buildRound({ roundNum: 2, rooms: [4], players: 4 }), // pre-bracket, no bracket tag
-      buildRound({ roundNum: 3, rooms: [3], players: 3, bracket: 'winners' }), // 1st WB round, but roundNum 3
-      buildRound({ roundNum: 4, rooms: [2], players: 2, bracket: 'losers' }), // 1st LB round, but roundNum 4
+      buildRound({ roundNum: 3, rooms: [3], players: 3, bracket: 'winners' }), // column 3
+      buildRound({ roundNum: 4, rooms: [2], players: 2, bracket: 'losers' }), // column 3, stored as round 4
     ];
     const labels = bracketRoundLabels({ rounds });
     expect(labels[2]).toEqual({ label: 'WB Round 3', roundNumber: 3 });
-    expect(labels[3]).toEqual({ label: 'LB Round 4', roundNumber: 4 });
+    expect(labels[3]).toEqual({ label: 'LB Round 3', roundNumber: 4 });
+    expect(storedRoundLabels({ rounds })[3]).toEqual({ label: 'LB Round 4', roundNumber: 4 });
+  });
+
+  it('numbers two losers rounds of one column as its parts, and the columns after it on from there', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 8 }),
+      buildRound({ roundNum: 2, rooms: [2], players: 4, bracket: 'winners' }),
+      buildRound({ roundNum: 3, rooms: [2], players: 4, bracket: 'losers' }),
+      buildRound({ roundNum: 4, rooms: [2], players: 4, bracket: 'losers' }),
+      buildRound({ roundNum: 5, rooms: [2], players: 2, bracket: 'winners' }),
+      buildRound({ roundNum: 6, rooms: [2], players: 2, bracket: 'losers' }),
+    ];
+    expect(shownRoundNumbers({ rounds })).toEqual(['1', '2', '2.1', '2.2', '3', '3']);
+  });
+
+  it('keeps the stored numbers outside a double elimination', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, rooms: [4], players: 8 }),
+      buildRound({ roundNum: 2, rooms: [2], players: 4 }),
+    ];
+    expect(shownRoundNumbers({ rounds })).toEqual(['1', '2']);
   });
 
   it('reads a waterfall round\'s own customLabel instead of a synthetic "Round N" label, as typed, also for the Final', () => {
@@ -98,7 +121,7 @@ describe('bracketRoundLabels', () => {
       'Semis',
       'Final',
       'WB Round 9',
-      'LB Round 10',
+      'LB Round 9',
       'Grand Final',
     ]);
   });

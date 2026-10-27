@@ -8,6 +8,7 @@ import {
   bracketRoundLabels,
   projectFutureRoundSlots,
   roundGameCount,
+  shownRoundNumbers,
 } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { finalsProgressState } from '../../domain/tournament/finals';
@@ -121,16 +122,17 @@ export function RoundColumn({
 }
 
 /**
- * A double-elimination round's title: "R3 · Winners" and "R4 · Losers" when the column holds both brackets, else
- * "Round 3". Short, so it fits beside NOW and the rooms counter ("Round 3 · Winners bracket" needs 268 px of ~240).
+ * A double-elimination round's title: "R4 · Winners" and "R4 · Losers" when the column holds both brackets, else
+ * "Round 4", numbered by column (`shownRoundNumbers`). Short, so it fits beside NOW and the rooms counter ("Round 3 ·
+ * Winners bracket" needs 268 px of ~240).
  */
 function waveRoundTitle(
   state: TournamentState,
   roundIndex: number,
   side: 'Winners' | 'Losers' | null,
 ): string {
-  const roundNum = state.rounds[roundIndex]?.roundNum;
-  return side ? `R${roundNum} · ${side}` : `Round ${roundNum}`;
+  const number = shownRoundNumbers(state)[roundIndex];
+  return side ? `R${number} · ${side}` : `Round ${number}`;
 }
 
 /**

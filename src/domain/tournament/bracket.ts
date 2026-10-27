@@ -39,22 +39,60 @@ export function roundGameCount(
 }
 
 export function bracketRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
-  return state.rounds.map((round) => {
+  return roundLabels(state, shownRoundNumbers(state));
+}
+
+/**
+ * The labels by each round's stored `roundNum` ("LB Round 5"), which never change for a schedule: the keys its round
+ * notes are stored under. The Bracket shows `bracketRoundLabels`, numbered by column in a double elimination.
+ */
+export function storedRoundLabels(state: Pick<TournamentState, 'rounds'>): BracketRoundLabel[] {
+  return roundLabels(
+    state,
+    state.rounds.map((round) => String(round.roundNum)),
+  );
+}
+
+function roundLabels(state: Pick<TournamentState, 'rounds'>, numbers: string[]): BracketRoundLabel[] {
+  return state.rounds.map((round, index) => {
+    const number = numbers[index] ?? String(round.roundNum);
     if (round.customLabel) {
       return { label: round.customLabel, roundNumber: round.roundNum };
     }
     if (round.bracket === 'winners') {
-      return { label: `WB Round ${round.roundNum}`, roundNumber: round.roundNum };
+      return { label: `WB Round ${number}`, roundNumber: round.roundNum };
     }
     if (round.bracket === 'losers') {
-      return { label: `LB Round ${round.roundNum}`, roundNumber: round.roundNum };
+      return { label: `LB Round ${number}`, roundNumber: round.roundNum };
     }
     if (round.bracket === 'grand-final') {
       return { label: 'Grand Final', roundNumber: round.roundNum };
     }
-    const label = round.isFinal ? 'Final' : round.isSemis ? 'Semis' : `Round ${round.roundNum}`;
+    const label = round.isFinal ? 'Final' : round.isSemis ? 'Semis' : `Round ${number}`;
     return { label, roundNumber: round.roundNum };
   });
+}
+
+/**
+ * The round number each round shows. A double-elimination bracket counts columns: a winners round and the losers
+ * rounds played beside it share their column's number ("4"), and two losers rounds in one column are its parts
+ * ("6.1", "6.2"). The stored `roundNum` counts every round, so the losers half of column 4 would read 5. Other
+ * formats show `roundNum`.
+ */
+export function shownRoundNumbers(state: Pick<TournamentState, 'rounds'>): string[] {
+  const shown = state.rounds.map((round) => String(round.roundNum));
+  if (!state.rounds.some((round) => round.bracket === 'winners')) return shown;
+  bracketBoxes(state).forEach((box, boxIndex) => {
+    const column = String(boxIndex + 1);
+    if (box.kind === 'single') shown[box.roundIndex] = column;
+    if (box.kind !== 'wave') return;
+    shown[box.winnersRoundIndex] = column;
+    const parts = box.losersRoundIndices;
+    parts.forEach((roundIndex, part) => {
+      shown[roundIndex] = parts.length > 1 ? `${column}.${part + 1}` : column;
+    });
+  });
+  return shown;
 }
 
 export interface BracketFollowStatus {
