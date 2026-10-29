@@ -60,7 +60,7 @@ export interface EliminatedRanking extends RankingDisplay {
   seat: number;
   /** Its place in that room by score; units with level scores share a place. */
   place: number;
-  /** It was absent from the room that eliminated it: it ranks after the present units of that room. */
+  /** It was absent from the room that eliminated it: it ranks last of that round, below every present unit eliminated in it. */
   absent: boolean;
   /** A standings cut eliminated it (the last pooling round), so its standing says more than its room. */
   atCut: boolean;
@@ -139,7 +139,7 @@ interface RoundElimination {
   room?: number;
   /** The room it played in, 1-based, whatever the round. */
   seat: number;
-  /** It was absent from that room: it ranks after every present unit eliminated in the same room. */
+  /** It was absent from that room: it ranks below every present unit eliminated in the same round (the Kings Valley room first). */
   absent?: true;
 }
 
@@ -178,11 +178,13 @@ function sameStandingFallback(first: EliminatedEntry, second: EliminatedEntry, p
   return !first.standing && !second.standing;
 }
 
-/** Two units eliminated in the same round, neither at a standings cut: lower Kings Valley room, lower place in the room, higher room share, then the pooling standings. */
+/** Two units eliminated in the same round, neither at a standings cut: lower Kings Valley room, a present unit before an absentee, lower place in the room, higher room share, then the pooling standings. Absentees of a round have no place or share to compare: they follow the pooling standings. */
 function compareWithinRound(first: EliminatedEntry, second: EliminatedEntry, perGroup: boolean): number {
   if (first.room !== undefined && second.room !== undefined && first.room !== second.room) {
     return first.room - second.room; // lower room number (closer to the top) ranks higher
   }
+  if (Boolean(first.absent) !== Boolean(second.absent)) return first.absent ? 1 : -1;
+  if (first.absent) return compareStandingFallback(first, second, perGroup);
   if (first.place !== second.place) return first.place - second.place;
   if (!sameRoomShare(first.share, second.share)) return second.share - first.share;
   return compareStandingFallback(first, second, perGroup);
@@ -205,8 +207,8 @@ function sharesRank(previous: EliminatedEntry, current: EliminatedEntry, perGrou
   if (previous.cut || current.cut) return false;
   return (
     previous.room === current.room &&
-    previous.place === current.place &&
-    sameRoomShare(previous.share, current.share) &&
+    Boolean(previous.absent) === Boolean(current.absent) &&
+    (previous.absent || (previous.place === current.place && sameRoomShare(previous.share, current.share))) &&
     sameStandingFallback(previous, current, perGroup)
   );
 }
@@ -262,7 +264,7 @@ function eliminationsInRound(
   const eliminations: Array<[string, RoundElimination]> = [];
   for (const [roomKey, roomAssignments] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
     const room = Number(roomKey);
-    // The units that were present, then the absentees, who rank after every one of them.
+    // The units that were present, then the absentees, who rank below every present unit of the round.
     const scored = Number.isInteger(room)
       ? scoreRoom(state, roundIndex, room, 0)
       : roomAssignments.map(({ name }) => ({ name, score: 0, players: 1 }));
@@ -317,6 +319,8 @@ function outOfCompleteRooms(
       if (!pending.has(entry.name) && (!band || band.kind === 'eliminate')) out.add(entry.name);
     }
     const round = state.rounds[roundIndex];
+    // An absentee of a winners round drops to the losers bracket: still in play.
+    if (round.bracket === 'winners') continue;
     for (const [index, name] of absentInRoom(state, roundIndex, room).entries()) {
       // An absentee is ranked last of its room: a custom bracket or Kings Valley routes it by that rank, every other round cuts it.
       const band = exitBandAtRank(rooms[room - 1] ?? [], scored.length + index + 1);

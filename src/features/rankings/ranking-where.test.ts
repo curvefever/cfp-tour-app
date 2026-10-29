@@ -339,15 +339,15 @@ describe('eliminatedRankText', () => {
 });
 
 describe('an absentee in an elimination round', () => {
-  it('ranks after every present unit eliminated in its room, and its where line ends in "absent"', () => {
+  it('ranks last of its round, below the present unit eliminated 8th in a bigger room, and its where line ends in "absent"', () => {
     let state = generate('FFA 53', 53, SE_FFA);
     const roundIndex = firstEliminationIndex(state);
     while (state.curRound < roundIndex) state = advance(state);
-    // Room C (room 3) has one absentee, in its last seat.
+    // Room C (room 3) has two absentees, in its last two seats.
     const roomC = state.assignments[roundIndex]
       .filter((entry) => entry.room === 3)
       .map((entry) => entry.name);
-    const keys = [7].map((position) => `r${roundIndex}-rm3-p${position}`);
+    const keys = [6, 7].map((position) => `r${roundIndex}-rm3-p${position}`);
     state = scoreCurrentRound(state, 0);
     state = answerAbsence(
       { ...state, scores: { ...state.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) } },
@@ -357,11 +357,12 @@ describe('an absentee in an elimination round', () => {
     const result = advanceTournamentRound(state);
     if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
     const { rankings, eliminated } = wheres(result.state);
-    const inRoomC = rankings.eliminatedList.filter((entry) => entry.ri === roundIndex && entry.seat === 3);
-    const absentees = inRoomC.filter((entry) => entry.absent);
-    const present = inRoomC.filter((entry) => !entry.absent);
-    expect(absentees.map((entry) => entry.name).sort()).toEqual(roomC.slice(7).sort());
-    expect(present.length).toBeGreaterThan(0);
+    const inRound = rankings.eliminatedList.filter((entry) => entry.ri === roundIndex);
+    const absentees = inRound.filter((entry) => entry.absent);
+    const present = inRound.filter((entry) => !entry.absent);
+    expect(absentees.map((entry) => entry.name).sort()).toEqual(roomC.slice(6).sort());
+    // Present units went out 8th in rooms of 8, and the absentee of room C ranks below all of them.
+    expect(present.some((entry) => entry.place === 8 && entry.seat !== 3)).toBe(true);
     const lowestPresent = Math.max(...present.map((entry) => entry.rank ?? 0));
     for (const entry of absentees) expect(entry.rank).toBeGreaterThan(lowestPresent);
     const lines = rankings.eliminatedList.map((entry, index) => ({ entry, line: eliminated[index] }));

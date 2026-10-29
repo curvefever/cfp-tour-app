@@ -7,11 +7,14 @@ import {
   roomFinishOrder,
 } from '../advancement';
 import { routeWaterfallRound } from '../bracket-replay';
-import { fairCutAdvancement, roundLineUps } from '../fair-cut';
+import { fairCutAdvancement, roundLineUps, sizePools } from '../fair-cut';
 import { removeRosterUnit } from '../mutations';
+import { computeRankings } from '../rankings';
+import { advanceTournamentRound } from '../transitions';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { type Absent, firstEliminationIndex, generate, playedRound, SE_FFA } from './fair-cut-fixtures';
+import { scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 const names = (room: number, positions: number[]) => positions.map((position) => `R${room}P${position + 1}`);
@@ -46,6 +49,14 @@ describe('53 FFA, first cut of a single elimination', () => {
     expect(new Set(result.eliminated)).toEqual(
       new Set([...names(1, [4, 5, 6, 7]), ...names(2, [4, 5, 6, 7]), ...names(3, [5, 6, 7])]),
     );
+  });
+
+  it('pools the relative scores of an earlier room of 8 with 3 absent as a room of 5', () => {
+    const state = playedRound(start(), roundIndex(), threeAbsent);
+    const pools = sizePools(state, roundIndex() + 1);
+    expect(pools.get(5)).toHaveLength(5);
+    expect(pools.get(8)).toHaveLength(24);
+    expect(pools.get(7)).toHaveLength(21);
   });
 
   it('is unchanged by the version when nobody is absent', () => {
@@ -90,6 +101,19 @@ describe('a double elimination (shared Final)', () => {
     const result = doubleEliminationComputeAdvancement(state, roundIndex);
     const losers = result.losers.map((entry) => entry.name);
     expect(losers).toEqual(expect.arrayContaining(['R1P7', 'R1P8']));
+    expect(result.winners.map((entry) => entry.name)).not.toContain('R1P7');
+  });
+
+  it('does the same under the earlier cut (no cutVersion)', () => {
+    const start = generate('DE 37', 37, {
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'double-elimination-shared-final',
+      poolingPhase: 'none',
+    });
+    const roundIndex = start.rounds.findIndex((round) => round.bracket === 'winners' && !round.isNoElim);
+    const state = withEarlierCutRule(playedRound(start, roundIndex, { 1: [6, 7] }));
+    const result = doubleEliminationComputeAdvancement(state, roundIndex);
+    expect(result.losers.map((entry) => entry.name)).toEqual(expect.arrayContaining(['R1P7', 'R1P8']));
     expect(result.winners.map((entry) => entry.name)).not.toContain('R1P7');
   });
 });
@@ -193,5 +217,52 @@ describe('hasPlayedAnyMatch, through the withdrawal a removal records', () => {
     const state = answerAbsence(twoRooms(), ['r0-rm1-p3'], 'played');
     expect(removeRosterUnit(state, 'A').withdrawnUnits).toMatchObject([{ name: 'A', playedAnyMatch: true }]);
     expect(removeRosterUnit(state, 'D').withdrawnUnits).toMatchObject([{ name: 'D', playedAnyMatch: true }]);
+  });
+});
+
+describe('Rankings while the round is in play', () => {
+  /** The tournament played up to the first round of `kind`, that round fully scored with one absentee in room 1's last seat. */
+  function inPlay(
+    setup: Parameters<typeof generate>[2],
+    isTarget: (round: TournamentState['rounds'][number]) => boolean,
+  ) {
+    let state = generate('in play', 37, setup);
+    while (!isTarget(state.rounds[state.curRound])) {
+      const result = advanceTournamentRound(scoreCurrentRound(state, 0));
+      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
+      state = result.state;
+    }
+    const size = state.assignments[state.curRound].filter((entry) => entry.room === 1).length;
+    const key = `r${state.curRound}-rm1-p${size - 1}`;
+    const absentee = state.assignments[state.curRound].filter((entry) => entry.room === 1)[size - 1].name;
+    const scored = scoreCurrentRound(state, 0);
+    return {
+      absentee,
+      state: answerAbsence({ ...scored, scores: { ...scored.scores, [key]: 0 } }, [key], 'absent'),
+    };
+  }
+
+  it('lists the absentee of a fully scored single-elimination room as eliminated before Next Round', () => {
+    const { absentee, state } = inPlay(SE_FFA, (round) => !round.isNoElim && !round.isQual && !round.isFinal);
+    const rankings = computeRankings(state);
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).toContain(absentee);
+    expect(rankings?.eliminatedList.find((entry) => entry.name === absentee)).toMatchObject({
+      absent: true,
+      rank: null,
+    });
+  });
+
+  it('keeps the absentee of a double-elimination winners round still in: it drops to the losers bracket', () => {
+    const { absentee, state } = inPlay(
+      {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'double-elimination-shared-final',
+        poolingPhase: 'none',
+      },
+      (round) => round.bracket === 'winners' && !round.isNoElim,
+    );
+    const rankings = computeRankings(state);
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).not.toContain(absentee);
+    expect(rankings?.stillActive.map((entry) => entry.name)).toContain(absentee);
   });
 });
