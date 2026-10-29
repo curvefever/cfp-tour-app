@@ -1,3 +1,4 @@
+import { absentInRoom } from './absences';
 import { isPoolingRound } from './pooling';
 import type { WaveMember } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
@@ -45,40 +46,56 @@ export function smallerRoomSeatWeight(round: SeatWeightRound): number {
   return warmUp || round.excludeFromStandings ? NO_POINTS_SEAT_WEIGHT : 1;
 }
 
+function occupancyOf(lineUp: RoundAssignment[]): Map<number, number> {
+  const occupancy = new Map<number, number>();
+  for (const { room } of lineUp) {
+    if (room !== null) occupancy.set(room, (occupancy.get(room) ?? 0) + 1);
+  }
+  return occupancy;
+}
+
 /**
  * For each unit, the seats it has held in a room smaller than the largest room of that line-up, each
- * weighing `weights[i]` for line-up i (1 where none is given).
+ * weighing `weights[i]` for line-up i (1 where none is given). `absent[i]` holds the units that were
+ * absent from line-up i: they hold no seat, and a room is as big as the units that were present in it,
+ * against the largest room of the whole line-up.
  */
 export function countSmallerRoomSeats(
   lineUps: RoundAssignment[][],
   weights: number[] = [],
+  absent: ReadonlyArray<ReadonlySet<string>> = [],
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const [index, lineUp] of lineUps.entries()) {
     const weight = weights[index] ?? 1;
-    const occupancy = new Map<number, number>();
-    for (const { room } of lineUp) {
-      if (room !== null) occupancy.set(room, (occupancy.get(room) ?? 0) + 1);
-    }
-    const largest = Math.max(0, ...occupancy.values());
-    for (const { name, room } of lineUp) {
+    const gone = absent[index];
+    const largest = Math.max(0, ...occupancyOf(lineUp).values());
+    const present = gone ? lineUp.filter(({ name }) => !gone.has(name)) : lineUp;
+    const occupancy = occupancyOf(present);
+    for (const { name, room } of present) {
       if (room !== null && (occupancy.get(room) ?? 0) < largest) counts[name] = (counts[name] ?? 0) + weight;
     }
   }
   return counts;
 }
 
+/** The units absent from each room of a round's line-up. */
+function absentFromLineUp(state: TournamentState, roundIndex: number): Set<string> {
+  const rooms = new Set(
+    (state.assignments[roundIndex] ?? []).flatMap(({ room }) => (room === null ? [] : [room])),
+  );
+  return new Set([...rooms].flatMap((room) => absentInRoom(state, roundIndex, room)));
+}
+
 /** The weighted smaller-room seats each unit held in the spreading rounds drawn before `roundIndex`. */
-export function smallerRoomSeatsBefore(
-  state: Pick<TournamentState, 'rounds' | 'assignments'>,
-  roundIndex: number,
-): Record<string, number> {
+export function smallerRoomSeatsBefore(state: TournamentState, roundIndex: number): Record<string, number> {
   const earlier = state.rounds
     .slice(0, roundIndex)
     .flatMap((round, index) => (spreadsSmallerRoomSeats(round) ? [{ round, index }] : []));
   return countSmallerRoomSeats(
     earlier.map(({ index }) => state.assignments[index] ?? []),
     earlier.map(({ round }) => smallerRoomSeatWeight(round)),
+    earlier.map(({ index }) => absentFromLineUp(state, index)),
   );
 }
 

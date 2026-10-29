@@ -1,5 +1,5 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
-import { withoutAbsenceAnswer, withoutSeatAbsences } from './absences';
+import { isUnitAbsentFromRoom, withoutAbsenceAnswer, withoutSeatAbsences } from './absences';
 import { moveConfirmation } from './confirmations';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
@@ -741,7 +741,11 @@ function hasPlayedAnyMatch(state: TournamentState, key: string): boolean {
     if (found.room === null) return false;
     const roomAssignments = roundAssignments.filter((entry) => entry.room === found.room);
     const position = roomAssignments.findIndex((entry) => entry.name === key);
-    return getUnitScore(state, roundIndex, found.room, position, null) !== null;
+    // A unit that was absent from the room never played it.
+    return (
+      getUnitScore(state, roundIndex, found.room, position, null) !== null &&
+      !isUnitAbsentFromRoom(state, roundIndex, found.room, position)
+    );
   });
 }
 

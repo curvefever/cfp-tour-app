@@ -9,6 +9,7 @@
  *
  * The Final and the grand final are left out: their 0s are never asked.
  */
+import { invalidateStaleTieResolutions } from './advancement';
 import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
 import { occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
@@ -55,6 +56,11 @@ function answerOf(state: Pick<TournamentState, 'absences'>, key: string): Absenc
   return (state.absences as TournamentState['absences'] | undefined)?.[key];
 }
 
+/** Whether any answer is recorded: without one nothing is absent, which spares the scoring code the work of looking. */
+function hasAnswers(state: TournamentState): boolean {
+  return usesAbsences(state) && Object.keys(state.absences ?? {}).length > 0;
+}
+
 /** True when the key holds a score of 0 that the organiser answered "absent". */
 export function isMarkedAbsent(state: TournamentState, key: string): boolean {
   return (
@@ -65,6 +71,20 @@ export function isMarkedAbsent(state: TournamentState, key: string): boolean {
 /** True when a Survival member was marked absent by hand (display only; scoring never reads it). */
 export function isMemberMarkedAbsent(state: TournamentState, memberKey: string): boolean {
   return usesAbsences(state) && answerOf(state, memberKey) === 'absent';
+}
+
+const teamMaps = new WeakMap<
+  object,
+  { players: unknown; reserves: unknown; map: ReturnType<typeof buildTeamMap> }
+>();
+
+/** The roster's teams by id, built once per state: the scoring code asks for it for every room it reads. */
+function teamsOf(state: TournamentState): ReturnType<typeof buildTeamMap> {
+  const cached = teamMaps.get(state);
+  if (cached && cached.players === state.players && cached.reserves === state.reserves) return cached.map;
+  const map = buildTeamMap(state);
+  teamMaps.set(state, { players: state.players, reserves: state.reserves, map });
+  return map;
 }
 
 function seatBase(roundIndex: number, room: number, position: number, game: number | null): string {
@@ -97,7 +117,7 @@ function seatQuestions(
 ): AbsenceQuestion[] {
   const games = Math.max(state.rounds[roundIndex]?.numGames ?? 1, 1);
   const teamSize = scoredTeamSize(state);
-  const members = teamSize ? buildTeamMap(state)[unit]?.members : undefined;
+  const members = teamSize ? teamsOf(state)[unit]?.members : undefined;
   const questions: AbsenceQuestion[] = [];
   for (let game = 1; game <= games; game += 1) {
     const base = seatBase(roundIndex, room, position, games > 1 ? game : null);
@@ -137,7 +157,7 @@ export function isUnitAbsentFromRoom(
   position: number,
 ): boolean {
   const unit = unitsOfRoom(state, roundIndex, room)[position];
-  if (!usesAbsences(state) || !roundAsks(state.rounds[roundIndex]) || unit === undefined) return false;
+  if (!hasAnswers(state) || !roundAsks(state.rounds[roundIndex]) || unit === undefined) return false;
   return isSeatAbsent(state, seatQuestions(state, roundIndex, room, position, unit));
 }
 
@@ -175,6 +195,22 @@ function roomQuestions(state: TournamentState, roundIndex: number, room: number)
     .filter((question) => scoreOrDefault(state.scores[question.key], null) === 0);
 }
 
+/**
+ * The units of a room with a score of 0 still waiting for an answer, in a mode that blocks on it: their 0 may be an
+ * absence, so a tie at 0 is held back until it is answered. Empty outside the column in play, in Survival Teams, and
+ * for a tournament without `absenceVersion`.
+ */
+export function unitsAwaitingAnswer(state: TournamentState, roundIndex: number, room: number): Set<string> {
+  const { start, end } = currentColumn(state);
+  if (!usesAbsences(state) || isSurvival(state) || roundIndex < start || roundIndex > end) return new Set();
+  if (!roundAsks(state.rounds[roundIndex])) return new Set();
+  return new Set(
+    roomQuestions(state, roundIndex, room)
+      .filter((question) => !answerOf(state, question.key))
+      .map((question) => question.unit),
+  );
+}
+
 /** Every score of 0 in the column in play that the bar can ask about, answered or not, grouped by round and room. */
 function zeroScoresInPlay(state: TournamentState): RoomAbsenceQuestions[] {
   if (!usesAbsences(state)) return [];
@@ -205,6 +241,20 @@ export function hasBlockingAbsenceQuestions(state: TournamentState): boolean {
   return !isSurvival(state) && pendingAbsenceQuestions(state).length > 0;
 }
 
+/** An answer changes who is in a room's ties: the decisions of the rooms it touches are checked again. */
+function invalidateTiesOfKeys(state: TournamentState, keys: string[]): TournamentState {
+  const rooms = new Map<string, [number, number]>();
+  for (const key of keys) {
+    const match = /^r(\d+)-rm(\d+)-/.exec(key);
+    if (match) rooms.set(`${match[1]}:${match[2]}`, [Number(match[1]), Number(match[2])]);
+  }
+  let next = state;
+  for (const [roundIndex, room] of rooms.values()) {
+    next = invalidateStaleTieResolutions(next, roundIndex, room);
+  }
+  return next;
+}
+
 /** Answers the given keys. Keys that are not a score of 0 in the column in play are ignored. */
 export function answerAbsence(
   state: TournamentState,
@@ -216,10 +266,11 @@ export function answerAbsence(
   );
   const answered = keys.filter((key) => askable.has(key));
   if (!answered.length) return state;
-  return {
+  const next = {
     ...state,
     absences: { ...state.absences, ...Object.fromEntries(answered.map((key) => [key, answer])) },
   };
+  return invalidateTiesOfKeys(next, answered);
 }
 
 function roundOfKey(key: string): number | null {
@@ -242,7 +293,7 @@ export function clearAbsenceAnswer(state: TournamentState, key: string): Tournam
   if (answerOf(state, key) === undefined || roundIndex === null || roundIndex < start || roundIndex > end) {
     return state;
   }
-  return { ...state, absences: withoutAbsenceAnswer(state.absences, key) };
+  return invalidateTiesOfKeys({ ...state, absences: withoutAbsenceAnswer(state.absences, key) }, [key]);
 }
 
 /** Marks a member of a Survival team absent by hand (display only). Ignored unless the member exists in the column in play. */
@@ -255,7 +306,7 @@ export function markSurvivalMemberAbsent(
 ): TournamentState {
   const { start, end } = currentColumn(state);
   const unit = unitsOfRoom(state, roundIndex, room)[position];
-  const member = unit === undefined ? undefined : buildTeamMap(state)[unit]?.members?.[memberIndex];
+  const member = unit === undefined ? undefined : teamsOf(state)[unit]?.members?.[memberIndex];
   if (!usesAbsences(state) || !isSurvival(state) || !roundAsks(state.rounds[roundIndex]) || !member)
     return state;
   if (roundIndex < start || roundIndex > end) return state;

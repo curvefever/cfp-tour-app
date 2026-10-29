@@ -1,9 +1,11 @@
+import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import {
   getUnitScore,
   groupByScore,
+  isRoomScored,
   orderRoomByScore,
   orderRoomWithPlaces,
   readTieResolution,
@@ -50,6 +52,8 @@ export function compareStandings(first: TournamentStanding, second: TournamentSt
 export interface ScoredUnit {
   name: string;
   score: number;
+  /** Players in play for the unit (sum of members, minus those absent or missing); absent means 1. */
+  players?: number;
 }
 
 interface LuckyLoserCandidate {
@@ -75,19 +79,32 @@ interface CutoffTieCluster {
   groupLabel?: string;
 }
 
+/**
+ * The units of a room that were present, with their scores: an absentee is left out, so places, ties, points,
+ * lucky-loser candidates and the fair cut all see the room as it was really played. Every unit carries its
+ * players in play (1 outside a sum-of-members room).
+ */
 export function scoreRoom(
   state: TournamentState,
   roundIndex: number,
   room: number,
   fallback: number | null,
 ): ScoredUnit[] {
+  const absent = new Set(absentInRoom(state, roundIndex, room));
   return (state.assignments[roundIndex] ?? [])
     .filter((assignment) => assignment.room === room)
     .map((assignment, position) => ({
       name: assignment.name,
       score: getUnitScore(state, roundIndex, room, position, fallback),
+      players: playersInPlay(state, roundIndex, room, position),
     }))
-    .filter((entry): entry is ScoredUnit => entry.score !== null);
+    .filter((entry): entry is Required<ScoredUnit> => entry.score !== null && !absent.has(entry.name));
+}
+
+/** The units the room was really played by, then the absentees: the one order every consumer that ranks or routes the whole room reads. */
+export function roomFinishOrder(state: TournamentState, roundIndex: number, room: number): string[] {
+  const present = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
+  return [...present.map((entry) => entry.name), ...absentInRoom(state, roundIndex, room)];
 }
 
 export function isLastStandingsRound(state: TournamentState, roundIndex: number): boolean {
@@ -118,7 +135,7 @@ function luckyLoserCandidate(scored: ScoredUnit[], advPerRoom: number): LuckyLos
   if (!candidate) return null;
   const roomTotal = scored.reduce((total, entry) => total + entry.score, 0);
   if (roomTotal <= 0) return null;
-  return { name: candidate.name, share: relativeRoomShare(candidate.score, scored) };
+  return { name: candidate.name, share: relativeRoomShare(candidate.score, scored, candidate.players) };
 }
 
 function pickLuckyLosers(candidates: LuckyLoserCandidate[], luckyCount: number): string[] {
@@ -140,8 +157,11 @@ export function detectTieBreaks(
     const scored = scoreRoom(state, roundIndex, room, null).sort(
       (first, second) => second.score - first.score,
     );
+    const awaiting = unitsAwaitingAnswer(state, roundIndex, room);
     for (const cluster of groupByScore(scored)) {
       if (cluster.length < 2) continue;
+      // Units at 0 may have been absent: a tie there waits for the bar's answers.
+      if (cluster[0].score === 0 && cluster.some((entry) => awaiting.has(entry.name))) continue;
       const key = `r${roundIndex}-rm${room}-s${cluster[0].score}`;
       ties[key] = { players: cluster, rm: room, score: cluster[0].score };
     }
@@ -509,10 +529,22 @@ function pointsForSharedPlace(roomPoints: readonly number[], place: number, coun
   return total / count;
 }
 
-/** One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room gives everyone 1. */
-export function relativeRoomShare(score: number, scoredRoom: readonly { score: number }[]): number {
+/**
+ * One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room
+ * gives everyone 1. With `players` it is the score per player over the room's score per player, so a team playing
+ * short is not measured against full teams; when every unit has the same number of players the two are the same.
+ */
+export function relativeRoomShare(
+  score: number,
+  scoredRoom: readonly { score: number; players?: number }[],
+  players = 1,
+): number {
   const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
-  return roomTotal > 0 ? (score / roomTotal) * scoredRoom.length : 1;
+  if (roomTotal <= 0) return 1;
+  const counts = scoredRoom.map((entry) => entry.players ?? 1);
+  if (counts.every((count) => count === counts[0])) return (score / roomTotal) * scoredRoom.length;
+  const roomPlayers = counts.reduce((total, count) => total + count, 0);
+  return score / players / (roomTotal / roomPlayers);
 }
 
 /**
@@ -542,6 +574,11 @@ export function roomUnitCount(state: TournamentState, roundIndex: number, room: 
   return (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room).length;
 }
 
+/** The units of a room that were present: its line-up less the absentees. */
+export function presentUnitCount(state: TournamentState, roundIndex: number, room: number): number {
+  return roomUnitCount(state, roundIndex, room) - absentInRoom(state, roundIndex, room).length;
+}
+
 /**
  * A room with exactly one assigned unit is not a match (its opponent was
  * removed, or the seeder left an odd unit alone): the standings credit the
@@ -553,14 +590,23 @@ export function isUncontestedRoom(state: TournamentState, roundIndex: number, ro
   return roomUnitCount(state, roundIndex, room) === 1;
 }
 
+/**
+ * A room with exactly one present unit: as an uncontested room, the unit takes a win with no score and no room
+ * share, whether its opponents were never seated or were absent. A room with no present unit gives nobody a win.
+ * The scoring callers read this; `isUncontestedRoom` keeps its line-up meaning for the displays.
+ */
+export function isWalkoverRoom(state: TournamentState, roundIndex: number, room: number): boolean {
+  return presentUnitCount(state, roundIndex, room) === 1;
+}
+
 /** Display option: `liveRound` is the round still being played; its partly scored rooms are left out of the standings until their last score lands. Advancement and mutations omit it. */
 export interface StandingsOptions {
   liveRound?: number;
 }
 
-/** True once every unit assigned to the room has a score. */
+/** True once every unit assigned to the room has a score (an absentee's 0 is a stored score). */
 export function isRoomFullyScored(state: TournamentState, roundIndex: number, room: number): boolean {
-  return scoreRoom(state, roundIndex, room, null).length === roomUnitCount(state, roundIndex, room);
+  return isRoomScored(state, roundIndex, room);
 }
 
 function isHeldBackLiveRoom(
@@ -586,14 +632,15 @@ function activeGroupByes(state: TournamentState, round: TournamentRound): string
   return (round.groupByes ?? []).filter((name) => !idle.has(name));
 }
 
-/** Units that sit a counted round out with a win: its byes, and every unit alone in a room (its opponent was removed). */
+/** Units that sit a counted round out with a win: its byes, and every unit alone in a room (its opponent was removed or absent). */
 function walkoverNames(state: TournamentState, roundIndex: number, round: TournamentRound): Set<string> {
   if (!roundHasBegun(state, roundIndex)) return new Set();
   const names = new Set(round.isGroupStage ? activeGroupByes(state, round) : (state.byes[roundIndex] ?? []));
   for (let room = 1; room <= round.rooms.length; room += 1) {
-    if (!isUncontestedRoom(state, roundIndex, room)) continue;
+    if (!isWalkoverRoom(state, roundIndex, room)) continue;
+    const absent = new Set(absentInRoom(state, roundIndex, room));
     for (const entry of state.assignments[roundIndex]) {
-      if (entry.room === room) names.add(entry.name);
+      if (entry.room === room && !absent.has(entry.name)) names.add(entry.name);
     }
   }
   return names;
@@ -617,7 +664,7 @@ function roomOutcomes(
   room: number,
 ): Array<RoundOutcome & { name: string }> {
   const scored = scoreRoom(state, roundIndex, room, null);
-  const roomPoints = roomPointsByPlace(state, roomUnitCount(state, roundIndex, room));
+  const roomPoints = roomPointsByPlace(state, presentUnitCount(state, roundIndex, room));
   return orderRoomWithPlaces(scored, roundIndex, room, state).map(({ entry, place, sharedBy }) => ({
     name: entry.name,
     roundIndex,
@@ -625,7 +672,7 @@ function roomOutcomes(
     rank: place,
     points: pointsForSharedPlace(roomPoints, place, sharedBy),
     bye: false,
-    share: relativeRoomShare(entry.score, scored),
+    share: relativeRoomShare(entry.score, scored, entry.players),
     ...(sharedBy > 1 ? { shared: true } : {}),
   }));
 }
@@ -640,7 +687,7 @@ export function computeQualificationStandings(
   for (const [roundIndex, round] of state.rounds.entries()) {
     if (!(round.isQual || round.isSwiss) || round.excludeFromStandings) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
-      if (isUncontestedRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
+      if (isWalkoverRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
         continue;
       for (const { name, ...outcome } of roomOutcomes(state, roundIndex, room)) {
         accumulators.get(name)?.rounds.push(outcome);
@@ -670,7 +717,7 @@ export function computeGroupStandings(
       const groupLabel = round.roomGroups?.[room - 1];
       if (
         !groupLabel ||
-        isUncontestedRoom(state, roundIndex, room) ||
+        isWalkoverRoom(state, roundIndex, room) ||
         isHeldBackLiveRoom(state, roundIndex, room, options)
       )
         continue;
@@ -750,12 +797,16 @@ export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: 
   const direct: Array<{ name: string; isLucky: boolean }> = [];
   const luckyPool: LuckyLoserCandidate[] = [];
   for (let room = 1; room <= round.rooms.length; room += 1) {
+    if (round.isNoElim) {
+      // Nobody is cut, an absentee included: it stays in the draw.
+      direct.push(...roomFinishOrder(state, roundIndex, room).map((name) => ({ name, isLucky: false })));
+      continue;
+    }
     const scored = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
-    const advancingFromRoom = round.isNoElim ? scored.length : (round.advPerRoom ?? 0);
-    for (const entry of scored.slice(0, advancingFromRoom)) {
+    for (const entry of scored.slice(0, round.advPerRoom ?? 0)) {
       direct.push({ name: entry.name, isLucky: false });
     }
-    if (!round.isNoElim && round.luckyCount > 0 && scored.length > (round.advPerRoom ?? 0)) {
+    if (round.luckyCount > 0 && scored.length > (round.advPerRoom ?? 0)) {
       const candidate = luckyLoserCandidate(scored, round.advPerRoom ?? 0);
       if (candidate) luckyPool.push(candidate);
     }
@@ -827,10 +878,16 @@ export function buildAdvancementTiers(
         remaining.delete(entry.name);
         const member: AdvancementTierMember = {
           name: entry.name,
-          pct: relativeRoomShare(entry.score, roomEntries),
+          pct: relativeRoomShare(entry.score, roomEntries, entry.players),
           sourceRoom: room,
         };
         byRank.set(rank, [...(byRank.get(rank) ?? []), member]);
+      }
+      // An absentee ranks after every present unit of its room, with no share, so it is never taken for a bye winner.
+      for (const [index, name] of absentInRoom(state, roundIndex, room).entries()) {
+        if (!remaining.delete(name)) continue;
+        const rank = scored.length + index;
+        byRank.set(rank, [...(byRank.get(rank) ?? []), { name, pct: 0, sourceRoom: room }]);
       }
     }
   }

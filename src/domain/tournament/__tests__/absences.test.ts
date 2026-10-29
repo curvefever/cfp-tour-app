@@ -16,61 +16,11 @@ import {
 import { setRoundScore, swapIndividual } from '../mutations';
 import { discardDrawsAfter } from '../redraw';
 import { advanceTournamentRound } from '../transitions';
-import { createDefaultTournamentState } from '../state-defaults';
-import type {
-  GameFormatKey,
-  TeamScoringRuleKey,
-  TournamentRoster,
-  TournamentRound,
-  TournamentState,
-  TournamentTeam,
-} from '../types';
-import { buildAssignments, buildRound, generated } from './test-fixtures';
+import type { TournamentState } from '../types';
+import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
 import { withoutAbsenceRule } from './play-through';
 
 const NAMES = ['Ann', 'Bob', 'Cy', 'Di'];
-
-function team(id: string, members: Array<string | null>): TournamentTeam {
-  return {
-    teamId: id,
-    teamName: id,
-    members: members.map((name) => (name ? { name } : null)),
-  };
-}
-
-interface Options {
-  gameFormat?: GameFormatKey;
-  rule?: TeamScoringRuleKey;
-  players?: TournamentRoster;
-  rounds?: Array<Partial<TournamentRound>>;
-  scores?: TournamentState['scores'];
-  absences?: TournamentState['absences'];
-  version?: boolean;
-}
-
-/** Round 1 (index 0) and Round 2 (index 1), each one room of `players`, round 1 in play. */
-function build(options: Options = {}): TournamentState {
-  const players = options.players ?? NAMES;
-  const names = (players as Array<string | TournamentTeam>).map((player) =>
-    typeof player === 'string' ? player : player.teamId,
-  );
-  const rounds = options.rounds ?? [{}, {}];
-  return createDefaultTournamentState({
-    gameFormat: options.gameFormat ?? 'ffa-individual',
-    players,
-    rounds: rounds.map((overrides, index) =>
-      buildRound({ roundNum: index + 1, rooms: [names.length], players: names.length, ...overrides }),
-    ),
-    assignments: rounds.map(() => buildAssignments(names, [names.length])),
-    scores: options.scores ?? {},
-    absences: options.absences ?? {},
-    gamemodeConfig: {
-      ...(options.version === false ? {} : { absenceVersion: 1 as const }),
-      ...(options.rule ? { teamScoringRule: options.rule } : {}),
-    },
-    started: true,
-  });
-}
 
 function keysOf(state: TournamentState): string[] {
   return pendingAbsenceQuestions(state).flatMap((room) => room.questions.map((question) => question.key));

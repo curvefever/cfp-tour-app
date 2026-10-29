@@ -241,7 +241,7 @@ export function sizePools(state: TournamentState, roundIndex: number): Map<numbe
       const scored = scoreRoom(state, index, room, 0);
       if (size < 2 || scored.reduce((sum, entry) => sum + entry.score, 0) <= 0) continue;
       const pool = pools.get(size) ?? [];
-      pool.push(...scored.map((entry) => relativeRoomShare(entry.score, scored)));
+      pool.push(...scored.map((entry) => relativeRoomShare(entry.score, scored, entry.players)));
       pools.set(size, pool);
     }
   }
@@ -308,7 +308,7 @@ function contestedRoomUnits(state: TournamentState, roundIndex: number, room: nu
     name: entry.name,
     room,
     place: index + 1,
-    relative: relativeRoomShare(entry.score, ordered),
+    relative: relativeRoomShare(entry.score, ordered, entry.players),
     roomScored,
   }));
 }

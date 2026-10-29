@@ -6,9 +6,11 @@ import type {
   GameFormatDefinition,
   GameFormatKey,
   RoundAssignment,
+  TeamScoringRuleKey,
   TournamentRound,
   TournamentRoster,
   TournamentState,
+  TournamentTeam,
 } from '../types';
 
 /** Deterministic RandomSource yielding a fixed sequence, cycling if exhausted. */
@@ -137,3 +139,47 @@ ROUTES:
 R1.A: 1-4->Final, 5-8->eliminated
 R1.B: 1-4->Final, 5-8->eliminated
 `;
+
+const DEFAULT_ROOM_NAMES = ['Ann', 'Bob', 'Cy', 'Di'];
+
+export function teamOf(id: string, members: Array<string | null>): TournamentTeam {
+  return {
+    teamId: id,
+    teamName: id,
+    members: members.map((name) => (name ? { name } : null)),
+  };
+}
+
+export interface OneRoomOptions {
+  gameFormat?: GameFormatKey;
+  rule?: TeamScoringRuleKey;
+  players?: TournamentRoster;
+  rounds?: Array<Partial<TournamentRound>>;
+  scores?: TournamentState['scores'];
+  absences?: TournamentState['absences'];
+  version?: boolean;
+}
+
+/** Round 1 (index 0) and Round 2 (index 1), each one room of `players`, round 1 in play. */
+export function oneRoomState(options: OneRoomOptions = {}): TournamentState {
+  const players = options.players ?? DEFAULT_ROOM_NAMES;
+  const names = (players as Array<string | TournamentTeam>).map((player) =>
+    typeof player === 'string' ? player : player.teamId,
+  );
+  const rounds = options.rounds ?? [{}, {}];
+  return createDefaultTournamentState({
+    gameFormat: options.gameFormat ?? 'ffa-individual',
+    players,
+    rounds: rounds.map((overrides, index) =>
+      buildRound({ roundNum: index + 1, rooms: [names.length], players: names.length, ...overrides }),
+    ),
+    assignments: rounds.map(() => buildAssignments(names, [names.length])),
+    scores: options.scores ?? {},
+    absences: options.absences ?? {},
+    gamemodeConfig: {
+      ...(options.version === false ? {} : { absenceVersion: 1 as const }),
+      ...(options.rule ? { teamScoringRule: options.rule } : {}),
+    },
+    started: true,
+  });
+}

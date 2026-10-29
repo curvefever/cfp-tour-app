@@ -68,6 +68,14 @@ describe('countSmallerRoomSeats', () => {
     ];
     expect(countSmallerRoomSeats([even])).toEqual({});
   });
+
+  it('gives the units present in a room with absentees a smaller-room seat, and the absentees none', () => {
+    const level = lineUp([
+      ['a', 'b', 'c', 'd'],
+      ['e', 'f', 'g', 'h'],
+    ]);
+    expect(countSmallerRoomSeats([level], [], [new Set(['c', 'd'])])).toEqual({ a: 1, b: 1 });
+  });
 });
 
 describe('smallerRoomSeatsBefore', () => {
@@ -86,6 +94,7 @@ describe('smallerRoomSeatsBefore', () => {
         { isQual: true, isNoElim: true },
       ],
       assignments: [uneven, uneven, uneven, uneven, uneven, uneven],
+      gamemodeConfig: {},
     } as unknown as TournamentState;
     // Uncounted round 0 and warm-up 2 weigh 0.5 each, counted round 1 and elimination round 3 weigh 1; the Semis
     // keep their own draw and add nothing; round 5 is the one being drawn.
