@@ -6,6 +6,7 @@ import {
   hasBlockingAbsenceQuestions,
   isMarkedAbsent,
   isMemberMarkedAbsent,
+  isUnitAbsentFromRoom,
   markSurvivalMemberAbsent,
   pendingAbsenceQuestions,
   playersInPlay,
@@ -13,14 +14,22 @@ import {
   usesAbsences,
   withoutRoundAbsences,
 } from '../absences';
-import { setRoundScore, swapIndividual } from '../mutations';
+import { buildAdvancementTiers, isRoomFullyScored } from '../advancement';
+import { setRoundScore, swapIndividual, swapTeam } from '../mutations';
 import { discardDrawsAfter } from '../redraw';
+import { previousColumnStart } from '../round-columns';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
-import { withoutAbsenceRule } from './play-through';
+import { scoreCurrentRound, withoutAbsenceRule } from './play-through';
 
 const NAMES = ['Ann', 'Bob', 'Cy', 'Di'];
+
+function advanceOk(state: TournamentState): TournamentState {
+  const result = advanceTournamentRound(state);
+  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
+  return result.state;
+}
 
 function keysOf(state: TournamentState): string[] {
   return pendingAbsenceQuestions(state).flatMap((room) => room.questions.map((question) => question.key));
@@ -266,7 +275,7 @@ describe('cleanup', () => {
     const state = build({
       players: [...NAMES],
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 0 },
-      absences: { 'r0-rm1-p0': 'absent', 'r0-rm1-p1': 'absent', 'r1-rm1-p0': 'absent' },
+      absences: { 'r0-rm1-p0': 'played', 'r0-rm1-p1': 'absent', 'r1-rm1-p0': 'absent' },
     });
     const next = swapIndividual({ ...state, reserves: ['Zed'] }, 'Ann', 'Zed');
     expect(next.absences).toEqual({ 'r0-rm1-p1': 'absent', 'r1-rm1-p0': 'absent' });
@@ -277,10 +286,84 @@ describe('cleanup', () => {
     const state = build({
       players: names,
       scores: { 'r0-rm1-p1': 0, 'r0-rm1-p10': 0 },
-      absences: { 'r0-rm1-p1': 'absent', 'r0-rm1-p10': 'absent' },
+      absences: { 'r0-rm1-p1': 'played', 'r0-rm1-p10': 'absent' },
     });
     const next = swapIndividual({ ...state, reserves: ['Zed'] }, 'P1', 'Zed');
     expect(next.absences).toEqual({ 'r0-rm1-p10': 'absent' });
+  });
+
+  it("a swap of an absent unit keeps the seat's 0 and mark: the replacement missed the round too", () => {
+    const state = build({
+      players: [...NAMES],
+      scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50, 'r0-rm1-p2': 40, 'r0-rm1-p3': 30 },
+      absences: { 'r0-rm1-p0': 'absent' },
+    });
+    const next = swapIndividual({ ...state, reserves: ['Zed'] }, 'Ann', 'Zed');
+    expect(next.scores['r0-rm1-p0']).toBe(0);
+    expect(next.absences).toEqual({ 'r0-rm1-p0': 'absent' });
+    expect(isUnitAbsentFromRoom(next, 0, 1, 0)).toBe(true);
+    expect(absentInRoom(next, 0, 1)).toEqual(['Zed']);
+    expect(isRoomFullyScored(next, 0, 1)).toBe(true);
+    expect(next.withdrawnUnits.map((unit) => [unit.name, unit.playedAnyMatch])).toEqual([['Ann', false]]);
+  });
+
+  it("typing the replacement's real score drops the kept mark", () => {
+    const state = build({
+      players: [...NAMES],
+      scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50, 'r0-rm1-p2': 40, 'r0-rm1-p3': 30 },
+      absences: { 'r0-rm1-p0': 'absent' },
+    });
+    const swapped = swapIndividual({ ...state, reserves: ['Zed'] }, 'Ann', 'Zed');
+    const typed = setRoundScore(swapped, 'r0-rm1-p0', '75', 0, 1);
+    expect(typed.absences).toEqual({});
+    expect(absentInRoom(typed, 0, 1)).toEqual([]);
+  });
+
+  it('a swap of a unit at 0 answered "played", or not answered, clears the seat as before', () => {
+    const base = build({ players: [...NAMES], scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50 } });
+    const answers: Array<TournamentState['absences']> = [{ 'r0-rm1-p0': 'played' }, {}];
+    for (const absences of answers) {
+      const next = swapIndividual({ ...base, absences, reserves: ['Zed'] }, 'Ann', 'Zed');
+      expect(next.scores['r0-rm1-p0']).toBeUndefined();
+      expect(next.absences).toEqual({});
+    }
+  });
+
+  it('a swap of a team whose every member is absent keeps the member scores and marks', () => {
+    const state = build({
+      gameFormat: 'team-2v2v2v2',
+      rule: 'sum-members',
+      players: [team('Red', ['a', 'b']), team('Blue', ['c', 'd'])],
+      scores: { 'r0-rm1-p0-m0': 0, 'r0-rm1-p0-m1': 0, 'r0-rm1-p1-m0': 50, 'r0-rm1-p1-m1': 50 },
+      absences: { 'r0-rm1-p0-m0': 'absent', 'r0-rm1-p0-m1': 'absent' },
+    });
+    const next = swapTeam(
+      { ...state, reserves: [team('Green', ['e', 'f'])] },
+      'Red',
+      team('Green', ['e', 'f']),
+    );
+    expect(next.scores['r0-rm1-p0-m0']).toBe(0);
+    expect(next.scores['r0-rm1-p0-m1']).toBe(0);
+    expect(next.absences).toEqual({ 'r0-rm1-p0-m0': 'absent', 'r0-rm1-p0-m1': 'absent' });
+    expect(isUnitAbsentFromRoom(next, 0, 1, 0)).toBe(true);
+  });
+
+  it("the organiser's sequence: absent, Next Round, Previous, swap, Next Round", () => {
+    const start = { ...generated(18), started: true };
+    const scored = scoreCurrentRound(start, 0);
+    const seat = scored.assignments[0].filter((entry) => entry.room === 1)[0];
+    const key = 'r0-rm1-p0';
+    const marked = answerAbsence({ ...scored, scores: { ...scored.scores, [key]: 0 } }, [key], 'absent');
+    const advanced = advanceOk(marked);
+    const back = { ...advanced, curRound: previousColumnStart(advanced) ?? 0, reserves: ['Zed'] };
+    const swapped = swapIndividual(back, seat.name, 'Zed');
+    expect(swapped.players).toContain('Zed');
+    expect(isRoomFullyScored(swapped, 0, 1)).toBe(true);
+    const again = advanceOk(swapped);
+    const room = again.assignments[0].filter((entry) => entry.room === 1).map((entry) => entry.name);
+    const tiers = buildAdvancementTiers(again, 0, room);
+    const lastTier = tiers.reduce((worst, tier) => (tier.rank > worst.rank ? tier : worst));
+    expect(lastTier.members.map((member) => member.name)).toEqual(['Zed']);
   });
 
   it('discarding the draws after a round drops the answers of the discarded rounds', () => {

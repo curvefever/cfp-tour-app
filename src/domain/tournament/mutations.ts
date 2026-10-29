@@ -788,7 +788,8 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
 
   const scores = { ...state.scores };
   let absences = state.absences;
-  if (room !== null) {
+  // A unit marked absent leaves its seat's 0 and answer to the replacement, who missed that round too.
+  if (room !== null && !isUnitAbsentFromRoom(state, roundIndex, room, position)) {
     absences = withoutSeatAbsences(absences, roundIndex, room, position);
     for (const key of scoreKeysForPosition({
       roundIndex,
