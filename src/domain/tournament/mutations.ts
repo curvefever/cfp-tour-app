@@ -1,4 +1,5 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
+import { withoutAbsenceAnswer, withoutSeatAbsences } from './absences';
 import { moveConfirmation } from './confirmations';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
@@ -55,6 +56,8 @@ export function setRoundScore(
   let next = {
     ...state,
     scores: { ...state.scores, [key]: parsed },
+    // A corrected 0 is asked again, and a score above 0 is no absence.
+    ...(state.scores[key] === parsed ? {} : { absences: withoutAbsenceAnswer(state.absences, key) }),
   };
   next = invalidateStaleTieResolutions(next, roundIndex, room);
   return next;
@@ -780,7 +783,9 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
   current[assignmentIndex].name = newKey;
 
   const scores = { ...state.scores };
+  let absences = state.absences;
   if (room !== null) {
+    absences = withoutSeatAbsences(absences, roundIndex, room, position);
     for (const key of scoreKeysForPosition({
       roundIndex,
       room,
@@ -794,6 +799,7 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
   let next: TournamentState = {
     ...state,
     scores,
+    absences,
     assignments,
     qualTable: state.qualTable.filter((entry) => entry.name !== oldKey),
     byes: state.byes.map((values, index) =>
@@ -1072,6 +1078,7 @@ export function withoutDrawnSchedule(state: TournamentState): TournamentState {
     poolingByeCounts: {},
     pendingBracketSeeds: {},
     tieResolutions: {},
+    absences: {},
     defenderChanges: {},
     roomHistory: {},
     anonymousFinalists: [],
@@ -1091,6 +1098,7 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     poolingByeCounts: {},
     pendingBracketSeeds: {},
     tieResolutions: {},
+    absences: {},
     luckyLosers: [],
     byes: [],
     defenderChanges: {},

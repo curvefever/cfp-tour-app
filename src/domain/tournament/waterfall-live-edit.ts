@@ -1,3 +1,4 @@
+import { withoutRoundAbsences } from './absences';
 import { isQualCutoffKey } from './advancement';
 import { currentUnit, replayBracketPools } from './bracket-replay';
 import { rosterKeys } from './roster';
@@ -71,6 +72,7 @@ function redrawRounds(
       tieResolutions: Object.fromEntries(
         Object.entries(working.tieResolutions).filter(([key]) => !key.startsWith(`r${index}-`)),
       ),
+      absences: withoutRoundAbsences(working.absences, index),
       pendingBracketSeeds: { ...working.pendingBracketSeeds, [index]: replayPools.get(index) ?? [] },
     };
   }

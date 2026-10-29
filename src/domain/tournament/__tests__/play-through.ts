@@ -1,3 +1,4 @@
+import { answerAbsence, pendingAbsenceQuestions } from '../absences';
 import { getGameFormat } from '../formats';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
@@ -33,6 +34,20 @@ export function withEarlierPointsRule(state: TournamentState): TournamentState {
 export function withEarlierCutRule(state: TournamentState): TournamentState {
   const { cutVersion: _cutVersion, ...gamemodeConfig } = state.gamemodeConfig;
   return { ...state, gamemodeConfig };
+}
+
+/** The state as a tournament stored before absentees (no `absenceVersion`): no questions, no marks, no per-player weighting. */
+export function withoutAbsenceRule(state: TournamentState): TournamentState {
+  const { absenceVersion: _absenceVersion, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
+/** Answers every pending score of 0 "played": for tests whose 0s are real scores and should not stop Next Round. */
+export function answerZerosPlayed(state: TournamentState): TournamentState {
+  const keys = pendingAbsenceQuestions(state).flatMap((room) =>
+    room.questions.map((question) => question.key),
+  );
+  return answerAbsence(state, keys, 'played');
 }
 
 export function buildState(config: SweepConfig): TournamentState | null {

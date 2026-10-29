@@ -1,3 +1,4 @@
+import { hasBlockingAbsenceQuestions, PENDING_ABSENCES_MESSAGE } from './absences';
 import {
   doubleEliminationComputeAdvancement,
   hasPendingColumnTies,
@@ -31,7 +32,12 @@ import { currentColumn, isRoundDone, nextColumnStart, roundColumn } from './roun
 const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
 type RoundAdvanceBlockReason =
-  'pending-ties' | 'malformed-final' | 'missing-room-size' | 'malformed-waterfall-round' | 'too-few-units';
+  | 'pending-ties'
+  | 'pending-absences'
+  | 'malformed-final'
+  | 'missing-room-size'
+  | 'malformed-waterfall-round'
+  | 'too-few-units';
 
 type RoundAdvanceNoopReason = 'last-round' | 'grand-final';
 
@@ -573,6 +579,14 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       status: 'blocked',
       reason: 'pending-ties',
       message: PENDING_TIES_MESSAGE,
+      state: prepared,
+    };
+  }
+  if (hasBlockingAbsenceQuestions(prepared)) {
+    return {
+      status: 'blocked',
+      reason: 'pending-absences',
+      message: PENDING_ABSENCES_MESSAGE,
       state: prepared,
     };
   }

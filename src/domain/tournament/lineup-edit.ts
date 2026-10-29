@@ -1,3 +1,4 @@
+import { withoutRoundAbsences } from './absences';
 import { getGameFormat } from './formats';
 import { splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
@@ -198,6 +199,7 @@ export function applyLineupEdit(state: TournamentState, draft: RoundAssignment[]
       tieResolutions: Object.fromEntries(
         Object.entries(state.tieResolutions).filter(([key]) => !key.startsWith(prefix)),
       ),
+      absences: withoutRoundAbsences(state.absences, cur),
       roomHistory: recordRoomHistory(rewindRoomHistory(state.roomHistory, assignments, cur), entries, cur),
     },
   };

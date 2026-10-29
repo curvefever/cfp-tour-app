@@ -6,7 +6,7 @@ import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState } from '../types';
-import { buildState, scoreCurrentRound } from './play-through';
+import { answerZerosPlayed, buildState, scoreCurrentRound } from './play-through';
 import {
   buildShapedQualWaterfall as buildQualWaterfall,
   describeInBothShapes,
@@ -800,7 +800,7 @@ describe('computeRankings -- order within an elimination round', () => {
           .filter((entry) => entry.room === room)
           .map(({ name }) => name);
       }
-      state = advance({ ...state, scores, tieResolutions });
+      state = advance(answerZerosPlayed({ ...state, scores, tieResolutions }));
 
       const eliminated =
         computeRankings(state)?.eliminatedList.filter((entry) => entry.ri === roundIndex) ?? [];

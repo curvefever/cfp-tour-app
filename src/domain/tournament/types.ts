@@ -21,6 +21,7 @@ export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | 'survival-teams';
 export type RoundRobinMode = 'single' | 'double';
 export type BracketKey = 'winners' | 'losers' | 'grand-final';
+export type AbsenceAnswer = 'absent' | 'played';
 
 export interface TeamMember {
   name: string;
@@ -236,6 +237,8 @@ export interface MaterializedGamemodeConfig {
   pointsVersion?: 2;
   /** Which cut an elimination round makes. Absent = the earlier cut (every room advances the same number, the rest are lucky losers across rooms); 2 = the fair cut (fair-cut.ts: each room size loses its share, a room's winner always advances) in single elimination, Semis and double elimination winners and losers rounds. generation.ts writes 2; a stored tournament without it keeps its cut. */
   cutVersion?: 2;
+  /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 1; a stored tournament without it keeps its scores. */
+  absenceVersion?: 1;
   drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */
@@ -279,6 +282,8 @@ export interface TournamentState {
   groups: TournamentGroup[];
   groupStandings: Record<string, TournamentStanding[]>;
   tieResolutions: Record<string, string | string[]>;
+  /** The organiser's answer to "absent or played?" for each score of 0, keyed by the score key the 0 is stored under (absences.ts). Counts only while that key's score is still 0. */
+  absences: Record<string, AbsenceAnswer>;
   defenderChanges: Record<string, DefenderChange[]>;
   withdrawnUnits: WithdrawnUnit[];
   /** The Final's placeholder roster, generated once a Final game is first flagged anonymous (see TournamentRound.anonymousGames) and held stable across the rest of that Final. */

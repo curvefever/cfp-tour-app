@@ -1,3 +1,4 @@
+import { withoutRoundAbsences } from './absences';
 import { currentUnit, replayBracketPools } from './bracket-replay';
 import { rosterKeys } from './roster';
 import { roundHasAnyScore } from './scoring';
@@ -121,6 +122,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
   const poolingByeCounts = { ...state.poolingByeCounts };
   const byes = state.byes.map((round) => [...round]);
   const tieResolutions = { ...state.tieResolutions };
+  let absences = state.absences;
   const replay = replayBracketPools(state, roundColumn(state.rounds, roundIndex).start);
   const pendingBracketSeeds = Object.fromEntries([
     ...Object.entries(state.pendingBracketSeeds).filter(([index]) => Number(index) <= keep),
@@ -142,6 +144,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
     for (const key of Object.keys(tieResolutions)) {
       if (key.startsWith(`r${index}-`)) delete tieResolutions[key];
     }
+    absences = withoutRoundAbsences(absences, index);
   }
 
   return {
@@ -152,6 +155,7 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
     byes,
     luckyLosers,
     tieResolutions,
+    absences,
     pendingBracketSeeds,
   };
 }

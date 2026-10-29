@@ -7,7 +7,7 @@ import { currentColumn, roundInPlayOf } from '../round-columns';
 import { getDefenderIndex, scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { answerZerosPlayed, scoreCurrentRound } from './play-through';
 import {
   ALL_ROUTED_GRAPHS,
   QUAL_GRAPH,
@@ -202,7 +202,7 @@ describe('ties in a column', () => {
       for (const player of cluster.players) resolved = resolveTournamentTie(resolved, key, player.name);
     }
     expect(hasPendingColumnTies(resolved)).toBe(false);
-    const next = advance(resolved);
+    const next = advance(answerZerosPlayed(resolved));
     expect(next.curRound).toBe(indexOf(next, 'Semi A'));
     expect(seated(next, 'Round 6')).toHaveLength(8);
   });
