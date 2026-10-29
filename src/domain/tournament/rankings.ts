@@ -1,18 +1,21 @@
+import { absentInRoom } from './absences';
 import {
   compareStandings,
   isRoomFullyScored,
   isStandingsCutoffRound,
   isUncontestedRoom,
+  isWalkoverRoom,
   pendingTieNames,
   relativeRoomShare,
   sameRoomShare,
   sameStanding,
+  scoreRoom,
 } from './advancement';
 import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './standings-display';
 import { exitBandAtRank, type RoomExitBand, roundExitRule } from './room-exits';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
-import { getFinalUnitScore, getUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
+import { getFinalUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import type {
   RoundAssignment,
@@ -57,6 +60,8 @@ export interface EliminatedRanking extends RankingDisplay {
   seat: number;
   /** Its place in that room by score; units with level scores share a place. */
   place: number;
+  /** It was absent from the room that eliminated it: it ranks after the present units of that room. */
+  absent: boolean;
   /** A standings cut eliminated it (the last pooling round), so its standing says more than its room. */
   atCut: boolean;
   /** Its place in the pooling standings (in its group's table, for a Group Stage); null when it has none. */
@@ -134,6 +139,8 @@ interface RoundElimination {
   room?: number;
   /** The room it played in, 1-based, whatever the round. */
   seat: number;
+  /** It was absent from that room: it ranks after every present unit eliminated in the same room. */
+  absent?: true;
 }
 
 interface EliminatedEntry extends RoundElimination {
@@ -255,23 +262,25 @@ function eliminationsInRound(
   const eliminations: Array<[string, RoundElimination]> = [];
   for (const [roomKey, roomAssignments] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
     const room = Number(roomKey);
-    const scored = roomAssignments.map((assignment, position) => ({
-      name: assignment.name,
-      score: getUnitScore(state, roundIndex, room, position, 0) ?? 0,
-    }));
-    for (const { name, score } of scored) {
+    // The units that were present, then the absentees, who rank after every one of them.
+    const scored = Number.isInteger(room)
+      ? scoreRoom(state, roundIndex, room, 0)
+      : roomAssignments.map(({ name }) => ({ name, score: 0, players: 1 }));
+    const absent = Number.isInteger(room) ? absentInRoom(state, roundIndex, room) : [];
+    const entry = { ri: roundIndex, round, room: round.isKingsValley ? room : undefined, seat: room };
+    for (const { name, score, players } of scored) {
       if (!isOut(name)) continue;
       eliminations.push([
         name,
         {
-          ri: roundIndex,
-          round,
+          ...entry,
           place: 1 + scored.filter((other) => other.score > score).length,
-          share: relativeRoomShare(score, scored),
-          room: round.isKingsValley ? room : undefined,
-          seat: room,
+          share: relativeRoomShare(score, scored, players),
         },
       ]);
+    }
+    for (const name of absent.filter(isOut)) {
+      eliminations.push([name, { ...entry, place: scored.length + 1, share: 0, absent: true }]);
     }
   }
   return eliminations;
@@ -294,17 +303,24 @@ function outOfCompleteRooms(
 ): Set<string> {
   const pending = pendingTieNames(state, roundIndex);
   const out = new Set<string>();
-  for (const [roomKey, roomAssignments] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
+  for (const [roomKey] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
     const room = Number(roomKey);
     if (!Number.isInteger(room) || isUncontestedRoom(state, roundIndex, room)) continue;
-    const scores = roomAssignments.map((_, position) =>
-      getUnitScore(state, roundIndex, room, position, null),
-    );
-    if (scores.some((score) => score === null)) continue;
-    const scored = roomAssignments.map(({ name }, position) => ({ name, score: scores[position] ?? 0 }));
-    for (const { entry, place } of orderRoomWithPlaces(scored, roundIndex, room, state)) {
+    if (!isRoomFullyScored(state, roundIndex, room)) continue;
+    const scored = scoreRoom(state, roundIndex, room, null);
+    // A room with one present unit is a walkover: nobody there is placed.
+    const placed = isWalkoverRoom(state, roundIndex, room)
+      ? []
+      : orderRoomWithPlaces(scored, roundIndex, room, state);
+    for (const { entry, place } of placed) {
       const band = exitBandAtRank(rooms[room - 1] ?? [], place);
       if (!pending.has(entry.name) && (!band || band.kind === 'eliminate')) out.add(entry.name);
+    }
+    const round = state.rounds[roundIndex];
+    for (const [index, name] of absentInRoom(state, roundIndex, room).entries()) {
+      // An absentee is ranked last of its room: a custom bracket or Kings Valley routes it by that rank, every other round cuts it.
+      const band = exitBandAtRank(rooms[room - 1] ?? [], scored.length + index + 1);
+      if (!(round.isWaterfall || round.isKingsValley) || !band || band.kind === 'eliminate') out.add(name);
     }
   }
   return out;
@@ -316,7 +332,7 @@ function outAtCompleteCut(state: TournamentState, roundIndex: number): Set<strin
     (state.assignments[roundIndex] ?? []).flatMap(({ room }) => (room === null ? [] : [room])),
   );
   const complete = [...rooms].every(
-    (room) => isUncontestedRoom(state, roundIndex, room) || isRoomFullyScored(state, roundIndex, room),
+    (room) => isWalkoverRoom(state, roundIndex, room) || isRoomFullyScored(state, roundIndex, room),
   );
   if (!complete) return new Set();
   const pending = pendingTieNames(state, roundIndex);
@@ -489,6 +505,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       rank: entry.ri >= lastColumn.start ? null : rank,
       seat: entry.seat,
       place: entry.place,
+      absent: Boolean(entry.absent),
       atCut: Boolean(entry.cut),
     };
   });

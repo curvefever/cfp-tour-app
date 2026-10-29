@@ -1,4 +1,5 @@
-import { isStandingsCutoffRound, relativeRoomShare, roomUnitCount, scoreRoom } from './advancement';
+import { absentInRoom } from './absences';
+import { isStandingsCutoffRound, presentUnitCount, relativeRoomShare, scoreRoom } from './advancement';
 import { orderRoomByScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -184,11 +185,11 @@ export function fairCutSurvivors(round: TournamentRound, lineUps: readonly numbe
   return Math.max(0, round.advTotal - round.byeCount - lone);
 }
 
-/** A covered round's line-ups: the real ones once the round is drawn, the planned room sizes before. */
+/** A covered round's line-ups: the units present in each room once the round is drawn, the planned room sizes before. */
 export function roundLineUps(state: TournamentState, roundIndex: number): number[] {
   const round = state.rounds[roundIndex];
   if (!(state.assignments[roundIndex] ?? []).length) return [...round.rooms];
-  return round.rooms.map((_, index) => roomUnitCount(state, roundIndex, index + 1));
+  return round.rooms.map((_, index) => presentUnitCount(state, roundIndex, index + 1));
 }
 
 /** The cut's shape for a round: from the real line-ups once drawn, from the planned sizes before. */
@@ -237,7 +238,7 @@ export function sizePools(state: TournamentState, roundIndex: number): Map<numbe
       (state.assignments[index] ?? []).flatMap((entry) => (entry.room === null ? [] : [entry.room])),
     );
     for (const room of rooms) {
-      const size = roomUnitCount(state, index, room);
+      const size = presentUnitCount(state, index, room);
       const scored = scoreRoom(state, index, room, 0);
       if (size < 2 || scored.reduce((sum, entry) => sum + entry.score, 0) <= 0) continue;
       const pool = pools.get(size) ?? [];
@@ -383,13 +384,16 @@ export function fairCutAdvancement(state: TournamentState, roundIndex: number): 
 
   const advancing: FairCutResult['advancing'] = [];
   const eliminated: string[] = [];
-  for (const units of unitsByRoom.values()) {
+  for (const room of lineUps.keys()) {
+    const units = unitsByRoom.get(room + 1) ?? [];
     for (const unit of units) {
       if (luckySet.has(unit.name)) continue;
       if (units.length === 1 || advancingNames.has(unit.name))
         advancing.push({ name: unit.name, isLucky: false });
       else eliminated.push(unit.name);
     }
+    // The absentees were left out of the cut, which never gives them a spot.
+    eliminated.push(...absentInRoom(state, roundIndex, room + 1));
   }
   advancing.push(...luckyNames.map((name) => ({ name, isLucky: true })));
   return { advancing, luckyNames, eliminated, groups, spareCuts };

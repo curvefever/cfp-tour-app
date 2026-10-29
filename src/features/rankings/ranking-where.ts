@@ -49,7 +49,7 @@ export function stillInWhere(
 /**
  * Where an eliminated unit went out: the room and its place there ("Quarters · Room B · 7th"), or, when the cut of
  * the standings sent it out, its place in them, named as the standings tab is ("Qualification · #25", "Swiss · #25")
- * or by its group ("Group B · #3").
+ * or by its group ("Group B · #3"). An absentee has no place: "Round 2 · Room B · absent".
  */
 export function eliminatedWhere(state: TournamentState, entry: EliminatedRanking, labels: Labels): string {
   if (entry.atCut && entry.poolRank) {
@@ -58,7 +58,8 @@ export function eliminatedWhere(state: TournamentState, entry: EliminatedRanking
     const table = groupLabel ? `Group ${groupLabel}` : kind ? standingsNames(kind).title : 'Standings';
     return `${table} · #${rank}`;
   }
-  return `${roundAndRoom(state, entry.ri, entry.seat, labels)} · ${ordinal(entry.place)}`;
+  const where = roundAndRoom(state, entry.ri, entry.seat, labels);
+  return entry.absent ? `${where} · absent` : `${where} · ${ordinal(entry.place)}`;
 }
 
 /** Where a finalist ended: "Final · 1st" (level totals share a place). */

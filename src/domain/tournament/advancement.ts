@@ -948,7 +948,13 @@ export function doubleEliminationComputeAdvancement(
   for (let room = 1; room <= round.rooms.length; room += 1) {
     const scored = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
     direct.push(...scored.slice(0, advancingFromRoom).map(({ name }) => ({ name })));
-    losers.push(...scored.slice(advancingFromRoom).map(({ name }) => ({ name })));
+    // The absentees drop with the rest: they never take a spot the cut decides.
+    losers.push(
+      ...[
+        ...scored.slice(advancingFromRoom).map(({ name }) => name),
+        ...absentInRoom(state, roundIndex, room),
+      ].map((name) => ({ name })),
+    );
     if (round.luckyCount > 0 && scored.length > advancingFromRoom) {
       const candidate = luckyLoserCandidate(scored, advancingFromRoom);
       if (candidate) luckyPool.push(candidate);
@@ -1032,11 +1038,7 @@ export function kingsValleyComputeAdvancement(
   const roomCount = round.rooms.length;
   const roomNames: string[][] = [];
   for (let room = 1; room <= roomCount; room += 1) {
-    roomNames.push(
-      orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state).map(
-        (entry) => entry.name,
-      ),
-    );
+    roomNames.push(roomFinishOrder(state, roundIndex, room));
   }
   const { bands } = kingsValleyRoundMoves(
     roomNames.map((names) => names.length),

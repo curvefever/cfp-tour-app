@@ -1,3 +1,4 @@
+import { answerAbsence } from '../absences';
 import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
 import { splitAdvancement } from '../room-distribution';
 import type { TournamentState } from '../types';
@@ -120,4 +121,28 @@ export function withRoundShape(
     ...(isSemis ? { isSemis: true } : {}),
   };
   return { ...state, rounds };
+}
+
+/** Room → the 0-based seats that were absent. */
+export type Absent = Record<number, number[]>;
+
+/** A distinct descending score for every seat, 0 for the absent ones. */
+function scoresFor(rooms: number[], absent: Absent): number[][] {
+  return rooms.map((size, index) =>
+    Array.from({ length: size }, (_, position) =>
+      (absent[index + 1] ?? []).includes(position) ? 0 : 100 - 7 * position - index,
+    ),
+  );
+}
+
+/** The round seated and scored from its planned rooms, the 0s of the absent seats answered "absent". */
+export function playedRound(state: TournamentState, roundIndex: number, absent: Absent): TournamentState {
+  const scored = {
+    ...seatedAndScored(state, roundIndex, scoresFor(state.rounds[roundIndex].rooms, absent)),
+    curRound: roundIndex,
+  };
+  const keys = Object.entries(absent).flatMap(([room, positions]) =>
+    positions.map((position) => `r${roundIndex}-rm${room}-p${position}`),
+  );
+  return answerAbsence(scored, keys, 'absent');
 }
