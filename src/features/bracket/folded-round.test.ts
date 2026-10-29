@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { answerAbsence } from '../../domain/tournament/absences';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { removeRosterUnit, shareTiedPoints } from '../../domain/tournament/mutations';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -170,5 +171,20 @@ describe('foldedColumnSummary -- a waterfall column of two rounds', () => {
   it('keeps the plain line for a column of one round', () => {
     const unit = (start.assignments[upper] ?? []).find((entry) => entry.room === 1)?.name ?? '';
     expect(foldedColumnSummary(start, [upper], unit).followed?.detail).toBe('Room A');
+  });
+});
+
+describe('foldedRoundSummary: an absentee', () => {
+  it('reads "Room A · absent" for the followed absentee, and the others are placed among themselves', () => {
+    const scored = scoreCurrentRound(started(37), 0);
+    const names = scored.assignments[0].filter((entry) => entry.room === 1).map((entry) => entry.name);
+    const key = 'r0-rm1-p7';
+    const state = answerAbsence({ ...scored, scores: { ...scored.scores, [key]: 0 } }, [key], 'absent');
+    expect(foldedRoundSummary(state, 0, names[7]).followed).toMatchObject({
+      room: 1,
+      place: null,
+      detail: 'Room A · absent',
+    });
+    expect(foldedRoundSummary(state, 0, names[6]).followed?.detail).toBe('Room A · 7th');
   });
 });

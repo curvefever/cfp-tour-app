@@ -4,6 +4,7 @@ import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { NO_BREAK_SPACE } from '../tournament/components/member-line';
+import { answerAbsence, markSurvivalMemberAbsent } from '../../domain/tournament/absences';
 import { teamMemberLine } from './team-member-line';
 
 /** The line with each no-break space shown as "_": a line may wrap only at the plain spaces left. */
@@ -104,5 +105,32 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
   it('is empty for a unit without members (an individual in an individual format)', () => {
     const individuals = createDefaultTournamentState({ confirmedCount: 3, players: ['A', 'B', 'C'] });
     expect(teamMemberLine(individuals, 'A', 0)).toBe('');
+  });
+});
+
+describe('teamMemberLine: absent members', () => {
+  function played(rule: 'sum-members' | 'survival-teams') {
+    const state = start(rule, 6);
+    const roundIndex = state.curRound;
+    const first = state.assignments[roundIndex].find((entry) => entry.room === 1);
+    if (!first) throw new Error('no seat');
+    return { state, roundIndex, name: first.name };
+  }
+
+  it('shows ABS after a member who scored 0 and was absent, instead of the member score', () => {
+    const { state, roundIndex, name } = played('sum-members');
+    const keys = [0, 1].map((member) => `r${roundIndex}-rm1-p0-m${member}`);
+    const scored = answerAbsence({ ...state, scores: { [keys[0]]: 0, [keys[1]]: 55 } }, [keys[0]], 'absent');
+    expect(shown(teamMemberLine(scored, name, roundIndex, { room: 1, position: 0 }))).toMatch(
+      /^Ana\d+_ABS_· Ben\d+_55$/,
+    );
+  });
+
+  it('shows a muted "absent" after a Survival member marked by hand, before the room is complete too', () => {
+    const { state, roundIndex, name } = played('survival-teams');
+    const marked = markSurvivalMemberAbsent(state, roundIndex, 1, 0, 1);
+    expect(shown(teamMemberLine(marked, name, roundIndex, null, { room: 1, position: 0 }))).toMatch(
+      /^Ana\d+_· Ben\d+_absent$/,
+    );
   });
 });

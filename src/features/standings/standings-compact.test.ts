@@ -146,3 +146,23 @@ describe('2v2v2v2 with 13 teams', () => {
     ]);
   });
 });
+
+describe('standings on a phone: a round the unit was absent from', () => {
+  const entry = {
+    name: 'Ann',
+    totalFP: 3,
+    totalScore: 0,
+    played: 1,
+    roomShare: 1,
+    rank: 5,
+    rounds: [{ roundIndex: 1, score: 40, rank: 2, points: 3, bye: false }],
+    absentRounds: [0],
+  };
+
+  it('reads ABS and 0 pts in the detail line and 0 in the points line', () => {
+    expect(standingsDetailLines(entry, [0, 1], ['Round 1', 'Round 2'], false)[0]).toBe(
+      'Round 1 · ABS · 0 pts',
+    );
+    expect(compactRoundPoints(entry, [0, 1])).toBe('0 · 3');
+  });
+});

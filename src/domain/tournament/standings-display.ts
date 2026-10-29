@@ -1,3 +1,4 @@
+import { absentInRoom } from './absences';
 import {
   applyGroupCutoffOrder,
   applyQualCutoffOrder,
@@ -26,8 +27,8 @@ export interface StandingsDisplayTable {
   key: 'qual-cutoff' | `group-cutoff-${string}`;
   label: string;
   groupLabel?: string;
-  /** Cut-off order applied, ranked. */
-  entries: Array<TournamentStanding & { rank: number | null }>;
+  /** Cut-off order applied, ranked. `absentRounds` (indexes into state.rounds) lists the counted rounds the unit was absent from its room: its cell reads "ABS". */
+  entries: Array<TournamentStanding & { rank: number | null; absentRounds?: number[] }>;
   /** Units that go through; null when everyone does. */
   cut: number | null;
   /** With a waterfall Qual source: where each run of standings goes. `start` is the 0-based row the run begins at. */
@@ -112,6 +113,33 @@ function standingsBands(
   return bands;
 }
 
+/** The counted rounds each unit was absent from its room in. */
+function absentRoundsByUnit(state: TournamentState): Map<string, number[]> {
+  const absent = new Map<string, number[]>();
+  state.rounds.forEach((round, roundIndex) => {
+    if (!isCountedRound(round)) return;
+    for (let room = 1; room <= round.rooms.length; room += 1) {
+      for (const name of absentInRoom(state, roundIndex, room)) {
+        absent.set(name, [...(absent.get(name) ?? []), roundIndex]);
+      }
+    }
+  });
+  return absent;
+}
+
+/** The ranked entries with the rounds each unit was absent from marked, so a display can read "ABS". */
+function withAbsentRounds(
+  state: TournamentState,
+  entries: StandingsDisplayTable['entries'],
+): StandingsDisplayTable['entries'] {
+  const absent = absentRoundsByUnit(state);
+  if (absent.size === 0) return entries;
+  return entries.map((entry) => {
+    const absentRounds = absent.get(entry.name);
+    return absentRounds ? { ...entry, absentRounds } : entry;
+  });
+}
+
 function qualificationTable(state: TournamentState): StandingsDisplayTable {
   const computed = computeQualificationStandings(state, { liveRound: state.curRound });
   const ordered = applyQualCutoffOrder(computed, { ...state, qualTable: computed });
@@ -124,7 +152,7 @@ function qualificationTable(state: TournamentState): StandingsDisplayTable {
   return {
     key: 'qual-cutoff',
     label: state.rounds.some((round) => round.isSwiss) ? 'Swiss Standings' : 'Qualification Table',
-    entries: rankStandings(ordered, new Set(placedNames)),
+    entries: withAbsentRounds(state, rankStandings(ordered, new Set(placedNames))),
     cut: cut && cut < ordered.length ? cut : null,
     ...(routes ? { bands: standingsBands(state, routes, ordered.length) } : {}),
   };
@@ -143,7 +171,7 @@ function groupTables(state: TournamentState): StandingsDisplayTable[] {
       key,
       label: `Group ${group.label}`,
       groupLabel: group.label,
-      entries: rankStandings(ordered, new Set(tieResolutionList(state, key))),
+      entries: withAbsentRounds(state, rankStandings(ordered, new Set(tieResolutionList(state, key)))),
       cut: cut && cut < ordered.length ? cut : null,
     };
   });

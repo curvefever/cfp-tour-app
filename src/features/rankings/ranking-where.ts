@@ -1,3 +1,4 @@
+import { absentInRoom } from '../../domain/tournament/absences';
 import type { bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ActiveRanking, EliminatedRanking, FinalistRanking } from '../../domain/tournament/rankings';
 import { standingsKind } from '../../domain/tournament/standings-display';
@@ -42,6 +43,7 @@ export function stillInWhere(
   const roundIndex = entry.ri ?? lastRoundIndex;
   if (entry.room === null) return `${destinationLabel(roundIndex, labels)} · Bye`;
   const where = roundAndRoom(state, roundIndex, entry.room, labels);
+  if (absentInRoom(state, roundIndex, entry.room).includes(entry.name)) return `${where} · absent`;
   const place = placeInRoom(state, roundIndex, entry.room, entry.name);
   return place === null ? where : `${where} · ${placeOrdinal(place)}`;
 }

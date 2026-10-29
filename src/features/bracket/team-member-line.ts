@@ -1,3 +1,4 @@
+import { isMarkedAbsent, isMemberMarkedAbsent, survivalMemberKey } from '../../domain/tournament/absences';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex, scoreKeysForPosition, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -42,16 +43,39 @@ function memberTotal(
   return total;
 }
 
+/** Whether the member was absent in every game of the round (sum of members, Save your Buddy). */
+function memberAbsent(
+  state: TournamentState,
+  roundIndex: number,
+  seat: { room: number; position: number },
+  memberIndex: number,
+  teamSize: number,
+): boolean {
+  const numGames = state.rounds[roundIndex]?.numGames ?? 1;
+  const keys = scoreKeysForPosition({
+    roundIndex,
+    room: seat.room,
+    position: seat.position,
+    numGames,
+    teamSize,
+  });
+  return Array.from({ length: numGames }, (_, game) => keys[game * teamSize + memberIndex]).every((key) =>
+    isMarkedAbsent(state, key),
+  );
+}
+
 /**
  * The line under a team's name in a room: its members joined with " · " (`joinMembers`, which wraps only between members), the designated defender marked, and
  * with each member's own score after the name when `seat` is given (the room is complete) and the team scoring
- * rule scores members one by one. Survival Teams scores one number per team, so it shows names only.
+ * rule scores members one by one, or "ABS" for a member who was absent. Survival Teams scores one number per team, so
+ * it shows names only, and "absent" after a member the organiser marked by hand (`seat`, or `markSeat` before the room is complete).
  */
 export function teamMemberLine(
   state: TournamentState,
   name: string,
   roundIndex: number,
   seat: { room: number; position: number } | null = null,
+  markSeat: { room: number; position: number } | null = seat,
 ): string {
   const info = unitDisplay(state, name);
   if (!info.members?.length) return '';
@@ -61,6 +85,20 @@ export function teamMemberLine(
     const found = team?.members.findIndex((entry) => entry?.name === member) ?? -1;
     const rawIndex = found === -1 ? index : found;
     const label = memberLabel(state, name, roundIndex, rawIndex, member);
+    if (
+      seat !== null &&
+      teamSize !== undefined &&
+      memberAbsent(state, roundIndex, seat, rawIndex, teamSize)
+    ) {
+      return `${label} ABS`;
+    }
+    if (
+      markSeat !== null &&
+      teamSize === undefined &&
+      isMemberMarkedAbsent(state, survivalMemberKey(roundIndex, markSeat.room, markSeat.position, rawIndex))
+    ) {
+      return `${label} absent`;
+    }
     const total =
       seat !== null && teamSize !== undefined
         ? memberTotal(state, roundIndex, seat, rawIndex, teamSize)

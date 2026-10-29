@@ -3,7 +3,7 @@ import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__
 import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
-import { roomRowResult, type RoomRowInput } from './room-row-result';
+import { absenteeFate, roomRowResult, type RoomRowInput } from './room-row-result';
 
 const perRoom = (bands: RoomExitBand[]): RoundExitRule => ({ kind: 'per-room', rooms: [bands] });
 
@@ -243,5 +243,35 @@ describe.each([31, 37, 43, 53])('roomRowResult in the first lucky-loser round wi
     expect(unlucky.filter((entry) => entry.result === 'eliminate').length).toBe(
       lucky.filter((entry) => entry.result === 'eliminate').length + chanceRooms,
     );
+  });
+});
+
+describe('roomRowResult: an absentee', () => {
+  const bands: RoomExitBand[] = [
+    { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
+    { kind: 'eliminate', fromRank: 5, toRank: 8 },
+  ];
+
+  it.each([
+    ['a single or double elimination cut', { isKingsValley: false }, 'eliminate'],
+    ['a double elimination winners round', { bracket: 'winners' as const }, 'drop'],
+    ['a custom bracket', { isWaterfall: true }, 'rank'],
+    ['Kings Valley', { isKingsValley: true }, 'rank'],
+  ])('%s: %s', (_label, round, fate) => {
+    expect(absenteeFate(round)).toBe(fate);
+  });
+
+  it('is cut in a cut round even where its rank would advance, and drops in a winners round', () => {
+    expect(row({ bands, rank: 2, absentee: 'eliminate' }).result).toBe('eliminate');
+    expect(row({ bands, rank: 2, absentee: 'drop' }).result).toBe('drop');
+  });
+
+  it('is routed by its rank when the round routes by rank', () => {
+    expect(row({ bands, rank: 2, absentee: 'rank' }).result).toBe('advance');
+    expect(row({ bands, rank: 7, absentee: 'rank' }).result).toBe('eliminate');
+  });
+
+  it('is undecided until the room is complete', () => {
+    expect(row({ bands, rank: 7, absentee: 'eliminate', roomComplete: false }).result).toBe('undecided');
   });
 });

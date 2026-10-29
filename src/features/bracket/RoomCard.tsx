@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
@@ -10,7 +11,7 @@ import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { LoneUnitRow, RoomRow } from './RoomRow';
-import { roomRowResult } from './room-row-result';
+import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
@@ -122,13 +123,21 @@ export function RoomCard({
   const complete = scored.length > 0 && scored.every((entry) => entry.score !== null);
   const showResults = isRoundReached(state, roundIndex) && complete;
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
+  // The units that were present are placed by score; an absentee has no place and comes after them.
+  const absentNames = absentInRoom(state, roundIndex, room);
+  const presentScored = scored.filter((entry) => !absentNames.includes(entry.name));
   const display = showResults
-    ? orderRoomWithPlaces(
-        scored as Array<{ name: string; position: number; score: number }>,
-        roundIndex,
-        room,
-        state,
-      ).map(({ entry, place, sharedBy }) => ({ ...entry, place, shared: sharedBy > 1 }))
+    ? [
+        ...orderRoomWithPlaces(
+          presentScored as Array<{ name: string; position: number; score: number }>,
+          roundIndex,
+          room,
+          state,
+        ).map(({ entry, place, sharedBy }) => ({ ...entry, place, shared: sharedBy > 1 })),
+        ...absentNames
+          .flatMap((name) => scored.filter((entry) => entry.name === name))
+          .map((entry) => ({ ...entry, place: null, shared: false })),
+      ]
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   const memberInputs = scoredTeamSize(state);
   return (
@@ -137,10 +146,14 @@ export function RoomCard({
       {display.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
+        const absent = absentNames.includes(entry.name);
         const { result, star } = roomRowResult({
           rule: exitRule,
           bands,
-          rank: entry.place ?? index + 1,
+          rank: absent
+            ? presentScored.length + absentNames.indexOf(entry.name) + 1
+            : (entry.place ?? index + 1),
+          absentee: absent ? absenteeFate(round) : undefined,
           lucky,
           pendingTie,
           roomComplete: showResults,
@@ -148,6 +161,7 @@ export function RoomCard({
         });
         return (
           <RoomRow
+            absent={absent}
             followed={followKey === entry.name}
             games={round.numGames ?? 1}
             index={index}

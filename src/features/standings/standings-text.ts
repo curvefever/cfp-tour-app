@@ -93,9 +93,11 @@ export interface RoundCells {
 
 /**
  * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed (a late joiner's)
- * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there.
+ * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there. A round the unit was
+ * absent from reads "ABS" with 0 points.
  */
-export function roundCells(result: StandingRoundResult | undefined): RoundCells {
+export function roundCells(result: StandingRoundResult | undefined, absent = false): RoundCells {
+  if (absent) return { score: 'ABS', rank: '—', points: '0' };
   if (!result) return { score: '—', rank: '—', points: '—' };
   if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
   return {

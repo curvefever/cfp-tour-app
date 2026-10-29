@@ -1,3 +1,4 @@
+import { absentInRoom } from '../../domain/tournament/absences';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scoring';
@@ -46,8 +47,10 @@ export function placeInRoom(
     score: getUnitScore(state, roundIndex, room, position, null),
   }));
   if (scored.length === 0 || scored.some((entry) => entry.score === null)) return null;
+  // An absentee has no place; the units that were present are placed among themselves.
+  const absent = absentInRoom(state, roundIndex, room);
   const ordered = orderRoomWithPlaces(
-    scored as Array<{ name: string; score: number }>,
+    scored.filter((entry) => !absent.includes(entry.name)) as Array<{ name: string; score: number }>,
     roundIndex,
     room,
     state,
@@ -106,6 +109,9 @@ export function foldedRoundSummary(
   const roomPlace = placeInRoom(state, roundIndex, seat.room, followKey);
   const place = roomPlace?.place ?? null;
   const room = `Room ${roomLetter(seat.room)}`;
+  if (absentInRoom(state, roundIndex, seat.room).includes(followKey)) {
+    return { ...marks, followed: { label, room: seat.room, place: null, detail: `${room} · absent` } };
+  }
   return {
     ...marks,
     followed: {

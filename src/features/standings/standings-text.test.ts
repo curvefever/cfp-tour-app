@@ -303,3 +303,14 @@ describe('sharesWholePercent', () => {
     ).toEqual([false, false]);
   });
 });
+
+describe('roundCells: a round the unit was absent from', () => {
+  it('reads ABS with 0 points, whatever the round holds', () => {
+    expect(roundCells(undefined, true)).toEqual({ score: 'ABS', rank: '—', points: '0' });
+    expect(roundCells({ roundIndex: 1, score: 5, rank: 1, points: 3, bye: false }, true).score).toBe('ABS');
+  });
+
+  it('still reads — for a round the unit missed without being absent (a late joiner)', () => {
+    expect(roundCells(undefined)).toEqual({ score: '—', rank: '—', points: '—' });
+  });
+});

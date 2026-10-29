@@ -91,7 +91,10 @@ function StandingsHead({
 }
 
 function RoundResultCells({ entry, roundIndex }: { entry: Entry; roundIndex: number }) {
-  const cells = roundCells(entry.rounds?.find((result) => result.roundIndex === roundIndex));
+  const cells = roundCells(
+    entry.rounds?.find((result) => result.roundIndex === roundIndex),
+    entry.absentRounds?.includes(roundIndex),
+  );
   return (
     <>
       <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-sm text-muted')}>{cells.score}</TableCell>

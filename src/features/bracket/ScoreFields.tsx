@@ -14,14 +14,17 @@ export function TeamMembers({
   name,
   roundIndex,
   seat,
+  markSeat,
 }: {
   state: TournamentState;
   name: string;
   roundIndex: number;
   /** Where the team sits, once its room is complete: each member's own score then follows the name. */
   seat?: { room: number; position: number };
+  /** Where the team sits, whether or not its room is complete: a Survival member marked absent by hand shows after the name. */
+  markSeat?: { room: number; position: number };
 }) {
-  const line = teamMemberLine(state, name, roundIndex, seat ?? null);
+  const line = teamMemberLine(state, name, roundIndex, seat ?? null, markSeat ?? seat ?? null);
   if (!line) return null;
   return <span className='block wrap-break-word text-sm text-muted'>{line}</span>;
 }

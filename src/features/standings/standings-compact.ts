@@ -4,7 +4,10 @@ import { formatTieBreak, formatTieBreakPrecise, roundCells } from './standings-t
 type Entry = StandingsDisplayTable['entries'][number];
 
 function cellsOf(entry: Entry, roundIndex: number) {
-  return roundCells(entry.rounds?.find((result) => result.roundIndex === roundIndex));
+  return roundCells(
+    entry.rounds?.find((result) => result.roundIndex === roundIndex),
+    entry.absentRounds?.includes(roundIndex),
+  );
 }
 
 /** The points of each counted round on one line, "8 · 6 · 2": "—" for a round the unit missed, a bye's points. */
@@ -20,7 +23,9 @@ function pointsText(points: string): string {
 /** One counted round of a row, as read on a phone: "Round 2 · 75 · 1st · 8 pts", "Round 2 · Bye · 8 pts", "Round 2 · —". */
 function roundLine(entry: Entry, roundIndex: number, label: string): string {
   const result = entry.rounds?.find((candidate) => candidate.roundIndex === roundIndex);
-  const cells = roundCells(result);
+  const absent = entry.absentRounds?.includes(roundIndex) === true;
+  const cells = roundCells(result, absent);
+  if (absent) return `${label} · ABS · ${pointsText(cells.points)}`;
   if (!result) return `${label} · —`;
   if (result.bye) return `${label} · ${cells.score} · ${pointsText(cells.points)}`;
   return `${label} · ${cells.score} · ${cells.rank} · ${pointsText(cells.points)}`;

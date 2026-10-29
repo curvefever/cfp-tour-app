@@ -212,7 +212,7 @@ export function unitsAwaitingAnswer(state: TournamentState, roundIndex: number, 
 }
 
 /** Every score of 0 in the column in play that the bar can ask about, answered or not, grouped by round and room. */
-function zeroScoresInPlay(state: TournamentState): RoomAbsenceQuestions[] {
+export function zeroScoresInPlay(state: TournamentState): RoomAbsenceQuestions[] {
   if (!usesAbsences(state)) return [];
   const { start, end } = currentColumn(state);
   const rooms: RoomAbsenceQuestions[] = [];

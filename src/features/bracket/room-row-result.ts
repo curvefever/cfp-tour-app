@@ -1,4 +1,5 @@
 import { exitBandAtRank, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
+import type { TournamentRound } from '../../domain/tournament/types';
 import type { RowResult } from '../tournament/components/result-row';
 
 export interface RoomRowInput {
@@ -16,6 +17,18 @@ export interface RoomRowInput {
   roomComplete: boolean;
   /** The round has been advanced past (it is not the current round any more). */
   roundDecided: boolean;
+  /** The row's unit was absent: what becomes of it (see `absenteeFate`). Its `rank` is then its place after every present unit. */
+  absentee?: AbsenteeFate;
+}
+
+/** What becomes of an absentee: a custom bracket and Kings Valley route it by its rank (last of its room), a winners round drops it to the losers bracket, every other round cuts it. */
+export type AbsenteeFate = 'rank' | 'drop' | 'eliminate';
+
+export function absenteeFate(
+  round: Pick<TournamentRound, 'bracket' | 'isWaterfall' | 'isKingsValley'>,
+): AbsenteeFate {
+  if (round.bracket === 'winners') return 'drop';
+  return round.isWaterfall || round.isKingsValley ? 'rank' : 'eliminate';
 }
 
 export interface RoomRowResult {
@@ -68,6 +81,8 @@ export function roomRowResult(input: RoomRowInput): RoomRowResult {
   const { bands, pendingTie, rank, roomComplete, rule } = input;
   if (rule.kind !== 'per-room') return { result: '', star: null };
   if (!roomComplete) return { result: 'undecided', star: null };
+  if (input.absentee === 'drop') return { result: 'drop', star: null };
+  if (input.absentee === 'eliminate') return { result: 'eliminate', star: null };
   if (pendingTie) return { result: 'pending', star: null };
   return bandResult(exitBandAtRank(bands, rank), bands, input);
 }

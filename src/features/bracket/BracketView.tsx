@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { hasBlockingAbsenceQuestions } from '../../domain/tournament/absences';
 import { hasPendingColumnTies } from '../../domain/tournament/advancement';
 import {
   bracketFollowStatus,
@@ -26,6 +27,7 @@ import { BracketRounds } from './BracketRounds';
 import { FollowBanner } from './FollowBanner';
 import { rememberedFollow } from './follow-text';
 import { RoundSettingsToggle } from './RoundSettingsToggle';
+import { AbsenceBanners } from './AbsenceBanners';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
 import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
@@ -71,6 +73,7 @@ export function BracketView() {
   }
   const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
   const pendingTies = hasPendingColumnTies(app.state);
+  const pendingAbsences = hasBlockingAbsenceQuestions(app.state);
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
     nextColumnStart(app.state) >= app.state.rounds.length || currentRound?.bracket === 'grand-final';
@@ -150,6 +153,7 @@ export function BracketView() {
         {infoOpen ? <BracketInfoBox onClose={() => setInfoOpen(false)} state={app.state} /> : null}
       </div>
       {editable ? <TieBanners state={app.state} /> : null}
+      {editable ? <AbsenceBanners state={app.state} /> : null}
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (
         <div className='mb-4.5'>
@@ -185,8 +189,14 @@ export function BracketView() {
           {!isLastRound ? (
             <Button
               variant='success'
-              disabled={pendingTies}
-              title={pendingTies ? 'Resolve the tie-break above first' : undefined}
+              disabled={pendingTies || pendingAbsences}
+              title={
+                pendingTies
+                  ? 'Resolve the tie-break above first'
+                  : pendingAbsences
+                    ? 'Answer the scores of 0 above first'
+                    : undefined
+              }
               onClick={advance}
             >
               Next Round →

@@ -127,6 +127,8 @@ export interface RoomRowProps {
   /** Another unit on the same score shares the place. */
   sharedPlace: boolean;
   score: number | null;
+  /** The unit was absent from the room: "ABS" takes the place of its score. */
+  absent: boolean;
   result: RowResult;
   star: 'lucky' | 'candidate' | null;
   /** The room is complete: places, scores and tie marks show. */
@@ -199,13 +201,23 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
 export function RoomRow(props: RoomRowProps) {
   const { state, roundIndex, room, position, name, index, score, result, star, showResults, rowsEditable } =
     props;
+  const { absent } = props;
   const { place, sharedPlace } = props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
-  const scoreText = showResults ? (
+  const scoreText = absent ? (
+    <span
+      className={cn(
+        'ml-auto flex shrink-0 items-center justify-end text-[13px] font-bold text-muted',
+        pointsColumn && 'w-11.5',
+      )}
+    >
+      ABS
+    </span>
+  ) : showResults ? (
     <span
       className={cn(
         'ml-auto flex shrink-0 items-center justify-end text-[15px] font-extrabold',
@@ -242,6 +254,7 @@ export function RoomRow(props: RoomRowProps) {
               name={name}
               roundIndex={roundIndex}
               seat={showResults ? { room, position } : undefined}
+              markSeat={{ room, position }}
               state={state}
             />
           ) : null}

@@ -11,6 +11,7 @@ import {
   scoreRoom,
 } from '../advancement';
 import { resolveTournamentTie } from '../mutations';
+import { describeStandings } from '../standings-display';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
@@ -112,6 +113,15 @@ describe('37 FFA, rooms 8·8·7·7·7: absentees in a pooling round', () => {
     const roomC = names(state, 3);
     expect(roomC.slice(0, 6).map((name) => tally[name])).toEqual([1, 1, 1, 1, 1, 1]);
     expect(tally[roomC[6]]).toBeUndefined();
+  });
+
+  it('marks the absentees’ rounds in the standings display, for the ABS cell', () => {
+    const state = played();
+    const table = describeStandings(state)?.tables[0];
+    const roomA = names(state, 1);
+    const absentRounds = (name: string) => table?.entries.find((entry) => entry.name === name)?.absentRounds;
+    expect(absentRounds(roomA[7])).toEqual([0]);
+    expect(absentRounds(roomA[0])).toBeUndefined();
   });
 
   it('puts the absentees after the present units in the room finish order', () => {
