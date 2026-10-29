@@ -5,7 +5,7 @@ import {
   survivalMemberKey,
 } from '../../domain/tournament/absences';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
-import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
+import { buildTeamMap, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { currentColumn } from '../../domain/tournament/round-columns';
 import { occupiedRooms } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -43,17 +43,31 @@ function runEndingAt(rounds: ReadonlySet<number>, last: number): number {
   return run;
 }
 
+/** The units that took over an absent seat of the round at a swap: the absence is the swapped-out unit's. */
+function inheritedAbsences(state: TournamentState, roundIndex: number): Set<string> {
+  return new Set(
+    state.withdrawnUnits.flatMap((unit) =>
+      unit.absentRound === roundIndex && unit.replacedBy !== undefined ? [unit.replacedBy] : [],
+    ),
+  );
+}
+
 /**
- * Every absence in a match so far, oldest round first: a unit that was marked absent in a room of the column in play
- * or of an earlier round. Only the rows of the column in play can be taken back with "Mark as played".
+ * Every absence in a match so far, oldest round first: a unit still in the tournament that was marked absent in a room
+ * of the column in play or of an earlier round. A unit that left shows as absent from the start or DNF instead, and a
+ * replacement does not carry the absence of the seat it took over. Only the rows of the column in play can be taken
+ * back with "Mark as played".
  */
 export function absentMatchRows(state: TournamentState): AbsentMatchRow[] {
   const labels = bracketRoundLabels(state);
   const column = currentColumn(state);
+  const onRoster = new Set(rosterKeys(state.players));
   const rows: AbsentMatchRow[] = [];
   for (let roundIndex = 0; roundIndex <= column.end; roundIndex += 1) {
+    const inherited = inheritedAbsences(state, roundIndex);
     for (const room of occupiedRooms(state, roundIndex)) {
       for (const { unit, position } of absentSeats(state, roundIndex, room)) {
+        if (!onRoster.has(unit) || inherited.has(unit)) continue;
         rows.push({
           id: `${roundIndex}-${room}-${unit}`,
           unit,

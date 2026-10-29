@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence, markSurvivalMemberAbsent } from '../../domain/tournament/absences';
+import { removeRosterUnit, setRoundScore, swapIndividual } from '../../domain/tournament/mutations';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { absentMatchRows, streakText, survivalMarkChoices, survivalMarkRows } from './absent-panel';
 
@@ -72,6 +73,87 @@ describe('absentMatchRows', () => {
     expect(
       absentMatchRows(oneRoomState({ players: four, version: false, scores: { 'r0-rm1-p0': 0 } })),
     ).toEqual([]);
+  });
+});
+
+describe('absentMatchRows after a swap or a removal', () => {
+  const withReserve = (state: ReturnType<typeof oneRoomState>) => ({ ...state, reserves: ['Zed', 'Yan'] });
+  const labels = (state: ReturnType<typeof oneRoomState>) =>
+    absentMatchRows(state).map((row) => `${row.label} · ${row.where}`);
+
+  it('does not list the absence a replacement took over, and records it for the swapped-out unit', () => {
+    const marked = answerAbsence(
+      oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50 } }),
+      ['r0-rm1-p0'],
+      'absent',
+    );
+    expect(labels(marked)).toEqual(['Ann · Round 1 · Room A']);
+    const swapped = swapIndividual(withReserve(marked), 'Ann', 'Zed');
+    expect(absentMatchRows(swapped)).toEqual([]);
+    expect(swapped.withdrawnUnits.map((unit) => [unit.name, unit.playedAnyMatch, unit.absentRound])).toEqual([
+      ['Ann', false, 0],
+    ]);
+  });
+
+  it('lists a replacement swapped in before scoring, then given 0 and marked absent', () => {
+    const swapped = swapIndividual(withReserve(oneRoomState({ players: four })), 'Ann', 'Zed');
+    expect(swapped.withdrawnUnits[0].absentRound).toBeUndefined();
+    const zero = setRoundScore(swapped, 'r0-rm1-p0', 0, 0, 1);
+    expect(labels(answerAbsence(zero, ['r0-rm1-p0'], 'absent'))).toEqual(['Zed · Round 1 · Room A']);
+  });
+
+  it('counts only its own absence for a replacement that inherited one: no streak', () => {
+    const marked = answerAbsence(
+      oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r1-rm1-p3': 0 } }),
+      ['r0-rm1-p0'],
+      'absent',
+    );
+    const swapped = swapIndividual(withReserve(marked), 'Ann', 'Zed');
+    const later = answerAbsence({ ...swapped, curRound: 1 }, ['r1-rm1-p3'], 'absent');
+    const rows = absentMatchRows(later);
+    expect(rows.map((row) => `${row.label} · ${row.where}`)).toEqual(['Di · Round 2 · Room A']);
+    expect(rows.map((row) => streakText(row.streak))).toEqual(['']);
+  });
+
+  it('keeps the inherited absence out through a second swap in the same round', () => {
+    const marked = answerAbsence(
+      oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50 } }),
+      ['r0-rm1-p0'],
+      'absent',
+    );
+    const first = swapIndividual(withReserve(marked), 'Ann', 'Zed');
+    const second = swapIndividual(first, 'Zed', 'Yan');
+    expect(absentMatchRows(second)).toEqual([]);
+  });
+
+  it('drops a unit that was removed after being absent', () => {
+    const state = oneRoomState({
+      players: four,
+      rounds: [{}, {}, {}],
+      scores: { 'r1-rm1-p0': 0, 'r1-rm1-p1': 50 },
+    });
+    const marked = answerAbsence({ ...state, curRound: 1 }, ['r1-rm1-p0'], 'absent');
+    const later = { ...marked, curRound: 2 };
+    expect(labels(later)).toEqual(['Ann · Round 2 · Room A']);
+    expect(absentMatchRows(removeRosterUnit(later, 'Ann'))).toEqual([]);
+  });
+
+  it('drops the earlier-round absence of a unit swapped out later', () => {
+    const state = oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r1-rm1-p1': 50 } });
+    const marked = answerAbsence(state, ['r0-rm1-p0'], 'absent');
+    const swapped = swapIndividual(withReserve({ ...marked, curRound: 1 }), 'Ann', 'Zed');
+    expect(swapped.withdrawnUnits[0].absentRound).toBeUndefined();
+    expect(absentMatchRows(swapped)).toEqual([]);
+  });
+
+  it('keeps the rows and the streak of a unit that is still on the roster', () => {
+    const state = oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r1-rm1-p0': 0 } });
+    const first = answerAbsence({ ...state, curRound: 0 }, ['r0-rm1-p0'], 'absent');
+    const both = answerAbsence({ ...first, curRound: 1 }, ['r1-rm1-p0'], 'absent');
+    expect(absentMatchRows(both).map((row) => streakText(row.streak))).toEqual([
+      '',
+      'absent 2 rounds running',
+    ]);
   });
 });
 

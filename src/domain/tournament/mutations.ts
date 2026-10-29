@@ -764,6 +764,7 @@ function recordWithdrawal(
   replacedBy?: string,
 ): TournamentState {
   const info = unitDisplay(state, key);
+  const absentRound = reason === 'swapped' ? inheritedAbsentRound(state, key) : undefined;
   const entry: WithdrawnUnit = {
     name: key,
     label: info.label,
@@ -771,8 +772,23 @@ function recordWithdrawal(
     playedAnyMatch: hasPlayedAnyMatch(state, key),
     reason,
     ...(replacedBy === undefined ? {} : { replacedBy }),
+    ...(absentRound === undefined ? {} : { absentRound }),
   };
   return { ...state, withdrawnUnits: [...state.withdrawnUnits, entry] };
+}
+
+/**
+ * The round of the seat a swap of `key` leaves to the replacement as an absence: the round in play, when `key` is seated
+ * in a room and absent from it. Undefined for any other swap, which clears the seat.
+ */
+function inheritedAbsentRound(state: TournamentState, key: string): number | undefined {
+  const roundIndex = roundInPlayOf(state, key);
+  const seated = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room !== null);
+  const found = seated.find((entry) => entry.name === key);
+  if (found === undefined || found.room === null) return undefined;
+  const room = found.room;
+  const position = seated.filter((entry) => entry.room === room).findIndex((entry) => entry.name === key);
+  return isUnitAbsentFromRoom(state, roundIndex, room, position) ? roundIndex : undefined;
 }
 
 function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
@@ -789,7 +805,7 @@ function replaceAssignedUnit(state: TournamentState, oldKey: string, newKey: str
   const scores = { ...state.scores };
   let absences = state.absences;
   // A unit marked absent leaves its seat's 0 and answer to the replacement, who missed that round too.
-  if (room !== null && !isUnitAbsentFromRoom(state, roundIndex, room, position)) {
+  if (room !== null && inheritedAbsentRound(state, oldKey) === undefined) {
     absences = withoutSeatAbsences(absences, roundIndex, room, position);
     for (const key of scoreKeysForPosition({
       roundIndex,

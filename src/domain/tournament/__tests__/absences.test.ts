@@ -304,7 +304,9 @@ describe('cleanup', () => {
     expect(isUnitAbsentFromRoom(next, 0, 1, 0)).toBe(true);
     expect(absentInRoom(next, 0, 1)).toEqual(['Zed']);
     expect(isRoomFullyScored(next, 0, 1)).toBe(true);
-    expect(next.withdrawnUnits.map((unit) => [unit.name, unit.playedAnyMatch])).toEqual([['Ann', false]]);
+    expect(next.withdrawnUnits.map((unit) => [unit.name, unit.playedAnyMatch, unit.absentRound])).toEqual([
+      ['Ann', false, 0],
+    ]);
   });
 
   it("typing the replacement's real score drops the kept mark", () => {
@@ -326,6 +328,7 @@ describe('cleanup', () => {
       const next = swapIndividual({ ...base, absences, reserves: ['Zed'] }, 'Ann', 'Zed');
       expect(next.scores['r0-rm1-p0']).toBeUndefined();
       expect(next.absences).toEqual({});
+      expect(next.withdrawnUnits[0].absentRound).toBeUndefined();
     }
   });
 
@@ -346,6 +349,7 @@ describe('cleanup', () => {
     expect(next.scores['r0-rm1-p0-m1']).toBe(0);
     expect(next.absences).toEqual({ 'r0-rm1-p0-m0': 'absent', 'r0-rm1-p0-m1': 'absent' });
     expect(isUnitAbsentFromRoom(next, 0, 1, 0)).toBe(true);
+    expect(next.withdrawnUnits[0].absentRound).toBe(0);
   });
 
   it("the organiser's sequence: absent, Next Round, Previous, swap, Next Round", () => {
