@@ -88,11 +88,11 @@ function handleReserveResult(
   const messages = {
     closed: 'Reserve window has closed — eliminations have begun.',
     'group-stage':
-      "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts. To replace a no-show with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
+      "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts. To replace an absentee with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
     'fixed-draw':
       "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
     'waterfall-bracket':
-      "Players can't be added to a custom bracket without a pooling phase — its routing is built for the exact entrant count. To replace a no-show, use ⇄ Swap until the first elimination.",
+      "Players can't be added to a custom bracket without a pooling phase — its routing is built for the exact entrant count. To replace an absentee, use ⇄ Swap until the first elimination.",
     'strict-room':
       'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",
@@ -163,7 +163,7 @@ function renamePlayer(state: TournamentState, name: string, apply: UpdateState) 
   apply((current) => renameIndividual(current, name, value));
 }
 
-function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
+export function swapPlayer(state: TournamentState, name: string, apply: UpdateState) {
   const value = window.prompt(`Swap out "${name}". Enter the replacement's name:`);
   if (value === null || !value.trim()) return;
   if (refuseUnstorableNames([value])) return;
@@ -198,9 +198,67 @@ function removeUnit(state: TournamentState, key: string, label: string, app: Ros
   }
 }
 
-function removePlayer(state: TournamentState, name: string, app: RosterApp) {
+export function removePlayer(state: TournamentState, name: string, app: RosterApp) {
   if (window.confirm(`Remove "${name}" from the tournament? This cannot be undone.`))
     removeUnit(state, name, name, app);
+}
+
+/** Swaps a team out for a reserve team or a new walk-up team, asking which; says so when the team isn't in play. */
+export function swapTeamUnit(state: TournamentState, team: TournamentTeam, teamSize: number, app: RosterApp) {
+  const reserves = state.reserves as TournamentTeam[];
+  let replacement: TournamentTeam | undefined;
+  if (reserves.length) {
+    const menu = `Swap out "${team.teamName}".\n\n  0 — type a brand-new walk-up team\n${reserves.map((entry, index) => `  ${index + 1} — ${entry.teamName}`).join('\n')}\n\nEnter a number:`;
+    const choice = window.prompt(menu);
+    if (choice === null || !choice.trim()) return;
+    const selected = Number.parseInt(choice, 10);
+    if (String(selected) !== choice.trim() || selected < 0 || selected > reserves.length) {
+      window.alert(`"${choice}" isn't one of the listed numbers.`);
+      return;
+    }
+    if (selected > 0) replacement = reserves[selected - 1];
+  }
+  if (!replacement) {
+    const placeholders = memberPlaceholders(teamSize);
+    const line = window.prompt(
+      `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
+      `Team name, ${placeholders}`,
+    );
+    if (line === null) return;
+    const parsed = parseWalkUpTeam(line, teamSize, app.runtime.ids);
+    if (parsed.status === 'empty') return;
+    if (parsed.status === 'no-members') {
+      window.alert(parsed.message);
+      return;
+    }
+    replacement = parsed.team;
+  }
+  if (refuseUnstorableNames(teamNames(replacement))) return;
+  if (isDisplayNameTaken(state, replacement.teamName, [team.teamId, replacement.teamId])) {
+    window.alert(`A team called "${replacement.teamName}" is already registered — pick a different name.`);
+    return;
+  }
+  applySwap(state, app.updateState, (current) => swapTeam(current, team.teamId, replacement), team.teamName);
+}
+
+/** Removes a team after the checks a removal needs (the strict odd-count strategy) and a confirmation. */
+export function removeTeamUnit(state: TournamentState, team: TournamentTeam, app: RosterApp) {
+  if (
+    state.started &&
+    state.gamemodeConfig.oddCountStrategy === 'none' &&
+    (state.assignments[state.curRound] ?? []).some((entry) => entry.name === team.teamId)
+  ) {
+    const ideal = state.gamemodeConfig.roomSize?.ideal ?? 1;
+    const remaining = (state.assignments[state.curRound] ?? []).length - 1;
+    if (remaining % ideal !== 0) {
+      window.alert(
+        `Can't remove "${team.teamName}" — the strict odd-count strategy requires rooms of ${ideal} teams.`,
+      );
+      return;
+    }
+  }
+  if (window.confirm(`Remove team "${team.teamName}" from the tournament? This cannot be undone.`))
+    removeUnit(state, team.teamId, team.teamName, app);
 }
 
 const RESERVE_CHIP =
@@ -488,55 +546,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     size='sm'
                     disabled={!swapsOpen}
                     title={swapTitle('Swap team')}
-                    onClick={() => {
-                      const reserves = state.reserves as TournamentTeam[];
-                      let replacement: TournamentTeam | undefined;
-                      if (reserves.length) {
-                        const menu = `Swap out "${team.teamName}".\n\n  0 — type a brand-new walk-up team\n${reserves.map((entry, index) => `  ${index + 1} — ${entry.teamName}`).join('\n')}\n\nEnter a number:`;
-                        const choice = window.prompt(menu);
-                        if (choice === null || !choice.trim()) return;
-                        const selected = Number.parseInt(choice, 10);
-                        if (
-                          String(selected) !== choice.trim() ||
-                          selected < 0 ||
-                          selected > reserves.length
-                        ) {
-                          window.alert(`"${choice}" isn't one of the listed numbers.`);
-                          return;
-                        }
-                        if (selected > 0) replacement = reserves[selected - 1];
-                      }
-                      if (!replacement) {
-                        const placeholders = memberPlaceholders(format.teamSize ?? 0);
-                        const line = window.prompt(
-                          `Enter the replacement team, same format as the roster:\n\nTeamName, ${placeholders}`,
-                          `Team name, ${placeholders}`,
-                        );
-                        if (line === null) return;
-                        const parsed = parseWalkUpTeam(line, format.teamSize ?? 0, app.runtime.ids);
-                        if (parsed.status === 'empty') return;
-                        if (parsed.status === 'no-members') {
-                          window.alert(parsed.message);
-                          return;
-                        }
-                        replacement = parsed.team;
-                      }
-                      if (refuseUnstorableNames(teamNames(replacement))) return;
-                      if (
-                        isDisplayNameTaken(state, replacement.teamName, [team.teamId, replacement.teamId])
-                      ) {
-                        window.alert(
-                          `A team called "${replacement.teamName}" is already registered — pick a different name.`,
-                        );
-                        return;
-                      }
-                      applySwap(
-                        state,
-                        app.updateState,
-                        (current) => swapTeam(current, team.teamId, replacement),
-                        team.teamName,
-                      );
-                    }}
+                    onClick={() => swapTeamUnit(state, team, format.teamSize ?? 0, app)}
                   >
                     ⇄
                   </Button>
@@ -546,28 +556,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
                     size='sm'
                     title='Remove team'
                     variant='danger'
-                    onClick={() => {
-                      if (
-                        state.started &&
-                        state.gamemodeConfig.oddCountStrategy === 'none' &&
-                        (state.assignments[state.curRound] ?? []).some((entry) => entry.name === team.teamId)
-                      ) {
-                        const ideal = state.gamemodeConfig.roomSize?.ideal ?? 1;
-                        const remaining = (state.assignments[state.curRound] ?? []).length - 1;
-                        if (remaining % ideal !== 0) {
-                          window.alert(
-                            `Can't remove "${team.teamName}" — the strict odd-count strategy requires rooms of ${ideal} teams.`,
-                          );
-                          return;
-                        }
-                      }
-                      if (
-                        window.confirm(
-                          `Remove team "${team.teamName}" from the tournament? This cannot be undone.`,
-                        )
-                      )
-                        removeUnit(state, team.teamId, team.teamName, app);
-                    }}
+                    onClick={() => removeTeamUnit(state, team, app)}
                   >
                     ✕
                   </Button>

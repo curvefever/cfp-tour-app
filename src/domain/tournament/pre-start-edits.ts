@@ -18,7 +18,7 @@ const withRosterCount = (state: TournamentState): TournamentState => ({
 
 /**
  * Removes a unit before Confirm & Start. `removeRosterUnit` records the withdrawal (the unit shows in
- * NO-SHOWS) and strips it; with a schedule drawn, the schedule is then redone for the smaller roster. A
+ * ABSENT) and strips it; with a schedule drawn, the schedule is then redone for the smaller roster. A
  * removal is never refused: when generation can't redraw (below the format's minimum, a graph built for
  * the exact count), the plain removal stands (Round 1 keeps a short room) and `redrawRefusal` says why.
  */

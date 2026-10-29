@@ -5,7 +5,7 @@ import { removeRosterUnit, shareTiedPoints } from '../../domain/tournament/mutat
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
-import { foldedColumnSummary, foldedRoundSummary } from './folded-round';
+import { foldedColumnSummary, foldedRoundSummary, placeInRoom } from './folded-round';
 
 const FFA = {
   gameFormat: 'ffa-individual',
@@ -186,5 +186,17 @@ describe('foldedRoundSummary: an absentee', () => {
       detail: 'Room A · absent',
     });
     expect(foldedRoundSummary(state, 0, names[6]).followed?.detail).toBe('Room A · 7th');
+  });
+});
+
+describe('placeInRoom: an absentee beside a present unit at 0', () => {
+  it('places the present unit alone, with no shared place, and the absentee not at all', () => {
+    const scored = scoreCurrentRound(started(37), 0);
+    const names = scored.assignments[0].filter((entry) => entry.room === 1).map((entry) => entry.name);
+    const keys = ['r0-rm1-p6', 'r0-rm1-p7'];
+    const zeros = { ...scored, scores: { ...scored.scores, [keys[0]]: 0, [keys[1]]: 0 } };
+    const state = answerAbsence(answerAbsence(zeros, [keys[0]], 'played'), [keys[1]], 'absent');
+    expect(placeInRoom(state, 0, 1, names[6])).toEqual({ place: 7, shared: false });
+    expect(placeInRoom(state, 0, 1, names[7])).toBeNull();
   });
 });

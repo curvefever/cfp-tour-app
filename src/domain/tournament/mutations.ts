@@ -824,7 +824,7 @@ function movePoolingByeCount(counts: Record<string, number>, oldKey: string, new
 /**
  * A unit that has earned a place in a later round but isn't seated yet (it waits in a
  * pendingBracketSeeds pool) is replaced in place: the substitute takes the slot the
- * no-show earned, tierRank/pct/isLucky included. Null if the unit waits in no pool.
+ * absentee earned, tierRank/pct/isLucky included. Null if the unit waits in no pool.
  */
 function replacePendingUnit(state: TournamentState, oldKey: string, newKey: string): TournamentState | null {
   const pools = Object.entries(state.pendingBracketSeeds);
@@ -871,9 +871,9 @@ function replaceUnitInPlay(state: TournamentState, oldKey: string, newKey: strin
 }
 
 /**
- * Reserves can stand in for a no-show only until anyone has been eliminated, in every format: until a round that
+ * Reserves can stand in for an absentee only until anyone has been eliminated, in every format: until a round that
  * eliminated someone has been advanced. A unit already out in the round still in play (it has no rank yet) does not
- * close the window, as a no-show in a room not played yet can still be swapped.
+ * close the window, as an absentee in a room not played yet can still be swapped.
  */
 export function swapWindowOpen(state: TournamentState): boolean {
   return !computeRankings(state)?.eliminatedList.some((entry) => entry.rank !== null);

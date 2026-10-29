@@ -5,27 +5,13 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { downloadRankingsImage } from './rankings-image';
+import { AbsentPanel } from './AbsentPanel';
 import { PlayersList } from './PlayersList';
 import { RankingsLists } from './RankingsLists';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
-import { ToolPanel, ToolRow } from './ToolPanel';
-import { Alert, Badge, Button, PageHeading, columnTitleClassName } from '../../components/ui';
+import { Alert, Button, PageHeading, columnTitleClassName } from '../../components/ui';
 
-function NoShowsPanel({ state }: { state: TournamentState }) {
-  const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
-  if (!noShows.length) return null;
-  return (
-    <ToolPanel title='No-shows'>
-      {noShows.map((unit) => (
-        <ToolRow controls={<Badge>No-show</Badge>} key={`noshow-${unit.name}`}>
-          {unit.label}
-        </ToolRow>
-      ))}
-    </ToolPanel>
-  );
-}
-
-/** Admins only, below the lists: manage the roster, the reserves and the no-shows, in the middle look. */
+/** Admins only, below the lists: manage the roster, the reserves and the absentees, in the middle look. */
 function OrganiserTools({ state }: { state: TournamentState }) {
   return (
     <section aria-labelledby='organiser-tools' className='mt-2 flex flex-col gap-3.5' data-look='middle'>
@@ -39,7 +25,7 @@ function OrganiserTools({ state }: { state: TournamentState }) {
         <ManageRoster state={state} />
         <div className='flex min-w-0 flex-[1_1_300px] flex-col gap-4'>
           <ReservePanel state={state} />
-          <NoShowsPanel state={state} />
+          <AbsentPanel state={state} />
         </div>
       </div>
     </section>

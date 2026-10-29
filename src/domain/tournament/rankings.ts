@@ -74,7 +74,7 @@ interface TournamentRankings {
   finalists: FinalistRanking[];
   eliminatedList: EliminatedRanking[];
   dnfList: WithdrawnUnit[];
-  noShows: WithdrawnUnit[];
+  absentFromStart: WithdrawnUnit[];
   lastRound: TournamentRound;
   lastRi: number;
 }
@@ -538,7 +538,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     ...unitDisplay(state, name),
   });
   const dnfList = state.withdrawnUnits.filter((unit) => unit.playedAnyMatch);
-  const noShows = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
+  const absentFromStart = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
   return {
     stillActive: [
       ...active.map((entry) => ({
@@ -566,7 +566,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       poolRank: poolRanks.get(entry.name) ?? null,
     })),
     dnfList,
-    noShows,
+    absentFromStart,
     lastRound,
     lastRi,
   };

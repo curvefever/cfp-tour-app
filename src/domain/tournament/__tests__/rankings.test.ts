@@ -209,7 +209,7 @@ describe('computeRankings -- double elimination deferred drop', () => {
   });
 });
 
-describe('computeRankings -- DNF/no-show', () => {
+describe('computeRankings -- DNF/absent from the start', () => {
   function buildActiveState(withdrawnUnits: TournamentState['withdrawnUnits'] = []) {
     return createDefaultTournamentState({
       gameFormat: 'ffa-individual',
@@ -226,28 +226,28 @@ describe('computeRankings -- DNF/no-show', () => {
     });
   }
 
-  it('puts a unit that played at least one match in dnfList, not noShows', () => {
+  it('puts a unit that played at least one match in dnfList, not absentFromStart', () => {
     const rankings = computeRankings(
       buildActiveState([{ name: 'P3', label: 'P3', members: null, playedAnyMatch: true, reason: 'removed' }]),
     );
     expect(rankings?.dnfList.map((entry) => entry.name)).toEqual(['P3']);
-    expect(rankings?.noShows).toEqual([]);
+    expect(rankings?.absentFromStart).toEqual([]);
   });
 
-  it('puts a unit that never played in noShows, not dnfList', () => {
+  it('puts a unit that never played in absentFromStart, not dnfList', () => {
     const rankings = computeRankings(
       buildActiveState([
         { name: 'P4', label: 'P4', members: null, playedAnyMatch: false, reason: 'swapped' },
       ]),
     );
-    expect(rankings?.noShows.map((entry) => entry.name)).toEqual(['P4']);
+    expect(rankings?.absentFromStart.map((entry) => entry.name)).toEqual(['P4']);
     expect(rankings?.dnfList).toEqual([]);
   });
 
   it('leaves both lists empty when nobody has withdrawn (no effect on existing fixtures)', () => {
     const rankings = computeRankings(buildActiveState());
     expect(rankings?.dnfList).toEqual([]);
-    expect(rankings?.noShows).toEqual([]);
+    expect(rankings?.absentFromStart).toEqual([]);
   });
 
   it('keeps a withdrawn unit absent from eliminatedList even when historical assignments still reference its old name', () => {

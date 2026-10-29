@@ -375,3 +375,23 @@ describe('an absentee in an elimination round', () => {
     }
   });
 });
+
+describe('stillInWhere: an absentee still in a warm-up round', () => {
+  it('reads "<round> · Room A · absent" in STILL IN', () => {
+    let state = generate('FFA 53', 53, SE_FFA);
+    const key = 'r0-rm1-p7';
+    const absentee = state.assignments[0].filter((entry) => entry.room === 1)[7].name;
+    state = scoreCurrentRound(state, 0);
+    state = answerAbsence({ ...state, scores: { ...state.scores, [key]: 0 } }, [key], 'absent');
+    const { rankings } = wheres(state);
+    const labels = bracketRoundLabels(state);
+    const entry = rankings.stillActive.find((candidate) => candidate.name === absentee);
+    if (!entry) throw new Error('the absentee is not in STILL IN');
+    expect(stillInWhere(state, rankings.lastRi, entry, labels)).toMatch(/ · Room A · absent$/);
+    const other = rankings.stillActive.find(
+      (candidate) => candidate.name !== absentee && candidate.room === 1,
+    );
+    if (!other) throw new Error('no other unit of the room');
+    expect(stillInWhere(state, rankings.lastRi, other, labels)).not.toMatch(/absent$/);
+  });
+});

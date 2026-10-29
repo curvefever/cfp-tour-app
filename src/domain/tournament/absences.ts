@@ -163,9 +163,32 @@ export function isUnitAbsentFromRoom(
 
 /** The units absent from a room, in seat order. */
 export function absentInRoom(state: TournamentState, roundIndex: number, room: number): string[] {
-  return unitsOfRoom(state, roundIndex, room).filter((_, position) =>
-    isUnitAbsentFromRoom(state, roundIndex, room, position),
+  return absentSeats(state, roundIndex, room).map((seat) => seat.unit);
+}
+
+/** The seats of a room whose unit was absent, in seat order. */
+export function absentSeats(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+): Array<{ unit: string; position: number }> {
+  return unitsOfRoom(state, roundIndex, room).flatMap((unit, position) =>
+    isUnitAbsentFromRoom(state, roundIndex, room, position) ? [{ unit, position }] : [],
   );
+}
+
+/** The score keys of a seat that are marked absent: what "Mark as played" answers again. */
+export function seatAbsenceKeys(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  position: number,
+): string[] {
+  const unit = unitsOfRoom(state, roundIndex, room)[position];
+  if (unit === undefined) return [];
+  return seatQuestions(state, roundIndex, room, position, unit)
+    .filter((question) => isMarkedAbsent(state, question.key))
+    .map((question) => question.key);
 }
 
 /**

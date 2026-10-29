@@ -20,7 +20,12 @@ export function eliminatedRankText(entry: Pick<EliminatedRanking, 'rank'>): stri
 }
 
 /** "Quarters · Room B": the round and the room, or just the round when the room's title is the round's own ("Final"). */
-function roundAndRoom(state: TournamentState, roundIndex: number, room: number, labels: Labels): string {
+export function roundAndRoom(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  labels: Labels,
+): string {
   const roundName = destinationLabel(roundIndex, labels);
   const title = roomTitle(state.rounds[roundIndex], room - 1);
   return title === roundName ? roundName : `${roundName} · ${title}`;
