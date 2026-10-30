@@ -7,6 +7,7 @@
  */
 import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
 import { semisBestOfProblem, stageMatchFields } from './match-format';
+import { isRoundDone } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 
 export type MatchStage = 'semis' | 'finals';
@@ -72,7 +73,7 @@ export function stageMatchScope(state: TournamentState): StageMatchScope {
         index,
         games: gamesOf(state, stage, round),
         ...(round.bestOf === undefined ? {} : { bestOf: round.bestOf }),
-        locked: index < state.curRound,
+        locked: isRoundDone(state, index),
         bestOfOffered: stage === 'finals' || semisBestOfProblem([round]) === null,
       },
     ];

@@ -76,12 +76,12 @@ describe('the Match format section of "Correct current round"', () => {
     const updateState = vi.fn();
     const view = renderApp(inSemis(), { role: 'admin', tab: 'admin', context: { updateState } });
     const section = within(view.getByText('Match format').closest('div') as HTMLElement);
-    const semis = section.getByLabelText('Semis format');
-    const finals = section.getByLabelText('Final format');
+    const semis = section.getByLabelText<HTMLSelectElement>('Semis format');
+    const finals = section.getByLabelText<HTMLSelectElement>('Final format');
     expect(semis.value).toBe('1');
     expect(finals.value).toBe('3');
     expect(semis.disabled).toBe(false);
-    const save = section.getByRole('button', { name: 'Save match format' });
+    const save = section.getByRole<HTMLButtonElement>('button', { name: 'Save match format' });
     expect(save.disabled).toBe(true);
 
     fireEvent.change(finals, { target: { value: 'bo3' } });
@@ -100,7 +100,7 @@ describe('the Match format section of "Correct current round"', () => {
     if (advanced.status !== 'advanced') throw new Error('could not reach the Final');
     const view = renderApp({ ...semis, state: advanced.state }, { role: 'admin', tab: 'admin' });
     const section = within(view.getByText('Match format').closest('div') as HTMLElement);
-    expect(section.getByLabelText('Semis format').disabled).toBe(true);
-    expect(section.getByLabelText('Final format').disabled).toBe(false);
+    expect(section.getByLabelText<HTMLSelectElement>('Semis format').disabled).toBe(true);
+    expect(section.getByLabelText<HTMLSelectElement>('Final format').disabled).toBe(false);
   });
 });
