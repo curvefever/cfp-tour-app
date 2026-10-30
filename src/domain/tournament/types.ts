@@ -85,7 +85,7 @@ export interface TournamentRound {
   matches?: GroupStageMatch[];
   groupByes?: string[];
   numGames?: number;
-  /** Set only on a Best-of round of a waterfall bracket: odd, 3-9. A room plays until a unit has won (bestOf + 1) / 2 games, and `numGames` holds the most games a room can need (`bestOfGameCount`). */
+  /** Set only on a Best-of round (a waterfall round, or the Semis or Final of the other bracket formats): odd, 3-9. A room plays until a unit has won (bestOf + 1) / 2 games, and `numGames` holds the most games a room can need (`bestOfGameCount`). */
   bestOf?: number;
   bracket?: BracketKey;
   winnersTo?: number | null;
@@ -222,6 +222,9 @@ export interface GeneratedTournamentConfig {
   drawPublication: DrawPublicationKey;
   finalsGames: number;
   semisGames: number;
+  /** Set when the Final (or the Semis) is a Best of N instead of summed games. */
+  finalsBestOf?: number;
+  semisBestOf?: number;
 }
 
 export interface MaterializedGamemodeConfig {
@@ -255,6 +258,9 @@ export interface MaterializedGamemodeConfig {
   bracketPhase: ScheduleLogicKey;
   finalsGames: number;
   semisGames: number;
+  /** Best of N for the Final and the Semis (absent = summed games). Written by generation; see match-format.ts. */
+  finalsBestOf?: number;
+  semisBestOf?: number;
   grandFinalWbTarget: number;
   grandFinalLbTarget: number;
   groupSize: number;
@@ -358,6 +364,9 @@ export interface PersistedSetup {
   qualifiersPerGroup: string;
   finalsGames: string;
   semisGames: string;
+  /** '' = the games above are summed; '3' / '5' / '7' = a Best of N instead. */
+  finalsBestOf: string;
+  semisBestOf: string;
   grandFinalWbTarget: string;
   grandFinalLbTarget: string;
   semisOverride: string;

@@ -15,10 +15,12 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import {
   DRAW_PUBLICATION_LABELS,
   ROUND_ROBIN_LABELS,
-  gamesLabel,
+  matchFromSelectValue,
+  semisBestOfOffered,
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
+import { MatchSelect } from './MatchSelect';
 import { nextTeamScoringRule } from './game-format-choice';
 import { setupDerived } from './setup-derived';
 import { useSetupChange } from './useSetupChange';
@@ -99,6 +101,16 @@ export function FormatPanel({
         compatible,
         format?.idealRoomSize === 2,
       ),
+    }));
+  }
+
+  /** A Semis or Finals format select writes both of its settings: the summed games and the Best of N. */
+  function changeMatch(stage: 'semis' | 'finals', value: string) {
+    const { games, bestOf } = matchFromSelectValue(value);
+    updateSetup((current) => ({
+      ...current,
+      ...(games === undefined ? {} : { [`${stage}Games`]: games }),
+      [`${stage}BestOf`]: bestOf,
     }));
   }
 
@@ -329,17 +341,13 @@ export function FormatPanel({
         )}
         {shown.has('finalsGames') ? (
           <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
-            <Select
+            <MatchSelect
+              bestOfOffered
+              bestOf={setup.finalsBestOf}
+              games={setup.finalsGames}
               id='cfg-finals-games'
-              value={setup.finalsGames}
-              onChange={(e) => change('finalsGames', e.target.value)}
-            >
-              {[1, 2, 3, 4].map((n) => (
-                <option key={n} value={n}>
-                  {gamesLabel(n)}
-                </option>
-              ))}
-            </Select>
+              onChange={(value) => changeMatch('finals', value)}
+            />
           </PresenceField>
         ) : (
           <PresenceField
@@ -384,17 +392,13 @@ export function FormatPanel({
               />
             </PresenceField>
             <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
-              <Select
+              <MatchSelect
+                bestOfOffered={semisBestOfOffered(setup)}
+                bestOf={setup.semisBestOf}
+                games={setup.semisGames}
                 id='cfg-semis-games'
-                value={setup.semisGames}
-                onChange={(e) => change('semisGames', e.target.value)}
-              >
-                {[1, 2, 3, 4].map((n) => (
-                  <option key={n} value={n}>
-                    {gamesLabel(n)}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) => changeMatch('semis', value)}
+              />
             </PresenceField>
           </>
         ) : null}

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { PersistedSetup } from '../../../domain/tournament/types';
-import { gamesLabel, visibleFormatFields, type FormatChoices, type FormatField } from './format-fields';
+import {
+  gamesLabel,
+  matchFromSelectValue,
+  matchLabelOf,
+  matchSelectValue,
+  semisBestOfOffered,
+  visibleFormatFields,
+  type FormatChoices,
+  type FormatField,
+} from './format-fields';
 
 /**
  * The expected sets are written out as values, the rules the Setup form has always shown its fields by: the
@@ -18,8 +27,10 @@ const BY_POOLING: Record<PersistedSetup['poolingPhase'], FormatField[]> = {
 const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
   'single-elimination': [
     'finalsGames',
+    'finalsBestOf',
     'semisOverride',
     'semisGames',
+    'semisBestOf',
     'finalOverride',
     'eliminationRoundTargets',
     'eliminationSeedingOverrides',
@@ -27,13 +38,14 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
   'double-elimination': ['grandFinalWbTarget', 'grandFinalLbTarget'],
   'double-elimination-shared-final': [
     'finalsGames',
+    'finalsBestOf',
     'lbQualifiers',
     'finalOverride',
     'eliminationRoundTargets',
     'eliminationSeedingOverrides',
   ],
-  'kings-valley': ['finalsGames'],
-  'waterfall-bracket': ['finalsGames', 'waterfallGraph'],
+  'kings-valley': ['finalsGames', 'finalsBestOf'],
+  'waterfall-bracket': ['finalsGames', 'finalsBestOf', 'waterfallGraph'],
 };
 
 function fieldsOf(choices: Partial<FormatChoices>): FormatField[] {
@@ -95,5 +107,26 @@ describe('gamesLabel', () => {
   it('words one game and several games', () => {
     expect(gamesLabel(1)).toBe('Single game');
     expect(gamesLabel(3)).toBe('3 games (sum)');
+  });
+});
+
+describe('the Semis and Finals format select', () => {
+  it('shows the summed games, or Best of N when it is set', () => {
+    expect(matchSelectValue('3', '')).toBe('3');
+    expect(matchSelectValue('3', '5')).toBe('bo5');
+    expect(matchLabelOf(3, undefined)).toBe('3 games (sum)');
+    expect(matchLabelOf(3, 5)).toBe('Best of 5');
+  });
+
+  it('a Best of N leaves the games as they were, summed games clear the Best of N', () => {
+    expect(matchFromSelectValue('bo3')).toEqual({ bestOf: '3' });
+    expect(matchFromSelectValue('2')).toEqual({ games: '2', bestOf: '' });
+  });
+
+  it('offers a Best of N for the Semis only where the rooms are head to head', () => {
+    expect(semisBestOfOffered({ gameFormat: 'team-4v4', oddCountStrategy: '' })).toBe(true);
+    expect(semisBestOfOffered({ gameFormat: 'individual-1v1', oddCountStrategy: '' })).toBe(true);
+    expect(semisBestOfOffered({ gameFormat: 'ffa-individual', oddCountStrategy: '' })).toBe(false);
+    expect(semisBestOfOffered({ gameFormat: 'team-2v2v2v2', oddCountStrategy: '' })).toBe(false);
   });
 });

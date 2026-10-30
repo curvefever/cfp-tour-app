@@ -1,4 +1,4 @@
-import { bestOfGameCount } from './match-format';
+import { BEST_OF_VALUES, bestOfGameCount, stageMatchFields } from './match-format';
 import type { RoomSize, TournamentRound } from './types';
 
 /**
@@ -249,7 +249,6 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
 
 /** The most games a GAMES token can ask for. */
 const MAX_SUMMED_GAMES = 4;
-const BEST_OF_VALUES = [3, 5, 7, 9];
 
 type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games'> & { isFinal: boolean; column: number | null };
 
@@ -1087,10 +1086,11 @@ export function fitWaterfallRound(
   return poolSize === seats ? fitted : { ...fitted, declaredRooms: declared };
 }
 
-/** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format for a Final with no format of its own. */
+/** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format (a Best of N included) for a Final with no format of its own. */
 export function matchFormatFields(
   roundSpec: WaterfallRoundSpec,
   finalsGames: number,
+  finalsBestOf?: number,
 ): Pick<TournamentRound, 'numGames' | 'bestOf'> {
   if (roundSpec.bestOf !== undefined) {
     const largestRoom = Math.max(...roundSpec.roomSizes);
@@ -1098,12 +1098,15 @@ export function matchFormatFields(
   }
   if (roundSpec.games !== undefined)
     return roundSpec.games > 1 || roundSpec.isFinal ? { numGames: roundSpec.games } : {};
-  return roundSpec.isFinal ? { numGames: finalsGames } : {};
+  return roundSpec.isFinal
+    ? stageMatchFields(finalsGames, finalsBestOf, Math.max(...roundSpec.roomSizes))
+    : {};
 }
 
 export interface WaterfallBracketConfig {
   graph: OrderedWaterfallGraph;
   finalsGames: number;
+  finalsBestOf?: number;
 }
 
 /**
@@ -1168,7 +1171,7 @@ export function waterfallBracketPhase(
       advPerRoom: null,
       advTotal: roundSpec.isFinal ? 1 : players - eliminatedCount,
       luckyCount: 0,
-      ...matchFormatFields(roundSpec, config.finalsGames),
+      ...matchFormatFields(roundSpec, config.finalsGames, config.finalsBestOf),
       isWaterfall: true,
       customLabel: roundSpec.label,
       waterfallColumn: graph.columns[index],

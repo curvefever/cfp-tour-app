@@ -1,3 +1,4 @@
+import { stageMatchFields } from './match-format';
 import { distributeRooms, isSeatable } from './room-distribution';
 import type { RoomSize, TournamentRound } from './types';
 
@@ -8,6 +9,7 @@ export const MAX_KINGS_VALLEY_ROUNDS = 14;
 export interface KingsValleyConfig {
   roomSize: RoomSize;
   finalsGames: number;
+  finalsBestOf?: number;
 }
 
 function bandCount(roomSize: number, fraction: number): number {
@@ -144,7 +146,7 @@ export function kingsValleyMaxEntrants(roomSize: RoomSize): number {
   }
 }
 
-function finalRound(roundNum: number, players: number, finalsGames: number): TournamentRound {
+function finalRound(roundNum: number, players: number, config: KingsValleyConfig): TournamentRound {
   return {
     roundNum,
     players,
@@ -157,7 +159,7 @@ function finalRound(roundNum: number, players: number, finalsGames: number): Tou
     advPerRoom: 1,
     advTotal: 1,
     luckyCount: 0,
-    numGames: finalsGames,
+    ...stageMatchFields(config.finalsGames, config.finalsBestOf, players),
   };
 }
 
@@ -194,7 +196,7 @@ export function kingsValleyBracketPhase(
 
   while (true) {
     if (roomSizes.length <= 1) {
-      rounds.push(finalRound(roundNum, total, config.finalsGames));
+      rounds.push(finalRound(roundNum, total, config));
       break;
     }
 
@@ -225,7 +227,7 @@ export function kingsValleyBracketPhase(
     roomSizes = moves.nextRooms;
     roundNum += 1;
     if (roundNum - capStartRoundNum >= MAX_KINGS_VALLEY_ROUNDS) {
-      rounds.push(finalRound(roundNum, total, config.finalsGames));
+      rounds.push(finalRound(roundNum, total, config));
       break;
     }
   }

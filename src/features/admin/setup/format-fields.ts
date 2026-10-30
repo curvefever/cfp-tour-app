@@ -1,4 +1,4 @@
-import { getGameFormat } from '../../../domain/tournament/formats';
+import { deriveRoomSize, getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
 
 /** A setting of the Setup form; `lbQualifiers` lives outside `PersistedSetup` but is one as well. */
@@ -23,6 +23,33 @@ export function gamesLabel(games: number): string {
   return games === 1 ? 'Single game' : `${games} games (sum)`;
 }
 
+/** The Best of N the Semis and Finals format selects offer. */
+export const SETUP_BEST_OF = [3, 5, 7];
+
+/** "Single game", "3 games (sum)" or "Best of 3": how the Semis or Finals format is worded. */
+export function matchLabelOf(games: number, bestOf: number | undefined): string {
+  return bestOf === undefined ? gamesLabel(games) : `Best of ${bestOf}`;
+}
+
+/** The value of a Semis or Finals format select: the number of summed games, or "bo3" for a Best of 3. */
+export function matchSelectValue(games: string, bestOf: string): string {
+  return bestOf.trim() ? `bo${bestOf.trim()}` : games;
+}
+
+/** What a select value sets: summed games clear the Best of N, a Best of N leaves the games as they were. */
+export function matchFromSelectValue(value: string): { games?: string; bestOf: string } {
+  return value.startsWith('bo') ? { bestOf: value.slice(2) } : { games: value, bestOf: '' };
+}
+
+/** Whether the Semis can be a Best of N: only in a head-to-head game format (a win count can't be compared across rooms). */
+export function semisBestOfOffered(
+  choices: Pick<PersistedSetup, 'gameFormat' | 'oddCountStrategy'>,
+): boolean {
+  const format = getGameFormat(choices.gameFormat);
+  if (!format) return false;
+  return deriveRoomSize(format, resolveOddCountStrategy(format, choices.oddCountStrategy)).max === 2;
+}
+
 /**
  * The settings of the Setup form that apply to these choices: the ones the Format panel shows (and the
  * waterfall panel, for the graph). The Setup form and the running Admin's recap both read this list, so
@@ -45,8 +72,8 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(isRace, 'grandFinalWbTarget', 'grandFinalLbTarget');
-  add(!isRace, 'finalsGames');
-  add(isSingle, 'semisOverride', 'semisGames');
+  add(!isRace, 'finalsGames', 'finalsBestOf');
+  add(isSingle, 'semisOverride', 'semisGames', 'semisBestOf');
   add(isShared, 'lbQualifiers');
   add(isSingle || isShared, 'finalOverride', 'eliminationRoundTargets', 'eliminationSeedingOverrides');
   add(poolingPhase === 'qual-table', 'qualRoundsOverride');

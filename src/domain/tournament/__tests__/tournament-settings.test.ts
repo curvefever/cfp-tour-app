@@ -32,6 +32,8 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   qualifiersPerGroup: '3',
   finalsGames: '5',
   semisGames: '2',
+  finalsBestOf: '5',
+  semisBestOf: '3',
   grandFinalWbTarget: '4',
   grandFinalLbTarget: '5',
   semisOverride: '12',

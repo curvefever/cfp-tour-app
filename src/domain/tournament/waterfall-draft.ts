@@ -346,15 +346,30 @@ function qualRouteLine(qualRoutes: WaterfallSlotDestination[]): string {
     : `Qual: 1-${Math.max(qualRoutes.length, 1)}->${ELIMINATED}`;
 }
 
+/** The Finals format as a match format, from the Setup settings; undefined when the games are not known. */
+export function finalsMatchOf(
+  finalsGames: number | undefined,
+  finalsBestOf: number | undefined,
+): WaterfallMatch | undefined {
+  if (finalsBestOf !== undefined) return { kind: 'best-of', bestOf: finalsBestOf };
+  return finalsGames === undefined ? undefined : { kind: 'games', games: finalsGames };
+}
+
 /**
- * The match format a drawn round was generated with: Best of from `bestOf`; otherwise the games it plays when
- * that differs from the default (one game; for the Final, the Finals format when known).
+ * The match format a drawn round was generated with, or null when it plays the default: one game, or for the
+ * Final the Finals format (when known; a Final is then the default if it plays the same N or number of games).
  */
-function matchOfRound(round: TournamentRound, finalsGames: number | undefined): WaterfallMatch | null {
-  if (round.bestOf !== undefined) return { kind: 'best-of', bestOf: round.bestOf };
-  const games = round.numGames ?? 1;
-  const isDefault = round.isFinal ? games === (finalsGames ?? games) : games === 1;
-  return isDefault ? null : { kind: 'games', games };
+function matchOfRound(
+  round: TournamentRound,
+  finalsMatch: WaterfallMatch | undefined,
+): WaterfallMatch | null {
+  const own: WaterfallMatch =
+    round.bestOf !== undefined
+      ? { kind: 'best-of', bestOf: round.bestOf }
+      : { kind: 'games', games: round.numGames ?? 1 };
+  if (!round.isFinal) return own.kind === 'games' && own.games === 1 ? null : own;
+  if (finalsMatch === undefined) return own.kind === 'best-of' ? own : null;
+  return matchToken(own) === matchToken(finalsMatch) ? null : own;
 }
 
 /**
@@ -367,7 +382,7 @@ function matchOfRound(round: TournamentRound, finalsGames: number | undefined): 
  */
 export function waterfallDraftFromRounds(
   rounds: TournamentRound[],
-  options: Pick<WaterfallDraftParseOptions, 'rankCount'> & { finalsGames?: number } = {},
+  options: Pick<WaterfallDraftParseOptions, 'rankCount'> & { finalsMatch?: WaterfallMatch } = {},
 ): WaterfallDraft {
   const labelByIndex = new Map(rounds.map((round, index) => [index, round.customLabel]));
   const waterfallRounds = rounds.filter((round) => round.isWaterfall);
@@ -380,7 +395,7 @@ export function waterfallDraftFromRounds(
       roomSize: declared[0],
       isFinal: round.isFinal,
       column: round.waterfallColumnSet ? (round.waterfallColumn ?? null) : null,
-      match: matchOfRound(round, options.finalsGames),
+      match: matchOfRound(round, options.finalsMatch),
     };
   });
   const routes: Record<string, WaterfallSlotDestination[][]> = {};

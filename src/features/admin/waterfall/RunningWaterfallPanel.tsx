@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { rosterKeys } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
 import {
+  finalsMatchOf,
   serializeWaterfallDraft,
   waterfallDraftFromRounds,
 } from '../../../domain/tournament/waterfall-draft';
@@ -49,10 +50,16 @@ function startedColumnsOf(state: TournamentState, lockedRounds: ReadonlySet<stri
   return columns;
 }
 
+/** The Finals format the tournament was generated with: a round of the graph with no format of its own plays it. */
+function finalsMatchOfState(state: TournamentState) {
+  const { finalsGames, finalsBestOf } = state.gamemodeConfig;
+  return finalsMatchOf(finalsGames, finalsBestOf);
+}
+
 function savedText(state: TournamentState): string {
   const rankCount = rosterKeys(state.players).length;
   return serializeWaterfallDraft(
-    waterfallDraftFromRounds(state.rounds, { rankCount, finalsGames: state.gamemodeConfig.finalsGames }),
+    waterfallDraftFromRounds(state.rounds, { rankCount, finalsMatch: finalsMatchOfState(state) }),
   );
 }
 
@@ -135,7 +142,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         <WaterfallGraphEditor
           currentRoundLabels={currentRoundLabels}
           entrantCount={entrantCount}
-          finalsGames={state.gamemodeConfig.finalsGames}
+          finalsMatch={finalsMatchOfState(state)}
           lockedRounds={lockedRounds}
           onChange={() => {}}
           readOnly
@@ -166,7 +173,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         allowReplace={false}
         currentRoundLabels={currentRoundLabels}
         entrantCount={entrantCount}
-        finalsGames={state.gamemodeConfig.finalsGames}
+        finalsMatch={finalsMatchOfState(state)}
         lockedRounds={lockedRounds}
         onChange={(next) => {
           setDraftText(next);

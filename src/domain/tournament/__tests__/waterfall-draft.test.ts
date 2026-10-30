@@ -17,6 +17,7 @@ import {
   assignWaterfallSlots,
   blankWaterfallDraft,
   compressWaterfallRanks,
+  finalsMatchOf,
   groupRoomByDestination,
   parseWaterfallDraft,
   removeWaterfallRound,
@@ -938,7 +939,7 @@ Semi: 1-4->Final`;
     });
   });
 
-  function drawn(text: string, finalsGames: number, entrants = 8) {
+  function drawn(text: string, finalsGames: number, entrants = 8, finalsBestOf?: number) {
     const parsed = parseWaterfallGraph(text);
     if (!parsed.ok) throw new Error(parsed.error);
     const graph = validateAndOrderWaterfallGraph(parsed.value, {
@@ -946,12 +947,12 @@ Semi: 1-4->Final`;
       entrantCount: entrants,
     });
     if (!graph.ok) throw new Error(graph.error);
-    return waterfallBracketPhase(entrants, 1, { graph: graph.value, finalsGames });
+    return waterfallBracketPhase(entrants, 1, { graph: graph.value, finalsGames, finalsBestOf });
   }
 
   it('reads the formats back from the drawn rounds', () => {
     const rounds = drawn(FORMAT_GRAPH, 3);
-    const draft = waterfallDraftFromRounds(rounds, { finalsGames: 3 });
+    const draft = waterfallDraftFromRounds(rounds, { finalsMatch: { kind: 'games', games: 3 } });
     expect(draft.rounds.map((round) => round.match)).toEqual([
       { kind: 'best-of', bestOf: 3 },
       { kind: 'games', games: 2 },
@@ -962,10 +963,31 @@ Semi: 1-4->Final`;
 
   it('shows no format on a Final that follows the Finals format, and a games count when it differs', () => {
     const plain = 'ROUNDS:\nR1 = 4\nFinal = 4 FINAL\nROUTES:\nR1: 1-4->Final';
-    const followed = waterfallDraftFromRounds(drawn(plain, 3, 4), { finalsGames: 3 });
+    const followed = waterfallDraftFromRounds(drawn(plain, 3, 4), {
+      finalsMatch: { kind: 'games', games: 3 },
+    });
     expect(followed.rounds.map((round) => round.match)).toEqual([null, null]);
     const own = 'ROUNDS:\nR1 = 4\nFinal = 4 FINAL GAMES 2\nROUTES:\nR1: 1-4->Final';
-    const differs = waterfallDraftFromRounds(drawn(own, 3, 4), { finalsGames: 3 });
+    const differs = waterfallDraftFromRounds(drawn(own, 3, 4), { finalsMatch: { kind: 'games', games: 3 } });
     expect(differs.rounds[1].match).toEqual({ kind: 'games', games: 2 });
+  });
+
+  it('shows no format on a Final that follows a Finals format of Best of 3, and its own format when it differs', () => {
+    const finalsMatch = finalsMatchOf(3, 3);
+    const graphWith = (finalToken: string) =>
+      ['ROUNDS:', 'R1 = 4', `Final = 4 FINAL${finalToken}`, 'ROUTES:', 'R1: 1-4->Final'].join('\n');
+    const followed = drawn(graphWith(''), 3, 4, 3);
+    expect(followed.at(-1)).toMatchObject({ bestOf: 3, numGames: 5 });
+    expect(waterfallDraftFromRounds(followed, { finalsMatch }).rounds[1].match).toBeNull();
+    const own = drawn(graphWith(' BO5'), 3, 4, 3);
+    expect(waterfallDraftFromRounds(own, { finalsMatch }).rounds[1].match).toEqual({
+      kind: 'best-of',
+      bestOf: 5,
+    });
+    const summed = drawn(graphWith(' GAMES 3'), 3, 4, 3);
+    expect(waterfallDraftFromRounds(summed, { finalsMatch }).rounds[1].match).toEqual({
+      kind: 'games',
+      games: 3,
+    });
   });
 });

@@ -15,7 +15,7 @@ import {
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { buildAssignments, buildRound, sequenceRandom } from './test-fixtures';
-import type { RoundAssignment, RoomSize, TournamentState } from '../types';
+import type { RoundAssignment, RoomSize, TournamentRound, TournamentState } from '../types';
 
 describe('advanceTournamentRound — missing roomSize backstop', () => {
   it('returns blocked/"missing-room-size" (not a throw) for a bracket round with no gamemodeConfig.roomSize', () => {
@@ -1704,7 +1704,8 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
     expect(names).toHaveLength(16); // the tail was re-planned for the real 16 survivors, not the stale plan of 17
   });
 
-  it("carries the old Final's numGames and anonymousGames onto the re-fitted Final", () => {
+  /** Advances an 8-unit round whose stale plan sent 5 to the Final (the real cut leaves 6) and returns the re-fitted Final. */
+  function refittedFinal(finalFields: Partial<TournamentRound>): TournamentRound {
     // FFA room size (6-8, ideal 8) so the real 6 survivors collapse straight
     // to a single-room Final -- isolates the numGames/anonymousGames carry
     // from the multi-round cap-anchor behaviour (covered separately below).
@@ -1720,8 +1721,7 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
           players: 5,
           advPerRoom: 1,
           advTotal: 1,
-          numGames: 3, // non-default: kingsValleyBracketPhase's own finalRound() would use finalsGames (1)
-          anonymousGames: [1],
+          ...finalFields,
         }),
       ],
       assignments: [
@@ -1750,12 +1750,24 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
     });
     const result = advanceTournamentRound(state);
     expect(result.status).toBe('advanced');
-    if (result.status !== 'advanced') return;
+    if (result.status !== 'advanced') throw new Error('did not advance');
     const finalRound = result.state.rounds[1];
     expect(finalRound.isFinal).toBe(true);
     expect(finalRound.players).toBe(6); // re-fitted to the real 6 survivors, not the stale plan of 5
-    expect(finalRound.numGames).toBe(3); // carried from the old Final, not kingsValleyBracketPhase's own default (1)
+    return finalRound;
+  }
+
+  it("carries the old Final's numGames and anonymousGames onto the re-fitted Final", () => {
+    // numGames 3 is non-default: kingsValleyBracketPhase's own finalRound() would use finalsGames (1)
+    const finalRound = refittedFinal({ numGames: 3, anonymousGames: [1] });
+    expect(finalRound.numGames).toBe(3); // carried from the old Final
     expect(finalRound.anonymousGames).toEqual([1]); // carried, not dropped
+  });
+
+  it('keeps a Best of N Final and works its game count out again for the re-fitted size', () => {
+    // 5 planned finalists need 5 x 1 + 1 = 6 games for a Best of 3; the real 6 need 7
+    const finalRound = refittedFinal({ bestOf: 3, numGames: 6 });
+    expect(finalRound).toMatchObject({ bestOf: 3, numGames: 7 });
   });
 
   it("anchors the round cap to the FIRST Kings Valley round, not the re-fit's own nextRound, when a stuck plan is re-fitted mid-ladder", () => {

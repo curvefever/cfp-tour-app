@@ -8,6 +8,7 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
+import { BEST_OF_VALUES, semisBestOfProblem } from './match-format';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -43,6 +44,12 @@ type GenerateTournamentResult =
 
 function parsed(value: string, fallback: number): number {
   return Number.parseInt(value, 10) || fallback;
+}
+
+/** The N of a Best of N setting, or undefined for summed games (and for a setting whose field is hidden). */
+function bestOfSetting(value: string | undefined, visible: boolean): number | undefined {
+  const bestOf = parsed(value ?? '', 0);
+  return visible && BEST_OF_VALUES.includes(bestOf) ? bestOf : undefined;
 }
 
 function generationError(message: string): GenerateTournamentResult {
@@ -171,6 +178,9 @@ export function generateTournament(
     drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
     finalsGames: parsed(form.finalsGames, 3),
     semisGames: parsed(form.semisGames, 1),
+    // Hidden along with their selects: the Final of a race double elimination has its own win targets, only single elimination has a Semis format.
+    finalsBestOf: bestOfSetting(form.finalsBestOf, schedule !== 'double-elimination'),
+    semisBestOf: bestOfSetting(form.semisBestOf, schedule === 'single-elimination'),
   };
   if (config.poolingPhase === 'swiss' && format.idealRoomSize !== 2) {
     return generationError(
@@ -585,6 +595,8 @@ export function generateTournament(
     bracketPhase: schedule,
     finalsGames: config.finalsGames,
     semisGames: config.semisGames,
+    ...(config.finalsBestOf !== undefined ? { finalsBestOf: config.finalsBestOf } : {}),
+    ...(config.semisBestOf !== undefined ? { semisBestOf: config.semisBestOf } : {}),
     grandFinalWbTarget,
     grandFinalLbTarget,
     groupSize: config.groupSize,
@@ -604,6 +616,8 @@ export function generateTournament(
   } catch (error) {
     return generationError(error instanceof Error ? error.message : String(error));
   }
+  const semisProblem = config.semisBestOf === undefined ? null : semisBestOfProblem(progression.rounds);
+  if (semisProblem) return generationError(semisProblem);
   const roomCapError = validateRoomCap(progression.rounds, format);
   if (roomCapError) return generationError(roomCapError);
 

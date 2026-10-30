@@ -292,6 +292,42 @@ describe('advancement edit: single-elimination bracket', () => {
   });
 });
 
+describe('advancement edit: Best of N Semis and Final', () => {
+  const bestOfSetup = {
+    gameFormat: 'individual-1v1' as const,
+    scheduleLogic: 'single-elimination' as const,
+    semisBestOf: '3',
+    finalsBestOf: '3',
+  };
+
+  it('keeps the Semis and the Final as Best of 3 when the bracket targets are edited', () => {
+    const base = playToFirstElimination(build(31, { ...bestOfSetup, poolingPhase: 'none' }));
+    const values = bracketScope(base).rounds.map((entry) => entry.advTotal);
+    values[0] -= 1;
+    const edited = unwrap(applyAdvancementEdit(base, { kind: 'bracket', targets: values }));
+    expect(edited.rounds.find((round) => round.isSemis)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(edited.rounds.find((round) => round.isFinal)).toMatchObject({ bestOf: 3, numGames: 3 });
+  });
+
+  it('refuses a last target that would give a Best of 3 Semis more than two rooms of two', () => {
+    const base = playToFirstElimination(build(31, { ...bestOfSetup, poolingPhase: 'none' }));
+    const values = bracketScope(base).rounds.map((entry) => entry.advTotal);
+    values[values.length - 1] = 8;
+    expect(applyAdvancementEdit(base, { kind: 'bracket', targets: values })).toEqual({
+      ok: false,
+      error: expect.stringContaining('only head to head'),
+    });
+  });
+
+  it('keeps them when the cut into the bracket is edited while pooling still runs', () => {
+    const state = build(37, { ...bestOfSetup, poolingPhase: 'qual-table', qualAdv: '24' });
+    const edited = unwrap(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '20', targetsText: '' }));
+    expect(edited.rounds.find((round) => round.isSemis)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(edited.rounds.find((round) => round.isFinal)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(edited.gamemodeConfig).toMatchObject({ semisBestOf: 3, finalsBestOf: 3 });
+  });
+});
+
 describe('advancement edit: out of scope', () => {
   const base = () =>
     build(37, { scheduleLogic: 'single-elimination', poolingPhase: 'qual-table', qualAdv: '24' });

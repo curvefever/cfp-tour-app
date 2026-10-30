@@ -52,6 +52,8 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     qualifiersPerGroup: '2',
     finalsGames: '3',
     semisGames: '1',
+    finalsBestOf: '',
+    semisBestOf: '',
     grandFinalWbTarget: '2',
     grandFinalLbTarget: '3',
     semisOverride: '',

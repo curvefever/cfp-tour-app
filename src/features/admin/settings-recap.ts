@@ -15,7 +15,7 @@ import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-dra
 import {
   DRAW_PUBLICATION_LABELS,
   ROUND_ROBIN_LABELS,
-  gamesLabel,
+  matchLabelOf,
   visibleFormatFields,
   type FormatField,
 } from './setup/format-fields';
@@ -40,13 +40,17 @@ interface RecapEntry {
 }
 
 const orDefault = (value: string, fallback: string) => value.trim() || fallback;
-const gamesOf = (value: string) => gamesLabel(Number.parseInt(value, 10) || 1);
+const matchOf = (games: string, bestOf: string) =>
+  matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
+
+/** The Best of N settings are read through the Semis and Finals format rows, not listed of their own. */
+type RecapField = Exclude<FormatField, 'semisBestOf' | 'finalsBestOf'>;
 
 /**
  * One entry per Setup setting, in the order the recap lists them. Typed over every setting, so a new Setup
  * field that is left out of this table does not compile.
  */
-const RECAP: Record<FormatField, RecapEntry> = {
+const RECAP: Record<RecapField, RecapEntry> = {
   gameFormat: {
     group: 'FORMAT',
     label: 'Game format',
@@ -144,11 +148,15 @@ const RECAP: Record<FormatField, RecapEntry> = {
     label: 'Points table',
     value: (settings) => orDefault(settings.positionalPointsTable, '—'),
   },
-  semisGames: { group: 'BRACKET', label: 'Semis format', value: (settings) => gamesOf(settings.semisGames) },
+  semisGames: {
+    group: 'BRACKET',
+    label: 'Semis format',
+    value: (settings) => matchOf(settings.semisGames, settings.semisBestOf),
+  },
   finalsGames: {
     group: 'BRACKET',
     label: 'Finals format',
-    value: (settings) => gamesOf(settings.finalsGames),
+    value: (settings) => matchOf(settings.finalsGames, settings.finalsBestOf),
   },
   grandFinalWbTarget: {
     group: 'BRACKET',
@@ -219,6 +227,8 @@ function settingsOf(state: TournamentState): TournamentSettings {
     drawPublication: cfg.drawPublication ?? defaults.drawPublication,
     finalsGames: text(config.finalsGames ?? cfg.finalsGames, defaults.finalsGames),
     semisGames: text(config.semisGames ?? cfg.semisGames, defaults.semisGames),
+    finalsBestOf: text(config.finalsBestOf, defaults.finalsBestOf),
+    semisBestOf: text(config.semisBestOf, defaults.semisBestOf),
     grandFinalWbTarget: text(config.grandFinalWbTarget, defaults.grandFinalWbTarget),
     grandFinalLbTarget: text(config.grandFinalLbTarget, defaults.grandFinalLbTarget),
     oddCountStrategy: config.oddCountStrategy ?? '',
@@ -240,7 +250,7 @@ function rosterItem(state: TournamentState): RecapItem {
 export function settingsRecapGroups(state: TournamentState): RecapGroup[] {
   const settings = settingsOf(state);
   const shown = visibleFormatFields(settings);
-  const fields = (Object.keys(RECAP) as FormatField[]).filter((field) => shown.has(field));
+  const fields = (Object.keys(RECAP) as RecapField[]).filter((field) => shown.has(field));
   const groups: RecapGroup[] = TITLES.map((title) => ({
     title,
     items: fields

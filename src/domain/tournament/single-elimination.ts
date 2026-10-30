@@ -1,3 +1,4 @@
+import { stageMatchFields } from './match-format';
 import { distributeRooms, distributeRoomsWithBye, splitAdvancement } from './room-distribution';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
@@ -11,6 +12,9 @@ export interface SingleEliminationConfig {
   finalSize: number;
   semisGames: number;
   finalsGames: number;
+  /** A Best of N for the Semis or the Final instead of the summed games (match-format.ts). */
+  semisBestOf?: number;
+  finalsBestOf?: number;
   /** Organiser-supplied ordered survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
   explicitTargets?: number[];
   /** Organiser-supplied fixed reseed mode per elimination round, index-aligned with explicitTargets. Stamped onto each round's own seedingOverride field (types.ts) -- see transitions.ts/seeding.ts for how it's consumed. */
@@ -160,7 +164,7 @@ export function singleEliminationBracketPhase(
     advPerRoom: Math.floor(config.finalSize / semisRooms.length),
     advTotal: config.finalSize,
     luckyCount: config.finalSize % semisRooms.length,
-    numGames: config.semisGames,
+    ...stageMatchFields(config.semisGames, config.semisBestOf, Math.max(...semisRooms)),
   });
   rounds.push({
     roundNum: semisRoundNum + 1,
@@ -174,7 +178,7 @@ export function singleEliminationBracketPhase(
     advPerRoom: 1,
     advTotal: 1,
     luckyCount: 0,
-    numGames: config.finalsGames,
+    ...stageMatchFields(config.finalsGames, config.finalsBestOf, config.finalSize),
   });
 
   return rounds;

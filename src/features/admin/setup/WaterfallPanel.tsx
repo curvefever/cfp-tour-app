@@ -1,4 +1,5 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
+import { finalsMatchOf } from '../../../domain/tournament/waterfall-draft';
 import { SectionPanel } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
@@ -20,7 +21,10 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
     >
       <WaterfallGraphEditor
         entrantCount={waterfallEntrantCount}
-        finalsGames={Number.parseInt(setup.finalsGames, 10) || undefined}
+        finalsMatch={finalsMatchOf(
+          Number.parseInt(setup.finalsGames, 10) || undefined,
+          Number.parseInt(setup.finalsBestOf, 10) || undefined,
+        )}
         onChange={(text) => change('waterfallGraph', text)}
         roomSize={derivedRoomSize}
         standingsSource={waterfallStandingsSource}

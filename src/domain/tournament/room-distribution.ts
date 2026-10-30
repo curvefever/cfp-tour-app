@@ -1,4 +1,5 @@
 import { HARD_ROOM_PLAYER_CAP } from './formats';
+import { stageMatchFields } from './match-format';
 import type { GameFormatDefinition, RoomSize, TournamentRound } from './types';
 
 export function distributeRooms(count: number, roomSize: RoomSize): number[] {
@@ -123,10 +124,19 @@ export function fitRoundToPool(
   if (poolSize <= 0) return round.isFinal ? tooFewUnitsError(round, poolSize) : walkoverRound(round);
   const rooms = round.isFinal ? [poolSize] : distributeRooms(poolSize, roomSize);
   const players = poolSize + round.byeCount;
-  if (round.advPerRoom === null) return { ...round, rooms, players, advTotal: players };
+  // A Best of N needs as many games as its largest room can use, which a re-fitted room may change.
+  const match = round.bestOf === undefined ? {} : stageMatchFields(1, round.bestOf, Math.max(...rooms));
+  if (round.advPerRoom === null) return { ...round, ...match, rooms, players, advTotal: players };
   const advTotal = fittedAdvTotal(round, poolSize);
   if (advTotal === null) return tooFewUnitsError(round, poolSize);
-  return { ...round, rooms, players, advTotal, ...splitAdvancement(advTotal, round.byeCount, rooms.length) };
+  return {
+    ...round,
+    ...match,
+    rooms,
+    players,
+    advTotal,
+    ...splitAdvancement(advTotal, round.byeCount, rooms.length),
+  };
 }
 
 export function validateRoomCap(

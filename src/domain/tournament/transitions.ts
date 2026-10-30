@@ -12,6 +12,7 @@ import { doubleEliminationContributions, routeStandings, routeWaterfallRound } f
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
+import { stageMatchFields } from './match-format';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
@@ -166,6 +167,13 @@ function fitNextRound(
   return null;
 }
 
+/** The re-fitted Final plays what the old one played: its games, or its Best of N with the game count of the new Final's size. */
+function keptFinalFormat(oldFinal: TournamentRound, newFinal: TournamentRound) {
+  return oldFinal.bestOf === undefined
+    ? { numGames: oldFinal.numGames }
+    : stageMatchFields(oldFinal.numGames ?? 1, oldFinal.bestOf, Math.max(...newFinal.rooms));
+}
+
 function malformedKingsValleyFinalMessage(actual: number): string {
   const reaching = actual <= 0 ? 'Nobody' : `Only ${actual} unit`;
   return `Can't advance -- ${reaching} would reach the Final, which needs at least 2 to play. This usually means enough units were removed mid-tournament; check Manage Teams before advancing.`;
@@ -220,14 +228,14 @@ function fitKingsValleyTail(
   const newTail = kingsValleyBracketPhase(
     poolSize,
     nextRound.roundNum,
-    { roomSize, finalsGames },
+    { roomSize, finalsGames, finalsBestOf: state.gamemodeConfig.finalsBestOf },
     capStartRoundNum,
   );
   const newFinal = newTail[newTail.length - 1];
   if (newFinal?.isFinal && oldFinal?.isFinal) {
     newTail[newTail.length - 1] = {
       ...newFinal,
-      numGames: oldFinal.numGames,
+      ...keptFinalFormat(oldFinal, newFinal),
       anonymousGames: oldFinal.anonymousGames,
     };
   }

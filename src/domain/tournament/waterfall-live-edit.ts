@@ -105,7 +105,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     return { ok: false, error: 'This tournament has no custom bracket phase to edit.' };
   }
   const roomSize = state.gamemodeConfig.roomSize;
-  const finalsGames = state.gamemodeConfig.finalsGames;
+  const { finalsGames, finalsBestOf } = state.gamemodeConfig;
   if (!roomSize || finalsGames === undefined) {
     return { ok: false, error: MISSING_CONFIG_MESSAGE };
   }
@@ -170,7 +170,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     // The round in play may change its match format (its scores are read again under the new one); a finished one may not.
     if (
       isRoundDone(state, firstWaterfallIndex + index) &&
-      !sameMatchFormat(oldRound, matchFormatFields(spec, finalsGames))
+      !sameMatchFormat(oldRound, matchFormatFields(spec, finalsGames, finalsBestOf))
     ) {
       return {
         ok: false,
@@ -182,6 +182,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const materialized = waterfallBracketPhase(graph.qualRoutes?.length ?? entrantCount, entryRound.roundNum, {
     graph,
     finalsGames,
+    finalsBestOf,
   });
   const standingsRoutes = waterfallStandingsRoutes(graph, entryRound.roundNum);
   // Reached rounds keep their own round object (scores, numGames,

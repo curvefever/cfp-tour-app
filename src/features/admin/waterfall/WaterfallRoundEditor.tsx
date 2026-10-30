@@ -116,6 +116,8 @@ function matchValue(match: WaterfallMatch | null): string {
   return match.kind === 'best-of' ? `best-of-${match.bestOf}` : `games-${match.games}`;
 }
 
+const gamesText = (games: number) => (games === 1 ? '1 game' : `${games} games`);
+
 function matchLabel(match: WaterfallMatch): string {
   if (match.kind === 'best-of') return `Best of ${match.bestOf}`;
   return match.games === 1 ? '1 game' : `${match.games} games, summed`;
@@ -124,18 +126,18 @@ function matchLabel(match: WaterfallMatch): string {
 /** The round's match format: a select the organiser changes, or the same select disabled (a round that has started, or a read-only view). */
 function MatchField({
   round,
-  finalsGames,
+  finalsMatch,
   onSetMatch,
 }: {
   round: WaterfallDraftRound;
-  finalsGames?: number;
+  finalsMatch?: WaterfallMatch;
   onSetMatch?: (match: WaterfallMatch | null) => void;
 }) {
   const defaultLabel = !round.isFinal
     ? '1 game'
-    : finalsGames === undefined
+    : finalsMatch === undefined
       ? 'Finals format'
-      : `Finals format (${finalsGames} ${finalsGames === 1 ? 'game' : 'games'})`;
+      : `Finals format (${finalsMatch.kind === 'best-of' ? matchLabel(finalsMatch) : gamesText(finalsMatch.games)})`;
   // A format typed into the graph text that the list doesn't offer (BO9, GAMES 1 on the Final) stays selectable.
   const unlisted =
     round.match !== null && !MATCH_CHOICES.some((choice) => matchValue(choice) === matchValue(round.match))
@@ -174,12 +176,12 @@ function RoundSettings({
   round,
   actions,
   columns,
-  finalsGames,
+  finalsMatch,
 }: {
   round: WaterfallDraftRound;
   actions: RoundEditorActions;
   columns?: RoundColumnInfo;
-  finalsGames?: number;
+  finalsMatch?: WaterfallMatch;
 }) {
   const [name, setName] = useState(round.label);
   const [rooms, setRooms] = useState(String(round.roomCount));
@@ -244,7 +246,7 @@ function RoundSettings({
           />
         </label>
         {columns ? <ColumnField info={columns} onSetColumn={actions.onSetColumn} round={round} /> : null}
-        <MatchField finalsGames={finalsGames} onSetMatch={actions.onSetMatch} round={round} />
+        <MatchField finalsMatch={finalsMatch} onSetMatch={actions.onSetMatch} round={round} />
         <label className='flex items-center gap-2 pb-2 text-sm'>
           <input
             checked={round.isFinal}
@@ -479,12 +481,12 @@ export function QualificationTableEditor({
 function RoundSummary({
   round,
   columns,
-  finalsGames,
+  finalsMatch,
   onSetMatch,
 }: {
   round: WaterfallDraftRound;
   columns?: RoundColumnInfo;
-  finalsGames?: number;
+  finalsMatch?: WaterfallMatch;
   /** Given for a round in play: its match format can still change; a finished round shows it disabled. */
   onSetMatch?: (match: WaterfallMatch | null) => void;
 }) {
@@ -496,7 +498,7 @@ function RoundSummary({
         {round.isFinal ? ' · Final' : ''}
       </span>
       {columns ? <ColumnField info={columns} round={round} /> : null}
-      <MatchField finalsGames={finalsGames} onSetMatch={onSetMatch} round={round} />
+      <MatchField finalsMatch={finalsMatch} onSetMatch={onSetMatch} round={round} />
     </div>
   );
 }
@@ -510,7 +512,7 @@ export function WaterfallRoundEditor({
   actions,
   locked,
   columns,
-  finalsGames,
+  finalsMatch,
   matchEditable,
 }: {
   draft: WaterfallDraft;
@@ -525,7 +527,7 @@ export function WaterfallRoundEditor({
   /** The Column select's numbers; omitted when the tournament's rounds aren't played in columns. */
   columns?: RoundColumnInfo;
   /** The Finals format, shown on the Final's default Match option. */
-  finalsGames?: number;
+  finalsMatch?: WaterfallMatch;
   /** This round is in play: its Match select works though the round is locked. */
   matchEditable?: boolean;
 }) {
@@ -535,14 +537,14 @@ export function WaterfallRoundEditor({
         <RoundSettings
           actions={actions}
           columns={columns}
-          finalsGames={finalsGames}
+          finalsMatch={finalsMatch}
           key={`${round.label}-${round.roomCount}-${round.roomSize}`}
           round={round}
         />
       ) : (
         <RoundSummary
           columns={columns}
-          finalsGames={finalsGames}
+          finalsMatch={finalsMatch}
           onSetMatch={actions && matchEditable ? actions.onSetMatch : undefined}
           round={round}
         />

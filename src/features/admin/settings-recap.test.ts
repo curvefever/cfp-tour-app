@@ -42,6 +42,23 @@ function itemsOf(groups: RecapGroup[]): Record<string, string> {
 }
 
 describe('settingsRecapGroups', () => {
+  it('words a Best of N Semis and Final as Best of N, not as summed games', () => {
+    const items = itemsOf(
+      settingsRecapGroups(
+        stateOf({
+          scheduleLogic: 'single-elimination',
+          semisGames: '2',
+          semisBestOf: '3',
+          finalsGames: '3',
+          finalsBestOf: '5',
+        }),
+      ),
+    );
+    expect(items['Semis format']).toBe('Best of 3');
+    expect(items['Finals format']).toBe('Best of 5');
+    expect(items['semisBestOf']).toBeUndefined();
+  });
+
   it('lists an FFA qualification table into single elimination, then the roster and the link', () => {
     const groups = settingsRecapGroups(
       stateOf({
@@ -195,7 +212,9 @@ describe('the recap against the Setup form', () => {
     for (const choice of choices) {
       const groups = settingsRecapGroups(stateOf(choice));
       const listed = groups.filter((group) => group.title !== 'ROSTER AND SHARING');
-      expect(listed.flatMap((group) => group.items)).toHaveLength(visibleFormatFields(choice).size);
+      // The Best of N settings are read through the Semis and Finals format rows, not listed of their own.
+      const shown = [...visibleFormatFields(choice)].filter((field) => !field.endsWith('BestOf'));
+      expect(listed.flatMap((group) => group.items)).toHaveLength(shown.length);
     }
   });
 });

@@ -21,6 +21,8 @@ export const SETTING_KEYS = [
   'qualifiersPerGroup',
   'finalsGames',
   'semisGames',
+  'finalsBestOf',
+  'semisBestOf',
   'grandFinalWbTarget',
   'grandFinalLbTarget',
   'semisOverride',

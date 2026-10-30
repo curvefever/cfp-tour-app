@@ -2,6 +2,7 @@ import { isQualCutoffKey } from './advancement';
 import { parseAdvanceToBracket } from './bracket-entry';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
+import { semisBestOfProblem } from './match-format';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';
 import { isPoolingRound } from './pooling';
 import { rosterKeys } from './roster';
@@ -209,6 +210,9 @@ function applyPoolingEdit(
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
 
+  const semisProblem =
+    gamemodeConfig.semisBestOf === undefined ? null : semisBestOfProblem(progression.rounds);
+  if (semisProblem) return { ok: false, error: semisProblem };
   const bracketStart = firstBracketIndex(state.rounds);
   const rounds = [...state.rounds.slice(0, bracketStart), ...progression.rounds.slice(bracketStart)];
   const roomCapError = validateRoomCap(rounds, format);
@@ -294,6 +298,9 @@ function applyBracketEdit(
   const semisIndex = state.curRound + targets.length;
   const fitted = fitRoundToPool(rounds[semisIndex], targets[targets.length - 1], config.roomSize);
   if ('error' in fitted) return { ok: false, error: fitted.error };
+  // A Best of N Semis stays head to head, with a winner for every Final seat.
+  const semisProblem = fitted.bestOf === undefined ? null : semisBestOfProblem([fitted]);
+  if (semisProblem) return { ok: false, error: semisProblem };
   rounds[semisIndex] = fitted;
 
   return {

@@ -23,6 +23,7 @@ import {
   waterfallQualCounts,
   waterfallRoundIntake,
   type WaterfallDraft,
+  type WaterfallMatch,
   type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { WATERFALL_EXAMPLES } from '../../../domain/tournament/waterfall-examples';
@@ -58,7 +59,7 @@ interface EditorProps {
   /** false hides "Blank start" and the examples, which would replace locked rounds too. Ignored when readOnly. Default true. */
   allowReplace?: boolean;
   /** The Finals format (games in the Final), shown on the Final's default Match option. */
-  finalsGames?: number;
+  finalsMatch?: WaterfallMatch;
 }
 
 function roundHasRoutedSlots(draft: WaterfallDraft, label: string): boolean {
@@ -126,7 +127,7 @@ function DraftEditor({
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
-  finalsGames,
+  finalsMatch,
   onAddRanks,
 }: Omit<EditorProps, 'text'> & { draft: WaterfallDraft; status: GraphStatus; onAddRanks?: () => void }) {
   const [selectedLabel, setSelectedLabel] = useState('');
@@ -304,7 +305,7 @@ function DraftEditor({
               actions={readOnly ? undefined : actions}
               columns={columnInfo}
               draft={draft}
-              finalsGames={finalsGames}
+              finalsMatch={finalsMatch}
               incomingPlayers={intake.incoming[round.label] ?? 0}
               locked={lockedRounds?.has(round.label)}
               matchEditable={currentRoundLabels?.has(round.label)}
@@ -337,7 +338,7 @@ export function WaterfallGraphEditor({
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
-  finalsGames,
+  finalsMatch,
 }: EditorProps) {
   // Ranks shown past the last routed one while the head count isn't known ("+ Add ranks").
   const [extraRanks, setExtraRanks] = useState(0);
@@ -434,7 +435,7 @@ export function WaterfallGraphEditor({
         currentRoundLabels={currentRoundLabels}
         draft={parsed.value}
         entrantCount={entrantCount}
-        finalsGames={finalsGames}
+        finalsMatch={finalsMatch}
         lockedRounds={lockedRounds}
         onAddRanks={entrantCount === null ? () => setExtraRanks((count) => count + max) : undefined}
         onChange={onChange}
