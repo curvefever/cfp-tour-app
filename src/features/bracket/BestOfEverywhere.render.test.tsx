@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, within } from '@testing-library/react';
+import { cleanup, fireEvent, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { fixtureTournaments, scoreCurrentRound, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
@@ -114,6 +114,21 @@ describe('the Standings of a Best of 3 pooling round', () => {
     if (!swiss) throw new Error('no Swiss tab');
     const view = renderApp(fixture, { role: 'viewer', tab: swiss.key });
     expect(view.queryAllByText(/^[012] wins?$/).length).toBeGreaterThan(0);
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it('reads them in the phone list too, once a row is opened', () => {
+    const fixture = bestOfFixture();
+    const swiss = tabsFor(fixture, 'viewer').find((tab) => tab.label === 'Swiss');
+    if (!swiss) throw new Error('no Swiss tab');
+    const view = renderApp(fixture, { role: 'viewer', tab: swiss.key });
+    // Both lists are in the page (a CSS switch picks one by width); the phone list's rows are the buttons that expand.
+    const row = [...view.container.querySelectorAll<HTMLButtonElement>('button[aria-expanded="false"]')].find(
+      (button) => button.textContent?.includes('Player'),
+    );
+    if (!row) throw new Error('no phone list row');
+    fireEvent.click(row);
+    expect(view.container.textContent).toMatch(/Round 1 · [012] wins? · \d+(st|nd|rd|th) · [\d.]+ pts?/);
     expect(consoleError).not.toHaveBeenCalled();
   });
 });
