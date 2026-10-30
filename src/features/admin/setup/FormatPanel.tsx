@@ -7,6 +7,7 @@ import {
 } from '../../../domain/tournament/formats';
 import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
+import type { RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { Alert, Button, ButtonRow, Input, SectionPanel, Select } from '../../../components/ui';
 import { EditingTag } from '../../presence/EditingTag';
@@ -15,13 +16,16 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import {
   DRAW_PUBLICATION_LABELS,
   ROUND_ROBIN_LABELS,
+  bracketStageLabel,
   matchFromSelectValue,
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
 import { MatchSelect } from './MatchSelect';
+import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
 import { setupDerived } from './setup-derived';
+import { useMatchSettingsChange } from './useMatchSettingsChange';
 import { useSetupChange } from './useSetupChange';
 
 /**
@@ -57,6 +61,7 @@ export function FormatPanel({
 }) {
   const { state, setup, updateSetup } = useTournamentApp();
   const change = useSetupChange();
+  const changeMatchSettings = useMatchSettingsChange();
   const registered = state.confirmedCount ?? null;
   const format = getGameFormat(setup.gameFormat);
   const shown = visibleFormatFields(setup);
@@ -103,14 +108,28 @@ export function FormatPanel({
     }));
   }
 
-  /** A Semis or Finals format select writes both of its settings: the summed games and the Best of N. */
-  function changeMatch(stage: 'semis' | 'finals', value: string) {
+  /** A stage's format select writes both of its settings: the summed games and the Best of N. */
+  function changeMatch(stage: RoundStage, value: string) {
     const { games, bestOf } = matchFromSelectValue(value);
-    updateSetup((current) => ({
-      ...current,
+    changeMatchSettings({
       ...(games === undefined ? {} : { [`${stage}Games`]: games }),
       [`${stage}BestOf`]: bestOf,
-    }));
+    });
+  }
+
+  /** The format select of a stage before the Semis, where the schedule has one. */
+  function stageSelect(stage: 'pooling' | 'bracket' | 'losers', label: string) {
+    if (!shown.has(`${stage}Games`)) return null;
+    return (
+      <PresenceField htmlFor={`cfg-${stage}-games`} label={label}>
+        <MatchSelect
+          bestOf={setup[`${stage}BestOf`]}
+          games={setup[`${stage}Games`]}
+          id={`cfg-${stage}-games`}
+          onChange={(value) => changeMatch(stage, value)}
+        />
+      </PresenceField>
+    );
   }
 
   function changeFormat(value: PersistedSetup['gameFormat']) {
@@ -338,6 +357,9 @@ export function FormatPanel({
             </Select>
           </PresenceField>
         )}
+        {stageSelect('pooling', 'Pooling rounds')}
+        {stageSelect('bracket', bracketStageLabel(setup.scheduleLogic))}
+        {stageSelect('losers', 'Losers rounds')}
         {shown.has('finalsGames') ? (
           <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
             <MatchSelect
@@ -423,6 +445,7 @@ export function FormatPanel({
           </PresenceField>
         ) : null}
       </div>
+      <RoundOverrideList />
       {shown.has('qualRoundsOverride') ||
       shown.has('swissRoundsOverride') ||
       shown.has('eliminationRoundTargets') ? (

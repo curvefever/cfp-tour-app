@@ -1,5 +1,7 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
+import type { MatchSettings, RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
+import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournament/waterfall-bracket';
 
 /** A setting of the Setup form; `lbQualifiers` lives outside `PersistedSetup` but is one as well. */
 export type FormatField = keyof TournamentSettings;
@@ -21,6 +23,45 @@ export const ROUND_ROBIN_LABELS = {
 /** "Single game" or "3 games (sum)": how a Semis or Finals game count is worded. */
 export function gamesLabel(games: number): string {
   return games === 1 ? 'Single game' : `${games} games (sum)`;
+}
+
+/** What the first stage of the bracket is called by the schedule, in a Setup select and in the recap. */
+export function bracketStageLabel(scheduleLogic: PersistedSetup['scheduleLogic']): string {
+  switch (scheduleLogic) {
+    case 'single-elimination':
+      return 'Elimination rounds';
+    case 'kings-valley':
+      return 'Ladder rounds';
+    default:
+      return 'Winners rounds';
+  }
+}
+
+/** The format the setup gives a stage, worded as the stage's select words it. */
+export function stageFormatLabel(stage: RoundStage, setup: MatchSettings): string {
+  const [games, bestOf] = {
+    pooling: [setup.poolingGames, setup.poolingBestOf],
+    bracket: [setup.bracketGames, setup.bracketBestOf],
+    losers: [setup.losersGames, setup.losersBestOf],
+    semis: [setup.semisGames, setup.semisBestOf],
+    finals: [setup.finalsGames, setup.finalsBestOf],
+  }[stage];
+  return matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
+}
+
+/** The select value an override token stands for ("BO3" is "bo3", "GAMES 2" is "2"), '' for none. */
+export function overrideSelectValue(token: string): string {
+  const match = parseMatchFormatToken(token);
+  if (!match) return '';
+  return match.bestOf === undefined ? String(match.games) : `bo${match.bestOf}`;
+}
+
+/** The override token a select value stands for, '' for the stage's own format. */
+export function overrideTokenOf(value: string): string {
+  if (!value) return '';
+  return value.startsWith('bo')
+    ? matchFormatToken({ games: 1, bestOf: Number(value.slice(2)) })
+    : matchFormatToken({ games: Number(value) });
 }
 
 /** The Best of N the Semis and Finals format selects offer. */

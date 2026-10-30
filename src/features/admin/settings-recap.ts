@@ -18,6 +18,7 @@ import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-dra
 import {
   DRAW_PUBLICATION_LABELS,
   ROUND_ROBIN_LABELS,
+  bracketStageLabel,
   matchLabelOf,
   visibleFormatFields,
   type FormatField,
@@ -51,18 +52,6 @@ type RecapField = Exclude<
   FormatField,
   'semisBestOf' | 'finalsBestOf' | 'poolingBestOf' | 'bracketBestOf' | 'losersBestOf'
 >;
-
-/** What the first stage of the bracket is called by the schedule, in a Setup select and in the recap. */
-function bracketStageLabel(settings: TournamentSettings): string {
-  switch (settings.scheduleLogic) {
-    case 'single-elimination':
-      return 'Elimination rounds';
-    case 'kings-valley':
-      return 'Ladder rounds';
-    default:
-      return 'Winners rounds';
-  }
-}
 
 /** "Round 3: Best of 3, Semis: 2 games": the overrides of the rounds the schedule has, in schedule order; '—' for none. */
 function overridesText(settings: TournamentSettings, state: TournamentState): string {
@@ -185,7 +174,7 @@ const RECAP: Record<RecapField, RecapEntry> = {
   },
   bracketGames: {
     group: 'BRACKET',
-    label: bracketStageLabel,
+    label: (settings) => bracketStageLabel(settings.scheduleLogic),
     value: (settings) => matchOf(settings.bracketGames, settings.bracketBestOf),
   },
   losersGames: {

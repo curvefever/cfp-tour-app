@@ -34,4 +34,18 @@ describe('MatchSelect', () => {
     fireEvent.change(select, { target: { value: 'bo5' } });
     expect(onChange).toHaveBeenCalledWith('bo5');
   });
+
+  it('puts an inherit option first when given its label, and selects it for no format of its own', () => {
+    render(
+      <MatchSelect
+        bestOf=''
+        games=''
+        id='round'
+        inheritLabel='Stage format (Best of 3)'
+        onChange={() => {}}
+      />,
+    );
+    expect(optionLabels()[0]).toBe('Stage format (Best of 3)');
+    expect(screen.getByRole<HTMLSelectElement>('combobox').value).toBe('');
+  });
 });

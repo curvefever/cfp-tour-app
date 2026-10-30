@@ -5,13 +5,18 @@ import { removeRosterUnit } from '../mutations';
 import { refitPoolingRound } from '../pooling';
 import {
   applyMatchFormats,
+  matchFormatConfig,
+  matchOverrideRows,
   matchOverridesText,
   matchStage,
   parseMatchOverrides,
+  withFormMatchFormats,
+  withMatchOverride,
   type RoundStage,
 } from '../round-match-formats';
 import type { RoomSize, TournamentRound, TournamentState } from '../types';
 import { advanceTournamentRound } from '../transitions';
+import { createDefaultSetup } from '../state-defaults';
 import { generate } from './fair-cut-fixtures';
 import { scoreCurrentRound } from './play-through';
 import { QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
@@ -194,6 +199,29 @@ describe('Kings Valley, 2v2v2 at 19', () => {
   });
 });
 
+describe('a group stage', () => {
+  const setup = {
+    gameFormat: 'individual-1v1',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'group-stage',
+  } as const;
+
+  it('1v1 at 37: every group round is pooling, Best of 3 over 3 games, and its matches are unchanged', () => {
+    const plain = generate('groups', 37, setup);
+    const state = generate('groups', 37, { ...setup, poolingBestOf: '3' });
+    const groupRounds = state.rounds.filter((round) => round.isGroupStage);
+    expect(groupRounds.length).toBeGreaterThan(1);
+    for (const round of groupRounds) {
+      expect(matchStage(round)).toBe('pooling');
+      expect(formatOf(round)).toEqual({ bestOf: 3, numGames: 3 });
+    }
+    const matches = (rounds: TournamentRound[]) =>
+      rounds.filter((round) => round.isGroupStage).map((round) => round.matches);
+    expect(matches(state.rounds)).toEqual(matches(plain.rounds));
+    expect(state.groups).toEqual(plain.groups);
+  });
+});
+
 describe('a Custom bracket with a Qual phase', () => {
   it('plays the pooling rounds as Best of 3 and leaves the graph rounds as they are', () => {
     const plain = buildQualWaterfall(37, QUAL_GRAPH);
@@ -291,5 +319,121 @@ describe('an existing setup', () => {
     for (const key of ['poolingGames', 'bracketGames', 'losersGames', 'matchOverrides', 'poolingBestOf']) {
       expect(state.gamemodeConfig).not.toHaveProperty(key);
     }
+  });
+});
+
+describe('the match formats of the Setup form', () => {
+  it('keeps what the stages ask for, and ignores a select the schedule does not show', () => {
+    const form = createDefaultSetup({
+      poolingBestOf: '3',
+      bracketGames: '2',
+      losersBestOf: '5',
+      semisBestOf: '3',
+      finalsBestOf: '7',
+      matchOverrides: 'Round 2: BO3\nbad: BO4',
+    });
+    expect(matchFormatConfig(form, 'single-elimination')).toEqual({
+      finalsGames: 3,
+      semisGames: 1,
+      finalsBestOf: 7,
+      semisBestOf: 3,
+      poolingBestOf: 3,
+      bracketGames: 2,
+      matchOverrides: { 'Round 2': 'BO3' },
+    });
+    expect(matchFormatConfig(form, 'double-elimination')).toMatchObject({ losersBestOf: 5 });
+    expect(matchFormatConfig(form, 'double-elimination')).not.toHaveProperty('finalsBestOf');
+    expect(matchFormatConfig(form, 'double-elimination')).not.toHaveProperty('semisBestOf');
+    const custom = matchFormatConfig(form, 'waterfall-bracket');
+    expect(custom).not.toHaveProperty('bracketGames');
+    expect(custom).not.toHaveProperty('losersBestOf');
+    expect(custom).toMatchObject({ poolingBestOf: 3 });
+  });
+});
+
+describe('a drawn schedule played in the formats of the form now', () => {
+  const setup = {
+    gameFormat: 'individual-1v1',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'swiss',
+    swissRoundsOverride: '3',
+    qualAdv: '16',
+  } as const;
+
+  /** Generated and not started: the state Setup holds while the organiser edits the formats. */
+  const drawnSchedule = () => ({ ...generate('1v1-37', 37, setup), started: false });
+
+  it('1v1 at 37: takes a stage format, an override and a Semis format, and the snapshot follows', () => {
+    const drawn = drawnSchedule();
+    const form = createDefaultSetup({
+      ...setup,
+      poolingBestOf: '3',
+      semisBestOf: '3',
+      matchOverrides: 'Round 2: GAMES 2',
+    });
+    const next = withFormMatchFormats(drawn, form);
+    expect(next.rounds.slice(0, 3).map(formatOf)).toEqual([
+      { bestOf: 3, numGames: 3 },
+      { bestOf: undefined, numGames: 2 },
+      { bestOf: 3, numGames: 3 },
+    ]);
+    expect(formatOf(roundsOf(next, 'semis')[0])).toEqual({ bestOf: 3, numGames: 3 });
+    expect(next.gamemodeConfig).toMatchObject({
+      poolingBestOf: 3,
+      semisBestOf: 3,
+      matchOverrides: { 'Round 2': 'GAMES 2' },
+    });
+    expect(next.settings).toMatchObject({ poolingBestOf: '3', matchOverrides: 'Round 2: GAMES 2' });
+    expect(next.rounds.map((round) => round.rooms)).toEqual(drawn.rounds.map((round) => round.rooms));
+  });
+
+  it('puts the schedule back as it was when the form goes back to its defaults', () => {
+    const drawn = drawnSchedule();
+    const changed = withFormMatchFormats(drawn, createDefaultSetup({ ...setup, poolingBestOf: '3' }));
+    const back = withFormMatchFormats(changed, createDefaultSetup(setup));
+    expect(back.rounds).toEqual(drawn.rounds);
+    expect(back.gamemodeConfig).toEqual(drawn.gamemodeConfig);
+  });
+
+  it('leaves a started tournament and an undrawn one alone', () => {
+    const drawn = drawnSchedule();
+    const form = createDefaultSetup({ ...setup, poolingBestOf: '3' });
+    const started = { ...drawn, started: true };
+    expect(withFormMatchFormats(started, form)).toBe(started);
+    const undrawn = { ...drawn, rounds: [] };
+    expect(withFormMatchFormats(undrawn, form)).toBe(undrawn);
+  });
+});
+
+describe('the rows of the override list', () => {
+  it('lists the rounds that have a stage under their shown names, then the overrides no round has', () => {
+    const state = generate('race', 31, {
+      gameFormat: 'individual-1v1',
+      scheduleLogic: 'double-elimination',
+      poolingPhase: 'none',
+    });
+    const rows = matchOverrideRows(state, 'Round 2: BO3\nNowhere: GAMES 2');
+    const real = rows.filter((row) => !row.orphan);
+    expect(real).toHaveLength(state.rounds.filter((round) => matchStage(round)).length);
+    expect(real.map((row) => row.stage)).toContain('losers');
+    expect(real.find((row) => row.name === 'Round 2')?.token).toBe('BO3');
+    expect(real.every((row) => row.name !== 'Grand Final')).toBe(true);
+    expect(rows.at(-1)).toEqual({ name: 'Nowhere', token: 'GAMES 2', orphan: true });
+  });
+
+  it('leaves the graph rounds of a Custom bracket out', () => {
+    const state = buildQualWaterfall(37, QUAL_GRAPH);
+    const rows = matchOverrideRows(state, '');
+    expect(rows.length).toBe(roundsOf(state, 'pooling').length);
+  });
+
+  it("sets, replaces and removes one round's line", () => {
+    const text = 'Round 2: BO3\nSemis: GAMES 2';
+    expect(withMatchOverride(text, 'Round 4', 'GAMES 3')).toBe(
+      'Round 2: BO3\nSemis: GAMES 2\nRound 4: GAMES 3',
+    );
+    expect(withMatchOverride(text, 'Semis', 'BO5')).toBe('Round 2: BO3\nSemis: BO5');
+    expect(withMatchOverride(text, 'Round 2', '')).toBe('Semis: GAMES 2');
+    expect(withMatchOverride('Round 2: BO3', 'Round 2', '')).toBe('');
   });
 });

@@ -8,7 +8,6 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { BEST_OF_VALUES } from './match-format';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -18,7 +17,7 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
-import { parseMatchOverrides } from './round-match-formats';
+import { matchFormatConfig } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
   parseWaterfallGraph,
@@ -45,26 +44,6 @@ type GenerateTournamentResult =
 
 function parsed(value: string, fallback: number): number {
   return Number.parseInt(value, 10) || fallback;
-}
-
-/** The N of a Best of N setting, or undefined for summed games (and for a setting whose field is hidden). */
-function bestOfSetting(value: string | undefined, visible: boolean): number | undefined {
-  const bestOf = parsed(value ?? '', 0);
-  return visible && BEST_OF_VALUES.includes(bestOf) ? bestOf : undefined;
-}
-
-/** The games and Best of N of one stage as the gamemode config keeps them: each only when it is not the default, and nothing for a stage whose select is hidden. */
-function stageMatchConfig(
-  stage: 'pooling' | 'bracket' | 'losers',
-  form: Pick<PersistedSetup, `${typeof stage}Games` | `${typeof stage}BestOf`>,
-  visible: boolean,
-): Partial<MaterializedGamemodeConfig> {
-  const games = parsed(form[`${stage}Games`], 1);
-  const bestOf = bestOfSetting(form[`${stage}BestOf`], visible);
-  return {
-    ...(visible && games !== 1 ? { [`${stage}Games`]: games } : {}),
-    ...(bestOf !== undefined ? { [`${stage}BestOf`]: bestOf } : {}),
-  };
 }
 
 function generationError(message: string): GenerateTournamentResult {
@@ -182,6 +161,7 @@ export function generateTournament(
   // value (so switching back restores it) but generation uses the default.
   const scoringVisible = form.poolingPhase !== 'none';
   const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
+  const matchConfig = matchFormatConfig(form, schedule);
   const config: GeneratedTournamentConfig = {
     n: unitCount,
     poolingPhase: form.poolingPhase,
@@ -191,11 +171,11 @@ export function generateTournament(
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
     scoring: scoringVisible ? form.scoring || 'fairpoints' : 'fairpoints',
     drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
-    finalsGames: parsed(form.finalsGames, 3),
-    semisGames: parsed(form.semisGames, 1),
+    finalsGames: matchConfig.finalsGames,
+    semisGames: matchConfig.semisGames,
     // Hidden along with their selects: the Final of a race double elimination has its own win targets, only single elimination has a Semis format.
-    finalsBestOf: bestOfSetting(form.finalsBestOf, schedule !== 'double-elimination'),
-    semisBestOf: bestOfSetting(form.semisBestOf, schedule === 'single-elimination'),
+    finalsBestOf: matchConfig.finalsBestOf,
+    semisBestOf: matchConfig.semisBestOf,
   };
   if (config.poolingPhase === 'swiss' && format.idealRoomSize !== 2) {
     return generationError(
@@ -587,8 +567,6 @@ export function generateTournament(
     );
   }
 
-  const isDouble = schedule === 'double-elimination' || schedule === 'double-elimination-shared-final';
-  const matchOverrides = parseMatchOverrides(form.matchOverrides ?? '');
   const gamemodeConfig: MaterializedGamemodeConfig = {
     qualRounds,
     swissRounds,
@@ -610,14 +588,7 @@ export function generateTournament(
     ...(waterfallGraph !== undefined ? { graph: waterfallGraph } : {}),
     poolingPhase: config.poolingPhase,
     bracketPhase: schedule,
-    finalsGames: config.finalsGames,
-    semisGames: config.semisGames,
-    ...(config.finalsBestOf !== undefined ? { finalsBestOf: config.finalsBestOf } : {}),
-    ...(config.semisBestOf !== undefined ? { semisBestOf: config.semisBestOf } : {}),
-    ...stageMatchConfig('pooling', form, true),
-    ...stageMatchConfig('bracket', form, schedule !== 'waterfall-bracket'),
-    ...stageMatchConfig('losers', form, isDouble),
-    ...(Object.keys(matchOverrides).length > 0 ? { matchOverrides } : {}),
+    ...matchConfig,
     grandFinalWbTarget,
     grandFinalLbTarget,
     groupSize: config.groupSize,

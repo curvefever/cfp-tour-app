@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
+import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import {
+  bracketStageLabel,
   gamesLabel,
   matchFromSelectValue,
   matchLabelOf,
   matchSelectValue,
+  overrideSelectValue,
+  overrideTokenOf,
+  stageFormatLabel,
   visibleFormatFields,
   type FormatChoices,
   type FormatField,
@@ -141,5 +146,30 @@ describe('the Semis and Finals format select', () => {
   it('a Best of N leaves the games as they were, summed games clear the Best of N', () => {
     expect(matchFromSelectValue('bo3')).toEqual({ bestOf: '3' });
     expect(matchFromSelectValue('2')).toEqual({ games: '2', bestOf: '' });
+  });
+
+  it('names the first stage of the bracket after the schedule', () => {
+    expect(bracketStageLabel('single-elimination')).toBe('Elimination rounds');
+    expect(bracketStageLabel('kings-valley')).toBe('Ladder rounds');
+    expect(bracketStageLabel('double-elimination')).toBe('Winners rounds');
+    expect(bracketStageLabel('double-elimination-shared-final')).toBe('Winners rounds');
+  });
+
+  it('words the format a stage gives its rounds', () => {
+    const setup = createDefaultSetup({ poolingBestOf: '3', bracketGames: '2', finalsGames: '4' });
+    expect(stageFormatLabel('pooling', setup)).toBe('Best of 3');
+    expect(stageFormatLabel('bracket', setup)).toBe('2 games (sum)');
+    expect(stageFormatLabel('losers', setup)).toBe('Single game');
+    expect(stageFormatLabel('finals', setup)).toBe('4 games (sum)');
+  });
+
+  it('turns an override token into a select value and back', () => {
+    expect(overrideSelectValue('BO3')).toBe('bo3');
+    expect(overrideSelectValue('GAMES 2')).toBe('2');
+    expect(overrideSelectValue('')).toBe('');
+    expect(overrideSelectValue('nonsense')).toBe('');
+    expect(overrideTokenOf('bo5')).toBe('BO5');
+    expect(overrideTokenOf('3')).toBe('GAMES 3');
+    expect(overrideTokenOf('')).toBe('');
   });
 });

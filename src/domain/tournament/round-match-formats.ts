@@ -6,10 +6,16 @@
  * A round's format = its override (stored by `roundNoteNames`, written as a ROUNDS-line token: "BO3", "GAMES 2"),
  * else its stage's format, else one game. A graph round of a Custom bracket and the race Grand Final have no stage.
  */
-import { stageMatchFields } from './match-format';
+import { BEST_OF_VALUES, stageMatchFields } from './match-format';
 import { isPoolingRound } from './pooling';
-import { roundNoteNames } from './round-notes';
-import type { MaterializedGamemodeConfig, TournamentRound } from './types';
+import { roundNoteNames, roundNoteRows } from './round-notes';
+import type {
+  MaterializedGamemodeConfig,
+  PersistedSetup,
+  ScheduleLogicKey,
+  TournamentRound,
+  TournamentState,
+} from './types';
 import { parseMatchFormatToken } from './waterfall-bracket';
 
 export type RoundStage = 'pooling' | 'bracket' | 'losers' | 'semis' | 'finals';
@@ -52,6 +58,142 @@ export function matchOverridesText(overrides: Record<string, string>): string {
   return Object.entries(overrides)
     .map(([name, token]) => `${name}: ${token}`)
     .join('\n');
+}
+
+/** The Setup fields that set a match format: the stages' games and Best of N, and the round overrides. */
+export type MatchSettings = Pick<
+  PersistedSetup,
+  | 'poolingGames'
+  | 'poolingBestOf'
+  | 'bracketGames'
+  | 'bracketBestOf'
+  | 'losersGames'
+  | 'losersBestOf'
+  | 'semisGames'
+  | 'semisBestOf'
+  | 'finalsGames'
+  | 'finalsBestOf'
+  | 'matchOverrides'
+>;
+
+const MATCH_SETTING_KEYS = [
+  'poolingGames',
+  'poolingBestOf',
+  'bracketGames',
+  'bracketBestOf',
+  'losersGames',
+  'losersBestOf',
+  'semisGames',
+  'semisBestOf',
+  'finalsGames',
+  'finalsBestOf',
+  'matchOverrides',
+] as const satisfies readonly (keyof MatchSettings)[];
+
+function wholeNumber(text: string | undefined, fallback: number): number {
+  return Number.parseInt(text ?? '', 10) || fallback;
+}
+
+/** The N of a Best of N setting, or undefined for summed games (and for a setting whose select is hidden). */
+function bestOfSetting(text: string, visible: boolean): number | undefined {
+  const bestOf = wholeNumber(text, 0);
+  return visible && BEST_OF_VALUES.includes(bestOf) ? bestOf : undefined;
+}
+
+/** A stage's games and Best of N for the gamemode config: each only when it is not the default, and nothing for a stage whose select is hidden. */
+function otherStageConfig(
+  stage: 'pooling' | 'bracket' | 'losers',
+  form: MatchSettings,
+  visible: boolean,
+): MatchFormatConfig {
+  const games = wholeNumber(form[`${stage}Games`], 1);
+  const bestOf = bestOfSetting(form[`${stage}BestOf`], visible);
+  return {
+    ...(visible && games !== 1 ? { [`${stage}Games`]: games } : {}),
+    ...(bestOf !== undefined ? { [`${stage}BestOf`]: bestOf } : {}),
+  };
+}
+
+/**
+ * The match format part of the gamemode config, from the Setup form: the Semis and Finals games always, every other
+ * stage's games and every Best of N only when set and when the schedule has that select, and the overrides that
+ * spell a format. A setting whose select is hidden is ignored (the form keeps its value for when it comes back).
+ */
+export function matchFormatConfig(
+  form: MatchSettings,
+  schedule: ScheduleLogicKey,
+): MatchFormatConfig & { finalsGames: number; semisGames: number } {
+  const isDouble = schedule === 'double-elimination' || schedule === 'double-elimination-shared-final';
+  const finalsBestOf = bestOfSetting(form.finalsBestOf, schedule !== 'double-elimination');
+  const semisBestOf = bestOfSetting(form.semisBestOf, schedule === 'single-elimination');
+  const overrides = parseMatchOverrides(form.matchOverrides);
+  return {
+    finalsGames: wholeNumber(form.finalsGames, 3),
+    semisGames: wholeNumber(form.semisGames, 1),
+    ...(finalsBestOf !== undefined ? { finalsBestOf } : {}),
+    ...(semisBestOf !== undefined ? { semisBestOf } : {}),
+    ...otherStageConfig('pooling', form, true),
+    ...otherStageConfig('bracket', form, schedule !== 'waterfall-bracket'),
+    ...otherStageConfig('losers', form, isDouble),
+    ...(Object.keys(overrides).length > 0 ? { matchOverrides: overrides } : {}),
+  };
+}
+
+/**
+ * A schedule drawn but not started, played in the match formats of the Setup form now: the config and the settings
+ * snapshot take the form's, and the rounds are formatted again (a pre-start round has nothing played).
+ */
+export function withFormMatchFormats(state: TournamentState, form: MatchSettings): TournamentState {
+  if (!state.rounds.length || state.started) return state;
+  const kept = Object.fromEntries(
+    Object.entries(state.gamemodeConfig).filter(
+      ([key]) => !(MATCH_SETTING_KEYS as readonly string[]).includes(key),
+    ),
+  ) as typeof state.gamemodeConfig;
+  const gamemodeConfig = { ...kept, ...matchFormatConfig(form, state.scheduleLogic) };
+  const snapshot = Object.fromEntries(MATCH_SETTING_KEYS.map((key) => [key, form[key]]));
+  return {
+    ...state,
+    gamemodeConfig,
+    settings: state.settings && { ...state.settings, ...snapshot },
+    rounds: applyMatchFormats(state.rounds, gamemodeConfig),
+  };
+}
+
+/** One round of the drawn schedule in the override list, or an override that no round has now. */
+export interface MatchOverrideRow {
+  name: string;
+  /** The stage whose format the round plays unless it has an override; absent for an orphan. */
+  stage?: RoundStage;
+  /** The name the Bracket shows, when it differs from the stored one. */
+  shown?: string;
+  /** The override's token ("BO3", "GAMES 2"), '' for none (the round plays its stage's format). */
+  token: string;
+  /** A stored name that no round of the schedule has now: it does nothing. */
+  orphan?: true;
+}
+
+/** One row per round that has a stage, in schedule order, then one per override whose name no round has. */
+export function matchOverrideRows(state: TournamentState, overridesText: string): MatchOverrideRow[] {
+  const overrides = parseMatchOverrides(overridesText);
+  const named = roundNoteRows(state, undefined);
+  const rows = state.rounds.flatMap((round, index): MatchOverrideRow[] => {
+    const stage = matchStage(round);
+    if (stage === null) return [];
+    const { name, shown } = named[index];
+    return [{ name, stage, ...(shown !== undefined && { shown }), token: overrides[name] ?? '' }];
+  });
+  const known = new Set(named.map((row) => row.name));
+  for (const [name, token] of Object.entries(overrides)) {
+    if (!known.has(name)) rows.push({ name, token, orphan: true });
+  }
+  return rows;
+}
+
+/** The overrides text with one round's line set to `token`, or removed for ''. */
+export function withMatchOverride(overridesText: string, name: string, token: string): string {
+  const { [name]: _removed, ...rest } = parseMatchOverrides(overridesText);
+  return matchOverridesText(token ? { ...rest, [name]: token } : rest);
 }
 
 /** The stage a round belongs to; null for a graph round of a Custom bracket and for the race Grand Final, which keep their own format. */
