@@ -1,18 +1,23 @@
 import type { StandingsDisplayTable } from '../../domain/tournament/standings-display';
+import type { TournamentRound } from '../../domain/tournament/types';
 import { formatTieBreak, formatTieBreakPrecise, roundCells } from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 
-function cellsOf(entry: Entry, roundIndex: number) {
+/** The rounds of the tournament, for the Best of N ones: their score cell reads the wins. */
+type Rounds = ReadonlyArray<Pick<TournamentRound, 'bestOf'>>;
+
+function cellsOf(entry: Entry, roundIndex: number, rounds: Rounds) {
   return roundCells(
     entry.rounds?.find((result) => result.roundIndex === roundIndex),
     entry.absentRounds?.includes(roundIndex),
+    rounds[roundIndex]?.bestOf,
   );
 }
 
 /** The points of each counted round on one line, "8 · 6 · 2": "—" for a round the unit missed, a bye's points. */
-export function compactRoundPoints(entry: Entry, roundIndexes: number[]): string {
-  return roundIndexes.map((roundIndex) => cellsOf(entry, roundIndex).points).join(' · ');
+export function compactRoundPoints(entry: Entry, roundIndexes: number[], rounds: Rounds = []): string {
+  return roundIndexes.map((roundIndex) => cellsOf(entry, roundIndex, rounds).points).join(' · ');
 }
 
 /** "8 pts", "1 pt". */
@@ -21,10 +26,10 @@ function pointsText(points: string): string {
 }
 
 /** One counted round of a row, as read on a phone: "Round 2 · 75 · 1st · 8 pts", "Round 2 · Bye · 8 pts", "Round 2 · —". */
-function roundLine(entry: Entry, roundIndex: number, label: string): string {
+function roundLine(entry: Entry, roundIndex: number, label: string, rounds: Rounds): string {
   const result = entry.rounds?.find((candidate) => candidate.roundIndex === roundIndex);
   const absent = entry.absentRounds?.includes(roundIndex) === true;
-  const cells = roundCells(result, absent);
+  const cells = cellsOf(entry, roundIndex, rounds);
   if (absent) return `${label} · ABS · ${pointsText(cells.points)}`;
   if (!result) return `${label} · —`;
   if (result.bye) return `${label} · ${cells.score} · ${pointsText(cells.points)}`;
@@ -41,10 +46,11 @@ export function standingsDetailLines(
   roundIndexes: number[],
   labels: string[],
   sharesPercent: boolean,
+  rounds: Rounds = [],
 ): string[] {
   const tieBreak = `Tie-break ${formatTieBreak(entry.roomShare)}`;
   return [
-    ...roundIndexes.map((roundIndex, position) => roundLine(entry, roundIndex, labels[position])),
+    ...roundIndexes.map((roundIndex, position) => roundLine(entry, roundIndex, labels[position], rounds)),
     sharesPercent ? `${tieBreak} (${formatTieBreakPrecise(entry.roomShare)})` : tieBreak,
   ];
 }

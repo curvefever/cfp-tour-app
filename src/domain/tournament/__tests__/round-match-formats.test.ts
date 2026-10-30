@@ -405,6 +405,33 @@ describe('a drawn schedule played in the formats of the form now', () => {
   });
 });
 
+describe('a drawn Custom bracket and the Finals format', () => {
+  const drawn = (graph: string) => ({ ...buildQualWaterfall(37, graph), started: false });
+  const form = createDefaultSetup({ finalsGames: '1', finalsBestOf: '3', poolingBestOf: '3' });
+  const finalOf = (state: TournamentState) =>
+    state.rounds.find((round) => round.isWaterfall && round.isFinal);
+
+  it('gives its graph Final with no format of its own the new Finals format, and leaves the other graph rounds as drawn', () => {
+    const state = drawn(QUAL_GRAPH);
+    expect(formatOf(finalOf(state) as TournamentRound)).toEqual({ bestOf: undefined, numGames: 3 });
+    const next = withFormMatchFormats(state, form);
+    expect(formatOf(finalOf(next) as TournamentRound)).toEqual({ bestOf: 3, numGames: 9 });
+    const graph = (rounds: TournamentRound[]) =>
+      rounds.filter((round) => round.isWaterfall && !round.isFinal);
+    expect(graph(next.rounds)).toEqual(graph(state.rounds));
+    expect(roundsOf(next, 'pooling').every((round) => round.bestOf === 3)).toBe(true);
+  });
+
+  it('keeps the format a graph Final has on its own line', () => {
+    const state = drawn(QUAL_GRAPH.replace('Final = 8 FINAL', 'Final = 8 FINAL GAMES 2'));
+    expect(formatOf(finalOf(state) as TournamentRound)).toEqual({ bestOf: undefined, numGames: 2 });
+    expect(formatOf(finalOf(withFormMatchFormats(state, form)) as TournamentRound)).toEqual({
+      bestOf: undefined,
+      numGames: 2,
+    });
+  });
+});
+
 describe('the rows of the override list', () => {
   it('lists the rounds that have a stage under their shown names, then the overrides no round has', () => {
     const state = generate('race', 31, {

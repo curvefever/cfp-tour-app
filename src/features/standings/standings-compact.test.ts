@@ -166,3 +166,27 @@ describe('standings on a phone: a round the unit was absent from', () => {
     expect(compactRoundPoints(entry, [0, 1])).toBe('0 · 3');
   });
 });
+
+describe('standings on a phone: a Best of 3 pooling round', () => {
+  const rounds = [{ bestOf: 3 }, {}];
+  const entry = {
+    name: 'Ann',
+    totalFP: 10,
+    totalScore: 0,
+    played: 2,
+    roomShare: 1,
+    rank: 1,
+    rounds: [
+      { roundIndex: 0, score: 2, rank: 1, points: 8, bye: false },
+      { roundIndex: 1, score: 75, rank: 2, points: 2, bye: false },
+    ],
+  };
+
+  it('reads the games won in the detail line, and the points as ever', () => {
+    expect(standingsDetailLines(entry, [0, 1], ['Round 1', 'Round 2'], false, rounds).slice(0, 2)).toEqual([
+      'Round 1 · 2 wins · 1st · 8 pts',
+      'Round 2 · 75 · 2nd · 2 pts',
+    ]);
+    expect(compactRoundPoints(entry, [0, 1], rounds)).toBe('8 · 2');
+  });
+});

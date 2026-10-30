@@ -110,7 +110,7 @@ export function StandingsCompactList({
             ) : null}
           </span>
           <span className='shrink-0 text-xs text-muted tabular-nums'>
-            {compactRoundPoints(entry, roundIndexes)}
+            {compactRoundPoints(entry, roundIndexes, state.rounds)}
           </span>
           <span className='w-9 shrink-0 text-right text-[15px] font-extrabold tabular-nums'>
             {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
@@ -119,7 +119,7 @@ export function StandingsCompactList({
         {isOpen ? (
           <RowDetail
             id={detailId}
-            lines={standingsDetailLines(entry, roundIndexes, labels, sharesPercent[index])}
+            lines={standingsDetailLines(entry, roundIndexes, labels, sharesPercent[index], state.rounds)}
           />
         ) : null}
       </div>

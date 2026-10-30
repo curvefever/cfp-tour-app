@@ -410,6 +410,23 @@ function teams4v4Bracket(): TournamentState {
   return scoreCurrentRound(first, { seed: 7, rooms: [1] });
 }
 
+/** 13 players 1v1, Swiss into single elimination, every stage a Best of 3 (the Final a Best of 5): the first bracket round has one room scored. */
+function bestOfEverywhere(): TournamentState {
+  const start = generate(13, {
+    gameFormat: 'individual-1v1',
+    poolingPhase: 'swiss',
+    qualAdv: '8',
+    scheduleLogic: 'single-elimination',
+    oddCountStrategy: 'bye',
+    poolingBestOf: '3',
+    bracketBestOf: '3',
+    semisBestOf: '3',
+    finalsBestOf: '5',
+  });
+  const first = playUntil(start, (round) => isFirstLuckyRound(round) || Boolean(round.isFinal), 1);
+  return scoreCurrentRound(first, { seed: 8, rooms: [1] });
+}
+
 /** 11 teams of five, head-to-head single elimination, played to the end of the Final: a podium of teams of five. */
 function teams5v5FinalComplete(): TournamentState {
   const start = generate(
@@ -656,6 +673,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('long-names-teams3-13', teams3Long()),
     entry('long-names-teams3-13-finished', teams3LongFinished(), { status: 'finished' }),
     entry('teams-4v4-13', teams4v4Bracket(), { tabs: ['Bracket', 'Swiss', 'Rankings', 'Info'] }),
+    entry('best-of-1v1-13', bestOfEverywhere(), { tabs: ['Bracket', 'Swiss', 'Rankings', 'Info'] }),
     entry('teams-5v5-final', teams5v5FinalComplete(), { status: 'finished', tabs: NO_STANDINGS_TABS }),
     entry('teams-2x5-23', teams2x5Pooling()),
     entry('kings-valley-12', kingsValley(), { tabs: NO_STANDINGS_TABS, infoBox: true }),

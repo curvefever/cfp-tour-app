@@ -90,10 +90,19 @@ function StandingsHead({
   );
 }
 
-function RoundResultCells({ entry, roundIndex }: { entry: Entry; roundIndex: number }) {
+function RoundResultCells({
+  entry,
+  roundIndex,
+  bestOf,
+}: {
+  entry: Entry;
+  roundIndex: number;
+  bestOf?: number;
+}) {
   const cells = roundCells(
     entry.rounds?.find((result) => result.roundIndex === roundIndex),
     entry.absentRounds?.includes(roundIndex),
+    bestOf,
   );
   return (
     <>
@@ -144,7 +153,12 @@ function StandingsRow({
         <TieMark placed={placed} pending={pending} />
       </TableCell>
       {roundIndexes.map((roundIndex) => (
-        <RoundResultCells entry={entry} key={roundIndex} roundIndex={roundIndex} />
+        <RoundResultCells
+          bestOf={state.rounds[roundIndex]?.bestOf}
+          entry={entry}
+          key={roundIndex}
+          roundIndex={roundIndex}
+        />
       ))}
       <TableCell className='w-21 border-0 py-0 pr-2 text-right text-lg font-extrabold tabular-nums'>
         {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}

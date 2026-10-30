@@ -85,6 +85,11 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
   ];
 }
 
+/** "2 wins", "1 win", "0 wins": a Best of N round's score cell. */
+function winsText(wins: number): string {
+  return `${wins} ${wins === 1 ? 'win' : 'wins'}`;
+}
+
 export interface RoundCells {
   score: string;
   rank: string;
@@ -94,14 +99,19 @@ export interface RoundCells {
 /**
  * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed (a late joiner's)
  * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there. A round the unit was
- * absent from reads "ABS" with 0 points.
+ * absent from reads "ABS" with 0 points. A Best of N round (`bestOf`, from the round) reads the games won, "2 wins",
+ * where a summed round reads its score.
  */
-export function roundCells(result: StandingRoundResult | undefined, absent = false): RoundCells {
+export function roundCells(
+  result: StandingRoundResult | undefined,
+  absent = false,
+  bestOf?: number,
+): RoundCells {
   if (absent) return { score: 'ABS', rank: '—', points: '0' };
   if (!result) return { score: '—', rank: '—', points: '—' };
   if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
   return {
-    score: String(result.score),
+    score: bestOf === undefined ? String(result.score) : winsText(result.score ?? 0),
     rank: result.rank === null ? '—' : placeOrdinal({ place: result.rank, shared: result.shared === true }),
     points: formatStandingValue(result.points),
   };

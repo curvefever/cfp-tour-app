@@ -16,7 +16,9 @@ import type {
   TournamentRound,
   TournamentState,
 } from './types';
-import { parseMatchFormatToken } from './waterfall-bracket';
+import { matchFormatFields, parseMatchFormatToken } from './waterfall-bracket';
+
+type GamemodeConfig = TournamentState['gamemodeConfig'];
 
 export type RoundStage = 'pooling' | 'bracket' | 'losers' | 'semis' | 'finals';
 
@@ -151,12 +153,30 @@ export function withFormMatchFormats(state: TournamentState, form: MatchSettings
     ),
   ) as typeof state.gamemodeConfig;
   const gamemodeConfig = { ...kept, ...matchFormatConfig(form, state.scheduleLogic) };
+  const formatted = applyMatchFormats(state.rounds, gamemodeConfig);
   const snapshot = Object.fromEntries(MATCH_SETTING_KEYS.map((key) => [key, form[key]]));
   return {
     ...state,
     gamemodeConfig,
     settings: state.settings && { ...state.settings, ...snapshot },
-    rounds: applyMatchFormats(state.rounds, gamemodeConfig),
+    rounds: formatted.map((round) => withGraphFormat(round, gamemodeConfig)),
+  };
+}
+
+/**
+ * A graph round of a Custom bracket has no stage: it plays the format of its own ROUNDS line, and the Final with none
+ * of its own the Finals format. A drawn graph keeps the round's line in the config, so a Finals format change before
+ * the start reaches that Final as generation would have given it.
+ */
+function withGraphFormat(round: TournamentRound, config: GamemodeConfig): TournamentRound {
+  const spec = round.isWaterfall
+    ? config.graph?.rounds.find((entry) => entry.label === round.customLabel)
+    : null;
+  if (!spec) return round;
+  const { bestOf: _bestOf, numGames: _numGames, ...unformatted } = round;
+  return {
+    ...unformatted,
+    ...matchFormatFields({ ...spec, roomSizes: round.rooms }, config.finalsGames ?? 3, config.finalsBestOf),
   };
 }
 

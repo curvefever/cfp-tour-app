@@ -218,6 +218,22 @@ describe('standingsExplanation', () => {
 });
 
 describe('roundCells', () => {
+  it('reads the games won in a Best of N round, where a summed round reads its score', () => {
+    const result = { roundIndex: 1, score: 2, rank: 1, points: 8, bye: false };
+    expect(roundCells(result, false, 3)).toEqual({ score: '2 wins', rank: '1st', points: '8' });
+    expect(roundCells({ ...result, score: 1 }, false, 3).score).toBe('1 win');
+    expect(roundCells({ ...result, score: 0 }, false, 5).score).toBe('0 wins');
+    expect(roundCells(result).score).toBe('2');
+  });
+
+  it('keeps a bye, an absence and a missed round as they read, whatever the format', () => {
+    expect(roundCells({ roundIndex: 1, score: null, rank: null, points: 8, bye: true }, false, 3).score).toBe(
+      'Bye',
+    );
+    expect(roundCells(undefined, true, 3).score).toBe('ABS');
+    expect(roundCells(undefined, false, 3).score).toBe('—');
+  });
+
   it('shows score, place and points of a played round', () => {
     expect(roundCells({ roundIndex: 1, score: 1250, rank: 2, points: 3, bye: false })).toEqual({
       score: '1250',
