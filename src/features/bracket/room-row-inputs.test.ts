@@ -142,7 +142,17 @@ describe('roomGameScores', () => {
 });
 
 describe('gameScoreLayout', () => {
-  it('shows nothing for one game, columns for 2 to 4, and a line from 5', () => {
-    expect([1, 2, 4, 5, 7].map(gameScoreLayout)).toEqual(['none', 'columns', 'columns', 'line', 'line']);
+  it('shows nothing for one game, columns for 2 and 3, and a line from 4', () => {
+    expect([1, 2, 3, 4, 5].map((games) => gameScoreLayout(games, false))).toEqual([
+      'none',
+      'columns',
+      'columns',
+      'line',
+      'line',
+    ]);
+  });
+
+  it('counts the points column as one of the columns', () => {
+    expect([1, 2, 3].map((games) => gameScoreLayout(games, true))).toEqual(['none', 'columns', 'line']);
   });
 });

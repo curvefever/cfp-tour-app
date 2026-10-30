@@ -143,7 +143,8 @@ export function RoomCard({
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   const memberInputs = scoredTeamSize(state);
   // Where the boxes don't show each game's score, a multi-game room shows it in the row (the Final has its own view).
-  const gameLayout = rowsEditable || round.isFinal ? 'none' : gameScoreLayout(round.numGames ?? 1);
+  const gameLayout =
+    rowsEditable || round.isFinal ? 'none' : gameScoreLayout(round.numGames ?? 1, Boolean(points));
   return (
     <RoomFrame lines={lines} title={title}>
       {gameLayout !== 'none' ? (

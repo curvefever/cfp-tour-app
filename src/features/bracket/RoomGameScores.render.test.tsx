@@ -130,6 +130,14 @@ describe('each game of a multi-game room in the Bracket', () => {
     expect(view.queryAllByText('101 · 52 · — · — · —').length).toBe(1);
   });
 
+  it('shows 4 summed games as a line, as they leave the name too little room in columns', () => {
+    const { fixture } = semisInPlay(37, { semisGames: '4' }, [[301, 101]]);
+    const view = bracketOf(fixture, 'viewer');
+    expect(view.queryAllByText('G1')).toHaveLength(0);
+    expect(view.queryAllByText('TOTAL').length).toBeGreaterThan(0);
+    expect(view.queryAllByText('301 · — · — · —')).toHaveLength(1);
+  });
+
   it('leaves the admin in edit mode with the score boxes, and no game columns', () => {
     const { fixture } = semisInPlay(37, { semisBestOf: '3' }, [[301, 101]]);
     const view = bracketOf(fixture, 'admin');
