@@ -9,8 +9,10 @@ import {
 } from '../advancement';
 import { fairCutAdvancement, sizePools } from '../fair-cut';
 import { stageMatchFields } from '../match-format';
+import { computeRankings } from '../rankings';
 import { rosterKeys } from '../roster';
 import { fitRoundToPool } from '../room-distribution';
+import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import {
   SE_2V2V2V2,
@@ -20,7 +22,7 @@ import {
   seatRound,
   withRoundShape,
 } from './fair-cut-fixtures';
-import { withEarlierCutRule } from './play-through';
+import { scoreCurrentRound, withEarlierCutRule } from './play-through';
 
 /** Per room, per seat, the score of each game. */
 type GameScores = number[][][];
@@ -285,6 +287,99 @@ describe('a Best of 3 pooling round: Qualification Table, FFA at 53', () => {
     expect(runnerUp?.rounds?.[0]).toMatchObject({ rank: 2 });
     expect(winner?.roomShare).toBeCloseTo(totalShares(rooms(sizes)[0])[0], 9);
     expect(runnerUp?.roomShare).toBeCloseTo(totalShares(rooms(sizes)[0])[1], 9);
+  });
+});
+
+describe('1v1 at 31, a Best of 3 elimination round: units out of different rooms at the same place', () => {
+  const setup = {
+    gameFormat: 'individual-1v1',
+    scheduleLogic: 'single-elimination',
+    poolingPhase: 'none',
+  } as const;
+
+  /** The first elimination round played and advanced as a Best of 3; rooms 1 and 2 as given, every other room 2-0 by a wide margin. */
+  function afterRound(first: GameScores): TournamentState {
+    let state = generate('1v1-31', 31, setup);
+    while (state.rounds[state.curRound].isNoElim) {
+      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
+      if (advanced.status !== 'advanced') throw new Error('could not advance a warm-up');
+      state = advanced.state;
+    }
+    const index = state.curRound;
+    state = asBestOf(state, index, 3);
+    const rooms: GameScores = state.rounds[index].rooms.map(
+      (_, room) =>
+        first[room] ?? [
+          [100, 100],
+          [10, 10],
+        ],
+    );
+    const advanced = advanceTournamentRound(scoreGames(state, index, rooms));
+    if (advanced.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(advanced)}`);
+    return advanced.state;
+  }
+
+  it('orders them by the relative total: a 0-2 loser with a close total ranks above a 1-2 loser with a poor one', () => {
+    const state = afterRound([
+      [
+        [100, 10, 100],
+        [10, 90, 10],
+      ],
+      [
+        [100, 100],
+        [99, 99],
+      ],
+    ]);
+    const index = state.rounds.findIndex((round, at) => at < state.curRound && !round.isNoElim);
+    const out = (room: number) => {
+      const loser = state.assignments[index].filter((entry) => entry.room === room)[1].name;
+      return computeRankings(state)?.eliminatedList.find((entry) => entry.name === loser);
+    };
+    expect(out(1)?.place).toBe(2);
+    expect(out(2)?.place).toBe(2);
+    expect(out(2)?.rank).toBeLessThan(out(1)?.rank ?? 0);
+  });
+});
+
+describe('a Best of 3 room where every game was drawn, in the fair cut and the earlier cut', () => {
+  const setup = { ...SE_FFA, gameFormat: 'individual-1v1', semisOverride: '6', semisBestOf: '3' } as const;
+
+  // Room 1 scored 0 in every game, room 2 drew every game for 60, room 3 was won 2-0 by a wide margin.
+  const rooms: GameScores = [
+    [
+      [0, 0, 0],
+      [0, 0, 0],
+    ],
+    [
+      [60, 60, 60],
+      [60, 60, 60],
+    ],
+    [
+      [100, 100],
+      [10, 10],
+    ],
+  ];
+
+  function semis() {
+    const base = generate('1v1-31', 31, setup);
+    const index = base.rounds.findIndex((round) => round.isSemis);
+    return { index, state: played(base, index, rooms) };
+  }
+
+  const luckyRooms = (names: string[] | null) => (names ?? []).map((name) => name.slice(0, 2)).sort();
+
+  it('counts as scored under the fair cut: its units get a real relative, so it beats a room nobody scored in', () => {
+    const { index, state } = semis();
+    const room = fairCutAdvancement(state, index).groups.flatMap((group) => group.ranked);
+    expect(room.filter((unit) => unit.room === 2).every((unit) => unit.roomScored)).toBe(true);
+    expect(room.filter((unit) => unit.room === 1).some((unit) => unit.roomScored)).toBe(false);
+    expect(luckyRooms(roomBasedComputeAdvancement(state, index).luckyNames)).toEqual(['R2', 'R3']);
+  });
+
+  it('is a candidate under the earlier cut too: the all-zero check reads the totals', () => {
+    const { index, state } = semis();
+    const result = roomBasedComputeAdvancement(withEarlierCutRule(state), index);
+    expect(luckyRooms(result.luckyNames)).toEqual(['R2', 'R3']);
   });
 });
 
