@@ -132,3 +132,17 @@ export function unitRankScore(
   if (!unit || (fallback === null && !match.complete)) return null;
   return { score: unit.wins, tiebreak: unit.total };
 }
+
+/** The games of a room that count: every game, or on a Best-of round those read so far (up to the deciding game). */
+export function countedGames(state: TournamentState, roundIndex: number, room: number): number {
+  const match = roomMatch(state, roundIndex, room);
+  return match ? match.countedGames : (state.rounds[roundIndex]?.numGames ?? 1);
+}
+
+/** The games after the deciding game of a Best-of room (or Final): never played, so their score boxes are off. Empty while undecided. */
+export function unneededGames(state: TournamentState, roundIndex: number, room: number): number[] {
+  const match = roomMatch(state, roundIndex, room);
+  const numGames = state.rounds[roundIndex]?.numGames ?? 0;
+  if (!match || match.decidingGame === null) return [];
+  return Array.from({ length: numGames - match.decidingGame }, (_, index) => match.decidingGame! + 1 + index);
+}

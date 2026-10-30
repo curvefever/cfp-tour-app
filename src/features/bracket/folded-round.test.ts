@@ -5,6 +5,7 @@ import { removeRosterUnit, shareTiedPoints } from '../../domain/tournament/mutat
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
+import { oneRoomState } from '../../domain/tournament/__tests__/test-fixtures';
 import { foldedColumnSummary, foldedRoundSummary, placeInRoom } from './folded-round';
 
 const FFA = {
@@ -198,5 +199,36 @@ describe('placeInRoom: an absentee beside a present unit at 0', () => {
     const state = answerAbsence(answerAbsence(zeros, [keys[0]], 'played'), [keys[1]], 'absent');
     expect(placeInRoom(state, 0, 1, names[6])).toEqual({ place: 7, shared: false });
     expect(placeInRoom(state, 0, 1, names[7])).toBeNull();
+  });
+});
+
+describe('placeInRoom on a Best-of room', () => {
+  const state = (games: number[][]) => {
+    const scores: Record<string, number> = {};
+    games.forEach((row, game) =>
+      row.forEach((value, position) => {
+        scores[`r0-rm1-p${position}-g${game + 1}`] = value;
+      }),
+    );
+    return oneRoomState({
+      players: ['A', 'B'],
+      rounds: [{ bestOf: 3, numGames: 3, isWaterfall: true }, {}],
+      scores,
+    });
+  };
+
+  it('places by the match, not by the summed score', () => {
+    // B wins 2-1 with the lower total.
+    const level = state([
+      [900, 1],
+      [1, 100],
+      [1, 100],
+    ]);
+    expect(placeInRoom(level, 0, 1, 'B')).toEqual({ place: 1, shared: false });
+    expect(placeInRoom(level, 0, 1, 'A')).toEqual({ place: 2, shared: false });
+  });
+
+  it('places nobody while the match is on', () => {
+    expect(placeInRoom(state([[10, 5]]), 0, 1, 'A')).toBeNull();
   });
 });

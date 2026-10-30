@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { formatStandingValue, getUnitScore } from '../../domain/tournament/scoring';
+import { unneededGames } from '../../domain/tournament/match-format';
+import { formatStandingValue } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
@@ -9,11 +10,13 @@ import { type RowResult, roomRowClass, rowSurfaceClasses } from '../tournament/c
 import { ManualMarker } from './RowMarks';
 import {
   BracketScoreInput,
+  NotNeededNote,
   TeamMembers,
   TeamScoreFields,
   UnitScoreFields,
   compactScoreClass,
 } from './ScoreFields';
+import { unitScoreSummary, winsSoFar } from './room-row-inputs';
 import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
@@ -153,6 +156,8 @@ export interface RoomRowProps {
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
 function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) {
   const { state, roundIndex, room, position, name, team, games } = props;
+  const notNeeded = unneededGames(state, roundIndex, room);
+  const summary = unitScoreSummary(state, roundIndex, room, position);
   return (
     <TeamScoreFields>
       {Array.from({ length: count }, (_, memberIndex) => {
@@ -183,6 +188,7 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
                   roundIndex={roundIndex}
                   scoreKey={key}
                   state={state}
+                  disabled={notNeeded.includes(gameIndex + 1)}
                 />
               );
             })}
@@ -191,9 +197,10 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
       })}
       {games > 1 ? (
         <span className='text-sm font-bold text-foreground'>
-          Total {getUnitScore(state, roundIndex, room, position, 0)}
+          {summary.label} {summary.value}
         </span>
       ) : null}
+      <NotNeededNote games={notNeeded} />
     </TeamScoreFields>
   );
 }
@@ -208,6 +215,8 @@ export function RoomRow(props: RoomRowProps) {
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
+  // A Best-of match in progress shows the games won so far, in a lighter weight than a result.
+  const playedSoFar = winsSoFar(state, roundIndex, room, position);
   const scoreText = absent ? (
     <span
       className={cn(
@@ -225,6 +234,13 @@ export function RoomRow(props: RoomRowProps) {
       )}
     >
       {score}
+    </span>
+  ) : playedSoFar !== null && !rowsEditable ? (
+    <span
+      className='ml-auto flex shrink-0 items-center justify-end text-[15px] font-bold text-muted'
+      title='Games won so far'
+    >
+      {playedSoFar}
     </span>
   ) : pointsColumn ? (
     <span className='ml-auto w-11.5 shrink-0' />

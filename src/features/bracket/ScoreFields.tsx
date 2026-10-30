@@ -1,9 +1,10 @@
 import { type ReactNode } from 'react';
 import { setRoundScore } from '../../domain/tournament/mutations';
-import { getUnitScore } from '../../domain/tournament/scoring';
+import { unneededGames } from '../../domain/tournament/match-format';
 import type { TournamentState } from '../../domain/tournament/types';
 import { CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { unitScoreSummary } from './room-row-inputs';
 import { teamMemberLine } from './team-member-line';
 
 /** A score box in a room row: compact, numbers right-aligned, a comfortable touch height on the phone. */
@@ -35,17 +36,21 @@ export function BracketScoreInput({
   roundIndex,
   room,
   className = cn(compactScoreClass, 'ml-auto'),
+  disabled,
 }: {
   state: TournamentState;
   scoreKey: string;
   roundIndex: number;
   room: number;
   className?: string;
+  /** The game is not needed (a Best-of match already decided): the box is off. */
+  disabled?: boolean;
 }) {
   const app = useTournamentApp();
   return (
     <CommitScoreInput
       className={className}
+      disabled={disabled}
       min='0'
       step={1}
       value={String(state.scores[scoreKey] ?? '')}
@@ -54,6 +59,18 @@ export function BracketScoreInput({
         app.updateState((current) => setRoundScore(current, scoreKey, value, roundIndex, room))
       }
     />
+  );
+}
+
+/** "G3–G5 not needed": the games a decided Best-of room will not play, empty when every game is needed. */
+export function NotNeededNote({ games }: { games: number[] }) {
+  if (games.length === 0) return null;
+  const first = games[0];
+  const last = games[games.length - 1];
+  return (
+    <span className='text-[13px] text-muted'>
+      {first === last ? `G${first}` : `G${first}–G${last}`} not needed
+    </span>
   );
 }
 
@@ -80,6 +97,8 @@ export function UnitScoreFields({
   games: number;
 }) {
   const key = `r${roundIndex}-rm${room}-p${position}`;
+  const notNeeded = unneededGames(state, roundIndex, room);
+  const summary = unitScoreSummary(state, roundIndex, room, position);
   if (games <= 1)
     return <BracketScoreInput state={state} scoreKey={key} roundIndex={roundIndex} room={room} />;
   return (
@@ -95,13 +114,15 @@ export function UnitScoreFields({
               roundIndex={roundIndex}
               room={room}
               className={compactScoreClass}
+              disabled={notNeeded.includes(gameIndex + 1)}
             />
           </label>
         );
       })}
       <span className='text-sm font-bold text-foreground'>
-        Total {getUnitScore(state, roundIndex, room, position, 0)}
+        {summary.label} {summary.value}
       </span>
+      <NotNeededNote games={notNeeded} />
     </TeamScoreFields>
   );
 }

@@ -1,4 +1,5 @@
 import { isMarkedAbsent, isMemberMarkedAbsent, survivalMemberKey } from '../../domain/tournament/absences';
+import { countedGames } from '../../domain/tournament/match-format';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex, scoreKeysForPosition, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -18,7 +19,7 @@ export function memberLabel(
   return `${memberName}${defender ? ' 🛡' : ''}`;
 }
 
-/** The sum of one member's scores over the round's games; null when the member has none. */
+/** The sum of one member's scores over the games that count (a decided Best-of room leaves the rest out); null when the member has none. */
 function memberTotal(
   state: TournamentState,
   roundIndex: number,
@@ -36,14 +37,14 @@ function memberTotal(
     teamSize,
   });
   let total: number | null = null;
-  for (let game = 0; game < numGames; game += 1) {
+  for (let game = 0; game < Math.min(numGames, countedGames(state, roundIndex, seat.room)); game += 1) {
     const value = state.scores[keys[game * teamSize + memberIndex]];
     if (typeof value === 'number') total = (total ?? 0) + value;
   }
   return total;
 }
 
-/** Whether the member was absent in every game of the round (sum of members, Save your Buddy). */
+/** Whether the member was absent in every game that counts (sum of members, Save your Buddy). */
 function memberAbsent(
   state: TournamentState,
   roundIndex: number,
@@ -59,7 +60,8 @@ function memberAbsent(
     numGames,
     teamSize,
   });
-  return Array.from({ length: numGames }, (_, game) => keys[game * teamSize + memberIndex]).every((key) =>
+  const counted = Math.max(Math.min(numGames, countedGames(state, roundIndex, seat.room)), 1);
+  return Array.from({ length: counted }, (_, game) => keys[game * teamSize + memberIndex]).every((key) =>
     isMarkedAbsent(state, key),
   );
 }

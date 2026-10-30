@@ -5,6 +5,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../../domain/t
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { NO_BREAK_SPACE } from '../tournament/components/member-line';
 import { answerAbsence, markSurvivalMemberAbsent } from '../../domain/tournament/absences';
+import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { teamMemberLine } from './team-member-line';
 
 /** The line with each no-break space shown as "_": a line may wrap only at the plain spaces left. */
@@ -132,5 +133,35 @@ describe('teamMemberLine: absent members', () => {
     expect(shown(teamMemberLine(marked, name, roundIndex, null, { room: 1, position: 0 }))).toMatch(
       /^Ana\d+_· Ben\d+_absent$/,
     );
+  });
+});
+
+describe('teamMemberLine on a Best-of room', () => {
+  function bestOfTeams(extraGame3: boolean): TournamentState {
+    const scores: Record<string, number> = {
+      'r0-rm1-p0-g1-m0': 10,
+      'r0-rm1-p0-g1-m1': 5,
+      'r0-rm1-p1-g1-m0': 1,
+      'r0-rm1-p1-g1-m1': 1,
+      'r0-rm1-p0-g2-m0': 8,
+      'r0-rm1-p0-g2-m1': 4,
+      'r0-rm1-p1-g2-m0': 1,
+      'r0-rm1-p1-g2-m1': 1,
+    };
+    if (extraGame3) Object.assign(scores, { 'r0-rm1-p0-g3-m0': 99, 'r0-rm1-p0-g3-m1': 99 });
+    return oneRoomState({
+      gameFormat: 'team-2v2',
+      players: [teamOf('t1', ['Ana', 'Ben']), teamOf('t2', ['Cy', 'Di'])],
+      rounds: [{ bestOf: 3, numGames: 3, isWaterfall: true }, {}],
+      scores,
+    });
+  }
+
+  it("adds up a member's scores over the games that count only", () => {
+    const seat = { room: 1, position: 0 };
+    expect(teamMemberLine(bestOfTeams(false), 't1', 0, seat)).toBe(
+      teamMemberLine(bestOfTeams(true), 't1', 0, seat),
+    );
+    expect(shown(teamMemberLine(bestOfTeams(true), 't1', 0, seat))).toBe('Ana_18_· Ben_9');
   });
 });

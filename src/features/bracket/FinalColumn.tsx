@@ -1,5 +1,6 @@
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { getGameFormat } from '../../domain/tournament/formats';
+import { unneededGames } from '../../domain/tournament/match-format';
 import { flagFinalGameAnonymous, unflagFinalGameAnonymous } from '../../domain/tournament/mutations';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { scoredTeamSize } from '../../domain/tournament/scoring';
@@ -38,21 +39,28 @@ function GameTabs({
   activeTab,
   anonymousGames,
   games,
+  notNeeded,
   onTabChange,
   tab,
+  totalLabel,
 }: {
   activeTab: number;
   anonymousGames: number[];
   games: number;
+  /** Games after the deciding game of a Best-of Final: their tabs are off. */
+  notNeeded: number[];
   onTabChange: (tab: number) => void;
   tab: number;
+  totalLabel: string;
 }) {
   return (
     <ButtonRow className='mt-0'>
       {Array.from({ length: games }, (_, index) => (
         <Button
+          disabled={notNeeded.includes(index + 1)}
           key={index}
           onClick={() => onTabChange(index + 1)}
+          title={notNeeded.includes(index + 1) ? 'Not needed: the match is decided' : undefined}
           size='sm'
           variant={
             activeTab === index + 1 && tab !== 0
@@ -66,7 +74,7 @@ function GameTabs({
         </Button>
       ))}
       <Button onClick={() => onTabChange(0)} size='sm' variant={tab === 0 ? 'primary' : 'secondary'}>
-        📊 Total
+        📊 {totalLabel}
       </Button>
     </ButtonRow>
   );
@@ -94,6 +102,8 @@ export function FinalColumn({
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
   const games = round.numGames ?? 1;
+  const showsWins = progress.isGrandFinal || round.bestOf !== undefined;
+  const notNeeded = unneededGames(state, roundIndex, 1);
   const activeTab = Math.min(tab, games);
   const anonymousGames = round.anonymousGames ?? [];
   const isActiveGameAnonymous = anonymousGames.includes(activeTab);
@@ -119,8 +129,10 @@ export function FinalColumn({
           activeTab={activeTab}
           anonymousGames={anonymousGames}
           games={games}
+          notNeeded={notNeeded}
           onTabChange={onTabChange}
           tab={tab}
+          totalLabel={round.bestOf === undefined ? 'Total' : 'Wins'}
         />
       ) : null}
       {entering ? (
@@ -146,7 +158,7 @@ export function FinalColumn({
         </div>
       ) : null}
       <RoomFrame title={roomTitle(round, 0)}>
-        <FinalHeaderRow games={games} isGrandFinal={progress.isGrandFinal} />
+        <FinalHeaderRow games={games} showsWins={showsWins} />
         {names.map((name, index) => {
           const unit = progress.units.find((entry) => entry.name === name);
           if (!unit) return null;
@@ -155,10 +167,10 @@ export function FinalColumn({
               complete={progress.complete}
               entryAnonymous={isActiveGameAnonymous}
               entryGame={entering ? activeTab : 0}
+              entryNotNeeded={notNeeded.includes(activeTab)}
               followed={followed === name}
               index={index}
               inputsPerTeam={inputsPerTeam}
-              isGrandFinal={progress.isGrandFinal}
               key={name}
               manual={Boolean(assignments.find((entry) => entry.name === name)?.manual)}
               name={name}
@@ -167,7 +179,8 @@ export function FinalColumn({
               state={state}
               team={teamMap[name]}
               teamSize={teamSize}
-              total={progress.isGrandFinal ? unit.wins : unit.total}
+              showsWins={showsWins}
+              total={showsWins ? unit.wins : unit.total}
             />
           );
         })}

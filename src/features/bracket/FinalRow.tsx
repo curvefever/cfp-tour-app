@@ -71,8 +71,8 @@ function FinalScoreEntry({
   );
 }
 
-/** The Final's header row: one column per game, then the total (or the games won in the race Grand Final). */
-export function FinalHeaderRow({ games, isGrandFinal }: { games: number; isGrandFinal: boolean }) {
+/** The Final's header row: one column per game, then the total (or the games won: the race Grand Final, a Best of). */
+export function FinalHeaderRow({ games, showsWins }: { games: number; showsWins: boolean }) {
   return (
     <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
       <span className='w-4.5 shrink-0' />
@@ -82,7 +82,7 @@ export function FinalHeaderRow({ games, isGrandFinal }: { games: number; isGrand
           G{game + 1}
         </span>
       ))}
-      <span className='w-12 shrink-0 text-right'>{isGrandFinal ? 'WINS' : 'TOTAL'}</span>
+      <span className='w-12 shrink-0 text-right'>{showsWins ? 'WINS' : 'TOTAL'}</span>
     </div>
   );
 }
@@ -95,9 +95,11 @@ export interface FinalRowProps {
   /** Every game is scored: the places show. */
   complete: boolean;
   perGame: Array<number | null>;
-  /** The cumulative score, or the games won in the race Grand Final. */
+  /** The cumulative score, or the games won in the race Grand Final or a Best of. */
   total: number;
-  isGrandFinal: boolean;
+  showsWins: boolean;
+  /** The game being entered is not needed: a Best-of Final already decided. */
+  entryNotNeeded: boolean;
   followed: boolean;
   manual: boolean;
   teamSize: number;
@@ -110,8 +112,8 @@ export interface FinalRowProps {
 
 /** One unit's row of the Final: place, name, the score of each game, the total and, for admins, the score inputs. */
 export function FinalRow(props: FinalRowProps) {
-  const { state, roundIndex, name, index, complete, perGame, total, isGrandFinal, followed, manual } = props;
-  const { teamSize, team, entryGame, entryAnonymous, inputsPerTeam } = props;
+  const { state, roundIndex, name, index, complete, perGame, total, showsWins, followed, manual } = props;
+  const { teamSize, team, entryGame, entryAnonymous, entryNotNeeded, inputsPerTeam } = props;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2'>
@@ -132,7 +134,7 @@ export function FinalRow(props: FinalRowProps) {
         ))}
         <span
           className='w-12 shrink-0 text-right text-[15px] font-extrabold'
-          title={isGrandFinal ? 'Games won' : 'Cumulative Final score'}
+          title={showsWins ? 'Games won' : 'Cumulative Final score'}
         >
           {total}
         </span>
@@ -140,7 +142,10 @@ export function FinalRow(props: FinalRowProps) {
       {entryGame > 0 && entryAnonymous ? (
         <div className='mt-1 text-[0.68rem] text-warning'>Scored anonymously — see side panel →</div>
       ) : null}
-      {entryGame > 0 && !entryAnonymous ? (
+      {entryGame > 0 && entryNotNeeded ? (
+        <div className='mt-1 text-[13px] text-muted'>G{entryGame} not needed — the match is decided</div>
+      ) : null}
+      {entryGame > 0 && !entryAnonymous && !entryNotNeeded ? (
         <FinalScoreEntry
           activeTab={entryGame}
           inputsPerTeam={inputsPerTeam}
