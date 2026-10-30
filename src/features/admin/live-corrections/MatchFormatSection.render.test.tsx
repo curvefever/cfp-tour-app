@@ -100,7 +100,7 @@ describe('the Match format section of "Correct current round"', () => {
     if (advanced.status !== 'advanced') throw new Error('could not reach the Final');
     const view = renderApp({ ...semis, state: advanced.state }, { role: 'admin', tab: 'admin' });
     const section = within(view.getByText('Match format').closest('div') as HTMLElement);
-    expect((section.getByLabelText('Semis format')).disabled).toBe(true);
-    expect((section.getByLabelText('Final format')).disabled).toBe(false);
+    expect(section.getByLabelText('Semis format').disabled).toBe(true);
+    expect(section.getByLabelText('Final format').disabled).toBe(false);
   });
 });
