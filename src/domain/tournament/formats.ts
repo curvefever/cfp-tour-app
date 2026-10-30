@@ -5,6 +5,7 @@ import type {
   PoolingPhaseKey,
   RoomSize,
   ScheduleLogicKey,
+  TournamentState,
 } from './types';
 
 /** The game's hard cap on players in one room; no format may seat more. */
@@ -93,10 +94,18 @@ export const GAME_FORMAT_LIST: ReadonlyArray<Readonly<GameFormatDefinition>> = [
 export const GAME_FORMATS: Readonly<Partial<Record<GameFormatKey, Readonly<GameFormatDefinition>>>> =
   Object.fromEntries(GAME_FORMAT_LIST.map((format) => [format.key, format]));
 
+/** Stored value, kept as first named; the rule is "One score per team". */
+export const ONE_SCORE_PER_TEAM = 'survival-teams' as const;
+
+/** Whether the tournament scores its teams by one score per team (not per member). */
+export function isOneScorePerTeam(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
+  return state.gamemodeConfig.teamScoringRule === ONE_SCORE_PER_TEAM;
+}
+
 export const TEAM_SCORING_RULE_LABELS = {
   'sum-members': 'Sum of all members',
   'designated-player': 'Save your Buddy (defender only)',
-  'survival-teams': 'One score per team',
+  [ONE_SCORE_PER_TEAM]: 'One score per team',
 } as const;
 
 export const ODD_COUNT_STRATEGY_LABELS = {

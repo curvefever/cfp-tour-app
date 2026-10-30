@@ -38,6 +38,7 @@ import type { TournamentRound, TournamentState, TournamentTeam } from '../types'
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildAssignments, buildRound } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
 
@@ -142,12 +143,12 @@ describe('removeRosterUnit', () => {
   });
 });
 
-describe('Survival Teams score keys', () => {
-  function survivalRoom() {
+describe('One score per team score keys', () => {
+  function oneScoreTeamRoom() {
     const teamIds = ['t0', 't1', 't2', 't3'];
     return createDefaultTournamentState({
       gameFormat: 'team-2v2v2v2',
-      gamemodeConfig: { teamScoringRule: 'survival-teams' },
+      gamemodeConfig: { teamScoringRule: ONE_SCORE_PER_TEAM },
       players: teamIds.map((teamId) => ({
         teamId,
         teamName: teamId,
@@ -160,12 +161,12 @@ describe('Survival Teams score keys', () => {
   }
 
   it('removing the team at position 1 shifts the plain keys of later positions down and drops the last', () => {
-    const result = removeRosterUnit(survivalRoom(), 't1');
+    const result = removeRosterUnit(oneScoreTeamRoom(), 't1');
     expect(result.scores).toEqual({ 'r0-rm1-p0': 400, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 });
   });
 
   it("replacing a team deletes only that position's plain key", () => {
-    const result = swapTeam(survivalRoom(), 't1', {
+    const result = swapTeam(oneScoreTeamRoom(), 't1', {
       teamId: 't9',
       teamName: 't9',
       members: [{ name: 'x' }, { name: 'y' }],

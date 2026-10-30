@@ -31,12 +31,12 @@ export function winsSoFar(
   return match && match.countedGames > 0 ? (match.units[position]?.wins ?? null) : null;
 }
 
-/** Where a multi-game room shows each game's score: in columns while they fit beside the name (the points column counts as one), else as a line under the name. */
 /** The columns a 330 px card holds beside a readable name: 46 px each. */
 const MAX_COLUMNS = 3;
 
 export type GameScoreLayout = 'none' | 'columns' | 'line';
 
+/** Where a multi-game room shows each game's score: in columns while they fit beside the name (the points column counts as one), else as a line under the name. */
 export function gameScoreLayout(games: number, points: boolean): GameScoreLayout {
   if (games <= 1) return 'none';
   return games + (points ? 1 : 0) <= MAX_COLUMNS ? 'columns' : 'line';

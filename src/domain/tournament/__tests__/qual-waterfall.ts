@@ -217,7 +217,7 @@ R2.B: 1-4->Final, 5-7->eliminated
 `,
 };
 
-/** The live tournament's graph: 2v2v2v2 Survival Teams, two rooms of 4 each at the start, spaced names. */
+/** The live tournament's graph: 2v2v2v2 One score per team, two rooms of 4 each at the start, spaced names. */
 export const LIVE_GRAPH = `
 ROUNDS:
 Round 5 Upper = 2x4

@@ -6,6 +6,7 @@ import { recordRoomHistory } from '../seeding';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentState } from '../types';
 import { buildState, type SweepConfig } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 /**
  * Helpers for the smaller-room-seat tests: a qualification table played with scores that don't follow the
@@ -31,7 +32,7 @@ export function spreadConfig(kind: SpreadKind, count: number, options: SpreadOpt
     teams,
     setup: {
       gameFormat: GAME_FORMAT[kind],
-      ...(teams ? { teamScoringRule: 'survival-teams' as const } : {}),
+      ...(teams ? { teamScoringRule: ONE_SCORE_PER_TEAM } : {}),
       scheduleLogic: 'single-elimination',
       poolingPhase: options.pooling ?? 'qual-table',
       qualAdv: QUAL_ADV[kind],

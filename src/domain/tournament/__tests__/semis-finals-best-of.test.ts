@@ -7,6 +7,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { PersistedSetup, TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { scoreCurrentRound } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 type Setup = Partial<PersistedSetup>;
 
@@ -76,7 +77,7 @@ describe('single elimination with a Best of 3 Semis and Final, head to head', ()
       scheduleLogic: 'single-elimination',
       semisBestOf: '3',
       finalsBestOf: '3',
-      teamScoringRule: 'survival-teams',
+      teamScoringRule: ONE_SCORE_PER_TEAM,
     });
     while (!state.rounds[state.curRound].isSemis) {
       const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));

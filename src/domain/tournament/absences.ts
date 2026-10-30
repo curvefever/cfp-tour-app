@@ -4,12 +4,13 @@
  * is stored under (`r{ri}-rm{room}-p{pos}`, then `-g{n}` in a multi-game round, then `-m{i}` for a member).
  *
  * An answer counts only while its key's stored score is still 0 (`isMarkedAbsent`), so a stale answer left behind by
- * a line-up edit, Previous or a swap reads as present. The one exception is a Survival member's mark, stored under
+ * a line-up edit, Previous or a swap reads as present. The one exception is the hand mark of a member of a team with one score, stored under
  * the member key (which has no score): only display code reads it (`isMemberMarkedAbsent`).
  *
  * The Final and the grand final are left out: their 0s are never asked.
  */
 import { invalidateStaleTieResolutions } from './advancement';
+import { isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
@@ -43,10 +44,6 @@ export function usesAbsences(state: Pick<TournamentState, 'gamemodeConfig'>): bo
   return state.gamemodeConfig.absenceVersion === 1;
 }
 
-function isSurvival(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
-  return state.gamemodeConfig.teamScoringRule === 'survival-teams';
-}
-
 /** Whether a round's 0s are asked: every round but the Final and the grand final. */
 function roundAsks(round: TournamentRound | undefined): round is TournamentRound {
   return round !== undefined && !round.isFinal && round.bracket !== 'grand-final';
@@ -69,7 +66,7 @@ export function isMarkedAbsent(state: TournamentState, key: string): boolean {
   );
 }
 
-/** True when a Survival member was marked absent by hand (display only; scoring never reads it). */
+/** True when a member of a team with one score was marked absent by hand (display only; scoring never reads it). */
 export function isMemberMarkedAbsent(state: TournamentState, memberKey: string): boolean {
   return usesAbsences(state) && answerOf(state, memberKey) === 'absent';
 }
@@ -92,8 +89,8 @@ function seatBase(roundIndex: number, room: number, position: number, game: numb
   return `r${roundIndex}-rm${room}-p${position}` + (game === null ? '' : `-g${game}`);
 }
 
-/** The key under which a Survival team's member is marked absent by hand: round-wide, whatever the number of games. */
-export function survivalMemberKey(
+/** The key under which a member of a team with one score is marked absent by hand: round-wide, whatever the number of games. */
+export function oneScoreTeamMemberKey(
   roundIndex: number,
   room: number,
   position: number,
@@ -232,12 +229,13 @@ function roomQuestions(state: TournamentState, roundIndex: number, room: number)
 
 /**
  * The units of a room with a score of 0 still waiting for an answer, in a mode that blocks on it: their 0 may be an
- * absence, so a tie at 0 is held back until it is answered. Empty outside the column in play, in Survival Teams, and
+ * absence, so a tie at 0 is held back until it is answered. Empty outside the column in play, in One score per team, and
  * for a tournament without `absenceVersion`.
  */
 export function unitsAwaitingAnswer(state: TournamentState, roundIndex: number, room: number): Set<string> {
   const { start, end } = currentColumn(state);
-  if (!usesAbsences(state) || isSurvival(state) || roundIndex < start || roundIndex > end) return new Set();
+  if (!usesAbsences(state) || isOneScorePerTeam(state) || roundIndex < start || roundIndex > end)
+    return new Set();
   if (!roundAsks(state.rounds[roundIndex])) return new Set();
   return new Set(
     roomQuestions(state, roundIndex, room)
@@ -271,9 +269,9 @@ export function pendingAbsenceQuestions(state: TournamentState): RoomAbsenceQues
     .filter((room) => room.questions.length > 0);
 }
 
-/** True when Next Round must wait for an answer: Survival Teams never blocks, an unanswered 0 there counts as played. */
+/** True when Next Round must wait for an answer: One score per team never blocks, an unanswered 0 there counts as played. */
 export function hasBlockingAbsenceQuestions(state: TournamentState): boolean {
-  return !isSurvival(state) && pendingAbsenceQuestions(state).length > 0;
+  return !isOneScorePerTeam(state) && pendingAbsenceQuestions(state).length > 0;
 }
 
 /** An answer changes who is in a room's ties: the decisions of the rooms it touches are checked again. */
@@ -331,8 +329,8 @@ export function clearAbsenceAnswer(state: TournamentState, key: string): Tournam
   return invalidateTiesOfKeys({ ...state, absences: withoutAbsenceAnswer(state.absences, key) }, [key]);
 }
 
-/** Marks a member of a Survival team absent by hand (display only). Ignored unless the member exists in the column in play. */
-export function markSurvivalMemberAbsent(
+/** Marks a member of a team with one score absent by hand (display only). Ignored unless the member exists in the column in play. */
+export function markOneScoreTeamMemberAbsent(
   state: TournamentState,
   roundIndex: number,
   room: number,
@@ -342,24 +340,27 @@ export function markSurvivalMemberAbsent(
   const { start, end } = currentColumn(state);
   const unit = unitsOfRoom(state, roundIndex, room)[position];
   const member = unit === undefined ? undefined : teamsOf(state)[unit]?.members?.[memberIndex];
-  if (!usesAbsences(state) || !isSurvival(state) || !roundAsks(state.rounds[roundIndex]) || !member)
+  if (!usesAbsences(state) || !isOneScorePerTeam(state) || !roundAsks(state.rounds[roundIndex]) || !member)
     return state;
   if (roundIndex < start || roundIndex > end) return state;
   return {
     ...state,
-    absences: { ...state.absences, [survivalMemberKey(roundIndex, room, position, memberIndex)]: 'absent' },
+    absences: {
+      ...state.absences,
+      [oneScoreTeamMemberKey(roundIndex, room, position, memberIndex)]: 'absent',
+    },
   };
 }
 
-/** Takes a Survival member's mark back. */
-export function unmarkSurvivalMemberAbsent(
+/** Takes the hand mark of a member of a team with one score back. */
+export function unmarkOneScoreTeamMemberAbsent(
   state: TournamentState,
   roundIndex: number,
   room: number,
   position: number,
   memberIndex: number,
 ): TournamentState {
-  return clearAbsenceAnswer(state, survivalMemberKey(roundIndex, room, position, memberIndex));
+  return clearAbsenceAnswer(state, oneScoreTeamMemberKey(roundIndex, room, position, memberIndex));
 }
 
 /** Tolerates a state cached before the field existed. */
@@ -379,7 +380,7 @@ export function withoutRoundAbsences(
   return withoutAbsences(absences, (key) => key.startsWith(prefix));
 }
 
-/** The answers without those of one seat (every game and member, and a Survival member's mark): for a swapped-out unit. */
+/** The answers without those of one seat (every game and member, and the hand mark of a member of a team with one score): for a swapped-out unit. */
 export function withoutSeatAbsences(
   absences: TournamentState['absences'],
   roundIndex: number,

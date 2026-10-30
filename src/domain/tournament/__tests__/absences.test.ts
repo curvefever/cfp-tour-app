@@ -7,10 +7,10 @@ import {
   isMarkedAbsent,
   isMemberMarkedAbsent,
   isUnitAbsentFromRoom,
-  markSurvivalMemberAbsent,
+  markOneScoreTeamMemberAbsent,
   pendingAbsenceQuestions,
   playersInPlay,
-  unmarkSurvivalMemberAbsent,
+  unmarkOneScoreTeamMemberAbsent,
   usesAbsences,
   withoutRoundAbsences,
 } from '../absences';
@@ -22,6 +22,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
 import { scoreCurrentRound, withoutAbsenceRule } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const NAMES = ['Ann', 'Bob', 'Cy', 'Di'];
 
@@ -74,10 +75,10 @@ describe('questions per mode', () => {
     expect(keysOf(state)).toEqual(['r0-rm1-p0-m1']);
   });
 
-  it("asks only the team's key in Survival Teams", () => {
+  it("asks only the team's key in One score per team", () => {
     const state = build({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [team('Red', ['a', 'b']), team('Blue', ['c', 'd'])],
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p0-m0': 0, 'r0-rm1-p1': 55 },
     });
@@ -188,31 +189,31 @@ describe('answering', () => {
   });
 });
 
-describe('Survival member marks', () => {
-  const survival = () =>
+describe('One score per team member marks', () => {
+  const oneScorePerTeam = () =>
     build({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [team('Red', ['a', 'b']), team('Blue', ['c', 'd'])],
     });
 
   it('marks a member by hand, for display only, and takes the mark back', () => {
-    const marked = markSurvivalMemberAbsent(survival(), 0, 1, 0, 1);
+    const marked = markOneScoreTeamMemberAbsent(oneScorePerTeam(), 0, 1, 0, 1);
     expect(isMemberMarkedAbsent(marked, 'r0-rm1-p0-m1')).toBe(true);
     expect(absentInRoom(marked, 0, 1)).toEqual([]);
-    expect(unmarkSurvivalMemberAbsent(marked, 0, 1, 0, 1).absences).toEqual({});
+    expect(unmarkOneScoreTeamMemberAbsent(marked, 0, 1, 0, 1).absences).toEqual({});
   });
 
   it('ignores a missing member, another mode and a round outside the column in play', () => {
-    const state = survival();
-    expect(markSurvivalMemberAbsent(state, 0, 1, 0, 2)).toBe(state);
-    expect(markSurvivalMemberAbsent(state, 1, 1, 0, 0)).toBe(state);
+    const state = oneScorePerTeam();
+    expect(markOneScoreTeamMemberAbsent(state, 0, 1, 0, 2)).toBe(state);
+    expect(markOneScoreTeamMemberAbsent(state, 1, 1, 0, 0)).toBe(state);
     const sum = build({
       gameFormat: 'team-2v2v2v2',
       rule: 'sum-members',
       players: [team('Red', ['a', 'b'])],
     });
-    expect(markSurvivalMemberAbsent(sum, 0, 1, 0, 0)).toBe(sum);
+    expect(markOneScoreTeamMemberAbsent(sum, 0, 1, 0, 0)).toBe(sum);
   });
 });
 
@@ -231,10 +232,10 @@ describe('blocking', () => {
     expect(advanceTournamentRound(answered)).not.toMatchObject({ reason: 'pending-absences' });
   });
 
-  it('does not block in Survival Teams, where an unanswered 0 counts as played', () => {
+  it('does not block in One score per team, where an unanswered 0 counts as played', () => {
     const state = build({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [team('Red', ['a', 'b']), team('Blue', ['c', 'd'])],
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 80 },
     });

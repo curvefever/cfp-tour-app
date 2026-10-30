@@ -9,6 +9,7 @@ import {
   teamSizeChoices,
   teamsPerRoomChoices,
 } from './game-format-choice';
+import { ONE_SCORE_PER_TEAM } from '../../../domain/tournament/formats';
 
 describe('formatKind and keyForKind', () => {
   it('names the kind of every key', () => {
@@ -74,18 +75,18 @@ describe('the select options', () => {
 
 describe('nextTeamScoringRule', () => {
   it('keeps the rule between two team formats', () => {
-    expect(nextTeamScoringRule({ gameFormat: 'team-2v2v2v2', teamScoringRule: 'survival-teams' }, 4)).toBe(
-      'survival-teams',
+    expect(nextTeamScoringRule({ gameFormat: 'team-2v2v2v2', teamScoringRule: ONE_SCORE_PER_TEAM }, 4)).toBe(
+      ONE_SCORE_PER_TEAM,
     );
   });
 
   it('starts at "Sum of all members" when entering teams, and has none for an individual format', () => {
     expect(nextTeamScoringRule({ gameFormat: 'ffa-individual', teamScoringRule: '' }, 3)).toBe('sum-members');
-    expect(nextTeamScoringRule({ gameFormat: 'ffa-individual', teamScoringRule: 'survival-teams' }, 3)).toBe(
-      'sum-members',
-    );
     expect(
-      nextTeamScoringRule({ gameFormat: 'team-3v3', teamScoringRule: 'survival-teams' }, undefined),
+      nextTeamScoringRule({ gameFormat: 'ffa-individual', teamScoringRule: ONE_SCORE_PER_TEAM }, 3),
+    ).toBe('sum-members');
+    expect(
+      nextTeamScoringRule({ gameFormat: 'team-3v3', teamScoringRule: ONE_SCORE_PER_TEAM }, undefined),
     ).toBe('');
   });
 

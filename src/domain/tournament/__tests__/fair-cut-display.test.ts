@@ -14,6 +14,7 @@ import {
   type Setup,
 } from './fair-cut-fixtures';
 import { withEarlierCutRule } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 /** What the Bracket shows of the fair cut: the exit bands, the race and the projected slots. */
 
@@ -93,7 +94,7 @@ describe('exit bands under the fair cut', () => {
   it('a size with no lucky spot has none: the losers round [3, 2] -> 2 sends the winner on and the rest out', () => {
     const state = generate('2v2v2 31 DE', 31, {
       gameFormat: 'team-2v2v2',
-      teamScoringRule: 'survival-teams',
+      teamScoringRule: ONE_SCORE_PER_TEAM,
       scheduleLogic: 'double-elimination-shared-final',
       poolingPhase: 'none',
     });

@@ -1,5 +1,6 @@
 import { type AbsenceQuestion, zeroScoresInPlay } from '../../domain/tournament/absences';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import { isOneScorePerTeam } from '../../domain/tournament/formats';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import type { AbsenceAnswer, TournamentState } from '../../domain/tournament/types';
 
@@ -13,7 +14,7 @@ export interface AbsenceBannerButton {
 /** One room's bar: the heading, the line under it, and the buttons. */
 export interface AbsenceBannerRow {
   key: string;
-  /** Danger when an unanswered 0 blocks Next Round, warning in Survival Teams where it counts as played. */
+  /** Danger when an unanswered 0 blocks Next Round, warning in One score per team where it counts as played. */
   tone: 'danger' | 'warning';
   heading: string;
   detail: string;
@@ -31,7 +32,7 @@ export function questionLabel(state: TournamentState, question: AbsenceQuestion)
   return question.game === undefined ? who : `${who} · game ${question.game}`;
 }
 
-const SURVIVAL_NOTE = 'counted as played unless marked';
+const ONE_SCORE_NOTE = 'counted as played unless marked';
 
 function shortcutLabel(count: number, answer: AbsenceAnswer): string {
   return count === 2 ? `Both ${answer}` : `All ${count} ${answer}`;
@@ -68,7 +69,7 @@ function namesOf(list: Array<{ label: string }>): string {
  * numbers its rounds by column). Once some of a room's 0s are answered the heading counts what is left and the line lists the answers.
  */
 export function absenceBannerRows(state: TournamentState): AbsenceBannerRow[] {
-  const survival = state.gamemodeConfig.teamScoringRule === 'survival-teams';
+  const oneScorePerTeam = isOneScorePerTeam(state);
   const labels = bracketRoundLabels(state);
   return zeroScoresInPlay(state).flatMap((roomQuestions): AbsenceBannerRow[] => {
     const named = roomQuestions.questions.map((question) => ({
@@ -94,9 +95,9 @@ export function absenceBannerRows(state: TournamentState): AbsenceBannerRow[] {
     return [
       {
         key: `${roomQuestions.roundIndex}-${roomQuestions.room}`,
-        tone: survival ? 'warning' : 'danger',
+        tone: oneScorePerTeam ? 'warning' : 'danger',
         heading: `⚠ Score of 0 — ${roundName}Room ${roomLetter(roomQuestions.room)} (${pending.length} ${answered ? 'left' : 'at 0'})`,
-        detail: survival ? `${detail} — ${SURVIVAL_NOTE}` : detail,
+        detail: oneScorePerTeam ? `${detail} — ${ONE_SCORE_NOTE}` : detail,
         buttons: buttonsOf(pending),
       },
     ];

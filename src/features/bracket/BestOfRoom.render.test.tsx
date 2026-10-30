@@ -9,6 +9,7 @@ import type { FixtureTournament } from '../../../e2e/screens/fixtures';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { renderApp, type AppRole } from '../shell/test-app';
+import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),
@@ -60,7 +61,7 @@ function bestOfTournament(scores: TournamentState['scores']): FixtureTournament 
       gameFormat: 'team-4v4',
       scheduleLogic: 'waterfall-bracket',
       poolingPhase: 'none',
-      teamScoringRule: 'survival-teams',
+      teamScoringRule: ONE_SCORE_PER_TEAM,
       waterfallGraph: GRAPH,
     }),
     createTournamentRuntime(),

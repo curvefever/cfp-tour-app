@@ -4,6 +4,7 @@ import { generate, playedRound } from '../../domain/tournament/__tests__/fair-cu
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { absenceBannerRows } from './absence-banners';
+import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 const zeros = (...positions: number[]) =>
   Object.fromEntries(positions.map((position) => [`r0-rm1-p${position}`, 0]));
@@ -83,10 +84,10 @@ describe('absenceBannerRows', () => {
     ]);
   });
 
-  it('is a warning in Survival Teams and says an unanswered zero counts as played', () => {
+  it('is a warning in One score per team and says an unanswered zero counts as played', () => {
     const state = oneRoomState({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [teamOf('Red', ['a', 'b']), teamOf('Blue', ['c', 'd'])],
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50 },
     });
@@ -99,7 +100,7 @@ describe('absenceBannerRows', () => {
       answerAbsence(
         oneRoomState({
           gameFormat: 'team-2v2v2v2',
-          rule: 'survival-teams',
+          rule: ONE_SCORE_PER_TEAM,
           players: [teamOf('Red', ['a', 'b']), teamOf('Blue', ['c', 'd']), teamOf('Green', ['e', 'f'])],
           scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 0, 'r0-rm1-p2': 50 },
         }),

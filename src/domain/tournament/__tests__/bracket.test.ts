@@ -19,6 +19,7 @@ import type { TournamentRound, TournamentState } from '../types';
 import { SPREADSHEET_GRAPH, buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
 import { buildState, scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 function project(rounds: TournamentRound[], curRound: number) {
   return projectFutureRoundSlots({ rounds, curRound });
@@ -895,7 +896,7 @@ describe('projectFutureRoundSlots -- places only where the real draw spreads uni
     const { slots } = projectedQualification(
       {
         gameFormat: 'team-2v2v2v2',
-        teamScoringRule: 'survival-teams',
+        teamScoringRule: ONE_SCORE_PER_TEAM,
         scheduleLogic: 'single-elimination',
         poolingPhase: 'qual-table',
         qualAdv: '16',

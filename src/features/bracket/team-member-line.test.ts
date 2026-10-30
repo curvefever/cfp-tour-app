@@ -4,9 +4,10 @@ import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { NO_BREAK_SPACE } from '../tournament/components/member-line';
-import { answerAbsence, markSurvivalMemberAbsent } from '../../domain/tournament/absences';
+import { answerAbsence, markOneScoreTeamMemberAbsent } from '../../domain/tournament/absences';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { teamMemberLine } from './team-member-line';
+import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 /** The line with each no-break space shown as "_": a line may wrap only at the plain spaces left. */
 function shown(line: string): string {
@@ -21,7 +22,10 @@ function teams(count: number): TournamentTeam[] {
   }));
 }
 
-function start(rule: 'sum-members' | 'designated-player' | 'survival-teams', count = 13): TournamentState {
+function start(
+  rule: 'sum-members' | 'designated-player' | typeof ONE_SCORE_PER_TEAM,
+  count = 13,
+): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: count, players: teams(count) }),
     createDefaultSetup({
@@ -36,13 +40,13 @@ function start(rule: 'sum-members' | 'designated-player' | 'survival-teams', cou
   return { ...result.state, started: true };
 }
 
-/** Gives the unit seated first in room 1 member scores 23 and 18 (or one team score under Survival Teams). */
+/** Gives the unit seated first in room 1 member scores 23 and 18 (or one team score under One score per team). */
 function scoredFirstSeat(state: TournamentState): { state: TournamentState; name: string } {
   const seat = (state.assignments[0] ?? []).find((entry) => entry.room === 1);
   if (!seat) throw new Error('nobody in room 1');
   const base = 'r0-rm1-p0';
   const scores: Record<string, number> =
-    state.gamemodeConfig.teamScoringRule === 'survival-teams'
+    state.gamemodeConfig.teamScoringRule === ONE_SCORE_PER_TEAM
       ? { [base]: 41 }
       : { [`${base}-m0`]: 23, [`${base}-m1`]: 18 };
   return { state: { ...state, scores: { ...state.scores, ...scores } }, name: seat.name };
@@ -79,8 +83,8 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
     expect(line.match(/🛡/g)).toHaveLength(1);
   });
 
-  it('shows names only under Survival Teams (one score per team), even when the room is complete', () => {
-    const { state, name } = scoredFirstSeat(start('survival-teams'));
+  it('shows names only under One score per team, even when the room is complete', () => {
+    const { state, name } = scoredFirstSeat(start(ONE_SCORE_PER_TEAM));
     expect(shown(teamMemberLine(state, name, 0, { room: 1, position: 0 }))).toMatch(/^Ana\d+_· Ben\d+$/);
   });
 
@@ -110,7 +114,7 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
 });
 
 describe('teamMemberLine: absent members', () => {
-  function played(rule: 'sum-members' | 'survival-teams') {
+  function played(rule: 'sum-members' | typeof ONE_SCORE_PER_TEAM) {
     const state = start(rule, 6);
     const roundIndex = state.curRound;
     const first = state.assignments[roundIndex].find((entry) => entry.room === 1);
@@ -127,9 +131,9 @@ describe('teamMemberLine: absent members', () => {
     );
   });
 
-  it('shows a muted "absent" after a Survival member marked by hand, before the room is complete too', () => {
-    const { state, roundIndex, name } = played('survival-teams');
-    const marked = markSurvivalMemberAbsent(state, roundIndex, 1, 0, 1);
+  it('shows a muted "absent" after a member of a team with one score marked by hand, before the room is complete too', () => {
+    const { state, roundIndex, name } = played(ONE_SCORE_PER_TEAM);
+    const marked = markOneScoreTeamMemberAbsent(state, roundIndex, 1, 0, 1);
     expect(shown(teamMemberLine(marked, name, roundIndex, null, { room: 1, position: 0 }))).toMatch(
       /^Ana\d+_· Ben\d+_absent$/,
     );

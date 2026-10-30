@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, markSurvivalMemberAbsent, survivalMemberKey } from '../absences';
+import { answerAbsence, markOneScoreTeamMemberAbsent, oneScoreTeamMemberKey } from '../absences';
 import { roomFinishOrder } from '../advancement';
 import { generateTournament } from '../generation';
 import { roomMatch } from '../match-format';
@@ -10,6 +10,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { scoreCurrentRound } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const ROUNDS = (r1: string, final: string) =>
   `ROUNDS:\nR1 = 2x2${r1}\nFinal = 2 FINAL${final}\nROUTES:\nR1.A: 1->Final\nR1.B: 1->Final`;
@@ -26,7 +27,7 @@ function teams(): TournamentTeam[] {
 function inR1(
   r1 = '',
   final = '',
-  rule: 'survival-teams' | 'sum-members' = 'survival-teams',
+  rule: typeof ONE_SCORE_PER_TEAM | 'sum-members' = ONE_SCORE_PER_TEAM,
 ): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: 4, players: teams(), title: 'Live edit' }),
@@ -43,7 +44,7 @@ function inR1(
   if (result.status !== 'generated') throw new Error('generation failed');
   let state: TournamentState = { ...result.state, started: true };
   while (state.rounds[state.curRound].customLabel !== 'R1') {
-    const advanced = advanceTournamentRound(scoreCurrentRound(state, rule === 'survival-teams' ? 0 : 2));
+    const advanced = advanceTournamentRound(scoreCurrentRound(state, rule === ONE_SCORE_PER_TEAM ? 0 : 2));
     if (advanced.status !== 'advanced') throw new Error(`could not reach R1: ${advanced.status}`);
     state = advanced.state;
   }
@@ -147,9 +148,9 @@ describe('changing the match format of the round in play', () => {
     expect(back.absences['r2-rm1-p1']).toBe('absent');
   });
 
-  it("leaves a Survival member's mark where it is, since that key is round-wide", () => {
-    const state = markSurvivalMemberAbsent(inR1(), R1, 1, 0, 1);
-    const key = survivalMemberKey(R1, 1, 0, 1);
+  it('leaves the hand mark of a member of a team with one score where it is, since that key is round-wide', () => {
+    const state = markOneScoreTeamMemberAbsent(inR1(), R1, 1, 0, 1);
+    const key = oneScoreTeamMemberKey(R1, 1, 0, 1);
     expect(state.absences[key]).toBe('absent');
     expect(edit(state, ' BO3', '').absences[key]).toBe('absent');
   });

@@ -10,6 +10,7 @@ import {
   unitScoreSummary,
   winsSoFar,
 } from './room-row-inputs';
+import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 describe('luckyLoserNames', () => {
   const state = createDefaultTournamentState({
@@ -113,10 +114,10 @@ describe('roomGameScores', () => {
     }));
     const options = { gameFormat: 'team-4v4' as const, players: teams, rounds: [{ numGames: 2 }, {}] };
 
-    it('reads one score per team under the survival rule', () => {
+    it('reads one score per team under One score per team', () => {
       const state = oneRoomState({
         ...options,
-        rule: 'survival-teams',
+        rule: ONE_SCORE_PER_TEAM,
         scores: { [key(0, 1)]: 40, [key(1, 1)]: 25, [key(0, 2)]: 10 },
       });
       expect(roomGameScores(state, 0, 1, 0)).toEqual([40, 10]);

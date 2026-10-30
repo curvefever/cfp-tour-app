@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import {
   answerAbsence,
-  markSurvivalMemberAbsent,
-  unmarkSurvivalMemberAbsent,
+  markOneScoreTeamMemberAbsent,
+  unmarkOneScoreTeamMemberAbsent,
 } from '../../domain/tournament/absences';
 import { swapWindowOpen } from '../../domain/tournament/mutations';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
@@ -12,8 +12,8 @@ import {
   type AbsentMatchRow,
   absentMatchRows,
   streakText,
-  survivalMarkChoices,
-  survivalMarkRows,
+  oneScoreTeamMarkChoices,
+  oneScoreTeamMarkRows,
 } from './absent-panel';
 import { removePlayer, removeTeamUnit, swapPlayer, swapTeamUnit } from './RankingsRoster';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
@@ -79,18 +79,18 @@ function MatchRow({ app, row, state }: { app: App; row: AbsentMatchRow; state: T
   );
 }
 
-/** "＋ Mark a member absent": pick a team of the column in play, then one of its members (Survival Teams only; display only). */
+/** "＋ Mark a member absent": pick a team of the column in play, then one of its members (One score per team only; display only). */
 function MarkMemberPicker({ app, state }: { app: App; state: TournamentState }) {
   const [open, setOpen] = useState(false);
   const [seat, setSeat] = useState('');
   const [member, setMember] = useState('');
-  const choices = survivalMarkChoices(state);
+  const choices = oneScoreTeamMarkChoices(state);
   if (!choices.length) return null;
   const chosen = choices.find((choice) => `${choice.roundIndex}:${choice.room}:${choice.position}` === seat);
   const mark = () => {
     if (!chosen || member === '') return;
     app.updateState((current) =>
-      markSurvivalMemberAbsent(current, chosen.roundIndex, chosen.room, chosen.position, Number(member)),
+      markOneScoreTeamMemberAbsent(current, chosen.roundIndex, chosen.room, chosen.position, Number(member)),
     );
     setMember('');
   };
@@ -153,14 +153,14 @@ function MarkMemberPicker({ app, state }: { app: App; state: TournamentState }) 
 /**
  * Admins only, in the organiser tools: the units absent in a match (with ↺ Mark as played while the round is in
  * play, and the unit's swap and remove), the units absent from the start (removed before ever playing), and in
- * Survival Teams the members marked absent by hand.
+ * One score per team the members marked absent by hand.
  */
 export function AbsentPanel({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const matches = absentMatchRows(state);
-  const marks = survivalMarkRows(state);
+  const marks = oneScoreTeamMarkRows(state);
   const fromStart = state.withdrawnUnits.filter((unit) => !unit.playedAnyMatch);
-  const picker = state.started ? survivalMarkChoices(state).length > 0 : false;
+  const picker = state.started ? oneScoreTeamMarkChoices(state).length > 0 : false;
   if (!matches.length && !marks.length && !fromStart.length && !picker) return null;
   return (
     <ToolPanel title='Absent'>
@@ -175,7 +175,7 @@ export function AbsentPanel({ state }: { state: TournamentState }) {
               label={`Take back the absent mark of ${row.label}`}
               onClick={() =>
                 app.updateState((current) =>
-                  unmarkSurvivalMemberAbsent(
+                  unmarkOneScoreTeamMemberAbsent(
                     current,
                     row.roundIndex,
                     row.room,

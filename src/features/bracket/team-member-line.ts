@@ -1,4 +1,8 @@
-import { isMarkedAbsent, isMemberMarkedAbsent, survivalMemberKey } from '../../domain/tournament/absences';
+import {
+  isMarkedAbsent,
+  isMemberMarkedAbsent,
+  oneScoreTeamMemberKey,
+} from '../../domain/tournament/absences';
 import { countedGames } from '../../domain/tournament/match-format';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { getDefenderIndex, scoreKeysForPosition, scoredTeamSize } from '../../domain/tournament/scoring';
@@ -69,7 +73,7 @@ function memberAbsent(
 /**
  * The line under a team's name in a room: its members joined with " · " (`joinMembers`, which wraps only between members), the designated defender marked, and
  * with each member's own score after the name when `seat` is given (the room is complete) and the team scoring
- * rule scores members one by one, or "ABS" for a member who was absent. Survival Teams scores one number per team, so
+ * rule scores members one by one, or "ABS" for a member who was absent. One score per team scores one number per team, so
  * it shows names only, and "absent" after a member the organiser marked by hand (`seat`, or `markSeat` before the room is complete).
  */
 export function teamMemberLine(
@@ -97,7 +101,10 @@ export function teamMemberLine(
     if (
       markSeat !== null &&
       teamSize === undefined &&
-      isMemberMarkedAbsent(state, survivalMemberKey(roundIndex, markSeat.room, markSeat.position, rawIndex))
+      isMemberMarkedAbsent(
+        state,
+        oneScoreTeamMemberKey(roundIndex, markSeat.room, markSeat.position, rawIndex),
+      )
     ) {
       return `${label} absent`;
     }

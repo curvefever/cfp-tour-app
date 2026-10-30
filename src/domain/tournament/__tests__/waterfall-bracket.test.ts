@@ -815,7 +815,7 @@ R2: 1-4->Final, 5-8->eliminated
 });
 
 describe('round names with spaces and dashes', () => {
-  // The 2v2v2v2 Survival Teams graph of the live tournament, in its two spellings.
+  // The 2v2v2v2 One score per team graph of the live tournament, in its two spellings.
   const PLAIN_GRAPH = `
 ROUNDS:
 Round5Upper = 2x4

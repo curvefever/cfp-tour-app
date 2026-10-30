@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, markSurvivalMemberAbsent } from '../../domain/tournament/absences';
+import { answerAbsence, markOneScoreTeamMemberAbsent } from '../../domain/tournament/absences';
 import { removeRosterUnit, setRoundScore, swapIndividual } from '../../domain/tournament/mutations';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
-import { absentMatchRows, streakText, survivalMarkChoices, survivalMarkRows } from './absent-panel';
+import { absentMatchRows, streakText, oneScoreTeamMarkChoices, oneScoreTeamMarkRows } from './absent-panel';
+import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 const four = ['Ann', 'Bob', 'Cy', 'Di'];
 
@@ -157,34 +158,34 @@ describe('absentMatchRows after a swap or a removal', () => {
   });
 });
 
-describe('Survival member marks', () => {
-  const survival = () =>
+describe('One score per team member marks', () => {
+  const oneScorePerTeam = () =>
     oneRoomState({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [teamOf('Red', ['Ann', 'Bea']), teamOf('Blue', ['Cy', 'Di'])],
     });
 
   it('offers each seated team with its members, and marks one by hand', () => {
-    const choices = survivalMarkChoices(survival());
+    const choices = oneScoreTeamMarkChoices(oneScorePerTeam());
     expect(choices.map((choice) => [choice.teamLabel, choice.members.map((member) => member.name)])).toEqual([
       ['Red', ['Ann', 'Bea']],
       ['Blue', ['Cy', 'Di']],
     ]);
-    const marked = markSurvivalMemberAbsent(survival(), 0, 1, 1, 0);
-    expect(survivalMarkRows(marked).map((row) => `${row.label} · ${row.where}`)).toEqual([
+    const marked = markOneScoreTeamMemberAbsent(oneScorePerTeam(), 0, 1, 1, 0);
+    expect(oneScoreTeamMarkRows(marked).map((row) => `${row.label} · ${row.where}`)).toEqual([
       'Cy (Blue) · Round 1 · Room A',
     ]);
-    expect(survivalMarkChoices(marked)[1].members.map((member) => member.marked)).toEqual([true, false]);
+    expect(oneScoreTeamMarkChoices(marked)[1].members.map((member) => member.marked)).toEqual([true, false]);
   });
 
-  it('offers nothing outside Survival Teams', () => {
+  it('offers nothing outside One score per team', () => {
     const sum = oneRoomState({
       gameFormat: 'team-2v2v2v2',
       rule: 'sum-members',
       players: [teamOf('Red', ['Ann', 'Bea'])],
     });
-    expect(survivalMarkChoices(sum)).toEqual([]);
-    expect(survivalMarkRows(sum)).toEqual([]);
+    expect(oneScoreTeamMarkChoices(sum)).toEqual([]);
+    expect(oneScoreTeamMarkRows(sum)).toEqual([]);
   });
 });

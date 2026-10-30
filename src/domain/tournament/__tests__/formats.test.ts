@@ -3,8 +3,10 @@ import {
   GAME_FORMAT_LIST,
   GAME_FORMATS,
   HARD_ROOM_PLAYER_CAP,
+  ONE_SCORE_PER_TEAM,
   deriveRoomSize,
   getGameFormat,
+  isOneScorePerTeam,
   teamFormatKey,
   teamsPerRoomOptions,
 } from '../formats';
@@ -205,5 +207,17 @@ describe('generation for the new team formats at awkward counts', () => {
     );
     expect(state.rounds[0].rooms.reduce((sum, room) => sum + room, 0)).toBe(31);
     for (const room of state.rounds[0].rooms) expect([2, 3]).toContain(room);
+  });
+});
+
+describe('isOneScorePerTeam', () => {
+  it('is true for the stored value, false for the other rules and for none', () => {
+    const rule = (teamScoringRule: TournamentState['gamemodeConfig']['teamScoringRule']) => ({
+      gamemodeConfig: { teamScoringRule },
+    });
+    expect(isOneScorePerTeam(rule(ONE_SCORE_PER_TEAM))).toBe(true);
+    expect(isOneScorePerTeam(rule('sum-members'))).toBe(false);
+    expect(isOneScorePerTeam(rule('designated-player'))).toBe(false);
+    expect(isOneScorePerTeam({ gamemodeConfig: {} })).toBe(false);
   });
 });

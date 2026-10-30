@@ -10,6 +10,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { createTournamentRuntime } from '../runtime';
 import { applyTournamentSettings } from '../tournament-settings';
 import { fixedIdSource, rosterFor, sequenceRandom } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 function names(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `P${index + 1}`);
@@ -1663,21 +1664,21 @@ SemiB: 1-2->Final, 3-8->eliminated
 });
 
 describe('generateTournament -- team scoring rule', () => {
-  it('carries Survival Teams into gamemodeConfig for a team format', () => {
+  it('carries One score per team into gamemodeConfig for a team format', () => {
     const state = createDefaultTournamentState({
       confirmedCount: 37,
       players: rosterFor('team-2v2v2v2', 37),
     });
-    const form = createDefaultSetup({ gameFormat: 'team-2v2v2v2', teamScoringRule: 'survival-teams' });
+    const form = createDefaultSetup({ gameFormat: 'team-2v2v2v2', teamScoringRule: ONE_SCORE_PER_TEAM });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
     if (result.status === 'generated')
-      expect(result.state.gamemodeConfig.teamScoringRule).toBe('survival-teams');
+      expect(result.state.gamemodeConfig.teamScoringRule).toBe(ONE_SCORE_PER_TEAM);
   });
 
   it('keeps sum-members for an individual format even if a stale rule is selected', () => {
     const state = createDefaultTournamentState({ confirmedCount: 37, players: names(37) });
-    const form = createDefaultSetup({ gameFormat: 'ffa-individual', teamScoringRule: 'survival-teams' });
+    const form = createDefaultSetup({ gameFormat: 'ffa-individual', teamScoringRule: ONE_SCORE_PER_TEAM });
     const result = generateTournament(state, form, createTournamentRuntime({ ids: fixedIdSource() }));
     expect(result.status).toBe('generated');
     if (result.status === 'generated')

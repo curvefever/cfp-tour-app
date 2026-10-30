@@ -27,6 +27,7 @@ import {
 } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 describe('getDefenderIndex', () => {
   it('returns 0 by default with no defenderChanges', () => {
@@ -128,9 +129,9 @@ describe('getFinalUnitScore', () => {
   });
 });
 
-describe('Survival Teams scoring', () => {
+describe('One score per team scoring', () => {
   const team = { teamId: 't1', teamName: 'Team One', members: [{ name: 'A' }, { name: 'B' }] };
-  const survival = { teamScoringRule: 'survival-teams' as const };
+  const oneScorePerTeam = { teamScoringRule: ONE_SCORE_PER_TEAM };
 
   it('reads the plain position key and ignores -m{n} keys', () => {
     const state = createDefaultTournamentState({
@@ -139,7 +140,7 @@ describe('Survival Teams scoring', () => {
       assignments: [[{ name: 't1', room: 1, isLucky: false }]],
       rounds: [buildRound({ roundNum: 1, players: 1, rooms: [1] })],
       scores: { 'r0-rm1-p0': 700, 'r0-rm1-p0-m0': 300, 'r0-rm1-p0-m1': 200 },
-      gamemodeConfig: survival,
+      gamemodeConfig: oneScorePerTeam,
     });
     expect(getUnitScore(state, 0, 1, 0, null)).toBe(700);
   });
@@ -151,7 +152,7 @@ describe('Survival Teams scoring', () => {
       assignments: [[{ name: 't1', room: 1, isLucky: false }]],
       rounds: [buildRound({ roundNum: 1, players: 1, rooms: [1], numGames: 3 })],
       scores: { 'r0-rm1-p0-g1': 100, 'r0-rm1-p0-g2': 200, 'r0-rm1-p0-g3': 300 },
-      gamemodeConfig: survival,
+      gamemodeConfig: oneScorePerTeam,
     });
     expect(getUnitScore(state, 0, 1, 0, null)).toBe(600);
     const partial = { ...state, scores: { 'r0-rm1-p0-g1': 100, 'r0-rm1-p0-g2': 200 } };
@@ -164,7 +165,7 @@ describe('Survival Teams scoring', () => {
       players: [team],
       rounds: [buildRound({ roundNum: 1, isFinal: true, players: 1, rooms: [1] })],
       finalScores: { 'game1-t1': 450, 'game1-t1-m0': 10 },
-      gamemodeConfig: survival,
+      gamemodeConfig: oneScorePerTeam,
     });
     expect(getFinalUnitScore(state, 't1', 1, null)).toBe(450);
     expect(getFinalUnitScore(state, 't1', 2, null)).toBeNull();
@@ -185,9 +186,9 @@ describe('scoredTeamSize', () => {
     }
   });
 
-  it('is undefined for a team format under survival-teams', () => {
+  it('is undefined for a team format under One score per team', () => {
     expect(
-      scoredTeamSize({ gameFormat: 'team-2v2v2v2', gamemodeConfig: { teamScoringRule: 'survival-teams' } }),
+      scoredTeamSize({ gameFormat: 'team-2v2v2v2', gamemodeConfig: { teamScoringRule: ONE_SCORE_PER_TEAM } }),
     ).toBeUndefined();
   });
 });

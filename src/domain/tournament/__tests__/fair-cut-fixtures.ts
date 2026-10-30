@@ -3,6 +3,7 @@ import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
 import { splitAdvancement } from '../room-distribution';
 import type { TournamentState } from '../types';
 import { buildState, type SweepConfig } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 /**
  * Shared by the fair-cut tests: a round seated synthetically (unit `R{room}P{position}` in each room of the round's
@@ -13,7 +14,7 @@ export type Setup = SweepConfig['setup'];
 
 export const SE_2V2V2V2: Setup = {
   gameFormat: 'team-2v2v2v2',
-  teamScoringRule: 'survival-teams',
+  teamScoringRule: ONE_SCORE_PER_TEAM,
   scheduleLogic: 'single-elimination',
   poolingPhase: 'none',
 };

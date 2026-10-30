@@ -25,6 +25,7 @@ import {
   type Setup,
 } from './fair-cut-fixtures';
 import { scoreCurrentRound, withEarlierCutRule } from './play-through';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 /**
  * The fair cut (fair-cut.ts, `gamemodeConfig.cutVersion` 2). Most tests seat a round synthetically (`seatRound`: unit
@@ -513,7 +514,7 @@ function sharedFinalFamily(gameFormat: NonNullable<Setup>['gameFormat'], count: 
     count,
     setup: {
       gameFormat,
-      ...(teams ? { teamScoringRule: 'survival-teams' as const } : {}),
+      ...(teams ? { teamScoringRule: ONE_SCORE_PER_TEAM } : {}),
       scheduleLogic: 'double-elimination-shared-final',
       poolingPhase: 'none',
     },
@@ -683,7 +684,7 @@ describe('double elimination', () => {
   it('the shared-Final losers round [3, 2] -> 2 sends both winners on', () => {
     const state = generate('2v2v2 31 DE', 31, {
       gameFormat: 'team-2v2v2',
-      teamScoringRule: 'survival-teams',
+      teamScoringRule: ONE_SCORE_PER_TEAM,
       scheduleLogic: 'double-elimination-shared-final',
       poolingPhase: 'none',
     });

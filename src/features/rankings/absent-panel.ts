@@ -2,9 +2,10 @@ import {
   absentSeats,
   isMemberMarkedAbsent,
   seatAbsenceKeys,
-  survivalMemberKey,
+  oneScoreTeamMemberKey,
 } from '../../domain/tournament/absences';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { isOneScorePerTeam } from '../../domain/tournament/formats';
 import { buildTeamMap, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { currentColumn } from '../../domain/tournament/round-columns';
 import { occupiedRooms } from '../../domain/tournament/scoring';
@@ -96,8 +97,8 @@ export function absentMatchRows(state: TournamentState): AbsentMatchRow[] {
   });
 }
 
-/** A member of a Survival team the organiser marked absent by hand (display only), with the seat it was marked in. */
-export interface SurvivalMarkRow {
+/** A member of a team with one score the organiser marked absent by hand (display only), with the seat it was marked in. */
+export interface OneScoreTeamMarkRow {
   id: string;
   /** "Ann (Red)". */
   label: string;
@@ -109,7 +110,7 @@ export interface SurvivalMarkRow {
 }
 
 /** One team of the column in play with its members, for the "＋ Mark a member absent" picker. */
-export interface SurvivalMarkChoice {
+export interface OneScoreTeamMarkChoice {
   unit: string;
   teamLabel: string;
   roundIndex: number;
@@ -118,18 +119,16 @@ export interface SurvivalMarkChoice {
   members: Array<{ memberIndex: number; name: string; marked: boolean }>;
 }
 
-function isSurvival(state: TournamentState): boolean {
-  return (
-    state.gamemodeConfig.absenceVersion === 1 && state.gamemodeConfig.teamScoringRule === 'survival-teams'
-  );
+function canMarkMembers(state: TournamentState): boolean {
+  return state.gamemodeConfig.absenceVersion === 1 && isOneScorePerTeam(state);
 }
 
-/** The teams seated in the column in play, in seat order, with each member and whether it is marked. Empty outside Survival Teams. */
-export function survivalMarkChoices(state: TournamentState): SurvivalMarkChoice[] {
-  if (!isSurvival(state)) return [];
+/** The teams seated in the column in play, in seat order, with each member and whether it is marked. Empty outside One score per team. */
+export function oneScoreTeamMarkChoices(state: TournamentState): OneScoreTeamMarkChoice[] {
+  if (!canMarkMembers(state)) return [];
   const teams = buildTeamMap(state);
   const column = currentColumn(state);
-  const choices: SurvivalMarkChoice[] = [];
+  const choices: OneScoreTeamMarkChoice[] = [];
   for (let roundIndex = column.start; roundIndex <= column.end; roundIndex += 1) {
     if (state.rounds[roundIndex]?.isFinal || state.rounds[roundIndex]?.bracket === 'grand-final') continue;
     for (const room of occupiedRooms(state, roundIndex)) {
@@ -145,7 +144,7 @@ export function survivalMarkChoices(state: TournamentState): SurvivalMarkChoice[
                   name: member.name,
                   marked: isMemberMarkedAbsent(
                     state,
-                    survivalMemberKey(roundIndex, room, position, memberIndex),
+                    oneScoreTeamMemberKey(roundIndex, room, position, memberIndex),
                   ),
                 },
               ]
@@ -159,9 +158,9 @@ export function survivalMarkChoices(state: TournamentState): SurvivalMarkChoice[
 }
 
 /** The members marked absent by hand in the column in play, each with its team. */
-export function survivalMarkRows(state: TournamentState): SurvivalMarkRow[] {
+export function oneScoreTeamMarkRows(state: TournamentState): OneScoreTeamMarkRow[] {
   const labels = bracketRoundLabels(state);
-  return survivalMarkChoices(state).flatMap((choice) =>
+  return oneScoreTeamMarkChoices(state).flatMap((choice) =>
     choice.members
       .filter((member) => member.marked)
       .map((member) => ({

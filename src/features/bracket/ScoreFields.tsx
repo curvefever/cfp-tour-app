@@ -22,7 +22,7 @@ export function TeamMembers({
   roundIndex: number;
   /** Where the team sits, once its room is complete: each member's own score then follows the name. */
   seat?: { room: number; position: number };
-  /** Where the team sits, whether or not its room is complete: a Survival member marked absent by hand shows after the name. */
+  /** Where the team sits, whether or not its room is complete: a member of a team with one score marked absent by hand shows after the name. */
   markSeat?: { room: number; position: number };
 }) {
   const line = teamMemberLine(state, name, roundIndex, seat ?? null, markSeat ?? seat ?? null);

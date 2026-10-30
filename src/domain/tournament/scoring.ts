@@ -1,4 +1,4 @@
-import { getGameFormat } from './formats';
+import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
@@ -34,11 +34,11 @@ export function getDefenderIndex(
   return bestIndex;
 }
 
-/** Per-member score keys a unit has: the team size, or `undefined` when a unit takes one score (individual format, Survival Teams). */
+/** Per-member score keys a unit has: the team size, or `undefined` when a unit takes one score (individual format, One score per team). */
 export function scoredTeamSize(
   state: Pick<TournamentState, 'gameFormat' | 'gamemodeConfig'>,
 ): number | undefined {
-  if (state.gamemodeConfig.teamScoringRule === 'survival-teams') return undefined;
+  if (isOneScorePerTeam(state)) return undefined;
   return getGameFormat(state.gameFormat)?.teamSize;
 }
 

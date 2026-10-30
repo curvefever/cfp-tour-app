@@ -4,6 +4,7 @@
  * only the keys of a round that grows from one game to several move to game 1 (and back).
  */
 import { invalidateStaleTieResolutions } from './advancement';
+import { isOneScorePerTeam } from './formats';
 import { occupiedRooms } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -91,8 +92,8 @@ export function changeRoundMatchFormat(
   const grows = oldGames === 1 && newGames > 1;
   const shrinks = oldGames > 1 && newGames === 1;
   if (!round.isFinal && (grows || shrinks)) {
-    // A Survival member mark is stored under the round-wide member key, which looks like a one-game member score key.
-    const keepMemberKeys = state.gamemodeConfig.teamScoringRule === 'survival-teams';
+    // The hand mark of a member of a team with one score is stored under the round-wide member key, which looks like a one-game member score key.
+    const keepMemberKeys = isOneScorePerTeam(state);
     working = {
       ...working,
       scores: moveKeys(working.scores, roundIndex, grows, false),

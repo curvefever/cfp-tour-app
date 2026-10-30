@@ -32,7 +32,7 @@ export function isManuallyConfirmed(state: TournamentState, name: string): boole
 /**
  * The names with an individual score above 0, in a pooling or bracket room or in a Final, any game. Only where
  * scores belong to players: individual formats, and team formats scored as "sum of members" (a member's score
- * goes to whoever holds that slot now). Survival Teams (one score per team) and Save your Buddy (defender only)
+ * goes to whoever holds that slot now). One score per team and Save your Buddy (defender only)
  * give nobody a score of their own. Worked out from the stored scores, never saved.
  */
 export function scoredPlayers(state: TournamentState): Set<string> {

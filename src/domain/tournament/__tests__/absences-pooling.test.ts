@@ -17,6 +17,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { scoreCurrentRound, withoutAbsenceRule } from './play-through';
 import { generated, oneRoomState, teamOf } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 function roomKeys(state: TournamentState, room: number): string[] {
   const size = state.assignments[state.curRound].filter((entry) => entry.room === room).length;
@@ -256,19 +257,19 @@ describe('a tie at 0', () => {
     expect(ties(answerAbsence(zeros(), ['r0-rm1-p0', 'r0-rm1-p1'], 'played'))).toEqual(['r0-rm1-s0']);
   });
 
-  it('shows at once in a tournament without absenceVersion, and in Survival Teams', () => {
+  it('shows at once in a tournament without absenceVersion, and in One score per team', () => {
     const old = oneRoomState({
       version: false,
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 0, 'r0-rm1-p2': 50, 'r0-rm1-p3': 40 },
     });
     expect(ties(old)).toEqual(['r0-rm1-s0']);
-    const survival = oneRoomState({
+    const oneScorePerTeam = oneRoomState({
       gameFormat: 'team-2v2v2v2',
-      rule: 'survival-teams',
+      rule: ONE_SCORE_PER_TEAM,
       players: [teamOf('A', ['a1', 'a2']), teamOf('B', ['b1', 'b2']), teamOf('C', ['c1', 'c2'])],
       scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 0, 'r0-rm1-p2': 50 },
     });
-    expect(ties(survival)).toEqual(['r0-rm1-s0']);
+    expect(ties(oneScorePerTeam)).toEqual(['r0-rm1-s0']);
   });
 
   it('drops a decision made on a tie that an answer dissolves', () => {

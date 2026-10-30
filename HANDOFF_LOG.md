@@ -6,6 +6,32 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## One score per team: code names (done — 2026-10-30)
+
+**Context.** The rule was renamed "One score per team" in the UI on 2026-10-30, but the code still said "survival": the stored key `'survival-teams'`, `isSurvival`, `survivalMemberKey`, `markSurvivalMemberAbsent` and others. The rule has nothing to do with the Survival game mode, so the names misled. One stage, one commit on `test`; renames only, no behaviour change.
+
+**Risk assessment (planner).** Code names only: low risk. About 150 mentions in 35 files (15 of them source files, the rest tests and fixtures); TypeScript catches a missed rename; nothing stored changes (absence keys are `r…-rm…-p…-m…`); no user-visible string said "Survival".
+
+**The stored value `'survival-teams'` stays (organiser).** It is saved in every team tournament on test and production (`gamemodeConfig`, the settings snapshot, each stored Setup). Renaming it would need a permanent translation at four places that read data (`normalizeLiveTournamentState`, `normalizePersistedSetup`, `decodeStoredSetup`, "Copy settings"), and a tab open on an older build would misread new tournaments until it reloads. It now lives in one named constant, `ONE_SCORE_PER_TEAM` (`formats.ts`), with a comment saying why it keeps its old spelling; the predicate `isOneScorePerTeam(state)` (same file) replaces every comparison against the literal. `TeamScoringRuleKey` uses `typeof ONE_SCORE_PER_TEAM`.
+
+| Was | Now |
+| --- | --- |
+| `survivalMemberKey` | `oneScoreTeamMemberKey` |
+| `markSurvivalMemberAbsent` / `unmarkSurvivalMemberAbsent` | `markOneScoreTeamMemberAbsent` / `unmarkOneScoreTeamMemberAbsent` |
+| `survivalMarkChoices` / `SurvivalMarkChoice` | `oneScoreTeamMarkChoices` / `OneScoreTeamMarkChoice` |
+| `survivalMarkRows` / `SurvivalMarkRow` | `oneScoreTeamMarkRows` / `OneScoreTeamMarkRow` |
+| `survivalRoom` (test helper) | `oneScoreTeamRoom` |
+| `isSurvival` (two private copies) | `isOneScorePerTeam` (`formats.ts`); the Absent panel's copy also needs `absenceVersion`, kept as the private `canMarkMembers` |
+| local `survival`, `SURVIVAL_NOTE` | `oneScorePerTeam`, `ONE_SCORE_NOTE` |
+
+Comments and test titles say "One score per team" or "a team with one score". Test fixtures use the constant. Left alone: the Survival game mode where it is meant (`scripts/seeding-simulation/`, `docs/real-scores.md`) and `TARGET_ROUND_SURVIVAL_RATIO` (units surviving a round, `single-elimination.ts`).
+
+**Testing.** One new test (`isOneScorePerTeam`: true for the stored value, false for the other two rules and for none). Every existing test passes unchanged apart from names: `vitest related` on the changed files (114 files, 3488 tests, which `formats.ts` pulls in almost entirely), lint, format and typecheck clean.
+
+**Full suite:** not run by the implementer; the planner runs it at the final review (this build touches `src/domain/`).
+
+**Out of scope.** Changing the stored value `'survival-teams'` (and any production data migration); the Survival game mode's name in scripts and `docs/real-scores.md`.
+
 ## Each game's score in multi-game rooms (done — 2026-10-30)
 
 **Context.** A viewer of a Best-of-3 Semis room saw only the result (`2` / `1`, or the summed total); the Final already showed every game in columns. The organiser wants "200–150" as well as "1–0", before the 4v4 tour of Sunday 1 November 2026, 20:00 CET. Display only: no domain rule, stored data or score entry changed. One stage, one commit on `test`.

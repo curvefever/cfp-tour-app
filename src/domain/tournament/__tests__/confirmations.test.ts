@@ -11,6 +11,7 @@ import {
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState, TournamentTeam } from '../types';
 import { buildRound } from './test-fixtures';
+import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const names = (count: number) => Array.from({ length: count }, (_, index) => `P${index + 1}`);
 
@@ -243,7 +244,7 @@ describe('scoredPlayers, team formats', () => {
     teams.map((team) => team.teamId),
     4,
   );
-  const base = (rule: 'sum-members' | 'designated-player' | 'survival-teams') =>
+  const base = (rule: 'sum-members' | 'designated-player' | typeof ONE_SCORE_PER_TEAM) =>
     createDefaultTournamentState({
       gameFormat: 'team-2v2v2v2',
       gamemodeConfig: { teamScoringRule: rule },
@@ -274,9 +275,9 @@ describe('scoredPlayers, team formats', () => {
     expect(rosterConfirmationSummary(state)).toMatchObject({ teamsConfirmed: 1 });
   });
 
-  it('Survival Teams and Save your Buddy confirm nobody from a score', () => {
-    const survival = { ...base('survival-teams'), scores: { [key(0, fifth)]: 7 } };
-    expect(scoredPlayers(survival).size).toBe(0);
+  it('One score per team and Save your Buddy confirm nobody from a score', () => {
+    const oneScorePerTeam = { ...base(ONE_SCORE_PER_TEAM), scores: { [key(0, fifth)]: 7 } };
+    expect(scoredPlayers(oneScorePerTeam).size).toBe(0);
     const buddy = { ...base('designated-player'), scores: { [key(0, fifth, '-m0')]: 7 } };
     expect(scoredPlayers(buddy).size).toBe(0);
     expect(rosterConfirmationSummary(buddy)).toMatchObject({ confirmed: 0, teamsConfirmed: 0 });
@@ -302,7 +303,7 @@ describe('scoredPlayers, team formats', () => {
     expect([...scoredPlayers(state)]).toEqual(['T5b']);
   });
 
-  it('a Final score confirms the member, and none counts under Survival Teams', () => {
+  it('a Final score confirms the member, and none counts under One score per team', () => {
     const final = {
       ...base('sum-members'),
       rounds: [buildRound({ roundNum: 1, rooms: [2], players: 2, isFinal: true, numGames: 2 })],
@@ -315,6 +316,6 @@ describe('scoredPlayers, team formats', () => {
       finalScores: { 'game2-t1-m1': 6, 'game1-t2-m0': 0 } as TournamentState['finalScores'],
     };
     expect([...scoredPlayers(final)]).toEqual(['T1b']);
-    expect(scoredPlayers({ ...final, gamemodeConfig: { teamScoringRule: 'survival-teams' } }).size).toBe(0);
+    expect(scoredPlayers({ ...final, gamemodeConfig: { teamScoringRule: ONE_SCORE_PER_TEAM } }).size).toBe(0);
   });
 });
