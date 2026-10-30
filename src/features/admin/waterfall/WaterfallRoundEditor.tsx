@@ -480,10 +480,13 @@ function RoundSummary({
   round,
   columns,
   finalsGames,
+  onSetMatch,
 }: {
   round: WaterfallDraftRound;
   columns?: RoundColumnInfo;
   finalsGames?: number;
+  /** Given for a round in play: its match format can still change; a finished round shows it disabled. */
+  onSetMatch?: (match: WaterfallMatch | null) => void;
 }) {
   return (
     <div className='flex flex-wrap items-center gap-3'>
@@ -493,7 +496,7 @@ function RoundSummary({
         {round.isFinal ? ' · Final' : ''}
       </span>
       {columns ? <ColumnField info={columns} round={round} /> : null}
-      <MatchField finalsGames={finalsGames} round={round} />
+      <MatchField finalsGames={finalsGames} onSetMatch={onSetMatch} round={round} />
     </div>
   );
 }
@@ -508,6 +511,7 @@ export function WaterfallRoundEditor({
   locked,
   columns,
   finalsGames,
+  matchEditable,
 }: {
   draft: WaterfallDraft;
   round: WaterfallDraftRound;
@@ -522,6 +526,8 @@ export function WaterfallRoundEditor({
   columns?: RoundColumnInfo;
   /** The Finals format, shown on the Final's default Match option. */
   finalsGames?: number;
+  /** This round is in play: its Match select works though the round is locked. */
+  matchEditable?: boolean;
 }) {
   return (
     <div>
@@ -534,7 +540,12 @@ export function WaterfallRoundEditor({
           round={round}
         />
       ) : (
-        <RoundSummary columns={columns} finalsGames={finalsGames} round={round} />
+        <RoundSummary
+          columns={columns}
+          finalsGames={finalsGames}
+          onSetMatch={actions && matchEditable ? actions.onSetMatch : undefined}
+          round={round}
+        />
       )}
       {round.isFinal ? (
         <div className='mt-3 rounded-lg bg-surface-low p-4'>

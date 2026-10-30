@@ -269,49 +269,57 @@ function DraftEditor({
           </>
         )}
       </div>
-      <div className='grid gap-4 min-[901px]:grid-cols-[11rem_minmax(0,1fr)_18rem]'>
-        <div>
-          <div className='mb-2 text-[0.72rem] font-semibold tracking-[0.12em] text-muted uppercase'>
-            Rounds
+      {/* The three columns follow the editor's own width, not the window's: Setup and Admin give it about half the page. */}
+      <div className='@container'>
+        <div className='grid gap-4 @min-[52rem]:grid-cols-[11rem_minmax(0,1fr)_18rem]'>
+          <div>
+            <div className='mb-2 text-[0.72rem] font-semibold tracking-[0.12em] text-muted uppercase'>
+              Rounds
+            </div>
+            <WaterfallRoundList
+              currentRoundLabels={currentRoundLabels}
+              draft={draft}
+              entrantCount={entrantCount}
+              intake={intake}
+              lockedRounds={lockedRounds}
+              onSelect={select}
+              selected={qualSelected ? QUAL_LABEL : round.label}
+              showColumns={showColumns}
+              startedColumns={startedColumns}
+            />
+            {readOnly ? null : (
+              <Button className='mt-2 w-full' onClick={addRound} size='sm'>
+                + Add round
+              </Button>
+            )}
           </div>
-          <WaterfallRoundList
-            currentRoundLabels={currentRoundLabels}
+          {qualSelected ? (
+            <QualificationTableEditor
+              actions={readOnly ? undefined : actions}
+              draft={draft}
+              picked={picked}
+            />
+          ) : (
+            <WaterfallRoundEditor
+              actions={readOnly ? undefined : actions}
+              columns={columnInfo}
+              draft={draft}
+              finalsGames={finalsGames}
+              incomingPlayers={intake.incoming[round.label] ?? 0}
+              locked={lockedRounds?.has(round.label)}
+              matchEditable={currentRoundLabels?.has(round.label)}
+              mirror={mirror}
+              picked={picked}
+              round={round}
+            />
+          )}
+          <WaterfallSidePanel
             draft={draft}
             entrantCount={entrantCount}
-            intake={intake}
-            lockedRounds={lockedRounds}
-            onSelect={select}
-            selected={qualSelected ? QUAL_LABEL : round.label}
-            showColumns={showColumns}
-            startedColumns={startedColumns}
+            standingsSource={standingsSource}
+            status={status}
           />
-          {readOnly ? null : (
-            <Button className='mt-2 w-full' onClick={addRound} size='sm'>
-              + Add round
-            </Button>
-          )}
         </div>
-        {qualSelected ? (
-          <QualificationTableEditor actions={readOnly ? undefined : actions} draft={draft} picked={picked} />
-        ) : (
-          <WaterfallRoundEditor
-            actions={readOnly ? undefined : actions}
-            columns={columnInfo}
-            draft={draft}
-            finalsGames={finalsGames}
-            incomingPlayers={intake.incoming[round.label] ?? 0}
-            locked={lockedRounds?.has(round.label)}
-            mirror={mirror}
-            picked={picked}
-            round={round}
-          />
-        )}
-        <WaterfallSidePanel
-          draft={draft}
-          entrantCount={entrantCount}
-          standingsSource={standingsSource}
-          status={status}
-        />
       </div>
     </div>
   );
