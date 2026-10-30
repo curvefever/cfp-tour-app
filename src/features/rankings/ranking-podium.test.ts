@@ -61,6 +61,31 @@ describe('finalStanding', () => {
     ]);
   });
 
+  it('says the games won on a Best-of Final, not a score total', () => {
+    const state = finalState(
+      {
+        'game1-P1': 10,
+        'game1-P2': 20,
+        'game1-P3': 6,
+        'game1-P4': 1,
+        'game2-P1': 5,
+        'game2-P2': 30,
+        'game2-P3': 7,
+        'game2-P4': 2,
+      },
+      3,
+    );
+    const best = {
+      ...state,
+      rounds: state.rounds.map((round) => (round.isFinal ? { ...round, bestOf: 3 } : round)),
+    };
+    expect(standingOf(best).top.map((card) => [card.rank, card.label, card.line])).toEqual([
+      [1, 'P2', 'Final · 2 games won'],
+      [2, 'P1', 'Final · 0 games won'],
+      [3, 'P3', 'Final · 0 games won'],
+    ]);
+  });
+
   it('gives the first three again in order of place', () => {
     const { top } = standingOf(finalState(threeGames, 3));
     expect(top.map((card) => [card.rank, card.label])).toEqual([

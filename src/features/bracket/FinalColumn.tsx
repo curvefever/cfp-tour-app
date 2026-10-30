@@ -174,7 +174,7 @@ export function FinalColumn({
               key={name}
               manual={Boolean(assignments.find((entry) => entry.name === name)?.manual)}
               name={name}
-              perGame={unit.perGame}
+              perGame={unit.perGame.map((score, game) => (notNeeded.includes(game + 1) ? null : score))}
               roundIndex={roundIndex}
               state={state}
               team={teamMap[name]}

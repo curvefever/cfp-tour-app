@@ -43,9 +43,10 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-/** "Final · 429 over 3 games" (just "Final · 429" for a single game); the race Grand Final counts the games won. */
+/** "Final · 429 over 3 games" (just "Final · 429" for a single game); the race Grand Final and a Best-of Final count the games won. */
 function finalistLine(data: Rankings, roundName: string, total: number): string {
-  if (data.lastRound.bracket === 'grand-final') return `${roundName} · ${plural(total, 'game')} won`;
+  if (data.lastRound.bracket === 'grand-final' || data.lastRound.bestOf !== undefined)
+    return `${roundName} · ${plural(total, 'game')} won`;
   const games = data.lastRound.numGames ?? 1;
   return games === 1 ? `${roundName} · ${total}` : `${roundName} · ${total} over ${games} games`;
 }
