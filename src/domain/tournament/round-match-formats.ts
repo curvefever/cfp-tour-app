@@ -205,8 +205,23 @@ export function matchStage(round: TournamentRound): RoundStage | null {
   return round.bracket === 'losers' ? 'losers' : 'bracket';
 }
 
+/** What the first stage of the bracket is called by the schedule, in a Setup select, the recap and the Admin. */
+export function bracketStageLabel(scheduleLogic: ScheduleLogicKey): string {
+  switch (scheduleLogic) {
+    case 'single-elimination':
+      return 'Elimination rounds';
+    case 'kings-valley':
+      return 'Ladder rounds';
+    default:
+      return 'Winners rounds';
+  }
+}
+
 /** A stage's format: summed `games`, or a Best of N when `bestOf` is set. */
-function stageFormat(stage: RoundStage, config: MatchFormatConfig): { games: number; bestOf?: number } {
+export function stageFormat(
+  stage: RoundStage,
+  config: MatchFormatConfig,
+): { games: number; bestOf?: number } {
   switch (stage) {
     case 'pooling':
       return { games: config.poolingGames ?? 1, bestOf: config.poolingBestOf };

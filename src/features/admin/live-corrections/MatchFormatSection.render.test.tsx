@@ -103,4 +103,65 @@ describe('the Match format section of "Correct current round"', () => {
     expect(section.getByLabelText<HTMLSelectElement>('Semis format').disabled).toBe(true);
     expect(section.getByLabelText<HTMLSelectElement>('Final format').disabled).toBe(false);
   });
+
+  it('lists the stages and only the rounds not finished, the stage format as the first option of a round', () => {
+    const view = renderApp(inSemis(), { role: 'admin', tab: 'admin' });
+    const section = within(view.getByText('Match format').closest('div') as HTMLElement);
+    for (const label of [
+      'Pooling rounds format',
+      'Elimination rounds format',
+      'Semis format',
+      'Final format',
+    ]) {
+      expect(section.getByLabelText(label)).toBeTruthy();
+    }
+    expect(section.getByLabelText<HTMLSelectElement>('Pooling rounds format').disabled).toBe(true);
+    expect(section.queryByLabelText('Round 1')).toBeNull();
+    expect(section.queryByLabelText('Round 4')).toBeNull();
+    const semis = section.getByLabelText<HTMLSelectElement>('Semis');
+    expect(semis.value).toBe('');
+    expect(within(semis).getAllByRole('option')[0].textContent).toBe('Stage format (Single game)');
+    expect(
+      within(section.getByLabelText<HTMLSelectElement>('Final')).getAllByRole('option')[0].textContent,
+    ).toBe('Stage format (3 games (sum))');
+  });
+
+  it('saves a round row as an override, and a stage together with it', () => {
+    const updateState = vi.fn();
+    const view = renderApp(inSemis(), { role: 'admin', tab: 'admin', context: { updateState } });
+    const section = within(view.getByText('Match format').closest('div') as HTMLElement);
+    const save = section.getByRole<HTMLButtonElement>('button', { name: 'Save match format' });
+    fireEvent.change(section.getByLabelText('Semis'), { target: { value: 'bo3' } });
+    fireEvent.change(section.getByLabelText('Final format'), { target: { value: 'bo5' } });
+    expect(save.disabled).toBe(false);
+    fireEvent.click(save);
+    const saved = updateState.mock.calls[0][0] as TournamentState;
+    expect(saved.rounds.find((round) => round.isSemis)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(saved.rounds.find((round) => round.isFinal)).toMatchObject({ bestOf: 5, numGames: 5 });
+    expect(saved.gamemodeConfig).toMatchObject({ finalsBestOf: 5, matchOverrides: { Semis: 'BO3' } });
+    expect(saved.settings).toMatchObject({ finalsBestOf: '5', matchOverrides: 'Semis: BO3' });
+    expect(consoleError).not.toHaveBeenCalled();
+  });
+
+  it('shows the refusal of a round and saves nothing', () => {
+    const updateState = vi.fn();
+    const semis = inSemis();
+    const typed = {
+      ...semis.state,
+      scores: { ...semis.state.scores, [`r${semis.state.curRound}-rm1-p0-g3`]: 9 },
+    };
+    const best = {
+      ...typed,
+      rounds: typed.rounds.map((round) => (round.isSemis ? { ...round, bestOf: 3, numGames: 3 } : round)),
+    };
+    const view = renderApp(
+      { ...semis, state: best },
+      { role: 'admin', tab: 'admin', context: { updateState } },
+    );
+    const section = within(view.getByText('Match format').closest('div') as HTMLElement);
+    fireEvent.change(section.getByLabelText('Semis'), { target: { value: '2' } });
+    fireEvent.click(section.getByRole('button', { name: 'Save match format' }));
+    expect(section.getByText(/already has scores for game 3/)).toBeTruthy();
+    expect(updateState).not.toHaveBeenCalled();
+  });
 });

@@ -3,6 +3,7 @@ import { generateTournament } from '../generation';
 import { bestOfGameCount, roomMatch } from '../match-format';
 import { isFinalComplete } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
+import { removeRosterUnit } from '../mutations';
 import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -53,57 +54,88 @@ function finalScores(state: TournamentState, games: Record<string, number>): Tou
   return { ...state, finalScores: { ...state.finalScores, ...typed } };
 }
 
-function edit(state: TournamentState, input: Parameters<typeof applyStageMatchEdit>[1]): TournamentState {
-  const result = applyStageMatchEdit(state, input);
+function edit(
+  state: TournamentState,
+  input: Parameters<typeof applyStageMatchEdit>[1],
+  rounds?: Parameters<typeof applyStageMatchEdit>[2],
+): TournamentState {
+  const result = applyStageMatchEdit(state, input, rounds);
   if (!result.ok) throw new Error(result.error);
   return result.state;
 }
 
-function refusal(state: TournamentState, input: Parameters<typeof applyStageMatchEdit>[1]): string {
-  const result = applyStageMatchEdit(state, input);
+function refusalOf(result: ReturnType<typeof applyStageMatchEdit>): string {
   if (result.ok) throw new Error('expected a refusal');
   return result.error;
 }
 
+function refusal(state: TournamentState, input: Parameters<typeof applyStageMatchEdit>[1]): string {
+  return refusalOf(applyStageMatchEdit(state, input));
+}
+
 describe('stageMatchScope', () => {
-  it('lists the Semis and the Final of single elimination, prefilled from the rounds', () => {
+  it('lists the stages of single elimination, prefilled from the config, and every round not finished', () => {
     const scope = stageMatchScope(generated(37, { scheduleLogic: 'single-elimination' }));
-    expect(scope).toMatchObject({
-      kind: 'stages',
-      stages: [
-        { stage: 'semis', games: 1, locked: false },
-        { stage: 'finals', games: 3, locked: false },
-      ],
-    });
+    if (scope.kind !== 'stages') throw new Error('expected stages');
+    expect(scope.stages).toEqual([
+      { stage: 'pooling', label: 'Pooling rounds', games: 1, locked: false },
+      { stage: 'bracket', label: 'Elimination rounds', games: 1, locked: false },
+      { stage: 'semis', label: 'Semis', games: 1, locked: false },
+      { stage: 'finals', label: 'Final', games: 3, locked: false },
+    ]);
+    expect(scope.rounds.map((entry) => entry.name).slice(0, 3)).toEqual(['Round 1', 'Round 2', 'Round 3']);
+    expect(scope.rounds.at(-1)).toMatchObject({ name: 'Final', stage: 'finals' });
+    expect(scope.rounds.every((entry) => entry.override === undefined)).toBe(true);
   });
 
-  it('shows a Best of N from the round and the games the settings keep', () => {
+  it('shows a Best of N and the games the config keeps, and the override a round has', () => {
     const scope = stageMatchScope(
-      generated(37, { scheduleLogic: 'single-elimination', finalsGames: '4', finalsBestOf: '3' }),
+      generated(37, {
+        scheduleLogic: 'single-elimination',
+        finalsGames: '4',
+        finalsBestOf: '3',
+        matchOverrides: 'Round 3: GAMES 2',
+      }),
     );
-    expect(scope).toMatchObject({ stages: [{}, { stage: 'finals', games: 4, bestOf: 3 }] });
+    if (scope.kind !== 'stages') throw new Error('expected stages');
+    expect(scope.stages.at(-1)).toMatchObject({ stage: 'finals', games: 4, bestOf: 3 });
+    expect(scope.rounds.find((entry) => entry.name === 'Round 3')?.override).toEqual({ games: 2 });
   });
 
-  it('locks the Semis once the Final is reached', () => {
+  it('locks the Semis once the Final is reached, and no longer lists its round', () => {
     const scope = stageMatchScope(inFinal());
-    expect(scope).toMatchObject({
-      stages: [
-        { stage: 'semis', locked: true },
-        { stage: 'finals', locked: false },
-      ],
-    });
+    if (scope.kind !== 'stages') throw new Error('expected stages');
+    expect(scope.stages.find((entry) => entry.stage === 'semis')?.locked).toBe(true);
+    expect(scope.stages.find((entry) => entry.stage === 'finals')?.locked).toBe(false);
+    expect(scope.rounds.map((entry) => entry.name)).toEqual(['Final']);
   });
 
-  it('covers only the Final in Kings Valley and shared-Final double elimination, and nothing in the race or the Custom bracket', () => {
-    const kings = stageMatchScope(
-      generated(24, { scheduleLogic: 'kings-valley', gameFormat: 'ffa-individual' }),
-    );
-    expect(kings).toMatchObject({ stages: [{ stage: 'finals' }] });
-    const shared = stageMatchScope(
-      generated(37, { scheduleLogic: 'double-elimination-shared-final', gameFormat: 'ffa-individual' }),
-    );
-    expect(shared).toMatchObject({ stages: [{ stage: 'finals' }] });
-    expect(stageMatchScope(generated(16, { scheduleLogic: 'double-elimination' })).kind).toBe('none');
+  it('covers the ladder of Kings Valley, the losers rounds of a double elimination and the pooling of a Custom bracket', () => {
+    const stagesOf = (state: TournamentState) => {
+      const scope = stageMatchScope(state);
+      return scope.kind === 'stages' ? scope.stages.map((entry) => entry.stage) : scope.kind;
+    };
+    expect(stagesOf(generated(24, { scheduleLogic: 'kings-valley', gameFormat: 'ffa-individual' }))).toEqual([
+      'pooling',
+      'bracket',
+      'finals',
+    ]);
+    expect(
+      stagesOf(
+        generated(37, { scheduleLogic: 'double-elimination-shared-final', gameFormat: 'ffa-individual' }),
+      ),
+    ).toEqual(['pooling', 'bracket', 'losers', 'finals']);
+    expect(stagesOf(generated(16, { scheduleLogic: 'double-elimination' }))).toEqual([
+      'pooling',
+      'bracket',
+      'losers',
+    ]);
+  });
+
+  it('keeps the race Grand Final out', () => {
+    const scope = stageMatchScope(generated(16, { scheduleLogic: 'double-elimination' }));
+    if (scope.kind !== 'stages') throw new Error('expected stages');
+    expect(scope.rounds.some((entry) => entry.name === 'Grand Final')).toBe(false);
   });
 });
 
@@ -225,5 +257,138 @@ describe('the Kings Valley Final', () => {
     expect(final).toMatchObject({ bestOf: 3 });
     expect(final?.numGames).toBe(final ? final.players + 1 : 0);
     expect(next.gamemodeConfig).toMatchObject({ finalsBestOf: 3 });
+  });
+});
+
+describe('the stages and rounds before the Semis, 1v1 at 37', () => {
+  /** The first elimination round (Round 3, after two warm-ups) in play, one score typed in game 1 of its first room. */
+  const inRound3 = () => {
+    const state = playUntil(
+      generated(37, { scheduleLogic: 'single-elimination' }),
+      (round) => !round.isNoElim,
+    );
+    return { ...state, scores: { ...state.scores, [`r${state.curRound}-rm1-p0`]: 30 } };
+  };
+  const roundOf = (state: TournamentState, number: number) =>
+    state.rounds.find((round) => round.roundNum === number);
+
+  it('Elimination rounds 1 game to Best of 3 with Round 3 in play and a score in: the score becomes game 1, the later rounds follow, the Semis keep theirs', () => {
+    const state = inRound3();
+    const round = state.curRound;
+    expect(state.rounds[round].roundNum).toBe(3);
+    const next = edit(state, { bracket: { games: 1, bestOf: 3 } });
+    expect(next.scores[`r${round}-rm1-p0-g1`]).toBe(30);
+    expect(next.scores[`r${round}-rm1-p0`]).toBeUndefined();
+    for (const number of [3, 4, 5]) {
+      expect(roundOf(next, number)).toMatchObject({ bestOf: 3, numGames: 3 });
+    }
+    expect(next.rounds.find((entry) => entry.isSemis)).not.toHaveProperty('bestOf');
+    expect(next.rounds.slice(0, round).every((entry) => entry.bestOf === undefined)).toBe(true);
+    expect(next.gamemodeConfig).toMatchObject({ bracketBestOf: 3 });
+    expect(next.settings).toMatchObject({ bracketBestOf: '3', bracketGames: '1' });
+  });
+
+  it('goes back to one game with only game 1 typed, and clears the Best of N key', () => {
+    const best = edit(inRound3(), { bracket: { games: 1, bestOf: 3 } });
+    const back = edit(best, { bracket: { games: 1 } });
+    expect(back.scores[`r${back.curRound}-rm1-p0`]).toBe(30);
+    expect(roundOf(back, 4)).not.toHaveProperty('bestOf');
+    expect(back.gamemodeConfig).not.toHaveProperty('bracketBestOf');
+    expect(back.gamemodeConfig).not.toHaveProperty('bracketGames');
+    expect(back.settings).toMatchObject({ bracketBestOf: '', bracketGames: '1' });
+  });
+
+  it('a round row Best of 3 to 2 games is refused with game 3 typed, and changes nothing', () => {
+    const best = edit(inRound3(), { bracket: { games: 1, bestOf: 3 } });
+    const typed = { ...best, scores: { ...best.scores, [`r${best.curRound}-rm1-p0-g3`]: 5 } };
+    const result = applyStageMatchEdit(typed, {}, { 'Round 3': { games: 2 } });
+    expect(result).toEqual({
+      ok: false,
+      error: 'Can\'t save: "Round 3" already has scores for game 3, so it can\'t be played over 2 games.',
+    });
+  });
+
+  it('a stage change that one round refuses writes nothing', () => {
+    const best = edit(inRound3(), { bracket: { games: 1, bestOf: 3 } });
+    const typed = { ...best, scores: { ...best.scores, [`r${best.curRound}-rm1-p0-g3`]: 5 } };
+    const result = applyStageMatchEdit(typed, { bracket: { games: 2 } });
+    expect(result.ok).toBe(false);
+    expect(typed.gamemodeConfig).toMatchObject({ bracketBestOf: 3 });
+    expect(result.ok ? null : result.error).toContain('game 3');
+  });
+
+  it('never changes a finished round: the warm-ups stay as they were, and their stage is locked', () => {
+    const state = inRound3();
+    const scope = stageMatchScope(state);
+    if (scope.kind !== 'stages') throw new Error('expected stages');
+    expect(scope.stages.find((entry) => entry.stage === 'pooling')?.locked).toBe(true);
+    expect(scope.rounds.map((entry) => entry.name)).not.toContain('Round 1');
+    expect(refusal(state, { pooling: { games: 1, bestOf: 3 } })).toBe(
+      'Can\'t save: "Pooling rounds" is finished, so its match format can\'t change.',
+    );
+    expect(refusalOf(applyStageMatchEdit(state, {}, { 'Round 1': { games: 1, bestOf: 3 } }))).toContain(
+      '"Round 1" is finished',
+    );
+    const next = edit(state, { bracket: { games: 1, bestOf: 3 } });
+    expect(next.rounds.slice(0, 2)).toEqual(state.rounds.slice(0, 2));
+  });
+
+  it('a round row writes its override to the rounds, the config and the snapshot, and clearing it takes it out', () => {
+    const state = generated(37, { scheduleLogic: 'single-elimination', bracketBestOf: '3' });
+    const next = applyStageMatchEdit(state, {}, { 'Round 4': { games: 2 }, Final: { games: 1, bestOf: 5 } });
+    if (!next.ok) throw new Error(next.error);
+    expect(roundOf(next.state, 4)).toMatchObject({ numGames: 2 });
+    expect(roundOf(next.state, 4)).not.toHaveProperty('bestOf');
+    expect(next.state.rounds.find((entry) => entry.isFinal)).toMatchObject({ bestOf: 5, numGames: 5 });
+    expect(next.state.gamemodeConfig.matchOverrides).toEqual({ 'Round 4': 'GAMES 2', Final: 'BO5' });
+    expect(next.state.settings?.matchOverrides).toBe('Round 4: GAMES 2\nFinal: BO5');
+    const cleared = edit(next.state, {}, { 'Round 4': null, Final: null });
+    expect(roundOf(cleared, 4)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(cleared.rounds.find((entry) => entry.isFinal)).toMatchObject({ numGames: 3 });
+    expect(cleared.gamemodeConfig).not.toHaveProperty('matchOverrides');
+    expect(cleared.settings?.matchOverrides).toBe('');
+  });
+
+  it('a stage change leaves a round with an override as it is', () => {
+    const state = generated(37, { scheduleLogic: 'single-elimination', matchOverrides: 'Round 4: GAMES 2' });
+    const next = edit(state, { bracket: { games: 1, bestOf: 3 } });
+    expect(roundOf(next, 4)).toMatchObject({ numGames: 2 });
+    expect(roundOf(next, 4)).not.toHaveProperty('bestOf');
+    expect(roundOf(next, 5)).toMatchObject({ bestOf: 3, numGames: 3 });
+  });
+
+  it('refuses a round the schedule does not have', () => {
+    const state = generated(37, { scheduleLogic: 'single-elimination' });
+    expect(refusalOf(applyStageMatchEdit(state, {}, { 'Round 99': { games: 2 } }))).toBe(
+      'Can\'t save: the schedule has no round "Round 99".',
+    );
+  });
+});
+
+describe('a Kings Valley ladder changed live', () => {
+  it('keeps the new format on the tail the next advance re-plans', () => {
+    const state = generated(24, { scheduleLogic: 'kings-valley', gameFormat: 'ffa-individual' });
+    const changed = edit(state, { bracket: { games: 1, bestOf: 3 } });
+    const victim = changed.assignments[changed.curRound].find((entry) => entry.room !== null)?.name as string;
+    const advanced = advanceTournamentRound(scoreCurrentRound(removeRosterUnit(changed, victim), 0));
+    if (advanced.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(advanced)}`);
+    const ladder = advanced.state.rounds
+      .slice(advanced.state.curRound)
+      .filter((round) => round.isKingsValley);
+    expect(ladder.length).toBeGreaterThan(0);
+    for (const round of ladder) {
+      expect(round).toMatchObject({ bestOf: 3, numGames: bestOfGameCount(3, Math.max(...round.rooms)) });
+    }
+  });
+
+  it('keeps a round override of the Final on the re-planned tail (the config holds it)', () => {
+    const state = generated(24, { scheduleLogic: 'kings-valley', gameFormat: 'ffa-individual' });
+    const changed = edit(state, {}, { Final: { games: 1, bestOf: 5 } });
+    expect(changed.gamemodeConfig.matchOverrides).toEqual({ Final: 'BO5' });
+    const victim = changed.assignments[changed.curRound].find((entry) => entry.room !== null)?.name as string;
+    const advanced = advanceTournamentRound(scoreCurrentRound(removeRosterUnit(changed, victim), 0));
+    if (advanced.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(advanced)}`);
+    const final = advanced.state.rounds.find((round) => round.isFinal);
+    expect(final).toMatchObject({ bestOf: 5, numGames: bestOfGameCount(5, final?.players ?? 0) });
   });
 });

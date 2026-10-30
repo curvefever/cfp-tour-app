@@ -25,17 +25,7 @@ export function gamesLabel(games: number): string {
   return games === 1 ? 'Single game' : `${games} games (sum)`;
 }
 
-/** What the first stage of the bracket is called by the schedule, in a Setup select and in the recap. */
-export function bracketStageLabel(scheduleLogic: PersistedSetup['scheduleLogic']): string {
-  switch (scheduleLogic) {
-    case 'single-elimination':
-      return 'Elimination rounds';
-    case 'kings-valley':
-      return 'Ladder rounds';
-    default:
-      return 'Winners rounds';
-  }
-}
+export { bracketStageLabel } from '../../../domain/tournament/round-match-formats';
 
 /** The format the setup gives a stage, worded as the stage's select words it. */
 export function stageFormatLabel(stage: RoundStage, setup: MatchSettings): string {
