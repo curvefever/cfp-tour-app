@@ -10,6 +10,7 @@
  * The Final and the grand final are left out: their 0s are never asked.
  */
 import { invalidateStaleTieResolutions } from './advancement';
+import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
 import { occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
@@ -107,6 +108,17 @@ function unitsOfRoom(state: TournamentState, roundIndex: number, room: number): 
     .map((entry) => entry.name);
 }
 
+/**
+ * The games of a room whose 0s are asked: all of them, or, in a Best-of room, those up to the deciding game (or
+ * the game in play), since the games after the decision are never played.
+ */
+function askedGames(state: TournamentState, roundIndex: number, room: number): number {
+  const numGames = Math.max(state.rounds[roundIndex]?.numGames ?? 1, 1);
+  const match = roomMatch(state, roundIndex, room);
+  if (!match) return numGames;
+  return Math.min(match.decidingGame ?? match.countedGames + 1, numGames);
+}
+
 /** Every score key of one seat that can hold a 0: per game, the unit's own key, or one per member that exists. */
 function seatQuestions(
   state: TournamentState,
@@ -115,7 +127,7 @@ function seatQuestions(
   position: number,
   unit: string,
 ): AbsenceQuestion[] {
-  const games = Math.max(state.rounds[roundIndex]?.numGames ?? 1, 1);
+  const games = askedGames(state, roundIndex, room);
   const teamSize = scoredTeamSize(state);
   const members = teamSize ? teamsOf(state)[unit]?.members : undefined;
   const questions: AbsenceQuestion[] = [];

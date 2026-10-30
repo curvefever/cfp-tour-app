@@ -15,7 +15,8 @@ import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './s
 import { exitBandAtRank, type RoomExitBand, roundExitRule } from './room-exits';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
-import { getFinalUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
+import { isBestOfRound, roomMatch } from './match-format';
+import { compareRankScores, getFinalUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import type {
   RoundAssignment,
@@ -97,6 +98,7 @@ export function isFinalComplete(state: TournamentState): boolean {
   if (!round?.isFinal) return false;
   if (round.bracket === 'grand-final')
     return Boolean(computeGrandFinalRaceState(state, lastRi, round)?.decided);
+  if (isBestOfRound(round)) return Boolean(roomMatch(state, lastRi, 1)?.complete);
   const games = Array.from({ length: round.numGames ?? 0 }, (_, index) => index + 1);
   const assignments = state.assignments[lastRi] ?? [];
   return (
@@ -105,6 +107,21 @@ export function isFinalComplete(state: TournamentState): boolean {
       games.every((game) => getFinalUnitScore(state, assignment.name, game, null) !== null),
     )
   );
+}
+
+/** The finalists of a decided Best-of Final, best first: the value shown is the wins, the total score ranks equal wins. */
+function bestOfFinalists(
+  state: TournamentState,
+  roundIndex: number,
+): Array<{ name: string; total: number; tiebreak: number }> {
+  return (roomMatch(state, roundIndex, 1)?.units ?? [])
+    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total }))
+    .sort((first, second) =>
+      compareRankScores(
+        { score: first.total, tiebreak: first.tiebreak },
+        { score: second.total, tiebreak: second.tiebreak },
+      ),
+    );
 }
 
 /** Where an eliminated unit stood in the table that decided its standings cut. */
@@ -270,13 +287,14 @@ function eliminationsInRound(
       : roomAssignments.map(({ name }) => ({ name, score: 0, players: 1 }));
     const absent = Number.isInteger(room) ? absentInRoom(state, roundIndex, room) : [];
     const entry = { ri: roundIndex, round, room: round.isKingsValley ? room : undefined, seat: room };
-    for (const { name, score, players } of scored) {
+    for (const unit of scored) {
+      const { name, score, players } = unit;
       if (!isOut(name)) continue;
       eliminations.push([
         name,
         {
           ...entry,
-          place: 1 + scored.filter((other) => other.score > score).length,
+          place: 1 + scored.filter((other) => compareRankScores(other, unit) < 0).length,
           share: relativeRoomShare(score, scored, players),
         },
       ]);
@@ -426,7 +444,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const lastRound = state.rounds[lastRi];
   const lastAssignments = state.assignments[lastRi] ?? [];
   let active: Array<RoundAssignment & { ri?: number }> = [];
-  let finalistValues: Array<{ name: string; total: number }> = [];
+  let finalistValues: Array<{ name: string; total: number; tiebreak?: number }> = [];
   const finalComplete = isFinalComplete(state);
   if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
     const race = computeGrandFinalRaceState(state, lastRi, lastRound);
@@ -445,7 +463,9 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     } else active = [...lastAssignments];
   } else if (lastRound.isFinal) {
     const games = lastRound.numGames ?? 0;
-    if (finalComplete) {
+    if (finalComplete && isBestOfRound(lastRound)) {
+      finalistValues = bestOfFinalists(state, lastRi);
+    } else if (finalComplete) {
       finalistValues = lastAssignments
         .map((assignment) => ({
           name: assignment.name,
@@ -516,11 +536,13 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
 
   let finalRank = 0;
   let previousTotal: number | null = null;
+  let previousTiebreak: number | undefined;
   const rankedFinalists = finalistValues.map((entry, index) => {
     if (lastRound.bracket === 'grand-final') return { ...entry, rank: index + 1 };
-    if (entry.total !== previousTotal) {
+    if (entry.total !== previousTotal || entry.tiebreak !== previousTiebreak) {
       finalRank = index + 1;
       previousTotal = entry.total;
+      previousTiebreak = entry.tiebreak;
     }
     return { ...entry, rank: finalRank };
   });

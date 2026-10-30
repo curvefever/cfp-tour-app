@@ -1,3 +1,4 @@
+import { bestOfGameCount } from './match-format';
 import type { RoomSize, TournamentRound } from './types';
 
 /**
@@ -49,6 +50,10 @@ export interface WaterfallRoundSpec {
   isFinal: boolean;
   /** True when the organiser numbered the round's column (COLUMN n), false/absent when it is automatic. */
   columnSet?: true;
+  /** Best of N (odd, 3-9), written BO<n> on the ROUNDS line. At most one of `bestOf` and `games` is set. */
+  bestOf?: number;
+  /** N games, summed (1-4), written GAMES <n> on the ROUNDS line. */
+  games?: number;
 }
 
 /**
@@ -1030,6 +1035,20 @@ export function fitWaterfallRound(
   return poolSize === seats ? fitted : { ...fitted, declaredRooms: declared };
 }
 
+/** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format for a Final with no format of its own. */
+function matchFormatFields(
+  roundSpec: WaterfallRoundSpec,
+  finalsGames: number,
+): Pick<TournamentRound, 'numGames' | 'bestOf'> {
+  if (roundSpec.bestOf !== undefined) {
+    const largestRoom = Math.max(...roundSpec.roomSizes);
+    return { bestOf: roundSpec.bestOf, numGames: bestOfGameCount(roundSpec.bestOf, largestRoom) };
+  }
+  if (roundSpec.games !== undefined)
+    return roundSpec.games > 1 || roundSpec.isFinal ? { numGames: roundSpec.games } : {};
+  return roundSpec.isFinal ? { numGames: finalsGames } : {};
+}
+
 export interface WaterfallBracketConfig {
   graph: OrderedWaterfallGraph;
   finalsGames: number;
@@ -1097,7 +1116,7 @@ export function waterfallBracketPhase(
       advPerRoom: null,
       advTotal: roundSpec.isFinal ? 1 : players - eliminatedCount,
       luckyCount: 0,
-      ...(roundSpec.isFinal ? { numGames: config.finalsGames } : {}),
+      ...matchFormatFields(roundSpec, config.finalsGames),
       isWaterfall: true,
       customLabel: roundSpec.label,
       waterfallColumn: graph.columns[index],

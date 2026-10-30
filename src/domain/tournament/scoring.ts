@@ -1,4 +1,5 @@
 import { getGameFormat } from './formats';
+import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
 import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
@@ -41,7 +42,8 @@ export function scoredTeamSize(
   return getGameFormat(state.gameFormat)?.teamSize;
 }
 
-function getUnitScoreForGame(
+/** One game of one unit, read from the room's score keys (the members' scores combined by the team scoring rule). */
+export function getUnitScoreForGame(
   state: TournamentState,
   roundIndex: number,
   room: number,
@@ -89,8 +91,10 @@ export function occupiedRooms(state: Pick<TournamentState, 'assignments'>, round
   );
 }
 
-/** Whether every unit of the room has a score (every game, in a round of several games). */
+/** Whether every unit of the room has a score (every game, in a round of several games; a Best-of room: decided, or every game used). */
 export function isRoomScored(state: TournamentState, roundIndex: number, room: number): boolean {
+  const match = roomMatch(state, roundIndex, room);
+  if (match) return match.complete;
   return (state.assignments[roundIndex] ?? [])
     .filter((entry) => entry.room === room)
     .every((_, position) => getUnitScore(state, roundIndex, room, position, null) !== null);
@@ -248,14 +252,33 @@ export function formatStandingValue(value: number): string {
   return String(Math.round(value * 10) / 10);
 }
 
-export function groupByScore<T extends { score: number }>(scoredDescending: T[]): T[][] {
+/** What ranks a unit in a room: its score, then its tiebreak (on a Best-of round the score is the wins and the tiebreak the total score). */
+export interface RankScore {
+  score: number;
+  tiebreak?: number;
+}
+
+/** Orders best first: by score, then by tiebreak. */
+export function compareRankScores(first: RankScore, second: RankScore): number {
+  return second.score - first.score || (second.tiebreak ?? 0) - (first.tiebreak ?? 0);
+}
+
+/** The tie-resolution key of the units of a room that share a result; `-t{total}` is there only when a tiebreak is. */
+export function roomTieKey(roundIndex: number, room: number, result: RankScore): string {
+  return (
+    `r${roundIndex}-rm${room}-s${result.score}` +
+    (result.tiebreak === undefined ? '' : `-t${result.tiebreak}`)
+  );
+}
+
+export function groupByScore<T extends RankScore>(scoredDescending: T[]): T[][] {
   const clusters: T[][] = [];
   let index = 0;
   while (index < scoredDescending.length) {
     let end = index;
     while (
       end + 1 < scoredDescending.length &&
-      scoredDescending[end + 1].score === scoredDescending[index].score
+      compareRankScores(scoredDescending[end + 1], scoredDescending[index]) === 0
     ) {
       end += 1;
     }
@@ -294,20 +317,20 @@ export interface RoomPlace<T> {
 }
 
 /** A room's units best first, each with its place: ranked picks first, then the units sharing the next place, then the rest of a tie in their order. */
-export function orderRoomWithPlaces<T extends { name: string; score: number }>(
+export function orderRoomWithPlaces<T extends RankScore & { name: string }>(
   scored: T[],
   roundIndex: number,
   room: number,
   state: Pick<TournamentState, 'tieResolutions'>,
 ): Array<RoomPlace<T>> {
-  const sorted = [...scored].sort((first, second) => second.score - first.score);
+  const sorted = [...scored].sort(compareRankScores);
   const placed: Array<RoomPlace<T>> = [];
   for (const cluster of groupByScore(sorted)) {
     if (cluster.length < 2) {
       placed.push({ entry: cluster[0], place: placed.length + 1, sharedBy: 1 });
       continue;
     }
-    const key = `r${roundIndex}-rm${room}-s${cluster[0].score}`;
+    const key = roomTieKey(roundIndex, room, cluster[0]);
     const { ranked, shared } = readTieResolution(state, key);
     const byName = new Map(cluster.map((entry) => [entry.name, entry]));
     const rankedNames = ranked.filter((name) => byName.has(name));
@@ -329,7 +352,7 @@ export function orderRoomWithPlaces<T extends { name: string; score: number }>(
   return placed;
 }
 
-export function orderRoomByScore<T extends { name: string; score: number }>(
+export function orderRoomByScore<T extends RankScore & { name: string }>(
   scored: T[],
   roundIndex: number,
   room: number,

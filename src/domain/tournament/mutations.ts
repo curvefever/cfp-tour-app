@@ -5,6 +5,7 @@ import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
 import { lateJoinersOf } from './late-joiners';
+import { roomMatch } from './match-format';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
@@ -741,11 +742,13 @@ function hasPlayedAnyMatch(state: TournamentState, key: string): boolean {
     if (found.room === null) return false;
     const roomAssignments = roundAssignments.filter((entry) => entry.room === found.room);
     const position = roomAssignments.findIndex((entry) => entry.name === key);
-    // A unit that was absent from the room never played it.
-    return (
-      getUnitScore(state, roundIndex, found.room, position, null) !== null &&
-      !isUnitAbsentFromRoom(state, roundIndex, found.room, position)
-    );
+    // A unit that was absent from the room never played it. In a Best-of room a decided match leaves games
+    // unplayed, so a score in any game is enough.
+    const match = roomMatch(state, roundIndex, found.room);
+    const scored = match
+      ? match.units[position].perGame.some((score) => score !== null)
+      : getUnitScore(state, roundIndex, found.room, position, null) !== null;
+    return scored && !isUnitAbsentFromRoom(state, roundIndex, found.room, position);
   });
 }
 

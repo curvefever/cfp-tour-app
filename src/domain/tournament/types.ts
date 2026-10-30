@@ -85,6 +85,8 @@ export interface TournamentRound {
   matches?: GroupStageMatch[];
   groupByes?: string[];
   numGames?: number;
+  /** Set only on a Best-of round of a waterfall bracket: odd, 3-9. A room plays until a unit has won (bestOf + 1) / 2 games, and `numGames` holds the most games a room can need (`bestOfGameCount`). */
+  bestOf?: number;
   bracket?: BracketKey;
   winnersTo?: number | null;
   losersTo?: number | null;

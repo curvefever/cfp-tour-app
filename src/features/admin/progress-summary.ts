@@ -1,4 +1,5 @@
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import { roomMatch, scoredUnitCount } from '../../domain/tournament/match-format';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { getFinalUnitScore, getUnitScore, roundHasAnyScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -40,6 +41,7 @@ function roomsOf(state: TournamentState, roundIndex: number): RoomProgress[] {
   if (round.bracket === 'grand-final') return [];
   if (round.isFinal) {
     const games = round.numGames ?? 1;
+    const match = roomMatch(state, roundIndex, 1);
     const complete = (name: string) =>
       Array.from({ length: games }, (_, game) => getFinalUnitScore(state, name, game + 1, null)).every(
         (value) => value !== null,
@@ -48,7 +50,7 @@ function roomsOf(state: TournamentState, roundIndex: number): RoomProgress[] {
       {
         name: 'Final',
         players: assignments.length,
-        scored: assignments.filter((entry) => complete(entry.name)).length,
+        scored: match ? scoredUnitCount(match) : assignments.filter((entry) => complete(entry.name)).length,
         hasScores: roundHasAnyScore(state, roundIndex, round),
       },
     ];
@@ -58,11 +60,12 @@ function roomsOf(state: TournamentState, roundIndex: number): RoomProgress[] {
     .sort((first, second) => first - second)
     .map((room) => {
       const members = assignments.filter((entry) => entry.room === room);
+      const match = roomMatch(state, roundIndex, room);
       const scores = members.map((_, position) => getUnitScore(state, roundIndex, room, position, null));
       return {
         name: `Room ${roomLetter(room)}`,
         players: members.length,
-        scored: scores.filter((value) => value !== null).length,
+        scored: match ? scoredUnitCount(match) : scores.filter((value) => value !== null).length,
         hasScores: Object.entries(state.scores).some(
           ([key, value]) => key.startsWith(`r${roundIndex}-rm${room}-`) && value !== null,
         ),

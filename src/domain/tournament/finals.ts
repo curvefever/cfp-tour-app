@@ -1,4 +1,5 @@
-import { getFinalUnitScore } from './scoring';
+import { isBestOfRound, roomMatch } from './match-format';
+import { compareRankScores, getFinalUnitScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
 interface GrandFinalRaceState {
@@ -150,13 +151,19 @@ export function finalsProgressState(
   const assignments = state.assignments[roundIndex] ?? [];
   const numGames = round.numGames ?? 0;
   const race = round.bracket === 'grand-final' ? computeGrandFinalRaceState(state, roundIndex, round) : null;
-  const units = assignments.map((assignment): FinalsUnitProgress => {
+  const match = roomMatch(state, roundIndex, 1);
+  const units = assignments.map((assignment, position): FinalsUnitProgress => {
     const perGame = Array.from({ length: numGames }, (_, index) =>
       getFinalUnitScore(state, assignment.name, index + 1, null),
     );
     const total = Array.from({ length: numGames }, (_, index) =>
       getFinalUnitScore(state, assignment.name, index + 1, 0),
     ).reduce<number>((sum, score) => sum + (score ?? 0), 0);
+    // A Best-of Final counts the games up to the decision: wins and total come from the match.
+    if (match) {
+      const { wins, total } = match.units[position];
+      return { name: assignment.name, perGame, total, wins };
+    }
     let wins = 0;
     if (race) {
       for (let game = 1; game <= race.gamesPlayed; game += 1) {
@@ -174,9 +181,11 @@ export function finalsProgressState(
       assignments.length > 0 &&
       assignments.every((assignment) => getFinalUnitScore(state, assignment.name, index + 1, null) !== null),
   );
-  const complete = race
-    ? race.decided
-    : assignments.length > 0 && gameComplete.length > 0 && gameComplete.every(Boolean);
+  const complete = match
+    ? match.complete
+    : race
+      ? race.decided
+      : assignments.length > 0 && gameComplete.length > 0 && gameComplete.every(Boolean);
   const incompleteGame = gameComplete.findIndex((value) => !value);
   const nextGame = !complete && incompleteGame >= 0 ? incompleteGame + 1 : null;
   let order: Array<string | null>;
@@ -184,7 +193,16 @@ export function finalsProgressState(
     const loser = race.winnerName === race.wbName ? race.lbName : race.wbName;
     order = [race.winnerName, loser];
   } else if (complete) {
-    order = [...units].sort((first, second) => second.total - first.total).map((unit) => unit.name);
+    order = [...units]
+      .sort((first, second) =>
+        isBestOfRound(round)
+          ? compareRankScores(
+              { score: first.wins, tiebreak: first.total },
+              { score: second.wins, tiebreak: second.total },
+            )
+          : second.total - first.total,
+      )
+      .map((unit) => unit.name);
   } else {
     order = assignments.map((assignment) => assignment.name);
   }

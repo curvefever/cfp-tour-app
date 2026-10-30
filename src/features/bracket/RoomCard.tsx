@@ -5,7 +5,8 @@ import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
-import { getUnitScore, orderRoomWithPlaces, scoredTeamSize } from '../../domain/tournament/scoring';
+import { unitRankScore } from '../../domain/tournament/match-format';
+import { orderRoomWithPlaces, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
@@ -115,11 +116,10 @@ export function RoomCard({
       </RoomFrame>
     );
   }
-  const scored = units.map((entry, position) => ({
-    name: entry.name,
-    position,
-    score: getUnitScore(state, roundIndex, room, position, null),
-  }));
+  const scored = units.map((entry, position) => {
+    const rank = unitRankScore(state, roundIndex, room, position, null);
+    return { name: entry.name, position, score: rank?.score ?? null, tiebreak: rank?.tiebreak };
+  });
   const complete = scored.length > 0 && scored.every((entry) => entry.score !== null);
   const showResults = isRoundReached(state, roundIndex) && complete;
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
@@ -129,7 +129,7 @@ export function RoomCard({
   const display = showResults
     ? [
         ...orderRoomWithPlaces(
-          presentScored as Array<{ name: string; position: number; score: number }>,
+          presentScored as Array<{ name: string; position: number; score: number; tiebreak?: number }>,
           roundIndex,
           room,
           state,

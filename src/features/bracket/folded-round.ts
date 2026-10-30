@@ -1,7 +1,8 @@
 import { absentInRoom } from '../../domain/tournament/absences';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import { unitRankScore } from '../../domain/tournament/match-format';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { getUnitScore, orderRoomWithPlaces } from '../../domain/tournament/scoring';
+import { orderRoomWithPlaces, type RankScore } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { placeOrdinal } from '../../lib/ordinal';
 import { isRoundDone } from '../../domain/tournament/round-columns';
@@ -44,13 +45,15 @@ export function placeInRoom(
   const units = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
   const scored = units.map((entry, position) => ({
     name: entry.name,
-    score: getUnitScore(state, roundIndex, room, position, null),
+    rank: unitRankScore(state, roundIndex, room, position, null),
   }));
-  if (scored.length === 0 || scored.some((entry) => entry.score === null)) return null;
+  if (scored.length === 0 || scored.some((entry) => entry.rank === null)) return null;
   // An absentee has no place; the units that were present are placed among themselves.
   const absent = absentInRoom(state, roundIndex, room);
   const ordered = orderRoomWithPlaces(
-    scored.filter((entry) => !absent.includes(entry.name)) as Array<{ name: string; score: number }>,
+    scored
+      .filter((entry) => !absent.includes(entry.name))
+      .map(({ name: unit, rank }) => ({ name: unit, ...(rank as RankScore) })),
     roundIndex,
     room,
     state,

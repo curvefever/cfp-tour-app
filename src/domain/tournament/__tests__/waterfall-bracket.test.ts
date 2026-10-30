@@ -3,6 +3,7 @@ import { orderRoomByScore } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import {
+  fitWaterfallRound,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
@@ -1142,5 +1143,56 @@ describe('the COLUMN keyword in a ROUNDS line', () => {
     ['Semi A = 4 LAST', 'only "FINAL" and "COLUMN <number>" are allowed after the size'],
   ])('refuses "%s"', (line, message) => {
     expect(roundLine(line)).toContain(message);
+  });
+});
+
+describe('waterfallBracketPhase -- match formats', () => {
+  function roundsWith(
+    overrides: Array<{ bestOf?: number; games?: number; roomSizes?: number[] }>,
+    seedTotal = 8,
+  ) {
+    const parsed = parseAndValidate(
+      'ROUNDS:\nR1 = 2x4\nFinal = 4 FINAL\nROUTES:\nR1.A: 1-2->Final\nR1.B: 1-2->Final',
+      8,
+    );
+    if (!parsed.ok) throw new Error(parsed.error);
+    const graph = {
+      ...parsed.value,
+      rounds: parsed.value.rounds.map((spec, index) => ({ ...spec, ...overrides[index] })),
+    };
+    return waterfallBracketPhase(seedTotal, 1, { graph, finalsGames: 2 });
+  }
+
+  it('writes bestOf and the most games the largest room can need', () => {
+    const rounds = roundsWith([{ bestOf: 3 }, { bestOf: 5 }]);
+    expect(rounds[0]).toMatchObject({ bestOf: 3, numGames: 5 });
+    expect(rounds[1]).toMatchObject({ bestOf: 5, numGames: 9 });
+  });
+
+  it('counts a short round by its largest room: rooms of 4 and 3 teams still need 5 games', () => {
+    expect(roundsWith([{ bestOf: 3, roomSizes: [4, 3] }], 7)[0]).toMatchObject({ bestOf: 3, numGames: 5 });
+    expect(roundsWith([{ bestOf: 3, roomSizes: [2, 2] }], 4)[0]).toMatchObject({ bestOf: 3, numGames: 3 });
+  });
+
+  it('writes the games of a summed round, and leaves a round with no format as it was', () => {
+    const rounds = roundsWith([{ games: 3 }, {}]);
+    expect(rounds[0]).toMatchObject({ numGames: 3 });
+    expect(rounds[0].bestOf).toBeUndefined();
+    expect(rounds[1].numGames).toBe(2);
+    const plain = roundsWith([{}, {}]);
+    expect(plain[0].numGames).toBeUndefined();
+    expect(plain[1].numGames).toBe(2);
+  });
+
+  it('lets a Final take its own game count over the Finals format, and a single game count as one', () => {
+    expect(roundsWith([{ games: 1 }, { games: 1 }]).map((round) => round.numGames)).toEqual([undefined, 1]);
+    expect(roundsWith([{}, { games: 4 }])[1].numGames).toBe(4);
+  });
+
+  it('keeps the game count of a round drawn short', () => {
+    const round = roundsWith([{ bestOf: 3 }])[0];
+    const fitted = fitWaterfallRound(round, 7);
+    if ('error' in fitted) throw new Error(fitted.error);
+    expect(fitted).toMatchObject({ bestOf: 3, numGames: 5, rooms: [4, 3] });
   });
 });

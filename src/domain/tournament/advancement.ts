@@ -2,13 +2,15 @@ import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
+import { unitRankScore } from './match-format';
 import {
-  getUnitScore,
+  compareRankScores,
   groupByScore,
   isRoomScored,
   orderRoomByScore,
   orderRoomWithPlaces,
   readTieResolution,
+  roomTieKey,
   scaledRoomPoints,
   standardPoints,
   standardPointsTable,
@@ -52,6 +54,8 @@ export function compareStandings(first: TournamentStanding, second: TournamentSt
 export interface ScoredUnit {
   name: string;
   score: number;
+  /** Ranks units of equal score: the total score of a Best-of round, where `score` is the wins. Absent on every other round. */
+  tiebreak?: number;
   /** Players in play for the unit (sum of members, minus those absent or missing); absent means 1. */
   players?: number;
 }
@@ -82,7 +86,8 @@ interface CutoffTieCluster {
 /**
  * The units of a room that were present, with their scores: an absentee is left out, so places, ties, points,
  * lucky-loser candidates and the fair cut all see the room as it was really played. Every unit carries its
- * players in play (1 outside a sum-of-members room).
+ * players in play (1 outside a sum-of-members room). On a Best-of round the score is the wins and the tiebreak
+ * the total score (`unitRankScore`).
  */
 export function scoreRoom(
   state: TournamentState,
@@ -93,12 +98,11 @@ export function scoreRoom(
   const absent = new Set(absentInRoom(state, roundIndex, room));
   return (state.assignments[roundIndex] ?? [])
     .filter((assignment) => assignment.room === room)
-    .map((assignment, position) => ({
-      name: assignment.name,
-      score: getUnitScore(state, roundIndex, room, position, fallback),
-      players: playersInPlay(state, roundIndex, room, position),
-    }))
-    .filter((entry): entry is Required<ScoredUnit> => entry.score !== null && !absent.has(entry.name));
+    .flatMap((assignment, position) => {
+      const rank = unitRankScore(state, roundIndex, room, position, fallback);
+      if (rank === null || absent.has(assignment.name)) return [];
+      return [{ name: assignment.name, ...rank, players: playersInPlay(state, roundIndex, room, position) }];
+    });
 }
 
 /** The units the room was really played by, then the absentees: the one order every consumer that ranks or routes the whole room reads. */
@@ -154,15 +158,13 @@ export function detectTieBreaks(
   if (round.isFinal) return {};
   const ties: Record<string, RoomTieCluster> = {};
   for (let room = 1; room <= round.rooms.length; room += 1) {
-    const scored = scoreRoom(state, roundIndex, room, null).sort(
-      (first, second) => second.score - first.score,
-    );
+    const scored = scoreRoom(state, roundIndex, room, null).sort(compareRankScores);
     const awaiting = unitsAwaitingAnswer(state, roundIndex, room);
     for (const cluster of groupByScore(scored)) {
       if (cluster.length < 2) continue;
       // Units at 0 may have been absent: a tie there waits for the bar's answers.
       if (cluster[0].score === 0 && cluster.some((entry) => awaiting.has(entry.name))) continue;
-      const key = `r${roundIndex}-rm${room}-s${cluster[0].score}`;
+      const key = roomTieKey(roundIndex, room, cluster[0]);
       ties[key] = { players: cluster, rm: room, score: cluster[0].score };
     }
   }
