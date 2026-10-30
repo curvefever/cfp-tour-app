@@ -360,6 +360,28 @@ export function FormatPanel({
         {stageSelect('pooling', 'Pooling rounds')}
         {stageSelect('bracket', bracketStageLabel(setup.scheduleLogic))}
         {stageSelect('losers', 'Losers rounds')}
+        {shown.has('semisGames') ? (
+          <>
+            <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
+              <Input
+                id='cfg-semis-override'
+                type='number'
+                min='1'
+                placeholder='derived'
+                value={setup.semisOverride}
+                onChange={(e) => change('semisOverride', e.target.value)}
+              />
+            </PresenceField>
+            <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
+              <MatchSelect
+                bestOf={setup.semisBestOf}
+                games={setup.semisGames}
+                id='cfg-semis-games'
+                onChange={(value) => changeMatch('semis', value)}
+              />
+            </PresenceField>
+          </>
+        ) : null}
         {shown.has('finalsGames') ? (
           <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
             <MatchSelect
@@ -399,28 +421,6 @@ export function FormatPanel({
             </div>
           </PresenceField>
         )}
-        {shown.has('semisGames') ? (
-          <>
-            <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
-              <Input
-                id='cfg-semis-override'
-                type='number'
-                min='1'
-                placeholder='derived'
-                value={setup.semisOverride}
-                onChange={(e) => change('semisOverride', e.target.value)}
-              />
-            </PresenceField>
-            <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
-              <MatchSelect
-                bestOf={setup.semisBestOf}
-                games={setup.semisGames}
-                id='cfg-semis-games'
-                onChange={(value) => changeMatch('semis', value)}
-              />
-            </PresenceField>
-          </>
-        ) : null}
         {shown.has('lbQualifiers') ? (
           <PresenceField htmlFor='cfg-lb-qualifiers' label='LB qualifiers into the Final'>
             <Input

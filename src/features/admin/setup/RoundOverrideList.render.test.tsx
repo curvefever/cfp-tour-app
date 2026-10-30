@@ -162,6 +162,19 @@ describe('the stage selects of the Setup', () => {
     expect(view.queryByLabelText('Losers rounds')).toBeNull();
   });
 
+  it('lists the match selects in play order: pooling, elimination, Semis size and format, then the Final', () => {
+    const view = renderApp(drawn(), { role: 'admin', tab: 'admin' });
+    const ids = [
+      'cfg-pooling-games',
+      'cfg-bracket-games',
+      'cfg-semis-override',
+      'cfg-semis-games',
+      'cfg-finals-games',
+    ];
+    const found = [...view.container.querySelectorAll<HTMLElement>(ids.map((id) => `#${id}`).join(','))];
+    expect(found.map((element) => element.id)).toEqual(ids);
+  });
+
   it('plays the drawn schedule in a stage format at once', () => {
     const fixture = drawn();
     const updateSetup = vi.fn();
