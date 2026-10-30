@@ -321,6 +321,30 @@ describe('advancement edit: Best of N Semis and Final', () => {
     });
   });
 
+  it('plays the rebuilt elimination rounds in the format of their stage, and the pooling rounds already played as they were', () => {
+    const base = playToFirstElimination(
+      build(53, {
+        gameFormat: 'individual-1v1',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'none',
+        poolingBestOf: '3',
+        bracketBestOf: '3',
+        matchOverrides: 'Round 5: GAMES 2',
+      }),
+    );
+    const values = bracketScope(base).rounds.map((entry) => entry.advTotal);
+    values[0] -= 1;
+    const edited = unwrap(applyAdvancementEdit(base, { kind: 'bracket', targets: values }));
+    const later = edited.rounds.filter(
+      (round, index) => index > edited.curRound && !round.isSemis && !round.isFinal,
+    );
+    expect(later.length).toBeGreaterThan(1);
+    for (const round of later) {
+      expect(round).toMatchObject(round.roundNum === 5 ? { numGames: 2 } : { bestOf: 3, numGames: 3 });
+    }
+    expect(edited.rounds.slice(0, base.curRound)).toEqual(base.rounds.slice(0, base.curRound));
+  });
+
   it('keeps them when the cut into the bracket is edited while pooling still runs', () => {
     const state = build(37, { ...bestOfSetup, poolingPhase: 'qual-table', qualAdv: '24' });
     const edited = unwrap(applyAdvancementEdit(state, { kind: 'pooling', qualAdv: '20', targetsText: '' }));

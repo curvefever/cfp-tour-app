@@ -54,8 +54,6 @@ describe('singleEliminationBracketPhase', () => {
     roomSize: FFA_ROOM_SIZE,
     semisSize: 16,
     finalSize: 8,
-    semisGames: 1,
-    finalsGames: 3,
   };
 
   it('goes straight to Semis when everyone entering already fits it: no empty elimination round', () => {
@@ -92,8 +90,6 @@ describe('singleEliminationBracketPhase', () => {
       oddCountStrategy: 'bye',
       semisSize: 4,
       finalSize: 2,
-      semisGames: 1,
-      finalsGames: 1,
     };
     const rounds = singleEliminationBracketPhase(19, 1, config);
     const eliminationRounds = rounds.slice(0, rounds.length - 2);
@@ -111,8 +107,6 @@ describe('singleEliminationBracketPhase', () => {
       roomSize: { min: 2, max: 3, ideal: 3 },
       semisSize: 6,
       finalSize: 3,
-      semisGames: 1,
-      finalsGames: 3,
     };
     const rounds = singleEliminationBracketPhase(9, 1, config);
     const semis = rounds[rounds.length - 2];
@@ -139,7 +133,6 @@ describe('singleEliminationBracketPhase', () => {
     expect(final.rooms).toEqual([8]);
     expect(final.advPerRoom).toBe(1);
     expect(final.advTotal).toBe(1);
-    expect(final.numGames).toBe(3);
   });
 });
 

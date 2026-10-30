@@ -15,7 +15,13 @@ import {
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { buildAssignments, buildRound, sequenceRandom } from './test-fixtures';
-import type { RoundAssignment, RoomSize, TournamentRound, TournamentState } from '../types';
+import type {
+  MaterializedGamemodeConfig,
+  RoundAssignment,
+  RoomSize,
+  TournamentRound,
+  TournamentState,
+} from '../types';
 
 describe('advanceTournamentRound — missing roomSize backstop', () => {
   it('returns blocked/"missing-room-size" (not a throw) for a bracket round with no gamemodeConfig.roomSize', () => {
@@ -1054,7 +1060,6 @@ describe('advanceTournamentRound — double-elimination WB/LB routing via tiered
       roomSize: { min: 3, max: 3, ideal: 3 },
       finalSize: 4,
       lbQualifiers: 1,
-      finalsGames: 1,
     });
     const wb0 = rounds[0];
     expect(wb0.bracket).toBe('winners');
@@ -1252,7 +1257,6 @@ describe('advanceTournamentRound — seedingOverride wiring', () => {
       roomSize: { min: 6, max: 8, ideal: 8 },
       finalSize: 8,
       lbQualifiers: 2,
-      finalsGames: 3,
     }).map((round, index) => (index === 0 ? { ...round, seedingOverride: 'random' as const } : round));
     const wb0 = rounds[0];
     expect(wb0.losersTo).not.toBeNull(); // sanity: WB0 really does drop into an LB round
@@ -1705,13 +1709,16 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
   });
 
   /** Advances an 8-unit round whose stale plan sent 5 to the Final (the real cut leaves 6) and returns the re-fitted Final. */
-  function refittedFinal(finalFields: Partial<TournamentRound>): TournamentRound {
+  function refittedFinal(
+    finalFields: Partial<TournamentRound>,
+    config: Partial<MaterializedGamemodeConfig> = {},
+  ): TournamentRound {
     // FFA room size (6-8, ideal 8) so the real 6 survivors collapse straight
     // to a single-room Final -- isolates the numGames/anonymousGames carry
     // from the multi-round cap-anchor behaviour (covered separately below).
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
-      gamemodeConfig: { roomSize: { min: 6, max: 8, ideal: 8 }, finalsGames: 1 },
+      gamemodeConfig: { roomSize: { min: 6, max: 8, ideal: 8 }, finalsGames: 1, ...config },
       rounds: [
         buildRound({ roundNum: 1, rooms: [4, 4], players: 8, isKingsValley: true }),
         buildRound({
@@ -1757,16 +1764,15 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
     return finalRound;
   }
 
-  it("carries the old Final's numGames and anonymousGames onto the re-fitted Final", () => {
-    // numGames 3 is non-default: kingsValleyBracketPhase's own finalRound() would use finalsGames (1)
-    const finalRound = refittedFinal({ numGames: 3, anonymousGames: [1] });
-    expect(finalRound.numGames).toBe(3); // carried from the old Final
+  it("gives the re-fitted Final the Finals format of the config and carries the old Final's anonymousGames", () => {
+    const finalRound = refittedFinal({ numGames: 3, anonymousGames: [1] }, { finalsGames: 3 });
+    expect(finalRound.numGames).toBe(3);
     expect(finalRound.anonymousGames).toEqual([1]); // carried, not dropped
   });
 
   it('keeps a Best of N Final and works its game count out again for the re-fitted size', () => {
     // 5 planned finalists need 5 x 1 + 1 = 6 games for a Best of 3; the real 6 need 7
-    const finalRound = refittedFinal({ bestOf: 3, numGames: 6 });
+    const finalRound = refittedFinal({ bestOf: 3, numGames: 6 }, { finalsBestOf: 3 });
     expect(finalRound).toMatchObject({ bestOf: 3, numGames: 7 });
   });
 

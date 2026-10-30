@@ -9,8 +9,11 @@ import {
 } from '../../domain/tournament/formats';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
+import { matchOverridesText, parseMatchOverrides } from '../../domain/tournament/round-match-formats';
+import { roundNoteNames } from '../../domain/tournament/round-notes';
 import { readTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
+import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import {
   DRAW_PUBLICATION_LABELS,
@@ -35,16 +38,43 @@ type RecapTitle = 'FORMAT' | 'POOLING' | 'SCORING' | 'BRACKET';
 
 interface RecapEntry {
   group: RecapTitle;
-  label: string;
-  value: (settings: TournamentSettings, pointsVersion: 2 | undefined) => string;
+  label: string | ((settings: TournamentSettings) => string);
+  value: (settings: TournamentSettings, pointsVersion: 2 | undefined, state: TournamentState) => string;
 }
 
 const orDefault = (value: string, fallback: string) => value.trim() || fallback;
 const matchOf = (games: string, bestOf: string) =>
   matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
 
-/** The Best of N settings are read through the Semis and Finals format rows, not listed of their own. */
-type RecapField = Exclude<FormatField, 'semisBestOf' | 'finalsBestOf'>;
+/** The Best of N settings are read through the format rows of their stage, not listed of their own. */
+type RecapField = Exclude<
+  FormatField,
+  'semisBestOf' | 'finalsBestOf' | 'poolingBestOf' | 'bracketBestOf' | 'losersBestOf'
+>;
+
+/** What the first stage of the bracket is called by the schedule, in a Setup select and in the recap. */
+function bracketStageLabel(settings: TournamentSettings): string {
+  switch (settings.scheduleLogic) {
+    case 'single-elimination':
+      return 'Elimination rounds';
+    case 'kings-valley':
+      return 'Ladder rounds';
+    default:
+      return 'Winners rounds';
+  }
+}
+
+/** "Round 3: Best of 3, Semis: 2 games": the overrides of the rounds the schedule has, in schedule order; '—' for none. */
+function overridesText(settings: TournamentSettings, state: TournamentState): string {
+  const overrides = parseMatchOverrides(settings.matchOverrides);
+  const listed = roundNoteNames(state).flatMap((name) => {
+    const match = parseMatchFormatToken(overrides[name] ?? '');
+    return match
+      ? [`${name}: ${match.bestOf === undefined ? plural(match.games, 'game') : `Best of ${match.bestOf}`}`]
+      : [];
+  });
+  return listed.length > 0 ? listed.join(', ') : '—';
+}
 
 /**
  * One entry per Setup setting, in the order the recap lists them. Typed over every setting, so a new Setup
@@ -148,6 +178,21 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Points table',
     value: (settings) => orDefault(settings.positionalPointsTable, '—'),
   },
+  poolingGames: {
+    group: 'POOLING',
+    label: 'Pooling rounds',
+    value: (settings) => matchOf(settings.poolingGames, settings.poolingBestOf),
+  },
+  bracketGames: {
+    group: 'BRACKET',
+    label: bracketStageLabel,
+    value: (settings) => matchOf(settings.bracketGames, settings.bracketBestOf),
+  },
+  losersGames: {
+    group: 'BRACKET',
+    label: 'Losers rounds',
+    value: (settings) => matchOf(settings.losersGames, settings.losersBestOf),
+  },
   semisGames: {
     group: 'BRACKET',
     label: 'Semis format',
@@ -193,6 +238,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Elimination seeding',
     value: (settings) => orDefault(settings.eliminationSeedingOverrides, 'Automatic'),
   },
+  matchOverrides: {
+    group: 'BRACKET',
+    label: 'Round overrides',
+    value: (settings, _pointsVersion, state) => overridesText(settings, state),
+  },
 };
 
 const TITLES: RecapTitle[] = ['FORMAT', 'POOLING', 'SCORING', 'BRACKET'];
@@ -229,6 +279,13 @@ function settingsOf(state: TournamentState): TournamentSettings {
     semisGames: text(config.semisGames ?? cfg.semisGames, defaults.semisGames),
     finalsBestOf: text(config.finalsBestOf, defaults.finalsBestOf),
     semisBestOf: text(config.semisBestOf, defaults.semisBestOf),
+    poolingGames: text(config.poolingGames, defaults.poolingGames),
+    poolingBestOf: text(config.poolingBestOf, defaults.poolingBestOf),
+    bracketGames: text(config.bracketGames, defaults.bracketGames),
+    bracketBestOf: text(config.bracketBestOf, defaults.bracketBestOf),
+    losersGames: text(config.losersGames, defaults.losersGames),
+    losersBestOf: text(config.losersBestOf, defaults.losersBestOf),
+    matchOverrides: matchOverridesText(config.matchOverrides ?? {}),
     grandFinalWbTarget: text(config.grandFinalWbTarget, defaults.grandFinalWbTarget),
     grandFinalLbTarget: text(config.grandFinalLbTarget, defaults.grandFinalLbTarget),
     oddCountStrategy: config.oddCountStrategy ?? '',
@@ -256,8 +313,8 @@ export function settingsRecapGroups(state: TournamentState): RecapGroup[] {
     items: fields
       .filter((field) => RECAP[field].group === title)
       .map((field) => ({
-        label: RECAP[field].label,
-        value: RECAP[field].value(settings, state.gamemodeConfig.pointsVersion),
+        label: typeof RECAP[field].label === 'function' ? RECAP[field].label(settings) : RECAP[field].label,
+        value: RECAP[field].value(settings, state.gamemodeConfig.pointsVersion, state),
       })),
   })).filter((group) => group.items.length > 0);
   groups.push({

@@ -1,4 +1,3 @@
-import { stageMatchFields } from './match-format';
 import { distributeRooms, distributeRoomsWithBye, isSeatable, splitAdvancement } from './room-distribution';
 import { computeCleanTargets, computeEliminationRoundCount, computeTargets } from './single-elimination';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
@@ -16,8 +15,6 @@ export interface RaceDoubleEliminationConfig {
 export interface SharedFinalDoubleEliminationConfig extends RaceDoubleEliminationConfig {
   finalSize: number;
   lbQualifiers: number;
-  finalsGames: number;
-  finalsBestOf?: number;
   /** Organiser-supplied ordered WB survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
   explicitTargets?: number[];
   /** Organiser-supplied fixed reseed mode per WB round, index-aligned with explicitTargets -- only ever applied to a WB round's own continuation into the next WB round (transitions.ts), never an LB-bound drop. */
@@ -454,7 +451,6 @@ export function sharedFinalDoubleEliminationBracketPhase(
         advPerRoom: 1,
         advTotal: 1,
         luckyCount: 0,
-        ...stageMatchFields(config.finalsGames, config.finalsBestOf, config.finalSize),
         winnersTo: null,
         losersTo: null,
       };

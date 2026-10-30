@@ -34,6 +34,12 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   semisGames: '2',
   finalsBestOf: '5',
   semisBestOf: '3',
+  poolingGames: '2',
+  poolingBestOf: '3',
+  bracketGames: '3',
+  bracketBestOf: '5',
+  losersGames: '4',
+  losersBestOf: '7',
   grandFinalWbTarget: '4',
   grandFinalLbTarget: '5',
   semisOverride: '12',
@@ -45,6 +51,7 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   waterfallGraph: 'ROUNDS:\nFinal = 4 FINAL\nROUTES:',
   oddCountStrategy: 'bye',
   teamScoringRule: 'sum-members',
+  matchOverrides: 'Round 2: GAMES 2\nSemis: BO3',
 };
 
 describe('settingsFromForm', () => {
@@ -136,5 +143,40 @@ describe('a Best-of round in the settings copy', () => {
       createDefaultSetup({ scheduleLogic: 'waterfall-bracket', waterfallGraph: graph }),
     );
     expect(settings.waterfallGraph).toBe(graph);
+  });
+});
+
+describe('the stage match formats and the round overrides in the settings copy', () => {
+  const form = createDefaultSetup(ALTERNATE_SETTINGS);
+
+  it('round-trips every field through the snapshot, a stored copy and Copy settings', () => {
+    const snapshot = settingsFromForm(form);
+    expect(snapshot).toMatchObject({
+      poolingGames: '2',
+      poolingBestOf: '3',
+      bracketGames: '3',
+      bracketBestOf: '5',
+      losersGames: '4',
+      losersBestOf: '7',
+      matchOverrides: 'Round 2: GAMES 2\nSemis: BO3',
+    });
+    const stored = JSON.parse(JSON.stringify(snapshot)) as unknown;
+    expect(readTournamentSettings(stored)).toEqual(snapshot);
+    const copied = applyTournamentSettings(createDefaultSetup({ roster: 'P1' }), snapshot);
+    expect(copied).toMatchObject({
+      poolingGames: '2',
+      losersBestOf: '7',
+      matchOverrides: snapshot.matchOverrides,
+    });
+  });
+
+  it('reads a settings snapshot without them as one game everywhere and no overrides', () => {
+    expect(readTournamentSettings({})).toMatchObject({
+      poolingGames: '1',
+      poolingBestOf: '',
+      bracketGames: '1',
+      losersGames: '1',
+      matchOverrides: '',
+    });
   });
 });

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_FORMATS } from '../../domain/tournament/formats';
+import { QUAL_GRAPH as GENERATING_QUAL_GRAPH } from '../../domain/tournament/__tests__/qual-waterfall';
+import { generateTournament } from '../../domain/tournament/generation';
+import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { SETTING_KEYS, settingsFromForm } from '../../domain/tournament/tournament-settings';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
@@ -216,5 +219,88 @@ describe('the recap against the Setup form', () => {
       const shown = [...visibleFormatFields(choice)].filter((field) => !field.endsWith('BestOf'));
       expect(listed.flatMap((group) => group.items)).toHaveLength(shown.length);
     }
+  });
+});
+
+describe('the match format of every stage in the recap', () => {
+  function generated(count: number, setup: Partial<PersistedSetup>): TournamentState {
+    const result = generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({ gameFormat: 'individual-1v1', ...setup }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
+    return result.state;
+  }
+
+  it('lists the pooling, elimination and Semis formats of single elimination, and the round overrides in schedule order', () => {
+    const items = itemsOf(
+      settingsRecapGroups(
+        generated(37, {
+          scheduleLogic: 'single-elimination',
+          poolingBestOf: '3',
+          bracketGames: '2',
+          semisBestOf: '3',
+          matchOverrides: 'Semis: GAMES 2\nRound 3: BO3\nRound 99: BO5',
+        }),
+      ),
+    );
+    expect(items['Pooling rounds']).toBe('Best of 3');
+    expect(items['Elimination rounds']).toBe('2 games (sum)');
+    expect(items['Semis format']).toBe('Best of 3');
+    expect(items['Round overrides']).toBe('Round 3: Best of 3, Semis: 2 games');
+    expect(items['Losers rounds']).toBeUndefined();
+  });
+
+  it('names the stage after the schedule: winners rounds and losers rounds, ladder rounds', () => {
+    const shared = itemsOf(
+      settingsRecapGroups(
+        generated(37, {
+          gameFormat: 'ffa-individual',
+          scheduleLogic: 'double-elimination-shared-final',
+          losersBestOf: '5',
+        }),
+      ),
+    );
+    expect(shared['Winners rounds']).toBe('Single game');
+    expect(shared['Losers rounds']).toBe('Best of 5');
+    expect(shared['Elimination rounds']).toBeUndefined();
+    const kings = itemsOf(
+      settingsRecapGroups(
+        generated(24, { scheduleLogic: 'kings-valley', gameFormat: 'ffa-individual', bracketBestOf: '3' }),
+      ),
+    );
+    expect(kings['Ladder rounds']).toBe('Best of 3');
+    expect(kings['Losers rounds']).toBeUndefined();
+  });
+
+  it('shows no override line text for none, and no stage line for a Custom bracket graph', () => {
+    const items = itemsOf(settingsRecapGroups(generated(37, { scheduleLogic: 'single-elimination' })));
+    expect(items['Round overrides']).toBe('—');
+    expect(items['Pooling rounds']).toBe('Single game');
+    const custom = itemsOf(
+      settingsRecapGroups(
+        generated(37, {
+          gameFormat: 'ffa-individual',
+          scheduleLogic: 'waterfall-bracket',
+          poolingPhase: 'qual-table',
+          qualAdv: '99',
+          waterfallGraph: GENERATING_QUAL_GRAPH,
+        }),
+      ),
+    );
+    expect(custom['Elimination rounds']).toBeUndefined();
+    expect(custom['Winners rounds']).toBeUndefined();
+  });
+
+  it('reads the formats of a tournament generated before they existed as one game', () => {
+    const state = generated(37, { scheduleLogic: 'single-elimination' });
+    const { settings: _settings, ...legacy } = state;
+    const items = itemsOf(settingsRecapGroups(legacy));
+    expect(items['Pooling rounds']).toBe('Single game');
+    expect(items['Elimination rounds']).toBe('Single game');
   });
 });

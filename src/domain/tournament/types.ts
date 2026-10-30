@@ -262,6 +262,15 @@ export interface MaterializedGamemodeConfig {
   /** Best of N for the Final and the Semis (absent = summed games). Written by generation; see match-format.ts. */
   finalsBestOf?: number;
   semisBestOf?: number;
+  /** The match format of the other stages (round-match-formats.ts), each written only when it is not the default of one game: summed games, or a Best of N. */
+  poolingGames?: number;
+  poolingBestOf?: number;
+  bracketGames?: number;
+  bracketBestOf?: number;
+  losersGames?: number;
+  losersBestOf?: number;
+  /** A round's own format over its stage's, by `roundNoteNames`, written as a ROUNDS-line token ("BO3", "GAMES 2"). Absent when there is none. */
+  matchOverrides?: Record<string, string>;
   grandFinalWbTarget: number;
   grandFinalLbTarget: number;
   groupSize: number;
@@ -368,6 +377,15 @@ export interface PersistedSetup {
   /** '' = the games above are summed; '3' / '5' / '7' = a Best of N instead. */
   finalsBestOf: string;
   semisBestOf: string;
+  /** The match format of the pooling rounds, the bracket rounds before the Semis (winners rounds, ladder rounds) and the losers rounds: the same two fields as the Semis. */
+  poolingGames: string;
+  poolingBestOf: string;
+  bracketGames: string;
+  bracketBestOf: string;
+  losersGames: string;
+  losersBestOf: string;
+  /** One line per round whose format differs from its stage's: "Round 2: BO3" (the round's `roundNoteNames` name, a colon, a ROUNDS-line token). Text, like every Setup field (round-match-formats.ts reads it). */
+  matchOverrides: string;
   grandFinalWbTarget: string;
   grandFinalLbTarget: string;
   semisOverride: string;

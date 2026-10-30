@@ -21,6 +21,7 @@ import {
   waterfallStandingsRoutes,
   type WaterfallBracketConfig,
 } from './waterfall-bracket';
+import { applyMatchFormats, type MatchFormatConfig } from './round-match-formats';
 import type { PoolingPhaseKey, RoomSize, ScheduleLogicKey, TournamentGroup, TournamentRound } from './types';
 
 interface TournamentProgression {
@@ -37,23 +38,23 @@ interface CommonGenerationInput {
 export type TournamentProgressionInput =
   | (CommonGenerationInput & {
       bracketPhase: 'single-elimination';
-      format: PoolingFormatConfig & SingleEliminationConfig;
+      format: PoolingFormatConfig & SingleEliminationConfig & MatchFormatConfig;
     })
   | (CommonGenerationInput & {
       bracketPhase: 'double-elimination';
-      format: PoolingFormatConfig & RaceDoubleEliminationConfig;
+      format: PoolingFormatConfig & RaceDoubleEliminationConfig & MatchFormatConfig;
     })
   | (CommonGenerationInput & {
       bracketPhase: 'double-elimination-shared-final';
-      format: PoolingFormatConfig & SharedFinalDoubleEliminationConfig;
+      format: PoolingFormatConfig & SharedFinalDoubleEliminationConfig & MatchFormatConfig;
     })
   | (CommonGenerationInput & {
       bracketPhase: 'kings-valley';
-      format: PoolingFormatConfig & KingsValleyConfig;
+      format: PoolingFormatConfig & KingsValleyConfig & MatchFormatConfig;
     })
   | (CommonGenerationInput & {
       bracketPhase: 'waterfall-bracket';
-      format: PoolingFormatConfig & WaterfallBracketConfig;
+      format: PoolingFormatConfig & WaterfallBracketConfig & MatchFormatConfig;
     });
 
 export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize: RoomSize): number {
@@ -137,7 +138,7 @@ export function buildTournamentProgression(input: TournamentProgressionInput): T
       break;
   }
   return {
-    rounds: [...pooledRounds, ...bracket],
+    rounds: applyMatchFormats([...pooledRounds, ...bracket], input.format),
     groups: pooled.groups ?? [],
   };
 }

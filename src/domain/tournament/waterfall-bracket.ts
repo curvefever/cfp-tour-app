@@ -257,6 +257,21 @@ function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>)
   return trailer.bestOf === undefined ? `GAMES ${trailer.games}` : `BO${trailer.bestOf}`;
 }
 
+/** A match format in the words of a ROUNDS line: "BO3" for a Best of 3, "GAMES 2" for two summed games. */
+export function matchFormatToken(match: { games: number; bestOf?: number }): string {
+  return writtenMatchFormat(match);
+}
+
+/** The match format a ROUNDS-line token text spells ("BO3", "GAMES 2"), or null when the text is anything else. */
+export function parseMatchFormatToken(text: string): { games: number; bestOf?: number } | null {
+  const parsedTrailer = parseRoundLineTrailer('', text.trim().split(/\s+/));
+  if (!parsedTrailer.ok) return null;
+  const { bestOf, games, isFinal, column } = parsedTrailer.value;
+  if (isFinal || column !== null) return null;
+  if (bestOf !== undefined) return { games: 1, bestOf };
+  return games === undefined ? null : { games };
+}
+
 /**
  * The tokens after a ROUNDS line's size, in any order, each at most once: "FINAL", "COLUMN <n>", and one match
  * format, "BO<n>" (best of n, odd from 3 to 9) or "GAMES <n>" (n games summed, 1 to 4).

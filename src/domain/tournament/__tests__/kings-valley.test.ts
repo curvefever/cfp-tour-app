@@ -23,7 +23,7 @@ const TEAM_3V3V3_ROOM_SIZE: RoomSize = { min: 2, max: 3, ideal: 3 };
 
 describe('kingsValleyBracketPhase', () => {
   it('matches the hand-traced band counts for a 3-room, 12-player round', () => {
-    const rounds = kingsValleyBracketPhase(12, 1, { roomSize: FIXED_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(12, 1, { roomSize: FIXED_ROOM_SIZE });
     const round = rounds[0];
     expect(round.isKingsValley).toBe(true);
     expect(round.rooms).toEqual([4, 4, 4]);
@@ -36,19 +36,18 @@ describe('kingsValleyBracketPhase', () => {
   });
 
   it('collapses immediately to a Final round when the seed total already fits one room', () => {
-    const rounds = kingsValleyBracketPhase(4, 1, { roomSize: FFA_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(4, 1, { roomSize: FFA_ROOM_SIZE });
     expect(rounds).toHaveLength(1);
     expect(rounds[0]).toMatchObject({
       isFinal: true,
       rooms: [4],
-      numGames: 3,
       advPerRoom: 1,
       advTotal: 1,
     });
   });
 
   it('conserves population across rounds (advTotal shrinks by exactly kvEliminateCount each round) and ends in a Final', () => {
-    const rounds = kingsValleyBracketPhase(37, 1, { roomSize: FFA_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(37, 1, { roomSize: FFA_ROOM_SIZE });
     expect(rounds[0].rooms).toEqual([8, 8, 7, 7, 7]);
     expect(rounds[0].kvEliminateCount).toBe(4);
     expect(rounds[0].advTotal).toBe(33);
@@ -70,7 +69,7 @@ describe('kingsValleyBracketPhase', () => {
   });
 
   it('force-terminates at MAX_KINGS_VALLEY_ROUNDS for a field too large to naturally converge in time', () => {
-    const rounds = kingsValleyBracketPhase(200, 1, { roomSize: FFA_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(200, 1, { roomSize: FFA_ROOM_SIZE });
     expect(rounds).toHaveLength(MAX_KINGS_VALLEY_ROUNDS + 1);
     expect(rounds[rounds.length - 1].isFinal).toBe(true);
     expect(rounds.slice(0, -1).every((round) => round.isKingsValley)).toBe(true);
@@ -81,7 +80,7 @@ describe('kingsValleyBracketPhase', () => {
   // band counts exactly (same formula as before, just routed through
   // kingsValleyRoundMoves instead of an inline bottom-room special case).
   it('team-2v2v2v2, 13 units: matches the hand-derived band counts (no lone room)', () => {
-    const rounds = kingsValleyBracketPhase(13, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(13, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE });
     const round = rounds[0];
     expect(round.rooms).toEqual([4, 3, 3, 3]);
     expect(round.kvPromoteCounts).toEqual([1, 1, 1, 1]);
@@ -92,7 +91,7 @@ describe('kingsValleyBracketPhase', () => {
   });
 
   it('team-3v3v3, 13 units: matches the hand-derived band counts (no lone room)', () => {
-    const rounds = kingsValleyBracketPhase(13, 1, { roomSize: TEAM_3V3V3_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(13, 1, { roomSize: TEAM_3V3V3_ROOM_SIZE });
     const round = rounds[0];
     expect(round.rooms).toEqual([3, 3, 3, 2, 2]);
     expect(round.kvPromoteCounts).toEqual([1, 1, 1, 1, 1]);
@@ -191,12 +190,12 @@ describe('kingsValleyRoundMoves -- solver', () => {
   );
 
   it('plans 9 teams as 9 -> 7 -> 6 -> Final 4, never a room of 2', () => {
-    const rounds = kingsValleyBracketPhase(9, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(9, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE });
     expect(rounds.map((round) => round.rooms)).toEqual([[3, 3, 3], [4, 3], [3, 3], [4]]);
   });
 
   it('plans 16 teams as 16 -> 14 -> 12 -> 10 -> 8 -> 6 -> Final 4', () => {
-    const rounds = kingsValleyBracketPhase(16, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE, finalsGames: 3 });
+    const rounds = kingsValleyBracketPhase(16, 1, { roomSize: TEAM_2V2V2V2_ROOM_SIZE });
     expect(rounds.map((round) => round.rooms)).toEqual([
       [4, 4, 4, 4],
       [4, 4, 3, 3],
@@ -250,7 +249,7 @@ describe('kingsValleyBracketPhase -- every seatable entry count', () => {
     for (let count = getMinimumBracketUnits('kings-valley', roomSize); count <= 80; count += 1) {
       // An entry count that can't be seated is distributeRooms' open item, not this rule's.
       if (!isSeatable(count, roomSize)) continue;
-      const rounds = kingsValleyBracketPhase(count, 1, { roomSize, finalsGames: 3 });
+      const rounds = kingsValleyBracketPhase(count, 1, { roomSize });
       const label = `${count} units`;
       const capped = rounds.length === MAX_KINGS_VALLEY_ROUNDS + 1;
       for (const [index, round] of rounds.entries()) {

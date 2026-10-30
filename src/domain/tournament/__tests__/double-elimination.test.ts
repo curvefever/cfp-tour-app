@@ -107,7 +107,6 @@ describe('sharedFinalDoubleEliminationBracketPhase', () => {
     roomSize: FFA_ROOM_SIZE,
     finalSize: 8,
     lbQualifiers: 2,
-    finalsGames: 3,
   };
 
   it('throws when lbQualifiers < 1', () => {
@@ -294,7 +293,6 @@ describe('sharedFinalDoubleEliminationBracketPhase -- seatable losers-bracket ro
                 roomSize,
                 finalSize,
                 lbQualifiers,
-                finalsGames: 1,
               });
             } catch (error) {
               // Only the existing "can't route every drop" refusal is allowed to remain.

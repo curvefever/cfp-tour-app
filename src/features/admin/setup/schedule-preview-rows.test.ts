@@ -122,4 +122,24 @@ describe('schedulePreviewRows on a Best-of round', () => {
     );
     expect(rows.map((row) => row.meta)).toEqual(['2 rooms · best of 3', '1 room · 2 games']);
   });
+
+  it('reads a Best-of pooling round and a Best-of elimination round as "best of 3", and a round overridden to one game plain', () => {
+    const state = generate('1v1-37', 37, {
+      gameFormat: 'individual-1v1',
+      scheduleLogic: 'single-elimination',
+      poolingPhase: 'swiss',
+      swissRoundsOverride: '3',
+      qualAdv: '16',
+      poolingBestOf: '3',
+      bracketBestOf: '3',
+      matchOverrides: 'Round 2: GAMES 1',
+    });
+    const rows = schedulePreviewRows(state, 'players');
+    expect(rows[0].meta).toBe('18 rooms · best of 3');
+    expect(rows[1].meta).toBe('18 rooms');
+    const eliminationRound = state.rounds.findIndex(
+      (round) => !round.isSwiss && !round.isSemis && !round.isFinal,
+    );
+    expect(rows[eliminationRound].meta).toMatch(/ · best of 3$/);
+  });
 });

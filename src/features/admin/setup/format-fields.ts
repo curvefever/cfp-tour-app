@@ -52,7 +52,17 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   const isRace = choices.scheduleLogic === 'double-elimination';
   const isSingle = choices.scheduleLogic === 'single-elimination';
   const isShared = choices.scheduleLogic === 'double-elimination-shared-final';
-  const fields = new Set<FormatField>(['gameFormat', 'scheduleLogic', 'poolingPhase', 'scoring']);
+  const isDouble = isRace || isShared;
+  const isKings = choices.scheduleLogic === 'kings-valley';
+  const fields = new Set<FormatField>([
+    'gameFormat',
+    'scheduleLogic',
+    'poolingPhase',
+    'scoring',
+    'poolingGames',
+    'poolingBestOf',
+    'matchOverrides',
+  ]);
   const add = (condition: boolean, ...added: FormatField[]) => {
     if (condition) added.forEach((field) => fields.add(field));
   };
@@ -64,6 +74,8 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(isRace, 'grandFinalWbTarget', 'grandFinalLbTarget');
   add(!isRace, 'finalsGames', 'finalsBestOf');
+  add(isSingle || isDouble || isKings, 'bracketGames', 'bracketBestOf');
+  add(isDouble, 'losersGames', 'losersBestOf');
   add(isSingle, 'semisOverride', 'semisGames', 'semisBestOf');
   add(isShared, 'lbQualifiers');
   add(isSingle || isShared, 'finalOverride', 'eliminationRoundTargets', 'eliminationSeedingOverrides');

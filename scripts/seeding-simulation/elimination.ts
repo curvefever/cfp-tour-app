@@ -55,7 +55,7 @@ function hasMixedRooms(rooms: number[]): boolean {
 /** The engine's own formula, so that equal shares tie exactly as they do for the engine's lucky-loser race. */
 function roomRelatives(scores: number[]): number[] {
   const entries = scores.map((score) => ({ score }));
-  return scores.map((score) => relativeRoomShare(score, entries));
+  return entries.map((entry) => relativeRoomShare(entry, entries));
 }
 
 function addToPools(pools: Map<number, number[]>, scored: ReturnType<typeof scoreRound>): void {

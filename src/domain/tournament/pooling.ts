@@ -1,3 +1,4 @@
+import { stageMatchFields } from './match-format';
 import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
 import type {
   DrawPublicationKey,
@@ -109,8 +110,12 @@ export function refitPoolingRound(
   const distribution = round.isSwiss
     ? distributeRoomsWithBye(n, swissShape(roomSize), 'bye')
     : distributeRoomsWithBye(n, roomSize, oddCountStrategy);
+  // A Best of N needs as many games as its largest room can use, which a re-fitted room may change.
+  const match =
+    round.bestOf === undefined ? {} : stageMatchFields(1, round.bestOf, Math.max(1, ...distribution.rooms));
   return {
     ...round,
+    ...match,
     players: n,
     rooms: distribution.rooms,
     byeCount: distribution.byeCount,

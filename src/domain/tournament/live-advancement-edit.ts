@@ -4,6 +4,7 @@ import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';
 import { isPoolingRound } from './pooling';
+import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
 import { buildTournamentProgression, getMinimumBracketUnits } from './schedule-generation';
 import { defaultSemisSize, eliminationRound } from './single-elimination';
@@ -295,13 +296,15 @@ function applyBracketEdit(
   const fitted = fitRoundToPool(rounds[semisIndex], targets[targets.length - 1], config.roomSize);
   if ('error' in fitted) return { ok: false, error: fitted.error };
   rounds[semisIndex] = fitted;
+  // The rebuilt rounds play the format of their stage again.
+  const formatted = applyMatchFormats(rounds, config, state.curRound + 1);
 
   return {
     ok: true,
     state: {
       ...state,
-      ...syncSettings(state, eliminationTargetList(rounds), undefined),
-      rounds,
+      ...syncSettings(state, eliminationTargetList(formatted), undefined),
+      rounds: formatted,
     },
   };
 }

@@ -18,6 +18,7 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
+import { parseMatchOverrides } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
   parseWaterfallGraph,
@@ -50,6 +51,20 @@ function parsed(value: string, fallback: number): number {
 function bestOfSetting(value: string | undefined, visible: boolean): number | undefined {
   const bestOf = parsed(value ?? '', 0);
   return visible && BEST_OF_VALUES.includes(bestOf) ? bestOf : undefined;
+}
+
+/** The games and Best of N of one stage as the gamemode config keeps them: each only when it is not the default, and nothing for a stage whose select is hidden. */
+function stageMatchConfig(
+  stage: 'pooling' | 'bracket' | 'losers',
+  form: Pick<PersistedSetup, `${typeof stage}Games` | `${typeof stage}BestOf`>,
+  visible: boolean,
+): Partial<MaterializedGamemodeConfig> {
+  const games = parsed(form[`${stage}Games`], 1);
+  const bestOf = bestOfSetting(form[`${stage}BestOf`], visible);
+  return {
+    ...(visible && games !== 1 ? { [`${stage}Games`]: games } : {}),
+    ...(bestOf !== undefined ? { [`${stage}BestOf`]: bestOf } : {}),
+  };
 }
 
 function generationError(message: string): GenerateTournamentResult {
@@ -572,6 +587,8 @@ export function generateTournament(
     );
   }
 
+  const isDouble = schedule === 'double-elimination' || schedule === 'double-elimination-shared-final';
+  const matchOverrides = parseMatchOverrides(form.matchOverrides ?? '');
   const gamemodeConfig: MaterializedGamemodeConfig = {
     qualRounds,
     swissRounds,
@@ -597,6 +614,10 @@ export function generateTournament(
     semisGames: config.semisGames,
     ...(config.finalsBestOf !== undefined ? { finalsBestOf: config.finalsBestOf } : {}),
     ...(config.semisBestOf !== undefined ? { semisBestOf: config.semisBestOf } : {}),
+    ...stageMatchConfig('pooling', form, true),
+    ...stageMatchConfig('bracket', form, schedule !== 'waterfall-bracket'),
+    ...stageMatchConfig('losers', form, isDouble),
+    ...(Object.keys(matchOverrides).length > 0 ? { matchOverrides } : {}),
     grandFinalWbTarget,
     grandFinalLbTarget,
     groupSize: config.groupSize,

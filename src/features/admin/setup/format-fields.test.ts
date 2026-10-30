@@ -14,7 +14,15 @@ import {
  * The expected sets are written out as values, the rules the Setup form has always shown its fields by: the
  * fields of every setup, the ones a pooling phase adds, the ones a schedule logic adds.
  */
-const ALWAYS: FormatField[] = ['gameFormat', 'scheduleLogic', 'poolingPhase', 'scoring'];
+const ALWAYS: FormatField[] = [
+  'gameFormat',
+  'scheduleLogic',
+  'poolingPhase',
+  'scoring',
+  'poolingGames',
+  'poolingBestOf',
+  'matchOverrides',
+];
 
 const BY_POOLING: Record<PersistedSetup['poolingPhase'], FormatField[]> = {
   none: [],
@@ -25,6 +33,8 @@ const BY_POOLING: Record<PersistedSetup['poolingPhase'], FormatField[]> = {
 
 const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
   'single-elimination': [
+    'bracketGames',
+    'bracketBestOf',
     'finalsGames',
     'finalsBestOf',
     'semisOverride',
@@ -34,8 +44,19 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'eliminationRoundTargets',
     'eliminationSeedingOverrides',
   ],
-  'double-elimination': ['grandFinalWbTarget', 'grandFinalLbTarget'],
+  'double-elimination': [
+    'bracketGames',
+    'bracketBestOf',
+    'losersGames',
+    'losersBestOf',
+    'grandFinalWbTarget',
+    'grandFinalLbTarget',
+  ],
   'double-elimination-shared-final': [
+    'bracketGames',
+    'bracketBestOf',
+    'losersGames',
+    'losersBestOf',
     'finalsGames',
     'finalsBestOf',
     'lbQualifiers',
@@ -43,7 +64,7 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'eliminationRoundTargets',
     'eliminationSeedingOverrides',
   ],
-  'kings-valley': ['finalsGames', 'finalsBestOf'],
+  'kings-valley': ['bracketGames', 'bracketBestOf', 'finalsGames', 'finalsBestOf'],
   'waterfall-bracket': ['finalsGames', 'finalsBestOf', 'waterfallGraph'],
 };
 

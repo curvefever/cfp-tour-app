@@ -12,7 +12,7 @@ import { doubleEliminationContributions, routeStandings, routeWaterfallRound } f
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
-import { stageMatchFields } from './match-format';
+import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
@@ -167,13 +167,6 @@ function fitNextRound(
   return null;
 }
 
-/** The re-fitted Final plays what the old one played: its games, or its Best of N with the game count of the new Final's size. */
-function keptFinalFormat(oldFinal: TournamentRound, newFinal: TournamentRound) {
-  return oldFinal.bestOf === undefined
-    ? { numGames: oldFinal.numGames }
-    : stageMatchFields(oldFinal.numGames ?? 1, oldFinal.bestOf, Math.max(...newFinal.rooms));
-}
-
 function malformedKingsValleyFinalMessage(actual: number): string {
   const reaching = actual <= 0 ? 'Nobody' : `Only ${actual} unit`;
   return `Can't advance -- ${reaching} would reach the Final, which needs at least 2 to play. This usually means enough units were removed mid-tournament; check Manage Teams before advancing.`;
@@ -202,8 +195,7 @@ function fitKingsValleyTail(
   if (plannedSeats === poolSize) return null;
 
   const roomSize = state.gamemodeConfig.roomSize;
-  const finalsGames = state.gamemodeConfig.finalsGames;
-  if (!roomSize || finalsGames === undefined) {
+  if (!roomSize) {
     return { reason: 'missing-room-size', message: MISSING_ROOM_SIZE_MESSAGE };
   }
   // kingsValleyBracketPhase always converges to a Final at >= 2 once it
@@ -225,19 +217,17 @@ function fitKingsValleyTail(
   const capStartRoundNum = state.rounds[firstKvIndex]?.roundNum ?? nextRound.roundNum;
   const oldFinal = state.rounds[state.rounds.length - 1];
 
-  const newTail = kingsValleyBracketPhase(
-    poolSize,
-    nextRound.roundNum,
-    { roomSize, finalsGames, finalsBestOf: state.gamemodeConfig.finalsBestOf },
-    capStartRoundNum,
+  const builtTail = kingsValleyBracketPhase(poolSize, nextRound.roundNum, { roomSize }, capStartRoundNum);
+  // The re-planned rounds play their stage's format (the Final's, a live change included, is kept in the config).
+  const rounds = applyMatchFormats(
+    [...state.rounds.slice(0, nextIndex), ...builtTail],
+    state.gamemodeConfig,
+    nextIndex,
   );
+  const newTail = rounds.slice(nextIndex);
   const newFinal = newTail[newTail.length - 1];
   if (newFinal?.isFinal && oldFinal?.isFinal) {
-    newTail[newTail.length - 1] = {
-      ...newFinal,
-      ...keptFinalFormat(oldFinal, newFinal),
-      anonymousGames: oldFinal.anonymousGames,
-    };
+    newTail[newTail.length - 1] = { ...newFinal, anonymousGames: oldFinal.anonymousGames };
   }
 
   state.rounds = [...state.rounds.slice(0, nextIndex), ...newTail];
