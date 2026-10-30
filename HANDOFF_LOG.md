@@ -6,6 +6,23 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Each game's score in multi-game rooms (done — 2026-10-30)
+
+**Context.** A viewer of a Best-of-3 Semis room saw only the result (`2` / `1`, or the summed total); the Final already showed every game in columns. The organiser wants "200–150" as well as "1–0", before the 4v4 tour of Sunday 1 November 2026, 20:00 CET. Display only: no domain rule, stored data or score entry changed. One stage, one commit on `test`.
+
+**Decisions (organiser 2026-10-30, or planner, open to correction).**
+- Organiser: columns as on the Final (G1, G2, G3 before the result, with a header row), for every round of 2 or more games except the Final (the Semis in every format, Custom bracket rounds, Best of N and summed alike).
+- Organiser: from 5 games the columns give way to a small line under the name (`200 · 120 · 210`); five columns do not fit a 330 px column or a phone.
+- Planner: the games show wherever the score boxes do not (viewers, admins outside edit mode), during play too; a game not typed yet, or not needed in a decided Best of, reads `—`. The header ends in WINS (Best of) or TOTAL (summed); with the points column it is one row, `G1 G2 G3 SCORE PTS`. An absentee shows ABS and no games.
+
+**What was built.** `roomGameScores()` and `gameScoreLayout()` in `room-row-inputs.ts` (the games come from `getUnitScoreForGame`, so the team scoring rules apply; a game a decided Best of does not need is null). `GameScores.tsx`: `GamesHeader`, `GameColumns`, `GameScoresLine`. `RoomCard` picks the layout and the header (replacing `PointsHeader` for such a room); `RoomRow` places the cells between the name and the result and gives the result a fixed width (`w-12`, `w-11.5` with points) so the columns line up with the header.
+
+**Testing.** `room-row-inputs.test.ts`: a summed 3-game Semis part typed, a Best of 3 decided 2–0 (G3 null), a Best of 3 in a room of 3 teams (4 games), one score per team and sum of members in 4v4, a single-game round, the layout at 1, 2, 4, 5 and 7 games. `RoomGameScores.render.test.tsx`: a viewer's Best-of-3 Semis at 37 teams 4v4 (header G1 G2 G3 WINS, the row `301 252 — 2`), a summed 2-game room (TOTAL), a Best of 5 (the line, no columns), an admin in edit mode (no header), a single-game Semis (no header).
+
+**Full suite:** not run (no shared code, `src/features/bracket/` only). The next push to `main` needs one: this code is newer than the run on eb22b9c.
+
+**Out of scope.** Game scores in the Rankings (podium line, room history) and in the Rankings export image; a different layout for the Final; showing which game each unit won (bold or colour per cell).
+
 ## Best of N for the Semis and Finals format (done — 2026-10-30)
 
 **Context.** The organiser's 4v4 tour (Sunday 1 November 2026, 20:00 CET) runs as single elimination, not as a Custom bracket, and wants the Semis and the Final as Best of 3. The Custom-bracket build (previous entry) gave Best of N to waterfall rounds only, so single elimination offered no Best of 3. This build adds it to the "Semis format" and "Finals format" of single elimination, shared-Final double elimination and Kings Valley, and lets the Admin change both live. Two stages, one planner and one implementer session. The rule itself (`roomMatch`, first to (N + 1) / 2, draws win nothing, games after the decision ignored, places by wins then total) is the one already built; nothing in it changed.

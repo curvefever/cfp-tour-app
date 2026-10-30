@@ -1,5 +1,5 @@
-import { roomMatch } from '../../domain/tournament/match-format';
-import { getUnitScore } from '../../domain/tournament/scoring';
+import { roomMatch, unneededGames } from '../../domain/tournament/match-format';
+import { getUnitScore, getUnitScoreForGame } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 
 /** The units named lucky losers of the round that follows `roundIndex` (known once that round is advanced). */
@@ -29,4 +29,29 @@ export function winsSoFar(
 ): number | null {
   const match = roomMatch(state, roundIndex, room);
   return match && match.countedGames > 0 ? (match.units[position]?.wins ?? null) : null;
+}
+
+/** Where a multi-game room shows each game's score: in columns up to 4 games, as a line under the name from 5. */
+export type GameScoreLayout = 'none' | 'columns' | 'line';
+
+export function gameScoreLayout(games: number): GameScoreLayout {
+  if (games <= 1) return 'none';
+  return games <= 4 ? 'columns' : 'line';
+}
+
+/** One unit's score in each game of its room: null for a game not typed yet or not needed (a decided Best of). Empty for a single game. */
+export function roomGameScores(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  position: number,
+): Array<number | null> {
+  const games = state.rounds[roundIndex]?.numGames ?? 1;
+  if (games <= 1) return [];
+  const notNeeded = unneededGames(state, roundIndex, room);
+  return Array.from({ length: games }, (_, index) =>
+    notNeeded.includes(index + 1)
+      ? null
+      : getUnitScoreForGame(state, roundIndex, room, position, index + 1, null),
+  );
 }

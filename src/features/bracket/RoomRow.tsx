@@ -16,7 +16,8 @@ import {
   UnitScoreFields,
   compactScoreClass,
 } from './ScoreFields';
-import { unitScoreSummary, winsSoFar } from './room-row-inputs';
+import { GameColumns, GameScoresLine } from './GameScores';
+import { type GameScoreLayout, roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
 import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
@@ -151,6 +152,8 @@ export interface RoomRowProps {
   /** Whether the format scores each member (then the inputs are per member, not per team). */
   memberInputs: number | undefined;
   games: number;
+  /** How the row shows each game's score (none while its boxes show them, or in a single-game room). */
+  gameLayout: GameScoreLayout;
 }
 
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
@@ -211,39 +214,44 @@ export function RoomRow(props: RoomRowProps) {
   const { absent } = props;
   const { place, sharedPlace } = props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
-  const { memberInputs, games } = props;
+  const { memberInputs, games, gameLayout } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
+  const gameColumns = gameLayout === 'columns';
+  const gameScores =
+    gameLayout !== 'none' && !absent ? roomGameScores(state, roundIndex, room, position) : null;
+  // The result sits in a fixed-width column when a points column or the game columns need to line up with their header.
+  const resultWidth = pointsColumn ? 'w-11.5' : gameColumns ? 'w-12' : undefined;
   // A Best-of match in progress shows the games won so far, in a lighter weight than a result.
   const playedSoFar = winsSoFar(state, roundIndex, room, position);
   const scoreText = absent ? (
     <span
       className={cn(
         'ml-auto flex shrink-0 items-center justify-end text-[13px] font-bold text-muted',
-        pointsColumn && 'w-11.5',
+        resultWidth,
       )}
     >
       ABS
     </span>
   ) : showResults ? (
     <span
-      className={cn(
-        'ml-auto flex shrink-0 items-center justify-end text-[15px] font-extrabold',
-        pointsColumn && 'w-11.5',
-      )}
+      className={cn('ml-auto flex shrink-0 items-center justify-end text-[15px] font-extrabold', resultWidth)}
     >
       {score}
     </span>
   ) : playedSoFar !== null && !rowsEditable ? (
     <span
-      className='ml-auto flex shrink-0 items-center justify-end text-[15px] font-bold text-muted'
+      className={cn(
+        'ml-auto flex shrink-0 items-center justify-end text-[15px] font-bold text-muted',
+        resultWidth,
+      )}
       title='Games won so far'
     >
       {playedSoFar}
     </span>
-  ) : pointsColumn ? (
-    <span className='ml-auto w-11.5 shrink-0' />
+  ) : resultWidth ? (
+    <span className={cn('ml-auto shrink-0', resultWidth)} />
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
@@ -274,7 +282,9 @@ export function RoomRow(props: RoomRowProps) {
               state={state}
             />
           ) : null}
+          {gameLayout === 'line' && gameScores ? <GameScoresLine scores={gameScores} /> : null}
         </span>
+        {gameColumns ? <GameColumns games={games} scores={gameScores} /> : null}
         {inlineInput ? (
           <UnitScoreFields games={1} position={position} room={room} roundIndex={roundIndex} state={state} />
         ) : (

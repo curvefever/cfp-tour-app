@@ -11,7 +11,9 @@ import type { TournamentRound, TournamentState } from '../../domain/tournament/t
 import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
+import { GamesHeader } from './GameScores';
 import { LoneUnitRow, RoomRow } from './RoomRow';
+import { gameScoreLayout } from './room-row-inputs';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
@@ -140,9 +142,19 @@ export function RoomCard({
       ]
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   const memberInputs = scoredTeamSize(state);
+  // Where the boxes don't show each game's score, a multi-game room shows it in the row (the Final has its own view).
+  const gameLayout = rowsEditable || round.isFinal ? 'none' : gameScoreLayout(round.numGames ?? 1);
   return (
     <RoomFrame lines={lines} title={title}>
-      {points ? <PointsHeader /> : null}
+      {gameLayout !== 'none' ? (
+        <GamesHeader
+          columns={gameLayout === 'columns' ? (round.numGames ?? 1) : 0}
+          label={points ? 'SCORE' : round.bestOf !== undefined ? 'WINS' : 'TOTAL'}
+          points={Boolean(points)}
+        />
+      ) : points ? (
+        <PointsHeader />
+      ) : null}
       {display.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
@@ -163,6 +175,7 @@ export function RoomCard({
           <RoomRow
             absent={absent}
             followed={followKey === entry.name}
+            gameLayout={gameLayout}
             games={round.numGames ?? 1}
             index={index}
             inputsPerTeam={rowsEditable ? memberInputs : undefined}
