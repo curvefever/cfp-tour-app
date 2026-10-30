@@ -51,7 +51,6 @@ function StageFields({ stages }: { stages: StageMatchEntry[] }) {
         <Field htmlFor={`live-match-${entry.stage}`} key={entry.stage} label={`${entry.label} format`}>
           <MatchSelect
             bestOf={matchFromSelectValue(picks[entry.stage] ?? pickOf(entry)).bestOf}
-            bestOfOffered={entry.bestOfOffered}
             disabled={entry.locked}
             games={String(matchOf(entry, picks[entry.stage] ?? pickOf(entry)).games)}
             id={`live-match-${entry.stage}`}

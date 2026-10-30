@@ -309,13 +309,15 @@ describe('advancement edit: Best of N Semis and Final', () => {
     expect(edited.rounds.find((round) => round.isFinal)).toMatchObject({ bestOf: 3, numGames: 3 });
   });
 
-  it('refuses a last target that would give a Best of 3 Semis more than two rooms of two', () => {
+  it('takes a last target that gives a Best of 3 Semis four rooms of two, still Best of 3 over 3 games', () => {
     const base = playToFirstElimination(build(31, { ...bestOfSetup, poolingPhase: 'none' }));
     const values = bracketScope(base).rounds.map((entry) => entry.advTotal);
     values[values.length - 1] = 8;
-    expect(applyAdvancementEdit(base, { kind: 'bracket', targets: values })).toEqual({
-      ok: false,
-      error: expect.stringContaining('only head to head'),
+    const edited = unwrap(applyAdvancementEdit(base, { kind: 'bracket', targets: values }));
+    expect(edited.rounds.find((round) => round.isSemis)).toMatchObject({
+      rooms: [2, 2, 2, 2],
+      bestOf: 3,
+      numGames: 3,
     });
   });
 

@@ -1,6 +1,6 @@
 import { absentInRoom } from './absences';
 import { isStandingsCutoffRound, presentUnitCount, relativeRoomShare, scoreRoom } from './advancement';
-import { orderRoomByScore } from './scoring';
+import { comparableRoomTotal, orderRoomByScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
 /**
@@ -240,9 +240,9 @@ export function sizePools(state: TournamentState, roundIndex: number): Map<numbe
     for (const room of rooms) {
       const size = presentUnitCount(state, index, room);
       const scored = scoreRoom(state, index, room, 0);
-      if (size < 2 || scored.reduce((sum, entry) => sum + entry.score, 0) <= 0) continue;
+      if (size < 2 || comparableRoomTotal(scored) <= 0) continue;
       const pool = pools.get(size) ?? [];
-      pool.push(...scored.map((entry) => relativeRoomShare(entry.score, scored, entry.players)));
+      pool.push(...scored.map((entry) => relativeRoomShare(entry, scored)));
       pools.set(size, pool);
     }
   }
@@ -304,12 +304,12 @@ function compareRanked(first: FairCutUnit, second: FairCutUnit): number {
 
 function contestedRoomUnits(state: TournamentState, roundIndex: number, room: number): FairCutUnit[] {
   const ordered = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
-  const roomScored = ordered.reduce((sum, entry) => sum + entry.score, 0) > 0;
+  const roomScored = comparableRoomTotal(ordered) > 0;
   return ordered.map((entry, index) => ({
     name: entry.name,
     room,
     place: index + 1,
-    relative: relativeRoomShare(entry.score, ordered, entry.players),
+    relative: relativeRoomShare(entry, ordered),
     roomScored,
   }));
 }

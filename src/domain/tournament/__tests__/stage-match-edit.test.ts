@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { roomMatch } from '../match-format';
+import { bestOfGameCount, roomMatch } from '../match-format';
 import { isFinalComplete } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
 import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
@@ -71,8 +71,8 @@ describe('stageMatchScope', () => {
     expect(scope).toMatchObject({
       kind: 'stages',
       stages: [
-        { stage: 'semis', games: 1, locked: false, bestOfOffered: true },
-        { stage: 'finals', games: 3, locked: false, bestOfOffered: true },
+        { stage: 'semis', games: 1, locked: false },
+        { stage: 'finals', games: 3, locked: false },
       ],
     });
   });
@@ -84,7 +84,7 @@ describe('stageMatchScope', () => {
     expect(scope).toMatchObject({ stages: [{}, { stage: 'finals', games: 4, bestOf: 3 }] });
   });
 
-  it('locks the Semis once the Final is reached, and offers no Best of N for the Semis in a multi-unit format', () => {
+  it('locks the Semis once the Final is reached', () => {
     const scope = stageMatchScope(inFinal());
     expect(scope).toMatchObject({
       stages: [
@@ -92,10 +92,6 @@ describe('stageMatchScope', () => {
         { stage: 'finals', locked: false },
       ],
     });
-    const ffa = stageMatchScope(
-      generated(37, { scheduleLogic: 'single-elimination', gameFormat: 'ffa-individual' }),
-    );
-    expect(ffa).toMatchObject({ stages: [{ bestOfOffered: false }, { bestOfOffered: true }] });
   });
 
   it('covers only the Final in Kings Valley and shared-Final double elimination, and nothing in the race or the Custom bracket', () => {
@@ -201,14 +197,14 @@ describe('changing the Semis', () => {
     expect(applyStageMatchEdit(state, { semis: { games: 1 }, finals: { games: 2 } }).ok).toBe(true);
   });
 
-  it('refuses a Best of N Semis where a room holds more than two units, and changes nothing', () => {
+  it('takes a Best of N Semis where a room holds more than two units', () => {
     const state = playUntil(
       generated(37, { scheduleLogic: 'single-elimination', gameFormat: 'ffa-individual' }),
       (round) => round.isSemis,
     );
-    expect(refusal(state, { semis: { games: 1, bestOf: 3 }, finals: { games: 3, bestOf: 3 } })).toContain(
-      'only head to head',
-    );
+    const next = edit(state, { semis: { games: 1, bestOf: 3 } });
+    const semis = next.rounds[next.curRound];
+    expect(semis).toMatchObject({ bestOf: 3, numGames: bestOfGameCount(3, Math.max(...semis.rooms)) });
   });
 
   it('changes the Semis and the Final in one save', () => {

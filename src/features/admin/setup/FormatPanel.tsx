@@ -16,7 +16,6 @@ import {
   DRAW_PUBLICATION_LABELS,
   ROUND_ROBIN_LABELS,
   matchFromSelectValue,
-  semisBestOfOffered,
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
@@ -342,7 +341,6 @@ export function FormatPanel({
         {shown.has('finalsGames') ? (
           <PresenceField htmlFor='cfg-finals-games' label='Finals format'>
             <MatchSelect
-              bestOfOffered
               bestOf={setup.finalsBestOf}
               games={setup.finalsGames}
               id='cfg-finals-games'
@@ -393,7 +391,6 @@ export function FormatPanel({
             </PresenceField>
             <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
               <MatchSelect
-                bestOfOffered={semisBestOfOffered(setup)}
                 bestOf={setup.semisBestOf}
                 games={setup.semisGames}
                 id='cfg-semis-games'

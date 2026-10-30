@@ -37,7 +37,7 @@ function names(state: TournamentState, room: number): string[] {
 
 function shares(state: TournamentState): number[] {
   const scored = scoreRoom(state, 0, 1, null);
-  return scored.map((entry) => relativeRoomShare(entry.score, scored, entry.players));
+  return scored.map((entry) => relativeRoomShare(entry, scored));
 }
 
 const SUM_TEAMS = { gameFormat: 'team-2v2v2v2', rule: 'sum-members' } as const;

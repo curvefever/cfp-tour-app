@@ -288,14 +288,14 @@ function eliminationsInRound(
     const absent = Number.isInteger(room) ? absentInRoom(state, roundIndex, room) : [];
     const entry = { ri: roundIndex, round, room: round.isKingsValley ? room : undefined, seat: room };
     for (const unit of scored) {
-      const { name, score, players } = unit;
+      const { name } = unit;
       if (!isOut(name)) continue;
       eliminations.push([
         name,
         {
           ...entry,
           place: 1 + scored.filter((other) => compareRankScores(other, unit) < 0).length,
-          share: relativeRoomShare(score, scored, players),
+          share: relativeRoomShare(unit, scored),
         },
       ]);
     }

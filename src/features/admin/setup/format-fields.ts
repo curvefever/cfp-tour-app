@@ -1,4 +1,4 @@
-import { deriveRoomSize, getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
+import { getGameFormat } from '../../../domain/tournament/formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
 
 /** A setting of the Setup form; `lbQualifiers` lives outside `PersistedSetup` but is one as well. */
@@ -39,15 +39,6 @@ export function matchSelectValue(games: string, bestOf: string): string {
 /** What a select value sets: summed games clear the Best of N, a Best of N leaves the games as they were. */
 export function matchFromSelectValue(value: string): { games?: string; bestOf: string } {
   return value.startsWith('bo') ? { bestOf: value.slice(2) } : { games: value, bestOf: '' };
-}
-
-/** Whether the Semis can be a Best of N: only in a head-to-head game format (a win count can't be compared across rooms). */
-export function semisBestOfOffered(
-  choices: Pick<PersistedSetup, 'gameFormat' | 'oddCountStrategy'>,
-): boolean {
-  const format = getGameFormat(choices.gameFormat);
-  if (!format) return false;
-  return deriveRoomSize(format, resolveOddCountStrategy(format, choices.oddCountStrategy)).max === 2;
 }
 
 /**

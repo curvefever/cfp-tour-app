@@ -258,6 +258,16 @@ export interface RankScore {
   tiebreak?: number;
 }
 
+/** What a unit scored, for comparing units of different rooms: on a Best-of round the total of the counted games (its `score` is the wins), elsewhere the score. */
+export function comparableScore(result: RankScore): number {
+  return result.tiebreak ?? result.score;
+}
+
+/** The sum of `comparableScore` over a room; an all-zero room is not a contest. */
+export function comparableRoomTotal(room: readonly RankScore[]): number {
+  return room.reduce((total, result) => total + comparableScore(result), 0);
+}
+
 /** Orders best first: by score, then by tiebreak. */
 export function compareRankScores(first: RankScore, second: RankScore): number {
   return second.score - first.score || (second.tiebreak ?? 0) - (first.tiebreak ?? 0);

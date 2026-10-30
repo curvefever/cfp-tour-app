@@ -5,7 +5,6 @@ import {
   matchFromSelectValue,
   matchLabelOf,
   matchSelectValue,
-  semisBestOfOffered,
   visibleFormatFields,
   type FormatChoices,
   type FormatField,
@@ -121,12 +120,5 @@ describe('the Semis and Finals format select', () => {
   it('a Best of N leaves the games as they were, summed games clear the Best of N', () => {
     expect(matchFromSelectValue('bo3')).toEqual({ bestOf: '3' });
     expect(matchFromSelectValue('2')).toEqual({ games: '2', bestOf: '' });
-  });
-
-  it('offers a Best of N for the Semis only where the rooms are head to head', () => {
-    expect(semisBestOfOffered({ gameFormat: 'team-4v4', oddCountStrategy: '' })).toBe(true);
-    expect(semisBestOfOffered({ gameFormat: 'individual-1v1', oddCountStrategy: '' })).toBe(true);
-    expect(semisBestOfOffered({ gameFormat: 'ffa-individual', oddCountStrategy: '' })).toBe(false);
-    expect(semisBestOfOffered({ gameFormat: 'team-2v2v2v2', oddCountStrategy: '' })).toBe(false);
   });
 });

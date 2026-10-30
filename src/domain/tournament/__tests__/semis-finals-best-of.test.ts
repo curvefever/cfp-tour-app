@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { bestOfGameCount, roomMatch, semisBestOfProblem, stageMatchFields } from '../match-format';
+import { bestOfGameCount, roomMatch, stageMatchFields } from '../match-format';
 import { fitRoundToPool } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -119,26 +119,27 @@ describe('Best of N in a format with more than two units per room', () => {
     expect(semisOf(state)).not.toHaveProperty('bestOf');
   });
 
-  it('refuses a Best of 3 Semis where a room holds more than two units, naming why', () => {
-    const result = generate(37, 0, {
+  it('FFA at 37: a Best of 3 Semis works its games out for its largest room', () => {
+    const state = generated(37, 0, {
       gameFormat: 'ffa-individual',
       scheduleLogic: 'single-elimination',
       semisBestOf: '3',
     });
-    expect(result).toEqual({
-      status: 'invalid',
-      message: expect.stringContaining('only head to head, with every Final seat taken by a Semis winner'),
+    expect(semisOf(state)).toMatchObject({
+      bestOf: 3,
+      numGames: bestOfGameCount(3, Math.max(...semisOf(state).rooms)),
     });
   });
 
-  it('refuses a head-to-head Best of 3 Semis that would send lucky losers to the Final', () => {
-    const result = generate(37, 0, {
+  it('1v1 at 31: a Best of 3 Semis may send lucky losers to the Final', () => {
+    const state = generated(31, 0, {
       gameFormat: 'individual-1v1',
       scheduleLogic: 'single-elimination',
       semisBestOf: '3',
       semisOverride: '6',
     });
-    expect(result.status).toBe('invalid');
+    expect(semisOf(state)).toMatchObject({ bestOf: 3, numGames: 3 });
+    expect(semisOf(state).luckyCount).toBeGreaterThan(0);
   });
 
   it('ignores a Best of N setting whose select is hidden: the Semis in other schedules, the race Grand Final', () => {
@@ -248,20 +249,5 @@ describe('refitting a Best of N round to the units that reach it', () => {
       rooms: [6],
       numGames: 3,
     });
-  });
-});
-
-describe('semisBestOfProblem', () => {
-  const semis = (rooms: number[], luckyCount: number) =>
-    ({ isSemis: true, rooms, luckyCount }) as unknown as TournamentRound;
-
-  it('accepts head-to-head rooms where every Final seat is a room winner', () => {
-    expect(semisBestOfProblem([semis([2, 2], 0)])).toBeNull();
-    expect(semisBestOfProblem([])).toBeNull();
-  });
-
-  it('names lucky losers and bigger rooms', () => {
-    expect(semisBestOfProblem([semis([2, 2, 2], 2)])).toContain('head to head');
-    expect(semisBestOfProblem([semis([4, 4], 0)])).toContain('head to head');
   });
 });

@@ -6,7 +6,7 @@
  * Kings Valley Final re-fit keeps the new value. The Custom bracket changes a round's format through Edit graph.
  */
 import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
-import { semisBestOfProblem, stageMatchFields } from './match-format';
+import { stageMatchFields } from './match-format';
 import { isRoundDone } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -24,8 +24,6 @@ export interface StageMatchEntry extends StageMatch {
   index: number;
   /** The round is finished: its format can't change any more. */
   locked: boolean;
-  /** Whether a Best of N may be chosen (a Semis only head to head, with a winner for every Final seat). */
-  bestOfOffered: boolean;
 }
 
 export type StageMatchScope =
@@ -74,7 +72,6 @@ export function stageMatchScope(state: TournamentState): StageMatchScope {
         games: gamesOf(state, stage, round),
         ...(round.bestOf === undefined ? {} : { bestOf: round.bestOf }),
         locked: isRoundDone(state, index),
-        bestOfOffered: stage === 'finals' || semisBestOfProblem([round]) === null,
       },
     ];
   });
@@ -93,7 +90,6 @@ function refusal(stage: StageMatchEntry, round: TournamentRound, match: StageMat
   if (sameMatchFormat(round, fields)) return null;
   if (stage.locked) return `Can't save: "${stage.label}" is finished, so its match format can't change.`;
   if (match.bestOf === undefined) return null;
-  if (stage.stage === 'semis') return semisBestOfProblem([round]);
   if (round.anonymousGames?.length) {
     return `Can't save: "${stage.label}" has anonymous games, which a Best of ${match.bestOf} can't have.`;
   }
@@ -123,8 +119,7 @@ function syncConfig(state: TournamentState, stage: MatchStage, match: StageMatch
 
 /**
  * The state with the Semis and/or the Final played in the given formats. Nothing is changed when any stage is
- * refused: a finished round, a Best of N the Semis can't have, a Final with anonymous games, or fewer games
- * than a score already typed.
+ * refused: a finished round, a Final with anonymous games, or fewer games than a score already typed.
  */
 export function applyStageMatchEdit(
   state: TournamentState,

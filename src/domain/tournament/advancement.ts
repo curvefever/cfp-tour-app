@@ -4,11 +4,14 @@ import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
 import {
+  comparableRoomTotal,
+  comparableScore,
   compareRankScores,
   groupByScore,
   isRoomScored,
   orderRoomByScore,
   orderRoomWithPlaces,
+  type RankScore,
   readTieResolution,
   roomTieKey,
   scaledRoomPoints,
@@ -137,9 +140,8 @@ export function isStandingsCutoffRound(state: TournamentState, roundIndex: numbe
 function luckyLoserCandidate(scored: ScoredUnit[], advPerRoom: number): LuckyLoserCandidate | null {
   const candidate = scored[advPerRoom];
   if (!candidate) return null;
-  const roomTotal = scored.reduce((total, entry) => total + entry.score, 0);
-  if (roomTotal <= 0) return null;
-  return { name: candidate.name, share: relativeRoomShare(candidate.score, scored, candidate.players) };
+  if (comparableRoomTotal(scored) <= 0) return null;
+  return { name: candidate.name, share: relativeRoomShare(candidate, scored) };
 }
 
 function pickLuckyLosers(candidates: LuckyLoserCandidate[], luckyCount: number): string[] {
@@ -535,18 +537,20 @@ function pointsForSharedPlace(roomPoints: readonly number[], place: number, coun
  * One round's share relative to its room's average: score ÷ room total × scored units (1 = average); an all-zero room
  * gives everyone 1. With `players` it is the score per player over the room's score per player, so a team playing
  * short is not measured against full teams; when every unit has the same number of players the two are the same.
+ * The score is `comparableScore`: on a Best-of round the total of the counted games, not the wins, so units of
+ * different rooms compare.
  */
 export function relativeRoomShare(
-  score: number,
-  scoredRoom: readonly { score: number; players?: number }[],
-  players = 1,
+  unit: RankScore & { players?: number },
+  scoredRoom: ReadonlyArray<RankScore & { players?: number }>,
 ): number {
-  const roomTotal = scoredRoom.reduce((total, entry) => total + entry.score, 0);
+  const roomTotal = comparableRoomTotal(scoredRoom);
   if (roomTotal <= 0) return 1;
+  const score = comparableScore(unit);
   const counts = scoredRoom.map((entry) => entry.players ?? 1);
   if (counts.every((count) => count === counts[0])) return (score / roomTotal) * scoredRoom.length;
   const roomPlayers = counts.reduce((total, count) => total + count, 0);
-  return score / players / (roomTotal / roomPlayers);
+  return score / (unit.players ?? 1) / (roomTotal / roomPlayers);
 }
 
 /**
@@ -674,7 +678,7 @@ function roomOutcomes(
     rank: place,
     points: pointsForSharedPlace(roomPoints, place, sharedBy),
     bye: false,
-    share: relativeRoomShare(entry.score, scored, entry.players),
+    share: relativeRoomShare(entry, scored),
     ...(sharedBy > 1 ? { shared: true } : {}),
   }));
 }
@@ -880,7 +884,7 @@ export function buildAdvancementTiers(
         remaining.delete(entry.name);
         const member: AdvancementTierMember = {
           name: entry.name,
-          pct: relativeRoomShare(entry.score, roomEntries, entry.players),
+          pct: relativeRoomShare(entry, roomEntries),
           sourceRoom: room,
         };
         byRank.set(rank, [...(byRank.get(rank) ?? []), member]);
@@ -999,12 +1003,11 @@ export function computeLuckyLoserStandings(
     const scored = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
     const candidate = luckyLoserCandidate(scored, advPerRoom);
     if (!candidate) continue;
-    const roomTotal = scored.reduce((total, entry) => total + entry.score, 0);
     candidates.push({
       name: candidate.name,
       room,
-      score: scored[advPerRoom].score,
-      roomTotal,
+      score: comparableScore(scored[advPerRoom]),
+      roomTotal: comparableRoomTotal(scored),
       share: candidate.share,
     });
   }

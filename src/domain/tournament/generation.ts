@@ -8,7 +8,7 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { BEST_OF_VALUES, semisBestOfProblem } from './match-format';
+import { BEST_OF_VALUES } from './match-format';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -616,8 +616,6 @@ export function generateTournament(
   } catch (error) {
     return generationError(error instanceof Error ? error.message : String(error));
   }
-  const semisProblem = config.semisBestOf === undefined ? null : semisBestOfProblem(progression.rounds);
-  if (semisProblem) return generationError(semisProblem);
   const roomCapError = validateRoomCap(progression.rounds, format);
   if (roomCapError) return generationError(roomCapError);
 

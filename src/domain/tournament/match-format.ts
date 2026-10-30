@@ -41,16 +41,6 @@ export function stageMatchFields(
   return { bestOf, numGames: bestOfGameCount(bestOf, largestRoomUnits) };
 }
 
-/**
- * Why the Semis can't be a Best of N, or null when they can: only a head-to-head room has a winner by wins, and
- * a lucky loser or a spare place in the Final is picked across rooms by score, which a win count can't compare.
- */
-export function semisBestOfProblem(rounds: TournamentRound[]): string | null {
-  const semis = rounds.find((round) => round.isSemis);
-  if (!semis || (semis.rooms.every((size) => size <= 2) && semis.luckyCount === 0)) return null;
-  return 'Semis can be played as a Best of N only head to head, with every Final seat taken by a Semis winner. Choose a number of summed games for the Semis format, or change the Semis or Final size.';
-}
-
 /** One unit of a Best-of room, in seat order. */
 export interface UnitMatch {
   name: string;
