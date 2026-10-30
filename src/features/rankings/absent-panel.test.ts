@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, markOneScoreTeamMemberAbsent } from '../../domain/tournament/absences';
+import {
+  answerAbsence,
+  markOneScoreTeamMemberAbsent,
+  oneScoreTeamMemberKey,
+} from '../../domain/tournament/absences';
 import { removeRosterUnit, setRoundScore, swapIndividual } from '../../domain/tournament/mutations';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { absentMatchRows, streakText, oneScoreTeamMarkChoices, oneScoreTeamMarkRows } from './absent-panel';
@@ -177,6 +181,18 @@ describe('One score per team member marks', () => {
       'Cy (Blue) · Round 1 · Room A',
     ]);
     expect(oneScoreTeamMarkChoices(marked)[1].members.map((member) => member.marked)).toEqual([true, false]);
+  });
+
+  it('offers nothing in a tournament without absenceVersion, even with a mark stored', () => {
+    const state = oneRoomState({
+      gameFormat: 'team-2v2v2v2',
+      rule: ONE_SCORE_PER_TEAM,
+      version: false,
+      players: [teamOf('Red', ['Ann', 'Bea']), teamOf('Blue', ['Cy', 'Di'])],
+      absences: { [oneScoreTeamMemberKey(0, 1, 1, 0)]: 'absent' },
+    });
+    expect(oneScoreTeamMarkChoices(state)).toEqual([]);
+    expect(oneScoreTeamMarkRows(state)).toEqual([]);
   });
 
   it('offers nothing outside One score per team', () => {
