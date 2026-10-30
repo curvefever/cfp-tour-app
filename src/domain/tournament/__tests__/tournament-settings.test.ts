@@ -126,3 +126,13 @@ describe('readTournamentSettings', () => {
     expect(settings).not.toHaveProperty('someFutureField');
   });
 });
+
+describe('a Best-of round in the settings copy', () => {
+  it('copies the graph text with its BO and GAMES tokens verbatim', () => {
+    const graph = 'ROUNDS:\nSemi = 2 BO3 COLUMN 2\nFinal = 2 FINAL BO5\nROUTES:\nSemi: 1->Final';
+    const settings = settingsFromForm(
+      createDefaultSetup({ scheduleLogic: 'waterfall-bracket', waterfallGraph: graph }),
+    );
+    expect(settings.waterfallGraph).toBe(graph);
+  });
+});

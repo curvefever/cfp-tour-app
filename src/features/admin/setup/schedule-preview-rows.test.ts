@@ -110,3 +110,16 @@ describe('schedulePreviewRows -- the fair cut', () => {
     expect(detail).toBe('4 · 4 · 4 · 4 · 4 · 4 · 4 · 3 teams, 26 advance incl. 2 lucky losers');
   });
 });
+
+describe('schedulePreviewRows on a Best-of round', () => {
+  it('says "best of 3" where a summed round says how many games', () => {
+    const rows = schedulePreviewRows(
+      stateOf([
+        buildRound({ roundNum: 1, rooms: [2, 2], players: 4, bestOf: 3, numGames: 3 }),
+        buildRound({ roundNum: 2, rooms: [2], players: 2, numGames: 2 }),
+      ]),
+      'players',
+    );
+    expect(rows.map((row) => row.meta)).toEqual(['2 rooms · best of 3', '1 room · 2 games']);
+  });
+});

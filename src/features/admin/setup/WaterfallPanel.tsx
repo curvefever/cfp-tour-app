@@ -20,6 +20,7 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
     >
       <WaterfallGraphEditor
         entrantCount={waterfallEntrantCount}
+        finalsGames={Number.parseInt(setup.finalsGames, 10) || undefined}
         onChange={(text) => change('waterfallGraph', text)}
         roomSize={derivedRoomSize}
         standingsSource={waterfallStandingsSource}

@@ -22,6 +22,9 @@ import type { RoomSize, TournamentRound } from './types';
  *   6B = 8
  *   Final = 8 FINAL
  *
+ * After the size a ROUNDS line takes, in any order and each at most once, FINAL, COLUMN <n>, and one match
+ * format: BO<n> (best of n, odd from 3 to 9) or GAMES <n> (n games summed, 1 to 4).
+ *
  *   ROUTES:
  *   5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
  *   6B: 1-4->7A, 5-8->eliminated
@@ -90,6 +93,10 @@ interface RawRoundLine {
   isFinal: boolean;
   /** The organiser's own column number ("COLUMN 2"), null when the round's column is automatic. */
   column: number | null;
+  /** "BO3": the round is a best of n (odd, 3-9). At most one of `bestOf` and `games` is set. */
+  bestOf?: number;
+  /** "GAMES 2": the round plays n games, summed (1-4). */
+  games?: number;
 }
 
 interface RawRouteBand {
@@ -240,19 +247,30 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
   return ok({ label, roomSizes, ...trailer.value });
 }
 
-/** The tokens after a ROUNDS line's size: "FINAL" and/or "COLUMN <n>", in either order, each at most once. */
-function parseRoundLineTrailer(
-  label: string,
-  tokens: string[],
-): WaterfallParseResult<{ isFinal: boolean; column: number | null }> {
-  let isFinal = false;
-  let column: number | null = null;
+/** The most games a GAMES token can ask for. */
+const MAX_SUMMED_GAMES = 4;
+const BEST_OF_VALUES = [3, 5, 7, 9];
+
+type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games'> & { isFinal: boolean; column: number | null };
+
+/** The match format already written on the line, as the organiser wrote it, for the "choose one" error. */
+function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>): string {
+  return trailer.bestOf === undefined ? `GAMES ${trailer.games}` : `BO${trailer.bestOf}`;
+}
+
+/**
+ * The tokens after a ROUNDS line's size, in any order, each at most once: "FINAL", "COLUMN <n>", and one match
+ * format, "BO<n>" (best of n, odd from 3 to 9) or "GAMES <n>" (n games summed, 1 to 4).
+ */
+function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseResult<RoundLineTrailer> {
+  const trailer: RoundLineTrailer = { isFinal: false, column: null };
   let seenColumn = false;
   for (let index = 0; index < tokens.length; index += 1) {
     const keyword = tokens[index].toUpperCase();
+    const bestOfMatch = /^BO(\d*)$/.exec(keyword);
     if (keyword === 'FINAL') {
-      if (isFinal) return err(`ROUNDS line for "${label}" repeats FINAL -- write it once.`);
-      isFinal = true;
+      if (trailer.isFinal) return err(`ROUNDS line for "${label}" repeats FINAL -- write it once.`);
+      trailer.isFinal = true;
     } else if (keyword === 'COLUMN') {
       if (seenColumn) return err(`ROUNDS line for "${label}" repeats COLUMN -- write it once.`);
       seenColumn = true;
@@ -262,15 +280,47 @@ function parseRoundLineTrailer(
           `ROUNDS line for "${label}" needs a whole number from 1 after COLUMN -- for example "COLUMN 2".`,
         );
       }
-      column = Number.parseInt(number, 10);
+      trailer.column = Number.parseInt(number, 10);
+      index += 1;
+    } else if (bestOfMatch) {
+      const bestOf = Number.parseInt(bestOfMatch[1], 10);
+      if (!BEST_OF_VALUES.includes(bestOf)) {
+        return err(
+          `ROUNDS line for "${label}" needs an odd number from 3 to 9 after BO -- for example "BO3".`,
+        );
+      }
+      if (trailer.bestOf !== undefined)
+        return err(`ROUNDS line for "${label}" repeats ${keyword} -- write it once.`);
+      if (trailer.games !== undefined) {
+        return err(
+          `ROUNDS line for "${label}" has both ${writtenMatchFormat(trailer)} and ${keyword} -- choose one match format.`,
+        );
+      }
+      trailer.bestOf = bestOf;
+    } else if (keyword === 'GAMES') {
+      const number = tokens[index + 1];
+      const games = number !== undefined && /^\d+$/.test(number) ? Number.parseInt(number, 10) : 0;
+      if (games < 1 || games > MAX_SUMMED_GAMES) {
+        return err(
+          `ROUNDS line for "${label}" needs a whole number from 1 to ${MAX_SUMMED_GAMES} after GAMES -- for example "GAMES 2".`,
+        );
+      }
+      if (trailer.games !== undefined)
+        return err(`ROUNDS line for "${label}" repeats GAMES -- write it once.`);
+      if (trailer.bestOf !== undefined) {
+        return err(
+          `ROUNDS line for "${label}" has both ${writtenMatchFormat(trailer)} and GAMES ${games} -- choose one match format.`,
+        );
+      }
+      trailer.games = games;
       index += 1;
     } else {
       return err(
-        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL" and "COLUMN <number>" are allowed after the size.`,
+        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size.`,
       );
     }
   }
-  return ok({ isFinal, column });
+  return ok(trailer);
 }
 
 function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
@@ -945,6 +995,8 @@ function buildOrderedGraph(
       roomSizes: round.roomSizes,
       isFinal: round.isFinal,
       ...(round.column === null ? {} : { columnSet: true as const }),
+      ...(round.bestOf === undefined ? {} : { bestOf: round.bestOf }),
+      ...(round.games === undefined ? {} : { games: round.games }),
     };
   });
   const routes: Array<Array<Array<number | 'eliminated'>>> = topoOrder.map((label) => {

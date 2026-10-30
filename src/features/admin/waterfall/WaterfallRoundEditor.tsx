@@ -7,6 +7,7 @@ import {
   type WaterfallColumnChoices,
   type WaterfallDraft,
   type WaterfallDraftRound,
+  type WaterfallMatch,
   type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { Button, Input, Select } from '../../../components/ui';
@@ -32,6 +33,8 @@ export interface RoundEditorActions {
   onSetFinal: (isFinal: boolean) => void;
   /** A whole column number, or null to leave the round's column automatic. */
   onSetColumn: (column: number | null) => void;
+  /** The round's own match format, or null for the default. */
+  onSetMatch: (match: WaterfallMatch | null) => void;
   onDelete: () => void;
   /** Shows more ranks in the qualification table (only offered while the head count isn't known). */
   onAddRanks?: () => void;
@@ -98,6 +101,69 @@ function ColumnField({
   );
 }
 
+const DEFAULT_MATCH_VALUE = 'default';
+const MATCH_CHOICES: WaterfallMatch[] = [
+  { kind: 'games', games: 2 },
+  { kind: 'games', games: 3 },
+  { kind: 'games', games: 4 },
+  { kind: 'best-of', bestOf: 3 },
+  { kind: 'best-of', bestOf: 5 },
+  { kind: 'best-of', bestOf: 7 },
+];
+
+function matchValue(match: WaterfallMatch | null): string {
+  if (match === null) return DEFAULT_MATCH_VALUE;
+  return match.kind === 'best-of' ? `best-of-${match.bestOf}` : `games-${match.games}`;
+}
+
+function matchLabel(match: WaterfallMatch): string {
+  if (match.kind === 'best-of') return `Best of ${match.bestOf}`;
+  return match.games === 1 ? '1 game' : `${match.games} games, summed`;
+}
+
+/** The round's match format: a select the organiser changes, or the same select disabled (a round that has started, or a read-only view). */
+function MatchField({
+  round,
+  finalsGames,
+  onSetMatch,
+}: {
+  round: WaterfallDraftRound;
+  finalsGames?: number;
+  onSetMatch?: (match: WaterfallMatch | null) => void;
+}) {
+  const defaultLabel = !round.isFinal
+    ? '1 game'
+    : finalsGames === undefined
+      ? 'Finals format'
+      : `Finals format (${finalsGames} ${finalsGames === 1 ? 'game' : 'games'})`;
+  // A format typed into the graph text that the list doesn't offer (BO9, GAMES 1 on the Final) stays selectable.
+  const unlisted =
+    round.match !== null && !MATCH_CHOICES.some((choice) => matchValue(choice) === matchValue(round.match))
+      ? round.match
+      : null;
+  const choices = unlisted ? [...MATCH_CHOICES, unlisted] : MATCH_CHOICES;
+  return (
+    <label className={cn(fieldLabelClass, 'w-52')}>
+      Match
+      <Select
+        className='mt-1'
+        disabled={!onSetMatch}
+        onChange={(event) =>
+          onSetMatch?.(choices.find((choice) => matchValue(choice) === event.target.value) ?? null)
+        }
+        value={matchValue(round.match)}
+      >
+        <option value={DEFAULT_MATCH_VALUE}>{defaultLabel}</option>
+        {choices.map((choice) => (
+          <option key={matchValue(choice)} value={matchValue(choice)}>
+            {matchLabel(choice)}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+}
+
 /** Whole number within [1, max], or null. */
 function readCount(text: string, max: number): number | null {
   const value = Number(text);
@@ -108,10 +174,12 @@ function RoundSettings({
   round,
   actions,
   columns,
+  finalsGames,
 }: {
   round: WaterfallDraftRound;
   actions: RoundEditorActions;
   columns?: RoundColumnInfo;
+  finalsGames?: number;
 }) {
   const [name, setName] = useState(round.label);
   const [rooms, setRooms] = useState(String(round.roomCount));
@@ -176,6 +244,7 @@ function RoundSettings({
           />
         </label>
         {columns ? <ColumnField info={columns} onSetColumn={actions.onSetColumn} round={round} /> : null}
+        <MatchField finalsGames={finalsGames} onSetMatch={actions.onSetMatch} round={round} />
         <label className='flex items-center gap-2 pb-2 text-sm'>
           <input
             checked={round.isFinal}
@@ -407,7 +476,15 @@ export function QualificationTableEditor({
   );
 }
 
-function RoundSummary({ round, columns }: { round: WaterfallDraftRound; columns?: RoundColumnInfo }) {
+function RoundSummary({
+  round,
+  columns,
+  finalsGames,
+}: {
+  round: WaterfallDraftRound;
+  columns?: RoundColumnInfo;
+  finalsGames?: number;
+}) {
   return (
     <div className='flex flex-wrap items-center gap-3'>
       <b>{round.label}</b>
@@ -416,6 +493,7 @@ function RoundSummary({ round, columns }: { round: WaterfallDraftRound; columns?
         {round.isFinal ? ' · Final' : ''}
       </span>
       {columns ? <ColumnField info={columns} round={round} /> : null}
+      <MatchField finalsGames={finalsGames} round={round} />
     </div>
   );
 }
@@ -429,6 +507,7 @@ export function WaterfallRoundEditor({
   actions,
   locked,
   columns,
+  finalsGames,
 }: {
   draft: WaterfallDraft;
   round: WaterfallDraftRound;
@@ -441,6 +520,8 @@ export function WaterfallRoundEditor({
   locked?: boolean;
   /** The Column select's numbers; omitted when the tournament's rounds aren't played in columns. */
   columns?: RoundColumnInfo;
+  /** The Finals format, shown on the Final's default Match option. */
+  finalsGames?: number;
 }) {
   return (
     <div>
@@ -448,11 +529,12 @@ export function WaterfallRoundEditor({
         <RoundSettings
           actions={actions}
           columns={columns}
+          finalsGames={finalsGames}
           key={`${round.label}-${round.roomCount}-${round.roomSize}`}
           round={round}
         />
       ) : (
-        <RoundSummary columns={columns} round={round} />
+        <RoundSummary columns={columns} finalsGames={finalsGames} round={round} />
       )}
       {round.isFinal ? (
         <div className='mt-3 rounded-lg bg-surface-low p-4'>

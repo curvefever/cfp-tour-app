@@ -51,7 +51,9 @@ function startedColumnsOf(state: TournamentState, lockedRounds: ReadonlySet<stri
 
 function savedText(state: TournamentState): string {
   const rankCount = rosterKeys(state.players).length;
-  return serializeWaterfallDraft(waterfallDraftFromRounds(state.rounds, { rankCount }));
+  return serializeWaterfallDraft(
+    waterfallDraftFromRounds(state.rounds, { rankCount, finalsGames: state.gamemodeConfig.finalsGames }),
+  );
 }
 
 /** Admin-only view of a running waterfall bracket's graph, rebuilt from `state.rounds` (the live source of truth), not the `settings.waterfallGraph` snapshot. */
@@ -133,6 +135,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         <WaterfallGraphEditor
           currentRoundLabels={currentRoundLabels}
           entrantCount={entrantCount}
+          finalsGames={state.gamemodeConfig.finalsGames}
           lockedRounds={lockedRounds}
           onChange={() => {}}
           readOnly
@@ -163,6 +166,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         allowReplace={false}
         currentRoundLabels={currentRoundLabels}
         entrantCount={entrantCount}
+        finalsGames={state.gamemodeConfig.finalsGames}
         lockedRounds={lockedRounds}
         onChange={(next) => {
           setDraftText(next);

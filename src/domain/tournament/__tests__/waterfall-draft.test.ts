@@ -25,6 +25,7 @@ import {
   serializeWaterfallDraft,
   setWaterfallColumn,
   setWaterfallFinal,
+  setWaterfallMatch,
   waterfallColumnChoices,
   waterfallColumnGroups,
   waterfallDraftColumns,
@@ -258,8 +259,8 @@ describe('waterfall draft edits', () => {
   it('starts blank with an entry round sized to the entrants when they divide into rooms', () => {
     const draft = blankWaterfallDraft(24, FFA_ROOM_SIZE);
     expect(draft.rounds).toEqual([
-      { label: 'R1', roomCount: 3, roomSize: 8, isFinal: false, column: null },
-      { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true, column: null },
+      { label: 'R1', roomCount: 3, roomSize: 8, isFinal: false, column: null, match: null },
+      { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true, column: null, match: null },
     ]);
     expect(draft.routes.R1).toEqual(Array.from({ length: 3 }, () => Array(8).fill(null)));
   });
@@ -884,5 +885,87 @@ R2: 1-4->Final, 5-8->eliminated`;
   it('has no columns when a started round is given another number', () => {
     const moved = setWaterfallColumn(runningDraft(RUNNING_GRAPH), 'R1C', 2);
     expect(waterfallDraftColumns(moved, started)).toBeNull();
+  });
+});
+
+describe('match formats in the draft', () => {
+  const FORMAT_GRAPH = `ROUNDS:
+R1 = 2x4 BO3 COLUMN 1
+Semi = 4 GAMES 2
+Final = 4 FINAL BO5
+ROUTES:
+R1.A: 1-2->Semi
+R1.B: 1-2->Semi
+Semi: 1-4->Final`;
+
+  it('reads each format into the round', () => {
+    expect(draftOf(FORMAT_GRAPH).rounds.map((round) => round.match)).toEqual([
+      { kind: 'best-of', bestOf: 3 },
+      { kind: 'games', games: 2 },
+      { kind: 'best-of', bestOf: 5 },
+    ]);
+    const plain = draftOf('ROUNDS:\nR1 = 4\nFinal = 4 FINAL\nROUTES:');
+    expect(plain.rounds.map((round) => round.match)).toEqual([null, null]);
+  });
+
+  it('writes the format after FINAL and before COLUMN, and reads its own text back', () => {
+    const text = serializeWaterfallDraft(draftOf(FORMAT_GRAPH));
+    expect(text).toContain('R1 = 2x4 BO3 COLUMN 1');
+    expect(text).toContain('Semi = 4 GAMES 2');
+    expect(text).toContain('Final = 4 FINAL BO5');
+    const reordered = serializeWaterfallDraft(draftOf('ROUNDS:\nF = 4 COLUMN 2 BO3 FINAL\nROUTES:'));
+    expect(reordered).toContain('F = 4 FINAL BO3 COLUMN 2');
+    expect(validated(text, 8)).toEqual(validated(FORMAT_GRAPH, 8));
+  });
+
+  it("sets and clears a round's format", () => {
+    const draft = draftOf(FORMAT_GRAPH);
+    const cleared = setWaterfallMatch(draft, 'R1', null);
+    expect(cleared.rounds[0].match).toBeNull();
+    expect(cleared.rounds[1].match).toEqual({ kind: 'games', games: 2 });
+    expect(setWaterfallMatch(cleared, 'R1', { kind: 'best-of', bestOf: 7 }).rounds[0].match).toEqual({
+      kind: 'best-of',
+      bestOf: 7,
+    });
+  });
+
+  it('keeps the format through a rename and a resize', () => {
+    const renamed = renameWaterfallRound(draftOf(FORMAT_GRAPH), 'R1', 'Heat');
+    expect(renamed.ok && renamed.value.rounds[0].match).toEqual({ kind: 'best-of', bestOf: 3 });
+    expect(resizeWaterfallRound(draftOf(FORMAT_GRAPH), 'R1', 2, 4).rounds[0].match).toEqual({
+      kind: 'best-of',
+      bestOf: 3,
+    });
+  });
+
+  function drawn(text: string, finalsGames: number, entrants = 8) {
+    const parsed = parseWaterfallGraph(text);
+    if (!parsed.ok) throw new Error(parsed.error);
+    const graph = validateAndOrderWaterfallGraph(parsed.value, {
+      roomSize: { min: 1, max: 20, ideal: 8 },
+      entrantCount: entrants,
+    });
+    if (!graph.ok) throw new Error(graph.error);
+    return waterfallBracketPhase(entrants, 1, { graph: graph.value, finalsGames });
+  }
+
+  it('reads the formats back from the drawn rounds', () => {
+    const rounds = drawn(FORMAT_GRAPH, 3);
+    const draft = waterfallDraftFromRounds(rounds, { finalsGames: 3 });
+    expect(draft.rounds.map((round) => round.match)).toEqual([
+      { kind: 'best-of', bestOf: 3 },
+      { kind: 'games', games: 2 },
+      { kind: 'best-of', bestOf: 5 },
+    ]);
+    expect(serializeWaterfallDraft(draft)).toContain('Final = 4 FINAL BO5');
+  });
+
+  it('shows no format on a Final that follows the Finals format, and a games count when it differs', () => {
+    const plain = 'ROUNDS:\nR1 = 4\nFinal = 4 FINAL\nROUTES:\nR1: 1-4->Final';
+    const followed = waterfallDraftFromRounds(drawn(plain, 3, 4), { finalsGames: 3 });
+    expect(followed.rounds.map((round) => round.match)).toEqual([null, null]);
+    const own = 'ROUNDS:\nR1 = 4\nFinal = 4 FINAL GAMES 2\nROUTES:\nR1: 1-4->Final';
+    const differs = waterfallDraftFromRounds(drawn(own, 3, 4), { finalsGames: 3 });
+    expect(differs.rounds[1].match).toEqual({ kind: 'games', games: 2 });
   });
 });

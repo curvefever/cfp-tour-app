@@ -95,7 +95,8 @@ export function flagFinalGameAnonymous(state: TournamentState, gameNumber: numbe
   // open the next game by reading the two real finalists' own keys directly
   // -- an anonymous game's score living under its alias instead would stall
   // the race forever. Out of scope for v1, not a half-built workaround.
-  if (!round || round.bracket === 'grand-final') return state;
+  // A Best-of Final reads its games' scores the same way, by the finalists' real keys.
+  if (!round || round.bracket === 'grand-final' || round.bestOf !== undefined) return state;
   const numGames = round.numGames ?? 0;
   if (!Number.isInteger(gameNumber) || gameNumber < 1 || gameNumber > numGames) return state;
   if (round.anonymousGames?.includes(gameNumber)) return state;

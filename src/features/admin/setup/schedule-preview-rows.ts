@@ -23,7 +23,8 @@ function metaOf(state: TournamentState, round: TournamentRound, index: number): 
       : plural(round.matches?.length ?? 0, 'match', 'matches'),
   ];
   const games = roundGameCount(state, index);
-  if (games) parts.push(`${games.upTo ? 'up to ' : ''}${plural(games.games, 'game')}`);
+  if (games?.bestOf) parts.push(`best of ${games.games}`);
+  else if (games) parts.push(`${games.upTo ? 'up to ' : ''}${plural(games.games, 'game')}`);
   return parts.join(' · ');
 }
 

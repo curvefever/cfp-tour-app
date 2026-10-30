@@ -14,6 +14,8 @@ export interface RoundGameCount {
   games: number;
   /** True for the race Grand Final: `games` is the most it can take, not a fixed count. */
   upTo: boolean;
+  /** True for a Best-of round: `games` is N of a Best of N, not a number of games all played. */
+  bestOf?: true;
 }
 
 /**
@@ -22,6 +24,7 @@ export interface RoundGameCount {
  * destination tags that must not gain a game count.
  * The race Grand Final's `numGames` grows as games are opened, so it reports its maximum instead: one side one win
  * short of its target while the other reaches its own (drawn games ignored). A maximum of 1 is a plain "1 GAME".
+ * A Best-of round reports N of its Best of N, flagged `bestOf`.
  */
 export function roundGameCount(
   state: Pick<TournamentState, 'rounds' | 'gamemodeConfig'>,
@@ -34,6 +37,7 @@ export function roundGameCount(
     const games = wbTarget + lbTarget - 1;
     return { games, upTo: games > 1 };
   }
+  if (round.bestOf !== undefined) return { games: round.bestOf, upTo: false, bestOf: true };
   const games = round.numGames ?? 0;
   return games > 1 || (round.isFinal && games === 1) ? { games, upTo: false } : null;
 }

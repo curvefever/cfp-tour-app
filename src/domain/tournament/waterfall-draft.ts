@@ -30,6 +30,9 @@ import {
  * edited like a room whose slots are the standings ranks.
  */
 
+/** A round's own match format; null = the default (one game, or the Finals format for the Final). */
+export type WaterfallMatch = { kind: 'games'; games: number } | { kind: 'best-of'; bestOf: number };
+
 export interface WaterfallDraftRound {
   label: string;
   roomCount: number;
@@ -37,6 +40,7 @@ export interface WaterfallDraftRound {
   isFinal: boolean;
   /** The organiser's own column number; null = automatic (the column after the rounds that route into it). */
   column: number | null;
+  match: WaterfallMatch | null;
 }
 
 /** A slot's destination: a round label, or null when the rank is out. */
@@ -205,6 +209,7 @@ export function parseWaterfallDraft(
     roomSize: line.roomSizes[0],
     isFinal: line.isFinal,
     column: line.column,
+    match: matchOfLine(line),
   }));
   const byLower = new Map(rounds.map((round) => [round.label.toLowerCase(), round]));
   const routes = reshapeRoutes(rounds, {});
@@ -296,12 +301,25 @@ export function groupRoomWithOut(
   return out.length > 0 ? [...groups, { destination: ELIMINATED, ranks: out }] : groups;
 }
 
+/** The match format a parsed ROUNDS line asked for. */
+function matchOfLine(line: { bestOf?: number; games?: number }): WaterfallMatch | null {
+  if (line.bestOf !== undefined) return { kind: 'best-of', bestOf: line.bestOf };
+  if (line.games !== undefined) return { kind: 'games', games: line.games };
+  return null;
+}
+
+/** The ROUNDS-line token of a match format: "BO3" or "GAMES 2" (empty for the default). */
+function matchToken(match: WaterfallMatch | null): string {
+  if (match === null) return '';
+  return match.kind === 'best-of' ? ` BO${match.bestOf}` : ` GAMES ${match.games}`;
+}
+
 /** Writes a draft back out as ROUNDS:/ROUTES: text. Out slots, and rooms that route nothing, are left out. */
 export function serializeWaterfallDraft(draft: WaterfallDraft): string {
   if (draft.rounds.length === 0) return '';
   const roundLines = draft.rounds.map((round) => {
     const size = round.roomCount > 1 ? `${round.roomCount}x${round.roomSize}` : String(round.roomSize);
-    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
+    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${matchToken(round.match)}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
   });
   const routeLines = draft.rounds.flatMap((round) =>
     (draft.routes[round.label] ?? []).flatMap((room, roomIndex) => {
@@ -329,6 +347,17 @@ function qualRouteLine(qualRoutes: WaterfallSlotDestination[]): string {
 }
 
 /**
+ * The match format a drawn round was generated with: Best of from `bestOf`; otherwise the games it plays when
+ * that differs from the default (one game; for the Final, the Finals format when known).
+ */
+function matchOfRound(round: TournamentRound, finalsGames: number | undefined): WaterfallMatch | null {
+  if (round.bestOf !== undefined) return { kind: 'best-of', bestOf: round.bestOf };
+  const games = round.numGames ?? 1;
+  const isDefault = round.isFinal ? games === (finalsGames ?? games) : games === 1;
+  return isDefault ? null : { kind: 'games', games };
+}
+
+/**
  * Rebuilds a draft from a running tournament's own `state.rounds`, the live
  * source of truth for a materialized waterfall graph -- not the
  * `settings.waterfallGraph` snapshot, which may be stale or absent
@@ -338,7 +367,7 @@ function qualRouteLine(qualRoutes: WaterfallSlotDestination[]): string {
  */
 export function waterfallDraftFromRounds(
   rounds: TournamentRound[],
-  options: Pick<WaterfallDraftParseOptions, 'rankCount'> = {},
+  options: Pick<WaterfallDraftParseOptions, 'rankCount'> & { finalsGames?: number } = {},
 ): WaterfallDraft {
   const labelByIndex = new Map(rounds.map((round, index) => [index, round.customLabel]));
   const waterfallRounds = rounds.filter((round) => round.isWaterfall);
@@ -351,6 +380,7 @@ export function waterfallDraftFromRounds(
       roomSize: declared[0],
       isFinal: round.isFinal,
       column: round.waterfallColumnSet ? (round.waterfallColumn ?? null) : null,
+      match: matchOfRound(round, options.finalsGames),
     };
   });
   const routes: Record<string, WaterfallSlotDestination[][]> = {};
@@ -471,8 +501,9 @@ export function blankWaterfallDraft(
       roomSize: roomSize.ideal,
       isFinal: false,
       column: null,
+      match: null,
     },
-    { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true, column: null },
+    { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true, column: null, match: null },
   ];
   const qualRoutes = options.standingsSource
     ? Array.from({ length: entrantCount ?? roomSize.max }, (): WaterfallSlotDestination => null)
@@ -490,6 +521,7 @@ export function addWaterfallRound(draft: WaterfallDraft, roomSize: number): Wate
     roomSize,
     isFinal: false,
     column: null,
+    match: null,
   };
   const last = draft.rounds[draft.rounds.length - 1];
   const rounds = last?.isFinal ? [...draft.rounds.slice(0, -1), added, last] : [...draft.rounds, added];
@@ -582,6 +614,16 @@ export function setWaterfallColumn(
   column: number | null,
 ): WaterfallDraft {
   const rounds = draft.rounds.map((round) => (round.label === label ? { ...round, column } : round));
+  return { ...draft, rounds };
+}
+
+/** Gives a round its own match format, or null for the default. */
+export function setWaterfallMatch(
+  draft: WaterfallDraft,
+  label: string,
+  match: WaterfallMatch | null,
+): WaterfallDraft {
+  const rounds = draft.rounds.map((round) => (round.label === label ? { ...round, match } : round));
   return { ...draft, rounds };
 }
 

@@ -4,8 +4,9 @@ import type { RoundGameCount } from '../../domain/tournament/bracket';
 import { RoundSettingsPopup } from './RoundSettingsPopup';
 import type { RoomsScored } from './still-playing';
 
-/** "1 GAME", "3 GAMES", or "UP TO 4 GAMES" for the race Grand Final. */
-function gameCountText({ games, upTo }: RoundGameCount): string {
+/** "1 GAME", "3 GAMES", "UP TO 4 GAMES" for the race Grand Final, or "BEST OF 3". */
+function gameCountText({ games, upTo, bestOf }: RoundGameCount): string {
+  if (bestOf) return `BEST OF ${games}`;
   return `${upTo ? 'UP TO ' : ''}${games} ${games === 1 ? 'GAME' : 'GAMES'}`;
 }
 

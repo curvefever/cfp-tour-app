@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { answerAbsence, absentInRoom, pendingAbsenceQuestions } from '../absences';
 import { detectTieBreaks, invalidateStaleTieResolutions, roomFinishOrder, scoreRoom } from '../advancement';
 import { bestOfGameCount, isBestOfRound, roomMatch, winsNeeded } from '../match-format';
-import { removeRosterUnit } from '../mutations';
+import { flagFinalGameAnonymous, removeRosterUnit } from '../mutations';
 import { computeRankings, isFinalComplete } from '../rankings';
 import { isRoomScored, orderRoomWithPlaces } from '../scoring';
 import { finalsProgressState } from '../finals';
@@ -359,5 +359,25 @@ describe('routing out of a Best-of column', () => {
         ?.map((entry) => entry.name)
         .sort((first, second) => first.localeCompare(second)),
     ).toEqual(['P1', 'P3']);
+  });
+});
+
+describe('anonymous Final games on a Best-of Final', () => {
+  const finalState = (bestOf?: number) =>
+    createDefaultTournamentState({
+      gameFormat: 'ffa-individual',
+      rounds: [buildRound({ roundNum: 1, isFinal: true, rooms: [2], players: 2, numGames: 3, bestOf })],
+      assignments: [buildAssignments(PAIR, [2])],
+      curRound: 0,
+    });
+
+  it('refuses to flag a game, returning the state unchanged', () => {
+    const state = finalState(3);
+    expect(flagFinalGameAnonymous(state, 2)).toBe(state);
+  });
+
+  it('still flags a game of a summed Final', () => {
+    const state = finalState();
+    expect(flagFinalGameAnonymous(state, 2).rounds[0].anonymousGames).toEqual([2]);
   });
 });

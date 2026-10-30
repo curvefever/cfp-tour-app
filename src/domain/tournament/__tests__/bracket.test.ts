@@ -950,3 +950,24 @@ describe('projectFutureRoundSlots -- places only where the real draw spreads uni
     ]);
   });
 });
+
+describe('roundGameCount on a Best-of round', () => {
+  const countOf = (round: TournamentRound) => roundGameCount({ rounds: [round], gamemodeConfig: {} }, 0);
+
+  it('reports N of a Best of N, flagged, whatever game count the round holds', () => {
+    expect(countOf(buildRound({ roundNum: 1, bestOf: 3, numGames: 5 }))).toEqual({
+      games: 3,
+      upTo: false,
+      bestOf: true,
+    });
+    expect(countOf(buildRound({ roundNum: 1, bestOf: 5, numGames: 5, isFinal: true }))).toEqual({
+      games: 5,
+      upTo: false,
+      bestOf: true,
+    });
+  });
+
+  it('leaves a summed round as it was', () => {
+    expect(countOf(buildRound({ roundNum: 1, numGames: 3 }))).toEqual({ games: 3, upTo: false });
+  });
+});

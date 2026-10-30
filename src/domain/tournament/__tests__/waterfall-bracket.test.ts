@@ -1140,7 +1140,10 @@ describe('the COLUMN keyword in a ROUNDS line', () => {
     ['Semi A = 4 COLUMN FINAL', 'needs a whole number from 1 after COLUMN'],
     ['Semi A = 4 COLUMN 2 COLUMN 3', 'repeats COLUMN'],
     ['Semi A = 4 FINAL FINAL', 'repeats FINAL'],
-    ['Semi A = 4 LAST', 'only "FINAL" and "COLUMN <number>" are allowed after the size'],
+    [
+      'Semi A = 4 LAST',
+      'only "FINAL", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size',
+    ],
   ])('refuses "%s"', (line, message) => {
     expect(roundLine(line)).toContain(message);
   });
@@ -1194,5 +1197,65 @@ describe('waterfallBracketPhase -- match formats', () => {
     const fitted = fitWaterfallRound(round, 7);
     if ('error' in fitted) throw new Error(fitted.error);
     expect(fitted).toMatchObject({ bestOf: 3, numGames: 5, rooms: [4, 3] });
+  });
+});
+
+describe('the BO and GAMES keywords in a ROUNDS line', () => {
+  function roundLine(line: string) {
+    const parsed = parseWaterfallGraph(`ROUNDS:
+${line}
+ROUTES:
+X: 1-4->eliminated`);
+    return parsed.ok ? parsed.value.roundLines[0] : parsed.error;
+  }
+
+  it.each([
+    ['Semi A = 2 BO3', { bestOf: 3, isFinal: false, column: null }],
+    ['Semi A = 2 bo5', { bestOf: 5, isFinal: false, column: null }],
+    ['Semi A = 2 BO7 COLUMN 3', { bestOf: 7, column: 3 }],
+    ['Semi A = 2 COLUMN 3 BO9', { bestOf: 9, column: 3 }],
+    ['Final = 2 FINAL BO5', { bestOf: 5, isFinal: true }],
+    ['Final = 2 BO3 FINAL COLUMN 4', { bestOf: 3, isFinal: true, column: 4 }],
+    ['R1 = 4x2 GAMES 2', { games: 2, isFinal: false }],
+    ['R1 = 4x2 games 4 column 2', { games: 4, column: 2 }],
+    ['Final = 2 GAMES 1 FINAL', { games: 1, isFinal: true }],
+  ])('reads "%s"', (line, expected) => {
+    expect(roundLine(line)).toMatchObject(expected);
+  });
+
+  it('leaves a line with no format without either field', () => {
+    const line = roundLine('Semi A = 2 FINAL');
+    expect(line).not.toHaveProperty('bestOf');
+    expect(line).not.toHaveProperty('games');
+  });
+
+  it.each([
+    ['Semi A = 2 BO', 'needs an odd number from 3 to 9 after BO -- for example "BO3"'],
+    ['Semi A = 2 BO2', 'needs an odd number from 3 to 9 after BO'],
+    ['Semi A = 2 BO1', 'needs an odd number from 3 to 9 after BO'],
+    ['Semi A = 2 BO11', 'needs an odd number from 3 to 9 after BO'],
+    ['Semi A = 2 BO3 BO3', 'repeats BO3 -- write it once.'],
+    ['Semi A = 2 BO3 BO5', 'repeats BO5 -- write it once.'],
+    ['Semi A = 2 GAMES', 'needs a whole number from 1 to 4 after GAMES -- for example "GAMES 2"'],
+    ['Semi A = 2 GAMES 0', 'needs a whole number from 1 to 4 after GAMES'],
+    ['Semi A = 2 GAMES 5', 'needs a whole number from 1 to 4 after GAMES'],
+    ['Semi A = 2 GAMES x', 'needs a whole number from 1 to 4 after GAMES'],
+    ['Semi A = 2 GAMES 2 GAMES 3', 'repeats GAMES -- write it once.'],
+    ['Semi A = 2 BO3 GAMES 2', 'has both BO3 and GAMES 2 -- choose one match format.'],
+    ['Semi A = 2 GAMES 2 BO3', 'has both GAMES 2 and BO3 -- choose one match format.'],
+  ])('refuses "%s"', (line, message) => {
+    expect(roundLine(line)).toContain(message);
+  });
+
+  it('passes the format into the validated graph', () => {
+    const parsed = parseAndValidate(
+      'ROUNDS:\nR1 = 2x4 BO3\nSemi = 4 GAMES 2\nFinal = 4 FINAL BO5\nROUTES:\nR1.A: 1-2->Semi\nR1.B: 1-2->Semi\nSemi: 1-4->Final',
+      8,
+    );
+    expect(parsed.ok && parsed.value.rounds.map(({ bestOf, games }) => ({ bestOf, games }))).toEqual([
+      { bestOf: 3, games: undefined },
+      { bestOf: undefined, games: 2 },
+      { bestOf: 5, games: undefined },
+    ]);
   });
 });
