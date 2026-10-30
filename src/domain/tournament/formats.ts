@@ -96,7 +96,7 @@ export const GAME_FORMATS: Readonly<Partial<Record<GameFormatKey, Readonly<GameF
 export const TEAM_SCORING_RULE_LABELS = {
   'sum-members': 'Sum of all members',
   'designated-player': 'Save your Buddy (defender only)',
-  'survival-teams': 'Survival Teams (one score per team)',
+  'survival-teams': 'One score per team',
 } as const;
 
 export const ODD_COUNT_STRATEGY_LABELS = {

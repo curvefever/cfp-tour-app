@@ -144,7 +144,7 @@ function MarkMemberPicker({ app, state }: { app: App; state: TournamentState }) 
           </Button>
         </span>
       ) : (
-        'Survival Teams: a member can be marked absent by hand (shown only)'
+        'One score per team: a member can be marked absent by hand (shown only)'
       )}
     </ToolRow>
   );
