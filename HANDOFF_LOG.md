@@ -28,7 +28,7 @@ Comments and test titles say "One score per team" or "a team with one score". Te
 
 **Testing.** One new test (`isOneScorePerTeam`: true for the stored value, false for the other two rules and for none). Every existing test passes unchanged apart from names: `vitest related` on the changed files (114 files, 3488 tests, which `formats.ts` pulls in almost entirely), lint, format and typecheck clean.
 
-**Full suite:** not run by the implementer; the planner runs it at the final review (this build touches `src/domain/`).
+**Full suite:** passed on `3803735` (146 files, 3800 tests), at the planner's final review. The planner broke the rename on purpose 4 times; 3 were caught, and the fourth (`canMarkMembers` without `absenceVersion === 1`, an untested check older than the rename) got a test in `3803735`.
 
 **Out of scope.** Changing the stored value `'survival-teams'` (and any production data migration); the Survival game mode's name in scripts and `docs/real-scores.md`.
 
@@ -45,7 +45,7 @@ Comments and test titles say "One score per team" or "a team with one score". Te
 
 **Testing.** `room-row-inputs.test.ts`: a summed 3-game Semis part typed, a Best of 3 decided 2–0 (G3 null), a Best of 3 in a room of 3 teams (4 games), one score per team and sum of members in 4v4, a single-game round, the layout at 1 to 5 games, and with the points column. `RoomGameScores.render.test.tsx`: a viewer's Best-of-3 Semis at 37 teams 4v4 (header G1 G2 G3 WINS, the row `301 252 — 2`), a summed 2-game room (TOTAL), a Best of 5 (the line, no columns), an admin in edit mode (no header), a single-game Semis (no header).
 
-**Full suite:** not run (no shared code, `src/features/bracket/` only). The next push to `main` needs one: this code is newer than the run on eb22b9c.
+**Full suite:** passed on `3803735` (146 files, 3800 tests), together with the rename, at the planner's final review. The planner broke the stage on purpose 5 times (unneeded games not blanked, the edit-mode guard dropped, the column threshold moved, the game index off by one, the points column ignored); a test caught every one.
 
 **Out of scope.** Game scores in the Rankings (podium line, room history) and in the Rankings export image; a different layout for the Final; showing which game each unit won (bold or colour per cell).
 
