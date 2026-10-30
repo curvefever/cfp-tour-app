@@ -1,6 +1,7 @@
 import { withoutRoundAbsences } from './absences';
 import { isQualCutoffKey } from './advancement';
 import { currentUnit, replayBracketPools } from './bracket-replay';
+import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
 import { currentColumn, isRoundDone, isRoundReached } from './round-columns';
 import { rewindRoomHistory } from './seeding';
@@ -10,6 +11,7 @@ import type { PendingBracketSeed, TournamentRound, TournamentState } from './typ
 import {
   declaredWaterfallRooms,
   fitWaterfallRound,
+  matchFormatFields,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
@@ -165,6 +167,16 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
         error: `Can't save: "${oldRound.customLabel}" has already started, so its room count, room size and Final flag can't change. Only its routing can.`,
       };
     }
+    // The round in play may change its match format (its scores are read again under the new one); a finished one may not.
+    if (
+      isRoundDone(state, firstWaterfallIndex + index) &&
+      !sameMatchFormat(oldRound, matchFormatFields(spec, finalsGames))
+    ) {
+      return {
+        ok: false,
+        error: `Can't save: "${oldRound.customLabel}" is finished, so its match format can't change.`,
+      };
+    }
   }
 
   const materialized = waterfallBracketPhase(graph.qualRoutes?.length ?? entrantCount, entryRound.roundNum, {
@@ -284,6 +296,15 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const gamemodeConfig =
     state.gamemodeConfig.graph !== undefined ? { ...state.gamemodeConfig, graph } : state.gamemodeConfig;
   working = { ...working, settings, gamemodeConfig };
+
+  // The round in play takes the match format of the edit; its typed scores are carried over or refused.
+  for (const [index, spec] of materialized.slice(0, reached.length).entries()) {
+    const roundIndex = firstWaterfallIndex + index;
+    if (sameMatchFormat(working.rounds[roundIndex], spec)) continue;
+    const changed = changeRoundMatchFormat(working, roundIndex, spec);
+    if ('error' in changed) return { ok: false, error: changed.error };
+    working = changed.state;
+  }
 
   const redrawnRound = redrawn.length
     ? redrawn.map((index) => working.rounds[index].customLabel).join(' + ')

@@ -1088,7 +1088,7 @@ export function fitWaterfallRound(
 }
 
 /** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format for a Final with no format of its own. */
-function matchFormatFields(
+export function matchFormatFields(
   roundSpec: WaterfallRoundSpec,
   finalsGames: number,
 ): Pick<TournamentRound, 'numGames' | 'bestOf'> {
