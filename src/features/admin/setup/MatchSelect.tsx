@@ -11,17 +11,24 @@ export function MatchSelect({
   games,
   bestOf,
   bestOfOffered,
+  disabled,
   onChange,
 }: {
   id: string;
   games: string;
   bestOf: string;
   bestOfOffered: boolean;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const showBestOf = bestOfOffered || bestOf.trim() !== '';
   return (
-    <Select id={id} value={matchSelectValue(games, bestOf)} onChange={(e) => onChange(e.target.value)}>
+    <Select
+      disabled={disabled}
+      id={id}
+      value={matchSelectValue(games, bestOf)}
+      onChange={(e) => onChange(e.target.value)}
+    >
       {[1, 2, 3, 4].map((n) => (
         <option key={n} value={n}>
           {gamesLabel(n)}

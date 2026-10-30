@@ -71,7 +71,8 @@ export function changeRoundMatchFormat(
   next: MatchFormat,
 ): { state: TournamentState } | { error: string } {
   const round = state.rounds[roundIndex];
-  const label = round.customLabel ?? `Round ${round.roundNum}`;
+  const label =
+    round.customLabel ?? (round.isFinal ? 'Final' : round.isSemis ? 'Semis' : `Round ${round.roundNum}`);
   const oldGames = round.numGames ?? 1;
   const newGames = next.numGames ?? 1;
   const highest = highestScoredGame(state, roundIndex);

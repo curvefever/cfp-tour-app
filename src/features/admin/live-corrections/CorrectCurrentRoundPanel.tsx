@@ -1,17 +1,19 @@
 import { advancementEditScope } from '../../../domain/tournament/live-advancement-edit';
 import { lineupEditScope } from '../../../domain/tournament/lineup-edit';
+import { stageMatchScope } from '../../../domain/tournament/stage-match-edit';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { Alert } from '../../../components/ui';
 import { ProgressSubsection } from '../ProgressSubsection';
 import type { ProgressSummary } from '../progress-summary';
 import { AdvancementSection } from './AdvancementSection';
 import { LineupSection } from './LineupSection';
+import { MatchFormatSection } from './MatchFormatSection';
 import { RoomsOverview } from './RoomsOverview';
 
 /**
  * The Admin tab's mid-tournament corrections: the current round's rooms at a glance, then its line-up and
- * the advancement counts. Shown only while at least one of the two is in scope; each section decides for
- * itself what to show.
+ * the advancement counts and the Semis and Finals format. Shown only while at least one is in scope; each
+ * section decides for itself what to show.
  */
 export function CorrectCurrentRoundPanel({
   state,
@@ -22,10 +24,11 @@ export function CorrectCurrentRoundPanel({
 }) {
   const lineup = lineupEditScope(state);
   const advancement = advancementEditScope(state);
-  if (!lineup.ok && advancement.kind === 'none') return null;
+  const match = stageMatchScope(state);
+  if (!lineup.ok && advancement.kind === 'none' && match.kind === 'none') return null;
   return (
     <ProgressSubsection
-      hint='Line-up and advancement'
+      hint='Line-up, advancement and match format'
       title={`CORRECT CURRENT ROUND · ${summary.roundName.toUpperCase()}`}
     >
       <Alert className='flex items-center gap-2.5' tone='warning'>
@@ -46,6 +49,7 @@ export function CorrectCurrentRoundPanel({
       <div className='flex flex-col gap-3.5'>
         <LineupSection state={state} />
         <AdvancementSection state={state} />
+        <MatchFormatSection state={state} />
       </div>
     </ProgressSubsection>
   );
