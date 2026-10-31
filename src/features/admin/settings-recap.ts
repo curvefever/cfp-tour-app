@@ -167,6 +167,16 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Points table',
     value: (settings) => orDefault(settings.positionalPointsTable, '—'),
   },
+  matchResultPoints: {
+    group: 'SCORING',
+    label: 'Match result points',
+    value: (settings) => orDefault(settings.matchResultPoints, '—'),
+  },
+  tieMargin: {
+    group: 'SCORING',
+    label: 'Tie margin',
+    value: (settings) => orDefault(settings.tieMargin, '—'),
+  },
   poolingGames: {
     group: 'POOLING',
     label: 'Pooling rounds',
@@ -263,6 +273,8 @@ function settingsOf(state: TournamentState): TournamentSettings {
     ),
     scoring: config.scoring ?? cfg.scoring ?? defaults.scoring,
     positionalPointsTable: config.positionalPointsTable?.join(',') ?? defaults.positionalPointsTable,
+    matchResultPoints: config.matchResultPoints?.join(', ') ?? defaults.matchResultPoints,
+    tieMargin: text(config.tieMargin, defaults.tieMargin),
     drawPublication: cfg.drawPublication ?? defaults.drawPublication,
     finalsGames: text(config.finalsGames ?? cfg.finalsGames, defaults.finalsGames),
     semisGames: text(config.semisGames ?? cfg.semisGames, defaults.semisGames),

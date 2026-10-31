@@ -7,6 +7,7 @@ import {
   sameRoomShare,
   samePoints,
 } from './advancement';
+import { matchResultSettings, matchResultsOfRoom } from './match-results';
 import type { TournamentStanding, TournamentState } from './types';
 
 type NamedOutcome = RoundOutcome & { name: string };
@@ -182,8 +183,21 @@ export function groupRoomOutcomes(
   const absent = roundHasBegun(state, roundIndex) ? absentInRoom(state, roundIndex, room) : [];
   if (absent.length > 0) return absent.map((name) => absenceOutcome(roundIndex, seats.holderOf(name)));
   if (heldBack) return [];
-  return roomOutcomes(state, roundIndex, room).map((outcome) => ({
-    ...outcome,
-    name: seats.holderOf(outcome.name),
-  }));
+  const played = playedOutcomes(
+    state,
+    roundIndex,
+    room,
+    seated.map((entry) => entry.name),
+  );
+  return played.map((outcome) => ({ ...outcome, name: seats.holderOf(outcome.name) }));
+}
+
+/** A played room's results: the places and room share as usual, the points by place or, under match results, by the result of the match (none until the room is fully scored). */
+function playedOutcomes(state: TournamentState, roundIndex: number, room: number, seatedNames: string[]) {
+  const outcomes = roomOutcomes(state, roundIndex, room);
+  const settings = matchResultSettings(state);
+  if (!settings) return outcomes;
+  const sides = matchResultsOfRoom(state, roundIndex, room, settings);
+  if (!sides) return [];
+  return outcomes.map((outcome) => ({ ...outcome, ...sides[seatedNames.indexOf(outcome.name)] }));
 }

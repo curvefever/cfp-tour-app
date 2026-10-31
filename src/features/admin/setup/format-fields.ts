@@ -103,6 +103,11 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'qualAdv', 'nonCountingRounds');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
+  add(
+    poolingPhase === 'group-stage' && choices.scoring === 'match-results',
+    'matchResultPoints',
+    'tieMargin',
+  );
   add(isRace, 'grandFinalWbTarget', 'grandFinalLbTarget');
   add(!isRace, 'finalsGames', 'finalsBestOf');
   add(isSingle || isDouble || isKings, 'bracketGames', 'bracketBestOf');

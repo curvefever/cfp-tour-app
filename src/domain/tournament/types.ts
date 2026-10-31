@@ -15,7 +15,10 @@ export type ScheduleLogicKey =
 
 export type PoolingPhaseKey = 'none' | 'qual-table' | 'swiss' | 'group-stage';
 
-export type ScoringSystemKey = 'fairpoints' | 'positional-points';
+export type ScoringSystemKey = 'fairpoints' | 'positional-points' | 'match-results';
+
+/** The result of one game of a head-to-head match under match-result scoring: Win, Tie Win, Tie Loss, Loss, or Tie (equal scores). */
+export type MatchResultCode = 'W' | 'TW' | 'TL' | 'L' | 'T';
 /** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissFoldPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
 export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
@@ -168,6 +171,8 @@ export interface StandingRoundResult {
   bye: boolean;
   /** The place was shared with another unit on the same score. */
   shared?: boolean;
+  /** Match-result scoring only: the result of each game of the round (a Best of 3: of the match), for the displays. */
+  results?: MatchResultCode[];
 }
 
 export interface TournamentStanding {
@@ -251,6 +256,10 @@ export interface MaterializedGamemodeConfig {
   scoring: ScoringSystemKey;
   /** Organiser-supplied rank->points table (highest rank first), only present when scoring === 'positional-points'. See generation.ts for validation. */
   positionalPointsTable?: number[];
+  /** Match-result scoring only (`scoring` 'match-results'): the points of a Win, Tie win, Tie loss and Loss. generation.ts validates them. */
+  matchResultPoints?: [number, number, number, number];
+  /** Match-result scoring only: the most points a game can be won by and still be a Tie win (or lost by and still be a Tie loss). */
+  tieMargin?: number;
   /** Which points rule the tournament scores with. Absent = the earlier rule (Standard = largest room size down to 1, a Custom table read place by place, whatever the room size); 2 = the new Standard tables, with a smaller room reading the table scaled to its size (scoring.ts). generation.ts writes 2; a stored tournament without it keeps its points. */
   pointsVersion?: 2;
   /** Which cut an elimination round makes. Absent = the earlier cut (every room advances the same number, the rest are lucky losers across rooms); 2 = the fair cut (fair-cut.ts: each room size loses its share, a room's winner always advances) in single elimination, Semis and double elimination winners and losers rounds. generation.ts writes 2; a stored tournament without it keeps its cut. */
@@ -376,6 +385,10 @@ export interface PersistedSetup {
   scoring: ScoringSystemKey;
   /** Comma-separated rank->points table (highest rank first), e.g. "10,8,6,5,4,3,2,1". Only read when scoring === 'positional-points'. */
   positionalPointsTable: string;
+  /** Comma-separated points of a Win, Tie win, Tie loss and Loss, e.g. "3, 2, 1, 0". Only read when scoring === 'match-results'. */
+  matchResultPoints: string;
+  /** The tie margin in points, as typed; empty takes the game format's default (match-results.ts). Only read when scoring === 'match-results'. */
+  tieMargin: string;
   /** Only meaningful for poolingPhase 'qual-table'/'swiss' -- see generation.ts. */
   drawPublication: DrawPublicationKey;
   poolingPhase: PoolingPhaseKey;

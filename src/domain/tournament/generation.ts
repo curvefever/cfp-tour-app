@@ -17,6 +17,7 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
+import { type MatchResultPoints, parseMatchResultPoints, resolveTieMargin } from './match-results';
 import { matchFormatConfig } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
@@ -339,6 +340,20 @@ export function generateTournament(
     positionalPointsTable = values;
   }
 
+  let matchResults: { points: MatchResultPoints; tieMargin: number } | undefined;
+  if (config.scoring === 'match-results') {
+    if (config.poolingPhase !== 'group-stage') {
+      return generationError(
+        'Match results scoring is only available for a Group Stage — pick Standard points or a Custom points table.',
+      );
+    }
+    const points = parseMatchResultPoints(form.matchResultPoints);
+    if (!points.ok) return generationError(points.message);
+    const tieMargin = resolveTieMargin(form.tieMargin, form.gameFormat, format.label);
+    if (!tieMargin.ok) return generationError(tieMargin.message);
+    matchResults = { points: points.value, tieMargin: tieMargin.value };
+  }
+
   // Defense-in-depth: the Setup UI only ever offers 'double-elimination' as
   // an option when the format/odd-count-strategy combination is compatible,
   // but a stale selection can survive an odd-count-strategy change made
@@ -578,6 +593,7 @@ export function generateTournament(
     finalSize: finalOverride || roomSize.ideal,
     scoring: config.scoring,
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
+    ...(matchResults ? { matchResultPoints: matchResults.points, tieMargin: matchResults.tieMargin } : {}),
     pointsVersion: 2,
     cutVersion: 2,
     groupAverageVersion: 2,
@@ -611,6 +627,14 @@ export function generateTournament(
   }
   const roomCapError = validateRoomCap(progression.rounds, format);
   if (roomCapError) return generationError(roomCapError);
+  if (matchResults) {
+    const longMatch = progression.rounds.find((round) => round.isGroupStage && (round.bestOf ?? 0) > 3);
+    if (longMatch) {
+      return generationError(
+        `Match results scoring can't score a Best of ${longMatch.bestOf} group round yet — use a Best of 3, summed games, or another scoring system.`,
+      );
+    }
+  }
 
   const groups = progression.groups;
   const groupStandings = Object.fromEntries(

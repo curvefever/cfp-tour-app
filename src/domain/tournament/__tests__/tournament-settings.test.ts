@@ -23,6 +23,8 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   gameFormat: 'team-2v2v2v2',
   scoring: 'positional-points',
   positionalPointsTable: '10,8,6',
+  matchResultPoints: '5, 3, 2, 0',
+  tieMargin: '150',
   drawPublication: 'fixed',
   poolingPhase: 'qual-table',
   qualAdv: '16',

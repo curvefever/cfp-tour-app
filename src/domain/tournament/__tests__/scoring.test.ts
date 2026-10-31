@@ -306,11 +306,12 @@ describe('positionalPoints', () => {
 });
 
 describe('SCORING_SYSTEM_OPTION_LABELS', () => {
-  it('names the two systems for Setup without the old Fair Points / Positional Points wording', () => {
+  it('names the systems for Setup without the old Fair Points / Positional Points wording', () => {
     expect(SCORING_SYSTEM_OPTION_LABELS).toEqual({
       fairpoints:
         'Standard points (FFA: 10, 8, 6, 5, 4, 3, 2, 1; other formats: 1st = largest room size, −1 per place; smaller rooms scaled)',
       'positional-points': 'Custom points table',
+      'match-results': 'Match results (win, tie win, tie loss, loss)',
     });
   });
 });

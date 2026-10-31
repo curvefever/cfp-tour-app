@@ -235,6 +235,7 @@ export const SCORING_SYSTEM_OPTION_LABELS: Record<ScoringSystemKey, string> = {
   fairpoints:
     'Standard points (FFA: 10, 8, 6, 5, 4, 3, 2, 1; other formats: 1st = largest room size, −1 per place; smaller rooms scaled)',
   'positional-points': 'Custom points table',
+  'match-results': 'Match results (win, tie win, tie loss, loss)',
 };
 
 /** What the Admin recap calls Standard points in a tournament generated before `pointsVersion` existed. */

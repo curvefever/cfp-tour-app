@@ -197,7 +197,7 @@ describe('the recap against the Setup form', () => {
     'waterfall-bracket',
   ];
   const poolings: PersistedSetup['poolingPhase'][] = ['none', 'qual-table', 'swiss', 'group-stage'];
-  const scorings: PersistedSetup['scoring'][] = ['fairpoints', 'positional-points'];
+  const scorings: PersistedSetup['scoring'][] = ['fairpoints', 'positional-points', 'match-results'];
   const choices = formats.flatMap((gameFormat) =>
     logics.flatMap((scheduleLogic) =>
       poolings.flatMap((poolingPhase) =>

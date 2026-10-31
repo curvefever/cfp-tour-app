@@ -12,6 +12,8 @@ export const SETTING_KEYS = [
   'gameFormat',
   'scoring',
   'positionalPointsTable',
+  'matchResultPoints',
+  'tieMargin',
   'drawPublication',
   'poolingPhase',
   'qualAdv',
