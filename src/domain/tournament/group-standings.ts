@@ -1,5 +1,12 @@
 import { absentInRoom } from './absences';
-import { type RoundOutcome, roomOutcomes, roundHasBegun, samePoints, sameStanding } from './advancement';
+import {
+  type RoundOutcome,
+  rankingPoints,
+  roomOutcomes,
+  roundHasBegun,
+  sameRoomShare,
+  samePoints,
+} from './advancement';
 import type { TournamentStanding, TournamentState } from './types';
 
 type NamedOutcome = RoundOutcome & { name: string };
@@ -54,9 +61,13 @@ export function playedMatchOf(group: string, outcomes: readonly NamedOutcome[]):
   return { group, points: Object.fromEntries(outcomes.map((outcome) => [outcome.name, outcome.points])) };
 }
 
-/** Equal within a group: level on points per match and room share, and still level after the head-to-head splits. */
+/** Equal within a group: level on points per match, on the final head-to-head level, and on room share. */
 export function sameGroupStanding(first: TournamentStanding, second: TournamentStanding): boolean {
-  return sameStanding(first, second) && (first.headToHeadLevel ?? null) === (second.headToHeadLevel ?? null);
+  return (
+    samePoints(rankingPoints(first), rankingPoints(second)) &&
+    (first.headToHeadLevel ?? null) === (second.headToHeadLevel ?? null) &&
+    sameRoomShare(first.roomShare ?? null, second.roomShare ?? null)
+  );
 }
 
 /** The points each unit of a run took from the matches among the run's units only. */
@@ -96,9 +107,9 @@ function splitIntoLevels<T extends { name: string }>(run: T[], matches: readonly
 }
 
 /**
- * One run of units level on points per match and room share, best first. Each carries the points it took from the
- * run's matches (`headToHead`, the first mini-table, for display) and the position its final level starts at
- * (`headToHeadLevel`): units still level after every split share it.
+ * One run of units level on points per match, best first: by head to head, and units still level on it by room share.
+ * Each carries the points it took from the run's matches (`headToHead`, the first mini-table, for display) and the
+ * position its final head-to-head level starts at (`headToHeadLevel`): units still level after every split share it.
  */
 function orderByHeadToHead(
   run: TournamentStanding[],
@@ -109,20 +120,22 @@ function orderByHeadToHead(
   return splitIntoLevels(run, matches).flatMap((level) => {
     const start = position;
     position += level.length;
-    return level.map((entry) => ({
-      ...entry,
-      headToHead: points.get(entry.name) ?? 0,
-      headToHeadLevel: start,
-    }));
+    return [...level]
+      .sort((first, second) =>
+        sameRoomShare(first.roomShare ?? null, second.roomShare ?? null)
+          ? 0
+          : (second.roomShare ?? 0) - (first.roomShare ?? 0),
+      )
+      .map((entry) => ({ ...entry, headToHead: points.get(entry.name) ?? 0, headToHeadLevel: start }));
   });
 }
 
 /**
- * A group's table (already ordered by points per match, then room share) with each run of level units ordered by the
- * head-to-head points of the matches they played against each other: two units by their own match, three or more by
- * a mini-table of only those matches (both legs of a double round robin), and a smaller group still level on it by a
- * mini-table of only its own matches, and so on. Units level after that stay level, for the organiser. `matches` are
- * the group's played matches.
+ * A group's table (ordered by points per match) with each run of units level on it ordered by the head-to-head points
+ * of the matches they played against each other: two units by their own match, three or more by a mini-table of only
+ * those matches (both legs of a double round robin), and a smaller group still level on it by a mini-table of only its
+ * own matches, and so on. Units still level on head to head are ordered by room share; units level on that too stay
+ * level, for the organiser. `matches` are the group's played matches.
  */
 export function withHeadToHead(
   table: TournamentStanding[],
@@ -132,7 +145,12 @@ export function withHeadToHead(
   let first = 0;
   while (first < table.length) {
     let last = first;
-    while (last + 1 < table.length && sameStanding(table[last + 1], table[first])) last += 1;
+    while (
+      last + 1 < table.length &&
+      samePoints(rankingPoints(table[last + 1]), rankingPoints(table[first]))
+    ) {
+      last += 1;
+    }
     const run = table.slice(first, last + 1);
     output.push(...(run.length < 2 || table[first].totalFP === null ? run : orderByHeadToHead(run, matches)));
     first = last + 1;

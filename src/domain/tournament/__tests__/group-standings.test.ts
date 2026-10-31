@@ -168,11 +168,11 @@ describe('per-match group standings', () => {
     ]);
   });
 
-  it('orders units equal per match by their room share', () => {
+  it('orders units equal per match by their match against each other: T3 beat T4', () => {
     const [, , t3, t4] = computeGroupStandings(groupState(ORGANISER_ROUNDS, ORGANISER_GROUP)).A;
     expect([t3.name, t4.name]).toEqual(['T3', 'T4']);
-    expect(sameStanding(t3, t4)).toBe(false);
-    expect(t3.roomShare ?? 0).toBeGreaterThan(t4.roomShare ?? 0);
+    expect([t3.headToHead, t4.headToHead]).toEqual([2, 1]);
+    expect(sameGroupStanding(t3, t4)).toBe(false);
   });
 
   it("the replacement's line holds the absences at 0, then its own results", () => {
@@ -552,6 +552,18 @@ describe('the head-to-head tie-break inside a group', () => {
     ]);
   });
 
+  it('head to head comes before room share: the winner of the match ranks first with the worse room share', () => {
+    // A edges B 210-200, so B has the better room share; both have 5 points from 3 matches, and C and D trail.
+    const rounds = CYCLE.map((round) => round.map((match) => [...match] as Match));
+    rounds[0][0] = ['A', 'B', 210, 200];
+    rounds[0][1] = ['D', 'C', 300, 200];
+    const table = computeGroupStandings(groupState(rounds, { members })).A;
+    const [a, b] = table;
+    expect([a.name, b.name]).toEqual(['A', 'B']);
+    expect(a.roomShare ?? 0).toBeLessThan(b.roomShare ?? 0);
+    expect(sameGroupStanding(a, b)).toBe(false);
+  });
+
   it('three units that each won once are still level after it: the organiser places them', () => {
     const state = withQualifiers(groupState(CYCLE, { members }), 2);
     const table = computeGroupStandings(state).A;
@@ -562,6 +574,16 @@ describe('the head-to-head tie-break inside a group', () => {
         .sort(),
     ).toEqual(['A', 'B', 'C']);
     expect(hasPendingTies(state, state.curRound)).toBe(true);
+  });
+
+  it('a double round robin split 1-1 is level on head to head, so the room share decides', () => {
+    // A wins 300-100 then loses 250-300: both take 3 points from 2 matches, A with the better room share.
+    const state = groupState([[['A', 'B', 300, 100]], [['B', 'A', 300, 250]]], { members: ['A', 'B'] });
+    const table = computeGroupStandings(state).A;
+    expect(table.map((entry) => entry.name)).toEqual(['A', 'B']);
+    expect(table.map((entry) => entry.headToHead)).toEqual([3, 3]);
+    expect(table[0].roomShare ?? 0).toBeGreaterThan(table[1].roomShare ?? 0);
+    expect(sameGroupStanding(table[0], table[1])).toBe(false);
   });
 
   it('a double round robin that ends 1-1 between two units leaves them level', () => {
@@ -575,32 +597,17 @@ describe('the head-to-head tie-break inside a group', () => {
   });
 
   it('a mutual match voided by an absence gives nothing: they stay level', () => {
-    // A and B are both absent against each other (a counted 0 each), then each beats C and D by the same margin.
+    // A and B are both absent against each other (a counted 0 each), then each loses to C by the same margin.
     const state = withQualifiers(
-      groupState(
-        [
-          [
-            ['A', 'B', 0, 0],
-            ['C', 'D', 300, 200],
-          ],
-          [
-            ['A', 'C', 300, 200],
-            ['B', 'D', 300, 200],
-          ],
-          [
-            ['B', 'C', 300, 200],
-            ['A', 'D', 300, 200],
-          ],
-        ],
-        { members, absences: { 'r0-rm1-p0': 'absent', 'r0-rm1-p1': 'absent' } },
-      ),
-      1,
+      groupState([[['A', 'B', 0, 0]], [['A', 'C', 200, 300]], [['B', 'C', 200, 300]]], {
+        members: ['A', 'B', 'C'],
+        absences: { 'r0-rm1-p0': 'absent', 'r0-rm1-p1': 'absent' },
+      }),
+      2,
     );
     const table = computeGroupStandings(state).A;
-    expect(table.slice(0, 2).map((entry) => [entry.name, entry.headToHead])).toEqual([
-      ['A', 0],
-      ['B', 0],
-    ]);
+    expect(table.map((entry) => entry.name)).toEqual(['C', 'A', 'B']);
+    expect(table.slice(1).map((entry) => entry.headToHead)).toEqual([0, 0]);
     expect(tieOf(state)?.players.map((player) => player.name)).toEqual(['A', 'B']);
   });
 
@@ -619,8 +626,8 @@ describe('the head-to-head tie-break inside a group', () => {
 });
 
 describe('withHeadToHead: a group still level after the first mini-table', () => {
-  function level(name: string): TournamentStanding {
-    return { name, totalFP: 5, totalScore: 0, played: 3, roomShare: 1, matches: 3, averagePoints: 5 / 3 };
+  function level(name: string, roomShare = 1): TournamentStanding {
+    return { name, totalFP: 5, totalScore: 0, played: 3, roomShare, matches: 3, averagePoints: 5 / 3 };
   }
   const match = (
     first: string,
@@ -634,11 +641,10 @@ describe('withHeadToHead: a group still level after the first mini-table', () =>
 
   it('orders the units still level by the matches among only them', () => {
     // A beats B (3/0) and takes a Tie Win from C (2/1); B takes a Tie Win from C (2/1): A 5, B 2, C 2 -- then B beat C.
-    const table = withHeadToHead(['A', 'B', 'C'].map(level), [
-      match('A', 3, 'B', 0),
-      match('A', 2, 'C', 1),
-      match('B', 2, 'C', 1),
-    ]);
+    const table = withHeadToHead(
+      ['A', 'B', 'C'].map((name) => level(name)),
+      [match('A', 3, 'B', 0), match('A', 2, 'C', 1), match('B', 2, 'C', 1)],
+    );
     expect(table.map((entry) => entry.name)).toEqual(['A', 'B', 'C']);
     expect(table.map((entry) => entry.headToHead)).toEqual([5, 2, 2]);
     expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 1, 2]);
@@ -646,25 +652,53 @@ describe('withHeadToHead: a group still level after the first mini-table', () =>
     expect(sameGroupStanding(table[1], table[2])).toBe(false);
   });
 
+  it('head to head comes before room share: the unit with the worse room share that won the match ranks first', () => {
+    const table = withHeadToHead([level('B', 1.3), level('A', 0.9)], [match('A', 2, 'B', 1)]);
+    expect(table.map((entry) => entry.name)).toEqual(['A', 'B']);
+    expect(sameGroupStanding(table[0], table[1])).toBe(false);
+  });
+
+  it('room share decides between units level on head to head: a drawn match', () => {
+    const table = withHeadToHead([level('A', 0.9), level('B', 1.3)], [match('A', 1.5, 'B', 1.5)]);
+    expect(table.map((entry) => entry.name)).toEqual(['B', 'A']);
+    expect(sameGroupStanding(table[0], table[1])).toBe(false);
+  });
+
+  it('units level on points per match, head to head and room share stay level', () => {
+    const table = withHeadToHead([level('A'), level('B')], [match('A', 1.5, 'B', 1.5)]);
+    expect(sameGroupStanding(table[0], table[1])).toBe(true);
+  });
+
+  it('only runs of equal points per match are looked at: a unit with other points is never reordered by a match', () => {
+    const other = { ...level('C'), totalFP: 6, averagePoints: 2 };
+    const table = withHeadToHead(
+      [other, level('A'), level('B')],
+      [match('A', 2, 'C', 1), match('A', 2, 'B', 1)],
+    );
+    expect(table.map((entry) => entry.name)).toEqual(['C', 'A', 'B']);
+  });
+
   it('leaves a cycle fully level', () => {
-    const table = withHeadToHead(['A', 'B', 'C'].map(level), [
-      match('A', 3, 'B', 0),
-      match('B', 3, 'C', 0),
-      match('C', 3, 'A', 0),
-    ]);
+    const table = withHeadToHead(
+      ['A', 'B', 'C'].map((name) => level(name)),
+      [match('A', 3, 'B', 0), match('B', 3, 'C', 0), match('C', 3, 'A', 0)],
+    );
     expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 0, 0]);
     expect(sameGroupStanding(table[0], table[2])).toBe(true);
   });
 
   it('splits off the leader and keeps a cycle among the rest', () => {
-    const table = withHeadToHead(['A', 'B', 'C', 'D'].map(level), [
-      match('A', 3, 'B', 0),
-      match('A', 3, 'C', 0),
-      match('A', 3, 'D', 0),
-      match('B', 3, 'C', 0),
-      match('C', 3, 'D', 0),
-      match('D', 3, 'B', 0),
-    ]);
+    const table = withHeadToHead(
+      ['A', 'B', 'C', 'D'].map((name) => level(name)),
+      [
+        match('A', 3, 'B', 0),
+        match('A', 3, 'C', 0),
+        match('A', 3, 'D', 0),
+        match('B', 3, 'C', 0),
+        match('C', 3, 'D', 0),
+        match('D', 3, 'B', 0),
+      ],
+    );
     expect(table[0].name).toBe('A');
     expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 1, 1, 1]);
     expect(sameGroupStanding(table[1], table[3])).toBe(true);
