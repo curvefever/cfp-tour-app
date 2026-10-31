@@ -4,6 +4,7 @@ import {
   rosterFitsFormat,
   rosterNames,
   teamNames,
+  unitDisplay,
   unstorableNamesMessage,
 } from '../roster';
 import type { TournamentTeam } from '../types';
@@ -108,4 +109,29 @@ describe('rosterFitsFormat', () => {
       expect(rosterFitsFormat(loaded([]), format)).toBe(true);
     },
   );
+});
+
+describe('unitDisplay of a team that left the roster', () => {
+  const state = {
+    gameFormat: 'team-2v2' as const,
+    players: [] as TournamentTeam[],
+    reserves: [] as TournamentTeam[],
+    withdrawnUnits: [
+      {
+        name: 'team_9',
+        label: 'Team 9',
+        members: ['a9', 'b9'],
+        playedAnyMatch: true,
+        reason: 'swapped' as const,
+      },
+    ],
+  };
+
+  it('reads its name and members as they were when it left', () => {
+    expect(unitDisplay(state, 'team_9')).toEqual({ label: 'Team 9', members: ['a9', 'b9'] });
+  });
+
+  it('falls back to the key for a unit that never was on the roster', () => {
+    expect(unitDisplay(state, 'team_x')).toEqual({ label: 'team_x', members: null });
+  });
 });

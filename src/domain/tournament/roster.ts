@@ -107,13 +107,18 @@ export function rosterFitsFormat(
 }
 
 export function unitDisplay(
-  state: Pick<TournamentState, 'gameFormat' | 'players' | 'reserves'>,
+  state: Pick<TournamentState, 'gameFormat' | 'players' | 'reserves'> &
+    Partial<Pick<TournamentState, 'withdrawnUnits'>>,
   key: string,
 ): { label: string; members: string[] | null } {
   const format = getGameFormat(state.gameFormat);
   if (!format?.teamSize) return { label: key, members: null };
   const team = buildTeamMap(state)[key];
-  if (!team) return { label: key, members: null };
+  if (!team) {
+    // A team that left the roster still names the rooms it played: its name and members as they were at withdrawal.
+    const left = state.withdrawnUnits?.find((unit) => unit.name === key);
+    return left ? { label: left.label, members: left.members } : { label: key, members: null };
+  }
   return {
     label: team.teamName,
     members: (team.members ?? [])

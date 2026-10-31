@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
-import { usesGroupAverages } from '../../domain/tournament/group-standings';
+import { groupSeats, usesGroupAverages } from '../../domain/tournament/group-standings';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
@@ -17,6 +17,16 @@ import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
+
+/** The units of a group room that make its match void for the others: the absent ones, and the ones removed from the group. */
+function voidingUnits(
+  state: TournamentState,
+  units: Array<{ name: string }>,
+  absentNames: string[],
+): string[] {
+  const seats = groupSeats(state);
+  return units.map((unit) => unit.name).filter((name) => absentNames.includes(name) || seats.isRemoved(name));
+}
 
 /** The small header of a pooling room that shows points: SCORE and PTS. */
 function PointsHeader({ wide }: { wide: boolean }) {
@@ -153,12 +163,9 @@ export function RoomCard({
           .map((entry) => ({ ...entry, place: null, shared: false })),
       ]
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
-  // A group room with an absent unit is void for the unit that turned up (per-match standings).
-  const voidMatch =
-    round.isGroupStage &&
-    usesGroupAverages(state) &&
-    absentNames.length > 0 &&
-    absentNames.length < units.length;
+  // A group room with an absent or removed unit is void for the unit that turned up (per-match standings).
+  const gone = round.isGroupStage && usesGroupAverages(state) ? voidingUnits(state, units, absentNames) : [];
+  const voidMatch = gone.length > 0 && gone.length < units.length;
   const memberInputs = scoredTeamSize(state);
   // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
   const gameColumns = !rowsEditable && !round.isFinal && (round.numGames ?? 1) > 1;
@@ -205,7 +212,7 @@ export function RoomCard({
             place={entry.place}
             points={points ? (points.get(entry.name) ?? null) : undefined}
             resultCode={resultCodes?.get(entry.name)}
-            voided={voidMatch && !absent}
+            voided={voidMatch && !gone.includes(entry.name)}
             widePoints={resultCodes !== null}
             position={entry.position}
             resolvedTie={resolvedTieNames.has(entry.name)}
