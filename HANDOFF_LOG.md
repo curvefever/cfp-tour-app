@@ -17,7 +17,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** Lint, format and types clean on the changed files; related tests pass. `RoomGameScores.render.test.tsx`: the Best of 5 and 4-game cases now expect columns (G5 and G4 headers, each game's cell before the result) and no line. Screenshots with a scratch Playwright spec over the screen fixtures, players renamed to 10-letter single words ("Longname01"): the 13-player Best-of Swiss rounds (3 games and points) drop the scores to a second line under their columns, the Best of 3 elimination rooms stay on one line at 390 px, and 2-game rooms of 2-player teams keep the scores beside the name with the member line wrapping after " · "; single-game team rooms are unchanged. The scratch spec was deleted.
 
-Full suite: not run (no shared code).
+Full suite: passed on `82ccb92` (150 files, 3896 tests), before the push to `main`.
 
 **Out of scope.** Narrower columns (they would part from the Final's widths); the Final's own view, which already used columns.
 
