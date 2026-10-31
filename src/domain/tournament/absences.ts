@@ -126,7 +126,7 @@ function seatQuestions(
 ): AbsenceQuestion[] {
   const games = askedGames(state, roundIndex, room);
   const teamSize = scoredTeamSize(state);
-  const members = teamSize ? teamsOf(state)[unit]?.members : undefined;
+  const team = teamSize ? teamsOf(state)[unit] : undefined;
   const questions: AbsenceQuestion[] = [];
   for (let game = 1; game <= games; game += 1) {
     const base = seatBase(roundIndex, room, position, games > 1 ? game : null);
@@ -136,7 +136,10 @@ function seatQuestions(
       continue;
     }
     for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
-      if (members?.[memberIndex]) questions.push({ ...seat, key: `${base}-m${memberIndex}`, memberIndex });
+      const key = `${base}-m${memberIndex}`;
+      // A team that has left the roster has no member list: its slots are the ones that hold a stored score.
+      const exists = team ? Boolean(team.members?.[memberIndex]) : state.scores[key] !== undefined;
+      if (exists) questions.push({ ...seat, key, memberIndex });
     }
   }
   return questions;

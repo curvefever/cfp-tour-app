@@ -60,10 +60,23 @@ export function getUnitScoreForGame(
   const roomAssignments = (state.assignments[roundIndex] ?? []).filter(
     (assignment) => assignment.room === room,
   );
-  const team = roomAssignments[position] ? buildTeamMap(state)[roomAssignments[position].name] : undefined;
+  const seated = roomAssignments[position];
+  const team = seated ? buildTeamMap(state)[seated.name] : undefined;
+  // A team that has left the roster (removed or swapped out) is in no list any more, but its past rooms still hold
+  // the scores it played: read its slots from the stored keys.
+  const withdrawn = seated !== undefined && team === undefined;
   const values: number[] = [];
   let anyMissing = false;
   for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
+    if (withdrawn) {
+      values.push(
+        scoreOrDefault(
+          state.scores[`r${roundIndex}-rm${room}-p${position}${gamePart}-m${memberIndex}`],
+          null,
+        ) ?? 0,
+      );
+      continue;
+    }
     if (!team?.members?.[memberIndex]) {
       values.push(0);
       continue;
@@ -80,7 +93,7 @@ export function getUnitScoreForGame(
   }
   if (anyMissing && fallback === null) return null;
   const rule = state.gamemodeConfig.teamScoringRule ?? 'sum-members';
-  return computeTeamScore(values, rule, getDefenderIndex(state, team?.teamId, roundIndex));
+  return computeTeamScore(values, rule, getDefenderIndex(state, seated?.name, roundIndex));
 }
 
 /** The rooms (1-based) of a round that have units, in order. */
@@ -144,8 +157,13 @@ export function getFinalUnitScore(
   const values: number[] = [];
   let anyMissing = false;
   for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
-    if (!team?.members?.[memberIndex]) {
+    // A team that has left the roster keeps the scores it played: read its slots from the stored keys.
+    if (team && !team.members?.[memberIndex]) {
       values.push(0);
+      continue;
+    }
+    if (!team) {
+      values.push(scoreOrDefault(state.finalScores[finalScoreKey(game, key, memberIndex)], null) ?? 0);
       continue;
     }
     const value = scoreOrDefault(state.finalScores[finalScoreKey(game, key, memberIndex)], null);
