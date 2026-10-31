@@ -4,11 +4,12 @@ import {
   scoreCurrentRound,
   withEarlierPointsRule,
 } from '../../domain/tournament/__tests__/play-through';
-import { shareTiedPoints } from '../../domain/tournament/mutations';
+import { shareTiedPoints, swapTeam } from '../../domain/tournament/mutations';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { roomPoints, roomResultCodes } from './room-points';
+import { advanceTournamentRound } from '../../domain/tournament/transitions';
+import { roomPoints, roomResultCodes, withSwappedNames } from './room-points';
 
 function start(
   count: number,
@@ -167,5 +168,40 @@ describe('roomResultCodes', () => {
 
   it('lists nothing for a tournament scored by places', () => {
     expect(roomResultCodes(describeStandings(scoredGroupRoom({})), 0).size).toBe(0);
+  });
+});
+
+describe('withSwappedNames', () => {
+  it('lets a past room find the points and codes of the unit now in its seat', () => {
+    const base = buildState({
+      label: 'swapped-codes',
+      count: 8,
+      teams: true,
+      setup: {
+        gameFormat: 'team-2v2',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        qualAdv: '4',
+        scoring: 'match-results',
+        tieMargin: '5',
+      },
+    });
+    if (!base) throw new Error('generation failed');
+    const scored = scoreCurrentRound(base, 2);
+    const seat = scored.assignments[0].find((entry) => entry.room === 1);
+    const advanced = advanceTournamentRound(scored);
+    if (!seat || advanced.status !== 'advanced') throw new Error('setup failed');
+    const swapped = swapTeam(advanced.state, seat.name, {
+      teamId: 'tNew',
+      teamName: 'New Team',
+      members: [{ name: 'n1' }, { name: 'n2' }],
+    });
+    const display = describeStandings(swapped);
+    const codes = withSwappedNames(roomResultCodes(display, 0), swapped);
+    const points = withSwappedNames(roomPoints(display, 0), swapped);
+    expect(codes.get('tNew')).toBeDefined();
+    expect(codes.get(seat.name)).toBe(codes.get('tNew'));
+    expect(points.get(seat.name)).toBe(points.get('tNew'));
   });
 });

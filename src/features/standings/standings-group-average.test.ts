@@ -109,7 +109,7 @@ describe('a group stage with per-match standings (13 players, byes)', () => {
     expect(text).toContain('Groups are ranked by points per match played. A bye is not a match.');
     expect(text).toContain('void for the one that turned up; a no-show gets 0 for it');
     expect(text).toContain('Most points per match ranks first.');
-    expect(text).toContain('results against each other, then');
+    expect(text).toContain('the tie-break is your results against each other, then');
     expect(text).not.toContain('A bye counts as a win');
   });
 });

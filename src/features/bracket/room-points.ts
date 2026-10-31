@@ -1,4 +1,19 @@
+import { groupSeats } from '../../domain/tournament/group-standings';
 import type { StandingsDisplay } from '../../domain/tournament/standings-display';
+import type { TournamentState } from '../../domain/tournament/types';
+
+/** The map also answers to the names of the units swapped out of a seat: a past room still names the team that played it, the standings its holder now. */
+export function withSwappedNames<T>(
+  map: Map<string, T>,
+  state: Pick<TournamentState, 'withdrawnUnits' | 'rounds'>,
+): Map<string, T> {
+  const seats = groupSeats(state);
+  for (const unit of state.withdrawnUnits) {
+    const value = unit.reason === 'swapped' ? map.get(seats.holderOf(unit.name)) : undefined;
+    if (value !== undefined && !map.has(unit.name)) map.set(unit.name, value);
+  }
+  return map;
+}
 
 /**
  * The points each unit earned in one counted round, by name -- read from the standings display, which counts a

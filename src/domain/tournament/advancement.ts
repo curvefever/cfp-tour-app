@@ -10,6 +10,7 @@ import {
   withHeadToHead,
 } from './group-standings';
 import { kingsValleyRoundMoves } from './kings-valley';
+import { matchResultSettings } from './match-results';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
 import {
@@ -174,6 +175,8 @@ export function detectTieBreaks(
   state: TournamentState,
 ): Record<string, RoomTieCluster> {
   if (round.isFinal) return {};
+  // Equal scores are a defined result under match results (a Tie), and the place in the room feeds no points: no room tie.
+  if (round.isGroupStage && matchResultSettings(state)) return {};
   const ties: Record<string, RoomTieCluster> = {};
   for (let room = 1; room <= round.rooms.length; room += 1) {
     const scored = scoreRoom(state, roundIndex, room, null).sort(compareRankScores);

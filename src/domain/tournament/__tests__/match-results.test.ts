@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeGroupStandings } from '../advancement';
+import { computeGroupStandings, detectTieBreaks, hasPendingTies } from '../advancement';
 import { generateTournament } from '../generation';
 import {
   type MatchResultPoints,
@@ -378,5 +378,29 @@ describe('the Setup fields around match results', () => {
     expect(scoringForPooling('match-results', 'swiss')).toBe('fairpoints');
     expect(scoringForPooling('match-results', 'none')).toBe('fairpoints');
     expect(scoringForPooling('positional-points', 'none')).toBe('positional-points');
+  });
+});
+
+describe('a tied game in a group room', () => {
+  it('raises no room tie under match results, and still raises one under Standard points', () => {
+    const state = roomState({ games: [[1400, 1400]] });
+    expect(detectTieBreaks(0, state.rounds[0], state)).toEqual({});
+    expect(hasPendingTies(state, 0)).toBe(false);
+    const standard = {
+      ...state,
+      gamemodeConfig: { ...state.gamemodeConfig, scoring: 'fairpoints' as const },
+    };
+    expect(Object.keys(detectTieBreaks(0, standard.rounds[0], standard))).toHaveLength(1);
+    expect(hasPendingTies(standard, 0)).toBe(true);
+  });
+
+  it('raises none when two games have equal totals but different results', () => {
+    const state = roomState({
+      games: [
+        [1400, 1000],
+        [1000, 1400],
+      ],
+    });
+    expect(detectTieBreaks(0, state.rounds[0], state)).toEqual({});
   });
 });

@@ -108,7 +108,7 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
       ? `Most points per match ranks first. ${cutSentence(display)}`
       : `Points are added up; most points ranks first. ${cutSentence(display)}`,
     perMatch
-      ? "On equal points per match, units are ranked by their results against each other, then by how you scored compared with your rooms' average (100% = an average score in your room), and last by the organiser's decision."
+      ? "On equal points per match, the tie-break is your results against each other, then how you scored compared with your rooms' average (100% = an average score in your room), and last the organiser's decision."
       : "On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).",
   ];
 }
