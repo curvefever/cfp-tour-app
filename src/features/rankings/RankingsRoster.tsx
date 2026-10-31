@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import {
+  addReserveIndividual,
+  removeReserveIndividual,
+  reserveIndividualRefusal,
+} from '../../domain/tournament/member-swaps';
+import {
   addReserveUnit,
   addWalkUpIndividual,
   addWalkUpTeam,
-  fillTeamSlot,
   removeReserveUnit,
   removeRosterUnit,
   renameIndividual,
-  renameTeamMember,
-  setTeamDefender,
   swapIndividual,
   swapTeam,
   swapWindowOpen,
@@ -30,12 +32,13 @@ import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { destinationLabel } from '../bracket/exit-text';
-import { Button, Input, Select, cn } from '../../components/ui';
+import { Button, Input, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
 import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
+import { TeamMemberRow, VacantSlot } from './TeamSlots';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
 import { memberPlaceholders, noMembersMessage, parseWalkUpTeam, teamLinePlaceholder } from './walk-up-team';
@@ -63,6 +66,12 @@ function reserveConfirmation(
 
 const isTeamFormat = (state: TournamentState) => Boolean(getGameFormat(state.gameFormat)?.teamSize);
 
+/** What a team format adds to a closed or refused reserve add: one player of a team can be replaced at any time. */
+const PLAYER_SWAP_NOTE = (state: TournamentState) =>
+  isTeamFormat(state)
+    ? ' To replace one player of a team, use ⇄ on that player in Manage Teams at any time.'
+    : '';
+
 function handleReserveResult(
   state: TournamentState,
   label: string,
@@ -86,13 +95,11 @@ function handleReserveResult(
     return;
   }
   const messages = {
-    closed: 'Reserve window has closed — eliminations have begun.',
-    'group-stage':
-      "Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts. To replace an absentee with a reserve, use ⇄ Swap in Manage Players until the first elimination.",
+    closed: `Reserve window has closed — eliminations have begun.${PLAYER_SWAP_NOTE(state)}`,
+    'group-stage': `Reserves can't be added during Group Stage — group membership and the round-robin schedule are fixed once the tournament starts. To replace an absentee with a reserve, use ⇄ Swap in ${isTeamFormat(state) ? 'Manage Teams' : 'Manage Players'} until the first elimination.${PLAYER_SWAP_NOTE(state)}`,
     'fixed-draw':
       "Reserves can't be added to a fixed-draw tournament — the whole schedule was already published at generation time, with no mechanism to fold a new entrant into an already-decided future round.",
-    'waterfall-bracket':
-      "Players can't be added to a custom bracket without a pooling phase — its routing is built for the exact entrant count. To replace an absentee, use ⇄ Swap until the first elimination.",
+    'waterfall-bracket': `${isTeamFormat(state) ? 'Teams' : 'Players'} can't be added to a custom bracket without a pooling phase — its routing is built for the exact entrant count. To replace an absentee, use ⇄ Swap until the first elimination.${PLAYER_SWAP_NOTE(state)}`,
     'strict-room':
       'Can\'t add — with "None" as the odd-count strategy every pooling round must pair everyone, and one more would leave a unit out.',
     'room-cap': "Can't add this reserve — it would push a future round over the game's hard room cap.",
@@ -106,6 +113,8 @@ function handleReserveResult(
 }
 
 const SWAPS_CLOSED_TITLE = 'Swaps closed — eliminations have started';
+const TEAM_SWAPS_CLOSED_NOTE =
+  'Team swaps closed — eliminations have started (a player can still be swapped)';
 
 /** Applies a swap, or says so when the outgoing unit is neither seated in the current round nor waiting for a later one. */
 function applySwap(
@@ -301,24 +310,69 @@ function ReserveChipName({
   );
 }
 
-/** The individual reserves of a team format: name and toggle only. */
-function ReserveIndividualChips({
+/**
+ * The individual reserves of a team format, open at any time (before the start, in every round): each with its
+ * confirmation toggle and a ✕, and a field to add one. They fill a vacant slot or replace a member (⇄ on the member).
+ */
+function ReserveIndividuals({
   confirmations,
   state,
 }: {
   confirmations: ConfirmationView;
   state: TournamentState;
 }) {
-  if (!state.reserveIndividuals.length) return null;
+  const app = useTournamentApp();
+  const [name, setName] = useState('');
+  const add = () => {
+    if (!name.trim()) return;
+    const refusal = reserveIndividualRefusal(state, { name });
+    if (refusal) {
+      window.alert(refusal);
+      return;
+    }
+    app.updateState((current) => addReserveIndividual(current, { name }));
+    setName('');
+  };
   return (
-    <div aria-label='Individual reserves' className='flex flex-wrap gap-2' role='group'>
-      <span className='self-center text-xs text-muted'>Individual reserves</span>
-      {state.reserveIndividuals.map((member) => (
-        <div className={RESERVE_CHIP} key={member.name}>
-          {member.name}
-          <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
-        </div>
-      ))}
+    <div className='flex flex-col gap-2'>
+      <div className='flex items-center gap-2'>
+        <Input
+          aria-label='Name of a new individual reserve'
+          className='min-w-0 flex-1'
+          onChange={(event) => setName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') add();
+          }}
+          placeholder='Name of an individual reserve'
+          type='text'
+          value={name}
+        />
+        <Button className='shrink-0 whitespace-nowrap' onClick={add} size='sm' variant='warning'>
+          ＋ Add individual reserve
+        </Button>
+      </div>
+      <div aria-label='Individual reserves' className='flex flex-wrap gap-2' role='group'>
+        <span className='self-center text-xs text-muted'>Individual reserves</span>
+        {state.reserveIndividuals.map((member, index) => (
+          <div className={RESERVE_CHIP} key={`${member.name}-${index}`}>
+            {member.name}
+            <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
+            <Button
+              aria-label={`Remove ${member.name} from the individual reserves`}
+              className={cn(CHIP_BUTTON, 'text-warning')}
+              onClick={() => app.updateState((current) => removeReserveIndividual(current, index))}
+              size='sm'
+              variant='ghost'
+            >
+              ✕
+            </Button>
+          </div>
+        ))}
+      </div>
+      <div className='text-xs text-muted'>
+        An individual reserve fills a vacant slot or takes a player's place (⇄ on the player in Manage Teams),
+        at any time. A player who is swapped out joins the individual reserves.
+      </div>
     </div>
   );
 }
@@ -327,7 +381,6 @@ export function ReservePanel({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const [walkup, setWalkup] = useState('');
   const format = getGameFormat(state.gameFormat);
-  if (!state.reserves.length && !state.reserveOpen && format?.teamSize) return null;
   const keys = state.reserves.map((entry) => (typeof entry === 'string' ? entry : entry.teamId));
   const confirmations = confirmationView(state);
   const add = (key: string) =>
@@ -421,7 +474,6 @@ export function ReservePanel({ state }: { state: TournamentState }) {
                 </div>
               ))}
             </div>
-            {format?.teamSize ? <ReserveIndividualChips confirmations={confirmations} state={state} /> : null}
             <div className='mt-1 text-xs text-muted'>
               {keys.length
                 ? `Click ＋ to add a reserve. ${state.started ? 'They join from the next round' : 'Before Confirm & Start the draw is redone with them in; after, they join from the next round'} (during the first bracket round of a tournament without pooling: the least-full room).`
@@ -429,6 +481,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
             </div>
           </>
         )}
+        {format?.teamSize ? <ReserveIndividuals confirmations={confirmations} state={state} /> : null}
       </div>
     </ToolPanel>
   );
@@ -499,7 +552,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
     <ToolPanel
       className='flex-[2_1_520px]'
       count={count}
-      note={swapsOpen ? null : SWAPS_CLOSED_TITLE}
+      note={swapsOpen ? null : TEAM_SWAPS_CLOSED_NOTE}
       title='Manage teams'
     >
       <div className='grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-2.5 p-3'>
@@ -564,125 +617,18 @@ export function ManageRoster({ state }: { state: TournamentState }) {
               </div>
               {Array.from({ length: format.teamSize ?? 0 }, (_, memberIndex) => {
                 const member = team.members[memberIndex];
-                if (!member)
-                  return (
-                    <div
-                      className='flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs'
-                      key={memberIndex}
-                    >
-                      <span className='text-muted'>Vacant slot</span>
-                      {state.reserveOpen ? (
-                        <span className='flex gap-1'>
-                          {state.reserveIndividuals.length ? (
-                            <Select
-                              className='py-1 text-xs'
-                              aria-label={`Reserve for ${team.teamName} slot ${memberIndex + 1}`}
-                              defaultValue=''
-                              onChange={(event) => {
-                                const reserveIndex = Number.parseInt(event.target.value, 10);
-                                const reserve = state.reserveIndividuals[reserveIndex];
-                                if (reserve)
-                                  app.updateState((current) =>
-                                    fillTeamSlot(current, team.teamId, memberIndex, reserve, reserveIndex),
-                                  );
-                              }}
-                            >
-                              <option value=''>— pick a reserve —</option>
-                              {state.reserveIndividuals.map((reserve, index) => (
-                                <option key={`${reserve.name}-${index}`} value={index}>
-                                  {reserve.name}
-                                </option>
-                              ))}
-                            </Select>
-                          ) : null}
-                          <Button
-                            size='sm'
-                            variant='warning'
-                            onClick={() => {
-                              const value = window.prompt(
-                                'Name of the new/walk-up player filling this slot:',
-                              );
-                              if (value?.trim() && !refuseUnstorableNames([value]))
-                                app.updateState((current) =>
-                                  fillTeamSlot(current, team.teamId, memberIndex, { name: value.trim() }),
-                                );
-                            }}
-                          >
-                            ＋ New
-                          </Button>
-                        </span>
-                      ) : null}
-                    </div>
-                  );
-                return (
-                  <div
-                    className='flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs'
+                return member ? (
+                  <TeamMemberRow
+                    confirmations={confirmations}
+                    defender={defender}
                     key={memberIndex}
-                  >
-                    <span>
-                      {member.name}
-                      {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-                      defender === memberIndex
-                        ? ' 🛡 Defender'
-                        : ''}
-                    </span>
-                    <span className='flex gap-1'>
-                      <ConfirmToggle source={confirmations.source(member.name)} name={member.name} />
-                      {state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-                      defender !== memberIndex ? (
-                        <Button
-                          aria-label={`Make ${member.name} defender`}
-                          className={ICON_BUTTON}
-                          size='sm'
-                          title='Make defender'
-                          onClick={() =>
-                            app.updateState((current) => setTeamDefender(current, team.teamId, memberIndex))
-                          }
-                        >
-                          🛡
-                        </Button>
-                      ) : null}
-                      <Button
-                        aria-label={`Rename ${member.name}`}
-                        className={ICON_BUTTON}
-                        size='sm'
-                        title='Rename member'
-                        onClick={() => {
-                          const value = window.prompt(`Rename "${member.name}" to:`, member.name);
-                          if (value?.trim() && !refuseUnstorableNames([value]))
-                            app.updateState((current) =>
-                              renameTeamMember(current, team.teamId, memberIndex, value),
-                            );
-                        }}
-                      >
-                        ✎
-                      </Button>
-                      <Button
-                        aria-label={`Remove ${member.name}`}
-                        className={ICON_BUTTON}
-                        size='sm'
-                        title='Remove member'
-                        variant='danger'
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `Remove "${member.name}" from team "${team.teamName}"? This cannot be undone.`,
-                            )
-                          )
-                            app.updateState((current) =>
-                              updateTeam(current, team.teamId, (entry) => ({
-                                ...entry,
-                                members: entry.members.map((item, index) =>
-                                  index === memberIndex ? null : item,
-                                ),
-                              })),
-                            );
-                        }}
-                      >
-                        ✕
-                      </Button>
-                    </span>
-                  </div>
+                    member={member}
+                    memberIndex={memberIndex}
+                    state={state}
+                    team={team}
+                  />
+                ) : (
+                  <VacantSlot key={memberIndex} memberIndex={memberIndex} state={state} team={team} />
                 );
               })}
             </div>

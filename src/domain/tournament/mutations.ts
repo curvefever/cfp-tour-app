@@ -973,6 +973,7 @@ export function swapTeam(
   );
 }
 
+/** Fills a vacant slot of a team, at any time: like a member swap it changes no schedule, so no reserve window applies. */
 export function fillTeamSlot(
   state: TournamentState,
   teamId: string,
@@ -980,7 +981,6 @@ export function fillTeamSlot(
   member: { name: string; userId?: string },
   reserveIndex?: number,
 ): TournamentState {
-  if (!state.reserveOpen) return state;
   const next = updateTeam(state, teamId, (team) => {
     if (team.members[memberIndex]) return team;
     const members = [...team.members];
