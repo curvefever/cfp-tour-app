@@ -1,6 +1,14 @@
 import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
-import { groupRoomOutcomes, groupSeats, usesGroupAverages } from './group-standings';
+import {
+  type GroupMatchPoints,
+  groupRoomOutcomes,
+  groupSeats,
+  playedMatchOf,
+  sameGroupStanding,
+  usesGroupAverages,
+  withHeadToHead,
+} from './group-standings';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
@@ -412,7 +420,7 @@ function detectGroupCutoffTie(
   const qualifiers = state.cfg.qualifiersPerGroup;
   if (!qualifiers || qualifiers >= table.length) return null;
   const boundary = table[qualifiers - 1];
-  const players = table.filter((entry) => sameStanding(entry, boundary));
+  const players = table.filter((entry) => sameGroupStanding(entry, boundary));
   if (players.length < 2) return null;
   return {
     key: `group-cutoff-${label}`,
@@ -428,13 +436,14 @@ function applyCutoffOrder(
   table: TournamentStanding[],
   tie: CutoffTieCluster | null,
   state: Pick<TournamentState, 'tieResolutions'>,
+  same: (first: TournamentStanding, second: TournamentStanding) => boolean = sameStanding,
 ): TournamentStanding[] {
   if (!tie) return table;
   const resolved = tieResolutionList(state, tie.key);
   const remaining = tie.players.map((entry) => entry.name).filter((name) => !resolved.includes(name));
   const byName = new Map(tie.players.map((entry) => [entry.name, entry]));
   const output = [...table];
-  const start = output.findIndex((entry) => sameStanding(entry, tie.players[0]));
+  const start = output.findIndex((entry) => same(entry, tie.players[0]));
   if (start < 0) return table;
   for (const [offset, name] of [...resolved, ...remaining].entries()) {
     const entry = byName.get(name);
@@ -470,7 +479,7 @@ export function applyGroupCutoffOrder(
   table: TournamentStanding[],
   state: Pick<TournamentState, 'groupStandings' | 'cfg' | 'tieResolutions'>,
 ): TournamentStanding[] {
-  return applyCutoffOrder(table, detectGroupCutoffTie(label, state), state);
+  return applyCutoffOrder(table, detectGroupCutoffTie(label, state), state, sameGroupStanding);
 }
 
 /**
@@ -482,10 +491,12 @@ export function applyGroupCutoffOrder(
  * only A picked gives A its own rank and B and C a shared one; with A then B
  * picked all three are distinct. An entrant with no rounds played yet
  * (totalFP === null) gets rank: null rather than a misleading sequential number.
+ * `same` is what makes two neighbours level: `sameStanding`, or `sameGroupStanding` for one group's table.
  */
 export function rankStandings(
   entries: readonly TournamentStanding[],
   resolvedNames: ReadonlySet<string> = new Set(),
+  same: (first: TournamentStanding, second: TournamentStanding) => boolean = sameStanding,
 ): Array<TournamentStanding & { rank: number | null }> {
   let rank = 0;
   return entries.map((entry, index) => {
@@ -493,7 +504,7 @@ export function rankStandings(
     const previous = entries[index - 1];
     const sharesRank =
       previous !== undefined &&
-      sameStanding(previous, entry) &&
+      same(previous, entry) &&
       !resolvedNames.has(previous.name) &&
       !resolvedNames.has(entry.name);
     if (!sharesRank) rank = index + 1;
@@ -733,6 +744,7 @@ export function computeGroupStandings(
 
   const averaged = usesGroupAverages(state);
   const seats = groupSeats(state);
+  const playedMatches: GroupMatchPoints[] = [];
 
   for (const [roundIndex, round] of state.rounds.entries()) {
     if (!round.isGroupStage) continue;
@@ -751,6 +763,8 @@ export function computeGroupStandings(
       for (const { name, ...outcome } of outcomes) {
         byGroup.get(groupLabel)?.get(name)?.rounds.push(outcome);
       }
+      const match = averaged ? playedMatchOf(groupLabel, outcomes) : null;
+      if (match) playedMatches.push(match);
     }
     if (averaged) continue;
     for (const name of walkoverNames(state, roundIndex, round)) {
@@ -762,7 +776,11 @@ export function computeGroupStandings(
   }
 
   return Object.fromEntries(
-    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()], averaged)]),
+    [...byGroup].map(([label, entries]) => {
+      const table = materializeStandings([...entries.values()], averaged);
+      const groupMatches = playedMatches.filter((match) => match.group === label);
+      return [label, averaged ? withHeadToHead(table, groupMatches) : table];
+    }),
   );
 }
 

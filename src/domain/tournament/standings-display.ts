@@ -11,8 +11,8 @@ import {
   isRoomFullyScored,
   isUncontestedRoom,
   rankStandings,
-  sameStanding,
 } from './advancement';
+import { sameGroupStanding } from './group-standings';
 import { tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
 
@@ -171,7 +171,10 @@ function groupTables(state: TournamentState): StandingsDisplayTable[] {
       key,
       label: `Group ${group.label}`,
       groupLabel: group.label,
-      entries: withAbsentRounds(state, rankStandings(ordered, new Set(tieResolutionList(state, key)))),
+      entries: withAbsentRounds(
+        state,
+        rankStandings(ordered, new Set(tieResolutionList(state, key)), sameGroupStanding),
+      ),
       cut: cut && cut < ordered.length ? cut : null,
     };
   });
@@ -281,7 +284,7 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
         .filter(
           (entry) =>
             !pending.includes(entry.name) &&
-            pickedEntries.some((pickedEntry) => sameStanding(pickedEntry, entry)),
+            pickedEntries.some((pickedEntry) => sameGroupStanding(pickedEntry, entry)),
         )
         .map((entry) => entry.name);
       return [table.key, { placed, pending }];

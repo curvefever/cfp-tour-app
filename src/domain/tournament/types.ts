@@ -185,6 +185,8 @@ export interface TournamentStanding {
   matches?: number;
   /** Group stage with `groupAverageVersion` 2 only: `totalFP` ÷ `matches`, set once the unit has a counted match. Groups are ranked by it (`rankingPoints`, advancement.ts). */
   averagePoints?: number;
+  /** Group stage with `groupAverageVersion` 2 only, on a unit level with others on points per match and room share: the points it took from its matches against those units (a mini-table, group-standings.ts). The tie-break after the room share; units still level after it are the organiser's to place. */
+  headToHead?: number;
 }
 
 export interface TournamentGroup {

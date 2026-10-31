@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { compareStandings, computeGroupStandings, sameStanding } from '../advancement';
-import { groupSeats, usesGroupAverages } from '../group-standings';
+import {
+  compareStandings,
+  computeGroupStandings,
+  getAllTies,
+  hasPendingTies,
+  roomBasedComputeAdvancement,
+  sameStanding,
+} from '../advancement';
+import { groupSeats, sameGroupStanding, usesGroupAverages } from '../group-standings';
 import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -493,5 +500,114 @@ describe('groups of different sizes', () => {
     const others = (table: TournamentStanding[]) => table.filter((entry) => entry.name !== qualifier);
     expect(others(after[group.label])).toEqual(others(before[group.label]));
     expect(after[group.label].map((entry) => entry.name)).not.toContain(qualifier);
+  });
+});
+
+describe('the head-to-head tie-break inside a group', () => {
+  /** Round-robin results of A, B, C, D where A, B and C are level on points per match and room share (a cycle), D is last. */
+  const CYCLE: Match[][] = [
+    [
+      ['A', 'B', 300, 200],
+      ['C', 'D', 300, 200],
+    ],
+    [
+      ['A', 'C', 200, 300],
+      ['B', 'D', 300, 200],
+    ],
+    [
+      ['B', 'C', 300, 200],
+      ['A', 'D', 300, 200],
+    ],
+  ];
+  const members = ['A', 'B', 'C', 'D'];
+
+  function withQualifiers(state: TournamentState, qualifiersPerGroup: number): TournamentState {
+    return { ...state, cfg: { ...state.cfg, qualifiersPerGroup } };
+  }
+
+  function tieOf(state: TournamentState) {
+    return getAllTies(state, state.curRound)['group-cutoff-A'];
+  }
+
+  it('orders two units level on points per match and room share by the match they played', () => {
+    // C loses to D instead: A and B are level at 5 points, C and D at 4.
+    const rounds = CYCLE.map((round) => round.map((match) => [...match] as Match));
+    rounds[0][1] = ['D', 'C', 300, 200];
+    const state = withQualifiers(groupState(rounds, { members }), 1);
+    const table = computeGroupStandings(state).A;
+    expect(table.map((entry) => entry.name)).toEqual(['A', 'B', 'D', 'C']);
+    const [a, b, d, c] = table;
+    expect([a.headToHead, b.headToHead, d.headToHead, c.headToHead]).toEqual([2, 1, 2, 1]);
+    expect(sameStanding(a, b)).toBe(true);
+    expect(sameGroupStanding(a, b)).toBe(false);
+    expect(tieOf(withQualifiers(state, 2))).toBeUndefined();
+    expect(roomBasedComputeAdvancement(state, state.curRound).advancing.map((entry) => entry.name)).toEqual([
+      'A',
+    ]);
+  });
+
+  it('three units that each won once are still level after it: the organiser places them', () => {
+    const state = withQualifiers(groupState(CYCLE, { members }), 2);
+    const table = computeGroupStandings(state).A;
+    expect(table.slice(0, 3).map((entry) => entry.headToHead)).toEqual([3, 3, 3]);
+    expect(
+      tieOf(state)
+        ?.players.map((player) => player.name)
+        .sort(),
+    ).toEqual(['A', 'B', 'C']);
+    expect(hasPendingTies(state, state.curRound)).toBe(true);
+  });
+
+  it('a double round robin that ends 1-1 between two units leaves them level', () => {
+    const state = withQualifiers(
+      groupState([[['A', 'B', 300, 200]], [['B', 'A', 300, 200]]], { members: ['A', 'B'] }),
+      1,
+    );
+    const table = computeGroupStandings(state).A;
+    expect(table.map((entry) => entry.headToHead)).toEqual([3, 3]);
+    expect(tieOf(state)?.players).toHaveLength(2);
+  });
+
+  it('a mutual match voided by an absence gives nothing: they stay level', () => {
+    // A and B are both absent against each other (a counted 0 each), then each beats C and D by the same margin.
+    const state = withQualifiers(
+      groupState(
+        [
+          [
+            ['A', 'B', 0, 0],
+            ['C', 'D', 300, 200],
+          ],
+          [
+            ['A', 'C', 300, 200],
+            ['B', 'D', 300, 200],
+          ],
+          [
+            ['B', 'C', 300, 200],
+            ['A', 'D', 300, 200],
+          ],
+        ],
+        { members, absences: { 'r0-rm1-p0': 'absent', 'r0-rm1-p1': 'absent' } },
+      ),
+      1,
+    );
+    const table = computeGroupStandings(state).A;
+    expect(table.slice(0, 2).map((entry) => [entry.name, entry.headToHead])).toEqual([
+      ['A', 0],
+      ['B', 0],
+    ]);
+    expect(tieOf(state)?.players.map((player) => player.name)).toEqual(['A', 'B']);
+  });
+
+  it('is not used across groups: the tier order ignores it', () => {
+    const level = { totalFP: 5, totalScore: 0, played: 3, roomShare: 1, matches: 3, averagePoints: 5 / 3 };
+    const first = { name: 'A', ...level, headToHead: 2 };
+    const second = { name: 'X', ...level, headToHead: 4 };
+    expect(sameStanding(first, second)).toBe(true);
+    expect(compareStandings(first, second)).toBe(0);
+  });
+
+  it('the earlier group rule has no head-to-head step', () => {
+    const state = groupState(CYCLE, { members, averaged: false });
+    for (const entry of computeGroupStandings(state).A) expect(entry).not.toHaveProperty('headToHead');
   });
 });

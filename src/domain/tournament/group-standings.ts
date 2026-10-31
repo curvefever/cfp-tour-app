@@ -1,6 +1,6 @@
 import { absentInRoom } from './absences';
-import { type RoundOutcome, roomOutcomes, roundHasBegun } from './advancement';
-import type { TournamentState } from './types';
+import { type RoundOutcome, roomOutcomes, roundHasBegun, samePoints, sameStanding } from './advancement';
+import type { TournamentStanding, TournamentState } from './types';
 
 type NamedOutcome = RoundOutcome & { name: string };
 
@@ -40,6 +40,62 @@ export function groupSeats(state: Pick<TournamentState, 'withdrawnUnits' | 'roun
     return holder;
   };
   return { holderOf, isRemoved: (name) => removed.has(holderOf(name)) };
+}
+
+/** A match played in a group: the points each of its two units took. Voided matches, no-shows and byes are not matches played. */
+export interface GroupMatchPoints {
+  group: string;
+  points: Record<string, number>;
+}
+
+/** The match a group room's outcomes record, if it was played by two units that both have a place. */
+export function playedMatchOf(group: string, outcomes: readonly NamedOutcome[]): GroupMatchPoints | null {
+  if (outcomes.length !== 2 || outcomes.some((outcome) => outcome.rank === null)) return null;
+  return { group, points: Object.fromEntries(outcomes.map((outcome) => [outcome.name, outcome.points])) };
+}
+
+/** Equal within a group: level on points per match and room share, and on the head-to-head points. */
+export function sameGroupStanding(first: TournamentStanding, second: TournamentStanding): boolean {
+  return sameStanding(first, second) && samePoints(first.headToHead ?? null, second.headToHead ?? null);
+}
+
+/** One run of units level on points per match and room share, each with the points it took from the others, best first (stable). */
+function orderByHeadToHead(
+  run: TournamentStanding[],
+  matches: readonly GroupMatchPoints[],
+): TournamentStanding[] {
+  const names = new Set(run.map((entry) => entry.name));
+  const between = matches.filter((match) => Object.keys(match.points).every((name) => names.has(name)));
+  return run
+    .map((entry) => ({
+      ...entry,
+      headToHead: between.reduce((total, match) => total + (match.points[entry.name] ?? 0), 0),
+    }))
+    .sort((first, second) =>
+      samePoints(first.headToHead, second.headToHead) ? 0 : second.headToHead - first.headToHead,
+    );
+}
+
+/**
+ * A group's table (already ordered by points per match, then room share) with each run of level units ordered by the
+ * head-to-head points of the matches they played against each other: two units by their own match, three or more by
+ * a mini-table of only those matches (both legs of a double round robin). Units level after it stay level, for the
+ * organiser. `matches` are the group's played matches.
+ */
+export function withHeadToHead(
+  table: TournamentStanding[],
+  matches: readonly GroupMatchPoints[],
+): TournamentStanding[] {
+  const output: TournamentStanding[] = [];
+  let first = 0;
+  while (first < table.length) {
+    let last = first;
+    while (last + 1 < table.length && sameStanding(table[last + 1], table[first])) last += 1;
+    const run = table.slice(first, last + 1);
+    output.push(...(run.length < 2 || table[first].totalFP === null ? run : orderByHeadToHead(run, matches)));
+    first = last + 1;
+  }
+  return output;
 }
 
 /** A no-show's match: counted, worth nothing whatever the points table, with no score and no room share. */
