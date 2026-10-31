@@ -17,15 +17,20 @@ export function usesGroupAverages(state: Pick<TournamentState, 'gamemodeConfig'>
 
 /**
  * A room of a past round still names the unit that played it. A swap hands that seat's line to the replacement
- * (`WithdrawnUnit.replacedBy`, followed through further swaps); a removal takes the unit, and so its matches, out of
- * the group.
+ * (`WithdrawnUnit.replacedBy`, followed through further swaps); a removal during the group stage takes the unit, and
+ * so its matches, out of the group. One made after the last group round (a qualifier leaving the bracket) leaves the
+ * group's results as they were.
  */
-export function groupSeats(state: Pick<TournamentState, 'withdrawnUnits'>): GroupSeats {
+export function groupSeats(state: Pick<TournamentState, 'withdrawnUnits' | 'rounds'>): GroupSeats {
+  const lastGroupRound = state.rounds.reduce((last, round, index) => (round.isGroupStage ? index : last), -1);
   const successors = new Map<string, string>();
   const removed = new Set<string>();
   for (const unit of state.withdrawnUnits) {
-    if (unit.reason === 'removed') removed.add(unit.name);
-    else if (unit.replacedBy !== undefined) successors.set(unit.name, unit.replacedBy);
+    if (unit.reason === 'swapped' && unit.replacedBy !== undefined)
+      successors.set(unit.name, unit.replacedBy);
+    else if (unit.reason === 'removed' && (unit.round === undefined || unit.round <= lastGroupRound)) {
+      removed.add(unit.name);
+    }
   }
   const holderOf = (name: string) => {
     let holder = name;

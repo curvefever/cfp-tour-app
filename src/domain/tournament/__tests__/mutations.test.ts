@@ -58,7 +58,7 @@ describe('removeRosterUnit', () => {
     });
     const result = removeRosterUnit(state, 'P1');
     expect(result.withdrawnUnits).toEqual([
-      { name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'removed' },
+      { name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'removed', round: 0 },
     ]);
   });
 
@@ -119,6 +119,7 @@ describe('removeRosterUnit', () => {
         members: ['Alice', 'Bob'],
         playedAnyMatch: false,
         reason: 'removed',
+        round: 0,
       },
     ]);
     // The live team object is really gone -- confirms the snapshot was necessary.
@@ -191,7 +192,15 @@ describe('swapIndividual', () => {
     });
     const result = swapIndividual(state, 'P1', 'P3');
     expect(result.withdrawnUnits).toEqual([
-      { name: 'P1', label: 'P1', members: null, playedAnyMatch: true, reason: 'swapped', replacedBy: 'P3' },
+      {
+        name: 'P1',
+        label: 'P1',
+        members: null,
+        playedAnyMatch: true,
+        reason: 'swapped',
+        round: 0,
+        replacedBy: 'P3',
+      },
     ]);
     expect(result.players).toEqual(['P2', 'P3']);
   });
@@ -263,6 +272,7 @@ describe('swapTeam', () => {
         members: ['Alice', 'Bob'],
         playedAnyMatch: false,
         reason: 'swapped',
+        round: 0,
         replacedBy: 't3',
       },
     ]);

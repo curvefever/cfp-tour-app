@@ -5,7 +5,7 @@ import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
-import type { TournamentState, WithdrawnUnit } from '../types';
+import type { TournamentStanding, TournamentState, WithdrawnUnit } from '../types';
 import { buildState, scoreCurrentRound } from './play-through';
 import { buildRound } from './test-fixtures';
 
@@ -113,13 +113,34 @@ describe('usesGroupAverages', () => {
 
 describe('groupSeats', () => {
   it('follows a swap chain to the unit now in the seat, and sees a removal through it', () => {
-    const seats = groupSeats({ withdrawnUnits: [swappedOut('A', 'B'), swappedOut('B', 'C'), removed('D')] });
+    const seats = groupSeats({
+      withdrawnUnits: [swappedOut('A', 'B'), swappedOut('B', 'C'), removed('D')],
+      rounds: [],
+    });
     expect(seats.holderOf('A')).toBe('C');
     expect(seats.holderOf('B')).toBe('C');
     expect(seats.holderOf('E')).toBe('E');
     expect(seats.isRemoved('D')).toBe(true);
     expect(seats.isRemoved('A')).toBe(false);
-    expect(groupSeats({ withdrawnUnits: [swappedOut('A', 'B'), removed('B')] }).isRemoved('A')).toBe(true);
+    expect(
+      groupSeats({ withdrawnUnits: [swappedOut('A', 'B'), removed('B')], rounds: [] }).isRemoved('A'),
+    ).toBe(true);
+  });
+
+  it('counts a removal only if it was made during the group stage', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, isGroupStage: true }),
+      buildRound({ roundNum: 2, isGroupStage: true }),
+    ];
+    const leftAt = (round: number | undefined) =>
+      groupSeats({
+        withdrawnUnits: [{ ...removed('X'), round }],
+        rounds: [...rounds, buildRound({ roundNum: 3 })],
+      });
+    expect(leftAt(0).isRemoved('X')).toBe(true);
+    expect(leftAt(1).isRemoved('X')).toBe(true);
+    expect(leftAt(2).isRemoved('X')).toBe(false);
+    expect(leftAt(undefined).isRemoved('X')).toBe(true);
   });
 });
 
@@ -220,6 +241,43 @@ describe('per-match group standings', () => {
       expect(lineOf(state, 'T1')?.rounds?.map((round) => round.roundIndex)).toEqual([2]);
       expect(lineOf(state, 'T1')?.matches).toBe(1);
     });
+  });
+
+  it('ranks by points per match, not by the total: 4 points in 3 matches beat 5 points in 4', () => {
+    // X is removed, so U's match against it is void: U has W, L, L (4 points, 1.33); V has W, L, L, L (5 points, 1.25).
+    const state = groupState(
+      [
+        [
+          ['U', 'A', 300, 200],
+          ['B', 'V', 300, 200],
+          ['C', 'Y', 300, 200],
+        ],
+        [
+          ['B', 'U', 300, 200],
+          ['C', 'V', 300, 200],
+          ['A', 'Y', 300, 200],
+        ],
+        [
+          ['C', 'U', 300, 200],
+          ['Y', 'V', 300, 200],
+          ['A', 'B', 300, 200],
+        ],
+        [
+          ['V', 'A', 300, 200],
+          ['X', 'U', 300, 200],
+          ['B', 'C', 300, 200],
+        ],
+      ],
+      { members: ['U', 'V', 'A', 'B', 'C', 'Y'], withdrawn: [removed('X')] },
+    );
+    const table = computeGroupStandings(state).A;
+    const u = table.find((entry) => entry.name === 'U');
+    const v = table.find((entry) => entry.name === 'V');
+    expect([u?.totalFP, u?.matches]).toEqual([4, 3]);
+    expect([v?.totalFP, v?.matches]).toEqual([5, 4]);
+    expect(table.findIndex((entry) => entry.name === 'U')).toBeLessThan(
+      table.findIndex((entry) => entry.name === 'V'),
+    );
   });
 
   describe('a unit whose every match is void', () => {
@@ -353,8 +411,12 @@ describe('a room that loses a unit to a removal in play', () => {
 });
 
 describe('groups of different sizes', () => {
-  /** Plays a group stage to its last round, each group's first member beating the rest, and returns the state with that round scored. */
-  function playedGroupStage(count: number): TournamentState {
+  /**
+   * Plays a group stage to its last round, each group's first member beating the rest, and returns the state with that
+   * round scored. The biggest groups win by a smaller margin, so their winners have the lower room share. With
+   * `intoBracket` the last round is advanced too.
+   */
+  function playedGroupStage(count: number, intoBracket = false): TournamentState {
     let state = buildState({
       label: `groups-${count}`,
       count,
@@ -369,6 +431,7 @@ describe('groups of different sizes', () => {
       },
     }) as TournamentState;
     const lastRound = state.rounds.filter((round) => round.isGroupStage).length - 1;
+    const biggest = Math.max(...state.groups.map((group) => group.members.length));
     for (let roundIndex = 0; roundIndex <= lastRound; roundIndex += 1) {
       const seen = new Map<number, number>();
       const scores = { ...state.scores };
@@ -378,10 +441,11 @@ describe('groups of different sizes', () => {
         seen.set(entry.room, position + 1);
         const group = state.groups.find((candidate) => candidate.members.includes(entry.name));
         const rank = group?.members.indexOf(entry.name) ?? 0;
-        scores[`r${roundIndex}-rm${entry.room}-p${position}`] = 1000 - 10 * rank;
+        const gap = group?.members.length === biggest ? 1 : 10;
+        scores[`r${roundIndex}-rm${entry.room}-p${position}`] = 1000 - gap * rank;
       }
       state = { ...state, scores };
-      if (roundIndex < lastRound) {
+      if (roundIndex < lastRound || intoBracket) {
         const result = advanceTournamentRound(state);
         if (result.status !== 'advanced') throw new Error(`stuck at round ${roundIndex}: ${result.status}`);
         state = result.state;
@@ -409,10 +473,25 @@ describe('groups of different sizes', () => {
       const small = standings[smallest.label][0];
       expect(big.matches).toBe(biggest.members.length - 1);
       expect(small.matches).toBe(smallest.members.length - 1);
+      // The bigger group's winner has more matches, so more points in total, but the lower room share.
+      expect(big.totalFP ?? 0).toBeGreaterThan(small.totalFP ?? 0);
+      expect(big.roomShare ?? 0).toBeLessThan(small.roomShare ?? 0);
       const byShare = [...winners].sort((a, b) => (b.roomShare ?? 0) - (a.roomShare ?? 0));
-      expect([...winners].sort(compareStandings).map((entry) => entry.name)).toEqual(
-        byShare.map((entry) => entry.name),
-      );
+      const sorted = [...winners].sort(compareStandings);
+      expect(sorted.map((entry) => entry.name)).toEqual(byShare.map((entry) => entry.name));
+      expect(sorted.indexOf(big)).toBeGreaterThan(sorted.indexOf(small));
     },
   );
+
+  it('a qualifier removed from the bracket leaves the group results as they were', () => {
+    const played = playedGroupStage(37, true);
+    expect(played.rounds[played.curRound].isGroupStage).toBeFalsy();
+    const before = computeGroupStandings(played);
+    const group = played.groups[0];
+    const qualifier = before[group.label][0].name;
+    const after = computeGroupStandings(removeRosterUnit(played, qualifier));
+    const others = (table: TournamentStanding[]) => table.filter((entry) => entry.name !== qualifier);
+    expect(others(after[group.label])).toEqual(others(before[group.label]));
+    expect(after[group.label].map((entry) => entry.name)).not.toContain(qualifier);
+  });
 });

@@ -210,6 +210,8 @@ export interface WithdrawnUnit {
   members: string[] | null;
   playedAnyMatch: boolean;
   reason: 'removed' | 'swapped';
+  /** `curRound` when the unit left. Absent on a unit recorded before it was stored; a group stage reads that as left during the group stage (group-standings.ts). */
+  round?: number;
   /** The unit that took this one's place; set only when reason is 'swapped'. A live graph edit replays played rounds' recorded line-ups, which still hold the outgoing name, and follows this to the unit now in the tournament. */
   replacedBy?: string;
   /** The round whose absent seat (its 0 and mark) the replacement took over at the swap; set only when the swapped-out unit was absent from its room. The ABSENT panel leaves that absence out for the replacement. */

@@ -775,6 +775,7 @@ function recordWithdrawal(
     members: info.members,
     playedAnyMatch: hasPlayedAnyMatch(state, key),
     reason,
+    round: state.curRound,
     ...(replacedBy === undefined ? {} : { replacedBy }),
     ...(absentRound === undefined ? {} : { absentRound }),
   };
