@@ -21,6 +21,7 @@ import {
   sameGroupStanding,
   usesGroupAverages,
 } from './group-standings';
+import { GROUP_EXIT_TIE_KEY, groupExitShapeOf, type GroupExitShape } from './group-exit';
 import { tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
 
@@ -71,6 +72,8 @@ export interface StandingsDisplay {
   lastStandingsRoundIndex: number;
   kind: StandingsKind;
   perGroup: boolean;
+  /** A group stage only: how its groups send units on (so many per group, or a total shared between the groups). */
+  groupExit?: GroupExitShape;
   tables: StandingsDisplayTable[];
 }
 
@@ -231,6 +234,7 @@ export function describeStandings(state: TournamentState): StandingsDisplay | nu
     lastStandingsRoundIndex,
     kind,
     perGroup,
+    ...(perGroup ? { groupExit: groupExitShapeOf(state) } : {}),
     tables,
   };
 }
@@ -311,7 +315,13 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
         const cluster = ties[key];
         return cluster && !isTieResolved(key, cluster, state) ? [cluster] : [];
       });
-      const pending = unresolved.flatMap((cluster) => cluster.players.map((player) => player.name));
+      const exitTie = ties[GROUP_EXIT_TIE_KEY];
+      const exitNames = exitTie ? exitTie.players.map((player) => player.name) : [];
+      const exitDecided = exitTie ? isTieResolved(GROUP_EXIT_TIE_KEY, exitTie, state) : false;
+      const pending = [
+        ...unresolved.flatMap((cluster) => cluster.players.map((player) => player.name)),
+        ...(exitTie && !exitDecided ? exitNames : []),
+      ];
       // A cluster still waiting for a pick shows only "pending", never a partial placement.
       const placed = table.entries
         .filter(
@@ -320,7 +330,9 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
             pickedEntries.some((pickedEntry) => sameGroupStanding(pickedEntry, entry)),
         )
         .map((entry) => entry.name);
-      return [table.key, { placed, pending }];
+      // A tie at the last chance spot places the units level for it, whichever group's table they are in.
+      const exitPlaced = exitDecided ? table.entries.filter((entry) => exitNames.includes(entry.name)) : [];
+      return [table.key, { placed: [...placed, ...exitPlaced.map((entry) => entry.name)], pending }];
     }),
   );
 }

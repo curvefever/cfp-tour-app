@@ -14,18 +14,21 @@ import {
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup } from '../../../domain/tournament/types';
-import { Alert, Button, ButtonRow, Input, SectionPanel, Select } from '../../../components/ui';
+import { Alert, Button, ButtonRow, Input, SectionPanel, Select, cn } from '../../../components/ui';
 import { EditingTag } from '../../presence/EditingTag';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { groupExitIsTotal } from '../../../domain/tournament/group-exit';
 import {
   DRAW_PUBLICATION_LABELS,
+  GROUP_EXIT_LABELS,
   ROUND_ROBIN_LABELS,
   bracketStageLabel,
   matchFromSelectValue,
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
+import { groupExitHelpLine } from './group-exit-help';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
@@ -70,6 +73,7 @@ export function FormatPanel({
   const registered = state.confirmedCount ?? null;
   const format = getGameFormat(setup.gameFormat);
   const shown = visibleFormatFields(setup);
+  const exitHelp = groupExitHelpLine(setup, registered, (format?.unitLabelPlural ?? 'players').toLowerCase());
   const raceCompatible = format?.idealRoomSize === 2 && setup.oddCountStrategy !== 'flex';
   const scheduleOptions = useMemo(
     () =>
@@ -280,15 +284,46 @@ export function FormatPanel({
                 <option value='double'>{ROUND_ROBIN_LABELS.double}</option>
               </Select>
             </PresenceField>
-            <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
-              <Input
-                id='cfg-qualifiers-per-group'
-                type='number'
-                min='1'
-                value={setup.qualifiersPerGroup}
-                onChange={(e) => change('qualifiersPerGroup', e.target.value)}
-              />
+            <PresenceField htmlFor='cfg-group-exit' label='Teams out of the groups'>
+              <Select
+                id='cfg-group-exit'
+                value={setup.groupExit}
+                onChange={(e) => change('groupExit', e.target.value)}
+              >
+                {(Object.keys(GROUP_EXIT_LABELS) as Array<keyof typeof GROUP_EXIT_LABELS>).map((mode) => (
+                  <option key={mode} value={mode}>
+                    {GROUP_EXIT_LABELS[mode]}
+                  </option>
+                ))}
+              </Select>
             </PresenceField>
+            {groupExitIsTotal(setup) ? (
+              <PresenceField htmlFor='cfg-group-exit-total' label='Advance to bracket'>
+                <Input
+                  id='cfg-group-exit-total'
+                  type='number'
+                  min='1'
+                  max={registered ?? undefined}
+                  value={setup.qualAdv}
+                  onChange={(e) => change('qualAdv', cappedAdvance(e.target.value, registered))}
+                />
+                {exitHelp ? (
+                  <p className={cn('text-xs', exitHelp.refused ? 'text-warning' : 'text-muted')}>
+                    {exitHelp.text}
+                  </p>
+                ) : null}
+              </PresenceField>
+            ) : (
+              <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
+                <Input
+                  id='cfg-qualifiers-per-group'
+                  type='number'
+                  min='1'
+                  value={setup.qualifiersPerGroup}
+                  onChange={(e) => change('qualifiersPerGroup', e.target.value)}
+                />
+              </PresenceField>
+            )}
           </>
         ) : null}
         {shown.has('qualAdv') ? (

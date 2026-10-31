@@ -50,6 +50,14 @@ describe('resolveBracketEntryCount', () => {
     // 10 players: 3 groups (4, 3, 3), 2 qualifiers each.
     expect(resolveBracketEntryCount({ ...base, confirmedCount: 10, poolingPhase: 'group-stage' })).toBe(6);
   });
+
+  it('is the advance count for a Group Stage that sends a total, and groups times qualifiers when the mode is absent', () => {
+    const groups = { ...base, confirmedCount: 13, poolingPhase: 'group-stage' as const, qualAdv: 8 };
+    expect(resolveBracketEntryCount({ ...groups, groupExit: 'fair-cut' })).toBe(8);
+    expect(resolveBracketEntryCount({ ...groups, groupExit: 'even-split' })).toBe(8);
+    expect(resolveBracketEntryCount({ ...groups, groupExit: 'per-group' })).toBe(6);
+    expect(resolveBracketEntryCount(groups)).toBe(6);
+  });
 });
 
 describe('bracketEntryCountFromSetup', () => {
@@ -93,6 +101,24 @@ describe('bracketEntryCountFromSetup', () => {
     expect(
       bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '4' }), 16, 1),
     ).toBeNull();
+  });
+
+  it('a total group exit is the advance count; a setup without the field is per group, as everywhere else', () => {
+    const groups = {
+      poolingPhase: 'group-stage' as const,
+      qualAdv: '8',
+      groupSize: '4',
+      qualifiersPerGroup: '2',
+    };
+    expect(bracketEntryCountFromSetup(setup({ ...groups, groupExit: 'fair-cut' }), 13, 1)).toBe(8);
+    expect(
+      bracketEntryCountFromSetup(setup({ ...groups, groupExit: 'fair-cut', qualifiersPerGroup: '9' }), 13, 1),
+    ).toBe(8);
+    const withoutField = { ...setup(groups), groupExit: undefined } as unknown as ReturnType<
+      typeof createDefaultSetup
+    >;
+    expect(bracketEntryCountFromSetup(withoutField, 13, 1)).toBe(6);
+    expect(bracketEntryCountFromSetup({ ...withoutField, qualifiersPerGroup: '9' }, 13, 1)).toBeNull();
   });
 });
 

@@ -1,6 +1,7 @@
 import { getAllColumnTies, isTieResolved, qualTieBoundaryText } from '../../domain/tournament/advancement';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/mutations';
+import { GROUP_EXIT_TIE_KEY } from '../../domain/tournament/group-exit';
 import { isPoolingRound } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { currentColumn } from '../../domain/tournament/round-columns';
@@ -27,6 +28,10 @@ export function TieBanners({ state }: { state: TournamentState }) {
   const roundLabelOf = (key: string): string =>
     column.end > column.start ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
   const poolingRound = round ? isPoolingRound(round) : false;
+  const tiedLabel = (name: string): string => {
+    const group = state.groups.find((entry) => entry.members.includes(name))?.label;
+    return `${unitDisplay(state, name).label}${group ? ` (Group ${group})` : ''}`;
+  };
   return Object.entries(ties)
     .filter(([key, tie]) => !isTieResolved(key, tie, state))
     .map(([key, tie]) => {
@@ -36,13 +41,16 @@ export function TieBanners({ state }: { state: TournamentState }) {
       const canShare = !isCutoff && poolingRound;
       const boundaryText = 'firstRank' in tie ? qualTieBoundaryText(state, tie) : null;
       const cutoffValue = isCutoff ? cutoffPointsText(tie) : '';
+      const isExitTie = key === GROUP_EXIT_TIE_KEY;
       const heading = !isCutoff
         ? `⚠ Tie-break required — ${roundLabelOf(key) ? `${roundLabelOf(key)} · ` : ''}Room ${roomLetter(tie.rm)} (score ${tie.score})`
-        : 'groupLabel' in tie && tie.groupLabel
-          ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
-          : boundaryText
-            ? `⚖ Qualification tie between ${boundaryText} (${cutoffValue})`
-            : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
+        : isExitTie
+          ? `⚖ Groups: tie for the last spot (${cutoffValue})`
+          : 'groupLabel' in tie && tie.groupLabel
+            ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
+            : boundaryText
+              ? `⚖ Qualification tie between ${boundaryText} (${cutoffValue})`
+              : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
       return (
         <div
           className={cn(
@@ -64,8 +72,9 @@ export function TieBanners({ state }: { state: TournamentState }) {
               {resolved.length
                 ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
                 : ''}
-              tied: {tie.players.map((player) => unitDisplay(state, player.name).label).join(', ')} — pick who
-              ranks next{canShare ? ', or share points' : ''}
+              tied: {tie.players.map((player) => tiedLabel(player.name)).join(', ')} —{' '}
+              {isExitTie ? 'pick who goes through' : 'pick who ranks next'}
+              {canShare ? ', or share points' : ''}
             </div>
           </div>
           <ButtonRow className='mt-0'>
@@ -76,7 +85,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
                 key={player.name}
                 onClick={() => app.updateState((current) => resolveTournamentTie(current, key, player.name))}
               >
-                {unitDisplay(state, player.name).label} ranks next
+                {unitDisplay(state, player.name).label} {isExitTie ? 'goes through' : 'ranks next'}
               </Button>
             ))}
             {canShare ? (

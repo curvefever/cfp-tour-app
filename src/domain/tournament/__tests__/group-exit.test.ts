@@ -11,7 +11,7 @@ import {
 import { resolveTournamentTie } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
-import { describeStandings } from '../standings-display';
+import { cutTieMarks, describeStandings } from '../standings-display';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type {
@@ -383,6 +383,43 @@ describe('a cross-group tie at the last chance spot', () => {
     expect(result.tie?.players).toHaveLength(3);
     expect(result.tie?.spots).toBe(2);
   });
+
+  it('a level unit left out at an earlier step is a tie too, when its size is full by the next step', () => {
+    const shape: GroupExitShape = {
+      mode: 'fair-cut',
+      amount: 5,
+      classes: [
+        {
+          sizes: [4],
+          groups: [0, 1],
+          direct: 1,
+          chancePlaces: [{ place: 2, minSpots: 0, maxSpots: 1 }],
+          minSpots: 0,
+          maxSpots: 1,
+        },
+        {
+          sizes: [3],
+          groups: [2],
+          direct: 1,
+          chancePlaces: [{ place: 2, minSpots: 0, maxSpots: 1 }],
+          minSpots: 0,
+          maxSpots: 1,
+        },
+      ],
+    };
+    const tables = [table('A', [3, 2.0, 0.2]), table('B', [3, 2.0, 0.2]), table('C', [3, 1.0, 0.2])];
+    const state = stateOf([4, 4, 3], 'fair-cut', 5);
+    const result = groupExitSelection(state, tables, shape);
+    expect(result.chance).toEqual(['A2', 'C2']);
+    expect(result.tie?.players.map((player) => player.entry.name).sort()).toEqual(['A2', 'B2']);
+    expect(result.tie?.spots).toBe(1);
+    const decided = groupExitSelection(
+      { ...state, tieResolutions: { [GROUP_EXIT_TIE_KEY]: ['B2'] } },
+      tables,
+      shape,
+    );
+    expect(decided.chance).toEqual(['B2', 'C2']);
+  });
 });
 
 describe('group exit validation', () => {
@@ -551,6 +588,40 @@ describe('the cross-group tie in a played group stage', () => {
       expect(seated).toHaveLength(8);
       expect(seated.map((entry) => entry.name)).toContain(picked);
     }
+  });
+});
+
+describe('the tie marks of a cross-group tie', () => {
+  it('waits on the units level at the last spot, then places them once the organiser has picked', () => {
+    let state = (() => {
+      let current = generated(13, FAIR_8);
+      for (let guard = 0; guard < 12 && current.rounds[current.curRound + 1]?.isGroupStage; guard += 1) {
+        const result = advanceTournamentRound(scoreLevel(current));
+        if (result.status !== 'advanced') throw new Error('blocked');
+        current = result.state;
+      }
+      return scoreLevel(current);
+    })();
+    const names = (getAllTies(state, state.curRound)[GROUP_EXIT_TIE_KEY]?.players ?? []).map((p) => p.name);
+    expect(names.length).toBeGreaterThan(1);
+    const marks = (current: TournamentState) => {
+      const display = describeStandings(current);
+      if (!display) throw new Error('no standings');
+      return Object.values(cutTieMarks(current, display));
+    };
+    expect(marks(state).every((mark) => names.every((name) => mark.pending.includes(name)))).toBe(true);
+    for (let guard = 0; guard < 10 && hasPendingTies(state, state.curRound); guard += 1) {
+      const [key, tie] =
+        Object.entries(getAllTies(state, state.curRound)).find(
+          ([tieKey, cluster]) => !isTieResolved(tieKey, cluster, state),
+        ) ?? [];
+      const ranked = key ? (state.tieResolutions[key] ?? []) : [];
+      const next = tie?.players.find((player) => !ranked.includes(player.name));
+      if (key && next) state = resolveTournamentTie(state, key, next.name);
+    }
+    const decided = marks(state);
+    expect(decided.flatMap((mark) => mark.placed)).toEqual(expect.arrayContaining(names));
+    expect(decided.flatMap((mark) => mark.pending)).toEqual([]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
 } from '../../domain/tournament/standings-display';
 import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
 import { ordinal, placeOrdinal } from '../../lib/ordinal';
+import { groupExitCutSentence } from './group-exit-text';
 
 /** Where the standings are: how many rounds are in, that they are final, or when they start. */
 export function standingsProgressSentence(display: StandingsDisplay): string {
@@ -91,6 +92,9 @@ function nonCountingSentence(state: TournamentState): string {
 function cutSentence(display: StandingsDisplay): string {
   const cut = display.tables[0]?.cut ?? null;
   const verb = display.phase === 'final' ? 'qualified' : 'go through';
+  if (display.groupExit && display.groupExit.mode !== 'per-group') {
+    return groupExitCutSentence(display.groupExit, verb);
+  }
   if (cut === null) return display.phase === 'final' ? 'Everyone qualified.' : 'Everyone goes through.';
   return display.perGroup ? `The top ${cut} of each group ${verb}.` : `The top ${cut} ${verb}.`;
 }

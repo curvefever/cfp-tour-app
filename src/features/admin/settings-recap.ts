@@ -9,6 +9,7 @@ import {
 } from '../../domain/tournament/formats';
 import { matchResultSettings } from '../../domain/tournament/match-results';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
+import { groupExitIsTotal } from '../../domain/tournament/group-exit';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { matchOverridesText, parseMatchOverrides } from '../../domain/tournament/round-match-formats';
 import { roundNoteNames } from '../../domain/tournament/round-notes';
@@ -172,8 +173,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
   },
   qualifiersPerGroup: {
     group: 'POOLING',
-    label: 'Qualifiers per group',
-    value: (settings) => orDefault(settings.qualifiersPerGroup, '—'),
+    label: (settings) => (groupExitIsTotal(settings) ? 'Advance to bracket' : 'Qualifiers per group'),
+    value: (settings) =>
+      groupExitIsTotal(settings)
+        ? `${orDefault(settings.qualAdv, '—')} in all`
+        : orDefault(settings.qualifiersPerGroup, '—'),
   },
   qualRoundsOverride: {
     group: 'POOLING',

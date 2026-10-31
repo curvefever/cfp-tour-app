@@ -5,7 +5,9 @@ import {
   roundCoversFairCut,
   type FairCutGroup,
 } from '../../../domain/tournament/fair-cut';
+import { groupExitShapeOf } from '../../../domain/tournament/group-exit';
 import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
+import { groupExitClause, groupSizesText } from '../../standings/group-exit-text';
 import { plural } from './plural';
 
 export interface SchedulePreviewRow {
@@ -47,7 +49,15 @@ function fairCutCut(state: TournamentState, round: TournamentRound): string | nu
   return `${round.advTotal} advance: ${groups.map(lossText).join(', ')}`;
 }
 
-function detailOf(state: TournamentState, round: TournamentRound, unitPlural: string): string {
+/** The last group round holds the group stage's exit: "groups of 5, 4, 4: the top 2 of each group advance". */
+function groupExitText(state: TournamentState, round: TournamentRound, index: number): string | null {
+  if (!round.isGroupStage || state.rounds[index + 1]?.isGroupStage || !state.groups.length) return null;
+  const shape = groupExitShapeOf(state);
+  const sizes = state.groups.map((group) => group.members.length);
+  return `${groupSizesText(sizes)}: ${groupExitClause(shape, 'advance')}`;
+}
+
+function detailOf(state: TournamentState, round: TournamentRound, index: number, unitPlural: string): string {
   const parts: string[] = [];
   if (round.rooms.length) parts.push(`${round.rooms.join(' · ')} ${unitPlural}`);
   if (round.byeCount) parts.push(plural(round.byeCount, 'bye'));
@@ -56,6 +66,8 @@ function detailOf(state: TournamentState, round: TournamentRound, unitPlural: st
     const lucky = round.luckyCount ? ` incl. ${plural(round.luckyCount, 'lucky loser')}` : '';
     parts.push(fairCutCut(state, round) ?? `${round.advTotal} advance${lucky}`);
   }
+  const exit = groupExitText(state, round, index);
+  if (exit) parts.push(exit);
   return parts.join(', ');
 }
 
@@ -65,6 +77,6 @@ export function schedulePreviewRows(state: TournamentState, unitPlural: string):
   return state.rounds.map((round, index) => ({
     name: labels[index].label,
     meta: metaOf(state, round, index),
-    detail: detailOf(state, round, unitPlural),
+    detail: detailOf(state, round, index, unitPlural),
   }));
 }

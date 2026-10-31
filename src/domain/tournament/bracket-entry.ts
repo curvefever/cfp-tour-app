@@ -1,3 +1,4 @@
+import { groupExitIsTotal } from './group-exit';
 import { GROUP_SIZE_BOUNDS } from './pooling';
 import { distributeRooms } from './room-distribution';
 import type { GroupExitMode, PersistedSetup, PoolingPhaseKey } from './types';
@@ -32,7 +33,7 @@ export function resolveBracketEntryCount(input: {
   groupExit?: GroupExitMode;
 }): number {
   const { poolingPhase, confirmedCount, qualAdv, groupSize, qualifiersPerGroup, groupExit } = input;
-  if (poolingPhase === 'group-stage' && groupExit !== undefined && groupExit !== 'per-group') return qualAdv;
+  if (poolingPhase === 'group-stage' && groupExitIsTotal({ groupExit })) return qualAdv;
   if (poolingPhase === 'group-stage') {
     const groups = distributeRooms(confirmedCount, {
       min: GROUP_SIZE_BOUNDS.min,
@@ -57,7 +58,7 @@ export function bracketEntryCountFromSetup(
   if (!confirmedCount || confirmedCount < floor) return null;
   const groupSize = Number.parseInt(setup.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal;
   const qualifiersPerGroup = Number.parseInt(setup.qualifiersPerGroup, 10) || 2;
-  const totalExit = setup.poolingPhase === 'group-stage' && setup.groupExit !== 'per-group';
+  const totalExit = setup.poolingPhase === 'group-stage' && groupExitIsTotal(setup);
   if (setup.poolingPhase === 'group-stage') {
     const validGroups =
       groupSize >= GROUP_SIZE_BOUNDS.min &&

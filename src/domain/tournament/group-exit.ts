@@ -226,32 +226,49 @@ export function groupExitSelection(
       ...picks.filter((pick) => pick.group === group).map((pick) => pick.entry.name),
     ]),
     cutByGroup: direct.map((count, group) => count + picks.filter((pick) => pick.group === group).length),
-    tie: lastSpotTie(picks, steps.at(-1)),
+    tie: chanceTies(picks, steps),
   };
 }
 
-/** The last chance spot is a tie when an unplaced unit offered for it is level with the unit it went to. */
-function lastSpotTie(
+/**
+ * A chance spot is a tie when, at any step, a unit offered for it was level with the unit it went to and ended up
+ * unplaced (its size may be full by the next step, so it is never offered again). Every such tie of the selection is
+ * one cluster: the level units of each step, with the picks level with them; `spots` is how many of them go through.
+ */
+function chanceTies(
   picks: readonly Candidate[],
-  last: { picked: Candidate; rivals: Candidate[] } | undefined,
+  steps: ReadonlyArray<{ picked: Candidate; rivals: Candidate[] }>,
 ): GroupExitTie | null {
-  if (!last) return null;
-  const level = new Map<string, Candidate>();
-  for (const candidate of [...picks, ...last.rivals]) {
-    if (sameStanding(candidate.entry, last.picked.entry)) level.set(candidate.entry.name, candidate);
+  const placed = new Set(picks.map((pick) => pick.entry.name));
+  const cluster = new Map<string, Candidate>();
+  for (const { picked, rivals } of steps) {
+    const unplaced = rivals.filter(
+      (rival) => !placed.has(rival.entry.name) && sameStanding(rival.entry, picked.entry),
+    );
+    if (unplaced.length === 0) continue;
+    const level = [...picks, ...unplaced].filter((candidate) => sameStanding(candidate.entry, picked.entry));
+    for (const candidate of level) cluster.set(candidate.entry.name, candidate);
   }
-  const names = new Set(picks.map((pick) => pick.entry.name));
-  const candidates = [...level.values()];
-  if (candidates.every((candidate) => names.has(candidate.entry.name))) return null;
+  const players = [...cluster.values()];
+  if (players.length === 0) return null;
   return {
-    players: candidates.map((candidate) => ({ entry: candidate.entry, group: candidate.group })),
-    spots: candidates.filter((candidate) => names.has(candidate.entry.name)).length,
+    players: players.map((candidate) => ({ entry: candidate.entry, group: candidate.group })),
+    spots: players.filter((candidate) => placed.has(candidate.entry.name)).length,
   };
 }
 
 /** The points per match (or points) the tied units are level on, for the tie cluster. */
 export function groupExitTiePoints(tie: GroupExitTie): number {
   return rankingPoints(tie.players[0].entry) ?? 0;
+}
+
+/** The sizes of the groups `unitCount` units are split into, for the Setup's group size. */
+export function groupSizesOf(unitCount: number, groupSize: number): number[] {
+  return distributeRooms(unitCount, {
+    min: GROUP_SIZE_BOUNDS.min,
+    max: GROUP_SIZE_BOUNDS.max,
+    ideal: groupSize,
+  });
 }
 
 /** "3 groups (5, 4, 4)": the groups a roster is split into. */
@@ -271,11 +288,7 @@ export function groupExitRefusal(
   unitPlural: string,
 ): string | null {
   if (mode === 'per-group') return null;
-  const groupSizes = distributeRooms(unitCount, {
-    min: GROUP_SIZE_BOUNDS.min,
-    max: GROUP_SIZE_BOUNDS.max,
-    ideal: groupSize,
-  });
+  const groupSizes = groupSizesOf(unitCount, groupSize);
   const groups = describeGroupSizes(groupSizes);
   if (total < groupSizes.length) {
     return `Advance to bracket (${total}) is below the number of groups: ${groups} each send their winner, so at least ${groupSizes.length} ${unitPlural} must go through.`;

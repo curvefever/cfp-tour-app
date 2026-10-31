@@ -1,5 +1,6 @@
 import { roomPointsByPlace } from '../../domain/tournament/advancement';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import type { GroupExitShape } from '../../domain/tournament/group-exit';
 import { matchResultSettings } from '../../domain/tournament/match-results';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
 import { formatStandingValue } from '../../domain/tournament/scoring';
@@ -10,6 +11,7 @@ import {
 } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
+import { chanceSpots } from '../standings/group-exit-text';
 import { standingsNames } from '../standings/standings-names';
 import { standingsRowResult, stripeTone, type StripeTone } from '../tournament/components/result-row';
 import { destinationLabel } from './exit-text';
@@ -135,6 +137,51 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
   return [];
 }
 
+/** "1", "0–1": the fewest and most spots of a size's chance places, with the noun. */
+function spotRange(minSpots: number, maxSpots: number): string {
+  const range = minSpots === maxSpots ? `${maxSpots}` : `${minSpots}–${maxSpots}`;
+  return `${range} spot${maxSpots === 1 ? '' : 's'}`;
+}
+
+/**
+ * A group stage that sends a total: the direct places of each group size, then the chance places (even split: the
+ * best of one place across the groups; fair cut: per size, the places and how many spots they have), then the rest out.
+ */
+function groupExitLines(
+  shape: GroupExitShape,
+  destination: string,
+  directTone: StripeTone | null,
+): ExitLine[] {
+  const to = `→ ${destination}`;
+  const sameDirect = shape.classes.every((cls) => cls.direct === shape.classes[0].direct);
+  const direct: ExitLine[] = sameDirect
+    ? [{ tone: directTone, places: `${rankRange(1, shape.classes[0].direct)} (each group)`, where: to }]
+    : shape.classes.map((cls) => ({
+        tone: directTone,
+        places: `${rankRange(1, cls.direct)} (${cls.groups.length === 1 ? 'group' : 'each group'} of ${cls.sizes[0]})`,
+        where: to,
+      }));
+  const chance: ExitLine[] =
+    shape.mode === 'even-split'
+      ? chanceSpots(shape) > 0
+        ? [
+            {
+              tone: 'dashed',
+              places: `${ordinal(shape.classes[0].direct + 1)}: best ${chanceSpots(shape)} of ${shape.classes[0].groups.length}`,
+              where: to,
+            },
+          ]
+        : []
+      : shape.classes
+          .filter((cls) => cls.maxSpots > 0)
+          .map((cls) => ({
+            tone: 'dashed',
+            places: `${cls.chancePlaces.map((place) => ordinal(place.place)).join(', ')} (${cls.groups.length === 1 ? 'group' : 'each group'} of ${cls.sizes[0]})`,
+            where: `${to}, ${spotRange(cls.minSpots, cls.maxSpots)}`,
+          }));
+  return [...direct, ...chance, { tone: 'red', places: 'rest', where: 'out' }];
+}
+
 /**
  * The exit pop-up of a standings table: each run of standings with its destination ("1–16 → R1", "17–24 → R1C",
  * "25–37 out"), or the single cut into the first bracket round. A group stage's table repeats per group, so
@@ -142,7 +189,7 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
  */
 export function standingsExitLines(
   table: StandingsDisplayTable,
-  display: Pick<StandingsDisplay, 'lastStandingsRoundIndex' | 'perGroup'>,
+  display: Pick<StandingsDisplay, 'lastStandingsRoundIndex' | 'perGroup' | 'groupExit'>,
   labels: Labels,
 ): ExitLine[] {
   const total = table.entries.length;
@@ -161,6 +208,9 @@ export function standingsExitLines(
   const destination = destinationLabel(display.lastStandingsRoundIndex + 1, labels);
   if (table.cut === null || table.cut >= total) {
     return [{ tone: toneAt(0), places: 'All', where: `→ ${destination}` }];
+  }
+  if (display.perGroup && display.groupExit && display.groupExit.mode !== 'per-group') {
+    return groupExitLines(display.groupExit, destination, toneAt(0));
   }
   if (display.perGroup) {
     return [
