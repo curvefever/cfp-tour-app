@@ -23,7 +23,10 @@ import { FoldedBox } from './FoldedBox';
 import { standingsNames } from '../standings/standings-names';
 import { standingsExitLines } from './exit-lines';
 import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
+import { RoomFrame } from './RoomCard';
 import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
+
+const COLUMN_BOX = 'overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame';
 
 function StandingsRows({
   display,
@@ -38,14 +41,10 @@ function StandingsRows({
   state: TournamentState;
   table: StandingsDisplayTable;
 }) {
-  const groupStarts = standingsGroupStarts(table);
+  // A group stage's groups are separate boxes (the qualified/out gap stays in the other tables).
+  const groupStarts = display.perGroup ? [] : standingsGroupStarts(table);
   return (
     <div className='flex flex-col'>
-      {display.perGroup ? (
-        <div className='px-2.5 pt-2 pb-1 text-xs font-extrabold tracking-[0.05em] text-muted uppercase'>
-          {table.label}
-        </div>
-      ) : null}
       {table.entries.map((entry, index) => {
         const info = unitDisplay(state, entry.name);
         return (
@@ -123,6 +122,15 @@ export function StandingsColumn({
   const followedStanding = followKey ? standingFor(display, followKey) : null;
   const foldedOnDesktop = collapsed && onToggle !== undefined;
   const exitLines = display.tables[0] ? standingsExitLines(display.tables[0], display, labels) : [];
+  const fullTableLink = onOpenFullTable ? (
+    <button
+      className='m-2.5 cursor-pointer text-sm font-bold text-cfp-sky hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+      onClick={onOpenFullTable}
+    >
+      Full table →
+    </button>
+  ) : null;
+  const groupBoxes = display.perGroup && display.phase !== 'upcoming';
   const open = (
     <div
       className={cn(
@@ -148,36 +156,35 @@ export function StandingsColumn({
         title={names.title}
       />
       {banded ? <RoundSettingsBand empty note='' /> : null}
-      <div
-        className={cn(
-          'mt-4.5 overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame',
-          banded && 'min-[701px]:self-start',
-        )}
-      >
-        {display.phase !== 'upcoming' ? (
-          display.tables.map((table) => (
-            <StandingsRows
-              display={display}
-              followKey={followKey}
-              key={table.key}
-              state={state}
-              table={table}
-            />
-          ))
-        ) : (
-          <p className='px-3 py-2.5 text-sm text-muted'>
-            Standings start after Round {display.firstCountedRoundNum}.
-          </p>
-        )}
-        {onOpenFullTable ? (
-          <button
-            className='m-2.5 cursor-pointer text-sm font-bold text-cfp-sky hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-            onClick={onOpenFullTable}
-          >
-            Full table →
-          </button>
-        ) : null}
-      </div>
+      {groupBoxes ? (
+        <div className={cn('mt-4.5 flex flex-col gap-3', banded && 'min-[701px]:self-start')}>
+          {display.tables.map((table) => (
+            <RoomFrame key={table.key} title={table.label}>
+              <StandingsRows display={display} followKey={followKey} state={state} table={table} />
+            </RoomFrame>
+          ))}
+          {fullTableLink}
+        </div>
+      ) : (
+        <div className={cn('mt-4.5', COLUMN_BOX, banded && 'min-[701px]:self-start')}>
+          {display.phase !== 'upcoming' ? (
+            display.tables.map((table) => (
+              <StandingsRows
+                display={display}
+                followKey={followKey}
+                key={table.key}
+                state={state}
+                table={table}
+              />
+            ))
+          ) : (
+            <p className='px-3 py-2.5 text-sm text-muted'>
+              Standings start after Round {display.firstCountedRoundNum}.
+            </p>
+          )}
+          {fullTableLink}
+        </div>
+      )}
     </div>
   );
   if (!foldedOnDesktop) return open;

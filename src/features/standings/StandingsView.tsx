@@ -50,7 +50,7 @@ function Explanation({ display, state }: { display: StandingsDisplay; state: Tou
       </button>
       <div
         className={cn(
-          'mt-1.5 flex max-w-225 flex-col gap-1.5 text-base leading-[1.55] max-[700px]:mx-3 max-[700px]:mb-3',
+          'mt-1.5 flex flex-col gap-1.5 text-base leading-[1.55] max-[700px]:mx-3 max-[700px]:mb-3',
           !open && 'max-[700px]:hidden',
         )}
       >

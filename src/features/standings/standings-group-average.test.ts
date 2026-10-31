@@ -205,6 +205,20 @@ describe('a group stage scored by match results (10 teams 4v4, one match void)',
     expect(standingsExplanation(summed, display).join(' ')).toContain("A round's games add up.");
   });
 
+  it('a Best of 3 group round reads its Best of 3 mapping and does not say its games add up', () => {
+    const bestOf3 = {
+      ...state,
+      rounds: state.rounds.map((round) =>
+        round.isGroupStage ? { ...round, bestOf: 3, numGames: 3 } : round,
+      ),
+    };
+    const display = describeStandings(bestOf3);
+    if (!display) throw new Error('no standings');
+    const text = standingsExplanation(bestOf3, display).join(' ');
+    expect(text).toContain('A Best of 3 counts as one match: 2–0 is a win, 2–1 a tie win.');
+    expect(text).not.toContain("A round's games add up");
+  });
+
   it('the column heads of a per-match group read Result, Pts / match and Rel. score', () => {
     const display = describeStandings(state);
     if (!display) throw new Error('no standings');
