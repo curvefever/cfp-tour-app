@@ -301,6 +301,12 @@ function replanFutureRounds(state: TournamentState): TournamentState {
   return coherent ? rebuilt : state;
 }
 
+/** Why a walk-up can't join the draw but may still wait on the bench for a ⇄ Swap. */
+export type BenchReason = 'group-stage' | 'fixed-draw' | 'waterfall-bracket';
+
+const isBenchReason = (reason: string): reason is BenchReason =>
+  reason === 'group-stage' || reason === 'fixed-draw' || reason === 'waterfall-bracket';
+
 export type ReserveAddResult =
   | { status: 'added'; state: TournamentState }
   | {
@@ -317,6 +323,7 @@ export type ReserveAddResult =
         | 'unstorable-name';
     }
   | { status: 'blocked'; reason: 'generation'; message: string }
+  | { status: 'benched'; reason: BenchReason; state: TournamentState }
   | { status: 'confirm-over-cap'; room: number; count: number }
   | { status: 'confirm-late-join'; missedRounds: number };
 
@@ -480,6 +487,19 @@ export function addReserveUnit(
   return { status: 'added', state: rebuilt };
 }
 
+/**
+ * A walk-up refused only because the draw can't take a newcomer (a group stage, a fixed draw, a custom bracket)
+ * stays on the bench while a swap can still use it: `benched` carries the state with it in the reserves.
+ */
+function benchIfSwappable(
+  before: TournamentState,
+  withReserve: TournamentState,
+  result: ReserveAddResult,
+): ReserveAddResult {
+  if (result.status !== 'blocked' || !isBenchReason(result.reason) || !swapWindowOpen(before)) return result;
+  return { status: 'benched', reason: result.reason, state: withReserve };
+}
+
 export function addWalkUpIndividual(
   state: TournamentState,
   name: string,
@@ -494,12 +514,8 @@ export function addWalkUpIndividual(
     return { status: 'blocked', reason: 'duplicate-name' };
   }
   if (findUnstorableNames([trimmed]).length) return { status: 'blocked', reason: 'unstorable-name' };
-  return addReserveUnit(
-    { ...state, reserves: [...(state.reserves as string[]), trimmed] },
-    trimmed,
-    options,
-    runtime,
-  );
+  const withReserve = { ...state, reserves: [...(state.reserves as string[]), trimmed] };
+  return benchIfSwappable(state, withReserve, addReserveUnit(withReserve, trimmed, options, runtime));
 }
 
 /** Adds a brand-new team: it joins the reserves and is admitted at once, like a walk-up individual. */
@@ -513,12 +529,8 @@ export function addWalkUpTeam(
   if (team.members.every((member) => !member)) return { status: 'blocked', reason: 'no-members' };
   if (isDisplayNameTaken(state, team.teamName)) return { status: 'blocked', reason: 'duplicate-name' };
   if (findUnstorableNames(teamNames(team)).length) return { status: 'blocked', reason: 'unstorable-name' };
-  return addReserveUnit(
-    { ...state, reserves: [...(state.reserves as TournamentTeam[]), team] },
-    team.teamId,
-    options,
-    runtime,
-  );
+  const withReserve = { ...state, reserves: [...(state.reserves as TournamentTeam[]), team] };
+  return benchIfSwappable(state, withReserve, addReserveUnit(withReserve, team.teamId, options, runtime));
 }
 
 export function removeReserveUnit(state: TournamentState, key: string): TournamentState {

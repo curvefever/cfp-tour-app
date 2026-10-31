@@ -88,10 +88,10 @@ describe('adding a reserve before Confirm & Start redraws the schedule', () => {
     expect(joined.confirmedCount).toBe(38);
   });
 
-  it('after the start the same group stage still refuses a joiner', () => {
+  it('after the start the same group stage still refuses a joiner: it waits on the bench', () => {
     const started = { ...generated(37, GROUP_STAGE), started: true };
-    expect(addWalkUpIndividual(started, 'Late', {}, testRuntime())).toEqual({
-      status: 'blocked',
+    expect(addWalkUpIndividual(started, 'Late', {}, testRuntime())).toMatchObject({
+      status: 'benched',
       reason: 'group-stage',
     });
   });

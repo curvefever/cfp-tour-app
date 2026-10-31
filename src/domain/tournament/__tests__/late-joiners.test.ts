@@ -5,6 +5,7 @@ import { lateJoinersOf } from '../late-joiners';
 import {
   addReserveUnit,
   addWalkUpIndividual,
+  addWalkUpTeam,
   missedCountedRounds,
   removeRosterUnit,
   swapIndividual,
@@ -16,7 +17,7 @@ import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { buildState, scoreCurrentRound } from './play-through';
 import { buildQualWaterfall } from './qual-waterfall';
 import { fixedIdSource } from './test-fixtures';
 
@@ -237,7 +238,10 @@ R1.B: 1-4->R2, 5-8->eliminated
 R2: 1-6->Final, 7-8->eliminated
 `;
     const start = buildQualWaterfall(16, graph, { poolingPhase: 'none' });
-    expect(addWalkUpIndividual(start, 'Late')).toEqual({ status: 'blocked', reason: 'waterfall-bracket' });
+    expect(addWalkUpIndividual(start, 'Late')).toMatchObject({
+      status: 'benched',
+      reason: 'waterfall-bracket',
+    });
   });
 });
 
@@ -389,19 +393,19 @@ describe('swapping a late joiner, who is in no room yet', () => {
   });
 });
 
-describe('what stays blocked', () => {
+describe('what stays blocked (a walk-up the draw refuses waits on the bench while a swap can still use it)', () => {
   it('group stage 1v1 at 37', () => {
     const start = build(37, {
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
       oddCountStrategy: 'bye',
     });
-    expect(addWalkUpIndividual(start, 'Late')).toEqual({ status: 'blocked', reason: 'group-stage' });
+    expect(addWalkUpIndividual(start, 'Late')).toMatchObject({ status: 'benched', reason: 'group-stage' });
   });
 
   it('a fixed draw', () => {
     const start = build(37, { ...FFA_QUAL, drawPublication: 'fixed' });
-    expect(addWalkUpIndividual(start, 'Late')).toEqual({ status: 'blocked', reason: 'fixed-draw' });
+    expect(addWalkUpIndividual(start, 'Late')).toMatchObject({ status: 'benched', reason: 'fixed-draw' });
   });
 
   it('the strict odd-count strategy "None": 32 players, one more would leave a unit out of every pairing', () => {
@@ -612,5 +616,80 @@ describe('a waterfall refits its pooling rounds to the roster at once, a join or
     const joined = join(build(43, FFA_QUAL));
     expect(sizes(joined, 1)).toEqual(distributeRooms(44, roomSize(joined)));
     expect(sizes(joined, 2)).toEqual(distributeRooms(44, roomSize(joined)));
+  });
+});
+
+describe('the reserve bench: a walk-up the draw refuses stays in the reserves for a swap', () => {
+  const GROUPS_4V4 = {
+    gameFormat: 'team-4v4',
+    poolingPhase: 'group-stage',
+    groupSize: '4',
+    qualifiersPerGroup: '2',
+    oddCountStrategy: 'bye',
+    scheduleLogic: 'single-elimination',
+  } as const;
+  const groups1v1 = () =>
+    build(13, { gameFormat: 'individual-1v1', poolingPhase: 'group-stage', oddCountStrategy: 'bye' });
+  const walkUpTeam: TournamentTeam = {
+    teamId: 'walkup',
+    teamName: 'Late Team',
+    members: [{ name: 'Kim' }, { name: 'Lee' }, { name: 'Max' }, { name: 'Ola' }],
+  };
+
+  function groups4v4(): TournamentState {
+    const state = buildState({ label: 'bench', count: 13, teams: true, setup: GROUPS_4V4 });
+    if (!state) throw new Error('generation failed');
+    return state;
+  }
+
+  const benched = (result: ReserveAddResult): TournamentState => {
+    if (result.status !== 'benched') throw new Error(`expected the bench, got ${JSON.stringify(result)}`);
+    return result.state;
+  };
+
+  it('13 teams 4v4 in a group stage, round 2 in play: the walk-up team is benched, then ⇄ Swap brings it in', () => {
+    const round2 = playRound(groups4v4(), 4);
+    expect(round2.curRound).toBe(1);
+    const state = benched(addWalkUpTeam(round2, walkUpTeam));
+    expect(state.reserves).toEqual([walkUpTeam]);
+    expect(state.players).toEqual(round2.players);
+    expect(state.assignments).toEqual(round2.assignments);
+    const absent = (state.players as TournamentTeam[])[0].teamId;
+    const swapped = swapTeam(state, absent, walkUpTeam);
+    expect(swapped).not.toBe(state);
+    expect((swapped.players as TournamentTeam[]).map((team) => team.teamId)).toContain('walkup');
+    expect(swapped.reserves).toEqual([]);
+  });
+
+  it('13 players 1v1 in a group stage, round 2 in play: the walk-up is benched, then swapped in', () => {
+    const round2 = playRound(groups1v1());
+    const state = benched(addWalkUpIndividual(round2, 'Late'));
+    expect(state.reserves).toEqual(['Late']);
+    expect(state.players).toEqual(round2.players);
+    const swapped = swapIndividual(state, 'P1', 'Late');
+    expect(swapped.players).toContain('Late');
+    expect(swapped.reserves).toEqual([]);
+  });
+
+  it('a fixed draw benches the walk-up too', () => {
+    const result = addWalkUpIndividual(build(37, { ...FFA_QUAL, drawPublication: 'fixed' }), 'Late');
+    expect(benched(result).reserves).toEqual(['Late']);
+  });
+
+  it('after the first elimination the window is closed: still refused as closed', () => {
+    let state = groups4v4();
+    for (let guard = 0; state.reserveOpen && guard < 40; guard += 1) state = playRound(state, 4);
+    expect(state.reserveOpen).toBe(false);
+    expect(addWalkUpTeam(state, walkUpTeam)).toEqual({ status: 'blocked', reason: 'closed' });
+  });
+
+  it('a duplicate name is still refused, not benched', () => {
+    const round2 = playRound(groups1v1());
+    expect(addWalkUpIndividual(round2, 'P1')).toEqual({ status: 'blocked', reason: 'duplicate-name' });
+  });
+
+  it("a bench entry's own add button keeps the refusal", () => {
+    const state = benched(addWalkUpIndividual(playRound(groups1v1()), 'Late'));
+    expect(addReserveUnit(state, 'Late')).toEqual({ status: 'blocked', reason: 'group-stage' });
   });
 });

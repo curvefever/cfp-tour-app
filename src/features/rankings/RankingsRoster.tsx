@@ -17,6 +17,7 @@ import {
   swapTeam,
   swapWindowOpen,
   updateTeam,
+  type BenchReason,
   type ReserveAddOptions,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
@@ -72,6 +73,16 @@ const PLAYER_SWAP_NOTE = (state: TournamentState) =>
     ? ' To replace one player of a team, use ⇄ on that player in Manage Teams at any time.'
     : '';
 
+const BENCH_TARGET: Record<BenchReason, string> = {
+  'group-stage': 'the group stage',
+  'fixed-draw': 'a fixed draw',
+  'waterfall-bracket': 'a custom bracket',
+};
+
+/** What a walk-up kept on the bench is told: it can't join the draw, but ⇄ Swap can bring it in. */
+const benchedMessage = (state: TournamentState, reason: BenchReason) =>
+  `Added to the reserves. It can't join ${BENCH_TARGET[reason]} now, but it can replace ${isTeamFormat(state) ? 'a team' : 'a player'} with ⇄ Swap until the first elimination.`;
+
 function handleReserveResult(
   state: TournamentState,
   label: string,
@@ -81,6 +92,11 @@ function handleReserveResult(
   names: string[] = [label],
 ) {
   if (result.status === 'added') return apply(result.state);
+  if (result.status === 'benched') {
+    apply(result.state);
+    window.alert(benchedMessage(state, result.reason));
+    return;
+  }
   const confirmation = reserveConfirmation(state, label, result);
   if (confirmation) {
     if (window.confirm(confirmation.text)) {

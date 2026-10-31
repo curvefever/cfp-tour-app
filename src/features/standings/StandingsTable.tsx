@@ -4,6 +4,7 @@ import {
   type StandingsDisplay,
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
+import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { TableCell, TableHeadCell, TableRow, cn } from '../../components/ui';
@@ -28,6 +29,8 @@ type Entry = StandingsDisplayTable['entries'][number];
 
 /** The cells of a round's three columns are right-aligned numbers, 60 px wide. */
 const NUMBER_CELL = 'w-15 px-2 text-right tabular-nums';
+/** A team's cell keeps one width, so its members take two lines of average names; a name without spaces breaks rather than overflow. */
+const TEAM_CELL = 'w-60 max-w-60 min-w-60 wrap-break-word';
 const HEAD_CELL = 'bg-cfp-game-frame px-2 py-0 text-xs text-cfp-text-soft';
 
 export function TieMark({ placed, pending }: { placed: boolean; pending: boolean }) {
@@ -145,6 +148,7 @@ function StandingsRow({
   sharesPercent: boolean;
 }) {
   const points = pointsCell(entry);
+  const isTeam = Boolean(unitDisplay(state, entry.name).members?.length);
   return (
     <TableRow className={cn(points.detail ? 'h-12' : 'h-10', rowSurfaceClasses(index, followed))}>
       <TableCell className='border-0 py-0 pl-4'>
@@ -155,7 +159,7 @@ function StandingsRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className='max-w-60 border-0 py-0 pl-1 text-base'>
+      <TableCell className={cn('border-0 py-0 pl-1 text-base', isTeam ? TEAM_CELL : 'whitespace-nowrap')}>
         <TournamentUnit state={state} name={entry.name} wrapMembers />
         <TieMark placed={placed} pending={pending} />
       </TableCell>
