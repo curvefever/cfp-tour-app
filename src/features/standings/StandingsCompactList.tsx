@@ -15,7 +15,7 @@ import {
   standingsRowResult,
 } from '../tournament/components/result-row';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
-import { entriesSharingPercent, pointsCell, standingsRoundLabel } from './standings-text';
+import { entriesSharingPercent, pointsCell, standingsHeads, standingsRoundLabel } from './standings-text';
 import { TieMark } from './StandingsTable';
 
 type Entry = StandingsDisplayTable['entries'][number];
@@ -60,6 +60,7 @@ export function StandingsCompactList({
   const roundIndexes = tableRoundIndexes(state, table);
   const labels = roundIndexes.map((roundIndex) => standingsRoundLabel(state, roundIndex));
   const sharesPercent = entriesSharingPercent(table.entries);
+  const heads = standingsHeads(state, display);
   const groupStarts = standingsGroupStarts(table);
   const toggle = (name: string) =>
     setOpen((current) => {
@@ -118,7 +119,14 @@ export function StandingsCompactList({
         {isOpen ? (
           <RowDetail
             id={detailId}
-            lines={standingsDetailLines(entry, roundIndexes, labels, sharesPercent[index], state.rounds)}
+            lines={standingsDetailLines(
+              entry,
+              roundIndexes,
+              labels,
+              sharesPercent[index],
+              state.rounds,
+              heads,
+            )}
           />
         ) : null}
       </div>

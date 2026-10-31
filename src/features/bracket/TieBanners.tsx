@@ -9,12 +9,12 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
-/** The tied value of a cut-off tie: "7 pts", or "1.33 pts per match" in a group stage with per-match standings. */
+/** The tied value of a cut-off tie: "7 pts", or "1.3 pts per match" in a group stage with per-match standings. */
 function cutoffPointsText(tie: { fp: number; players: ReadonlyArray<{ averagePoints?: number }> }): string {
   const perMatch = tie.players[0]?.averagePoints;
   return perMatch === undefined
     ? `${formatStandingValue(tie.fp)} pts`
-    : `${perMatch.toFixed(2)} pts per match`;
+    : `${formatStandingValue(perMatch)} pts per match`;
 }
 
 export function TieBanners({ state }: { state: TournamentState }) {

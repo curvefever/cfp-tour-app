@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildState, withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
+import {
+  buildState,
+  withEarlierGroupRule,
+  withEarlierPointsRule,
+} from '../../domain/tournament/__tests__/play-through';
 import {
   QUAL_GRAPH,
   buildQualWaterfall,
@@ -260,6 +264,53 @@ describe('poolingExitLines: what the places of a room earn in a counted round', 
   it('gives nothing for a round that has its own stripes (the Final)', () => {
     const state = pooling(37, {});
     expect(poolingExitLines(state, state.rounds.length - 1, 8)).toEqual([]);
+  });
+});
+
+describe('poolingExitLines: a group room scored by match results', () => {
+  function groupState(setup: Partial<PersistedSetup>): TournamentState {
+    const state = buildState({
+      label: 'groups-match-results',
+      count: 13,
+      teams: true,
+      setup: {
+        gameFormat: 'team-4v4',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'single-elimination',
+        ...setup,
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    return state;
+  }
+
+  it("reads the codes with the tournament's own points, then All → groups", () => {
+    const state = groupState({ scoring: 'match-results', matchResultPoints: '5, 3, 1, 0', tieMargin: '50' });
+    expect(poolingExitLines(state, 0, 2)).toEqual([
+      { tone: null, places: 'W +5', where: 'TW +3' },
+      { tone: null, places: 'TL +1', where: 'L +0' },
+      { tone: null, places: 'T +2', where: '' },
+      { tone: null, places: 'All', where: '→ groups' },
+    ]);
+  });
+
+  it('the default points give T +1.5', () => {
+    const state = groupState({ scoring: 'match-results' });
+    expect(poolingExitLines(state, 0, 2).map((line) => line.places)).toEqual([
+      'W +3',
+      'TL +1',
+      'T +1.5',
+      'All',
+    ]);
+  });
+
+  it('scoring by places keeps the places, and a stored tournament without per-match standings too', () => {
+    const state = groupState({ scoring: 'fairpoints' });
+    expect(poolingExitLines(state, 0, 2)[0].places).toBe('1st +2');
+    expect(poolingExitLines(withEarlierGroupRule(state), 0, 2)[0].places).toBe('1st +2');
   });
 });
 

@@ -20,6 +20,7 @@ import {
   missedRoundOf,
   pointsCell,
   roundCells,
+  standingsHeads,
   standingsRoundLabel,
 } from './standings-text';
 
@@ -48,13 +49,16 @@ export function TieMark({ placed, pending }: { placed: boolean; pending: boolean
 /** The header: a "Round N" head with a brand underline over its three columns, then the column heads. */
 function StandingsHead({
   state,
+  display,
   roundIndexes,
   unitLabel,
 }: {
   state: TournamentState;
+  display: StandingsDisplay;
   roundIndexes: number[];
   unitLabel: string;
 }) {
+  const heads = standingsHeads(state, display);
   return (
     <thead>
       <TableRow>
@@ -72,15 +76,15 @@ function StandingsHead({
           </TableHeadCell>
         ))}
         <TableHeadCell className={cn(HEAD_CELL, 'w-21 text-right text-foreground align-bottom')} rowSpan={2}>
-          Points
+          {heads.points}
         </TableHeadCell>
         <TableHeadCell className={cn(HEAD_CELL, 'w-24 pr-4 text-right align-bottom')} rowSpan={2}>
-          Tie-break
+          {heads.tieBreak}
         </TableHeadCell>
       </TableRow>
       <TableRow className='h-9'>
         {roundIndexes.flatMap((roundIndex) =>
-          ['Score', 'Rank', 'Pts'].map((head) => (
+          ['Score', heads.rank, 'Pts'].map((head) => (
             <TableHeadCell className={cn(HEAD_CELL, 'text-right')} key={`${roundIndex}-${head}`}>
               {head}
             </TableHeadCell>
@@ -225,7 +229,7 @@ export function StandingsTable({
       )}
     >
       <table className='w-full border-collapse'>
-        <StandingsHead roundIndexes={roundIndexes} state={state} unitLabel={unitLabel} />
+        <StandingsHead display={display} roundIndexes={roundIndexes} state={state} unitLabel={unitLabel} />
         <tbody>
           {table.entries.flatMap((entry, index) => [
             groupStarts.includes(index) ? (

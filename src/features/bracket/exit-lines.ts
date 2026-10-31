@@ -1,6 +1,8 @@
 import { roomPointsByPlace } from '../../domain/tournament/advancement';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import { matchResultSettings } from '../../domain/tournament/match-results';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
+import { formatStandingValue } from '../../domain/tournament/scoring';
 import {
   standingsKind,
   type StandingsDisplay,
@@ -86,6 +88,19 @@ function pointsLines(state: TournamentState, roomSize: number): ExitLine[] {
   return [{ tone: null, places: first, where: `${at(1)} … ${at(points.length - 1)} points` }];
 }
 
+/** "W +3 · TW +2", "TL +1 · L +0", "T +1.5": what the result of a game earns under match results (the margin is in the standings' explanation). */
+function matchResultLines(state: TournamentState): ExitLine[] {
+  const settings = matchResultSettings(state);
+  if (!settings) return [];
+  const [win, tieWin, tieLoss, loss] = settings.points;
+  const earns = (code: string, value: number) => `${code} +${formatStandingValue(value)}`;
+  return [
+    { tone: null, places: earns('W', win), where: earns('TW', tieWin) },
+    { tone: null, places: earns('TL', tieLoss), where: earns('L', loss) },
+    { tone: null, places: earns('T', (tieWin + tieLoss) / 2), where: '' },
+  ];
+}
+
 /** The standings named as their tab is, inside a line: "qualification", "Swiss", "groups". */
 function standingsInline(state: TournamentState): string {
   const kind = standingsKind(state);
@@ -105,7 +120,12 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
       : rule.kind === 'standings-cutoff' && !state.rounds[roundIndex]?.excludeFromStandings;
   if (rule.kind === 'standings' || rule.kind === 'standings-cutoff') {
     return counted
-      ? [...pointsLines(state, roomSize), { tone: null, places: 'All', where: `→ ${standingsInline(state)}` }]
+      ? [
+          ...(state.rounds[roundIndex]?.isGroupStage && matchResultSettings(state)
+            ? matchResultLines(state)
+            : pointsLines(state, roomSize)),
+          { tone: null, places: 'All', where: `→ ${standingsInline(state)}` },
+        ]
       : [{ tone: null, places: 'All', where: 'seeding only, not counted' }];
   }
   if (rule.kind === 'all-advance') {

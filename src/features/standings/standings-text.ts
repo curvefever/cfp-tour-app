@@ -1,5 +1,6 @@
 import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../domain/tournament/advancement';
 import { usesGroupAverages } from '../../domain/tournament/group-standings';
+import { getGameFormat } from '../../domain/tournament/formats';
 import { matchResultSettings } from '../../domain/tournament/match-results';
 import { formatStandingValue } from '../../domain/tournament/scoring';
 import {
@@ -36,17 +37,24 @@ function smallerRoomSentences(state: TournamentState, largestRoom: number): stri
   );
 }
 
-/** "Each game: a win by more than 100 points earns 3, by 100 or less 2; a loss by 100 or less 1, by more 0; a tie 1.5." from the tournament's own values. */
+/**
+ * "Each game is scored by the points gap: W, a win by more than 100 = 3 · TW, …" from the tournament's own values,
+ * then the Best of 3 mapping and the sum of a round's games when the group rounds have them.
+ */
 function matchResultsSentence(state: TournamentState): string {
   const settings = matchResultSettings(state);
   if (!settings) return '';
   const [win, tieWin, tieLoss, loss] = settings.points;
   const margin = settings.tieMargin;
   const tie = formatStandingValue((tieWin + tieLoss) / 2);
-  const bestOf = state.rounds.some((round) => round.isGroupStage && round.bestOf !== undefined)
+  const groupRounds = state.rounds.filter((round) => round.isGroupStage);
+  const bestOf = groupRounds.some((round) => round.bestOf !== undefined)
     ? ' A Best of 3 counts as one match: 2–0 is a win, 2–1 a tie win.'
     : '';
-  return `Each game: a win by more than ${margin} points earns ${win}, by ${margin} or less ${tieWin}; a loss by ${margin} or less ${tieLoss}, by more ${loss}; a tie ${tie}.${bestOf}`;
+  const summed = groupRounds.some((round) => round.bestOf === undefined && (round.numGames ?? 1) > 1)
+    ? " A round's games add up."
+    : '';
+  return `Each game is scored by the points gap: W, a win by more than ${margin} = ${win} · TW, a win by ${margin} or less = ${tieWin} · TL, a loss by ${margin} or less = ${tieLoss} · L, a loss by more than ${margin} = ${loss} · T, equal scores = ${tie}.${bestOf}${summed}`;
 }
 
 function pointsSentence(state: TournamentState): string {
@@ -93,12 +101,13 @@ function cutSentence(display: StandingsDisplay): string {
  */
 export function standingsExplanation(state: TournamentState, display: StandingsDisplay): string[] {
   const perMatch = display.perGroup && usesGroupAverages(state);
+  const unit = (getGameFormat(state.gameFormat)?.unitLabel ?? 'Player').toLowerCase();
   return [
     standingsProgressSentence(display),
     pointsSentence(state),
     [
       perMatch
-        ? 'Groups are ranked by points per match played. A bye is not a match. A match against an absent or withdrawn opponent is void for the one that turned up; a no-show gets 0 for it.'
+        ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against an absent or withdrawn opponent is void for the ${unit} that turned up and doesn't count; the absent ${unit} gets 0 for it.`
         : 'A bye counts as a win; a missed round earns 0.',
       nonCountingSentence(state),
     ]
@@ -108,9 +117,30 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
       ? `Most points per match ranks first. ${cutSentence(display)}`
       : `Points are added up; most points ranks first. ${cutSentence(display)}`,
     perMatch
-      ? "On equal points per match, the tie-break is your results against each other, then how you scored compared with your rooms' average (100% = an average score in your room), and last the organiser's decision."
+      ? "On equal points per match: first your results against each other, then your relative score (Rel. score: how you scored compared with your rooms' average, 100% = average), then the organiser's decision."
       : "On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).",
   ];
+}
+
+export interface StandingsHeads {
+  /** The round sub-header over the place cell: a result code under match results. */
+  rank: string;
+  points: string;
+  tieBreak: string;
+}
+
+/**
+ * The column heads of a standings table. A group stage with per-match standings ranks by points per match and
+ * breaks a tie by head to head first, so its tie-break column holds only the relative score.
+ */
+export function standingsHeads(state: TournamentState, display: StandingsDisplay): StandingsHeads {
+  if (!(display.perGroup && usesGroupAverages(state)))
+    return { rank: 'Rank', points: 'Points', tieBreak: 'Tie-break' };
+  return {
+    rank: matchResultSettings(state) ? 'Result' : 'Rank',
+    points: 'Pts / match',
+    tieBreak: 'Rel. score',
+  };
 }
 
 /** "2 wins", "1 win", "0 wins": a Best of N round's score cell. */
@@ -127,7 +157,7 @@ export interface RoundCells {
 /** What a counted round without a result of the unit's own was: a match void for it, or a bye (a group stage with per-match standings). */
 export type MissedRound = 'void' | 'bye';
 
-/** What a row's Points cell shows: points per match to two decimals with the total and matches under it, or the points total alone. */
+/** What a row's Points cell shows: points per match like any points value (one decimal at most) with the total and matches under it, or the points total alone. */
 export function pointsCell(entry: { totalFP: number | null; matches?: number; averagePoints?: number }): {
   main: string;
   detail: string | null;
@@ -138,7 +168,7 @@ export function pointsCell(entry: { totalFP: number | null; matches?: number; av
   }
   const total = formatStandingValue(entry.totalFP);
   return {
-    main: entry.averagePoints.toFixed(2),
+    main: formatStandingValue(entry.averagePoints),
     detail: `${total} ${total === '1' ? 'pt' : 'pts'} · ${entry.matches} played`,
   };
 }

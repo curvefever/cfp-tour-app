@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
-import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import {
+  buildState,
+  scoreCurrentRound,
+  withEarlierGroupRule,
+} from '../../domain/tournament/__tests__/play-through';
 import { swapIndividual } from '../../domain/tournament/mutations';
 import {
   describeStandings,
@@ -10,7 +14,13 @@ import {
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { standingsDetailLines } from './standings-compact';
-import { missedRoundOf, pointsCell, roundCells, standingsExplanation } from './standings-text';
+import {
+  missedRoundOf,
+  pointsCell,
+  roundCells,
+  standingsExplanation,
+  standingsHeads,
+} from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 
@@ -31,17 +41,35 @@ function detailOf(state: TournamentState, entry: Entry): string[] {
   if (!table) throw new Error('no table');
   const roundIndexes = tableRoundIndexes(state, table);
   const labels = roundIndexes.map((index) => `Round ${state.rounds[index].roundNum}`);
-  return standingsDetailLines(entry, roundIndexes, labels, false, state.rounds);
+  const display = describeStandings(state);
+  if (!display) throw new Error('no standings');
+  return standingsDetailLines(
+    entry,
+    roundIndexes,
+    labels,
+    false,
+    state.rounds,
+    standingsHeads(state, display),
+  );
 }
 
 describe('pointsCell', () => {
-  it('reads points per match to two decimals, with the total and the matches played under it', () => {
+  it('reads points per match like any points value (one decimal at most), with the total and the matches played under it', () => {
     expect(pointsCell({ totalFP: 7, matches: 4, averagePoints: 1.75 })).toEqual({
-      main: '1.75',
+      main: '1.8',
       detail: '7 pts · 4 played',
     });
+    expect(pointsCell({ totalFP: 3, matches: 1, averagePoints: 3 })).toEqual({
+      main: '3',
+      detail: '3 pts · 1 played',
+    });
+    expect(pointsCell({ totalFP: 3, matches: 2, averagePoints: 1.5 }).main).toBe('1.5');
+    expect(pointsCell({ totalFP: 7, matches: 3, averagePoints: 7 / 3 })).toEqual({
+      main: '2.3',
+      detail: '7 pts · 3 played',
+    });
     expect(pointsCell({ totalFP: 1, matches: 1, averagePoints: 1 })).toEqual({
-      main: '1.00',
+      main: '1',
       detail: '1 pt · 1 played',
     });
   });
@@ -97,19 +125,23 @@ describe('a group stage with per-match standings (13 players, byes)', () => {
     expect(played).toBeDefined();
     if (!played) return;
     const cell = pointsCell(played);
-    expect(cell.main).toMatch(/^\d\.\d\d$/);
+    expect(cell.main).toMatch(/^\d(\.\d)?$/);
     expect(cell.detail).toMatch(/^\d(\.\d)? pts? · 1 played$/);
-    expect(detailOf(state, played)).toContain(cell.detail);
+    expect(detailOf(state, played)).toContain(`Pts / match ${cell.main} (${cell.detail})`);
   });
 
   it('the explanation says how groups are ranked and the new tie-break order', () => {
     const display = describeStandings(state);
     if (!display) throw new Error('no standings');
     const text = standingsExplanation(state, display).join(' ');
-    expect(text).toContain('Groups are ranked by points per match played. A bye is not a match.');
-    expect(text).toContain('void for the one that turned up; a no-show gets 0 for it');
-    expect(text).toContain('Most points per match ranks first.');
-    expect(text).toContain('the tie-break is your results against each other, then');
+    expect(text).toContain('Groups are ranked by points per match (Pts / match). A bye is not a match.');
+    expect(text).toContain(
+      "void for the player that turned up and doesn't count; the absent player gets 0 for it",
+    );
+    expect(text).toContain('Most points per match ranks first. The top');
+    expect(text).toContain(
+      "On equal points per match: first your results against each other, then your relative score (Rel. score: how you scored compared with your rooms' average, 100% = average), then the organiser's decision.",
+    );
     expect(text).not.toContain('A bye counts as a win');
   });
 });
@@ -141,8 +173,63 @@ describe('a group stage scored by match results (10 teams 4v4, one match void)',
     if (!display) throw new Error('no standings');
     const text = standingsExplanation(state, display).join(' ');
     expect(text).toContain(
-      'Each game: a win by more than 100 points earns 3, by 100 or less 2; a loss by 100 or less 1, by more 0; a tie 1.5.',
+      'Each game is scored by the points gap: W, a win by more than 100 = 3 · TW, a win by 100 or less = 2 · TL, a loss by 100 or less = 1 · L, a loss by more than 100 = 0 · T, equal scores = 1.5.',
     );
+    expect(text).toContain('void for the team that turned up');
+    expect(text).not.toContain("A round's games add up");
+  });
+
+  it("the explanation's figures come from the tournament's own margin and points", () => {
+    const own = {
+      ...state,
+      gamemodeConfig: {
+        ...state.gamemodeConfig,
+        matchResultPoints: [5, 3, 1, 0] as [number, number, number, number],
+        tieMargin: 50,
+      },
+    };
+    const display = describeStandings(own);
+    if (!display) throw new Error('no standings');
+    expect(standingsExplanation(own, display).join(' ')).toContain(
+      'W, a win by more than 50 = 5 · TW, a win by 50 or less = 3 · TL, a loss by 50 or less = 1 · L, a loss by more than 50 = 0 · T, equal scores = 2.',
+    );
+  });
+
+  it('a group round of several summed games says its games add up', () => {
+    const summed = {
+      ...state,
+      rounds: state.rounds.map((round) => (round.isGroupStage ? { ...round, numGames: 2 } : round)),
+    };
+    const display = describeStandings(summed);
+    if (!display) throw new Error('no standings');
+    expect(standingsExplanation(summed, display).join(' ')).toContain("A round's games add up.");
+  });
+
+  it('the column heads of a per-match group read Result, Pts / match and Rel. score', () => {
+    const display = describeStandings(state);
+    if (!display) throw new Error('no standings');
+    expect(standingsHeads(state, display)).toEqual({
+      rank: 'Result',
+      points: 'Pts / match',
+      tieBreak: 'Rel. score',
+    });
+    const [played] = entriesOf(state).filter((entry) => entry.matches !== undefined && entry.matches > 0);
+    expect(detailOf(state, played).join(' ')).toContain('Pts / match ');
+    expect(detailOf(state, played).at(-1)).toContain('Rel. score ');
+  });
+});
+
+describe('a group stage stored before per-match standings (no groupAverageVersion)', () => {
+  const state = withEarlierGroupRule(fixtureState('groups-1v1-13'));
+
+  it('keeps its column heads, its phone lines and its explanation', () => {
+    const display = describeStandings(state);
+    if (!display) throw new Error('no standings');
+    expect(standingsHeads(state, display)).toEqual({ rank: 'Rank', points: 'Points', tieBreak: 'Tie-break' });
+    const text = standingsExplanation(state, display).join(' ');
+    expect(text).toContain('A bye counts as a win; a missed round earns 0.');
+    expect(text).toContain('On equal points, the tie-break is how you scored');
+    expect(text).not.toContain('Pts / match');
   });
 });
 

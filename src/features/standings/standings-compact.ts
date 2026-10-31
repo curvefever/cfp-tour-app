@@ -6,7 +6,10 @@ import {
   missedRoundOf,
   pointsCell,
   roundCells,
+  type StandingsHeads,
 } from './standings-text';
+
+const DEFAULT_HEADS: StandingsHeads = { rank: 'Rank', points: 'Points', tieBreak: 'Tie-break' };
 
 type Entry = StandingsDisplayTable['entries'][number];
 
@@ -46,7 +49,8 @@ function roundLine(entry: Entry, roundIndex: number, label: string, rounds: Roun
 /**
  * What a tapped standings row unfolds on a phone: one line per counted round (`labels` align with `roundIndexes`),
  * then the tie-break, with its two-decimal value where another unit on the same points shows the same whole percent
- * (`sharesPercent`, from `sharesWholePercent`): a phone has no hover to hold that value.
+ * (`sharesPercent`, from `sharesWholePercent`): a phone has no hover to hold that value. A table with per-match
+ * standings (`heads`, from `standingsHeads`) names its points "per match" and its tie-break "Rel. score".
  */
 export function standingsDetailLines(
   entry: Entry,
@@ -54,12 +58,13 @@ export function standingsDetailLines(
   labels: string[],
   sharesPercent: boolean,
   rounds: Rounds = [],
+  heads: StandingsHeads = DEFAULT_HEADS,
 ): string[] {
-  const tieBreak = `Tie-break ${formatTieBreak(entry.roomShare)}`;
-  const total = pointsCell(entry).detail;
+  const tieBreak = `${heads.tieBreak} ${formatTieBreak(entry.roomShare)}`;
+  const { main, detail } = pointsCell(entry);
   return [
     ...roundIndexes.map((roundIndex, position) => roundLine(entry, roundIndex, labels[position], rounds)),
-    ...(total ? [total] : []),
+    ...(detail ? [`${heads.points} ${main} (${detail})`] : []),
     sharesPercent ? `${tieBreak} (${formatTieBreakPrecise(entry.roomShare)})` : tieBreak,
   ];
 }

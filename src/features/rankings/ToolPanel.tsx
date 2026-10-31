@@ -44,10 +44,13 @@ export function ToolRow({
   children,
   controls,
   className,
+  wrap = false,
 }: {
   children: ReactNode;
   controls?: ReactNode;
   className?: string;
+  /** A hint, not a name: the text wraps over several lines in normal weight and the muted colour. */
+  wrap?: boolean;
 }) {
   return (
     <div
@@ -56,7 +59,14 @@ export function ToolRow({
         className,
       )}
     >
-      <div className='min-w-0 flex-1 truncate text-[15px] font-semibold'>{children}</div>
+      <div
+        className={cn(
+          'min-w-0 flex-1 text-[15px]',
+          wrap ? 'py-1 text-sm text-muted' : 'truncate font-semibold',
+        )}
+      >
+        {children}
+      </div>
       {controls ? <div className='flex shrink-0 items-center gap-2'>{controls}</div> : null}
     </div>
   );

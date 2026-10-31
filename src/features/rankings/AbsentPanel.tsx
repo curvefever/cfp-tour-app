@@ -96,6 +96,7 @@ function MarkMemberPicker({ app, state }: { app: App; state: TournamentState }) 
   };
   return (
     <ToolRow
+      wrap={!open}
       controls={
         <Button onClick={() => setOpen((shown) => !shown)} size='sm'>
           {open ? 'Close' : '＋ Mark a member absent'}
@@ -144,7 +145,7 @@ function MarkMemberPicker({ app, state }: { app: App; state: TournamentState }) 
           </Button>
         </span>
       ) : (
-        'One score per team: a member can be marked absent by hand (shown only)'
+        "One score per team: you can mark a member absent by hand. The mark shows on the team's line and doesn't change the score."
       )}
     </ToolRow>
   );
