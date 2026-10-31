@@ -343,7 +343,7 @@ function ReserveIndividuals({
           onKeyDown={(event) => {
             if (event.key === 'Enter') add();
           }}
-          placeholder='Name of an individual reserve'
+          placeholder='Player name'
           type='text'
           value={name}
         />

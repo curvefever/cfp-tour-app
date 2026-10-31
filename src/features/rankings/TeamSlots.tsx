@@ -52,6 +52,7 @@ function SlotControls({
         </Select>
       ) : null}
       <Button
+        className='shrink-0 whitespace-nowrap'
         size='sm'
         variant='warning'
         onClick={() => {
