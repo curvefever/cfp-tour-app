@@ -489,6 +489,19 @@ export function addReserveUnit(
 }
 
 /**
+ * Why a walk-up would stay on the bench now, or null: the same test `addWalkUpIndividual` / `addWalkUpTeam` end with, for the
+ * Reserves panel to say what its ＋ does. Only after the start, while reserves are open and the swap window is.
+ */
+export function benchReasonOf(state: TournamentState): BenchReason | null {
+  if (!state.started || !state.reserveOpen || !swapWindowOpen(state)) return null;
+  if (state.cfg.poolingPhase === 'group-stage') return 'group-stage';
+  if (state.gamemodeConfig.drawPublication === 'fixed') return 'fixed-draw';
+  if (state.scheduleLogic === 'waterfall-bracket' && state.cfg.poolingPhase === 'none')
+    return 'waterfall-bracket';
+  return null;
+}
+
+/**
  * A walk-up refused only because the draw can't take a newcomer (a group stage, a fixed draw, a custom bracket)
  * stays on the bench while a swap can still use it: `benched` carries the state with it in the reserves. The swap
  * window check is a safety net: `reserveOpen` already closes with the first elimination round (a unit out in the

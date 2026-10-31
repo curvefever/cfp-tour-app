@@ -163,7 +163,7 @@ describe('the exit pop-up of a group table, in each mode', () => {
     const destination = result[0].where;
     expect(result.map((line) => [line.places, line.where])).toEqual([
       ['1–2 (each group)', destination],
-      ['3rd: best 2 of 3', destination],
+      ['3rd: best 2 of 3', ''],
       ['rest', 'out'],
     ]);
   });
@@ -174,8 +174,8 @@ describe('the exit pop-up of a group table, in each mode', () => {
     expect(result.map((line) => [line.places, line.where])).toEqual([
       ['1–3 (group of 5)', destination],
       ['1–2 (each group of 4)', destination],
-      ['4th (group of 5)', `${destination}, 0–1 spot`],
-      ['3rd (each group of 4)', `${destination}, 0–1 spot`],
+      ['4th (group of 5)', '0–1 spot'],
+      ['3rd (each group of 4)', '0–1 spot'],
       ['rest', 'out'],
     ]);
   });

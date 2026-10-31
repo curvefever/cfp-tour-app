@@ -17,7 +17,6 @@ import {
   swapTeam,
   swapWindowOpen,
   updateTeam,
-  type BenchReason,
   type ReserveAddOptions,
   type ReserveAddResult,
 } from '../../domain/tournament/mutations';
@@ -39,6 +38,7 @@ import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
 import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
 import { naturalByLabel } from './ranking-order';
+import { benchedMessage, reserveAddHint } from './reserve-hint';
 import { TeamMemberRow, VacantSlot } from './TeamSlots';
 import { ToolIconButton, ToolPanel, ToolRow } from './ToolPanel';
 import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
@@ -72,16 +72,6 @@ const PLAYER_SWAP_NOTE = (state: TournamentState) =>
   isTeamFormat(state)
     ? ' To replace one player of a team, use ⇄ on that player in Manage Teams at any time.'
     : '';
-
-const BENCH_TARGET: Record<BenchReason, string> = {
-  'group-stage': 'the group stage',
-  'fixed-draw': 'a fixed draw',
-  'waterfall-bracket': 'a custom bracket',
-};
-
-/** What a walk-up kept on the bench is told: it can't join the draw, but ⇄ Swap can bring it in. */
-const benchedMessage = (state: TournamentState, reason: BenchReason) =>
-  `Added to the reserves. It can't join ${BENCH_TARGET[reason]} now, but it can replace ${isTeamFormat(state) ? 'a team' : 'a player'} with ⇄ Swap until the first elimination.`;
 
 function handleReserveResult(
   state: TournamentState,
@@ -492,7 +482,7 @@ export function ReservePanel({ state }: { state: TournamentState }) {
             </div>
             <div className='mt-1 text-xs text-muted'>
               {keys.length
-                ? `Click ＋ to add a reserve. ${state.started ? 'They join from the next round' : 'Before Confirm & Start the draw is redone with them in; after, they join from the next round'} (during the first bracket round of a tournament without pooling: the least-full room).`
+                ? reserveAddHint(state)
                 : `No ${format?.teamSize ? 'reserve teams' : 'reserves'} on the bench.`}
             </div>
           </>

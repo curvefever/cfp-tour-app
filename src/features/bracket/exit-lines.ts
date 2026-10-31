@@ -137,7 +137,7 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
   return [];
 }
 
-/** "1", "0–1": the fewest and most spots of a size's chance places, with the noun. */
+/** "1 spot", "0–1 spot": the fewest and most spots of a size's chance places, with the noun. */
 function spotRange(minSpots: number, maxSpots: number): string {
   const range = minSpots === maxSpots ? `${maxSpots}` : `${minSpots}–${maxSpots}`;
   return `${range} spot${maxSpots === 1 ? '' : 's'}`;
@@ -168,7 +168,7 @@ function groupExitLines(
             {
               tone: 'dashed',
               places: `${ordinal(shape.classes[0].direct + 1)}: best ${chanceSpots(shape)} of ${shape.classes[0].groups.length}`,
-              where: to,
+              where: '',
             },
           ]
         : []
@@ -177,7 +177,7 @@ function groupExitLines(
           .map((cls) => ({
             tone: 'dashed',
             places: `${cls.chancePlaces.map((place) => ordinal(place.place)).join(', ')} (${cls.groups.length === 1 ? 'group' : 'each group'} of ${cls.sizes[0]})`,
-            where: `${to}, ${spotRange(cls.minSpots, cls.maxSpots)}`,
+            where: spotRange(cls.minSpots, cls.maxSpots),
           }));
   return [...direct, ...chance, { tone: 'red', places: 'rest', where: 'out' }];
 }
