@@ -88,16 +88,16 @@ function pointsLines(state: TournamentState, roomSize: number): ExitLine[] {
   return [{ tone: null, places: first, where: `${at(1)} … ${at(points.length - 1)} points` }];
 }
 
-/** "W +3 · TW +2", "TL +1 · L +0", "T +1.5": what the result of a game earns under match results (the margin is in the standings' explanation). */
+/** "W +3 · TW +2 · T +1.5" and "TL +1 · L +0": what the result of a game earns under match results, best first, all in one style (the margin is in the standings' explanation). */
 function matchResultLines(state: TournamentState): ExitLine[] {
   const settings = matchResultSettings(state);
   if (!settings) return [];
   const [win, tieWin, tieLoss, loss] = settings.points;
   const earns = (code: string, value: number) => `${code} +${formatStandingValue(value)}`;
+  const line = (...parts: string[]): ExitLine => ({ tone: null, places: parts.join(' · '), where: '' });
   return [
-    { tone: null, places: earns('W', win), where: earns('TW', tieWin) },
-    { tone: null, places: earns('TL', tieLoss), where: earns('L', loss) },
-    { tone: null, places: earns('T', (tieWin + tieLoss) / 2), where: '' },
+    line(earns('W', win), earns('TW', tieWin), earns('T', (tieWin + tieLoss) / 2)),
+    line(earns('TL', tieLoss), earns('L', loss)),
   ];
 }
 

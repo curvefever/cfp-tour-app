@@ -155,8 +155,8 @@ function StandingsRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className='border-0 py-0 pl-1 text-base whitespace-nowrap'>
-        <TournamentUnit state={state} name={entry.name} />
+      <TableCell className='max-w-60 border-0 py-0 pl-1 text-base'>
+        <TournamentUnit state={state} name={entry.name} wrapMembers />
         <TieMark placed={placed} pending={pending} />
       </TableCell>
       {roundIndexes.map((roundIndex) => (
@@ -178,7 +178,7 @@ function StandingsRow({
       <TableCell
         className={cn(
           'w-24 border-0 py-0 pr-4 text-right text-sm text-muted tabular-nums',
-          sharesPercent && 'underline decoration-dotted',
+          sharesPercent && 'cursor-help underline decoration-dotted',
         )}
         title={formatTieBreakPrecise(entry.roomShare)}
       >

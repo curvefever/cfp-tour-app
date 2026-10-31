@@ -272,6 +272,13 @@ function longNamedTeams(): TournamentTeam[] {
   }));
 }
 
+/** The first `count` long-named teams with a fourth member each, for 4v4. */
+function longNamedTeams4(count: number): TournamentTeam[] {
+  return longNamedTeams()
+    .slice(0, count)
+    .map((team) => ({ ...team, members: [...team.members, { name: `${team.teamName.split(' ')[0]} Jr` }] }));
+}
+
 function generate(
   count: number,
   setup: SetupOverrides,
@@ -342,7 +349,7 @@ function groupStage(): TournamentState {
  * 10 teams 4v4 in two groups of 5, scored by match results: the first group round has its first rooms scored (result
  * codes beside the points) and a team removed from the last room, so its opponent has a void match.
  */
-function groupMatchResults(): TournamentState {
+function groupMatchResults(players?: TournamentTeam[]): TournamentState {
   const start = generate(
     10,
     {
@@ -354,6 +361,7 @@ function groupMatchResults(): TournamentState {
       scheduleLogic: 'single-elimination',
     },
     4,
+    players,
   );
   const scored = scoreCurrentRound(start, { seed: 21, rooms: [1, 2, 3] });
   const lastRoom = Math.max(...scored.assignments[scored.curRound].map((entry) => entry.room ?? 0));
@@ -690,6 +698,10 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('groups-1v1-13', groupStage(), { tabs: ['Bracket', 'Groups', 'Rankings', 'Info'] }),
     entry('groups-4v4-match-results', groupMatchResults(), {
       tabs: ['Bracket', 'Groups', 'Rankings', 'Info'],
+    }),
+    entry('long-names-groups-4v4', groupMatchResults(longNamedTeams4(10)), {
+      tabs: ['Bracket', 'Groups', 'Rankings', 'Info'],
+      exitPopups: [0],
     }),
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),

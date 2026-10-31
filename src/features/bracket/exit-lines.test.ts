@@ -290,20 +290,18 @@ describe('poolingExitLines: a group room scored by match results', () => {
   it("reads the codes with the tournament's own points, then All → groups", () => {
     const state = groupState({ scoring: 'match-results', matchResultPoints: '5, 3, 1, 0', tieMargin: '50' });
     expect(poolingExitLines(state, 0, 2)).toEqual([
-      { tone: null, places: 'W +5', where: 'TW +3' },
-      { tone: null, places: 'TL +1', where: 'L +0' },
-      { tone: null, places: 'T +2', where: '' },
+      { tone: null, places: 'W +5 · TW +3 · T +2', where: '' },
+      { tone: null, places: 'TL +1 · L +0', where: '' },
       { tone: null, places: 'All', where: '→ groups' },
     ]);
   });
 
-  it('the default points give T +1.5', () => {
+  it('the default points give T +1.5, every code in one style, best first', () => {
     const state = groupState({ scoring: 'match-results' });
-    expect(poolingExitLines(state, 0, 2).map((line) => line.places)).toEqual([
-      'W +3',
-      'TL +1',
-      'T +1.5',
-      'All',
+    expect(poolingExitLines(state, 0, 2).map((line) => [line.places, line.where])).toEqual([
+      ['W +3 · TW +2 · T +1.5', ''],
+      ['TL +1 · L +0', ''],
+      ['All', '→ groups'],
     ]);
   });
 
