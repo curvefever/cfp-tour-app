@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
+import { usesGroupAverages } from '../../domain/tournament/group-standings';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
@@ -18,13 +19,13 @@ import { roomTitle } from './room-title';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 /** The small header of a pooling room that shows points: SCORE and PTS. */
-function PointsHeader() {
+function PointsHeader({ wide }: { wide: boolean }) {
   return (
     <div className='flex h-5 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
       <span className='w-4.5 shrink-0' />
       <span className='flex-1' />
       <span className='w-11.5 shrink-0 text-right'>SCORE</span>
-      <span className='w-9 shrink-0 text-right'>PTS</span>
+      <span className={cn('shrink-0 text-right', wide ? 'w-16' : 'w-9')}>PTS</span>
     </div>
   );
 }
@@ -85,6 +86,7 @@ export function RoomCard({
   pendingTieNames,
   teamMap,
   points,
+  resultCodes,
 }: {
   state: TournamentState;
   roundIndex: number;
@@ -99,6 +101,8 @@ export function RoomCard({
   teamMap: ReturnType<typeof buildTeamMap>;
   /** What each unit earned in this round (a pooling round that counts), or null when the round shows no points. */
   points: Map<string, number> | null;
+  /** Match-result scoring: each unit's result codes in this round, shown beside its points; null otherwise. */
+  resultCodes: Map<string, string> | null;
 }) {
   const round = state.rounds[roundIndex];
   const room = roomIndex + 1;
@@ -113,7 +117,16 @@ export function RoomCard({
   if (isByeLikeRound(round) && isUncontestedRoom(state, roundIndex, room)) {
     return (
       <RoomFrame lines={lines} title={title}>
-        <LoneUnitRow followed={followKey === units[0].name} name={units[0].name} state={state} />
+        <LoneUnitRow
+          followed={followKey === units[0].name}
+          name={units[0].name}
+          note={
+            round.isGroupStage && usesGroupAverages(state)
+              ? 'No opponent — the match is void, no score needed'
+              : undefined
+          }
+          state={state}
+        />
       </RoomFrame>
     );
   }
@@ -140,6 +153,12 @@ export function RoomCard({
           .map((entry) => ({ ...entry, place: null, shared: false })),
       ]
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
+  // A group room with an absent unit is void for the unit that turned up (per-match standings).
+  const voidMatch =
+    round.isGroupStage &&
+    usesGroupAverages(state) &&
+    absentNames.length > 0 &&
+    absentNames.length < units.length;
   const memberInputs = scoredTeamSize(state);
   // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
   const gameColumns = !rowsEditable && !round.isFinal && (round.numGames ?? 1) > 1;
@@ -152,7 +171,7 @@ export function RoomCard({
           points={Boolean(points)}
         />
       ) : points ? (
-        <PointsHeader />
+        <PointsHeader wide={resultCodes !== null} />
       ) : null}
       {display.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
@@ -185,6 +204,9 @@ export function RoomCard({
             pendingTie={pendingTie}
             place={entry.place}
             points={points ? (points.get(entry.name) ?? null) : undefined}
+            resultCode={resultCodes?.get(entry.name)}
+            voided={voidMatch && !absent}
+            widePoints={resultCodes !== null}
             position={entry.position}
             resolvedTie={resolvedTieNames.has(entry.name)}
             result={result}

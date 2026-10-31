@@ -1,6 +1,6 @@
 import type { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { formatStandingValue } from '../../domain/tournament/scoring';
+import { pointsCell } from '../standings/standings-text';
 import {
   standingFor,
   type StandingsDisplay,
@@ -80,7 +80,7 @@ function StandingsRows({
                 </span>
               </span>
               <span className='shrink-0 text-[15px] font-extrabold tabular-nums'>
-                {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
+                {pointsCell(entry).main}
               </span>
             </div>
           </div>

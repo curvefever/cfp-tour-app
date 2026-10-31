@@ -15,3 +15,18 @@ export function roomPoints(display: StandingsDisplay | null, roundIndex: number)
   }
   return points;
 }
+
+/**
+ * The result of each unit's game(s) in one counted round, by name, as "W · TL" (match-result scoring only: a round
+ * scored by places has none), read from the same standings display.
+ */
+export function roomResultCodes(display: StandingsDisplay | null, roundIndex: number): Map<string, string> {
+  const codes = new Map<string, string>();
+  for (const table of display?.tables ?? []) {
+    for (const entry of table.entries) {
+      const result = entry.rounds?.find((candidate) => candidate.roundIndex === roundIndex);
+      if (result?.results?.length) codes.set(entry.name, result.results.join(' · '));
+    }
+  }
+  return codes;
+}

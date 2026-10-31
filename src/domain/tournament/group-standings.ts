@@ -1,5 +1,6 @@
 import { absentInRoom } from './absences';
 import {
+  activeGroupByes,
   type RoundOutcome,
   rankingPoints,
   roomOutcomes,
@@ -157,6 +158,40 @@ export function withHeadToHead(
     first = last + 1;
   }
   return output;
+}
+
+/** The counted group rounds a unit sat out without a counted match: a match void for it, or a bye. */
+export interface GroupRoundMisses {
+  voided: number[];
+  byes: number[];
+}
+
+/**
+ * Per unit (the seat's holder today), the group rounds that have begun in which it had no counted match: a bye, or a
+ * match void for it (its opponent was removed, or absent). A unit absent itself is not listed: it has a counted 0.
+ */
+export function groupRoundMisses(state: TournamentState, seats: GroupSeats): Map<string, GroupRoundMisses> {
+  const misses = new Map<string, GroupRoundMisses>();
+  const note = (name: string, kind: keyof GroupRoundMisses, roundIndex: number) => {
+    const holder = seats.holderOf(name);
+    const entry = misses.get(holder) ?? { voided: [], byes: [] };
+    entry[kind].push(roundIndex);
+    misses.set(holder, entry);
+  };
+  state.rounds.forEach((round, roundIndex) => {
+    if (!round.isGroupStage || !roundHasBegun(state, roundIndex)) return;
+    for (const name of activeGroupByes(state, round)) note(name, 'byes', roundIndex);
+    for (let room = 1; room <= round.rooms.length; room += 1) {
+      const seated = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
+      const lostAUnit = seated.length < 2 || seated.some((entry) => seats.isRemoved(entry.name));
+      const absent = lostAUnit ? [] : absentInRoom(state, roundIndex, room);
+      if (!lostAUnit && absent.length === 0) continue;
+      for (const { name } of seated) {
+        if (!seats.isRemoved(name) && !absent.includes(name)) note(name, 'voided', roundIndex);
+      }
+    }
+  });
+  return misses;
 }
 
 /** A no-show's match: counted, worth nothing whatever the points table, with no score and no room share. */

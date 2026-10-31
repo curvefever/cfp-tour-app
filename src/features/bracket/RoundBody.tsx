@@ -1,6 +1,7 @@
 import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
+import { matchResultSettings } from '../../domain/tournament/match-results';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { roundExitRule } from '../../domain/tournament/room-exits';
@@ -10,7 +11,7 @@ import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
-import { roomPoints } from './room-points';
+import { roomPoints, roomResultCodes } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
 import { isCurrentRound, isRoundReached, nextColumnStart } from '../../domain/tournament/round-columns';
@@ -79,7 +80,10 @@ export function RoundBody({
   const countsForPoints =
     (exitRule.kind === 'standings' && exitRule.counted) ||
     (exitRule.kind === 'standings-cutoff' && !round.excludeFromStandings);
-  const points = countsForPoints ? roomPoints(describeStandings(state), roundIndex) : null;
+  const standings = countsForPoints ? describeStandings(state) : null;
+  const points = standings ? roomPoints(standings, roundIndex) : null;
+  // Under match results a pooling room also shows the result of each game beside the points.
+  const resultCodes = standings && matchResultSettings(state) ? roomResultCodes(standings, roundIndex) : null;
   const teamMap = buildTeamMap(state);
   const rowsEditable = editable && isCurrentRound(state, roundIndex);
   const luckyNames = luckyLoserNames(state, roundIndex);
@@ -106,6 +110,7 @@ export function RoundBody({
           rowsEditable={rowsEditable}
           state={state}
           points={points}
+          resultCodes={resultCodes}
           teamMap={teamMap}
         />
       ))}

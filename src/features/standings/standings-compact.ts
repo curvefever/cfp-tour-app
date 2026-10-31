@@ -1,6 +1,12 @@
 import type { StandingsDisplayTable } from '../../domain/tournament/standings-display';
 import type { TournamentRound } from '../../domain/tournament/types';
-import { formatTieBreak, formatTieBreakPrecise, roundCells } from './standings-text';
+import {
+  formatTieBreak,
+  formatTieBreakPrecise,
+  missedRoundOf,
+  pointsCell,
+  roundCells,
+} from './standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 
@@ -12,6 +18,7 @@ function cellsOf(entry: Entry, roundIndex: number, rounds: Rounds) {
     entry.rounds?.find((result) => result.roundIndex === roundIndex),
     entry.absentRounds?.includes(roundIndex),
     rounds[roundIndex]?.bestOf,
+    missedRoundOf(entry, roundIndex),
   );
 }
 
@@ -31,7 +38,7 @@ function roundLine(entry: Entry, roundIndex: number, label: string, rounds: Roun
   const absent = entry.absentRounds?.includes(roundIndex) === true;
   const cells = cellsOf(entry, roundIndex, rounds);
   if (absent) return `${label} · ABS · ${pointsText(cells.points)}`;
-  if (!result) return `${label} · —`;
+  if (!result) return missedRoundOf(entry, roundIndex) ? `${label} · ${cells.score}` : `${label} · —`;
   if (result.bye) return `${label} · ${cells.score} · ${pointsText(cells.points)}`;
   return `${label} · ${cells.score} · ${cells.rank} · ${pointsText(cells.points)}`;
 }
@@ -49,8 +56,10 @@ export function standingsDetailLines(
   rounds: Rounds = [],
 ): string[] {
   const tieBreak = `Tie-break ${formatTieBreak(entry.roomShare)}`;
+  const total = pointsCell(entry).detail;
   return [
     ...roundIndexes.map((roundIndex, position) => roundLine(entry, roundIndex, labels[position], rounds)),
+    ...(total ? [total] : []),
     sharesPercent ? `${tieBreak} (${formatTieBreakPrecise(entry.roomShare)})` : tieBreak,
   ];
 }

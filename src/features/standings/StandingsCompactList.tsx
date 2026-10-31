@@ -5,7 +5,6 @@ import {
   type StandingsDisplay,
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
-import { formatStandingValue } from '../../domain/tournament/scoring';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
@@ -16,7 +15,7 @@ import {
   standingsRowResult,
 } from '../tournament/components/result-row';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
-import { entriesSharingPercent, standingsRoundLabel } from './standings-text';
+import { entriesSharingPercent, pointsCell, standingsRoundLabel } from './standings-text';
 import { TieMark } from './StandingsTable';
 
 type Entry = StandingsDisplayTable['entries'][number];
@@ -113,7 +112,7 @@ export function StandingsCompactList({
             {compactRoundPoints(entry, roundIndexes, state.rounds)}
           </span>
           <span className='w-9 shrink-0 text-right text-[15px] font-extrabold tabular-nums'>
-            {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
+            {pointsCell(entry).main}
           </span>
         </button>
         {isOpen ? (

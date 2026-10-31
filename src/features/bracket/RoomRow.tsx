@@ -98,10 +98,13 @@ function NameWithMarks({
 export function LoneUnitRow({
   followed,
   name,
+  note = 'No opponent — treated as a bye, no score needed',
   state,
 }: {
   followed: boolean;
   name: string;
+  /** What the row says about the missing opponent. */
+  note?: string;
   state: TournamentState;
 }) {
   const label = unitDisplay(state, name).label;
@@ -110,7 +113,7 @@ export function LoneUnitRow({
       <RowLine place={null} result=''>
         <span className='flex min-w-0 flex-1 flex-col'>
           <span className='wrap-break-word text-[15px] font-semibold'>{label}</span>
-          <span className='text-sm text-muted'>No opponent — treated as a bye, no score needed</span>
+          <span className='text-sm text-muted'>{note}</span>
         </span>
       </RowLine>
     </div>
@@ -144,6 +147,12 @@ export interface RoomRowProps {
   resolvedTie: boolean;
   /** A pooling room of a counted round shows what each place earned: undefined without the column, null until earned. */
   points?: number | null;
+  /** Match-result scoring: the result of each game ("W · TL"), shown beside the points. */
+  resultCode?: string;
+  /** The match is void for this unit (its opponent was absent): the points column says so instead of showing points. */
+  voided?: boolean;
+  /** The points column is wide enough for result codes. */
+  widePoints?: boolean;
   /** The team behind a team row, to label its member inputs. */
   team: TournamentTeam | undefined;
   teamSize: number;
@@ -300,10 +309,22 @@ export function RoomRow(props: RoomRowProps) {
               scoreText
             )}
             {pointsColumn ? (
-              <span className='w-9 shrink-0 text-right text-sm font-bold text-cfp-sky'>
-                {props.points === null || props.points === undefined
-                  ? null
-                  : `+${formatStandingValue(props.points)}`}
+              <span
+                className={cn(
+                  'shrink-0 text-right text-sm font-bold text-cfp-sky',
+                  props.widePoints ? 'w-16' : 'w-9',
+                )}
+              >
+                {props.voided ? (
+                  <span className='text-xs font-normal text-muted'>void</span>
+                ) : props.points === null || props.points === undefined ? null : (
+                  <>
+                    {props.resultCode ? (
+                      <span className='mr-1 text-xs font-bold text-muted'>{props.resultCode}</span>
+                    ) : null}
+                    {`+${formatStandingValue(props.points)}`}
+                  </>
+                )}
               </span>
             ) : null}
           </span>

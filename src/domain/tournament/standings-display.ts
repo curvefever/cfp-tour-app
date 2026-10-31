@@ -12,7 +12,14 @@ import {
   isUncontestedRoom,
   rankStandings,
 } from './advancement';
-import { sameGroupStanding } from './group-standings';
+import {
+  type GroupRoundMisses,
+  type GroupSeats,
+  groupRoundMisses,
+  groupSeats,
+  sameGroupStanding,
+  usesGroupAverages,
+} from './group-standings';
 import { tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
 
@@ -27,8 +34,19 @@ export interface StandingsDisplayTable {
   key: 'qual-cutoff' | `group-cutoff-${string}`;
   label: string;
   groupLabel?: string;
-  /** Cut-off order applied, ranked. `absentRounds` (indexes into state.rounds) lists the counted rounds the unit was absent from its room: its cell reads "ABS". */
-  entries: Array<TournamentStanding & { rank: number | null; absentRounds?: number[] }>;
+  /**
+   * Cut-off order applied, ranked. `absentRounds` (indexes into state.rounds) lists the counted rounds the unit was
+   * absent from its room: its cell reads "ABS". In a group stage with per-match standings, `voidRounds` lists the
+   * rounds whose match was void for it ("Void") and `byeRounds` its byes ("Bye"), neither counted.
+   */
+  entries: Array<
+    TournamentStanding & {
+      rank: number | null;
+      absentRounds?: number[];
+      voidRounds?: number[];
+      byeRounds?: number[];
+    }
+  >;
   /** Units that go through; null when everyone does. */
   cut: number | null;
   /** With a waterfall Qual source: where each run of standings goes. `start` is the 0-based row the run begins at. */
@@ -113,30 +131,42 @@ function standingsBands(
   return bands;
 }
 
-/** The counted rounds each unit was absent from its room in. */
-function absentRoundsByUnit(state: TournamentState): Map<string, number[]> {
+/** The counted rounds each unit was absent from its room in. A group stage with seats (per-match standings) credits a swapped-out unit's absences to the unit now in its seat. */
+function absentRoundsByUnit(state: TournamentState, seats: GroupSeats | null): Map<string, number[]> {
   const absent = new Map<string, number[]>();
   state.rounds.forEach((round, roundIndex) => {
     if (!isCountedRound(round)) return;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       for (const name of absentInRoom(state, roundIndex, room)) {
-        absent.set(name, [...(absent.get(name) ?? []), roundIndex]);
+        const unit = seats?.holderOf(name) ?? name;
+        absent.set(unit, [...(absent.get(unit) ?? []), roundIndex]);
       }
     }
   });
   return absent;
 }
 
-/** The ranked entries with the rounds each unit was absent from marked, so a display can read "ABS". */
-function withAbsentRounds(
+/**
+ * The ranked entries with the rounds each unit was absent from marked, so a display can read "ABS". With `seats` (a
+ * group stage with per-match standings) the rounds it had a void match or a bye are marked too.
+ */
+function withRoundMarks(
   state: TournamentState,
   entries: StandingsDisplayTable['entries'],
+  seats: GroupSeats | null = null,
 ): StandingsDisplayTable['entries'] {
-  const absent = absentRoundsByUnit(state);
-  if (absent.size === 0) return entries;
+  const absent = absentRoundsByUnit(state, seats);
+  const misses = seats ? groupRoundMisses(state, seats) : new Map<string, GroupRoundMisses>();
+  if (absent.size === 0 && misses.size === 0) return entries;
   return entries.map((entry) => {
     const absentRounds = absent.get(entry.name);
-    return absentRounds ? { ...entry, absentRounds } : entry;
+    const missed = misses.get(entry.name);
+    return {
+      ...entry,
+      ...(absentRounds ? { absentRounds } : {}),
+      ...(missed?.voided.length ? { voidRounds: missed.voided } : {}),
+      ...(missed?.byes.length ? { byeRounds: missed.byes } : {}),
+    };
   });
 }
 
@@ -152,7 +182,7 @@ function qualificationTable(state: TournamentState): StandingsDisplayTable {
   return {
     key: 'qual-cutoff',
     label: state.rounds.some((round) => round.isSwiss) ? 'Swiss Standings' : 'Qualification Table',
-    entries: withAbsentRounds(state, rankStandings(ordered, new Set(placedNames))),
+    entries: withRoundMarks(state, rankStandings(ordered, new Set(placedNames))),
     cut: cut && cut < ordered.length ? cut : null,
     ...(routes ? { bands: standingsBands(state, routes, ordered.length) } : {}),
   };
@@ -171,9 +201,10 @@ function groupTables(state: TournamentState): StandingsDisplayTable[] {
       key,
       label: `Group ${group.label}`,
       groupLabel: group.label,
-      entries: withAbsentRounds(
+      entries: withRoundMarks(
         state,
         rankStandings(ordered, new Set(tieResolutionList(state, key)), sameGroupStanding),
+        usesGroupAverages(state) ? groupSeats(state) : null,
       ),
       cut: cut && cut < ordered.length ? cut : null,
     };

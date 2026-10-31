@@ -1,4 +1,6 @@
-import { largestRoomSize, roomPointsByPlace } from '../../domain/tournament/advancement';
+import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../domain/tournament/advancement';
+import { usesGroupAverages } from '../../domain/tournament/group-standings';
+import { matchResultSettings } from '../../domain/tournament/match-results';
 import { formatStandingValue } from '../../domain/tournament/scoring';
 import {
   isCountedRound,
@@ -34,8 +36,22 @@ function smallerRoomSentences(state: TournamentState, largestRoom: number): stri
   );
 }
 
+/** "Each game: a win by more than 100 points earns 3, by 100 or less 2; a loss by 100 or less 1, by more 0; a tie 1.5." from the tournament's own values. */
+function matchResultsSentence(state: TournamentState): string {
+  const settings = matchResultSettings(state);
+  if (!settings) return '';
+  const [win, tieWin, tieLoss, loss] = settings.points;
+  const margin = settings.tieMargin;
+  const tie = formatStandingValue((tieWin + tieLoss) / 2);
+  const bestOf = state.rounds.some((round) => round.isGroupStage && round.bestOf !== undefined)
+    ? ' A Best of 3 counts as one match: 2–0 is a win, 2–1 a tie win.'
+    : '';
+  return `Each game: a win by more than ${margin} points earns ${win}, by ${margin} or less ${tieWin}; a loss by ${margin} or less ${tieLoss}, by more ${loss}; a tie ${tie}.${bestOf}`;
+}
+
 function pointsSentence(state: TournamentState): string {
   const { scoring, roomSize, pointsVersion } = state.gamemodeConfig;
+  if (scoring === 'match-results' && matchResultSettings(state)) return matchResultsSentence(state);
   const largestRoom = largestRoomSize(state);
   const points = roomPointsByPlace(state, largestRoom);
   if (roomSize?.max === 2)
@@ -76,12 +92,24 @@ function cutSentence(display: StandingsDisplay): string {
  * Every figure (points per place, the cut, the non-counting rounds) comes from the tournament's own settings.
  */
 export function standingsExplanation(state: TournamentState, display: StandingsDisplay): string[] {
+  const perMatch = display.perGroup && usesGroupAverages(state);
   return [
     standingsProgressSentence(display),
     pointsSentence(state),
-    ['A bye counts as a win; a missed round earns 0.', nonCountingSentence(state)].filter(Boolean).join(' '),
-    `Points are added up; most points ranks first. ${cutSentence(display)}`,
-    "On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).",
+    [
+      perMatch
+        ? 'Groups are ranked by points per match played. A bye is not a match. A match against an absent or withdrawn opponent is void for the one that turned up; a no-show gets 0 for it.'
+        : 'A bye counts as a win; a missed round earns 0.',
+      nonCountingSentence(state),
+    ]
+      .filter(Boolean)
+      .join(' '),
+    perMatch
+      ? `Most points per match ranks first. ${cutSentence(display)}`
+      : `Points are added up; most points ranks first. ${cutSentence(display)}`,
+    perMatch
+      ? "On equal points per match, units are ranked by their results against each other, then by how you scored compared with your rooms' average (100% = an average score in your room), and last by the organiser's decision."
+      : "On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).",
   ];
 }
 
@@ -96,6 +124,25 @@ export interface RoundCells {
   points: string;
 }
 
+/** What a counted round without a result of the unit's own was: a match void for it, or a bye (a group stage with per-match standings). */
+export type MissedRound = 'void' | 'bye';
+
+/** What a row's Points cell shows: points per match to two decimals with the total and matches under it, or the points total alone. */
+export function pointsCell(entry: { totalFP: number | null; matches?: number; averagePoints?: number }): {
+  main: string;
+  detail: string | null;
+} {
+  if (entry.totalFP === null) return { main: '—', detail: null };
+  if (entry.matches === undefined || entry.averagePoints === undefined) {
+    return { main: formatStandingValue(entry.totalFP), detail: null };
+  }
+  const total = formatStandingValue(entry.totalFP);
+  return {
+    main: entry.averagePoints.toFixed(2),
+    detail: `${total} ${total === '1' ? 'pt' : 'pts'} · ${entry.matches} played`,
+  };
+}
+
 /**
  * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed (a late joiner's)
  * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there. A round the unit was
@@ -106,15 +153,30 @@ export function roundCells(
   result: StandingRoundResult | undefined,
   absent = false,
   bestOf?: number,
+  missed?: MissedRound,
 ): RoundCells {
   if (absent) return { score: 'ABS', rank: '—', points: '0' };
+  if (!result && missed) return { score: missed === 'void' ? 'Void' : 'Bye', rank: '—', points: '—' };
   if (!result) return { score: '—', rank: '—', points: '—' };
   if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
   return {
     score: bestOf === undefined ? String(result.score) : winsText(result.score ?? 0),
-    rank: result.rank === null ? '—' : placeOrdinal({ place: result.rank, shared: result.shared === true }),
+    rank: result.results?.length
+      ? result.results.join(' · ')
+      : result.rank === null
+        ? '—'
+        : placeOrdinal({ place: result.rank, shared: result.shared === true }),
     points: formatStandingValue(result.points),
   };
+}
+
+/** Which kind of missed round a table entry has in a round, if any. */
+export function missedRoundOf(
+  entry: { voidRounds?: number[]; byeRounds?: number[] },
+  roundIndex: number,
+): MissedRound | undefined {
+  if (entry.voidRounds?.includes(roundIndex)) return 'void';
+  return entry.byeRounds?.includes(roundIndex) ? 'bye' : undefined;
 }
 
 /** The tie-break to two decimals ("1.37%"), for the hover on the whole percent; "—" without a played round. */
@@ -156,5 +218,7 @@ export function standingsRoundLabel(state: TournamentState, roundIndex: number):
 
 /** `sharesWholePercent` for the entries of one standings table, as every display of it asks. */
 export function entriesSharingPercent(entries: StandingsDisplayTable['entries']): boolean[] {
-  return sharesWholePercent(entries.map((entry) => ({ points: entry.totalFP, share: entry.roomShare })));
+  return sharesWholePercent(
+    entries.map((entry) => ({ points: rankingPoints(entry), share: entry.roomShare })),
+  );
 }

@@ -655,7 +655,7 @@ export function roundHasBegun(state: TournamentState, roundIndex: number): boole
 }
 
 /** Group Stage byes of groups that play a match this round (a group whose round robin ran out is idle, not on a bye). */
-function activeGroupByes(state: TournamentState, round: TournamentRound): string[] {
+export function activeGroupByes(state: TournamentState, round: TournamentRound): string[] {
   const playing = new Set((round.matches ?? []).map((match) => match.group));
   const idle = new Set(
     state.groups.filter((group) => !playing.has(group.label)).flatMap((group) => group.members),

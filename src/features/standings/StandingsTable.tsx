@@ -1,4 +1,3 @@
-import { formatStandingValue } from '../../domain/tournament/scoring';
 import {
   tableRoundIndexes,
   type CutTieMarks,
@@ -18,6 +17,8 @@ import {
   entriesSharingPercent,
   formatTieBreak,
   formatTieBreakPrecise,
+  missedRoundOf,
+  pointsCell,
   roundCells,
   standingsRoundLabel,
 } from './standings-text';
@@ -103,6 +104,7 @@ function RoundResultCells({
     entry.rounds?.find((result) => result.roundIndex === roundIndex),
     entry.absentRounds?.includes(roundIndex),
     bestOf,
+    missedRoundOf(entry, roundIndex),
   );
   return (
     <>
@@ -138,8 +140,9 @@ function StandingsRow({
   /** Another unit on the same points shows the same whole percent. */
   sharesPercent: boolean;
 }) {
+  const points = pointsCell(entry);
   return (
-    <TableRow className={cn('h-10', rowSurfaceClasses(index, followed))}>
+    <TableRow className={cn(points.detail ? 'h-12' : 'h-10', rowSurfaceClasses(index, followed))}>
       <TableCell className='border-0 py-0 pl-4'>
         <div className='flex items-center gap-3'>
           <span className='w-5.5 text-right text-[15px] font-bold text-muted'>{entry.rank ?? '—'}</span>
@@ -161,7 +164,12 @@ function StandingsRow({
         />
       ))}
       <TableCell className='w-21 border-0 py-0 pr-2 text-right text-lg font-extrabold tabular-nums'>
-        {entry.totalFP !== null ? formatStandingValue(entry.totalFP) : '—'}
+        {points.main}
+        {points.detail ? (
+          <span className='block text-xs leading-3.5 font-normal whitespace-nowrap text-muted'>
+            {points.detail}
+          </span>
+        ) : null}
       </TableCell>
       <TableCell
         className={cn(

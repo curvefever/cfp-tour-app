@@ -2,7 +2,7 @@ import { generateTournament } from '../../src/domain/tournament/generation';
 import { createTournamentRuntime } from '../../src/domain/tournament/runtime';
 import { scoreKeysForPosition } from '../../src/domain/tournament/scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
-import { withLoadedRoster } from '../../src/domain/tournament/mutations';
+import { removeRosterUnit, withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type {
   PersistedSetup,
@@ -338,6 +338,29 @@ function groupStage(): TournamentState {
   return scoreCurrentRound(start, { seed: 12, rooms: [1, 2] });
 }
 
+/**
+ * 10 teams 4v4 in two groups of 5, scored by match results: the first group round has its first rooms scored (result
+ * codes beside the points) and a team removed from the last room, so its opponent has a void match.
+ */
+function groupMatchResults(): TournamentState {
+  const start = generate(
+    10,
+    {
+      gameFormat: 'team-4v4',
+      poolingPhase: 'group-stage',
+      groupSize: '5',
+      qualifiersPerGroup: '2',
+      scoring: 'match-results',
+      scheduleLogic: 'single-elimination',
+    },
+    4,
+  );
+  const scored = scoreCurrentRound(start, { seed: 21, rooms: [1, 2, 3] });
+  const lastRoom = Math.max(...scored.assignments[scored.curRound].map((entry) => entry.room ?? 0));
+  const victim = scored.assignments[scored.curRound].find((entry) => entry.room === lastRoom);
+  return victim ? removeRosterUnit(scored, victim.name) : scored;
+}
+
 function ffaQuarters(count: number, players?: string[]): TournamentState {
   const first = playUntil(ffa37Like(count, {}, players), (round) => isFirstLuckyRound(round), 1);
   return scoreCurrentRound(first, { seed: 5, rooms: [1, 2] });
@@ -665,6 +688,9 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('ffa31-pooling', ffaPooling(31)),
     entry('fixed-draws-ffa-37', ffaFixedDraws()),
     entry('groups-1v1-13', groupStage(), { tabs: ['Bracket', 'Groups', 'Rankings', 'Info'] }),
+    entry('groups-4v4-match-results', groupMatchResults(), {
+      tabs: ['Bracket', 'Groups', 'Rankings', 'Info'],
+    }),
     entry('ffa43-quarters', ffaQuarters(43)),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2(), { notesPanel: true }),

@@ -8,7 +8,7 @@ import { shareTiedPoints } from '../../domain/tournament/mutations';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { roomPoints } from './room-points';
+import { roomPoints, roomResultCodes } from './room-points';
 
 function start(
   count: number,
@@ -139,5 +139,33 @@ describe('roomPoints', () => {
     const points = roomPoints(describeStandings(state), 0);
     expect(points.size).toBe(4);
     expect([...points.values()].sort()).toEqual([1, 1, 2, 2]);
+  });
+});
+
+describe('roomResultCodes', () => {
+  const groupSetup = {
+    gameFormat: 'individual-1v1' as const,
+    poolingPhase: 'group-stage' as const,
+    groupSize: '4',
+    qualifiersPerGroup: '2',
+    qualAdv: '4',
+  };
+
+  function scoredGroupRoom(setup: Partial<PersistedSetup>): TournamentState {
+    const state = buildState({ label: 'codes', count: 8, teams: false, setup: { ...groupSetup, ...setup } });
+    if (!state) throw new Error('generation failed');
+    return scoreRooms(state, [1]);
+  }
+
+  it('lists the result of each unit of a match-results group room', () => {
+    const codes = roomResultCodes(
+      describeStandings(scoredGroupRoom({ scoring: 'match-results', tieMargin: '5' })),
+      0,
+    );
+    expect([...codes.values()].sort()).toEqual(['TL', 'TW']);
+  });
+
+  it('lists nothing for a tournament scored by places', () => {
+    expect(roomResultCodes(describeStandings(scoredGroupRoom({})), 0).size).toBe(0);
   });
 });
