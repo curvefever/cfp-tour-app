@@ -133,3 +133,45 @@ export function swapTeamMember(
     memberIndex,
   );
 }
+
+/** Why a vacant slot can't be filled with this player, or null: the slot must be vacant and the name free (a reserve taken from the list does not count against itself). */
+export function slotFillRefusal(
+  state: TournamentState,
+  teamId: string,
+  memberIndex: number,
+  member: TeamMember,
+  reserveIndex?: number,
+): string | null {
+  const team = teamOf(state, teamId);
+  if (!team) return "That team isn't in the tournament.";
+  if (team.members[memberIndex]) return 'That slot is already filled — swap the member instead.';
+  if (reserveIndex !== undefined && state.reserveIndividuals[reserveIndex]?.name !== member.name) {
+    return "That reserve isn't on the list any more.";
+  }
+  return nameRefusal(state, member.name, undefined, reserveIndex);
+}
+
+/**
+ * Fills a vacant slot of a team, at any time: like a member swap it changes no schedule, so no reserve window
+ * applies. The player comes from the individual reserves (`reserveIndex`) or is a new name.
+ */
+export function fillTeamSlot(
+  state: TournamentState,
+  teamId: string,
+  memberIndex: number,
+  member: TeamMember,
+  reserveIndex?: number,
+): TournamentState {
+  if (slotFillRefusal(state, teamId, memberIndex, member, reserveIndex)) return state;
+  const name = member.name.trim();
+  const newcomer: TeamMember = member.userId ? { name, userId: member.userId } : { name };
+  const filled = updateTeam(state, teamId, (team) => ({
+    ...team,
+    members: team.members.map((entry, index) => (index === memberIndex ? newcomer : entry)),
+  }));
+  if (filled === state) return state;
+  return {
+    ...filled,
+    reserveIndividuals: filled.reserveIndividuals.filter((_, index) => index !== reserveIndex),
+  };
+}

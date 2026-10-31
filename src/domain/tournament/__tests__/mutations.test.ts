@@ -7,7 +7,6 @@ import {
   addWalkUpIndividual,
   addWalkUpTeam,
   connectAnonymousFinalist,
-  fillTeamSlot,
   flagFinalGameAnonymous,
   removeRosterUnit,
   renameIndividual,
@@ -25,6 +24,7 @@ import {
   updateTeam,
   withLoadedRoster,
 } from '../mutations';
+import { fillTeamSlot } from '../member-swaps';
 import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/sync/firebase-marshal';
 import { computeRankings } from '../rankings';
 import { distributeRooms } from '../room-distribution';

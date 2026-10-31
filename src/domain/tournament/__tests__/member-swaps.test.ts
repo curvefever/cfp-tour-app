@@ -3,11 +3,13 @@ import { isMemberMarkedAbsent, markOneScoreTeamMemberAbsent } from '../absences'
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import {
   addReserveIndividual,
+  fillTeamSlot,
   memberSwapRefusal,
   removeReserveIndividual,
+  slotFillRefusal,
   swapTeamMember,
 } from '../member-swaps';
-import { fillTeamSlot, setTeamDefender, swapWindowOpen } from '../mutations';
+import { setTeamDefender, swapWindowOpen } from '../mutations';
 import { getDefenderIndex } from '../scoring';
 import { describeStandings } from '../standings-display';
 import { advanceTournamentRound } from '../transitions';
@@ -198,6 +200,14 @@ describe('swapTeamMember and the hand absent marks of One score per team', () =>
     expect(isMemberMarkedAbsent(swapped, 'r0-rm1-p1-m1')).toBe(true);
   });
 
+  it('clears the mark of a team seated second in its room and keeps the other team mark on that slot', () => {
+    let state = markOneScoreTeamMemberAbsent(oneScore(), 0, 1, 1, 1);
+    state = markOneScoreTeamMemberAbsent(state, 0, 1, 0, 1);
+    const swapped = swapTeamMember(state, 'Blue', 1, { name: 'Gus' });
+    expect(isMemberMarkedAbsent(swapped, 'r0-rm1-p1-m1')).toBe(false);
+    expect(isMemberMarkedAbsent(swapped, 'r0-rm1-p0-m1')).toBe(true);
+  });
+
   it('leaves the answers to scored 0s alone', () => {
     const state = {
       ...markOneScoreTeamMemberAbsent(oneScore(), 0, 1, 0, 1),
@@ -272,5 +282,40 @@ describe('fillTeamSlot', () => {
     const filled = fillTeamSlot(vacant, 'Red', 1, { name: 'Eve' }, 0);
     expect(memberNames(filled, 'Red')).toEqual(['Ann', 'Eve']);
     expect(reserveNames(filled)).toEqual([]);
+  });
+
+  it('refuses a name already in use, in either case, with the same message as a swap', () => {
+    const state = pair({
+      reserveIndividuals: [{ name: 'Eve' }],
+      reserves: [teamOf('Green', ['Hal', 'Ida'])],
+    });
+    const vacant = {
+      ...state,
+      players: [{ ...teamsOf(state)[0], members: [{ name: 'Ann' }, null] }, teamsOf(state)[1]],
+    } as TournamentState;
+    for (const name of ['Cy', 'cy', 'ANN', 'Blue', 'Hal', 'EVE']) {
+      expect(fillTeamSlot(vacant, 'Red', 1, { name })).toBe(vacant);
+    }
+    expect(slotFillRefusal(vacant, 'Red', 1, { name: 'cy' })).toBe(
+      memberSwapRefusal(state, 'Red', 0, { name: 'cy' }),
+    );
+  });
+
+  it('accepts a reserve picked from the list (it does not collide with itself) and refuses a stale pick', () => {
+    const state = pair({ reserveIndividuals: [{ name: 'Eve' }, { name: 'Fay' }] });
+    const vacant = {
+      ...state,
+      players: [{ ...teamsOf(state)[0], members: [{ name: 'Ann' }, null] }, teamsOf(state)[1]],
+    } as TournamentState;
+    expect(slotFillRefusal(vacant, 'Red', 1, { name: 'Fay' }, 1)).toBeNull();
+    expect(slotFillRefusal(vacant, 'Red', 1, { name: 'Fay' }, 0)).not.toBeNull();
+    expect(fillTeamSlot(vacant, 'Red', 1, { name: 'Fay' }, 0)).toBe(vacant);
+    expect(reserveNames(fillTeamSlot(vacant, 'Red', 1, { name: 'Fay' }, 1))).toEqual(['Eve']);
+  });
+
+  it('refuses a filled slot and an unknown team', () => {
+    const state = pair();
+    expect(fillTeamSlot(state, 'Red', 0, { name: 'Gus' })).toBe(state);
+    expect(fillTeamSlot(state, 'Nobody', 0, { name: 'Gus' })).toBe(state);
   });
 });

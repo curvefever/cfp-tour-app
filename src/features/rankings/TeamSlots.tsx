@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { memberSwapRefusal, swapTeamMember } from '../../domain/tournament/member-swaps';
 import {
   fillTeamSlot,
-  renameTeamMember,
-  setTeamDefender,
-  updateTeam,
-} from '../../domain/tournament/mutations';
+  memberSwapRefusal,
+  slotFillRefusal,
+  swapTeamMember,
+} from '../../domain/tournament/member-swaps';
+import { renameTeamMember, setTeamDefender, updateTeam } from '../../domain/tournament/mutations';
 import type { TeamMember, TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Button, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -76,18 +76,22 @@ export function VacantSlot({
   team: TournamentTeam;
 }) {
   const app = useTournamentApp();
+  const fill = (member: TeamMember, reserveIndex?: number) => {
+    const refusal = slotFillRefusal(state, team.teamId, memberIndex, member, reserveIndex);
+    if (refusal) {
+      window.alert(refusal);
+      return;
+    }
+    app.updateState((current) => fillTeamSlot(current, team.teamId, memberIndex, member, reserveIndex));
+  };
   return (
     <div className={SLOT_ROW}>
       <span className='text-muted'>Vacant slot</span>
       <SlotControls
         label={`${team.teamName} slot ${memberIndex + 1}`}
         newPrompt='Name of the new/walk-up player filling this slot:'
-        onNew={(name) =>
-          app.updateState((current) => fillTeamSlot(current, team.teamId, memberIndex, { name }))
-        }
-        onReserve={(reserve, index) =>
-          app.updateState((current) => fillTeamSlot(current, team.teamId, memberIndex, reserve, index))
-        }
+        onNew={(name) => fill({ name })}
+        onReserve={fill}
         reserves={state.reserveIndividuals}
       />
     </div>

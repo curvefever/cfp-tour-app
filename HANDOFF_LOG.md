@@ -6,6 +6,40 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Group stage polish: texts, layout, individual reserves and member swaps (done — 2026-10-31)
+
+**Context.** The organiser's first manual test of the group build (test site, tournament "grroupp": 4v4, group stage, Match results, One score per team) raised the points below, with "texts have generally not been updated, please check wherever relevant". Five parts, each its own commit: texts and decimals, layout, individual reserves and member swaps, docs, live check.
+
+**Decisions (the planner's calls, open to the organiser's correction).**
+- Per-match values show like every other points value (`formatStandingValue`: whole numbers whole, otherwise one decimal). Two averages can then read the same ("2.3" for 7/3 and 9/4); the rank column and the tie-break order still tell them apart. Accepted.
+- The qualified/out gap inside a group goes away **in the Bracket's Groups column only** (each group is its own box under a room-card title band); the stripes still show who goes through. The Groups tab tables and a qualification table keep their gaps.
+- On the Groups tab the tables stack one under another for every kind, and the explanation box uses the full width.
+- Individual reserves, member swaps and filling a vacant slot are open **at any time** (before the start, during the group stage, the bracket and the Final, whatever the reserve window says): they change no schedule and no draw. Whole-team swaps keep their window.
+- A swapped-out member becomes an individual reserve and can come back. Scores are stored by slot, so a past room shows the team's current members, like a rename. Per-round member history is out of scope.
+- Filling a vacant slot refuses a name already in use, with the swap's message (review follow-up; before, only unstorable names were refused).
+
+**Texts (stage 1).** The "How the group stage works" text lives in `standingsExplanation` (`standings-text.ts`; its title in `standings-names.ts`). Sweep of group-scoring texts, each as it read and as it reads now:
+- Points cell and cut-off tie banner: "1.75" / "1.33 pts per match" → "1.8" / "1.3 pts per match".
+- Groups tab heads of a per-match group: Rank / Points / Tie-break → Result (under match results) / Pts / match / Rel. score; phone detail "7 pts · 4 played", "Tie-break 150%" → "Pts / match 1.8 (7 pts · 4 played)", "Rel. score 150%".
+- Explanation: the one-line match-result sentence became "Each game is scored by the points gap: W, a win by more than 100 = 3 · TW, … · T, equal scores = 1.5." (the tournament's own margin and points; "A round's games add up." for a summed multi-game group round); "void for the one that turned up; a no-show gets 0 for it" → "void for the team that turned up and doesn't count; the absent team gets 0 for it" (team or player from the format); the tie-break sentence → "On equal points per match: first your results against each other, then your relative score (Rel. score …), then the organiser's decision."
+- Room pop-up of a match-results group room: "1st +2, 2nd +1" → "W +3 · TW +2", "TL +1 · L +0", "T +1.5", "All → groups" (the margin stays in the explanation box).
+- Absent panel hint: "One score per team: a member can be marked absent by hand (shown only)" → "One score per team: you can mark a member absent by hand. The mark shows on the team's line and doesn't change the score." (wraps: `ToolRow` gets a `wrap` option).
+- Reserve messages in `RankingsRoster.tsx` ('closed', 'group-stage', 'waterfall-bracket') for a team format now name Manage Teams and add "To replace one player of a team, use ⇄ on that player in Manage Teams at any time"; the team panel's swaps-closed note reads "Team swaps closed — eliminations have started (a player can still be swapped)".
+- Checked and left: the lone-unit room note, Setup help for Match results and the margin, the settings recap, the cut-off tie banner heading, Bye cards and lines, ABS and Void cells, absence banners, follow and ranking-where texts. Old group tournaments (no `groupAverageVersion`) keep their texts through the same switch.
+
+**Layout (stage 2).** `StandingsColumn.tsx`: a group stage's groups are `RoomFrame` boxes 12 px apart, "Full table →" under the last; `TournamentStandings.tsx` a single column; `StandingsView.tsx` the explanation without a max width.
+
+**Individual reserves and member swaps (stage 3).** New `member-swaps.ts`: `addReserveIndividual`, `removeReserveIndividual`, `swapTeamMember`, `fillTeamSlot` (moved from `mutations.ts`, no `reserveOpen` gate) and the refusal helpers the UI alerts (`reserveIndividualRefusal`, `memberSwapRefusal`, `slotFillRefusal`; names compared case-insensitively against players, teams, their members, reserve teams and individual reserves). Confirmations keep each person's name; the defender stays on the slot; in One score per team a hand absent mark on the swapped slot in the round in play is cleared. UI: `TeamSlots.tsx` (a ⇄ "Swap member" on each member, vacant-slot controls always shown), `RankingsRoster.tsx` (individual reserves always shown with an add field and a ✕ per chip).
+
+**Testing.** Lint, format and types clean on the changed files at every stage; related tests at every stage (stage 3: 81 files, 2845 tests). New tests: the new decimals, heads, explanation figures (margin 50, points 5/3/1/0), Bo3 versus summed games, old group tournaments' texts, the match-result pop-up lines (`standings-group-average.test.ts`, `exit-lines.test.ts`); `member-swaps.test.ts` (swap from the list and with a new name, swap back, refusals in both cases, the 13-team 4v4 group stage in a group round and in a bracket round after an elimination with standings unchanged, One score per team marks for the first and the second seat, Save your Buddy, reserves before the start, in a group stage and in a fixed draw, fill with the window closed and its duplicate check). Mutation checks by the implementer on each stage, and by the reviewer. Awkward count: 13 teams (groups of 4–5, byes). Live check: stage 5, written into this entry once done.
+
+**Out of scope.**
+- Per-round member history (who actually played a past room).
+- "After 1 of 5 rounds" counts the longest group; a group of 4 finishes after 3 rounds.
+- Swiss match results, Best of 5 / 7 mapping, default margins per mode (roadmap).
+- Adding a whole team during a group stage.
+- ✕ on a member still empties the slot without making them a reserve; a reserve team swapped in does not turn its members into individual reserves.
+
 ## Group stage: void gaps, points per match, match-result scoring (done — 2026-10-31)
 
 **Context.** Needed for a real tour (4v4 group stage, target score 1400). Three things in the group stage the organiser wanted changed together (six stages, an implementer session and a planner/reviewer session):
