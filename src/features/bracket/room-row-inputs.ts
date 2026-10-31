@@ -31,17 +31,6 @@ export function winsSoFar(
   return match && match.countedGames > 0 ? (match.units[position]?.wins ?? null) : null;
 }
 
-/** The columns a 330 px card holds beside a readable name: 46 px each. */
-const MAX_COLUMNS = 3;
-
-export type GameScoreLayout = 'none' | 'columns' | 'line';
-
-/** Where a multi-game room shows each game's score: in columns while they fit beside the name (the points column counts as one), else as a line under the name. */
-export function gameScoreLayout(games: number, points: boolean): GameScoreLayout {
-  if (games <= 1) return 'none';
-  return games + (points ? 1 : 0) <= MAX_COLUMNS ? 'columns' : 'line';
-}
-
 /** One unit's score in each game of its room: null for a game not typed yet or not needed (a decided Best of). Empty for a single game. */
 export function roomGameScores(
   state: TournamentState,

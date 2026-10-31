@@ -13,7 +13,6 @@ import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { GamesHeader } from './GameScores';
 import { LoneUnitRow, RoomRow } from './RoomRow';
-import { gameScoreLayout } from './room-row-inputs';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
@@ -142,14 +141,13 @@ export function RoomCard({
       ]
     : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   const memberInputs = scoredTeamSize(state);
-  // Where the boxes don't show each game's score, a multi-game room shows it in the row (the Final has its own view).
-  const gameLayout =
-    rowsEditable || round.isFinal ? 'none' : gameScoreLayout(round.numGames ?? 1, Boolean(points));
+  // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
+  const gameColumns = !rowsEditable && !round.isFinal && (round.numGames ?? 1) > 1;
   return (
     <RoomFrame lines={lines} title={title}>
-      {gameLayout !== 'none' ? (
+      {gameColumns ? (
         <GamesHeader
-          columns={gameLayout === 'columns' ? (round.numGames ?? 1) : 0}
+          columns={round.numGames ?? 1}
           label={points ? 'SCORE' : round.bestOf !== undefined ? 'WINS' : 'TOTAL'}
           points={Boolean(points)}
         />
@@ -176,7 +174,7 @@ export function RoomCard({
           <RoomRow
             absent={absent}
             followed={followKey === entry.name}
-            gameLayout={gameLayout}
+            gameColumns={gameColumns}
             games={round.numGames ?? 1}
             index={index}
             inputsPerTeam={rowsEditable ? memberInputs : undefined}

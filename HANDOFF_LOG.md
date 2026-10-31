@@ -6,6 +6,21 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Room game scores always in columns, wrapping under a long name (done — 2026-10-31)
+
+**Context.** The organiser saw a room's game scores under the name in one round ("200 · 120 · 210") and in columns on the right in another, and asked for the right side everywhere; they also found that 10-letter names beside the columns broke into chunks of two or three letters. Both came from width: the columns took about 256 of the card's 330 px, leaving the name about 70 px (and `wrap-break-word` breaking a single word mid-way), and the earlier rule moved a room to the line once it needed more than 3 columns, the points column counting as one, so a 3-game qualification round got the line and a 3-game elimination round got columns. A mockup of the fix was approved before building.
+
+**What changed.**
+- `gameScoreLayout()` and its 'line' layout are gone (`room-row-inputs.ts`, `GameScoresLine` in `GameScores.tsx`): a multi-game room outside edit mode and outside the Final always shows G1 … GN columns, up to 7, under the header (`RoomCard.tsx` passes `gameColumns`).
+- `RoomRow.tsx`: the name and the score group (game columns, result, points) sit in one wrapping line. Beside game columns the name takes the width it needs (`grow`, `max-w-full`); when both don't fit, the score group drops to a line of its own, right-aligned, so its cells stay under the header. The member line sits in a `w-0 min-w-full` span, so it wraps within the name's width instead of pushing the scores down. A row without game columns keeps the old layout (the name `flex-1`, wrapping beside the result).
+- The column width stays at 38 px (`w-9.5`), not the narrower 30 px of the mockup: the Final uses the same width, and the score boxes are sized for four-digit scores, which 30 px can't hold.
+
+**Testing.** Lint, format and types clean on the changed files; related tests pass. `RoomGameScores.render.test.tsx`: the Best of 5 and 4-game cases now expect columns (G5 and G4 headers, each game's cell before the result) and no line. Screenshots with a scratch Playwright spec over the screen fixtures, players renamed to 10-letter single words ("Longname01"): the 13-player Best-of Swiss rounds (3 games and points) drop the scores to a second line under their columns, the Best of 3 elimination rooms stay on one line at 390 px, and 2-game rooms of 2-player teams keep the scores beside the name with the member line wrapping after " · "; single-game team rooms are unchanged. The scratch spec was deleted.
+
+Full suite: not run (no shared code).
+
+**Out of scope.** Narrower columns (they would part from the Final's widths); the Final's own view, which already used columns.
+
 ## Best of N everywhere: a match format for every round (done — 2026-10-30)
 
 **Context.** Best of N (or N games summed) was available only in the Custom bracket's rounds and, as "Semis format" / "Finals format", in the Semis and the Final. The organiser wanted it for every round of every format: rounds before the Semis, double elimination's winners and losers rounds, the Kings Valley ladder and the pooling rounds (Swiss, group stage, qualification table, warm-ups). Five stages, one planner and one implementer session.
@@ -59,6 +74,8 @@ Comments and test titles say "One score per team" or "a team with one score". Te
 **Out of scope.** Changing the stored value `'survival-teams'` (and any production data migration); the Survival game mode's name in scripts and `docs/real-scores.md`.
 
 ## Each game's score in multi-game rooms (done — 2026-10-30)
+
+**Changed 2026-10-31 — see 'Room game scores always in columns, wrapping under a long name' above:** the line under the name is gone; the columns show for any game count.
 
 **Context.** A viewer of a Best-of-3 Semis room saw only the result (`2` / `1`, or the summed total); the Final already showed every game in columns. The organiser wants "200–150" as well as "1–0", before the 4v4 tour of Sunday 1 November 2026, 20:00 CET. Display only: no domain rule, stored data or score entry changed. One stage, one commit on `test`.
 

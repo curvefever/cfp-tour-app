@@ -7,7 +7,7 @@ function scoreText(score: number | null): string {
   return score === null ? '—' : String(score);
 }
 
-/** The header of a room that shows its game scores: one column per game (none in the line layout), then the result, then the points. */
+/** The header of a room that shows its game scores: one column per game, then the result, then the points. */
 export function GamesHeader({
   columns,
   label,
@@ -39,9 +39,4 @@ export function GameColumns({ games, scores }: { games: number; scores: Array<nu
       {scores ? scoreText(scores[game] ?? null) : null}
     </span>
   ));
-}
-
-/** The line under a name that holds every game's score when a room has too many games for columns: `200 · 120 · 210`. */
-export function GameScoresLine({ scores }: { scores: Array<number | null> }) {
-  return <span className='text-[13px] text-muted'>{scores.map(scoreText).join(' · ')}</span>;
 }

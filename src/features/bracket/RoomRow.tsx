@@ -16,8 +16,8 @@ import {
   UnitScoreFields,
   compactScoreClass,
 } from './ScoreFields';
-import { GameColumns, GameScoresLine } from './GameScores';
-import { type GameScoreLayout, roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
+import { GameColumns } from './GameScores';
+import { roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
 import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
@@ -152,8 +152,8 @@ export interface RoomRowProps {
   /** Whether the format scores each member (then the inputs are per member, not per team). */
   memberInputs: number | undefined;
   games: number;
-  /** How the row shows each game's score (none while its boxes show them, or in a single-game room). */
-  gameLayout: GameScoreLayout;
+  /** Whether the row shows each game's score in columns (not while its boxes show them, nor in a single-game room). */
+  gameColumns: boolean;
 }
 
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
@@ -214,13 +214,11 @@ export function RoomRow(props: RoomRowProps) {
   const { absent } = props;
   const { place, sharedPlace } = props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
-  const { memberInputs, games, gameLayout } = props;
+  const { memberInputs, games, gameColumns } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
-  const gameColumns = gameLayout === 'columns';
-  const gameScores =
-    gameLayout !== 'none' && !absent ? roomGameScores(state, roundIndex, room, position) : null;
+  const gameScores = gameColumns && !absent ? roomGameScores(state, roundIndex, room, position) : null;
   // The result sits in a fixed-width column when a points column or the game columns need to line up with their header.
   const resultWidth = pointsColumn ? 'w-11.5' : gameColumns ? 'w-12' : undefined;
   // A Best-of match in progress shows the games won so far, in a lighter weight than a result.
@@ -264,39 +262,52 @@ export function RoomRow(props: RoomRowProps) {
         result={result}
         stripe={inlineInput ? 'fixed' : memberLine ? 'member-line' : 'line'}
       >
-        <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
-          <NameWithMarks
-            manual={manual}
-            pendingTie={pendingTie}
-            resolvedTie={showResults && resolvedTie}
-            star={star}
-          >
-            {label}
-          </NameWithMarks>
-          {memberLine ? (
-            <TeamMembers
-              name={name}
-              roundIndex={roundIndex}
-              seat={showResults ? { room, position } : undefined}
-              markSeat={{ room, position }}
-              state={state}
-            />
-          ) : null}
-          {gameLayout === 'line' && gameScores ? <GameScoresLine scores={gameScores} /> : null}
-        </span>
-        {gameColumns ? <GameColumns games={games} scores={gameScores} /> : null}
-        {inlineInput ? (
-          <UnitScoreFields games={1} position={position} room={room} roundIndex={roundIndex} state={state} />
-        ) : (
-          scoreText
-        )}
-        {pointsColumn ? (
-          <span className='w-9 shrink-0 text-right text-sm font-bold text-cfp-sky'>
-            {props.points === null || props.points === undefined
-              ? null
-              : `+${formatStandingValue(props.points)}`}
+        {/* Beside game columns the name keeps its full width: the scores drop to a line of their own when both don't fit. */}
+        <span className='flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5'>
+          <span className={cn('flex min-w-0 flex-col gap-0.5', gameColumns ? 'max-w-full grow' : 'flex-1')}>
+            <NameWithMarks
+              manual={manual}
+              pendingTie={pendingTie}
+              resolvedTie={showResults && resolvedTie}
+              star={star}
+            >
+              {label}
+            </NameWithMarks>
+            {memberLine ? (
+              // The member line wraps within the name's width, so it never pushes the scores down.
+              <span className='w-0 min-w-full'>
+                <TeamMembers
+                  name={name}
+                  roundIndex={roundIndex}
+                  seat={showResults ? { room, position } : undefined}
+                  markSeat={{ room, position }}
+                  state={state}
+                />
+              </span>
+            ) : null}
           </span>
-        ) : null}
+          <span className='ml-auto flex shrink-0 items-center gap-2'>
+            {gameColumns ? <GameColumns games={games} scores={gameScores} /> : null}
+            {inlineInput ? (
+              <UnitScoreFields
+                games={1}
+                position={position}
+                room={room}
+                roundIndex={roundIndex}
+                state={state}
+              />
+            ) : (
+              scoreText
+            )}
+            {pointsColumn ? (
+              <span className='w-9 shrink-0 text-right text-sm font-bold text-cfp-sky'>
+                {props.points === null || props.points === undefined
+                  ? null
+                  : `+${formatStandingValue(props.points)}`}
+              </span>
+            ) : null}
+          </span>
+        </span>
       </RowLine>
       {inputsPerTeam ? <MemberInputs count={inputsPerTeam} props={props} /> : null}
       {rowsEditable && !inlineInput && !memberInputs ? (

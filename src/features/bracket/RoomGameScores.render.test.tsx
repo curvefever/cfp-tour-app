@@ -120,23 +120,27 @@ describe('each game of a multi-game room in the Bracket', () => {
     expect(view.queryAllByText('301').length).toBeGreaterThan(0);
   });
 
-  it('shows a Best of 5 as a line under the name, not as columns', () => {
+  it('shows a Best of 5 in columns too, G1 to G5, never as a line under the name', () => {
     const { fixture } = semisInPlay(37, { semisBestOf: '5' }, [
       [301, 101],
       [252, 52],
     ]);
     const view = bracketOf(fixture, 'viewer');
-    expect(view.queryAllByText('G1')).toHaveLength(0);
-    expect(view.queryAllByText('301 · 252 · — · — · —').length).toBe(1);
-    expect(view.queryAllByText('101 · 52 · — · — · —').length).toBe(1);
+    expect(view.queryAllByText('G5').length).toBeGreaterThan(0);
+    expect(view.queryAllByText('301 · 252 · — · — · —')).toHaveLength(0);
+    const row = Array.from(view.getAllByText('301')[0].parentElement?.children ?? []);
+    expect(row.map((cell) => cell.textContent).slice(-6)).toEqual(['301', '252', '—', '—', '—', '2']);
   });
 
-  it('shows 4 summed games as a line, as they leave the name too little room in columns', () => {
+  it('shows 4 summed games in columns under a TOTAL header', () => {
     const { fixture } = semisInPlay(37, { semisGames: '4' }, [[301, 101]]);
     const view = bracketOf(fixture, 'viewer');
-    expect(view.queryAllByText('G1')).toHaveLength(0);
-    expect(view.queryAllByText('TOTAL').length).toBeGreaterThan(0);
-    expect(view.queryAllByText('301 · — · — · —')).toHaveLength(1);
+    expect(['G1', 'G4', 'TOTAL'].map((label) => view.queryAllByText(label).length > 0)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect(view.queryAllByText('301 · — · — · —')).toHaveLength(0);
   });
 
   it('leaves the admin in edit mode with the score boxes, and no game columns', () => {

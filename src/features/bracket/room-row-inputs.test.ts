@@ -3,13 +3,7 @@ import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { oneRoomState } from '../../domain/tournament/__tests__/test-fixtures';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
-import {
-  gameScoreLayout,
-  luckyLoserNames,
-  roomGameScores,
-  unitScoreSummary,
-  winsSoFar,
-} from './room-row-inputs';
+import { luckyLoserNames, roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
 import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 describe('luckyLoserNames', () => {
@@ -139,21 +133,5 @@ describe('roomGameScores', () => {
   it('is empty on a single-game round', () => {
     const state = oneRoomState({ players: ['A', 'B'], scores: { 'r0-rm1-p0': 3 } });
     expect(roomGameScores(state, 0, 1, 0)).toEqual([]);
-  });
-});
-
-describe('gameScoreLayout', () => {
-  it('shows nothing for one game, columns for 2 and 3, and a line from 4', () => {
-    expect([1, 2, 3, 4, 5].map((games) => gameScoreLayout(games, false))).toEqual([
-      'none',
-      'columns',
-      'columns',
-      'line',
-      'line',
-    ]);
-  });
-
-  it('counts the points column as one of the columns', () => {
-    expect([1, 2, 3].map((games) => gameScoreLayout(games, true))).toEqual(['none', 'columns', 'line']);
   });
 });
