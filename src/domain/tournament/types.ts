@@ -187,6 +187,8 @@ export interface TournamentStanding {
   averagePoints?: number;
   /** Group stage with `groupAverageVersion` 2 only, on a unit level with others on points per match and room share: the points it took from its matches against those units (a mini-table, group-standings.ts). The tie-break after the room share; units still level after it are the organiser's to place. */
   headToHead?: number;
+  /** Set with `headToHead`: the position, within the run of level units, where the unit's final level starts. Units still level after every head-to-head split (a cycle) share it; `sameGroupStanding` reads it. */
+  headToHeadLevel?: number;
 }
 
 export interface TournamentGroup {

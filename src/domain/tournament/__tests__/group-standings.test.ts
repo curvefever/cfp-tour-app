@@ -7,7 +7,13 @@ import {
   roomBasedComputeAdvancement,
   sameStanding,
 } from '../advancement';
-import { groupSeats, sameGroupStanding, usesGroupAverages } from '../group-standings';
+import {
+  type GroupMatchPoints,
+  groupSeats,
+  sameGroupStanding,
+  usesGroupAverages,
+  withHeadToHead,
+} from '../group-standings';
 import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
@@ -609,5 +615,59 @@ describe('the head-to-head tie-break inside a group', () => {
   it('the earlier group rule has no head-to-head step', () => {
     const state = groupState(CYCLE, { members, averaged: false });
     for (const entry of computeGroupStandings(state).A) expect(entry).not.toHaveProperty('headToHead');
+  });
+});
+
+describe('withHeadToHead: a group still level after the first mini-table', () => {
+  function level(name: string): TournamentStanding {
+    return { name, totalFP: 5, totalScore: 0, played: 3, roomShare: 1, matches: 3, averagePoints: 5 / 3 };
+  }
+  const match = (
+    first: string,
+    firstPoints: number,
+    second: string,
+    secondPoints: number,
+  ): GroupMatchPoints => ({
+    group: 'A',
+    points: { [first]: firstPoints, [second]: secondPoints },
+  });
+
+  it('orders the units still level by the matches among only them', () => {
+    // A beats B (3/0) and takes a Tie Win from C (2/1); B takes a Tie Win from C (2/1): A 5, B 2, C 2 -- then B beat C.
+    const table = withHeadToHead(['A', 'B', 'C'].map(level), [
+      match('A', 3, 'B', 0),
+      match('A', 2, 'C', 1),
+      match('B', 2, 'C', 1),
+    ]);
+    expect(table.map((entry) => entry.name)).toEqual(['A', 'B', 'C']);
+    expect(table.map((entry) => entry.headToHead)).toEqual([5, 2, 2]);
+    expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 1, 2]);
+    expect(sameGroupStanding(table[0], table[1])).toBe(false);
+    expect(sameGroupStanding(table[1], table[2])).toBe(false);
+  });
+
+  it('leaves a cycle fully level', () => {
+    const table = withHeadToHead(['A', 'B', 'C'].map(level), [
+      match('A', 3, 'B', 0),
+      match('B', 3, 'C', 0),
+      match('C', 3, 'A', 0),
+    ]);
+    expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 0, 0]);
+    expect(sameGroupStanding(table[0], table[2])).toBe(true);
+  });
+
+  it('splits off the leader and keeps a cycle among the rest', () => {
+    const table = withHeadToHead(['A', 'B', 'C', 'D'].map(level), [
+      match('A', 3, 'B', 0),
+      match('A', 3, 'C', 0),
+      match('A', 3, 'D', 0),
+      match('B', 3, 'C', 0),
+      match('C', 3, 'D', 0),
+      match('D', 3, 'B', 0),
+    ]);
+    expect(table[0].name).toBe('A');
+    expect(table.map((entry) => entry.headToHeadLevel)).toEqual([0, 1, 1, 1]);
+    expect(sameGroupStanding(table[1], table[3])).toBe(true);
+    expect(sameGroupStanding(table[0], table[1])).toBe(false);
   });
 });

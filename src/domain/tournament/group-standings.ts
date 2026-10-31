@@ -54,33 +54,75 @@ export function playedMatchOf(group: string, outcomes: readonly NamedOutcome[]):
   return { group, points: Object.fromEntries(outcomes.map((outcome) => [outcome.name, outcome.points])) };
 }
 
-/** Equal within a group: level on points per match and room share, and on the head-to-head points. */
+/** Equal within a group: level on points per match and room share, and still level after the head-to-head splits. */
 export function sameGroupStanding(first: TournamentStanding, second: TournamentStanding): boolean {
-  return sameStanding(first, second) && samePoints(first.headToHead ?? null, second.headToHead ?? null);
+  return sameStanding(first, second) && (first.headToHeadLevel ?? null) === (second.headToHeadLevel ?? null);
 }
 
-/** One run of units level on points per match and room share, each with the points it took from the others, best first (stable). */
+/** The points each unit of a run took from the matches among the run's units only. */
+function miniTable(
+  run: readonly { name: string }[],
+  matches: readonly GroupMatchPoints[],
+): Map<string, number> {
+  const names = new Set(run.map((entry) => entry.name));
+  const between = matches.filter((match) => Object.keys(match.points).every((name) => names.has(name)));
+  return new Map(
+    run.map((entry) => [
+      entry.name,
+      between.reduce((total, match) => total + (match.points[entry.name] ?? 0), 0),
+    ]),
+  );
+}
+
+/**
+ * A run of level units split into levels, best first: ordered by its mini-table, then each smaller group still level on
+ * it ordered again by the matches among only its members, until a group is the whole run it was cut from (a cycle) and
+ * stays level.
+ */
+function splitIntoLevels<T extends { name: string }>(run: T[], matches: readonly GroupMatchPoints[]): T[][] {
+  const points = miniTable(run, matches);
+  const pointsOf = (entry: T) => points.get(entry.name) ?? 0;
+  const sorted = [...run].sort((first, second) =>
+    samePoints(pointsOf(first), pointsOf(second)) ? 0 : pointsOf(second) - pointsOf(first),
+  );
+  const groups: T[][] = [];
+  for (const entry of sorted) {
+    const group = groups.at(-1);
+    if (group && samePoints(pointsOf(group[0]), pointsOf(entry))) group.push(entry);
+    else groups.push([entry]);
+  }
+  if (groups.length === 1) return groups;
+  return groups.flatMap((group) => (group.length < 2 ? [group] : splitIntoLevels(group, matches)));
+}
+
+/**
+ * One run of units level on points per match and room share, best first. Each carries the points it took from the
+ * run's matches (`headToHead`, the first mini-table, for display) and the position its final level starts at
+ * (`headToHeadLevel`): units still level after every split share it.
+ */
 function orderByHeadToHead(
   run: TournamentStanding[],
   matches: readonly GroupMatchPoints[],
 ): TournamentStanding[] {
-  const names = new Set(run.map((entry) => entry.name));
-  const between = matches.filter((match) => Object.keys(match.points).every((name) => names.has(name)));
-  return run
-    .map((entry) => ({
+  const points = miniTable(run, matches);
+  let position = 0;
+  return splitIntoLevels(run, matches).flatMap((level) => {
+    const start = position;
+    position += level.length;
+    return level.map((entry) => ({
       ...entry,
-      headToHead: between.reduce((total, match) => total + (match.points[entry.name] ?? 0), 0),
-    }))
-    .sort((first, second) =>
-      samePoints(first.headToHead, second.headToHead) ? 0 : second.headToHead - first.headToHead,
-    );
+      headToHead: points.get(entry.name) ?? 0,
+      headToHeadLevel: start,
+    }));
+  });
 }
 
 /**
  * A group's table (already ordered by points per match, then room share) with each run of level units ordered by the
  * head-to-head points of the matches they played against each other: two units by their own match, three or more by
- * a mini-table of only those matches (both legs of a double round robin). Units level after it stay level, for the
- * organiser. `matches` are the group's played matches.
+ * a mini-table of only those matches (both legs of a double round robin), and a smaller group still level on it by a
+ * mini-table of only its own matches, and so on. Units level after that stay level, for the organiser. `matches` are
+ * the group's played matches.
  */
 export function withHeadToHead(
   table: TournamentStanding[],
