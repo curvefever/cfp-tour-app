@@ -92,7 +92,7 @@ function nonCountingSentence(state: TournamentState): string {
 function cutSentence(display: StandingsDisplay): string {
   const cut = display.tables[0]?.cut ?? null;
   const verb = display.phase === 'final' ? 'qualified' : 'go through';
-  if (display.groupExit && display.groupExit.mode !== 'per-group') {
+  if (display.groupExit && (display.groupExit.mode !== 'per-group' || cut !== null)) {
     return groupExitCutSentence(display.groupExit, verb);
   }
   if (cut === null) return display.phase === 'final' ? 'Everyone qualified.' : 'Everyone goes through.';

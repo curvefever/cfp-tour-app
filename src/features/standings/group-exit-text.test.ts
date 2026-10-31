@@ -54,7 +54,22 @@ describe('groupExitHelp: the Setup help line from the shape', () => {
       '13 teams in groups of 5, 4, 4: the top 2 of each group go through.',
     );
     expect(help([5, 4, 4], 'fair-cut', 6)).toBe(
-      '13 teams in groups of 5, 4, 4: the top 2 of the group of 5 and the top 1 of each group of 4 go through, then 2 spots for the best next in line.',
+      '13 teams in groups of 5, 4, 4: the top 2 of the group of 5 and the winner of each group of 4 go through, then 2 spots for the best next in line.',
+    );
+  });
+
+  it('says the winner for a count of 1, with the verb to match', () => {
+    expect(groupExitHelp(groupExitShape([5, 4, 4], 'per-group', 1), [5, 4, 4], 13, 'teams')).toBe(
+      '13 teams in groups of 5, 4, 4: the winner of each group goes through.',
+    );
+    expect(groupExitCutSentence(groupExitShape([5, 4, 4], 'per-group', 1), 'go through')).toBe(
+      'The winner of each group goes through.',
+    );
+    expect(groupExitCutSentence(groupExitShape([5, 4, 4], 'per-group', 1), 'qualified')).toBe(
+      'The winner of each group qualified.',
+    );
+    expect(groupExitCutSentence(groupExitShape([5, 4, 4], 'fair-cut', 6), 'go through')).toBe(
+      '6 go through: the top 2 of the group of 5 and the winner of each group of 4, then the best next in line.',
     );
   });
 
@@ -95,8 +110,8 @@ describe('groupExitHelpLine', () => {
 });
 
 describe('the Groups explanation, in each mode', () => {
-  const cut = (setup: Partial<PersistedSetup>, phase?: 'final') => {
-    const state = groupState(setup);
+  const cut = (setup: Partial<PersistedSetup>, phase?: 'final', count = 13) => {
+    const state = groupState(setup, count);
     const display = describeStandings(state);
     if (!display) throw new Error('no standings');
     return standingsExplanation(state, phase ? { ...display, phase } : display)[3];
@@ -119,6 +134,13 @@ describe('the Groups explanation, in each mode', () => {
 
   it('per group is unchanged', () => {
     expect(cut({ qualifiersPerGroup: '2' })).toContain('The top 2 of each group go through.');
+  });
+
+  it('per group with 1 qualifier names the winner', () => {
+    expect(cut({ qualifiersPerGroup: '1' }, undefined, 16)).toContain(
+      'The winner of each group goes through.',
+    );
+    expect(cut({ qualifiersPerGroup: '1' }, 'final', 16)).toContain('The winner of each group qualified.');
   });
 
   it('with nothing left over it is just the top places', () => {
