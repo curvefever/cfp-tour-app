@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
 import { getAllColumnTies } from '../../domain/tournament/advancement';
-import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
+import { withEarlierGroupRule, withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
 import { shareTiedPoints } from '../../domain/tournament/mutations';
 import {
   describeStandings,
@@ -17,7 +17,7 @@ type Entry = StandingsDisplayTable['entries'][number];
 function stateOf(id: string): TournamentState {
   const fixture = fixtureTournaments().find((entry) => entry.id === id);
   if (!fixture) throw new Error(`no fixture ${id}`);
-  return withEarlierPointsRule(loadedState(fixture));
+  return withEarlierGroupRule(withEarlierPointsRule(loadedState(fixture)));
 }
 
 /** The table of a fixture's standings that `pick` accepts (the first by default), with what a row needs. */

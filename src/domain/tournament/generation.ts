@@ -580,6 +580,7 @@ export function generateTournament(
     ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
     pointsVersion: 2,
     cutVersion: 2,
+    groupAverageVersion: 2,
     absenceVersion: 1,
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),

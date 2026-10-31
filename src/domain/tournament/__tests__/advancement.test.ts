@@ -30,7 +30,13 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentStanding, TournamentState } from '../types';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { buildState, scoreCurrentRound, withEarlierCutRule, withEarlierPointsRule } from './play-through';
+import {
+  buildState,
+  scoreCurrentRound,
+  withEarlierCutRule,
+  withEarlierGroupRule,
+  withEarlierPointsRule,
+} from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
@@ -1554,7 +1560,27 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     expect(live.assignments[2].map((entry) => entry.name)).toContain(lone);
   });
 
-  it('group stage (9 players): a lone unit is credited a win in its own group, with no played round', () => {
+  it('group stage (9 players, the earlier group rule): a lone unit is credited a win in its own group, with no played round', () => {
+    let live = withEarlierGroupRule(
+      generate(9, {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        qualAdv: '4',
+        groupSize: '4',
+        oddCountStrategy: 'bye',
+      }),
+    );
+    const { removed, lone } = pairRoom(live, 0);
+    live = removeRosterUnit(live, removed);
+    live = scoreRound(live, 0);
+    const entry = Object.values(computeGroupStandings(live))
+      .flat()
+      .find((standing) => standing.name === lone);
+    expect(entry?.played).toBe(0);
+    expect(entry?.totalFP).toBe(2);
+  });
+
+  it('group stage (9 players, per-match standings): the match against a removed unit is void for the unit left alone', () => {
     let live = generate(9, {
       gameFormat: 'individual-1v1',
       poolingPhase: 'group-stage',
@@ -1568,8 +1594,7 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
     const entry = Object.values(computeGroupStandings(live))
       .flat()
       .find((standing) => standing.name === lone);
-    expect(entry?.played).toBe(0);
-    expect(entry?.totalFP).toBe(2);
+    expect(entry).toMatchObject({ played: 0, totalFP: null, matches: 0 });
   });
 
   it('team-3v3v3 qualification table (13 teams): a 2-team room reduced to one team earns 1st-place points without a played round', () => {
@@ -2014,21 +2039,23 @@ describe('standard points', () => {
   });
 
   describe('Group Stage', () => {
-    it('31 units: the bye of a group of 3 is credited to its own group', () => {
+    it('31 units (the earlier group rule): the bye of a group of 3 is credited to its own group', () => {
       const state = scoreCurrentRound(
-        buildState({
-          label: 'groups',
-          count: 31,
-          teams: false,
-          setup: {
-            gameFormat: 'individual-1v1',
-            poolingPhase: 'group-stage',
-            groupSize: '4',
-            qualifiersPerGroup: '2',
-            qualAdv: '8',
-            oddCountStrategy: 'bye',
-          },
-        }) as TournamentState,
+        withEarlierGroupRule(
+          buildState({
+            label: 'groups',
+            count: 31,
+            teams: false,
+            setup: {
+              gameFormat: 'individual-1v1',
+              poolingPhase: 'group-stage',
+              groupSize: '4',
+              qualifiersPerGroup: '2',
+              qualAdv: '8',
+              oddCountStrategy: 'bye',
+            },
+          }) as TournamentState,
+        ),
         0,
       );
       const byes = state.rounds[0].groupByes ?? [];

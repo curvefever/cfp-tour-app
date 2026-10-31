@@ -1,5 +1,6 @@
 import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
+import { groupRoomOutcomes, groupSeats, usesGroupAverages } from './group-standings';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
@@ -38,18 +39,25 @@ export function samePoints(first: number | null, second: number | null): boolean
   return Math.abs(first - second) < EQUALITY_TOLERANCE;
 }
 
+/** The one value standings are ranked by: points per match in a group stage with per-match standings, the points total everywhere else. Null until the unit has a result. */
+export function rankingPoints(standing: TournamentStanding): number | null {
+  return standing.averagePoints ?? standing.totalFP;
+}
+
 /** Equal standing points and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
 export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
-  if (!samePoints(first.totalFP, second.totalFP)) return false;
+  if (!samePoints(rankingPoints(first), rankingPoints(second))) return false;
   return sameRoomShare(first.roomShare ?? null, second.roomShare ?? null);
 }
 
 /** Best-first order: unplayed (null points) last, then more points, then higher average room share. Both scoring systems are higher-is-better sums, and every table downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table. */
 export function compareStandings(first: TournamentStanding, second: TournamentStanding): number {
-  if (first.totalFP === null && second.totalFP === null) return 0;
-  if (first.totalFP === null) return 1;
-  if (second.totalFP === null) return -1;
-  if (!samePoints(first.totalFP, second.totalFP)) return second.totalFP - first.totalFP;
+  const firstPoints = rankingPoints(first);
+  const secondPoints = rankingPoints(second);
+  if (firstPoints === null && secondPoints === null) return 0;
+  if (firstPoints === null) return 1;
+  if (secondPoints === null) return -1;
+  if (!samePoints(firstPoints, secondPoints)) return secondPoints - firstPoints;
   if (sameStanding(first, second)) return 0;
   return (second.roomShare ?? 0) - (first.roomShare ?? 0);
 }
@@ -494,7 +502,7 @@ export function rankStandings(
 }
 
 /** One counted round of a unit's standing, plus its relative room share (null for a bye). */
-interface RoundOutcome extends StandingRoundResult {
+export interface RoundOutcome extends StandingRoundResult {
   share: number | null;
 }
 
@@ -557,19 +565,25 @@ export function relativeRoomShare(
  * A unit's totals over its counted rounds. totalFP (the name is persisted) is the SUM of the round points,
  * higher is better: a counted round not played earns 0, a bye earns 1st-place points. It stays null until the
  * unit has a result. The tie-breaker roomShare averages the relative room share over the rounds played in a
- * room (byes skipped).
+ * room (byes skipped). `averaged` (a group stage with per-match standings) adds the counted matches and the points
+ * per match, which then rank the table.
  */
-function materializeStandings(entries: StandingAccumulator[]): TournamentStanding[] {
+function materializeStandings(entries: StandingAccumulator[], averaged = false): TournamentStanding[] {
   return entries
     .map((entry) => {
       const shares = entry.rounds.flatMap((round) => (round.share === null ? [] : [round.share]));
+      const totalFP = entry.rounds.length
+        ? entry.rounds.reduce((total, round) => total + round.points, 0)
+        : null;
       return {
         name: entry.name,
-        totalFP: entry.rounds.length ? entry.rounds.reduce((total, round) => total + round.points, 0) : null,
+        totalFP,
         totalScore: entry.rounds.reduce((total, round) => total + (round.score ?? 0), 0),
         played: shares.length,
         roomShare: shares.length ? shares.reduce((total, share) => total + share, 0) / shares.length : null,
         rounds: entry.rounds.map(({ share: _share, ...result }) => result),
+        ...(averaged ? { matches: entry.rounds.length } : {}),
+        ...(averaged && totalFP !== null ? { averagePoints: totalFP / entry.rounds.length } : {}),
       };
     })
     .sort(compareStandings);
@@ -625,7 +639,7 @@ function isHeldBackLiveRoom(
 }
 
 /** True once the round is being played or is over: a bye or a lone unit only earns its win then. */
-function roundHasBegun(state: TournamentState, roundIndex: number): boolean {
+export function roundHasBegun(state: TournamentState, roundIndex: number): boolean {
   return isRoundDone(state, roundIndex) || (isCurrentRound(state, roundIndex) && state.started);
 }
 
@@ -664,7 +678,7 @@ function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutco
 }
 
 /** Every scored unit of a room with its result, best place first. */
-function roomOutcomes(
+export function roomOutcomes(
   state: TournamentState,
   roundIndex: number,
   room: number,
@@ -717,20 +731,28 @@ export function computeGroupStandings(
     for (const name of group.members) groupOf.set(name, group.label);
   }
 
+  const averaged = usesGroupAverages(state);
+  const seats = groupSeats(state);
+
   for (const [roundIndex, round] of state.rounds.entries()) {
     if (!round.isGroupStage) continue;
     for (let room = 1; room <= round.rooms.length; room += 1) {
       const groupLabel = round.roomGroups?.[room - 1];
-      if (
-        !groupLabel ||
-        isWalkoverRoom(state, roundIndex, room) ||
-        isHeldBackLiveRoom(state, roundIndex, room, options)
-      )
-        continue;
-      for (const { name, ...outcome } of roomOutcomes(state, roundIndex, room)) {
+      if (!groupLabel) continue;
+      const outcomes = averaged
+        ? groupRoomOutcomes(
+            state,
+            roundIndex,
+            room,
+            seats,
+            isHeldBackLiveRoom(state, roundIndex, room, options),
+          )
+        : playedRoomOutcomes(state, roundIndex, room, options);
+      for (const { name, ...outcome } of outcomes) {
         byGroup.get(groupLabel)?.get(name)?.rounds.push(outcome);
       }
     }
+    if (averaged) continue;
     for (const name of walkoverNames(state, roundIndex, round)) {
       byGroup
         .get(groupOf.get(name) ?? '')
@@ -740,8 +762,20 @@ export function computeGroupStandings(
   }
 
   return Object.fromEntries(
-    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()])]),
+    [...byGroup].map(([label, entries]) => [label, materializeStandings([...entries.values()], averaged)]),
   );
+}
+
+/** The results of a room played as usual: none for a walkover room or a live room not fully scored yet (the earlier group rule). */
+function playedRoomOutcomes(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  options: StandingsOptions | undefined,
+): Array<RoundOutcome & { name: string }> {
+  if (isWalkoverRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
+    return [];
+  return roomOutcomes(state, roundIndex, room);
 }
 
 function computeGroupStageAdvancement(state: TournamentState): {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildState, scoreCurrentRound } from '../../../domain/tournament/__tests__/play-through';
+import {
+  buildState,
+  scoreCurrentRound,
+  withEarlierGroupRule,
+} from '../../../domain/tournament/__tests__/play-through';
 import {
   buildQualWaterfall,
   playToQualificationExit,
@@ -191,7 +195,7 @@ describe('standingsRowResult: a group stage', () => {
     expect(standingsRowResult(0, table, 'final', false)).toBe('');
   });
 
-  it('13 units: only the unit on a bye has a rank before a group round is scored, so only it gets a stripe', () => {
+  it('13 units (the earlier group rule): only the unit on a bye has a rank before a group round is scored, so only it gets a stripe', () => {
     const state = buildState({
       label: 'groups',
       count: 13,
@@ -206,7 +210,7 @@ describe('standingsRowResult: a group stage', () => {
       },
     });
     if (!state) throw new Error('generation failed');
-    const results = (describeStandings(state)?.tables ?? []).map((table) =>
+    const results = (describeStandings(withEarlierGroupRule(state))?.tables ?? []).map((table) =>
       table.entries.map((entry, index) => standingsRowResult(index, table, 'live', entry.rank !== null)),
     );
     expect(results[0]).toEqual(['advance', '', '', '', '']);
@@ -216,6 +220,27 @@ describe('standingsRowResult: a group stage', () => {
         .flat()
         .every((result) => result === ''),
     ).toBe(true);
+  });
+
+  it('13 units (per-match standings): a bye is no match, so nobody has a rank before a group round is scored', () => {
+    const state = buildState({
+      label: 'groups',
+      count: 13,
+      teams: false,
+      setup: {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'single-elimination',
+      },
+    });
+    if (!state) throw new Error('generation failed');
+    const results = (describeStandings(state)?.tables ?? []).flatMap((table) =>
+      table.entries.map((entry, index) => standingsRowResult(index, table, 'live', entry.rank !== null)),
+    );
+    expect(results.every((result) => result === '')).toBe(true);
   });
 });
 

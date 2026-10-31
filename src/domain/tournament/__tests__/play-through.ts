@@ -36,6 +36,12 @@ export function withEarlierCutRule(state: TournamentState): TournamentState {
   return { ...state, gamemodeConfig };
 }
 
+/** The state as a tournament stored before per-match group standings (no `groupAverageVersion`): a bye and a lone unit's walkover count as wins. */
+export function withEarlierGroupRule(state: TournamentState): TournamentState {
+  const { groupAverageVersion: _groupAverageVersion, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
 /** The state as a tournament stored before absentees (no `absenceVersion`): no questions, no marks, no per-player weighting. */
 export function withoutAbsenceRule(state: TournamentState): TournamentState {
   const { absenceVersion: _absenceVersion, ...gamemodeConfig } = state.gamemodeConfig;

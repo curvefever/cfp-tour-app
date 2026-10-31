@@ -181,6 +181,10 @@ export interface TournamentStanding {
   roomShare?: number | null;
   /** Per counted round with a result, for the Standings table; a counted round the unit didn't play has no entry. */
   rounds?: StandingRoundResult[];
+  /** Group stage with `groupAverageVersion` 2 only: the counted matches (a no-show's 0 included; byes and matches void for the unit are not). */
+  matches?: number;
+  /** Group stage with `groupAverageVersion` 2 only: `totalFP` ÷ `matches`, set once the unit has a counted match. Groups are ranked by it (`rankingPoints`, advancement.ts). */
+  averagePoints?: number;
 }
 
 export interface TournamentGroup {
@@ -245,6 +249,8 @@ export interface MaterializedGamemodeConfig {
   pointsVersion?: 2;
   /** Which cut an elimination round makes. Absent = the earlier cut (every room advances the same number, the rest are lucky losers across rooms); 2 = the fair cut (fair-cut.ts: each room size loses its share, a room's winner always advances) in single elimination, Semis and double elimination winners and losers rounds. generation.ts writes 2; a stored tournament without it keeps its cut. */
   cutVersion?: 2;
+  /** How a group stage ranks its groups. Absent = total points, a bye and a lone unit's walkover counted as wins; 2 = points per match played, with a bye or a match against an absent or removed unit not counted (group-standings.ts, `usesGroupAverages`). generation.ts writes 2; a stored tournament without it keeps its standings. */
+  groupAverageVersion?: 2;
   /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 1; a stored tournament without it keeps its scores. */
   absenceVersion?: 1;
   drawPublication: DrawPublicationKey;
