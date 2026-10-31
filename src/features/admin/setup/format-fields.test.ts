@@ -33,7 +33,7 @@ const BY_POOLING: Record<PersistedSetup['poolingPhase'], FormatField[]> = {
   none: [],
   'qual-table': ['drawPublication', 'qualAdv', 'nonCountingRounds', 'qualRoundsOverride'],
   swiss: ['drawPublication', 'qualAdv', 'nonCountingRounds', 'swissRoundsOverride'],
-  'group-stage': ['groupSize', 'roundRobinMode', 'qualifiersPerGroup'],
+  'group-stage': ['groupSize', 'roundRobinMode', 'groupExit', 'qualifiersPerGroup'],
 };
 
 const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {

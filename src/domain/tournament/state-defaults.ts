@@ -52,6 +52,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     groupSize: '4',
     roundRobinMode: 'single',
     qualifiersPerGroup: '2',
+    groupExit: 'per-group',
     finalsGames: '3',
     semisGames: '1',
     finalsBestOf: '',

@@ -24,6 +24,9 @@ export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | typeof ONE_SCORE_PER_TEAM;
 export type RoundRobinMode = 'single' | 'double';
+
+/** How a group stage sends units to the bracket: so many per group (today's rule, and what a stored tournament without the field does), or a total shared between the groups by an even split or a fair cut (`group-exit.ts`). */
+export type GroupExitMode = 'per-group' | 'even-split' | 'fair-cut';
 export type BracketKey = 'winners' | 'losers' | 'grand-final';
 export type AbsenceAnswer = 'absent' | 'played';
 
@@ -234,6 +237,8 @@ export interface GeneratedTournamentConfig {
   groupSize: number;
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: number;
+  /** Absent means 'per-group'. With a total mode `qualAdv` is the total and `qualifiersPerGroup` is ignored. */
+  groupExit?: GroupExitMode;
   scoring: ScoringSystemKey;
   drawPublication: DrawPublicationKey;
   finalsGames: number;
@@ -297,6 +302,7 @@ export interface MaterializedGamemodeConfig {
   groupSize: number;
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: number;
+  groupExit?: GroupExitMode;
 }
 
 export interface TournamentState {
@@ -397,6 +403,7 @@ export interface PersistedSetup {
   groupSize: string;
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: string;
+  groupExit: GroupExitMode;
   finalsGames: string;
   semisGames: string;
   /** '' = the games above are summed; '3' / '5' / '7' = a Best of N instead. */

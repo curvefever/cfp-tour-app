@@ -1,4 +1,5 @@
 import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
+import { groupExitIsTotal } from './group-exit';
 import { roundFairCutShape, usesFairCut, type FairCutGroup } from './fair-cut';
 import { kingsValleyRoundMoves, type KingsValleyRoomBandCounts } from './kings-valley';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
@@ -48,6 +49,7 @@ export type RoundExitRule =
   | { kind: 'standings'; counted: boolean } // a non-final qual/Swiss/group round
   | {
       kind: 'standings-cutoff';
+      /** What goes through: per group for a group stage that sends so many per group, else the total. */
       advancing: number;
       perGroup: boolean;
       destination: number;
@@ -301,7 +303,10 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
     const perGroup = Boolean(round.isGroupStage);
     return {
       kind: 'standings-cutoff',
-      advancing: perGroup ? (state.cfg.qualifiersPerGroup ?? 0) : (state.cfg.qualAdv ?? 0),
+      advancing:
+        perGroup && !groupExitIsTotal(state.cfg)
+          ? (state.cfg.qualifiersPerGroup ?? 0)
+          : (state.cfg.qualAdv ?? 0),
       perGroup,
       destination: roundIndex + 1,
       ...(round.standingsRoutes ? { bands: standingsExitBands(round.standingsRoutes) } : {}),

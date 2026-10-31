@@ -18,6 +18,7 @@ import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import {
   DRAW_PUBLICATION_LABELS,
+  GROUP_EXIT_LABELS,
   ROUND_ROBIN_LABELS,
   bracketStageLabel,
   matchLabelOf,
@@ -164,6 +165,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Round-robin',
     value: (settings) => ROUND_ROBIN_LABELS[settings.roundRobinMode],
   },
+  groupExit: {
+    group: 'POOLING',
+    label: 'Teams out of the groups',
+    value: (settings) => GROUP_EXIT_LABELS[settings.groupExit],
+  },
   qualifiersPerGroup: {
     group: 'POOLING',
     label: 'Qualifiers per group',
@@ -283,6 +289,7 @@ function settingsOf(state: TournamentState): TournamentSettings {
       config.qualifiersPerGroup ?? cfg.qualifiersPerGroup,
       defaults.qualifiersPerGroup,
     ),
+    groupExit: cfg.groupExit ?? config.groupExit ?? defaults.groupExit,
     scoring: config.scoring ?? cfg.scoring ?? defaults.scoring,
     positionalPointsTable: config.positionalPointsTable?.join(',') ?? defaults.positionalPointsTable,
     matchResultPoints: config.matchResultPoints?.join(', ') ?? defaults.matchResultPoints,

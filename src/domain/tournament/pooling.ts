@@ -1,7 +1,9 @@
+import { groupExitEntryCount, groupExitShape } from './group-exit';
 import { stageMatchFields } from './match-format';
 import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
 import type {
   DrawPublicationKey,
+  GroupExitMode,
   GroupStageMatch,
   OddCountStrategyKey,
   RoomSize,
@@ -36,6 +38,8 @@ export interface PoolingConfig {
   groupSize: number;
   roundRobinMode: RoundRobinMode;
   qualifiersPerGroup: number;
+  /** Absent means 'per-group'. With a total mode `qualAdv` is the total entering the bracket. */
+  groupExit?: GroupExitMode;
 }
 
 export interface PoolingFormatConfig {
@@ -250,8 +254,15 @@ function buildRoundRobinRounds(groups: TournamentGroup[], roundRobinMode: RoundR
   });
 }
 
+/** What the group exit is told: the total of a total mode, else the qualifiers per group. */
+const exitAmount = (
+  config: Pick<PoolingConfig, 'qualifiersPerGroup'> & Partial<Pick<PoolingConfig, 'qualAdv' | 'groupExit'>>,
+) =>
+  config.groupExit && config.groupExit !== 'per-group' ? (config.qualAdv ?? 0) : config.qualifiersPerGroup;
+
 export function groupStagePoolingPhase(
-  config: Pick<PoolingConfig, 'n' | 'groupSize' | 'roundRobinMode' | 'qualifiersPerGroup'>,
+  config: Pick<PoolingConfig, 'n' | 'groupSize' | 'roundRobinMode' | 'qualifiersPerGroup'> &
+    Partial<Pick<PoolingConfig, 'qualAdv' | 'groupExit'>>,
   roster: string[],
 ): PoolingPhaseResult {
   const groupSizes = distributeRooms(config.n, {
@@ -276,7 +287,10 @@ export function groupStagePoolingPhase(
 
   return {
     rounds,
-    seedTotal: groups.length * config.qualifiersPerGroup,
+    seedTotal: groupExitEntryCount(
+      groupExitShape(groupSizes, config.groupExit ?? 'per-group', exitAmount(config)),
+      groups.length,
+    ),
     nextRoundNum: rounds.length + 1,
     groups,
   };

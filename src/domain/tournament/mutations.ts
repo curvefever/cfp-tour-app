@@ -242,6 +242,7 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
       groupSize: state.cfg.groupSize ?? 4,
       roundRobinMode: state.cfg.roundRobinMode ?? 'single',
       qualifiersPerGroup: state.cfg.qualifiersPerGroup ?? 2,
+      ...(state.cfg.groupExit ? { groupExit: state.cfg.groupExit } : {}),
     },
     format: config,
     roster: rosterKeys(state.players),
@@ -489,7 +490,9 @@ export function addReserveUnit(
 
 /**
  * A walk-up refused only because the draw can't take a newcomer (a group stage, a fixed draw, a custom bracket)
- * stays on the bench while a swap can still use it: `benched` carries the state with it in the reserves.
+ * stays on the bench while a swap can still use it: `benched` carries the state with it in the reserves. The swap
+ * window check is a safety net: `reserveOpen` already closes with the first elimination round (a unit out in the
+ * round in play has no rank yet), so the two windows end together and `closed` is answered first.
  */
 function benchIfSwappable(
   before: TournamentState,

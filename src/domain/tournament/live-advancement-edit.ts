@@ -202,6 +202,7 @@ function applyPoolingEdit(
         groupSize: cfg.groupSize ?? 4,
         roundRobinMode: cfg.roundRobinMode ?? 'single',
         qualifiersPerGroup: cfg.qualifiersPerGroup ?? 2,
+        ...(cfg.groupExit ? { groupExit: cfg.groupExit } : {}),
       },
       format: gamemodeConfig,
       roster,

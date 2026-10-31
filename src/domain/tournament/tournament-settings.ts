@@ -21,6 +21,7 @@ export const SETTING_KEYS = [
   'groupSize',
   'roundRobinMode',
   'qualifiersPerGroup',
+  'groupExit',
   'finalsGames',
   'semisGames',
   'finalsBestOf',

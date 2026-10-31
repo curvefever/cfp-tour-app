@@ -1,6 +1,7 @@
 import { absentInRoom } from './absences';
 import {
   applyGroupCutoffOrder,
+  selectGroupExit,
   applyQualCutoffOrder,
   computeGroupStandings,
   computeQualificationStandings,
@@ -190,8 +191,9 @@ function qualificationTable(state: TournamentState): StandingsDisplayTable {
 
 function groupTables(state: TournamentState): StandingsDisplayTable[] {
   const computed = computeGroupStandings(state, { liveRound: state.curRound });
-  const cut = state.cfg.qualifiersPerGroup;
-  return state.groups.map((group) => {
+  const { cutByGroup } = selectGroupExit(state, computed);
+  return state.groups.map((group, groupIndex) => {
+    const cut = cutByGroup[groupIndex];
     const ordered = applyGroupCutoffOrder(group.label, computed[group.label] ?? [], {
       ...state,
       groupStandings: computed,

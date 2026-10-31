@@ -32,6 +32,7 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   groupSize: '5',
   roundRobinMode: 'double',
   qualifiersPerGroup: '3',
+  groupExit: 'fair-cut',
   finalsGames: '5',
   semisGames: '2',
   finalsBestOf: '5',

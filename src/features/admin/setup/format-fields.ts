@@ -20,6 +20,13 @@ export const ROUND_ROBIN_LABELS = {
   double: 'Double — every pair meets twice',
 } as const;
 
+/** How Setup and the Admin recap word how a group stage sends teams to the bracket. */
+export const GROUP_EXIT_LABELS = {
+  'per-group': 'Qualifiers per group',
+  'even-split': 'Advance to bracket — even split',
+  'fair-cut': 'Advance to bracket — fair cut',
+} as const;
+
 /** "Single game" or "3 games (sum)": how a Semis or Finals game count is worded. */
 export function gamesLabel(games: number): string {
   return games === 1 ? 'Single game' : `${games} games (sum)`;
@@ -99,7 +106,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   };
   add(Boolean(format?.teamSize), 'teamScoringRule');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'drawPublication');
-  add(poolingPhase === 'group-stage', 'groupSize', 'roundRobinMode', 'qualifiersPerGroup');
+  add(poolingPhase === 'group-stage', 'groupSize', 'roundRobinMode', 'groupExit', 'qualifiersPerGroup');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'qualAdv', 'nonCountingRounds');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');

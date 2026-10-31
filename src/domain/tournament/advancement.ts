@@ -1,6 +1,14 @@
 import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import {
+  GROUP_EXIT_TIE_KEY,
+  groupDirectCounts,
+  groupExitSelection,
+  groupExitShapeOf,
+  groupExitTiePoints,
+  type GroupExitSelection,
+} from './group-exit';
+import {
   type GroupMatchPoints,
   groupRoomOutcomes,
   groupSeats,
@@ -243,6 +251,8 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
       const cutoff = detectGroupCutoffTie(group.label, standings);
       if (cutoff) ties[cutoff.key] = cutoff;
     }
+    const exitTie = detectGroupExitTie(standings);
+    if (exitTie) ties[exitTie.key] = exitTie;
   }
   return ties;
 }
@@ -413,14 +423,20 @@ function detectQualCutoffTies(
   return players.length < 2 ? [] : [cutoffCluster(QUAL_CUTOFF_KEY, players)];
 }
 
+/** How many places of the group always go through: its direct count (the qualifiers per group, or its size class's share of a total). */
+function groupDirectCount(state: Pick<TournamentState, 'groups' | 'cfg'>, label: string): number {
+  const index = state.groups.findIndex((group) => group.label === label);
+  return groupDirectCounts(groupExitShapeOf(state), state.groups.length)[index] ?? 0;
+}
+
 function detectGroupCutoffTie(
   label: string,
-  state: Pick<TournamentState, 'groupStandings' | 'cfg'>,
+  state: Pick<TournamentState, 'groupStandings' | 'groups' | 'cfg'>,
 ): CutoffTieCluster | null {
   const table = (state.groupStandings[label] ?? []).filter(
     (entry): entry is TournamentStanding & { totalFP: number } => entry.totalFP !== null,
   );
-  const qualifiers = state.cfg.qualifiersPerGroup;
+  const qualifiers = groupDirectCount(state, label);
   if (!qualifiers || qualifiers >= table.length) return null;
   const boundary = table[qualifiers - 1];
   const players = table.filter((entry) => sameGroupStanding(entry, boundary));
@@ -480,9 +496,40 @@ export function orderedQualificationTable(state: TournamentState): {
 export function applyGroupCutoffOrder(
   label: string,
   table: TournamentStanding[],
-  state: Pick<TournamentState, 'groupStandings' | 'cfg' | 'tieResolutions'>,
+  state: Pick<TournamentState, 'groupStandings' | 'groups' | 'cfg' | 'tieResolutions'>,
 ): TournamentStanding[] {
   return applyCutoffOrder(table, detectGroupCutoffTie(label, state), state, sameGroupStanding);
+}
+
+/** Who goes through from the groups, from their standings: each group's table with its cut-off order applied, then the group exit rule. */
+export function selectGroupExit(
+  state: Pick<TournamentState, 'groups' | 'cfg' | 'tieResolutions'>,
+  groupStandings: Record<string, TournamentStanding[]>,
+): GroupExitSelection {
+  const withStandings = { ...state, groupStandings };
+  const tables = state.groups.map((group) =>
+    applyGroupCutoffOrder(
+      group.label,
+      (groupStandings[group.label] ?? []).filter((entry) => entry.totalFP !== null),
+      withStandings,
+    ),
+  );
+  return groupExitSelection(state, tables);
+}
+
+/** The cross-group tie at the last chance spot of a total group exit, as a cut-off cluster; null when there is none. */
+function detectGroupExitTie(
+  state: Pick<TournamentState, 'groups' | 'cfg' | 'tieResolutions' | 'groupStandings'>,
+): CutoffTieCluster | null {
+  const { tie } = selectGroupExit(state, state.groupStandings);
+  if (!tie) return null;
+  return {
+    key: GROUP_EXIT_TIE_KEY,
+    players: tie.players.map((player) => player.entry),
+    fp: groupExitTiePoints(tie),
+    roomShare: tie.players[0].entry.roomShare ?? null,
+    rm: null,
+  };
 }
 
 /**
@@ -805,25 +852,10 @@ function computeGroupStageAdvancement(state: TournamentState): {
   groupStandings: Record<string, TournamentStanding[]>;
 } {
   const groupStandings = computeGroupStandings(state);
-  const stateWithStandings = { ...state, groupStandings };
-  const qualifiersPerGroup = state.cfg.qualifiersPerGroup ?? 0;
-  const perGroup = state.groups.map((group) =>
-    applyGroupCutoffOrder(
-      group.label,
-      (groupStandings[group.label] ?? []).filter((entry) => entry.totalFP !== null),
-      stateWithStandings,
-    ).slice(0, qualifiersPerGroup),
-  );
-  const advancing: Array<{ name: string; isLucky: false }> = [];
-  for (let tier = 0; tier < qualifiersPerGroup; tier += 1) {
-    const finishers = perGroup
-      .map((qualifiers) => qualifiers[tier])
-      .filter((entry): entry is TournamentStanding => Boolean(entry))
-      .sort(compareStandings);
-    for (const finisher of finishers) {
-      advancing.push({ name: finisher.name, isLucky: false });
-    }
-  }
+  const advancing = selectGroupExit(state, groupStandings).advancing.map((name) => ({
+    name,
+    isLucky: false as const,
+  }));
   return { advancing, luckyNames: null, groupStandings };
 }
 

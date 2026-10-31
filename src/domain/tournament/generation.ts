@@ -8,6 +8,7 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
+import { groupExitRefusal } from './group-exit';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -170,6 +171,9 @@ export function generateTournament(
     groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
+    ...(form.poolingPhase === 'group-stage' && form.groupExit && form.groupExit !== 'per-group'
+      ? { groupExit: form.groupExit }
+      : {}),
     scoring: scoringVisible ? form.scoring || 'fairpoints' : 'fairpoints',
     drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
     finalsGames: matchConfig.finalsGames,
@@ -199,12 +203,12 @@ export function generateTournament(
         `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
       );
     }
-    if (config.qualifiersPerGroup < 1) {
+    if (config.groupExit === undefined && config.qualifiersPerGroup < 1) {
       return generationError(
         `Qualifiers per group must be a positive number — got ${config.qualifiersPerGroup}.`,
       );
     }
-    if (config.groupSize <= config.qualifiersPerGroup) {
+    if (config.groupExit === undefined && config.groupSize <= config.qualifiersPerGroup) {
       return generationError(
         `Group size (${config.groupSize}) must be greater than qualifiers per group (${config.qualifiersPerGroup}) — a group can't qualify more finishers than it contains.`,
       );
@@ -239,6 +243,16 @@ export function generateTournament(
       );
     }
     config.qualAdv = clampAdvanceToBracket(requestedQualAdv, config.n);
+    if (config.groupExit) {
+      const refusal = groupExitRefusal(
+        config.n,
+        config.groupSize,
+        config.groupExit,
+        config.qualAdv,
+        unitPlural,
+      );
+      if (refusal) return generationError(refusal);
+    }
   }
 
   // Total pooling-phase round count for Qualification Table / Swiss --
@@ -294,6 +308,7 @@ export function generateTournament(
         qualAdv: config.qualAdv,
         groupSize: config.groupSize,
         qualifiersPerGroup: config.qualifiersPerGroup,
+        groupExit: config.groupExit,
       });
 
   // Waterfall's whole schedule is the organiser's own hand-authored graph. Without a Qual source,
@@ -611,6 +626,7 @@ export function generateTournament(
     groupSize: config.groupSize,
     roundRobinMode: config.roundRobinMode,
     qualifiersPerGroup: config.qualifiersPerGroup,
+    ...(config.groupExit ? { groupExit: config.groupExit } : {}),
   };
   const roster = rosterKeys(current.players);
   let progression;

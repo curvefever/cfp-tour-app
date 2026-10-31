@@ -1,6 +1,6 @@
 import { GROUP_SIZE_BOUNDS } from './pooling';
 import { distributeRooms } from './room-distribution';
-import type { PersistedSetup, PoolingPhaseKey } from './types';
+import type { GroupExitMode, PersistedSetup, PoolingPhaseKey } from './types';
 
 /**
  * How many units actually enter the bracket phase. Generation and the Setup
@@ -20,7 +20,7 @@ export function clampAdvanceToBracket(requested: number, confirmedCount: number)
 
 /**
  * Group Stage derives the count itself (groups times qualifiers per group,
- * ignoring `qualAdv`); every other pooling phase advances `qualAdv` units,
+ * ignoring `qualAdv`; with a total group exit, the total, which is `qualAdv`); every other pooling phase advances `qualAdv` units,
  * already clamped by the caller; with no pooling phase everyone enters.
  */
 export function resolveBracketEntryCount(input: {
@@ -29,8 +29,10 @@ export function resolveBracketEntryCount(input: {
   qualAdv: number;
   groupSize: number;
   qualifiersPerGroup: number;
+  groupExit?: GroupExitMode;
 }): number {
-  const { poolingPhase, confirmedCount, qualAdv, groupSize, qualifiersPerGroup } = input;
+  const { poolingPhase, confirmedCount, qualAdv, groupSize, qualifiersPerGroup, groupExit } = input;
+  if (poolingPhase === 'group-stage' && groupExit !== undefined && groupExit !== 'per-group') return qualAdv;
   if (poolingPhase === 'group-stage') {
     const groups = distributeRooms(confirmedCount, {
       min: GROUP_SIZE_BOUNDS.min,
@@ -48,19 +50,19 @@ export function resolveBracketEntryCount(input: {
  * field that generation would reject.
  */
 export function bracketEntryCountFromSetup(
-  setup: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'groupSize' | 'qualifiersPerGroup'>,
+  setup: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'groupSize' | 'qualifiersPerGroup' | 'groupExit'>,
   confirmedCount: number | null | undefined,
   floor: number,
 ): number | null {
   if (!confirmedCount || confirmedCount < floor) return null;
   const groupSize = Number.parseInt(setup.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal;
   const qualifiersPerGroup = Number.parseInt(setup.qualifiersPerGroup, 10) || 2;
+  const totalExit = setup.poolingPhase === 'group-stage' && setup.groupExit !== 'per-group';
   if (setup.poolingPhase === 'group-stage') {
     const validGroups =
       groupSize >= GROUP_SIZE_BOUNDS.min &&
       groupSize <= GROUP_SIZE_BOUNDS.max &&
-      qualifiersPerGroup >= 1 &&
-      groupSize > qualifiersPerGroup;
+      (totalExit || (qualifiersPerGroup >= 1 && groupSize > qualifiersPerGroup));
     if (!validGroups) return null;
   }
   let qualAdv = confirmedCount;
@@ -75,5 +77,6 @@ export function bracketEntryCountFromSetup(
     qualAdv,
     groupSize,
     qualifiersPerGroup,
+    groupExit: setup.groupExit,
   });
 }
