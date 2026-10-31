@@ -6,6 +6,11 @@ import {
   resolveOddCountStrategy,
 } from '../../../domain/tournament/formats';
 import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
+import {
+  defaultTieMargin,
+  scoringForPooling,
+  tieMarginAfterFormatChange,
+} from '../../../domain/tournament/match-results';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup } from '../../../domain/tournament/types';
@@ -120,25 +125,49 @@ export function FormatPanel({
   /** The format select of a stage before the Semis, where the schedule has one. */
   function stageSelect(stage: 'pooling' | 'bracket' | 'losers', label: string) {
     if (!shown.has(`${stage}Games`)) return null;
+    const matchResultsLimit = stage === 'pooling' && shown.has('matchResultPoints');
     return (
       <PresenceField htmlFor={`cfg-${stage}-games`} label={label}>
         <MatchSelect
           bestOf={setup[`${stage}BestOf`]}
           games={setup[`${stage}Games`]}
           id={`cfg-${stage}-games`}
+          maxBestOf={matchResultsLimit ? 3 : undefined}
           onChange={(value) => changeMatch(stage, value)}
         />
+        {matchResultsLimit ? (
+          <p className='mt-1 text-xs text-muted'>
+            Match results score a Best of 3 as one match. A Best of 5 or 7 can't be scored this way yet.
+          </p>
+        ) : null}
       </PresenceField>
     );
+  }
+
+  /** Picking Match results fills an empty tie margin with the game format's default. */
+  function changeScoring(value: PersistedSetup['scoring']) {
+    updateSetup((current) => ({
+      ...current,
+      scoring: value,
+      tieMargin:
+        value === 'match-results'
+          ? tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, current.gameFormat)
+          : current.tieMargin,
+    }));
   }
 
   function changeFormat(value: PersistedSetup['gameFormat']) {
     const nextFormat = getGameFormat(value);
     const defaultOdd = (nextFormat && resolveOddCountStrategy(nextFormat, '')) ?? '';
     const compatible = nextFormat?.idealRoomSize === 2 && defaultOdd !== 'flex';
+    const leavesPooling =
+      (setup.poolingPhase === 'group-stage' || setup.poolingPhase === 'swiss') &&
+      nextFormat?.idealRoomSize !== 2;
     updateSetup((current) => ({
       ...current,
       gameFormat: value,
+      tieMargin: tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, value),
+      scoring: leavesPooling ? scoringForPooling(current.scoring, 'none') : current.scoring,
       oddCountStrategy: defaultOdd,
       teamScoringRule: nextTeamScoringRule(current, nextFormat?.teamSize),
       scheduleLogic: reconcileScheduleLogicForFormat(
@@ -195,7 +224,13 @@ export function FormatPanel({
           <Select
             id='cfg-pooling-phase'
             value={setup.poolingPhase}
-            onChange={(e) => change('poolingPhase', e.target.value)}
+            onChange={(e) =>
+              updateSetup((current) => ({
+                ...current,
+                poolingPhase: e.target.value as PersistedSetup['poolingPhase'],
+                scoring: scoringForPooling(current.scoring, e.target.value),
+              }))
+            }
           >
             {poolingPhaseOptions.map((option) => (
               <option key={option.value} value={option.value}>
@@ -316,12 +351,60 @@ export function FormatPanel({
               <Select
                 id='cfg-scoring'
                 value={setup.scoring}
-                onChange={(e) => change('scoring', e.target.value)}
+                onChange={(e) => changeScoring(e.target.value as PersistedSetup['scoring'])}
               >
                 <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
                 <option value='positional-points'>{SCORING_SYSTEM_OPTION_LABELS['positional-points']}</option>
+                {setup.poolingPhase === 'group-stage' ? (
+                  <option value='match-results'>{SCORING_SYSTEM_OPTION_LABELS['match-results']}</option>
+                ) : null}
               </Select>
             </PresenceField>
+            {shown.has('matchResultPoints') ? (
+              <PresenceField
+                htmlFor='cfg-match-result-points'
+                label={
+                  <>
+                    Match result points{' '}
+                    <span className='font-normal normal-case tracking-normal text-muted'>
+                      — Win, Tie win, Tie loss, Loss
+                    </span>
+                  </>
+                }
+              >
+                <Input
+                  id='cfg-match-result-points'
+                  type='text'
+                  placeholder='e.g. 3, 2, 1, 0'
+                  value={setup.matchResultPoints}
+                  onChange={(e) => change('matchResultPoints', e.target.value)}
+                />
+                <p className='mt-1 text-xs text-muted'>
+                  Each game is scored on its own: a win by more than the tie margin is a Win, a win by the
+                  margin or less a Tie win, a loss by the margin or less a Tie loss, a larger loss a Loss.
+                  Equal scores are a Tie, worth the average of Tie win and Tie loss. The points must not
+                  increase from Win to Loss.
+                </p>
+              </PresenceField>
+            ) : null}
+            {shown.has('tieMargin') ? (
+              <PresenceField htmlFor='cfg-tie-margin' label='Tie margin (points)'>
+                <Input
+                  id='cfg-tie-margin'
+                  type='text'
+                  inputMode='numeric'
+                  placeholder={defaultTieMargin(setup.gameFormat)?.toString() ?? 'e.g. 100'}
+                  value={setup.tieMargin}
+                  onChange={(e) => change('tieMargin', e.target.value)}
+                />
+                <p className='mt-1 text-xs text-muted'>
+                  {defaultTieMargin(setup.gameFormat) === undefined
+                    ? 'No default is known for this game format yet: enter the margin. '
+                    : ''}
+                  The same margin applies when a team plays a player short.
+                </p>
+              </PresenceField>
+            ) : null}
             {shown.has('positionalPointsTable') ? (
               <PresenceField
                 htmlFor='cfg-positional-points-table'

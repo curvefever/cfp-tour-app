@@ -12,6 +12,7 @@ export function MatchSelect({
   bestOf,
   disabled,
   inheritLabel,
+  maxBestOf,
   onChange,
 }: {
   id: string;
@@ -19,6 +20,8 @@ export function MatchSelect({
   bestOf: string;
   disabled?: boolean;
   inheritLabel?: string;
+  /** The largest Best of N on offer: a larger one is listed but cannot be picked. */
+  maxBestOf?: number;
   onChange: (value: string) => void;
 }) {
   return (
@@ -35,8 +38,9 @@ export function MatchSelect({
         </option>
       ))}
       {SETUP_BEST_OF.map((n) => (
-        <option key={`bo${n}`} value={`bo${n}`}>
+        <option key={`bo${n}`} value={`bo${n}`} disabled={maxBestOf !== undefined && n > maxBestOf}>
           Best of {n}
+          {maxBestOf !== undefined && n > maxBestOf ? ' — not with match results' : ''}
         </option>
       ))}
     </Select>

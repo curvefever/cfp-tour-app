@@ -126,6 +126,18 @@ describe('visibleFormatFields', () => {
       'positionalPointsTable',
     );
   });
+
+  it('shows the match-result points and the tie margin only for match results in a group stage', () => {
+    const fields: FormatField[] = ['matchResultPoints', 'tieMargin'];
+    expect(fieldsOf({ poolingPhase: 'group-stage', scoring: 'match-results' })).toEqual(
+      expect.arrayContaining(fields),
+    );
+    expect(fieldsOf({ poolingPhase: 'group-stage', scoring: 'fairpoints' })).not.toContain('tieMargin');
+    for (const poolingPhase of ['none', 'qual-table', 'swiss'] as const) {
+      const shown = fieldsOf({ poolingPhase, scoring: 'match-results' });
+      for (const field of fields) expect(shown).not.toContain(field);
+    }
+  });
 });
 
 describe('gamesLabel', () => {

@@ -85,6 +85,31 @@ describe('settingsRecapGroups', () => {
     expect(items['Group size']).toBeUndefined();
   });
 
+  it('names match results with their points and tie margin on the scoring row, and lists no row of their own', () => {
+    const state = stateOf(
+      {
+        gameFormat: 'team-4v4',
+        poolingPhase: 'group-stage',
+        scoring: 'match-results',
+        matchResultPoints: '5, 3, 2, 0',
+      },
+      { confirmed: 10 },
+    );
+    const generated = {
+      ...state,
+      gamemodeConfig: {
+        ...state.gamemodeConfig,
+        scoring: 'match-results' as const,
+        matchResultPoints: [5, 3, 2, 0] as [number, number, number, number],
+        tieMargin: 100,
+      },
+    };
+    const items = itemsOf(settingsRecapGroups(generated));
+    expect(items['Scoring system']).toBe('Match results: 5 / 3 / 2 / 0, tie margin 100');
+    expect(items['Match result points']).toBeUndefined();
+    expect(items['Tie margin']).toBeUndefined();
+  });
+
   it('names Standard points as the scaled rule for a tournament with pointsVersion 2, and as before without it', () => {
     const state = stateOf({ poolingPhase: 'qual-table', qualAdv: '24' });
     const scaled = { ...state, gamemodeConfig: { ...state.gamemodeConfig, pointsVersion: 2 as const } };
@@ -215,8 +240,10 @@ describe('the recap against the Setup form', () => {
     for (const choice of choices) {
       const groups = settingsRecapGroups(stateOf(choice));
       const listed = groups.filter((group) => group.title !== 'ROSTER AND SHARING');
-      // The Best of N settings are read through the Semis and Finals format rows, not listed of their own.
-      const shown = [...visibleFormatFields(choice)].filter((field) => !field.endsWith('BestOf'));
+      // The Best of N settings are read through the Semis and Finals format rows, and the match-result settings through the scoring row, not listed of their own.
+      const shown = [...visibleFormatFields(choice)].filter(
+        (field) => !field.endsWith('BestOf') && field !== 'matchResultPoints' && field !== 'tieMargin',
+      );
       expect(listed.flatMap((group) => group.items)).toHaveLength(shown.length);
     }
   });

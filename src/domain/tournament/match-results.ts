@@ -170,3 +170,17 @@ export function matchResultsOfRoom(
   if (codes === null || codes.length === 0) return null;
   return bothSides(codes, settings.points);
 }
+
+/** The tie margin field after the game format changes: the new format's default while the field is empty or still holds the old format's default, else what was typed. */
+export function tieMarginAfterFormatChange(typed: string, from: GameFormatKey, to: GameFormatKey): string {
+  const previous = defaultTieMargin(from);
+  const holdsPreviousDefault = previous !== undefined && typed.trim() === String(previous);
+  if (typed.trim() !== '' && !holdsPreviousDefault) return typed;
+  const next = defaultTieMargin(to);
+  return next === undefined ? '' : String(next);
+}
+
+/** Match results exist only in a group stage: any other pooling phase falls back to Standard points. */
+export function scoringForPooling<T extends string>(scoring: T, poolingPhase: string): T | 'fairpoints' {
+  return scoring === 'match-results' && poolingPhase !== 'group-stage' ? 'fairpoints' : scoring;
+}

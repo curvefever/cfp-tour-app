@@ -7,6 +7,7 @@ import {
   getGameFormat,
   resolveOddCountStrategy,
 } from '../../domain/tournament/formats';
+import { matchResultSettings } from '../../domain/tournament/match-results';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { matchOverridesText, parseMatchOverrides } from '../../domain/tournament/round-match-formats';
@@ -47,11 +48,33 @@ const orDefault = (value: string, fallback: string) => value.trim() || fallback;
 const matchOf = (games: string, bestOf: string) =>
   matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
 
-/** The Best of N settings are read through the format rows of their stage, not listed of their own. */
+/** The Best of N settings are read through the format rows of their stage, and the match-result settings through the scoring system row, not listed of their own. */
 type RecapField = Exclude<
   FormatField,
-  'semisBestOf' | 'finalsBestOf' | 'poolingBestOf' | 'bracketBestOf' | 'losersBestOf'
+  | 'semisBestOf'
+  | 'finalsBestOf'
+  | 'poolingBestOf'
+  | 'bracketBestOf'
+  | 'losersBestOf'
+  | 'matchResultPoints'
+  | 'tieMargin'
 >;
+
+/** "Match results: 3 / 2 / 1 / 0, tie margin 100" for a tournament scored by match results (its resolved settings), else the system's name. */
+function scoringText(
+  settings: TournamentSettings,
+  pointsVersion: 2 | undefined,
+  state: TournamentState,
+): string {
+  const results = matchResultSettings(state);
+  if (settings.poolingPhase === 'group-stage' && settings.scoring === 'match-results' && results) {
+    return `Match results: ${results.points.join(' / ')}, tie margin ${results.tieMargin}`;
+  }
+  return scoringSystemLabel(
+    settings.poolingPhase === 'none' ? 'fairpoints' : settings.scoring,
+    pointsVersion,
+  );
+}
 
 /** "Round 3: Best of 3, Semis: 2 games": the overrides of the rounds the schedule has, in schedule order; '—' for none. */
 function overridesText(settings: TournamentSettings, state: TournamentState): string {
@@ -159,23 +182,12 @@ const RECAP: Record<RecapField, RecapEntry> = {
   scoring: {
     group: 'SCORING',
     label: 'Scoring system',
-    value: (settings, pointsVersion) =>
-      scoringSystemLabel(settings.poolingPhase === 'none' ? 'fairpoints' : settings.scoring, pointsVersion),
+    value: (settings, pointsVersion, state) => scoringText(settings, pointsVersion, state),
   },
   positionalPointsTable: {
     group: 'SCORING',
     label: 'Points table',
     value: (settings) => orDefault(settings.positionalPointsTable, '—'),
-  },
-  matchResultPoints: {
-    group: 'SCORING',
-    label: 'Match result points',
-    value: (settings) => orDefault(settings.matchResultPoints, '—'),
-  },
-  tieMargin: {
-    group: 'SCORING',
-    label: 'Tie margin',
-    value: (settings) => orDefault(settings.tieMargin, '—'),
   },
   poolingGames: {
     group: 'POOLING',

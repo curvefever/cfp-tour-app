@@ -21,6 +21,13 @@ describe('MatchSelect', () => {
     ]);
   });
 
+  it('lists a Best of N above the limit but does not let it be picked', () => {
+    render(<MatchSelect bestOf='' games='1' id='pooling' maxBestOf={3} onChange={() => {}} />);
+    const options = screen.getAllByRole<HTMLOptionElement>('option');
+    const disabled = options.filter((option) => option.disabled).map((option) => option.textContent);
+    expect(disabled).toEqual(['Best of 5 — not with match results', 'Best of 7 — not with match results']);
+  });
+
   it('shows the Best of N when one is set', () => {
     render(<MatchSelect bestOf='3' games='1' id='semis' onChange={() => {}} />);
     expect(screen.getByRole<HTMLSelectElement>('combobox').value).toBe('bo3');

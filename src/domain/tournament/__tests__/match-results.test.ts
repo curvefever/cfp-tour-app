@@ -9,6 +9,8 @@ import {
   pointsOfResult,
   resolveTieMargin,
   resultOfGap,
+  scoringForPooling,
+  tieMarginAfterFormatChange,
 } from '../match-results';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
@@ -356,5 +358,25 @@ describe('37 teams of 4v4, group size 4, match results', () => {
     expect(standings[four.label].map((entry) => entry.name)).toEqual(four.members);
     const codes = standings[four.label][0].rounds?.flatMap((round) => round.results ?? []);
     expect(codes?.sort()).toEqual(['TW', 'TW', 'W']);
+  });
+});
+
+describe('the Setup fields around match results', () => {
+  it('fills the tie margin from the new format while it is empty or still the old default', () => {
+    expect(tieMarginAfterFormatChange('', 'ffa-individual', 'team-4v4')).toBe('100');
+    expect(tieMarginAfterFormatChange('100', 'team-4v4', 'individual-1v1')).toBe('');
+    expect(tieMarginAfterFormatChange('100', 'team-4v4', 'team-4v4')).toBe('100');
+  });
+
+  it('keeps a margin the organiser typed', () => {
+    expect(tieMarginAfterFormatChange('150', 'team-4v4', 'individual-1v1')).toBe('150');
+    expect(tieMarginAfterFormatChange('80', 'individual-1v1', 'team-4v4')).toBe('80');
+  });
+
+  it('falls back to Standard points outside a group stage', () => {
+    expect(scoringForPooling('match-results', 'group-stage')).toBe('match-results');
+    expect(scoringForPooling('match-results', 'swiss')).toBe('fairpoints');
+    expect(scoringForPooling('match-results', 'none')).toBe('fairpoints');
+    expect(scoringForPooling('positional-points', 'none')).toBe('positional-points');
   });
 });
