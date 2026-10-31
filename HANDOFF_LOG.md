@@ -6,6 +6,54 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Group stage: void gaps, points per match, match-result scoring (done — 2026-10-31)
+
+**Context.** Needed for a real tour (4v4 group stage, target score 1400). Three things in the group stage the organiser wanted changed together (plan `plans/2026-10-31-group-gaps.md`, six stages, an implementer session and a planner/reviewer session):
+1. *Gaps.* A unit alone in its match earned a win (`walkoverNames`, `advancement.ts`): its opponent was removed mid-group (the match became a `groupBye`, or the room in play lost a unit) or was marked absent. Everyone else in the group had to play that opponent, so meeting the gap was a free win. (This is the roadmap item "A missing unit in a group stage gives some opponents a free win", raised 2026-10-30, now built.)
+2. *Unequal groups.* Groups ranked by total points, so a group of 5 (4 matches and a bye counted as a win) out-scored a group of 4 when winners, runners-up and so on were ordered for the bracket. Awkward counts make mixed sizes the norm: 37 with group size 4 gives one group of 5 and eight of 4; 53 one of 5 and twelve of 4.
+3. *The margin never counted.* A head-to-head match gave points by place only; the community scores group and Swiss matches by margin (`docs/real-scores.md`): the organiser wanted Win / Tie Win / Tie Loss / Loss.
+
+**Decisions (organiser 2026-10-31, or planner and open to correction).**
+- Every new tournament carries `gamemodeConfig.groupAverageVersion: 2`; a stored tournament without it keeps today's rule exactly (the earlier tests pin it through `withEarlierGroupRule`). Group-stage rounds only; qualification tables and Swiss are unchanged.
+- Rules 1–5: a group ranks by points per match played; a bye is not a match; an absent opponent makes the match void for the unit that turned up and a counted 0 for the absent one (both absent: each a counted 0; absent in some games of a round only: present); a removed unit's matches are void for the whole group, past and future, only if it left while a group round was in play (planner decision during review: a qualifier removed from the bracket must not change the group tables); a reserve swapped in takes over the seat's whole line, absences included, through chains.
+- Tie-break order inside a group: first built as room share, then head to head (the planner's review), then changed by the organiser to **head to head first, then room share, then the organiser's pick**; a mini-table for three or more, re-applied to any smaller group still level on it until a cycle makes no progress. Across groups: points per match, then room share (no head to head).
+- Match results (a third scoring system, group stage only): Win / Tie Win / Tie Loss / Loss per game by the gap of the raw scores against a tie margin, a Tie worth the average of Tie Win and Tie Loss, points default `3, 2, 1, 0`; the margin stays the same when a team plays a player short; a Best of 3 is one match (2–0 Win / Loss, 2–1 Tie Win / Tie Loss); Best of 5 and 7 are refused. The margin's default comes from one small table (`defaultTieMargin`: `team-4v4: 100`); any other format starts empty and generation asks for one.
+- Left open and decided by the implementer: a room not fully scored gives no match-result points yet; equal wins in a Best-of group room score as a Tie; a room with a removed unit is void for both sides (a remaining unit marked absent gets no counted 0); the recap folds the two settings into the Scoring system row.
+
+**Examples (the required tests).** The organiser's group of 5, Standard points (win 2, loss 1): Team 5 absent against T3 (round 1) and T4 (round 2), then swapped for reserve R, who loses to T1 and beats T2; T1 beats T2 and T3 and loses to T4; T2 beats T3 and T4; T3 beats T4.
+
+| Unit | Counted matches | Points | Per match |
+|---|---|---|---|
+| T1 | T2 W, T3 W, T4 L, R W | 7 | 1.75 |
+| T2 | T1 L, T3 W, T4 W, R L | 6 | 1.50 |
+| T3 | T1 L, T2 L, T4 W (T5 void) | 4 | 1.33 |
+| T4 | T1 W, T2 L, T3 L (T5 void) | 4 | 1.33 |
+| R | T3 absent 0, T4 absent 0, T1 L, T2 W | 3 | 0.75 |
+
+T3 and T4 are level per match; T3 beat T4 head to head. Match results, 4v4, margin 100, points 3 / 2 / 1 / 0: 1400–1350 and 1400–1300 (gap exactly 100) are Tie Win / Tie Loss (2 / 1); 1400–1299 is Win / Loss (3 / 0); 1400–1400 is 1.5 each; two games 1400–1250 then 1330–1400 give Win + Tie Loss = 4 / Loss + Tie Win = 2; a Best of 3 won 2–0 is 3 / 0, 2–1 is 2 / 1; three players against four, 1150–1240, is Tie Loss / Tie Win (gap 90).
+
+**What changed (by part).**
+- *Stage 1* (`6c8f48b`, `47e1896`): `group-standings.ts` (`usesGroupAverages`, `groupSeats` for the seat's holder and the removals, `groupRoomOutcomes`); `advancement.ts` (`rankingPoints`, the one value `sameStanding` and `compareStandings` rank by; `materializeStandings` adds `matches` and `averagePoints`); `WithdrawnUnit.round`.
+- *Stage 2* (`781fc2c`, `c579b6d`, `2de69ea`): head to head inside a group (`withHeadToHead`, `sameGroupStanding`, `headToHead` and `headToHeadLevel` on the standing); the group cut-off tie, shared ranks and the "placed" marks use `sameGroupStanding`.
+- *Stage 3* (`d82094d`): `match-results.ts`; generation validates and stores the settings; `StandingRoundResult.results`.
+- *Stage 3b* (`07ade0e`): **a pre-existing bug found in review, fixed in its own commit.** A team that left the roster (removed or swapped out) is in neither players nor reserves, so `getUnitScoreForGame` found no team and read every member slot as vacant: 0 for every game it played, in every phase, for Sum of members and Save your Buddy (One score per team and individuals were unaffected). Past rooms re-ranked, qualification tables changed their past places, Bracket rooms showed 0, and under the new rule a reserve taking a seat would have inherited losses. Fix: slots are read from the stored score keys (and the Final's keys), the defender by the team's id, absence marks from the same keys. **Stored tournaments now display corrected standings; nothing re-advances.**
+- *Stage 4* (`f88f9aa`): Setup fields and the recap row ("Match results: 3 / 2 / 1 / 0, tie margin 100"), the Pooling rounds select disabling Best of 5 and 7.
+- *Stage 5* (`656fd95`, `c5a9538`): the Standings table, phone list and Bracket column show points per match with "7 pts · 4 played" under it; Void / Bye / ABS cells (ABS also for a reserve in a swapped seat); result codes in the Rank cell and beside the points on room cards; the explanation box, the tie banner; a fixture `groups-4v4-match-results`. After the live check: a swapped-out or removed team's name in the rooms it played (`unitDisplay` reads `WithdrawnUnit`) and "void" in a past room beside a removed unit.
+- *Stage 6*: this entry and the docs (`docs/rules.md` "Match results", "Group stage standings", the withdrawn team's scores; `docs/views.md`; `docs/roadmap.md`; `docs/open-items.md`; `HANDOFF.md`).
+
+**Testing.** Lint, format and types clean on the changed files at every stage; related tests at every stage. The awkward counts: mixed group sizes at 31, 37, 43 and 53 (group size 4), winners equal on points per match whatever the group size and ordered by room share, built so the larger group's winner has more total points but the lower room share (a test that ranking by total would fail); 37 teams of 4v4 with match results ranked end to end (the group of 5's winner 4 matches, total 10, 2.5 per match; the group-of-4 winner 3 matches, total 7). Tests: `group-standings.test.ts` (the organiser's table exactly, swap chains, removals before and after a score, absences, both absent, one game of two, a team with one member absent, double round robin, the earlier rule, head to head cases including the re-application and a cycle), `match-results.test.ts`, `withdrawn-team-scores.test.ts`, `standings-group-average.test.ts`, `format-fields`, `settings-recap`, `MatchSelect.render`, `room-points`, the render sweep with the new fixture. Mutation checks by the reviewer on every stage; the implementer broke the new code on purpose in the ways listed in the stage reports (each caught).
+- *Live check* on the test site (signed in as Lead Mod), a throwaway 10-team 4v4 group stage, group size 5, match results with the defaults (margin prefilled 100): gaps of 50, exactly 100, 101 and equal scores gave TW/TL (2/1), TW/TL, W/L (3/0) and T (1.5 each); one team absent in round 2 (counted 0, its opponent "void"), swapped for a reserve (its row kept ABS and the 1-point loss), a team of the other group removed (its opponents' past matches read Void); the Standings table (points per match with total and matches, Void / Bye / ABS / codes), the phone list and the room cards read as designed. It found two display problems, fixed (above). It also showed that a tied game still raises the room tie card (see open items).
+Full suite: left for the planner's final review (the build touches `src/domain/`).
+
+**Out of scope.**
+- Qualification tables and Swiss: total points and bye wins stay; no match results there (roadmap).
+- Tournaments generated before the switch: unchanged (no migration).
+- Best of 5 / 7 with match results (refused; roadmap); margin defaults for other modes and targets (roadmap).
+- A minimum number of matches to qualify or to rank; make-up matches; replaying a void match (`docs/open-items.md`).
+- Adding a reserve as an extra unit mid-group (still refused; roadmap "Late joiners in a group stage").
+- A tied game in a head-to-head group room under match results still raises the room tie card (`docs/open-items.md`).
+- The Best-of Semis withdrawal test (a separate small task).
+
 ## Room game scores always in columns, wrapping under a long name (done — 2026-10-31)
 
 **Context.** The organiser saw a room's game scores under the name in one round ("200 · 120 · 210") and in columns on the right in another, and asked for the right side everywhere; they also found that 10-letter names beside the columns broke into chunks of two or three letters. Both came from width: the columns took about 256 of the card's 330 px, leaving the name about 70 px (and `wrap-break-word` breaking a single word mid-way), and the earlier rule moved a room to the line once it needed more than 3 columns, the points column counting as one, so a 3-game qualification round got the line and a 3-game elimination round got columns. A mockup of the fix was approved before building.
