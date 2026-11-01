@@ -6,6 +6,25 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Custom bracket ranking matches: the RANKING mark (done — 2026-11-01)
+
+**Context.** The organiser's test tournament `1793551470828` (12 teams of 4, group stage into a Custom bracket) has two placement matches, "Round 5 - Ranking" (the two Round 4 - Lower losers) and "Round 6 - Ranking" (the two Round 5 - Lower losers), meant to give eliminated teams an exact place. Two problems: (1) the validator refused any non-Final round that sends nobody on (rule 10, there to catch a forgotten route), so the graph could not be generated; (2) Rankings orders eliminated units by the round they went out in, and inside a column the routing walk put the Ranking rounds after the Lower rounds, so both Round 6 - Ranking teams would have ranked above the Round 6 - Lower loser. Small change, built solo in the planner session at the organiser's request (short on usage), no plan file.
+
+**What was built** (`waterfall-bracket.ts`, `waterfall-draft.ts`, `types.ts`):
+- A `RANKING` token on a ROUNDS line (any order with `COLUMN` and a match format, once; `FINAL` with `RANKING` refused). A `RANKING` round skips rule 10 and must send nobody on (a route out is refused).
+- Inside a column, `RANKING` rounds are placed first (a second key on the stable column sort; a within-column reorder stays a valid topological order, since a round's feeders are in earlier columns). Graphs without the mark keep today's order.
+- Stored on the round as `waterfallRanking`; the Setup graph editor (text round trip) and the rounds-to-draft path of the live "Edit graph" keep it. `parseMatchFormatToken` refuses the token like `FINAL`.
+
+**Decisions** (open to correction): the editor has no button for the mark (typed in the graph text); a `RANKING` round may not route anyone on (a mark that only reorders would blur its meaning); Rankings itself is unchanged (it already orders by round index, then place in the room).
+
+**Testing.** `waterfall-ranking.test.ts`: the organiser's graph validates with the Ranking rounds first in columns 2 and 3; an unmarked round that sends nobody on is still refused; a marked round with a route out and `FINAL RANKING` refused; the mark survives the editor round trip and is stored on generation; the 12-team tournament played through every column to the Final ranks 3rd the Semi-Final B loser, 4th the Round 6 - Lower loser, 5th-6th Round 6 - Ranking, 7th-8th Round 5 - Ranking, 9th-12th the group stage. `waterfall-bracket.test.ts`'s trailing-token message updated. Related tests passed (111 files). Not tested at other counts: the change is in graph order and validation, not in any count-dependent distribution. No live check.
+
+Full suite: passed on `a135a01`
+
+**Out of scope.** A ranking match in the Final's column (eliminations there get no numbered rank); an editor button for the mark; the stored test tournament's graph is not edited (the organiser adds `RANKING` to the two lines).
+
+---
+
 ## Match results scoring for Swiss and the qualification table, head to head (done — 2026-11-01)
 
 **Context.** Plan: `plans/2026-11-01-match-results-swiss-qual.md` (urgent, approved by the organiser). Match results (Win / Tie win / Tie loss / Loss / Tie by the gap against a tie margin) was offered only with a group stage. The organiser wanted it for Swiss and the qualification table when every room holds two units, 4v4 being the case that matters. The roadmap line "Match results in Swiss" is built and removed from `docs/roadmap.md`.
