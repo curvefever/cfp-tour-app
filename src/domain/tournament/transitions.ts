@@ -691,7 +691,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       fittedNextRound.rooms,
     );
     if (round.isGroupStage) {
-      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups);
+      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, result.groupExit);
     }
   } else {
     const roomSize = state.gamemodeConfig.roomSize;
@@ -743,7 +743,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
     seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride: round.seedingOverride }).seeded;
     if (round.isGroupStage) {
-      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups);
+      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, result.groupExit);
     }
     state.roomHistory = recordRoomHistory(state.roomHistory, seeded, roundIndex + 1);
     if (newByes.length) {

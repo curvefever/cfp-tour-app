@@ -16,6 +16,7 @@ import {
   swissFoldPair,
   tieredBracketSeed,
   tieredSeed,
+  type GroupExitOrder,
 } from '../seeding';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound, sequenceRandom } from './test-fixtures';
@@ -102,6 +103,101 @@ describe('avoidSameGroupInFirstBracketRound', () => {
     expect(() => avoidSameGroupInFirstBracketRound(input, allSameGroup)).not.toThrow();
     const result = avoidSameGroupInFirstBracketRound(input, allSameGroup);
     expect(result).toEqual(input);
+  });
+
+  describe('with the group exit: the swap partner has the same group place', () => {
+    const letters = ['A', 'B', 'C', 'D'];
+    const fourGroups: TournamentGroup[] = letters.map((letter) => ({
+      label: letter,
+      members: [1, 2, 3, 4].map((place) => `${letter}${place}`),
+    }));
+    const exitOf = (groupsOut: TournamentGroup[], advancing: string[], through: number): GroupExitOrder => ({
+      advancing,
+      throughByGroup: groupsOut.map((group) => group.members.slice(0, through)),
+    });
+    const draw = (rooms: string[][]): RoundAssignment[] =>
+      rooms.flatMap((names, index) => names.map((name) => ({ name, room: index + 1 })));
+    const roomsOf = (result: RoundAssignment[]) =>
+      [1, 2, 3, 4].map((room) =>
+        result
+          .filter((entry) => entry.room === room)
+          .map((entry) => entry.name)
+          .sort(),
+      );
+    // 16 teams, 4 groups, 2 per group: the draw puts A1 with A2, then B1 v C2, C1 v D2, D1 v B2.
+    const sixteen = draw([
+      ['A1', 'A2'],
+      ['B1', 'C2'],
+      ['C1', 'D2'],
+      ['D1', 'B2'],
+    ]);
+
+    it('keeps a winner against a runner-up: A2 trades with C2, not with the winner B1 that comes first today', () => {
+      const exit = exitOf(fourGroups, ['A1', 'B1', 'C1', 'D1', 'C2', 'A2', 'D2', 'B2'], 2);
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(sixteen, fourGroups, exit))).toEqual([
+        ['A1', 'C2'],
+        ['A2', 'B1'],
+        ['C1', 'D2'],
+        ['B2', 'D1'],
+      ]);
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(sixteen, fourGroups))).toEqual([
+        ['A1', 'B1'],
+        ['A2', 'C2'],
+        ['C1', 'D2'],
+        ['B2', 'D1'],
+      ]);
+    });
+
+    it('takes the partner closest in exit order (the first test is a tie: C2 and D2, the first room)', () => {
+      const exit = exitOf(fourGroups, ['A1', 'B1', 'C1', 'D1', 'D2', 'C2', 'B2', 'A2'], 2);
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(sixteen, fourGroups, exit))[3]).toEqual(['A2', 'D1']);
+    });
+
+    it('swaps with another place when no unit of the same group place fits', () => {
+      const trio: TournamentGroup[] = [
+        { label: 'A', members: ['A1', 'A2'] },
+        { label: 'B', members: ['B1'] },
+        { label: 'C', members: ['C1'] },
+      ];
+      const input = draw([
+        ['A1', 'A2'],
+        ['B1', 'C1'],
+      ]);
+      const exit = exitOf(trio, ['A1', 'B1', 'C1', 'A2'], 2);
+      expect(avoidSameGroupInFirstBracketRound(input, trio, exit)).toEqual(
+        avoidSameGroupInFirstBracketRound(input, trio),
+      );
+      const result = avoidSameGroupInFirstBracketRound(input, trio, exit);
+      expect(result.find((entry) => entry.name === 'A2')?.room).toBe(2);
+    });
+
+    it('leaves as many same-group pairs as without the exit when the collisions are forced', () => {
+      const threeGroups: TournamentGroup[] = [
+        { label: 'A', members: ['A1', 'A2', 'A3'] },
+        { label: 'B', members: ['B1', 'B2', 'B3'] },
+        { label: 'C', members: ['C1', 'C2'] },
+      ];
+      const input = draw([
+        ['A1', 'A2', 'A3', 'B1'],
+        ['B2', 'B3', 'C1', 'C2'],
+      ]);
+      const exit = exitOf(threeGroups, ['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3'], 3);
+      const sameGroupPairs = (result: RoundAssignment[]) =>
+        threeGroups.reduce(
+          (sum, group) =>
+            sum +
+            [1, 2].reduce((rooms, room) => {
+              const inRoom = result.filter(
+                (entry) => entry.room === room && group.members.includes(entry.name),
+              );
+              return rooms + (inRoom.length * (inRoom.length - 1)) / 2;
+            }, 0),
+          0,
+        );
+      expect(sameGroupPairs(avoidSameGroupInFirstBracketRound(input, threeGroups, exit))).toBe(
+        sameGroupPairs(avoidSameGroupInFirstBracketRound(input, threeGroups)),
+      );
+    });
   });
 });
 

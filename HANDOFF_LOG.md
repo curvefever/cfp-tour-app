@@ -6,6 +6,22 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Group-mates apart after the groups: the swap prefers a unit of the same group place (done — 2026-11-01)
+
+**Context.** Plan: `plans/2026-11-01-group-mate-swap.md`. When the groups are left, the first bracket round is drawn as usual, then `avoidSameGroupInFirstBracketRound` (`seeding.ts`) took, for a colliding unit, the first unit of another room that fits, whatever its place. The planner's probe (2,412 play-throughs: 4v4 head to head with match results and Fair Points, 2v2v2v2, FFA; single and double elimination; groups of 3/4/5; 9-37 units; every exit mode) found it always reaches the fewest same-group pairs possible, but it could break the seeding: 16 teams in 4 groups, 2 per group, the draw gives A1 v A2, B1 v C2, C1 v D2, D1 v B2 and the swap moved A2 with B1, giving A1 v B1 and A2 v C2 (two winners meet, two runners-up meet).
+
+**The rule.** A unit's group place is its place in its group's exit table (a chance or refill pick at place 3 is 3). The swap partner is a unit of the same group place in another room that fits (its group not in this room, the mover's group not in that room), the closest to the mover in exit order (`advancing` rank distance), then the first room; with none, the first unit that fits, as before. Everything else is unchanged: best effort, byes never moved, only the first bracket round after the groups, both calls in `transitions.ts` (the tiered draw and the Kings Valley hop).
+
+**Code.** `avoidSameGroupInFirstBracketRound(input, groups, exit?)` takes the group exit (`GroupExitOrder`: `advancing` and `throughByGroup`, so the place is the index + 1); without it the earlier behaviour holds. The partner search is the small `swapPartner`; the fitting candidates are collected first, then one is chosen. The selection is not computed again: `computeGroupStageAdvancement` returns the `GroupExitSelection` it already made (`AdvancementResult.groupExit`) and `advanceTournamentRound` passes it on.
+
+**Decision the plan did not settle.** The plan's example reads "A2's partner is C2, the closest after the tie-break": which of B2, C2 and D2 is closest depends on the exit order of the runners-up (their points), not on the room order, so the unit test fixes the order (C2 and D2 equally close, the first room wins) and a second test the unique closest.
+
+**Testing.** `seeding.test.ts`: the example (A2 trades with C2, not the winner B1; the earlier draw shown without the exit), the unique closest in exit order, a collision whose only fitting partners have another place (same result as without the exit), forced collisions (8 units, groups of 3/3/2 into two rooms of 4: same number of same-group pairs with and without the exit). `group-exit.test.ts`: play-throughs of 16 teams in groups of 4 and 12 teams in groups of 3, 2 per group, 150 score seeds each: no room holds group-mates and no more rooms pair two units of one group place than the draw made before the swap (the draw is recomputed with `tieredSeed`). The plan's claim "every match is a winner against a runner-up" does not hold as stated: the raw draw itself pairs winner with winner or runner-up with runner-up in some seeds (e.g. D1 v C1, C2 v D2), so the test pins that the swap never adds one. Checked by taking the exit out of the calls: both play-through tests fail (16 teams at seed 1, 12 teams at seed 45). Full suite: to be run at the final review.
+
+**Out of scope.** Routing the group exit by rank in a Custom bracket (a "Groups" line like the Qual line; planned next, separately). Group-mates meeting again from the second bracket round on.
+
+---
+
 ## Group exit after removals: a short group's spot goes to another group; a refused pre-start redraw clears a group stage's schedule (done — 2026-11-01)
 
 **Context.** Continues "Group exit fixes" below. Plan: `plans/2026-11-01-group-exit-shortfall.md`. Two independent stages, one commit each (`4f5e3ac`, then stage 2), plus one review test (`d88d5c0`).

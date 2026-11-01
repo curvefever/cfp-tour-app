@@ -1,6 +1,7 @@
 import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
+import type { GroupExitSelection } from './group-exit';
 import {
   isFullFieldRound,
   smallerRoomSeatsBefore,
@@ -91,9 +92,49 @@ export function randomSeed(names: string[], rooms: number[], random: RandomSourc
   return assignments;
 }
 
+/** Who the group exit sent through: the exit order, and each group's units in table order (index + 1 is the group place). */
+export type GroupExitOrder = Pick<GroupExitSelection, 'advancing' | 'throughByGroup'>;
+
+interface SwapCandidate {
+  name: string;
+  room: number;
+  index: number;
+}
+
+/**
+ * The unit to swap with a colliding one: a unit of the same group place if there is one (a winner stays against a
+ * runner-up, not another winner), the closest to it in exit order, the first room on a tie; otherwise the first that fits.
+ */
+function swapPartner(
+  fitting: readonly SwapCandidate[],
+  moving: string,
+  exit: GroupExitOrder | undefined,
+): SwapCandidate | undefined {
+  if (!exit) return fitting[0];
+  const placeOf = new Map(
+    exit.throughByGroup.flatMap((names) => names.map((name, position) => [name, position + 1] as const)),
+  );
+  const rank = (name: string) => exit.advancing.indexOf(name);
+  const place = placeOf.get(moving);
+  const samePlace = fitting.filter(
+    (candidate) => place !== undefined && placeOf.get(candidate.name) === place,
+  );
+  if (samePlace.length === 0) return fitting[0];
+  const distance = (candidate: SwapCandidate) => Math.abs(rank(candidate.name) - rank(moving));
+  return samePlace.reduce((closest, candidate) =>
+    distance(candidate) < distance(closest) ? candidate : closest,
+  );
+}
+
+/**
+ * Best effort: a unit that shares a room with a group-mate swaps rooms with a unit that fits (its group not in this
+ * room, the moving unit's group not in that room). With the group exit given, the partner is preferably a unit of the
+ * same group place, closest in exit order, so the seeding holds; a collision with no fitting swap stays.
+ */
 export function avoidSameGroupInFirstBracketRound(
   input: RoundAssignment[],
   groups: TournamentGroup[],
+  exit?: GroupExitOrder,
 ): RoundAssignment[] {
   const seeded = input.map((entry) => ({ ...entry }));
   const groupOf = new Map<string, string>();
@@ -126,27 +167,30 @@ export function avoidSameGroupInFirstBracketRound(
 
       const roomGroups = indices.map((index) => groupOf.get(seeded[index].name));
       const movedGroup = groupOf.get(seeded[collisionIndex].name);
-      for (const [otherRoom, originalOtherIndices] of byRoom) {
-        if (otherRoom === room || progress) continue;
-        let otherIndices = originalOtherIndices;
+      const fitting: SwapCandidate[] = [];
+      for (const [otherRoom, otherIndices] of byRoom) {
+        if (otherRoom === room) continue;
         const otherGroups = otherIndices.map((index) => groupOf.get(seeded[index].name));
         if (movedGroup !== undefined && otherGroups.includes(movedGroup)) continue;
-        for (const candidateIndex of otherIndices) {
-          const candidateGroup = groupOf.get(seeded[candidateIndex].name);
-          if (candidateGroup === undefined || roomGroups.includes(candidateGroup)) {
-            continue;
-          }
-          const temporaryRoom = seeded[collisionIndex].room;
-          seeded[collisionIndex].room = seeded[candidateIndex].room;
-          seeded[candidateIndex].room = temporaryRoom;
-          indices = indices.map((index) => (index === collisionIndex ? candidateIndex : index));
-          otherIndices = otherIndices.map((index) => (index === candidateIndex ? collisionIndex : index));
-          byRoom.set(room, indices);
-          byRoom.set(otherRoom, otherIndices);
-          progress = true;
-          break;
+        for (const index of otherIndices) {
+          const candidateGroup = groupOf.get(seeded[index].name);
+          if (candidateGroup === undefined || roomGroups.includes(candidateGroup)) continue;
+          fitting.push({ name: seeded[index].name, room: otherRoom, index });
         }
       }
+      const partner = swapPartner(fitting, seeded[collisionIndex].name, exit);
+      if (!partner) break;
+
+      const temporaryRoom = seeded[collisionIndex].room;
+      seeded[collisionIndex].room = seeded[partner.index].room;
+      seeded[partner.index].room = temporaryRoom;
+      indices = indices.map((index) => (index === collisionIndex ? partner.index : index));
+      byRoom.set(room, indices);
+      byRoom.set(
+        partner.room,
+        (byRoom.get(partner.room) ?? []).map((index) => (index === partner.index ? collisionIndex : index)),
+      );
+      progress = true;
     }
   }
   return seeded;

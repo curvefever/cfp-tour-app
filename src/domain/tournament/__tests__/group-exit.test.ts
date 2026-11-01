@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAllTies, hasPendingTies, isTieResolved } from '../advancement';
+import { getAllTies, hasPendingTies, isTieResolved, selectGroupExit } from '../advancement';
 import { generateTournament } from '../generation';
 import {
   GROUP_EXIT_TIE_KEY,
@@ -14,10 +14,12 @@ import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { cutTieMarks, describeStandings } from '../standings-display';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { tieredSeed } from '../seeding';
 import { advanceTournamentRound } from '../transitions';
 import type {
   GeneratedTournamentConfig,
   GroupExitMode,
+  RoundAssignment,
   TournamentGroup,
   TournamentStanding,
   TournamentState,
@@ -894,4 +896,103 @@ describe('per group is unchanged', () => {
     const tables = [table('A', [3, 2.5, 1]), table('B', [2.8, 2.6, 1]), table('C', [2.9, 2.7, 1])];
     expect(select([3, 3, 3], 'per-group', 2, tables).advancing).toEqual(['A1', 'C1', 'B1', 'C2', 'B2', 'A2']);
   });
+});
+
+/** Scores every room of the round in play with distinct scores drawn from the seed: the group tables come out differently per seed. */
+function scoreFromSeed(state: TournamentState, seed: number): TournamentState {
+  const round = state.rounds[state.curRound];
+  const scores = { ...state.scores };
+  const seen = new Map<number, number>();
+  let draw = seed;
+  let counter = 0;
+  for (const entry of state.assignments[state.curRound] ?? []) {
+    if (entry.room === null) continue;
+    const position = seen.get(entry.room) ?? 0;
+    seen.set(entry.room, position + 1);
+    draw = (draw * 48271) % 2147483647;
+    counter += 1;
+    const keys = scoreKeysForPosition({
+      roundIndex: state.curRound,
+      room: entry.room,
+      position,
+      numGames: round.numGames ?? 1,
+      teamSize: 4,
+    });
+    keys.forEach((key, index) => {
+      scores[key] = index === 0 ? (100 + (draw % 900)) * 100 + counter : 1;
+    });
+  }
+  return { ...state, scores };
+}
+
+/**
+ * Plays the group stage and returns the state on the first bracket round, the draw as the seeding makes it before
+ * group-mates are parted, and the group place of every unit that went through.
+ */
+function leaveGroups(start: TournamentState, seed: number) {
+  let state = start;
+  let lastGroupRound = 0;
+  for (let guard = 0; guard < 12 && state.rounds[state.curRound].isGroupStage; guard += 1) {
+    lastGroupRound = state.curRound;
+    const result = advanceTournamentRound(scoreFromSeed(state, seed + guard));
+    if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
+    state = result.state;
+  }
+  const exit = selectGroupExit(state, state.groupStandings);
+  const rawDraw = tieredSeed({
+    state,
+    roundIndex: lastGroupRound,
+    advancing: exit.advancing.map((name) => ({ name, isLucky: false })),
+    seedingOverride: state.rounds[lastGroupRound].seedingOverride,
+  }).seeded;
+  const placeOf = new Map(
+    exit.throughByGroup.flatMap((names) => names.map((name, position) => [name, position + 1] as const)),
+  );
+  return { state, rawDraw, placeOf };
+}
+
+const roomsOf = (assignments: readonly RoundAssignment[]) => {
+  const rooms = new Map<number, string[]>();
+  for (const entry of assignments) {
+    if (entry.room !== null) rooms.set(entry.room, [...(rooms.get(entry.room) ?? []), entry.name]);
+  }
+  return [...rooms.values()].map((names) => names.sort());
+};
+
+describe('group-mates apart in the first bracket round keep the seeding', () => {
+  const groupOf = (state: TournamentState, name: string) =>
+    state.groups.find((group) => group.members.includes(name))?.label;
+
+  it.each([
+    [16, '4'],
+    [12, '3'],
+  ])(
+    '%i teams in groups of %s, 2 per group: no group-mates, and no more winner-against-winner rooms than the draw made',
+    (count, size) => {
+      let partedGroupMates = 0;
+      for (let seed = 1; seed <= 150; seed += 1) {
+        const { state, rawDraw, placeOf } = leaveGroups(
+          generated(count, { groupSize: size, qualifiersPerGroup: '2' }),
+          seed * 7919,
+        );
+        const sameKind = (names: string[]) => placeOf.get(names[0]) === placeOf.get(names[1]);
+        const rooms = roomsOf(state.assignments[state.curRound] ?? []);
+        const drawn = roomsOf(rawDraw);
+        expect(rooms).toHaveLength(4);
+        for (const names of rooms) {
+          expect(
+            new Set(names.map((name) => groupOf(state, name))).size,
+            `seed ${seed}: ${names.join()}`,
+          ).toBe(2);
+        }
+        expect(rooms.filter(sameKind).length, `seed ${seed}`).toBeLessThanOrEqual(
+          drawn.filter(sameKind).length,
+        );
+        if (drawn.some((names) => new Set(names.map((name) => groupOf(state, name))).size === 1)) {
+          partedGroupMates += 1;
+        }
+      }
+      expect(partedGroupMates).toBeGreaterThan(0);
+    },
+  );
 });

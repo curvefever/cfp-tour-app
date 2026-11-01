@@ -873,13 +873,12 @@ function computeGroupStageAdvancement(state: TournamentState): {
   advancing: Array<{ name: string; isLucky: false }>;
   luckyNames: null;
   groupStandings: Record<string, TournamentStanding[]>;
+  groupExit: GroupExitSelection;
 } {
   const groupStandings = computeGroupStandings(state);
-  const advancing = selectGroupExit(state, groupStandings).advancing.map((name) => ({
-    name,
-    isLucky: false as const,
-  }));
-  return { advancing, luckyNames: null, groupStandings };
+  const groupExit = selectGroupExit(state, groupStandings);
+  const advancing = groupExit.advancing.map((name) => ({ name, isLucky: false as const }));
+  return { advancing, luckyNames: null, groupStandings, groupExit };
 }
 
 interface AdvancementResult {
@@ -887,6 +886,8 @@ interface AdvancementResult {
   luckyNames: string[] | null;
   qualTable?: TournamentStanding[];
   groupStandings?: Record<string, TournamentStanding[]>;
+  /** Set when the groups are left: who went through, for the bracket's seeding. */
+  groupExit?: GroupExitSelection;
 }
 
 export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: number): AdvancementResult {

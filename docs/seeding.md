@@ -10,6 +10,7 @@ How units land in rooms from round to round (`src/domain/tournament/seeding.ts`,
 | `tieredSeed` | Every ordinary room-based transition: no-elim warm-up, qual-table, single-elimination and team-format cuts, up to the round that seeds Semis. |
 | `tieredBracketSeed` | Double elimination's winners/losers-bracket routing (race and shared-Final variants). |
 | `sequentialSeed` | Kings Valley's ladder moves, including the first hop into Kings Valley: slices an ordered list into declared room sizes, no reordering. |
+| `avoidSameGroupInFirstBracketRound` | The first bracket round after a group stage, applied to what `tieredSeed` or `sequentialSeed` drew: a unit that shares a room with a group-mate swaps with a unit of another room that fits (its group not in this room, the mover's group not in that room). The partner is preferably a unit of the **same group place** (place in the group's exit table; a chance or refill pick counts at the place it took), the closest to the mover in exit order and then the first room, so a winner stays against a runner-up rather than meeting another winner; with none of that place that fits, the first unit that fits. Best effort: a collision with no fitting swap stays, byes are never moved. |
 | Fixed draws | Qual-table/Swiss with draw publication `fixed`: the whole pooling schedule is computed at generation. |
 | `distributeTierMajorPool` | Bracket's future-round **display** projection only (`projectFutureRoundSlots`). |
 | `snakeSeed` | Not called by the app; kept as a tested primitive. |
