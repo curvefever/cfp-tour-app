@@ -10,7 +10,8 @@ import { advanceScored, roomsOf, spreadConfig, startSpread, type SpreadKind } fr
  * share times a constant when every room of the source round is the same size: those draws do not change. The
  * literals were captured from 4fc0129 (raw share) and cover the draws made from rounds with rooms of one size.
  * The rounds drawn with rooms of mixed sizes after eliminations are left out: their tied smaller-room seats go
- * best first (smaller-room-seats-places.test.ts).
+ * best first (smaller-room-seats-places.test.ts). So is the first bracket round after a qualification table, Swiss or
+ * group stage: the exit order draws it (pooling-exit-seeding.test.ts).
  */
 
 /** Every round's room sizes and line-up as drawn, from the first round to the Final. */
@@ -60,8 +61,8 @@ describe('rooms of one size are drawn as before the relative order (captured fro
     expect(drawsOf(startSpread(config('2v2v2v2', 16, 'none'))).slice(0, 3)).toEqual(TEAMS_16);
   });
 
-  it('2v2v2v2 24 qualification table (rooms of 4), Rounds 1-5', () => {
-    expect(drawsOf(startSpread(config('2v2v2v2', 24, 'qual-table'))).slice(0, 5)).toEqual(QUAL_24);
+  it('2v2v2v2 24 qualification table (rooms of 4), Rounds 1-4', () => {
+    expect(drawsOf(startSpread(config('2v2v2v2', 24, 'qual-table'))).slice(0, 4)).toEqual(QUAL_24);
   });
 
   it('double elimination with a shared Final, 16 teams of 2v2v2v2, to Round 5', () => {
@@ -92,7 +93,6 @@ const QUAL_24 = [
   'R2 4,4,4,4,4,4 :: t17,t10,t5,t21 | t12,t6,t19,t1 | t13,t18,t11,t8 | t7,t23,t2,t15 | t4,t16,t22,t20 | t24,t3,t14,t9',
   'R3 4,4,4,4,4,4 :: t8,t1,t23,t14 | t5,t2,t24,t18 | t6,t3,t17,t16 | t9,t21,t20,t15 | t4,t13,t12,t10 | t7,t22,t11,t19',
   'R4 4,4,4,4,4,4 :: t14,t17,t7,t4 | t15,t19,t13,t24 | t11,t5,t1,t20 | t16,t9,t2,t23 | t18,t12,t21,t3 | t10,t8,t6,t22',
-  'R5 4,4,4,4 :: t3,t1,t13,t11 | t9,t4,t5,t15 | t8,t2,t21,t14 | t7,t24,t6,t12',
 ];
 
 const DOUBLE_ELIMINATION_16 = [

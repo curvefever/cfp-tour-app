@@ -1,4 +1,9 @@
-import { buildAdvancementTiers, computeQualificationStandings } from './advancement';
+import {
+  buildAdvancementTiers,
+  computeQualificationStandings,
+  exitOrderTiers,
+  isStandingsCutoffRound,
+} from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { lexicographicMinAssignment } from './assignment';
 import type { GroupExitSelection } from './group-exit';
@@ -28,23 +33,32 @@ function candidateName(candidate: string | SeedCandidate): string {
   return typeof candidate === 'string' ? candidate : candidate.name;
 }
 
-export function snakeSeed(candidates: Array<string | SeedCandidate>, roomCount: number): RoundAssignment[] {
+/**
+ * Best first into the rooms in passes: rooms 1..R, then R..1, then 1..R again, a full room skipped (`rooms` is the
+ * room sizes, or a count for rooms of any size). The best meets the weakest in a pair of rooms, whatever the sizes.
+ */
+export function snakeSeed(
+  candidates: Array<string | SeedCandidate>,
+  rooms: number | readonly number[],
+): RoundAssignment[] {
+  const free = typeof rooms === 'number' ? Array.from({ length: rooms }, () => Infinity) : [...rooms];
   const assignments: RoundAssignment[] = [];
-  let direction = 1;
-  let roomIndex = 0;
-  for (const candidate of candidates) {
-    assignments.push({
-      name: candidateName(candidate),
-      room: roomIndex + 1,
-      isLucky: typeof candidate === 'string' ? false : Boolean(candidate.isLucky),
-    });
-    roomIndex += direction;
-    if (roomIndex >= roomCount) {
-      roomIndex = roomCount - 1;
-      direction = -1;
-    } else if (roomIndex < 0) {
-      roomIndex = 0;
-      direction = 1;
+  if (free.length === 0) return assignments;
+  for (let pass = 0; assignments.length < candidates.length; pass += 1) {
+    const order = free.map((_, room) => room);
+    if (pass % 2 === 1) order.reverse();
+    const open = order.filter((room) => free[room] > 0);
+    // More units than seats: the passes go on over every room.
+    if (open.length === 0) free.fill(Infinity);
+    for (const room of open.length > 0 ? open : order) {
+      const candidate = candidates[assignments.length];
+      if (candidate === undefined) break;
+      free[room] -= 1;
+      assignments.push({
+        name: candidateName(candidate),
+        room: room + 1,
+        isLucky: typeof candidate === 'string' ? false : Boolean(candidate.isLucky),
+      });
     }
   }
   return assignments;
@@ -194,6 +208,105 @@ export function avoidSameGroupInFirstBracketRound(
     }
   }
   return seeded;
+}
+
+/** The pairs that shared a room in any round up to `throughRoundIndex`. */
+function metPairs(state: Pick<TournamentState, 'assignments'>, throughRoundIndex: number): Set<string> {
+  const met = new Set<string>();
+  for (let roundIndex = 0; roundIndex <= throughRoundIndex; roundIndex += 1) {
+    const byRoom = new Map<number, string[]>();
+    for (const entry of state.assignments[roundIndex] ?? []) {
+      if (entry.room !== null) byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
+    }
+    for (const names of byRoom.values()) {
+      for (let first = 0; first < names.length; first += 1) {
+        for (let second = first + 1; second < names.length; second += 1) {
+          met.add(roomPairKey(names[first], names[second]));
+        }
+      }
+    }
+  }
+  return met;
+}
+
+/**
+ * A greedy pass over a seeding by exit order: in each room, a pair that has met before is parted by trading the
+ * lower-ranked unit of the pair with the unit one rank below it in the exit order, then the one above, then the same
+ * for the higher-ranked unit. A trade is made only between two rooms and only when it strictly lowers the number of
+ * met pairs in them; a unit never moves more than one rank in the order.
+ */
+export function avoidMetPairsNearRank(
+  input: RoundAssignment[],
+  exitOrder: readonly string[],
+  met: ReadonlySet<string>,
+): RoundAssignment[] {
+  const seeded = input.map((entry) => ({ ...entry }));
+  const entryOf = new Map(seeded.map((entry) => [entry.name, entry]));
+  const metIn = (room: number | null): Array<[RoundAssignment, RoundAssignment]> => {
+    const inRoom = seeded.filter((entry) => entry.room === room);
+    return inRoom
+      .flatMap((first, index) =>
+        inRoom.slice(index + 1).map((second): [RoundAssignment, RoundAssignment] => [first, second]),
+      )
+      .filter(([first, second]) => met.has(roomPairKey(first.name, second.name)));
+  };
+  const trade = (first: RoundAssignment, second: RoundAssignment) => {
+    const rooms = [first.room, second.room];
+    const before = metIn(rooms[0]).length + metIn(rooms[1]).length;
+    [first.room, second.room] = [second.room, first.room];
+    if (metIn(rooms[0]).length + metIn(rooms[1]).length < before) return true;
+    [first.room, second.room] = [second.room, first.room];
+    return false;
+  };
+  const partOne = (room: number): boolean => {
+    for (const pair of metIn(room)) {
+      const [higher, lower] = [...pair].sort(
+        (first, second) => exitOrder.indexOf(first.name) - exitOrder.indexOf(second.name),
+      );
+      for (const mover of [lower, higher]) {
+        const rank = exitOrder.indexOf(mover.name);
+        for (const neighbour of [exitOrder[rank + 1], exitOrder[rank - 1]]) {
+          const other = neighbour === undefined ? undefined : entryOf.get(neighbour);
+          if (!other || other.room === null || other.room === mover.room) continue;
+          if (trade(mover, other)) return true;
+        }
+      }
+    }
+    return false;
+  };
+  for (const room of [...new Set(seeded.map((entry) => entry.room))]) {
+    if (room === null) continue;
+    while (partOne(room)) continue;
+  }
+  return seeded;
+}
+
+/**
+ * The first bracket round after a qualification table, Swiss or group stage, drawn by the exit order (`advancing`,
+ * best first): the snake over the round's rooms, so the best meets the weakest, then the separation pass for the kind
+ * of pooling phase. Groups: the group-mates apart (`avoidSameGroupInFirstBracketRound`); otherwise the units that have
+ * met before, by a trade with a near neighbour in the order. A seeding override keeps its own fill, over the same order.
+ */
+export function seedFromPoolingExit(options: {
+  state: TournamentState;
+  roundIndex: number;
+  advancing: SeedCandidate[];
+  seedingOverride?: SeedingOverride;
+  groupExit?: GroupExitOrder;
+}): RoundAssignment[] {
+  const { state, roundIndex, advancing, seedingOverride, groupExit } = options;
+  const isGroupExit = state.rounds[roundIndex]?.isGroupStage;
+  let seeded: RoundAssignment[];
+  if (seedingOverride) {
+    seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride }).seeded;
+  } else {
+    seeded = snakeSeed(advancing, state.rounds[roundIndex + 1]?.rooms ?? []);
+    if (!isGroupExit) {
+      const exitOrder = advancing.map((entry) => entry.name);
+      seeded = avoidMetPairsNearRank(seeded, exitOrder, metPairs(state, roundIndex));
+    }
+  }
+  return isGroupExit ? avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit) : seeded;
 }
 
 export function selectPoolingBye(
@@ -636,11 +749,11 @@ export function tieredSeed(options: {
     };
   }
 
-  const tiers = buildAdvancementTiers(
-    state,
-    roundIndex,
-    advancing.map((entry) => candidateName(entry)),
-  );
+  const names = advancing.map((entry) => candidateName(entry));
+  // At a pooling exit the standings decide the draw: every unit its own tier, in the exit order.
+  const tiers = isStandingsCutoffRound(state, roundIndex)
+    ? exitOrderTiers(names)
+    : buildAdvancementTiers(state, roundIndex, names);
   const flat: WaveMember[] = tiers.flatMap((tier) =>
     tier.members.map((member) => ({ name: member.name, tierRank: tier.rank })),
   );

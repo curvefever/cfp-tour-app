@@ -1039,6 +1039,11 @@ export function buildAdvancementTiers(
     }));
 }
 
+/** The tiers of a draw by the exit order (best first) of a pooling phase: every unit its own tier, the standings decide. */
+export function exitOrderTiers(names: readonly string[]): AdvancementTier[] {
+  return names.map((name, rank) => ({ rank, members: [{ name, pct: 0, sourceRoom: 0 }] }));
+}
+
 interface DoubleEliminationAdvancementResult {
   winners: Array<{ name: string }>;
   losers: Array<{ name: string }>;

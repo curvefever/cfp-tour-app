@@ -23,6 +23,7 @@ import {
   sequentialSeed,
   swissFoldPair,
   tieredBracketSeed,
+  seedFromPoolingExit,
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
@@ -741,10 +742,10 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
       ? fitWaterfallRoundAt(state, roundIndex + 1, advancing.length)
       : fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
-    seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride: round.seedingOverride }).seeded;
-    if (round.isGroupStage) {
-      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, result.groupExit);
-    }
+    const seedOptions = { state, roundIndex, advancing, seedingOverride: round.seedingOverride };
+    seeded = isStandingsCutoffRound(state, roundIndex)
+      ? seedFromPoolingExit({ ...seedOptions, groupExit: result.groupExit })
+      : tieredSeed(seedOptions).seeded;
     state.roomHistory = recordRoomHistory(state.roomHistory, seeded, roundIndex + 1);
     if (newByes.length) {
       state.byes[roundIndex + 1] = newByes.map((entry) => entry.name);

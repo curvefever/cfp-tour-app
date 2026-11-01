@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAdvancementTiers } from '../advancement';
+import { buildAdvancementTiers, isStandingsCutoffRound } from '../advancement';
 import { removeRosterUnit } from '../mutations';
 import {
   isFullFieldRound,
@@ -220,17 +220,27 @@ function playToFinal(start: TournamentState): { state: TournamentState; places: 
   return { state, places };
 }
 
+/** A round drawn after eliminations from the places of the round before: not the first one after a pooling exit, which the exit order draws (pooling-exit-seeding.test.ts). */
+function isDrawnByPlace(state: TournamentState, index: number): boolean {
+  const round = state.rounds[index];
+  return (
+    !isFullFieldRound(state.rounds, index) &&
+    !round.isSemis &&
+    !round.isFinal &&
+    !isStandingsCutoffRound(state, index - 1)
+  );
+}
+
 /** The mixed-size rounds drawn after eliminations, each with how many smaller seats every finishing place got and its share. */
 function placeShares(state: TournamentState, places: Places[]) {
   const checked: Array<{ round: number; actual: number[]; expected: number[] }> = [];
   for (let index = 1; index < state.rounds.length; index += 1) {
-    const round = state.rounds[index];
     const lineUp = state.assignments[index] ?? [];
     const sizes = new Map<number, number>();
     for (const { room } of lineUp) if (room !== null) sizes.set(room, (sizes.get(room) ?? 0) + 1);
     const largest = Math.max(0, ...sizes.values());
     const isMixed = [...sizes.values()].some((size) => size < largest);
-    const drawnAfterEliminations = !isFullFieldRound(state.rounds, index) && !round.isSemis && !round.isFinal;
+    const drawnAfterEliminations = isDrawnByPlace(state, index);
     if (!isMixed || !drawnAfterEliminations || !places[index - 1]) continue;
     const seated = lineUp.filter((entry) => entry.room !== null);
     const tiers = [...new Set(seated.map((entry) => places[index - 1][entry.name]))].sort((a, b) => a - b);
@@ -259,12 +269,11 @@ function seatOrderChecks(state: TournamentState) {
   const violations: string[] = [];
   let tiedPairs = 0;
   for (let index = 1; index < state.rounds.length; index += 1) {
-    const round = state.rounds[index];
     const lineUp = state.assignments[index] ?? [];
     const sizes = new Map<number, number>();
     for (const { room } of lineUp) if (room !== null) sizes.set(room, (sizes.get(room) ?? 0) + 1);
     const largest = Math.max(0, ...sizes.values());
-    const afterEliminations = !isFullFieldRound(state.rounds, index) && !round.isSemis && !round.isFinal;
+    const afterEliminations = isDrawnByPlace(state, index);
     if (!afterEliminations || ![...sizes.values()].some((size) => size < largest)) continue;
     const seated = lineUp.filter((entry) => entry.room !== null);
     const hasSmallSeat = new Set(
@@ -316,11 +325,18 @@ describe('the draws after eliminations share the smaller-room seats per finishin
     (kind, count, qualAdv) => {
       const base = spreadConfig(kind, count);
       const { state, places } = playToFinal(startSpread({ ...base, setup: { ...base.setup, qualAdv } }));
-      const checked = placeShares(state, places);
-      expect(checked.length).toBeGreaterThan(0);
-      for (const { actual, expected } of checked) expect(actual).toEqual(expected);
+      for (const { actual, expected } of placeShares(state, places)) expect(actual).toEqual(expected);
     },
   );
+
+  it('the shapes together exercise rounds drawn by place', () => {
+    const total = SHAPES.reduce((sum, [kind, count, qualAdv]) => {
+      const base = spreadConfig(kind, count);
+      const { state, places } = playToFinal(startSpread({ ...base, setup: { ...base.setup, qualAdv } }));
+      return sum + placeShares(state, places).length;
+    }, 0);
+    expect(total).toBeGreaterThan(0);
+  });
 
   it.each(SHAPES)(
     '%s at %i (%s advance): inside every place the seats go to the fewest so far, then best first',
