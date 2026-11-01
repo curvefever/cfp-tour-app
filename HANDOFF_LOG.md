@@ -15,13 +15,15 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 - Inside a column, `RANKING` rounds are placed first (a second key on the stable column sort; a within-column reorder stays a valid topological order, since a round's feeders are in earlier columns). Graphs without the mark keep today's order.
 - Stored on the round as `waterfallRanking`; the Setup graph editor (text round trip) and the rounds-to-draft path of the live "Edit graph" keep it. `parseMatchFormatToken` refuses the token like `FINAL`.
 
-**Decisions** (open to correction): the editor has no button for the mark (typed in the graph text); a `RANKING` round may not route anyone on (a mark that only reorders would blur its meaning); Rankings itself is unchanged (it already orders by round index, then place in the room).
+**Follow-up, same day: the editor checkbox.** The graph editor has no text view, so a mark typed only in the graph text could not be entered: the round editor gained a "Ranking match" checkbox beside "This is the Final" (`setWaterfallRanking`, `WaterfallRoundEditor.tsx`, `WaterfallGraphEditor.tsx`). Ticking it sets the round's ranks out (confirm when some were routed) and clears the Final mark; ticking "This is the Final" clears the ranking mark. Tested in `waterfall-draft.test.ts`; `waterfall-ranking.test.ts`'s draft call fixed (a type error vitest didn't catch). No live check. Full suite: passed on `e26b77e`
+
+**Decisions** (open to correction): a `RANKING` round may not route anyone on (a mark that only reorders would blur its meaning); Rankings itself is unchanged (it already orders by round index, then place in the room).
 
 **Testing.** `waterfall-ranking.test.ts`: the organiser's graph validates with the Ranking rounds first in columns 2 and 3; an unmarked round that sends nobody on is still refused; a marked round with a route out and `FINAL RANKING` refused; the mark survives the editor round trip and is stored on generation; the 12-team tournament played through every column to the Final ranks 3rd the Semi-Final B loser, 4th the Round 6 - Lower loser, 5th-6th Round 6 - Ranking, 7th-8th Round 5 - Ranking, 9th-12th the group stage. `waterfall-bracket.test.ts`'s trailing-token message updated. Related tests passed (111 files). Not tested at other counts: the change is in graph order and validation, not in any count-dependent distribution. No live check.
 
 Full suite: passed on `a135a01`
 
-**Out of scope.** A ranking match in the Final's column (eliminations there get no numbered rank); an editor button for the mark; the stored test tournament's graph is not edited (the organiser adds `RANKING` to the two lines).
+**Out of scope.** A ranking match in the Final's column (eliminations there get no numbered rank); the stored test tournament's graph is not edited (the organiser adds `RANKING` to the two lines).
 
 ---
 
