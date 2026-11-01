@@ -109,9 +109,12 @@ export function groupExitShapeOf(state: Pick<TournamentState, 'groups' | 'cfg'>)
   );
 }
 
-/** Places 1…n of each group (by its position in `state.groups`) that always go through. */
+/**
+ * Places 1…n of each group (by its position in `state.groups`) that always go through. A group the shape leaves out
+ * (the fair cut ignores a group of one unit, left by removals) still sends its winner.
+ */
 export function groupDirectCounts(shape: GroupExitShape, groupCount: number): number[] {
-  const direct = Array.from({ length: groupCount }, () => 0);
+  const direct = Array.from({ length: groupCount }, () => 1);
   for (const cls of shape.classes) for (const group of cls.groups) direct[group] = cls.direct;
   return direct;
 }
@@ -159,7 +162,7 @@ function orderCandidates(resolved: readonly string[]) {
 }
 
 /**
- * Who goes through, from each group's table (best first, units that have a result only, the within-group cut-off
+ * Who goes through, from each group's table (best first, units without a counted match last, the within-group cut-off
  * order applied). The direct places of every group first, in tiers. Then the chance spots, one at a time: every size
  * class offers its best next in line (its lowest place still open, then points per match, then relative score), the
  * spot goes to the best of those, and a class takes at most its most spots while the fewest of every class stay

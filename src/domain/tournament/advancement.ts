@@ -9,6 +9,7 @@ import {
   type GroupExitSelection,
 } from './group-exit';
 import {
+  absentOpponentWins,
   type GroupMatchPoints,
   groupRoomOutcomes,
   groupSeats,
@@ -429,13 +430,25 @@ function groupDirectCount(state: Pick<TournamentState, 'groups' | 'cfg'>, label:
   return groupDirectCounts(groupExitShapeOf(state), state.groups.length)[index] ?? 0;
 }
 
+/**
+ * A group's table for the exit: every unit, those without a counted match last. Until some unit of the stage has a
+ * result nothing is ranked, so the table is empty, as it was before the first score.
+ */
+function exitTable(
+  groupStandings: Record<string, TournamentStanding[]>,
+  label: string,
+): TournamentStanding[] {
+  const started = Object.values(groupStandings).some((table) =>
+    table.some((entry) => entry.totalFP !== null),
+  );
+  return started ? (groupStandings[label] ?? []) : [];
+}
+
 function detectGroupCutoffTie(
   label: string,
   state: Pick<TournamentState, 'groupStandings' | 'groups' | 'cfg'>,
 ): CutoffTieCluster | null {
-  const table = (state.groupStandings[label] ?? []).filter(
-    (entry): entry is TournamentStanding & { totalFP: number } => entry.totalFP !== null,
-  );
+  const table = exitTable(state.groupStandings, label);
   const qualifiers = groupDirectCount(state, label);
   if (!qualifiers || qualifiers >= table.length) return null;
   const boundary = table[qualifiers - 1];
@@ -444,7 +457,7 @@ function detectGroupCutoffTie(
   return {
     key: `group-cutoff-${label}`,
     players,
-    fp: boundary.totalFP,
+    fp: boundary.totalFP ?? 0,
     roomShare: boundary.roomShare ?? null,
     rm: null,
     groupLabel: label,
@@ -508,11 +521,7 @@ export function selectGroupExit(
 ): GroupExitSelection {
   const withStandings = { ...state, groupStandings };
   const tables = state.groups.map((group) =>
-    applyGroupCutoffOrder(
-      group.label,
-      (groupStandings[group.label] ?? []).filter((entry) => entry.totalFP !== null),
-      withStandings,
-    ),
+    applyGroupCutoffOrder(group.label, exitTable(groupStandings, group.label), withStandings),
   );
   return groupExitSelection(state, tables);
 }
@@ -825,6 +834,8 @@ export function computeGroupStandings(
     }
   }
 
+  if (averaged) countAbsentOpponentWins([...byGroup.values()], absentOpponentWins(state, seats));
+
   return Object.fromEntries(
     [...byGroup].map(([label, entries]) => {
       const table = materializeStandings([...entries.values()], averaged);
@@ -832,6 +843,18 @@ export function computeGroupStandings(
       return [label, averaged ? withHeadToHead(table, groupMatches) : table];
     }),
   );
+}
+
+/** A unit with no counted match at all takes a win for each match its opponent did not turn up for; with one counted match, those stay void. */
+function countAbsentOpponentWins(
+  groups: ReadonlyArray<Map<string, StandingAccumulator>>,
+  wins: ReadonlyMap<string, RoundOutcome[]>,
+): void {
+  for (const entries of groups) {
+    for (const entry of entries.values()) {
+      if (entry.rounds.length === 0) entry.rounds.push(...(wins.get(entry.name) ?? []));
+    }
+  }
 }
 
 /** The results of a room played as usual: none for a walkover room or a live room not fully scored yet (the earlier group rule). */

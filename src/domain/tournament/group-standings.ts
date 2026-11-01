@@ -4,6 +4,7 @@ import {
   type RoundOutcome,
   rankingPoints,
   roomOutcomes,
+  roomPointsByPlace,
   roundHasBegun,
   sameRoomShare,
   samePoints,
@@ -160,10 +161,11 @@ export function withHeadToHead(
   return output;
 }
 
-/** The counted group rounds a unit sat out without a counted match: a match void for it, or a bye. */
+/** The counted group rounds a unit sat out without a counted match: a match void for it, or a bye. `opponentAbsent` is the voided ones whose opponent was absent (not removed). */
 export interface GroupRoundMisses {
   voided: number[];
   byes: number[];
+  opponentAbsent: number[];
 }
 
 /**
@@ -174,7 +176,7 @@ export function groupRoundMisses(state: TournamentState, seats: GroupSeats): Map
   const misses = new Map<string, GroupRoundMisses>();
   const note = (name: string, kind: keyof GroupRoundMisses, roundIndex: number) => {
     const holder = seats.holderOf(name);
-    const entry = misses.get(holder) ?? { voided: [], byes: [] };
+    const entry = misses.get(holder) ?? { voided: [], byes: [], opponentAbsent: [] };
     entry[kind].push(roundIndex);
     misses.set(holder, entry);
   };
@@ -187,11 +189,48 @@ export function groupRoundMisses(state: TournamentState, seats: GroupSeats): Map
       const absent = lostAUnit ? [] : absentInRoom(state, roundIndex, room);
       if (!lostAUnit && absent.length === 0) continue;
       for (const { name } of seated) {
-        if (!seats.isRemoved(name) && !absent.includes(name)) note(name, 'voided', roundIndex);
+        if (seats.isRemoved(name) || absent.includes(name)) continue;
+        note(name, 'voided', roundIndex);
+        if (!lostAUnit) note(name, 'opponentAbsent', roundIndex);
       }
     }
   });
   return misses;
+}
+
+/**
+ * The win a unit takes from a group match whose opponent did not turn up, when it has no other counted match: what a
+ * played clean win gives it. Standard points / Custom table: the winner's points of a room of 2. Match results: a Win
+ * for each game of the round, a Best of N as one match. No score and no room share: nothing to compare.
+ */
+function absentOpponentWin(state: TournamentState, roundIndex: number): RoundOutcome {
+  const round = state.rounds[roundIndex];
+  const settings = matchResultSettings(state);
+  const games = round?.bestOf !== undefined ? 1 : Math.max(round?.numGames ?? 1, 1);
+  return {
+    roundIndex,
+    score: null,
+    rank: null,
+    points: settings ? settings.points[0] * games : (roomPointsByPlace(state, 2)[0] ?? 0),
+    bye: false,
+    share: null,
+    walkover: true,
+    ...(settings ? { results: Array.from({ length: games }, () => 'W' as const) } : {}),
+  };
+}
+
+/** Per unit (the seat's holder today), the group rounds it won because its opponent was absent, to count if it has no other counted match. */
+export function absentOpponentWins(state: TournamentState, seats: GroupSeats): Map<string, RoundOutcome[]> {
+  const wins = new Map<string, RoundOutcome[]>();
+  for (const [name, missed] of groupRoundMisses(state, seats)) {
+    if (missed.opponentAbsent.length > 0) {
+      wins.set(
+        name,
+        missed.opponentAbsent.map((roundIndex) => absentOpponentWin(state, roundIndex)),
+      );
+    }
+  }
+  return wins;
 }
 
 /** A no-show's match: counted, worth nothing whatever the points table, with no score and no room share. */

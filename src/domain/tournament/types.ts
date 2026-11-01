@@ -176,6 +176,8 @@ export interface StandingRoundResult {
   shared?: boolean;
   /** Match-result scoring only: the result of each game of the round (a Best of 3: of the match), for the displays. */
   results?: MatchResultCode[];
+  /** Per-match group standings only: a win counted because the opponent was absent, for a unit with no other counted match. */
+  walkover?: boolean;
 }
 
 export interface TournamentStanding {

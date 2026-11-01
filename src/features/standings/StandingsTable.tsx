@@ -115,7 +115,9 @@ function RoundResultCells({
   );
   return (
     <>
-      <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-sm text-muted')}>{cells.score}</TableCell>
+      <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-sm text-muted')} title={cells.title}>
+        {cells.score}
+      </TableCell>
       <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-sm text-muted')}>{cells.rank}</TableCell>
       <TableCell className={cn(NUMBER_CELL, 'border-0 py-0 text-base font-bold')}>{cells.points}</TableCell>
     </>

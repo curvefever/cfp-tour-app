@@ -111,7 +111,7 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
     pointsSentence(state),
     [
       perMatch
-        ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against an absent or withdrawn opponent is void for the ${unit} that turned up and doesn't count; the absent ${unit} gets 0 for it.`
+        ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against an absent or withdrawn opponent is void for the ${unit} that turned up and doesn't count (unless it has no other match: then it counts as a win); the absent ${unit} gets 0 for it.`
         : 'A bye counts as a win; a missed round earns 0.',
       nonCountingSentence(state),
     ]
@@ -156,7 +156,12 @@ export interface RoundCells {
   score: string;
   rank: string;
   points: string;
+  /** The hover that says why a cell reads as it does, where "W/O" alone would not. */
+  title?: string;
 }
+
+/** Why a round reads "W/O": the opponent did not turn up, and the unit has no other counted match. */
+export const WALKOVER_TITLE = 'Opponent absent: counted as a win, no other match counted';
 
 /** What a counted round without a result of the unit's own was: a match void for it, or a bye (a group stage with per-match standings). */
 export type MissedRound = 'void' | 'bye';
@@ -180,7 +185,7 @@ export function pointsCell(entry: { totalFP: number | null; matches?: number; av
 /**
  * One counted round of a table row. A bye shows "Bye" and its points; a round the unit missed (a late joiner's)
  * shows "—" throughout: it adds 0 to the total, but the cell says the unit was not there. A round the unit was
- * absent from reads "ABS" with 0 points. A Best of N round (`bestOf`, from the round) reads the games won, "2 wins",
+ * absent from reads "ABS" with 0 points. A win counted because the opponent was absent reads "W/O" with its points. A Best of N round (`bestOf`, from the round) reads the games won, "2 wins",
  * where a summed round reads its score.
  */
 export function roundCells(
@@ -193,6 +198,14 @@ export function roundCells(
   if (!result && missed) return { score: missed === 'void' ? 'Void' : 'Bye', rank: '—', points: '—' };
   if (!result) return { score: '—', rank: '—', points: '—' };
   if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
+  if (result.walkover) {
+    return {
+      score: 'W/O',
+      rank: result.results?.length ? result.results.join(' · ') : '—',
+      points: formatStandingValue(result.points),
+      title: WALKOVER_TITLE,
+    };
+  }
   return {
     score: bestOf === undefined ? String(result.score) : winsText(result.score ?? 0),
     rank: result.results?.length

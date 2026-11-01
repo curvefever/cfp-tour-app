@@ -39,7 +39,8 @@ export interface StandingsDisplayTable {
   /**
    * Cut-off order applied, ranked. `absentRounds` (indexes into state.rounds) lists the counted rounds the unit was
    * absent from its room: its cell reads "ABS". In a group stage with per-match standings, `voidRounds` lists the
-   * rounds whose match was void for it ("Void") and `byeRounds` its byes ("Bye"), neither counted.
+   * rounds whose match was void for it ("Void") and `byeRounds` its byes ("Bye"), neither counted (a void match
+   * counted as a win, for a unit with no other counted match, is a round result marked `walkover` instead).
    */
   entries: Array<
     TournamentStanding & {
@@ -165,10 +166,14 @@ function withRoundMarks(
   return entries.map((entry) => {
     const absentRounds = absent.get(entry.name);
     const missed = misses.get(entry.name);
+    const counted = new Set(
+      entry.rounds?.filter((result) => result.walkover).map((result) => result.roundIndex),
+    );
+    const voided = missed?.voided.filter((roundIndex) => !counted.has(roundIndex)) ?? [];
     return {
       ...entry,
       ...(absentRounds ? { absentRounds } : {}),
-      ...(missed?.voided.length ? { voidRounds: missed.voided } : {}),
+      ...(voided.length ? { voidRounds: voided } : {}),
       ...(missed?.byes.length ? { byeRounds: missed.byes } : {}),
     };
   });

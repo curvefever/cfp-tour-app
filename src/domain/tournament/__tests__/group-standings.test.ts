@@ -322,12 +322,34 @@ describe('per-match group standings', () => {
       }
     });
 
-    it('the unit that turned up gets nothing: the match is void for it', () => {
+    it('the unit that turned up gets nothing from a void match once it has a counted one', () => {
+      const state = groupState(
+        [
+          [
+            ['A', 'B', 100, 0],
+            ['C', 'D', 100, 0],
+          ],
+          [
+            ['A', 'C', 100, 0],
+            ['B', 'D', 100, 0],
+          ],
+        ],
+        { members: ['A', 'B', 'C', 'D'], absences: { 'r0-rm1-p1': 'absent' } },
+      );
+      expect(lineOf(state, 'A')).toMatchObject({ totalFP: 2, matches: 1, averagePoints: 2 });
+      expect(lineOf(state, 'A')?.rounds?.map((round) => round.roundIndex)).toEqual([1]);
+    });
+
+    it('a unit whose only match was void counts it as a win, marked as such', () => {
       const state = groupState([[['A', 'B', 100, 0]]], {
         members: ['A', 'B'],
         absences: { 'r0-rm1-p1': 'absent' },
       });
-      expect(lineOf(state, 'A')).toMatchObject({ totalFP: null, matches: 0 });
+      expect(lineOf(state, 'A')).toMatchObject({ totalFP: 2, matches: 1, averagePoints: 2 });
+      expect(lineOf(state, 'A')?.rounds).toEqual([
+        { roundIndex: 0, score: null, rank: null, points: 2, bye: false, walkover: true },
+      ]);
+      expect(lineOf(state, 'A')?.roomShare).toBeNull();
       expect(lineOf(state, 'B')).toMatchObject({ totalFP: 0, matches: 1, averagePoints: 0 });
     });
 

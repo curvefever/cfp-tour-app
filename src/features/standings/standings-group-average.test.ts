@@ -136,7 +136,7 @@ describe('a group stage with per-match standings (13 players, byes)', () => {
     const text = standingsExplanation(state, display).join(' ');
     expect(text).toContain('Groups are ranked by points per match (Pts / match). A bye is not a match.');
     expect(text).toContain(
-      "void for the player that turned up and doesn't count; the absent player gets 0 for it",
+      "void for the player that turned up and doesn't count (unless it has no other match: then it counts as a win); the absent player gets 0 for it",
     );
     expect(text).toContain('Most points per match ranks first. The top');
     expect(text).toContain(
@@ -248,7 +248,7 @@ describe('a group stage stored before per-match standings (no groupAverageVersio
 });
 
 describe('a reserve swapped into a seat that missed a round', () => {
-  it('reads ABS for that round, and the opponent reads Void', () => {
+  it('reads ABS for that round, and the opponent, with no other match, reads a counted win', () => {
     const base = buildState({
       label: 'swap-abs',
       count: 13,
@@ -280,6 +280,9 @@ describe('a reserve swapped into a seat that missed a round', () => {
     expect(newbie).toMatchObject({ totalFP: 0, matches: 1 });
     if (!newbie) return;
     expect(detailOf(swapped, newbie)[0]).toBe('Round 1 · ABS · 0 pts');
-    expect(entries.find((entry) => entry.name === first.name)?.voidRounds).toEqual([0]);
+    const opponent = entries.find((entry) => entry.name === first.name);
+    expect(opponent?.voidRounds).toBeUndefined();
+    expect(opponent?.rounds?.[0]).toMatchObject({ roundIndex: 0, walkover: true });
+    if (opponent) expect(detailOf(swapped, opponent)[0]).toMatch(/^Round 1 · W\/O · \d+(\.\d)? pts$/);
   });
 });

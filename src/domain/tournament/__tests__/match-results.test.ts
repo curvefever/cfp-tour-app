@@ -289,7 +289,7 @@ describe('a no-show under a table whose Loss is worth 1', () => {
     state.gamemodeConfig = { ...state.gamemodeConfig, absenceVersion: 1 };
     const table = computeGroupStandings(state).A;
     expect(table.find((entry) => entry.name === 'Y')).toMatchObject({ totalFP: 0, matches: 1 });
-    expect(table.find((entry) => entry.name === 'X')).toMatchObject({ totalFP: null, matches: 0 });
+    expect(table.find((entry) => entry.name === 'X')).toMatchObject({ totalFP: 3, matches: 1 });
   });
 });
 

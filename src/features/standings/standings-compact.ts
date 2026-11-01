@@ -42,7 +42,7 @@ function roundLine(entry: Entry, roundIndex: number, label: string, rounds: Roun
   const cells = cellsOf(entry, roundIndex, rounds);
   if (absent) return `${label} · ABS · ${pointsText(cells.points)}`;
   if (!result) return missedRoundOf(entry, roundIndex) ? `${label} · ${cells.score}` : `${label} · —`;
-  if (result.bye) return `${label} · ${cells.score} · ${pointsText(cells.points)}`;
+  if (result.bye || result.walkover) return `${label} · ${cells.score} · ${pointsText(cells.points)}`;
   return `${label} · ${cells.score} · ${cells.rank} · ${pointsText(cells.points)}`;
 }
 
