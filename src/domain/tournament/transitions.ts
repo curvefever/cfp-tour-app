@@ -8,7 +8,12 @@ import {
   refreshRoundStandings,
   roomBasedComputeAdvancement,
 } from './advancement';
-import { doubleEliminationContributions, routeStandings, routeWaterfallRound } from './bracket-replay';
+import {
+  doubleEliminationContributions,
+  isFedOnlyByStandings,
+  routeStandings,
+  routeWaterfallRound,
+} from './bracket-replay';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
@@ -24,6 +29,7 @@ import {
   swissFoldPair,
   tieredBracketSeed,
   seedFromPoolingExit,
+  seedPoolByStanding,
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
@@ -263,14 +269,18 @@ export function seedRoundFromPendingPool(
   // hand-authored rooms always fit and this never reshapes them.
   const failure = fitNextRound(state, roundIndex, pool.length, byeNames.length);
   if (failure) return failure;
-  const assignments = tieredBracketSeed({
-    pool,
-    roomSizes: state.rounds[roundIndex].rooms,
-    roomHistory: state.roomHistory,
-    rounds: state.rounds,
-    targetRoundIndex: roundIndex,
-    seedingOverride: options.seedingOverride,
-  }).seeded;
+  const roomSizes = state.rounds[roundIndex].rooms;
+  const assignments =
+    !options.seedingOverride && isFedOnlyByStandings(state.rounds, roundIndex)
+      ? seedPoolByStanding({ pool, roomSizes, state, targetRoundIndex: roundIndex })
+      : tieredBracketSeed({
+          pool,
+          roomSizes,
+          roomHistory: state.roomHistory,
+          rounds: state.rounds,
+          targetRoundIndex: roundIndex,
+          seedingOverride: options.seedingOverride,
+        }).seeded;
   state.byes[roundIndex] = byeNames;
   for (const name of byeNames) {
     assignments.push({ name, room: null, isLucky: false });

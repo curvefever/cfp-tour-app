@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable, selectGroupExit } from '../advancement';
-import { avoidMetPairsNearRank, roomPairKey, seedFromPoolingExit, snakeSeed, tieredSeed } from '../seeding';
+import { isFedOnlyByStandings } from '../bracket-replay';
+import {
+  avoidMetPairsNearRank,
+  roomPairKey,
+  seedFromPoolingExit,
+  seedPoolByStanding,
+  snakeSeed,
+  tieredSeed,
+} from '../seeding';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
 const ranks = (count: number) => Array.from({ length: count }, (_, index) => `U${index + 1}`);
@@ -468,5 +477,84 @@ R2.B: 1->Final, 2->eliminated
       }
     }
     expect(plain).toBeGreaterThan(0);
+  });
+});
+
+describe('a Custom bracket round fed only by the Qual source', () => {
+  const pool = (count: number) =>
+    ranks(count).map((name, index) => ({ name, isLucky: false, tierRank: index, pct: 1 }));
+  const noMeetings = { assignments: [] as RoundAssignment[][] };
+
+  it('16 ranked units into 2 rooms of 8: ranks 1,4,5,8,9,12,13,16 | 2,3,6,7,10,11,14,15 before the near-neighbour pass', () => {
+    const seeded = seedPoolByStanding({
+      pool: pool(16),
+      roomSizes: [8, 8],
+      state: noMeetings,
+      targetRoundIndex: 3,
+    });
+    expect(roomsByRank(seeded, ranks(16))).toBe('1v4v5v8v9v12v13v16 | 2v3v6v7v10v11v14v15');
+  });
+
+  it('a pool that arrives out of order is drawn in standings order', () => {
+    const shuffled = [...pool(8)].reverse();
+    const seeded = seedPoolByStanding({
+      pool: shuffled,
+      roomSizes: [4, 4],
+      state: noMeetings,
+      targetRoundIndex: 3,
+    });
+    expect(roomsByRank(seeded, ranks(8))).toBe('1v4v5v8 | 2v3v6v7');
+  });
+
+  it('the units that have met are parted by a trade with a near neighbour', () => {
+    const played: RoundAssignment[] = [
+      { name: 'U1', room: 1, isLucky: false },
+      { name: 'U8', room: 1, isLucky: false },
+    ];
+    const seeded = seedPoolByStanding({
+      pool: pool(8),
+      roomSizes: [4, 4],
+      state: { assignments: [played] },
+      targetRoundIndex: 3,
+    });
+    expect(roomsByRank(seeded, ranks(8))).toBe('1v4v5v7 | 2v3v6v8');
+  });
+
+  it('is told by the stored routes: the Qual source names it and no waterfall round routes into it', () => {
+    const rounds = [
+      buildRound({ roundNum: 1, standingsRoutes: [1, 1, 2, 'eliminated'] }),
+      buildRound({ roundNum: 2, isWaterfall: true, waterfallRoutes: [[2, 'eliminated']] }),
+      buildRound({ roundNum: 3, isWaterfall: true, waterfallRoutes: [['eliminated']] }),
+      buildRound({ roundNum: 4, isWaterfall: true, waterfallRoutes: [['eliminated']] }),
+    ];
+    expect(isFedOnlyByStandings(rounds, 1)).toBe(true);
+    expect(isFedOnlyByStandings(rounds, 2)).toBe(false);
+    expect(isFedOnlyByStandings(rounds, 3)).toBe(false);
+    expect(isFedOnlyByStandings(rounds, 0)).toBe(false);
+  });
+
+  it('played through: R1 (ranks 1-16, 2 rooms of 8) follows the snake, and no more met pairs than the snake has', () => {
+    const advanced = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(24)));
+    if (advanced.status !== 'advanced') throw new Error(`blocked: ${advanced.status}`);
+    const state = advanced.state;
+    const order = (state.rounds.find((round) => round.standingsRoutes)?.standingsExitOrder ?? []).map(
+      (standing) => standing.name,
+    );
+    expect(order).toHaveLength(24);
+    const seated = (state.assignments[state.curRound] ?? []).filter((entry) => entry.room !== null);
+    expect(seated.map((entry) => entry.name).sort()).toEqual(order.slice(0, 16).sort());
+    expect([1, 2].map((room) => seated.filter((entry) => entry.room === room).length)).toEqual([8, 8]);
+    const met = metBefore(state);
+    const metIn = (assignments: readonly RoundAssignment[]) =>
+      [1, 2].reduce((sum, room) => {
+        const names = assignments.filter((entry) => entry.room === room).map((entry) => entry.name);
+        return (
+          sum +
+          names
+            .flatMap((name, index) => names.slice(index + 1).map((other) => roomPairKey(name, other)))
+            .filter((key) => met.has(key)).length
+        );
+      }, 0);
+    expect(metIn(seated)).toBeLessThanOrEqual(metIn(snakeSeed(order.slice(0, 16), [8, 8])));
   });
 });

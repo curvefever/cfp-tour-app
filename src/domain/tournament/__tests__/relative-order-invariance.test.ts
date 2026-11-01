@@ -11,7 +11,7 @@ import { advanceScored, roomsOf, spreadConfig, startSpread, type SpreadKind } fr
  * literals were captured from 4fc0129 (raw share) and cover the draws made from rounds with rooms of one size.
  * The rounds drawn with rooms of mixed sizes after eliminations are left out: their tied smaller-room seats go
  * best first (smaller-room-seats-places.test.ts). So is the first bracket round after a qualification table, Swiss or
- * group stage: the exit order draws it (pooling-exit-seeding.test.ts).
+ * group stage, and a waterfall round fed only by the Qual source: the standings draw them (pooling-exit-seeding.test.ts).
  */
 
 /** Every round's room sizes and line-up as drawn, from the first round to the Final. */
@@ -71,8 +71,8 @@ describe('rooms of one size are drawn as before the relative order (captured fro
     ).toEqual(DOUBLE_ELIMINATION_16);
   });
 
-  it('waterfall fed by a 24-player FFA qualification table (every room of 8), all 7 rounds', () => {
-    expect(drawsOf(inOrder(withEarlierPointsRule(buildQualWaterfall(24)))).slice(0, 7)).toEqual(WATERFALL_24);
+  it('waterfall fed by a 24-player FFA qualification table (every room of 8), Rounds 1-3', () => {
+    expect(drawsOf(inOrder(withEarlierPointsRule(buildQualWaterfall(24)))).slice(0, 3)).toEqual(WATERFALL_24);
   });
 });
 
@@ -107,8 +107,4 @@ const WATERFALL_24 = [
   'R1 8,8,8 :: P1,P2,P3,P4,P5,P6,P7,P8 | P9,P10,P11,P12,P13,P14,P15,P16 | P17,P18,P19,P20,P21,P22,P23,P24',
   'R2 8,8,8 :: P16,P3,P18,P21,P13,P6,P5,P9 | P23,P14,P2,P1,P19,P10,P17,P4 | P8,P22,P15,P12,P7,P20,P11,P24',
   'R3 8,8,8 :: P13,P11,P14,P19,P5,P24,P4,P20 | P12,P17,P15,P3,P1,P6,P22,P23 | P10,P16,P18,P7,P8,P2,P9,P21',
-  'R4 8,8 :: P3,P16,P8,P13,P14,P15,P23,P18 | P1,P2,P12,P7,P5,P10,P11,P22',
-  'R5 8 :: P6,P4,P20,P17,P21,P19,P9,P24',
-  'R6 8 :: P18,P11,P15,P10,P14,P12,P16,P7',
-  'R7 8 :: P6,P7,P16,P4,P15,P9,P14,P17',
 ];

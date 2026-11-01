@@ -144,6 +144,17 @@ export function routeStandings(
   return additionsByDestination;
 }
 
+/**
+ * True when every unit of a waterfall round comes from the Qual source: the qualification round's `standingsRoutes`
+ * name it and no waterfall round routes into it. Such a round is drawn in standings order; one that also takes units
+ * from another round keeps the wave fill.
+ */
+export function isFedOnlyByStandings(rounds: readonly TournamentRound[], roundIndex: number): boolean {
+  const fromStandings = rounds.some((round) => round.standingsRoutes?.includes(roundIndex));
+  const fromRounds = rounds.some((round) => round.waterfallRoutes?.some((room) => room.includes(roundIndex)));
+  return fromStandings && !fromRounds;
+}
+
 export interface BracketReplay {
   pools: Map<number, PendingBracketSeed[]>;
   lucky: Map<number, string[]>;

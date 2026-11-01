@@ -282,6 +282,27 @@ export function avoidMetPairsNearRank(
 }
 
 /**
+ * A pool that arrives in standings order (a waterfall round fed only by the Qual source: `tierRank` is the standing
+ * within the pool), drawn like the first bracket round after a pooling exit: the snake over the rooms, then the
+ * near-neighbour pass for the units that have met.
+ */
+export function seedPoolByStanding(options: {
+  pool: PendingBracketSeed[];
+  roomSizes: number[];
+  state: Pick<TournamentState, 'assignments'>;
+  targetRoundIndex: number;
+}): RoundAssignment[] {
+  const { pool, roomSizes, state, targetRoundIndex } = options;
+  const ordered = [...pool].sort((first, second) => first.tierRank - second.tierRank);
+  const snake = snakeSeed(ordered, roomSizes);
+  return avoidMetPairsNearRank(
+    snake,
+    ordered.map((entry) => entry.name),
+    metPairs(state, targetRoundIndex - 1),
+  );
+}
+
+/**
  * The first bracket round after a qualification table, Swiss or group stage, drawn by the exit order (`advancing`,
  * best first): the snake over the round's rooms, so the best meets the weakest, then the separation pass for the kind
  * of pooling phase. Groups: the group-mates apart (`avoidSameGroupInFirstBracketRound`); otherwise the units that have
