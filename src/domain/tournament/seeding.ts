@@ -210,10 +210,15 @@ export function avoidSameGroupInFirstBracketRound(
   return seeded;
 }
 
-/** The pairs that shared a room in any round up to `throughRoundIndex`. */
-function metPairs(state: Pick<TournamentState, 'assignments'>, throughRoundIndex: number): Set<string> {
+/** The pairs that shared a room in any round up to `throughRoundIndex` (or in the ones `counts` accepts). */
+function metPairs(
+  state: Pick<TournamentState, 'assignments'>,
+  throughRoundIndex: number,
+  counts: (roundIndex: number) => boolean = () => true,
+): Set<string> {
   const met = new Set<string>();
   for (let roundIndex = 0; roundIndex <= throughRoundIndex; roundIndex += 1) {
+    if (!counts(roundIndex)) continue;
     const byRoom = new Map<number, string[]>();
     for (const entry of state.assignments[roundIndex] ?? []) {
       if (entry.room !== null) byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
@@ -233,7 +238,7 @@ function metPairs(state: Pick<TournamentState, 'assignments'>, throughRoundIndex
  * A greedy pass over a seeding by exit order: in each room, a pair that has met before is parted by trading the
  * lower-ranked unit of the pair with the unit one rank below it in the exit order, then the one above, then the same
  * for the higher-ranked unit. A trade is made only between two rooms and only when it strictly lowers the number of
- * met pairs in them; a unit never moves more than one rank in the order.
+ * met pairs in them. A unit trades at most once, so it never moves more than one rank in the order.
  */
 export function avoidMetPairsNearRank(
   input: RoundAssignment[],
@@ -258,17 +263,22 @@ export function avoidMetPairsNearRank(
     [first.room, second.room] = [second.room, first.room];
     return false;
   };
+  const traded = new Set<string>();
   const partOne = (room: number): boolean => {
     for (const pair of metIn(room)) {
       const [higher, lower] = [...pair].sort(
         (first, second) => exitOrder.indexOf(first.name) - exitOrder.indexOf(second.name),
       );
       for (const mover of [lower, higher]) {
+        if (traded.has(mover.name)) continue;
         const rank = exitOrder.indexOf(mover.name);
         for (const neighbour of [exitOrder[rank + 1], exitOrder[rank - 1]]) {
           const other = neighbour === undefined ? undefined : entryOf.get(neighbour);
-          if (!other || other.room === null || other.room === mover.room) continue;
-          if (trade(mover, other)) return true;
+          if (!other || other.room === null || other.room === mover.room || traded.has(other.name)) continue;
+          if (trade(mover, other)) {
+            traded.add(mover.name).add(other.name);
+            return true;
+          }
         }
       }
     }
@@ -345,29 +355,6 @@ export function roomPairKey(first: string, second: string): string {
   return first < second ? `${first}|${second}` : `${second}|${first}`;
 }
 
-function collectPlayedSwissPairs(
-  state: Pick<TournamentState, 'rounds' | 'assignments'>,
-  throughRoundIndex: number,
-): Set<string> {
-  const played = new Set<string>();
-  for (let roundIndex = 0; roundIndex <= throughRoundIndex; roundIndex += 1) {
-    if (!state.rounds[roundIndex]?.isSwiss) continue;
-    const byRoom = new Map<number, string[]>();
-    for (const assignment of state.assignments[roundIndex] ?? []) {
-      if (assignment.room === null) continue;
-      byRoom.set(assignment.room, [...(byRoom.get(assignment.room) ?? []), assignment.name]);
-    }
-    for (const names of byRoom.values()) {
-      for (let first = 0; first < names.length; first += 1) {
-        for (let second = first + 1; second < names.length; second += 1) {
-          played.add(roomPairKey(names[first], names[second]));
-        }
-      }
-    }
-  }
-  return played;
-}
-
 export function swissFoldPair(options: {
   activeNames: string[];
   throughRoundIndex: number;
@@ -419,7 +406,9 @@ export function swissFoldPair(options: {
     sorted[index],
     sorted[index + half],
   ]);
-  const played = collectPlayedSwissPairs(state, throughRoundIndex);
+  const played = metPairs(state, throughRoundIndex, (roundIndex) =>
+    Boolean(state.rounds[roundIndex]?.isSwiss),
+  );
   for (let index = 0; index < pairs.length; index += 1) {
     if (played.has(roomPairKey(...pairs[index])) && index + 1 < pairs.length) {
       const swappedFirst: [string, string] = [pairs[index][0], pairs[index + 1][1]];

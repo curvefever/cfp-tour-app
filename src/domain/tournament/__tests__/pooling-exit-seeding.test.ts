@@ -109,6 +109,63 @@ describe('avoidMetPairsNearRank', () => {
   });
 });
 
+describe('avoidMetPairsNearRank: a unit trades at most once', () => {
+  it('every unit ends in the room of its own snake seat or of a rank next to it, whatever pairs have met', () => {
+    const order = ranks(16);
+    const draw = snakeSeed(order, Array<number>(8).fill(2));
+    const roomOfRank = (assignments: readonly RoundAssignment[], rank: number) =>
+      assignments.find((entry) => entry.name === order[rank - 1])?.room;
+    let seed = 7;
+    const next = () => {
+      seed = (seed * 48271) % 2147483647;
+      return seed / 2147483647;
+    };
+    for (let round = 0; round < 300; round += 1) {
+      const met = new Set(
+        order.flatMap((first, i) =>
+          order
+            .slice(i + 1)
+            .filter(() => next() < 0.3)
+            .map((second) => roomPairKey(first, second)),
+        ),
+      );
+      const result = avoidMetPairsNearRank(draw, order, met);
+      for (let rank = 1; rank <= 16; rank += 1) {
+        const allowed = [rank - 1, rank, rank + 1].map((near) => roomOfRank(draw, near));
+        expect(allowed, `round ${round}, rank ${rank}`).toContain(roomOfRank(result, rank));
+      }
+    }
+  });
+});
+
+describe('seedFromPoolingExit: pairs met in an earlier qualification round', () => {
+  it('a pair that met in the first round, not the last, is still parted', () => {
+    const names = ranks(16);
+    const lineup = (pairs: Array<[string, string]>) =>
+      names.map((name, index): RoundAssignment => {
+        const pair = pairs.findIndex((members) => members.includes(name));
+        return { name, room: pair >= 0 ? pair + 1 : pairs.length + index + 1, isLucky: false };
+      });
+    const state = createDefaultTournamentState({
+      cfg: { poolingPhase: 'qual-table', qualAdv: 8 },
+      rounds: [
+        buildRound({ roundNum: 1, isQual: true, isNoElim: true, rooms: [2], players: 16 }),
+        buildRound({ roundNum: 2, isQual: true, isNoElim: true, rooms: [2], players: 16 }),
+        buildRound({ roundNum: 3, rooms: [2, 2, 2, 2], players: 8 }),
+      ],
+      assignments: [lineup([['U1', 'U8']]), lineup([])],
+      curRound: 1,
+    });
+    const order = ranks(8);
+    const seeded = seedFromPoolingExit({
+      state,
+      roundIndex: 1,
+      advancing: order.map((name) => ({ name, isLucky: false })),
+    });
+    expect(roomsByRank(seeded, order)).toBe('1v7 | 2v8 | 3v6 | 4v5');
+  });
+});
+
 /** A state at the last qualification round, `count` units in rooms of two, `met` pairs having shared a room in it. */
 function atQualificationExit(count: number, nextRooms: number[], met: Array<[string, string]> = []) {
   const names = ranks(count);
@@ -496,7 +553,8 @@ describe('a Custom bracket round fed only by the Qual source', () => {
   });
 
   it('a pool that arrives out of order is drawn in standings order', () => {
-    const shuffled = [...pool(8)].reverse();
+    const byName = new Map(pool(8).map((entry) => [entry.name, entry]));
+    const shuffled = ['U3', 'U6', 'U1', 'U8', 'U2', 'U7', 'U4', 'U5'].map((name) => byName.get(name)!);
     const seeded = seedPoolByStanding({
       pool: shuffled,
       roomSizes: [4, 4],
@@ -556,5 +614,9 @@ describe('a Custom bracket round fed only by the Qual source', () => {
         );
       }, 0);
     expect(metIn(seated)).toBeLessThanOrEqual(metIn(snakeSeed(order.slice(0, 16), [8, 8])));
+    const top16 = order.slice(0, 16);
+    expect(roomsByRank(seated, top16)).toBe(
+      roomsByRank(avoidMetPairsNearRank(snakeSeed(top16, [8, 8]), top16, met), top16),
+    );
   });
 });
