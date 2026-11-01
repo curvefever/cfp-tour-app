@@ -22,8 +22,8 @@ import type { RoomSize, TournamentRound } from './types';
  *   6B = 8
  *   Final = 8 FINAL
  *
- * After the size a ROUNDS line takes, in any order and each at most once, FINAL, COLUMN <n>, and one match
- * format: BO<n> (best of n, odd from 3 to 9) or GAMES <n> (n games summed, 1 to 4).
+ * After the size a ROUNDS line takes, in any order and each at most once, FINAL, RANKING, COLUMN <n>, and one
+ * match format: BO<n> (best of n, odd from 3 to 9) or GAMES <n> (n games summed, 1 to 4).
  *
  *   ROUTES:
  *   5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
@@ -39,7 +39,9 @@ import type { RoomSize, TournamentRound } from './types';
  * comma-separated mix of single ranks ("5,8") and ranges ("1-4"); a room's
  * bands must not overlap, and any rank no band routes (or a room with no line
  * at all) is eliminated, the same as on the Qual line. A non-Final round must
- * still send at least one rank on, so a forgotten route fails loudly.
+ * still send at least one rank on, so a forgotten route fails loudly, unless it
+ * is marked RANKING: a placement match whose units all go out, ranked below the
+ * other rounds of its column.
  *
  * After a qualification table, a reserved "Qual" line routes the final
  * standings the same way, by rank ("Qual: 1-16->R1, 17-24->R1C"). It has no
@@ -54,6 +56,8 @@ export interface WaterfallRoundSpec {
   label: string;
   roomSizes: number[];
   isFinal: boolean;
+  /** RANKING on the ROUNDS line: a placement match that sends nobody on. */
+  isRanking?: true;
   /** True when the organiser numbered the round's column (COLUMN n), false/absent when it is automatic. */
   columnSet?: true;
   /** Best of N (odd, 3-9), written BO<n> on the ROUNDS line. At most one of `bestOf` and `games` is set. */
@@ -94,6 +98,8 @@ interface RawRoundLine {
   label: string;
   roomSizes: number[];
   isFinal: boolean;
+  /** "RANKING": a placement match, every rank goes out. */
+  isRanking?: true;
   /** The organiser's own column number ("COLUMN 2"), null when the round's column is automatic. */
   column: number | null;
   /** "BO3": the round is a best of n (odd, 3-9). At most one of `bestOf` and `games` is set. */
@@ -278,7 +284,10 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
 /** The most games a GAMES token can ask for. */
 const MAX_SUMMED_GAMES = 4;
 
-type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games'> & { isFinal: boolean; column: number | null };
+type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games' | 'isRanking'> & {
+  isFinal: boolean;
+  column: number | null;
+};
 
 /** The match format already written on the line, as the organiser wrote it, for the "choose one" error. */
 function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>): string {
@@ -294,14 +303,14 @@ export function matchFormatToken(match: { games: number; bestOf?: number }): str
 export function parseMatchFormatToken(text: string): { games: number; bestOf?: number } | null {
   const parsedTrailer = parseRoundLineTrailer('', text.trim().split(/\s+/));
   if (!parsedTrailer.ok) return null;
-  const { bestOf, games, isFinal, column } = parsedTrailer.value;
-  if (isFinal || column !== null) return null;
+  const { bestOf, games, isFinal, isRanking, column } = parsedTrailer.value;
+  if (isFinal || isRanking || column !== null) return null;
   if (bestOf !== undefined) return { games: 1, bestOf };
   return games === undefined ? null : { games };
 }
 
 /**
- * The tokens after a ROUNDS line's size, in any order, each at most once: "FINAL", "COLUMN <n>", and one match
+ * The tokens after a ROUNDS line's size, in any order, each at most once: "FINAL", "RANKING", "COLUMN <n>", and one match
  * format, "BO<n>" (best of n, odd from 3 to 9) or "GAMES <n>" (n games summed, 1 to 4).
  */
 function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseResult<RoundLineTrailer> {
@@ -313,6 +322,9 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
     if (keyword === 'FINAL') {
       if (trailer.isFinal) return err(`ROUNDS line for "${label}" repeats FINAL -- write it once.`);
       trailer.isFinal = true;
+    } else if (keyword === 'RANKING') {
+      if (trailer.isRanking) return err(`ROUNDS line for "${label}" repeats RANKING -- write it once.`);
+      trailer.isRanking = true;
     } else if (keyword === 'COLUMN') {
       if (seenColumn) return err(`ROUNDS line for "${label}" repeats COLUMN -- write it once.`);
       seenColumn = true;
@@ -358,9 +370,12 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
       index += 1;
     } else {
       return err(
-        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size.`,
+        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL", "RANKING", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size.`,
       );
     }
+  }
+  if (trailer.isFinal && trailer.isRanking) {
+    return err(`ROUNDS line for "${label}" is marked both FINAL and RANKING -- choose one.`);
   }
   return ok(trailer);
 }
@@ -894,11 +909,18 @@ export function validateAndOrderWaterfallGraph(
   }
 
   // Rule 10: a non-Final round must send at least one rank on, so a round
-  // whose route was forgotten (every rank eliminated) fails loudly. Checked
-  // after the feeding, entry and cycle checks, which name the earlier mistake.
+  // whose route was forgotten (every rank eliminated) fails loudly, and a
+  // RANKING round (a placement match) sends nobody on. Checked after the
+  // feeding, entry and cycle checks, which name the earlier mistake.
   for (const round of roundLines) {
     const rooms = roomBandsByLabel.get(round.label.toLowerCase()) ?? [];
-    if (!round.isFinal && rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0)) {
+    const sendsNobody = rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0);
+    if (round.isRanking && !sendsNobody) {
+      return err(
+        `Round "${round.label}" is marked RANKING but routes ranks on -- a ranking match sends nobody on.`,
+      );
+    }
+    if (!round.isFinal && !round.isRanking && sendsNobody) {
       return err(
         `Round "${round.label}" sends nobody on -- route at least one rank to a later round, or make it the Final.`,
       );
@@ -965,10 +987,16 @@ export function validateAndOrderWaterfallGraph(
   );
   if (!columns.ok) return columns;
   const columnOf = new Map(topoOrder.map((label, index) => [label, columns.value[index]]));
-  // Array.sort is stable: rounds of one column keep their order in the routing walk (today's order).
+  // Array.sort is stable: rounds of one column keep their order in the routing walk (today's order), except
+  // that RANKING rounds come first, so the units they send out rank below the column's other eliminations.
+  const isRankingRound = (label: string) => (roundByLabel.get(label) as RawRoundLine).isRanking === true;
   const rest = topoOrder
     .slice(fixedPrefixLower.length)
-    .sort((first, second) => (columnOf.get(first) as number) - (columnOf.get(second) as number));
+    .sort(
+      (first, second) =>
+        (columnOf.get(first) as number) - (columnOf.get(second) as number) ||
+        Number(isRankingRound(second)) - Number(isRankingRound(first)),
+    );
   const playOrder = [...topoOrder.slice(0, fixedPrefixLower.length), ...rest];
 
   return ok(
@@ -1062,6 +1090,7 @@ function buildOrderedGraph(
       label: round.label,
       roomSizes: round.roomSizes,
       isFinal: round.isFinal,
+      ...(round.isRanking ? { isRanking: true as const } : {}),
       ...(round.column === null ? {} : { columnSet: true as const }),
       ...(round.bestOf === undefined ? {} : { bestOf: round.bestOf }),
       ...(round.games === undefined ? {} : { games: round.games }),
@@ -1245,6 +1274,7 @@ export function waterfallBracketPhase(
       customLabel: roundSpec.label,
       waterfallColumn: graph.columns[index],
       ...(roundSpec.columnSet ? { waterfallColumnSet: true as const } : {}),
+      ...(roundSpec.isRanking ? { waterfallRanking: true as const } : {}),
       waterfallRoutes: routesForRound.map((roomDestinations) =>
         roomDestinations.map((destination) =>
           destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,

@@ -119,6 +119,8 @@ export interface TournamentRound {
   waterfallColumn?: number;
   /** True when the organiser gave this round its column number ("COLUMN 2" in the graph) rather than leaving it automatic: the pin that keeps the round where it is when the routing changes. Written wherever `waterfallColumn` is. */
   waterfallColumnSet?: true;
+  /** RANKING in the waterfall graph: a placement match that sends nobody on. Only set on waterfall rounds. */
+  waterfallRanking?: true;
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */

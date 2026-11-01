@@ -40,6 +40,8 @@ export interface WaterfallDraftRound {
   roomCount: number;
   roomSize: number;
   isFinal: boolean;
+  /** RANKING: a placement match, every rank goes out. */
+  isRanking?: true;
   /** The organiser's own column number; null = automatic (the column after the rounds that route into it). */
   column: number | null;
   match: WaterfallMatch | null;
@@ -216,6 +218,7 @@ export function parseWaterfallDraft(
     roomCount: line.roomSizes.length,
     roomSize: line.roomSizes[0],
     isFinal: line.isFinal,
+    ...(line.isRanking ? { isRanking: true as const } : {}),
     column: line.column,
     match: matchOfLine(line),
   }));
@@ -340,7 +343,7 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
   if (draft.rounds.length === 0) return '';
   const roundLines = draft.rounds.map((round) => {
     const size = round.roomCount > 1 ? `${round.roomCount}x${round.roomSize}` : String(round.roomSize);
-    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${matchToken(round.match)}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
+    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${round.isRanking ? ' RANKING' : ''}${matchToken(round.match)}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
   });
   const routeLines = draft.rounds.flatMap((round) =>
     (draft.routes[round.label] ?? []).flatMap((room, roomIndex) => {
@@ -421,6 +424,7 @@ export function waterfallDraftFromRounds(
       roomCount: declared.length,
       roomSize: declared[0],
       isFinal: round.isFinal,
+      ...(round.waterfallRanking ? { isRanking: true as const } : {}),
       column: round.waterfallColumnSet ? (round.waterfallColumn ?? null) : null,
       match: matchOfRound(round, options.finalsMatch),
     };
