@@ -278,7 +278,8 @@ export function describeGroupSizes(groupSizes: readonly number[]): string {
 
 /**
  * Why a total of units advancing can't be shared between the groups of `unitCount` units split by `groupSize`, or null
- * when it can. Every group sends its winner and loses at least one, and an even split must leave each group a unit out.
+ * when it can. Every group sends its winner. An even split takes the same number from every group, so each group loses
+ * at least one; a fair cut keeps only the winners safe (a group may send everyone), so it needs one unit out in all.
  */
 export function groupExitRefusal(
   unitCount: number,
@@ -293,14 +294,22 @@ export function groupExitRefusal(
   if (total < groupSizes.length) {
     return `Advance to bracket (${total}) is below the number of groups: ${groups} each send their winner, so at least ${groupSizes.length} ${unitPlural} must go through.`;
   }
-  const most = unitCount - groupSizes.length;
-  if (total > most) {
-    return `Advance to bracket (${total}) is too many for ${groups}: each group loses at least one of its ${unitPlural}, so at most ${most} (${unitCount} - ${groupSizes.length}) can go through.`;
-  }
-  const smallest = Math.min(...groupSizes);
-  const perGroup = Math.floor(total / groupSizes.length) + (total % groupSizes.length > 0 ? 1 : 0);
-  if (mode === 'even-split' && perGroup >= smallest) {
-    return `An even split of ${total} over ${groups} would take every ${unitPlural.replace(/s$/, '')} of the smallest group (${smallest}). Advance fewer, or use the fair cut.`;
+  if (mode === 'even-split') return evenSplitRefusal(groupSizes, groups, total, unitPlural);
+  if (total >= unitCount) {
+    return `Advance to bracket (${total}) would put every one of the ${unitCount} ${unitPlural} through: the fair cut needs at least one out, so at most ${unitCount - 1} can go through.`;
   }
   return null;
+}
+
+/** An even split's refusal: one unit out of every group, so at most groups × (smallest group − 1) go through. */
+function evenSplitRefusal(
+  groupSizes: readonly number[],
+  groups: string,
+  total: number,
+  unitPlural: string,
+): string | null {
+  const most = groupSizes.length * (Math.min(...groupSizes) - 1);
+  if (total <= most) return null;
+  const unit = unitPlural.replace(/s$/, '');
+  return `Advance to bracket (${total}) is too many for an even split of ${groups}: it sends the same number from every group, so each group loses at least one ${unit} and at most ${most} can go through. Advance fewer, or use the fair cut, which keeps only each group's winner safe.`;
 }

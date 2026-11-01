@@ -223,6 +223,19 @@ describe('groupExitSelection: 5, 4, 4 with 6 advancing, fair cut', () => {
   });
 });
 
+describe('groupExitSelection: 4, 4, 4 with 10 advancing, fair cut', () => {
+  it('the top 3 of each group, then the best 4th: the strongest group sends all four', () => {
+    const tables = [
+      table('A', [2.25, 2, 1, 0.25]),
+      table('B', [2, 1.6, 1.3, 0]),
+      table('C', [2, 1.4, 1.4, 1.3]),
+    ];
+    const result = select([4, 4, 4], 'fair-cut', 10, tables);
+    expect(result.chance).toEqual(['C4']);
+    expect(result.cutByGroup).toEqual([3, 3, 4]);
+  });
+});
+
 describe('groupExitSelection: how the greedy keeps to the shape', () => {
   const direct2 = (label: string, points: number[]) => table(label, [3, 2.5, ...points]);
 
@@ -431,15 +444,20 @@ describe('group exit validation', () => {
     expect(refusal(13, 4, 'fair-cut', 2)).toMatch(/at least 3/);
   });
 
-  it('refuses a total above the teams minus the groups', () => {
-    expect(refusal(13, 4, 'fair-cut', 11)).toMatch(/at most 10 \(13 - 3\)/);
-    expect(refusal(13, 4, 'fair-cut', 10)).toBeNull();
+  it('lets a fair cut send every team of a group, as long as one team is out in all', () => {
+    expect(refusal(12, 4, 'fair-cut', 10)).toBeNull();
+    expect(refusal(12, 4, 'fair-cut', 11)).toBeNull();
+    expect(refusal(13, 4, 'fair-cut', 12)).toBeNull();
+    expect(refusal(12, 4, 'fair-cut', 12)).toMatch(/every one of the 12 teams.*at most 11/);
   });
 
-  it('refuses an even split that would take every team of the smallest group, not the fair cut', () => {
-    expect(refusal(13, 4, 'even-split', 10)).toMatch(/smallest group \(4\)/);
+  it('refuses an even split that would leave a group with nobody out, pointing to the fair cut', () => {
+    expect(refusal(12, 4, 'even-split', 10)).toMatch(
+      /even split of 3 groups \(4, 4, 4\).*at most 9.*fair cut/,
+    );
+    expect(refusal(13, 4, 'even-split', 10)).toMatch(/3 groups \(5, 4, 4\).*at most 9/);
     expect(refusal(13, 4, 'even-split', 9)).toBeNull();
-    expect(refusal(13, 4, 'fair-cut', 10)).toBeNull();
+    expect(refusal(12, 4, 'even-split', 9)).toBeNull();
   });
 
   it('never refuses per group', () => {
@@ -498,8 +516,15 @@ describe('group exit in a generated tournament', () => {
     const tooFew = generate(13, { groupExit: 'fair-cut', qualAdv: '2' });
     expect(tooFew.status).not.toBe('generated');
     if (tooFew.status !== 'generated') expect(tooFew.message).toMatch(/3 groups \(5, 4, 4\)/);
-    expect(generate(13, { groupExit: 'fair-cut', qualAdv: '11' }).status).not.toBe('generated');
+    expect(generate(13, { groupExit: 'fair-cut', qualAdv: '13' }).status).not.toBe('generated');
     expect(generate(13, { groupExit: 'even-split', qualAdv: '10' }).status).not.toBe('generated');
+  });
+
+  it('12 teams in groups of 4: a fair cut sends 10 (3, 3 and 4), an even split refuses', () => {
+    const state = generated(12, { groupExit: 'fair-cut', qualAdv: '10' });
+    expect(state.groups.map((group) => group.members.length)).toEqual([4, 4, 4]);
+    expect(state.rounds.find((round) => !round.isGroupStage)?.players).toBe(10);
+    expect(generate(12, { groupExit: 'even-split', qualAdv: '10' }).status).not.toBe('generated');
   });
 
   it('a total that is not a bracket size still goes through the bracket checks (6 teams: a Semis needs rooms)', () => {
