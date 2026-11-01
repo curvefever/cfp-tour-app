@@ -111,7 +111,7 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
     pointsSentence(state),
     [
       perMatch
-        ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against an absent or withdrawn opponent is void for the ${unit} that turned up and doesn't count (unless it has no other match: then it counts as a win); the absent ${unit} gets 0 for it.`
+        ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against a withdrawn opponent is void. A match against an absent opponent is void for the ${unit} that turned up, unless it has no other counted match: then it counts as a win. The absent ${unit} gets 0 for it.`
         : 'A bye counts as a win; a missed round earns 0.',
       nonCountingSentence(state),
     ]

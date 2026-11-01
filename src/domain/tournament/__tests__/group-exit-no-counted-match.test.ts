@@ -171,6 +171,7 @@ describe('a team whose opponents were removed, not absent', () => {
     expect(lineOf(state, 'A', first)).toMatchObject({ totalFP: null });
     expect(computeGroupStandings(state).A.map((entry) => entry.name)).toContain(first);
     expect(advancingOf(state)).toContain(first);
+    expect(advancingOf(state)).toHaveLength(6);
   });
 });
 

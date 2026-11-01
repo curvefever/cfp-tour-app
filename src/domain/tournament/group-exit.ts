@@ -63,14 +63,18 @@ export function groupExitShape(
   amount: number,
 ): GroupExitShape {
   if (mode === 'fair-cut') {
-    const classes = fairCutShape(groupSizes, amount).groups.map((group): GroupExitClass => ({
-      sizes: [group.size],
-      groups: group.rooms.map((room) => room - 1),
-      direct: group.direct,
-      chancePlaces: group.chancePlaces,
-      minSpots: group.minSpots,
-      maxSpots: group.maxSpots,
-    }));
+    // A group of one unit (left by removals) sends its winner out of the total, as a lone unit of a round does.
+    const lone = groupSizes.filter((size) => size === 1).length;
+    const classes = fairCutShape(groupSizes, Math.max(0, amount - lone)).groups.map(
+      (group): GroupExitClass => ({
+        sizes: [group.size],
+        groups: group.rooms.map((room) => room - 1),
+        direct: group.direct,
+        chancePlaces: group.chancePlaces,
+        minSpots: group.minSpots,
+        maxSpots: group.maxSpots,
+      }),
+    );
     return { mode, amount, classes };
   }
   if (mode === 'even-split') {
@@ -111,7 +115,8 @@ export function groupExitShapeOf(state: Pick<TournamentState, 'groups' | 'cfg'>)
 
 /**
  * Places 1…n of each group (by its position in `state.groups`) that always go through. A group the shape leaves out
- * (the fair cut ignores a group of one unit, left by removals) still sends its winner.
+ * (the fair cut ignores a group of one unit, left by removals) still sends its winner; `groupExitShape` takes that spot
+ * off the total.
  */
 export function groupDirectCounts(shape: GroupExitShape, groupCount: number): number[] {
   const direct = Array.from({ length: groupCount }, () => 1);

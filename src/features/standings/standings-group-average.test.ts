@@ -136,7 +136,7 @@ describe('a group stage with per-match standings (13 players, byes)', () => {
     const text = standingsExplanation(state, display).join(' ');
     expect(text).toContain('Groups are ranked by points per match (Pts / match). A bye is not a match.');
     expect(text).toContain(
-      "void for the player that turned up and doesn't count (unless it has no other match: then it counts as a win); the absent player gets 0 for it",
+      'A match against a withdrawn opponent is void. A match against an absent opponent is void for the player that turned up, unless it has no other counted match: then it counts as a win. The absent player gets 0 for it.',
     );
     expect(text).toContain('Most points per match ranks first. The top');
     expect(text).toContain(
