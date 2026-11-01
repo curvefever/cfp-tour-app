@@ -9,6 +9,8 @@ import type { GameFormatKey, TournamentState } from './types';
 export interface PreStartEdit {
   state: TournamentState;
   redrawRefusal?: string;
+  /** The redraw was refused and the drawn schedule dropped, so the organiser generates again. */
+  scheduleCleared?: boolean;
 }
 
 const withRosterCount = (state: TournamentState): TournamentState => ({
@@ -16,11 +18,15 @@ const withRosterCount = (state: TournamentState): TournamentState => ({
   confirmedCount: rosterKeys(state.players).length,
 });
 
+const hasGroupStage = (state: TournamentState) => state.rounds.some((round) => round.isGroupStage);
+
 /**
  * Removes a unit before Confirm & Start. `removeRosterUnit` records the withdrawal (the unit shows in
  * ABSENT) and strips it; with a schedule drawn, the schedule is then redone for the smaller roster. A
  * removal is never refused: when generation can't redraw (below the format's minimum, a graph built for
  * the exact count), the plain removal stands (Round 1 keeps a short room) and `redrawRefusal` says why.
+ * A group stage is the exception: its settings (a total, qualifiers per group) would stay on a roster
+ * they are refused for, so the schedule is cleared (`scheduleCleared`) and the organiser generates again.
  */
 export function removeUnitBeforeStart(
   state: TournamentState,
@@ -32,6 +38,13 @@ export function removeUnitBeforeStart(
   const regenerated = regenerateForRoster(removed, runtime);
   if (regenerated.status === 'generated') return { state: regenerated.state };
   if (regenerated.status === 'invalid') {
+    if (hasGroupStage(removed)) {
+      return {
+        state: withRosterCount(withoutDrawnSchedule(removed)),
+        redrawRefusal: regenerated.message,
+        scheduleCleared: true,
+      };
+    }
     return { state: withRosterCount(removed), redrawRefusal: regenerated.message };
   }
   return { state: withRosterCount(removed) };

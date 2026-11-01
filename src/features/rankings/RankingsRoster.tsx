@@ -197,16 +197,20 @@ type RosterApp = Pick<ReturnType<typeof useTournamentApp>, 'runtime' | 'updateSt
 /**
  * Removes a unit from the roster. Before Confirm & Start the roster count follows and, with a schedule
  * drawn, the draw is redone for the smaller roster; when it can't be, the unit is removed all the same and
- * the organiser is told why.
+ * the organiser is told why (a group stage's schedule is cleared, to generate again).
  */
 function removeUnit(state: TournamentState, key: string, label: string, app: RosterApp) {
   if (state.started) {
     app.updateState((current) => removeRosterUnit(current, key));
     return;
   }
-  const { state: next, redrawRefusal } = removeUnitBeforeStart(state, key, app.runtime);
+  const { state: next, redrawRefusal, scheduleCleared } = removeUnitBeforeStart(state, key, app.runtime);
   app.updateState(next);
-  if (redrawRefusal) {
+  if (scheduleCleared) {
+    window.alert(
+      `Removed "${label}". The schedule was cleared: ${redrawRefusal} Change the settings in Setup and click Generate again.`,
+    );
+  } else if (redrawRefusal) {
     window.alert(
       `Removed "${label}". The draw couldn't be redone: ${redrawRefusal} Round 1 keeps a short room.`,
     );

@@ -247,6 +247,61 @@ describe('removing a unit before Confirm & Start redraws the schedule', () => {
   });
 });
 
+describe('a pre-start removal whose redraw is refused, in a group stage', () => {
+  const groups: Setup = { ...GROUP_STAGE, groupSize: '4' };
+
+  it.each([
+    ['fair cut 11 of 12', { groupExit: 'fair-cut', qualAdv: '11' }, 12, /at most 10/],
+    ['even split 9 of 12', { groupExit: 'even-split', qualAdv: '9' }, 12, /even split/],
+    ['per group 3 at 16 (4/4/4/4)', { qualifiersPerGroup: '3' }, 16, /group of 3.*4 groups \(4, 4, 4, 3\)/],
+  ] as const)(
+    '%s: the schedule is cleared, the roster count follows, the settings stay',
+    (_label, setup, count, refusal) => {
+      const start = generated(count, { ...groups, ...setup });
+      const { state, redrawRefusal, scheduleCleared } = removeUnitBeforeStart(start, 'P3', testRuntime());
+      expect(scheduleCleared).toBe(true);
+      expect(redrawRefusal).toMatch(refusal);
+      expect(state.rounds).toEqual([]);
+      expect(state.groups).toEqual([]);
+      expect(state.assignments).toEqual([]);
+      expect(state.started).toBe(false);
+      expect(state.confirmedCount).toBe(count - 1);
+      expect(state.players).toHaveLength(count - 1);
+      expect(state.settings).toEqual(start.settings);
+      expect(state.withdrawnUnits).toMatchObject([{ name: 'P3', reason: 'removed' }]);
+      expect(scheduleMatchesRoster(state)).toBe(true);
+    },
+  );
+
+  it('a redraw that succeeds (38 -> 37) is redrawn as before: no clearing', () => {
+    const { state, scheduleCleared, redrawRefusal } = removeUnitBeforeStart(
+      generated(38, GROUP_STAGE),
+      'P5',
+      testRuntime(),
+    );
+    expect(scheduleCleared).toBeUndefined();
+    expect(redrawRefusal).toBeUndefined();
+    expect(state.groups.flatMap((group) => group.members)).toHaveLength(37);
+  });
+
+  it.each([31, 37])('%i teams, fair cut 16 of groups of 4: still redrawn after a removal', (count) => {
+    const { state, scheduleCleared } = removeUnitBeforeStart(
+      generated(count, { ...groups, groupExit: 'fair-cut', qualAdv: '16' }),
+      'P3',
+      testRuntime(),
+    );
+    expect(scheduleCleared).toBeUndefined();
+    expect(state.groups.flatMap((group) => group.members)).toHaveLength(count - 1);
+  });
+
+  it('a format that is not a group stage keeps the short room: no clearing', () => {
+    const start = generated(12, { scheduleLogic: 'single-elimination', poolingPhase: 'none' });
+    const { state, scheduleCleared } = removeUnitBeforeStart(start, 'P3', testRuntime());
+    expect(scheduleCleared).toBeUndefined();
+    expect(state.rounds.length).toBeGreaterThan(0);
+  });
+});
+
 describe('reloading the roster in Setup after Generate', () => {
   /** The same teams parsed again: every one gets a new id, as `parseTeamLines` gives them. */
   const reparsed = (teams: TournamentTeam[]) =>
