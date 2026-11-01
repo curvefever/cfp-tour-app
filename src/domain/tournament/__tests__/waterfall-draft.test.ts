@@ -26,6 +26,7 @@ import {
   serializeWaterfallDraft,
   setWaterfallColumn,
   setWaterfallFinal,
+  setWaterfallRanking,
   setWaterfallMatch,
   waterfallColumnChoices,
   waterfallColumnGroups,
@@ -370,6 +371,18 @@ describe('waterfall draft edits', () => {
     const cleared = setWaterfallFinal(moved, 'SemiB', false);
     expect(cleared.rounds.some((round) => round.isFinal)).toBe(false);
     expect(cleared.routes.SemiB).toEqual([Array(8).fill(null)]);
+  });
+
+  it('makes a round a ranking match, setting its ranks out, and can undo it; the Final mark clears it', () => {
+    const ranked = setWaterfallRanking(draftOf(SECOND_CHANCE_GRAPH), 'SemiB', true);
+    expect(ranked.rounds.find((round) => round.label === 'SemiB')?.isRanking).toBe(true);
+    expect(ranked.routes.SemiB).toEqual([Array(8).fill(null)]);
+    expect(serializeWaterfallDraft(ranked)).toContain('SemiB = 8 RANKING');
+    const cleared = setWaterfallRanking(ranked, 'SemiB', false);
+    expect(cleared.rounds.find((round) => round.label === 'SemiB')?.isRanking).toBeUndefined();
+    const final = setWaterfallFinal(ranked, 'SemiB', true);
+    expect(final.rounds.find((round) => round.label === 'SemiB')).toMatchObject({ isFinal: true });
+    expect(final.rounds.find((round) => round.label === 'SemiB')?.isRanking).toBeUndefined();
   });
 
   describe('assignWaterfallSlots', () => {

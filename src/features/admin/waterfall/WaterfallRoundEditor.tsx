@@ -32,6 +32,7 @@ export interface RoundEditorActions {
   onRename: (name: string) => string | null;
   onResize: (roomCount: number, roomSize: number) => void;
   onSetFinal: (isFinal: boolean) => void;
+  onSetRanking: (isRanking: boolean) => void;
   /** A whole column number, or null to leave the round's column automatic. */
   onSetColumn: (column: number | null) => void;
   /** The round's own match format, or null for the default. */
@@ -256,6 +257,18 @@ function RoundSettings({
             type='checkbox'
           />
           This is the Final
+        </label>
+        <label
+          className='flex items-center gap-2 pb-2 text-sm'
+          title='A placement match: everyone in it goes out, ranked below the other rounds of its column.'
+        >
+          <input
+            checked={round.isRanking === true}
+            className='size-4 accent-primary'
+            onChange={(event) => actions.onSetRanking(event.target.checked)}
+            type='checkbox'
+          />
+          Ranking match
         </label>
         <span className='flex-1' />
         <Button onClick={actions.onDelete} size='sm' variant='danger'>

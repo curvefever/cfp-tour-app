@@ -20,6 +20,7 @@ import {
   setWaterfallColumn,
   setWaterfallMatch,
   setWaterfallFinal,
+  setWaterfallRanking,
   waterfallColumnChoices,
   waterfallDraftColumns,
   waterfallQualCounts,
@@ -244,6 +245,18 @@ function DraftEditor({
         return;
       }
       commit(setWaterfallFinal(draft, round.label, isFinal));
+    },
+    onSetRanking: (isRanking) => {
+      if (
+        isRanking &&
+        roundHasRoutedSlots(draft, round.label) &&
+        !window.confirm(
+          `Make ${round.label} a ranking match? Everyone in it goes out, so its routing is lost.`,
+        )
+      ) {
+        return;
+      }
+      commit(setWaterfallRanking(draft, round.label, isRanking));
     },
     onSetColumn: (column) => commit(setWaterfallColumn(draft, round.label, column)),
     onSetMatch: (match) => commit(setWaterfallMatch(draft, round.label, match)),

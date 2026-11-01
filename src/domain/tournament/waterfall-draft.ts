@@ -660,11 +660,35 @@ export function resizeWaterfallRound(
 
 /** Marks one round as the Final (clearing the flag elsewhere), or clears it. A round that becomes the Final loses its outgoing routes. */
 export function setWaterfallFinal(draft: WaterfallDraft, label: string, isFinal: boolean): WaterfallDraft {
-  const rounds = draft.rounds.map((round) => ({
-    ...round,
-    isFinal: round.label === label ? isFinal : isFinal ? false : round.isFinal,
-  }));
+  const rounds = draft.rounds.map((round) => {
+    const marked = { ...round, isFinal: round.label === label ? isFinal : isFinal ? false : round.isFinal };
+    return round.label === label && isFinal ? withoutRanking(marked) : marked;
+  });
   return { ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) };
+}
+
+function withoutRanking(round: WaterfallDraftRound): WaterfallDraftRound {
+  const { isRanking: _isRanking, ...rest } = round;
+  return rest;
+}
+
+/** Marks one round as a ranking match (RANKING), or clears it. A ranking match sends nobody on: its ranks are all set out, and it is no longer the Final. */
+export function setWaterfallRanking(
+  draft: WaterfallDraft,
+  label: string,
+  isRanking: boolean,
+): WaterfallDraft {
+  const rounds = draft.rounds.map((round) => {
+    if (round.label !== label) return round;
+    return isRanking ? { ...round, isFinal: false, isRanking: true as const } : withoutRanking(round);
+  });
+  const routes = reshapeRoutes(rounds, draft.routes);
+  const marked = rounds.find((round) => round.label === label);
+  return {
+    ...draft,
+    rounds,
+    routes: isRanking && marked ? { ...routes, [label]: emptyRoutes(marked) } : routes,
+  };
 }
 
 /** Gives a round its own column number, or null to leave it automatic. */

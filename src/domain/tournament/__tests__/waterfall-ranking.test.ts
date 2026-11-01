@@ -130,7 +130,7 @@ describe('RANKING rounds', () => {
   });
 
   it('keeps the mark through the graph editor and a running tournament', () => {
-    const draft = parseWaterfallDraft(RANKING_GRAPH, { roomSize: ROOM });
+    const draft = parseWaterfallDraft(RANKING_GRAPH, { standingsSource: true, standingsKind: 'groups' });
     if (!draft.ok) throw new Error(draft.error);
     expect(serializeWaterfallDraft(draft.value)).toContain('Round 5 - Ranking = 2 RANKING');
     const state = generated(12, RANKING_GRAPH);
