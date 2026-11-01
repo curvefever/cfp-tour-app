@@ -1,6 +1,6 @@
 # Curve Fever Pro Tournament Hub — Future Projects Roadmap
 
-This file contains future projects and architectural questions not yet scoped or built. An entry moves to `HANDOFF_LOG.md` once built (with the current-state docs updated), then is removed from this file. Smaller, shorter-horizon gaps and decisions are in `docs/open-items.md` instead.
+This file contains future projects and architectural questions not yet scoped or built. An entry moves to `HANDOFF_LOG.md` once built (with the current-state docs updated), then is removed from this file. Smaller, shorter-horizon gaps and decisions are in `docs/open-items.md` instead; what is built next, and in what order, is its "Work queue".
 
 ---
 
@@ -31,6 +31,7 @@ This file contains future projects and architectural questions not yet scoped or
 - **Uneven win targets in one match** — raised by the organiser 2026-10-30, not needed for the first Best-of build. A custom bracket can bring two units into a match where one must win e.g. 2 games and the other 3, as the double-elimination race Grand Final already does (`grandFinalWbTarget` / `grandFinalLbTarget`, `finals.ts`). To decide: a head start in wins (one side starts 1–0 in a first to 3) or a target per entrant, how the graph or the editor names it (per feeding source), and whether the race Grand Final then moves onto the same mechanism.
 - **Match results for Best of 5 and 7** — raised 2026-10-31. Only a Best of 3 is mapped (2–0 a Win, 2–1 a Tie Win); generation refuses a Best of 5 or 7 group round under match results. To decide: which game scores (3–0, 3–1, 3–2 …) are a Win and which a Tie Win.
 - **Tie-margin defaults per mode, target score and in-game scoring type** — raised 2026-10-31. The game has three target scores and several in-game scoring types (flat, flattened, percent), and the margin that suits a tie differs by mode (Save your Buddy and the others apart). Today `defaultTieMargin` (`match-results.ts`) holds one value, `team-4v4: 100` at target 1400, any other format starts with an empty field, and the margin is not adjusted for a team a player short. The defaults need the target score to be a value the app knows (today it is only free text in round notes), and Setup has to show and edit them. The organiser is gathering the values.
+- **Swapping two units between groups until Round 2 is drawn** — raised and decided by the organiser 2026-11-01, then set aside for other priorities. Groups are drawn at generation (`assignGroupMembers`, `pooling.ts`) with their whole round robin stored, and nothing lets the organiser move a unit to another group. Decided: two units of different groups trade places in every group round; allowed from generation, through Round 1, until Next Round draws Round 2 (and again after Back to draft); a swap during Round 1 clears, after a confirm, the Round 1 results of the two units' matches; admins only, from the Standings tab's group tables ("⇄ Swap groups", pick a unit, then a unit of another group).
 
 ## Late joiners
 
