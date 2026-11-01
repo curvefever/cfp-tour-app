@@ -55,6 +55,12 @@ function reconcileScheduleLogicForFormat(
   return current;
 }
 
+/** The line under the group exit field: what the roster would do, or why generation would refuse it. */
+function GroupExitHelpText({ help }: { help: ReturnType<typeof groupExitHelpLine> }) {
+  if (!help) return null;
+  return <p className={cn('text-xs', help.refused ? 'text-warning' : 'text-muted')}>{help.text}</p>;
+}
+
 /** The game format, schedule logic, pooling and scoring settings, and the Generate Schedule button. */
 export function FormatPanel({
   error,
@@ -307,11 +313,7 @@ export function FormatPanel({
                   value={setup.qualAdv}
                   onChange={(e) => change('qualAdv', cappedAdvance(e.target.value, registered))}
                 />
-                {exitHelp ? (
-                  <p className={cn('text-xs', exitHelp.refused ? 'text-warning' : 'text-muted')}>
-                    {exitHelp.text}
-                  </p>
-                ) : null}
+                <GroupExitHelpText help={exitHelp} />
               </PresenceField>
             ) : (
               <PresenceField htmlFor='cfg-qualifiers-per-group' label='Qualifiers per group'>
@@ -322,6 +324,7 @@ export function FormatPanel({
                   value={setup.qualifiersPerGroup}
                   onChange={(e) => change('qualifiersPerGroup', e.target.value)}
                 />
+                <GroupExitHelpText help={exitHelp} />
               </PresenceField>
             )}
           </>

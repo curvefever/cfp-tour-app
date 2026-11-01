@@ -103,6 +103,21 @@ describe('bracketEntryCountFromSetup', () => {
     ).toBeNull();
   });
 
+  it('is unknown when qualifiers per group would take a whole real group, which is smaller than the group size', () => {
+    const groups = {
+      poolingPhase: 'group-stage' as const,
+      qualAdv: '8',
+      groupSize: '4',
+      qualifiersPerGroup: '3',
+    };
+    expect(bracketEntryCountFromSetup(setup(groups), 15, 1)).toBeNull();
+    expect(bracketEntryCountFromSetup(setup(groups), 16, 1)).toBe(12);
+    expect(bracketEntryCountFromSetup(setup(groups), 13, 1)).toBe(9);
+    expect(
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '5', qualifiersPerGroup: '4' }), 11, 1),
+    ).toBeNull();
+  });
+
   it('a total group exit is the advance count; a setup without the field is per group, as everywhere else', () => {
     const groups = {
       poolingPhase: 'group-stage' as const,

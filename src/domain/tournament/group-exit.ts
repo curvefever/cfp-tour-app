@@ -277,8 +277,10 @@ export function describeGroupSizes(groupSizes: readonly number[]): string {
 }
 
 /**
- * Why a total of units advancing can't be shared between the groups of `unitCount` units split by `groupSize`, or null
- * when it can. Every group sends its winner. An even split takes the same number from every group, so each group loses
+ * Why the exit amount can't be shared between the groups of `unitCount` units split by `groupSize`, or null when it
+ * can. Every group sends its winner. Per group, `total` is the qualifiers per group: at least 1, and below the smallest
+ * real group (the split can make groups smaller than the Setup's size), so each group loses at least one. Otherwise
+ * `total` is the number of units advancing: an even split takes the same number from every group, so each group loses
  * at least one; a fair cut keeps only the winners safe (a group may send everyone), so it needs one unit out in all.
  */
 export function groupExitRefusal(
@@ -288,9 +290,9 @@ export function groupExitRefusal(
   total: number,
   unitPlural: string,
 ): string | null {
-  if (mode === 'per-group') return null;
   const groupSizes = groupSizesOf(unitCount, groupSize);
   const groups = describeGroupSizes(groupSizes);
+  if (mode === 'per-group') return perGroupRefusal(groupSizes, groups, unitCount, total, unitPlural);
   if (total < groupSizes.length) {
     return `Advance to bracket (${total}) is below the number of groups: ${groups} each send their winner, so at least ${groupSizes.length} ${unitPlural} must go through.`;
   }
@@ -299,6 +301,21 @@ export function groupExitRefusal(
     return `Advance to bracket (${total}) would put every one of the ${unitCount} ${unitPlural} through: the fair cut needs at least one out, so at most ${unitCount - 1} can go through.`;
   }
   return null;
+}
+
+/** Qualifiers per group's refusal: below 1, or enough to take every unit of the smallest group. */
+function perGroupRefusal(
+  groupSizes: readonly number[],
+  groups: string,
+  unitCount: number,
+  qualifiers: number,
+  unitPlural: string,
+): string | null {
+  if (qualifiers < 1) return `Qualifiers per group must be a positive number — got ${qualifiers}.`;
+  const smallest = Math.min(...groupSizes);
+  if (qualifiers < smallest) return null;
+  const unit = unitPlural.replace(/s$/, '');
+  return `Qualifiers per group (${qualifiers}) would take every ${unit} of a group of ${smallest}: ${unitCount} ${unitPlural} make ${groups}. Use at most ${smallest - 1}, or change the group size.`;
 }
 
 /** An even split's refusal: one unit out of every group, so at most groups × (smallest group − 1) go through. */

@@ -81,14 +81,27 @@ describe('groupExitHelp: the Setup help line from the shape', () => {
 });
 
 describe('groupExitHelpLine', () => {
-  const setup = (groupExit: PersistedSetup['groupExit'], qualAdv: string, groupSize = '4') => ({
+  const setup = (
+    groupExit: PersistedSetup['groupExit'],
+    qualAdv: string,
+    groupSize = '4',
+    qualifiersPerGroup = '2',
+  ) => ({
     groupExit,
     qualAdv,
     groupSize,
+    qualifiersPerGroup,
   });
 
-  it('is nothing per group, without a roster, or while a field is not a number', () => {
+  it('says nothing per group when generation accepts it, but the refusal when it would not', () => {
     expect(groupExitHelpLine(setup('per-group', '8'), 13, 'teams')).toBeNull();
+    expect(groupExitHelpLine(setup('per-group', '8', '4', '3'), 16, 'teams')).toBeNull();
+    const refused = groupExitHelpLine(setup('per-group', '8', '4', '3'), 15, 'teams');
+    expect(refused?.refused).toBe(true);
+    expect(refused?.text).toMatch(/4 groups \(4, 4, 4, 3\)\. Use at most 2/);
+  });
+
+  it('is nothing without a roster, or while a field is not a number', () => {
     expect(groupExitHelpLine(setup('fair-cut', '8'), null, 'teams')).toBeNull();
     expect(groupExitHelpLine(setup('fair-cut', ''), 13, 'teams')).toBeNull();
     expect(groupExitHelpLine(setup('fair-cut', '8', '9'), 13, 'teams')).toBeNull();

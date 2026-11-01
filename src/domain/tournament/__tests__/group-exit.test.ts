@@ -460,8 +460,39 @@ describe('group exit validation', () => {
     expect(refusal(12, 4, 'even-split', 9)).toBeNull();
   });
 
-  it('never refuses per group', () => {
-    expect(refusal(13, 4, 'per-group', 99)).toBeNull();
+  it.each([
+    [
+      15,
+      4,
+      3,
+      /\(3\) would take every team of a group of 3: 15 teams make 4 groups \(4, 4, 4, 3\)\. Use at most 2/,
+    ],
+    [31, 4, 3, /8 groups \(4, 4, 4, 4, 4, 4, 4, 3\)\. Use at most 2/],
+    [
+      11,
+      5,
+      4,
+      /\(4\) would take every team of a group of 3: 11 teams make 3 groups \(4, 4, 3\)\. Use at most 2/,
+    ],
+    [7, 5, 4, /2 groups \(4, 3\)\. Use at most 2/],
+    [16, 4, 4, /group of 4: 16 teams make 4 groups \(4, 4, 4, 4\)\. Use at most 3, or change the group size/],
+  ])(
+    'refuses qualifiers per group that take a whole real group: %i teams, size %i, %i per group',
+    (count, size, qualifiers, message) => {
+      expect(refusal(count, size, 'per-group', qualifiers)).toMatch(message);
+    },
+  );
+
+  it('accepts qualifiers per group below the smallest real group', () => {
+    expect(refusal(16, 4, 'per-group', 3)).toBeNull();
+    expect(refusal(37, 5, 'per-group', 3)).toBeNull();
+    expect(refusal(37, 5, 'per-group', 4)).toMatch(/group of 4: 37 teams make 8 groups/);
+    expect(refusal(13, 4, 'per-group', 3)).toBeNull();
+    expect(refusal(15, 4, 'per-group', 2)).toBeNull();
+  });
+
+  it('refuses qualifiers per group below 1', () => {
+    expect(refusal(16, 4, 'per-group', -1)).toMatch(/positive number/);
   });
 });
 
@@ -504,6 +535,32 @@ describe('group exit in a generated tournament', () => {
   it('stores the mode, and a tournament without it is a per-group one', () => {
     expect(generated(13, FAIR_8).cfg.groupExit).toBe('fair-cut');
     expect(generated(13, { qualifiersPerGroup: '2' }).cfg.groupExit).toBeUndefined();
+  });
+
+  it.each([
+    [15, '4', '3'],
+    [31, '4', '3'],
+    [11, '5', '4'],
+    [7, '5', '4'],
+    [12, '4', '4'],
+  ])(
+    'refuses qualifiers per group that take a whole group: %i teams, size %s, %s per group',
+    (count, size, per) => {
+      const result = generate(count, { groupSize: size, qualifiersPerGroup: per });
+      expect(result.status).toBe('invalid');
+      if (result.status === 'invalid') expect(result.message).toMatch(/would take every team of a group of/);
+    },
+  );
+
+  it.each([
+    [16, '4', '3', 12],
+    [13, '4', '3', 9],
+    [37, '5', '3', 24],
+  ])('generates %i teams, size %s, %s per group: %i go to the bracket', (count, size, per, entering) => {
+    const state = generated(count, { groupSize: size, qualifiersPerGroup: per });
+    expect(state.groups.reduce((sum, group) => sum + Math.min(Number(per), group.members.length), 0)).toBe(
+      entering,
+    );
   });
 
   it('the group stage seeds the total, not groups times qualifiers', () => {

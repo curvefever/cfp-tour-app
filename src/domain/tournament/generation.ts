@@ -203,15 +203,15 @@ export function generateTournament(
         `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
       );
     }
-    if (config.groupExit === undefined && config.qualifiersPerGroup < 1) {
-      return generationError(
-        `Qualifiers per group must be a positive number — got ${config.qualifiersPerGroup}.`,
+    if (config.groupExit === undefined) {
+      const refusal = groupExitRefusal(
+        config.n,
+        config.groupSize,
+        'per-group',
+        config.qualifiersPerGroup,
+        unitPlural,
       );
-    }
-    if (config.groupExit === undefined && config.groupSize <= config.qualifiersPerGroup) {
-      return generationError(
-        `Group size (${config.groupSize}) must be greater than qualifiers per group (${config.qualifiersPerGroup}) — a group can't qualify more finishers than it contains.`,
-      );
+      if (refusal) return generationError(refusal);
     }
   }
   const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);

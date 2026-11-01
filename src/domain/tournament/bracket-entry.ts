@@ -1,4 +1,4 @@
-import { groupExitIsTotal } from './group-exit';
+import { groupExitIsTotal, groupSizesOf } from './group-exit';
 import { GROUP_SIZE_BOUNDS } from './pooling';
 import { distributeRooms } from './room-distribution';
 import type { GroupExitMode, PersistedSetup, PoolingPhaseKey } from './types';
@@ -63,7 +63,9 @@ export function bracketEntryCountFromSetup(
     const validGroups =
       groupSize >= GROUP_SIZE_BOUNDS.min &&
       groupSize <= GROUP_SIZE_BOUNDS.max &&
-      (totalExit || (qualifiersPerGroup >= 1 && groupSize > qualifiersPerGroup));
+      (totalExit ||
+        (qualifiersPerGroup >= 1 &&
+          qualifiersPerGroup < Math.min(...groupSizesOf(confirmedCount, groupSize))));
     if (!validGroups) return null;
   }
   let qualAdv = confirmedCount;
