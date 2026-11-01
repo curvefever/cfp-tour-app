@@ -14,7 +14,9 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** `match-results-pooling.test.ts`: 4v4 qualification table with 13 teams (a bye each round): margin 100 read from the format; a Win by 150 (3 / 0), a Tie win by 100 (2 / 1), a Tie on equal scores (1.5 each), the bye 3 points; a room not fully scored gives none; the standings sort by the sums; no room tie card on equal scores (and one without match results); a room left with one present team gives it the Win; 4v4 Swiss with 16 teams, round 2 paired from the points; generation accepted for 4v4 with either phase, refused for FFA, 2v2v2v2 and Flex; a Best of 5 refused in a qualification round. `format-fields.test.ts` updated for the fields by phase and format; the group stage's match-result tests pass unchanged (one test that asserted the old refusal for Swiss and qualification moved here).
 
-**Full suite:** to be run at the final review (shared code).
+**Full suite:** passed on `9d867a3` (163 files, 4304 tests).
+
+**Planner review:** every production hunk read; lint, format and types clean. Mutation checks, 4, all caught: room tie cards back in qualification rounds, qualification points by place instead of the match result, a bye not a Win, Flex allowed.
 
 **Out of scope.** The W / TW / TL / L codes in the qualification and Swiss standings cells (the group tables show them; the Bracket room cards already do). Match results in rooms of more than two units.
 
@@ -38,7 +40,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** `groups-line.test.ts`: parse and validate, draft, generation (13 teams with groups 5, 4, 4: fair cut 8, even split, per group refusal naming 6 or 9; 16 teams, 2 each; more ranks than teams), the organiser example (12 teams, fair cut 8, over 8 score seeds: R1 from ranks 1-4, R1C from 5-8, group-mates apart), a mixed-fed round, 31 teams with a three-band line, band ties (pick, Standings marks, a level pair inside one band raises nothing), the expected column and the re-draw, a stored state without `standingsRoutes`, the group swap and the replay fallback; live edit: a band change during the groups (total 9, 13-team play-through to the Final), a per group total refused, the roster shortfall (5 withdrawals leave 7), stale picks dropped, after the exit an unchanged line-up accepted, an unscored re-draw (`R1 + R1C`), a scored round refused, a rank that never left refused. `group-exit.test.ts` (labels), `seeding.test.ts`, `pooling-exit-seeding.test.ts`, `WaterfallGroupsBlock.render.test.tsx` (13 tests, the running panel included). Live check (Setup only, a throwaway draft, 13 teams): the header, the labels, the derived fields and a graph edit; no generate, no roster load.
 
-**Full suite:** passed on `e7daff2` (162 files, 4293 tests). Not covered: `9d867a3` (Match results for Swiss and the qualification table, on top of it, unreviewed).
+**Full suite:** passed on `e7daff2` (162 files, 4293 tests). Also passed on `9d867a3`, which builds on it (see its entry).
 
 **Planner review:** every production hunk of the three stages and the two fix commits read; lint, format and types clean over the plan's files. Mutation checks, 16: caught are any place in a band-tie run, every level run raised as a tie, the picks not applied, band ties not raised, no per-group divisibility refusal; after the fixes the group swap missing on a Groups-fed round, the replay fallback reading the qualification table, the fallback back to the first fitting unit; stage 2's band ties never pending, no Groups banner heading, no "can't share" text, the Groups block never shown, band marks from stale picks; stage 3's a rank beyond the exit allowed after the bracket is entered, the exit settings not derived during the groups, stale band picks kept. None survives.
 
