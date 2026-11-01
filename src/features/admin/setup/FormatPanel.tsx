@@ -28,7 +28,7 @@ import {
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
-import { groupExitHelpLine } from './group-exit-help';
+import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
@@ -56,6 +56,26 @@ function reconcileScheduleLogicForFormat(
 }
 
 /** The line under the group exit field: what the roster would do, or why generation would refuse it. */
+/** "Advance to bracket" or "Qualifiers per group" when the Groups line of the custom bracket graph decides it: read only. */
+function GroupsLineExitField({
+  total,
+  perGroup,
+  groupCount,
+}: {
+  total: number;
+  perGroup: boolean;
+  groupCount: number | null;
+}) {
+  const id = perGroup ? 'cfg-qualifiers-per-group' : 'cfg-group-exit-total';
+  return (
+    <PresenceField htmlFor={id} label={perGroup ? 'Qualifiers per group' : 'Advance to bracket'}>
+      <p className='text-sm' id={id}>
+        {groupsLineExitText({ total, perGroup, groupCount })}
+      </p>
+    </PresenceField>
+  );
+}
+
 function GroupExitHelpText({ help }: { help: ReturnType<typeof groupExitHelpLine> }) {
   if (!help) return null;
   return <p className={cn('text-xs', help.refused ? 'text-warning' : 'text-muted')}>{help.text}</p>;
@@ -193,8 +213,16 @@ export function FormatPanel({
     }));
   }
 
-  const { derivedAdvance, isShared, sharedFinalShare, totalPoolingRounds, waterfallStandingsSource } =
-    setupDerived(setup, state, lbQualifiers);
+  const {
+    derivedAdvance,
+    isShared,
+    sharedFinalShare,
+    totalPoolingRounds,
+    waterfallGroupSizes,
+    waterfallStandingsKind,
+    waterfallStandingsSource,
+  } = setupDerived(setup, state, lbQualifiers);
+  const setByGroupsLine = waterfallStandingsKind === 'groups';
   return (
     <SectionPanel title='FORMAT'>
       <div className='grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-4'>
@@ -303,7 +331,13 @@ export function FormatPanel({
                 ))}
               </Select>
             </PresenceField>
-            {groupExitIsTotal(setup) ? (
+            {setByGroupsLine ? (
+              <GroupsLineExitField
+                groupCount={waterfallGroupSizes?.length ?? null}
+                perGroup={!groupExitIsTotal(setup)}
+                total={derivedAdvance}
+              />
+            ) : groupExitIsTotal(setup) ? (
               <PresenceField htmlFor='cfg-group-exit-total' label='Advance to bracket'>
                 <Input
                   id='cfg-group-exit-total'

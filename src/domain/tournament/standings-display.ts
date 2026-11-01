@@ -6,6 +6,7 @@ import {
   computeGroupStandings,
   computeQualificationStandings,
   getAllTies,
+  isGroupBandKey,
   isQualCutoffKey,
   isTieResolved,
   qualStandingsRoutes,
@@ -323,9 +324,20 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
       const exitTie = ties[GROUP_EXIT_TIE_KEY];
       const exitNames = exitTie ? exitTie.players.map((player) => player.name) : [];
       const exitDecided = exitTie ? isTieResolved(GROUP_EXIT_TIE_KEY, exitTie, state) : false;
+      // A Groups line's band-boundary ties sit across the groups' tables, like the tie at the last spot.
+      const bandKeys = [...new Set([...Object.keys(ties), ...Object.keys(state.tieResolutions)])].filter(
+        isGroupBandKey,
+      );
+      const bandPending = bandKeys.flatMap((key) => {
+        const cluster = ties[key];
+        return cluster && !isTieResolved(key, cluster, state)
+          ? cluster.players.map((player) => player.name)
+          : [];
+      });
       const pending = [
         ...unresolved.flatMap((cluster) => cluster.players.map((player) => player.name)),
         ...(exitTie && !exitDecided ? exitNames : []),
+        ...bandPending,
       ];
       // A cluster still waiting for a pick shows only "pending", never a partial placement.
       const placed = table.entries
@@ -337,7 +349,29 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
         .map((entry) => entry.name);
       // A tie at the last chance spot places the units level for it, whichever group's table they are in.
       const exitPlaced = exitDecided ? table.entries.filter((entry) => exitNames.includes(entry.name)) : [];
-      return [table.key, { placed: [...placed, ...exitPlaced.map((entry) => entry.name)], pending }];
+      // A band tie decided places every unit it holds; one still being decided places only the picks so far.
+      const bandPlacedNames = bandKeys.flatMap((key) => {
+        const cluster = ties[key];
+        return cluster && isTieResolved(key, cluster, state)
+          ? cluster.players.map((player) => player.name)
+          : tieResolutionList(state, key);
+      });
+      const bandPlaced = table.entries.filter(
+        (entry) => bandPlacedNames.includes(entry.name) && !bandPending.includes(entry.name),
+      );
+      return [
+        table.key,
+        {
+          placed: [
+            ...new Set([
+              ...placed,
+              ...exitPlaced.map((entry) => entry.name),
+              ...bandPlaced.map((entry) => entry.name),
+            ]),
+          ],
+          pending,
+        },
+      ];
     }),
   );
 }

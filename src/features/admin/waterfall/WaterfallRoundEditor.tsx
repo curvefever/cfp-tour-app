@@ -16,7 +16,8 @@ import {
   destinationColor,
   destinationName,
   formatRanks,
-  QUAL_DISPLAY_NAME,
+  describeRankLabels,
+  standingsSourceName,
   slotKey,
 } from './waterfall-format';
 
@@ -338,11 +339,14 @@ function SlotGrid({
   summarizeOut,
   picked,
   onPickSlot,
+  slotTitles,
 }: {
   draft: WaterfallDraft;
   slots: WaterfallSlotDestination[];
   room: number;
   name: string;
+  /** What each rank is (a tooltip on its slot), rank 1 first. */
+  slotTitles?: readonly string[];
   /** The summary line also says where the ranks that are out go: a room does, the qualification table's open tail doesn't. */
   summarizeOut: boolean;
   picked: ReadonlySet<string>;
@@ -378,7 +382,8 @@ function SlotGrid({
               </span>
             </>
           );
-          const label = `${name}, rank ${rank}, ${slotDescription(destination)}`;
+          const title = slotTitles?.[index];
+          const label = `${name}, rank ${rank}${title ? ` (${title})` : ''}, ${slotDescription(destination)}`;
           // No onPickSlot (a read-only editor): a plain div, not a button --
           // out of the tab order and with no click/hover affordance at all,
           // rather than a button that merely does nothing when pressed.
@@ -390,12 +395,13 @@ function SlotGrid({
               key={rank}
               onClick={(event) => onPickSlot(room, rank, event.shiftKey)}
               style={style}
+              title={title}
               type='button'
             >
               {content}
             </button>
           ) : (
-            <div aria-label={label} className={className} key={rank} style={style}>
+            <div aria-label={label} className={className} key={rank} style={style} title={title}>
               {content}
             </div>
           );
@@ -431,26 +437,44 @@ function RoomSlots({
   );
 }
 
-/** The qualification table as a source: one slot per final standing, routed like a room's ranks. A rank left as "out" is eliminated. */
+/**
+ * The qualification table (or the groups) as a source: one slot per final standing (per rank of the group exit order),
+ * routed like a room's ranks. A rank left as "out" is eliminated. `rankLabels` says what each exit rank is (groups only).
+ */
 export function QualificationTableEditor({
   draft,
   picked,
   actions,
+  rankLabels,
 }: {
   draft: WaterfallDraft;
   picked: ReadonlySet<string>;
   actions?: RoundEditorActions;
+  /** One short label per rank, rank 1 first: "Group winners", "Runners-up"; null while the groups are not known. */
+  rankLabels?: readonly string[] | null;
 }) {
   const slots = draft.qualRoutes ?? [];
+  const afterGroups = draft.standingsKind === 'groups';
+  const name = standingsSourceName(draft.standingsKind);
   return (
     <div>
       <div className='flex flex-wrap items-center gap-3'>
-        <b>{QUAL_DISPLAY_NAME}</b>
+        <b>{name}</b>
         <span className='text-sm text-muted'>
-          Where each final standing goes. Rank 1 is the top of the table; a rank left as "out" is eliminated
-          when qualification ends.
+          {afterGroups
+            ? 'Where each rank of the group exit goes: every group\'s winner first, then the runners-up, and so on. A rank left as "out" is eliminated when the groups end.'
+            : 'Where each final standing goes. Rank 1 is the top of the table; a rank left as "out" is eliminated when qualification ends.'}
         </span>
       </div>
+      {afterGroups ? (
+        <p className='mt-2 text-sm' data-testid='rank-labels'>
+          {rankLabels === undefined || rankLabels === null
+            ? 'Load a roster to see the groups.'
+            : rankLabels.length === 0
+              ? 'Route a rank to see what each one is.'
+              : describeRankLabels(rankLabels)}
+        </p>
+      ) : null}
       {actions ? (
         <SelectionToolbar
           actions={actions}
@@ -462,7 +486,8 @@ export function QualificationTableEditor({
       ) : null}
       <SlotGrid
         draft={draft}
-        name={QUAL_DISPLAY_NAME}
+        name={name}
+        slotTitles={rankLabels ?? undefined}
         onPickSlot={actions?.onPickSlot}
         picked={picked}
         room={0}

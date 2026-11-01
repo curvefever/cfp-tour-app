@@ -9,7 +9,7 @@ import {
 } from '../../../domain/tournament/waterfall-draft';
 import { QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cn } from '../../../components/ui/cn';
-import { destinationColor, QUAL_DISPLAY_NAME, roundIntakeBadge } from './waterfall-format';
+import { destinationColor, roundIntakeBadge, standingsSourceName } from './waterfall-format';
 
 const badgeClass = {
   ok: 'bg-success-soft text-success',
@@ -99,7 +99,7 @@ export function WaterfallRoundList({
           type='button'
         >
           <span className='flex items-center justify-between gap-2 font-semibold'>
-            <span>{QUAL_DISPLAY_NAME}</span>
+            <span>{standingsSourceName(draft.standingsKind)}</span>
           </span>
           <span className='text-xs text-muted'>
             {waterfallQualCounts(draft.qualRoutes, entrantCount).sentOn} sent on

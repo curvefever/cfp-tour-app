@@ -1,4 +1,8 @@
-import { ELIMINATED, QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
+import {
+  ELIMINATED,
+  QUAL_LABEL,
+  type StandingsSourceKind,
+} from '../../../domain/tournament/waterfall-bracket';
 import {
   compressWaterfallRanks,
   type WaterfallDraft,
@@ -36,10 +40,31 @@ export function parseSlotKey(key: string): WaterfallSlot {
 
 /** The name shown for the Qual source of a graph. */
 export const QUAL_DISPLAY_NAME = 'Qualification table';
+/** The name shown for the Groups source of a graph. */
+export const GROUPS_DISPLAY_NAME = 'Groups';
 
-/** A flow edge's source: a round label, or the qualification table. */
-export function sourceName(source: string): string {
-  return source === QUAL_LABEL ? QUAL_DISPLAY_NAME : source;
+/** The name of the pooling exit a graph is fed by: the qualification table, or the groups. */
+export function standingsSourceName(kind: StandingsSourceKind | undefined): string {
+  return kind === 'groups' ? GROUPS_DISPLAY_NAME : QUAL_DISPLAY_NAME;
+}
+
+/** A flow edge's source: a round label, or the pooling exit (the qualification table or the groups). */
+export function sourceName(source: string, kind?: StandingsSourceKind): string {
+  return source === QUAL_LABEL ? standingsSourceName(kind) : source;
+}
+
+/** Consecutive ranks with the same label, as "1–3 Group winners · 4–6 Runners-up" (blank labels left out). */
+export function describeRankLabels(labels: readonly string[]): string {
+  const runs: Array<{ label: string; first: number; last: number }> = [];
+  labels.forEach((label, index) => {
+    const run = runs[runs.length - 1];
+    if (run && run.label === label) run.last = index + 1;
+    else runs.push({ label, first: index + 1, last: index + 1 });
+  });
+  return runs
+    .filter(({ label }) => label !== '')
+    .map(({ label, first, last }) => `${first === last ? first : `${first}–${last}`} ${label}`)
+    .join(' · ');
 }
 
 /** A destination as shown to the organiser: a round label, or "out" for a null or eliminated one. */

@@ -13,7 +13,7 @@ export function WaterfallSidePanel({
   draft: WaterfallDraft;
   status: GraphStatus;
   entrantCount: number | null;
-  /** The graph is fed by a qualification table, so `entrantCount` is the registered head count. */
+  /** The graph is fed by a qualification table or a group stage, so `entrantCount` is the registered head count. */
   standingsSource: boolean;
 }) {
   const edges = waterfallFlowEdges(draft);
@@ -50,7 +50,7 @@ export function WaterfallSidePanel({
             style={{ background: destinationColor(draft, edge.to) }}
           />
           <span>
-            <b>{sourceName(edge.from)}</b> → {destinationName(edge.to)}{' '}
+            <b>{sourceName(edge.from, draft.standingsKind)}</b> → {destinationName(edge.to)}{' '}
             <span className='text-muted'>
               {edge.players} player{edge.players > 1 ? 's' : ''} ·{' '}
               {describeFlowEdge(edge, roomCountOf(edge.from))}

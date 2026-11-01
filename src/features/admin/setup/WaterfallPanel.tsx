@@ -11,8 +11,14 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
   const { state, setup } = useTournamentApp();
   const change = useSetupChange();
   const format = getGameFormat(setup.gameFormat);
-  const { derivedRoomSize, isWaterfallBracket, waterfallEntrantCount, waterfallStandingsSource } =
-    setupDerived(setup, state, lbQualifiers);
+  const {
+    derivedRoomSize,
+    isWaterfallBracket,
+    waterfallEntrantCount,
+    waterfallGroupSizes,
+    waterfallStandingsKind,
+    waterfallStandingsSource,
+  } = setupDerived(setup, state, lbQualifiers);
   if (!isWaterfallBracket || !format) return null;
   return (
     <SectionPanel
@@ -21,12 +27,15 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
     >
       <WaterfallGraphEditor
         entrantCount={waterfallEntrantCount}
+        groupExit={setup.groupExit}
+        groupSizes={waterfallGroupSizes}
         finalsMatch={finalsMatchOf(
           Number.parseInt(setup.finalsGames, 10) || undefined,
           Number.parseInt(setup.finalsBestOf, 10) || undefined,
         )}
         onChange={(text) => change('waterfallGraph', text)}
         roomSize={derivedRoomSize}
+        standingsKind={waterfallStandingsKind ?? undefined}
         standingsSource={waterfallStandingsSource}
         text={setup.waterfallGraph}
       />

@@ -45,3 +45,23 @@ function perGroupHelpLine(
   const refusal = groupExitRefusal(registered, groupSize, 'per-group', qualifiers, unitPlural);
   return refusal ? { text: refusal, refused: true } : null;
 }
+
+/**
+ * What the Setup shows for "Advance to bracket" (or "Qualifiers per group") when the Groups line of the custom
+ * bracket graph decides it: the value it implies, or why it can't be used. `total` is the highest rank the line
+ * routes; `groupCount` is null while no roster is loaded.
+ */
+export function groupsLineExitText(input: {
+  total: number;
+  perGroup: boolean;
+  groupCount: number | null;
+}): string {
+  const { total, perGroup, groupCount } = input;
+  if (total === 0) return 'not set yet — route the ranks of the groups in the custom bracket graph below';
+  if (!perGroup) return `${total}, set by the Groups line`;
+  if (!groupCount) return `${total} in all, set by the Groups line (load a roster to see it per group)`;
+  if (total % groupCount !== 0) {
+    return `the Groups line sends ${total}, which ${groupCount} groups can't share — route a multiple of ${groupCount}`;
+  }
+  return `${total / groupCount}, set by the Groups line`;
+}

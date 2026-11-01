@@ -139,9 +139,9 @@ export function waterfallQualAdvance(draft: WaterfallDraft): number {
   return draft.qualRoutes ? highestRoutedQualRank(draft.qualRoutes) : 0;
 }
 
-/** "Advance to bracket" read off graph text fed by a qualification table: the highest rank its Qual line sends on, 0 while unreadable or unset. */
-export function waterfallGraphQualAdvance(text: string): number {
-  const parsed = parseWaterfallDraft(text, { standingsSource: true });
+/** "Advance to bracket" read off graph text fed by a qualification table or group stage: the highest rank its Qual (or Groups) line sends on, 0 while unreadable or unset. */
+export function waterfallGraphQualAdvance(text: string, standingsKind: StandingsSourceKind = 'qual'): number {
+  const parsed = parseWaterfallDraft(text, { standingsSource: true, standingsKind });
   return parsed.ok ? waterfallQualAdvance(parsed.value) : 0;
 }
 

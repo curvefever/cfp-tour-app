@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
-import type { RoomSize } from '../../../domain/tournament/types';
+import { groupExitRankLabels } from '../../../domain/tournament/group-exit';
+import type { GroupExitMode, RoomSize } from '../../../domain/tournament/types';
 import {
   normalizeRoundLabel,
   parseWaterfallGraph,
   QUAL_LABEL,
   validateAndOrderWaterfallGraph,
+  type StandingsSourceKind,
 } from '../../../domain/tournament/waterfall-bracket';
 import {
   addWaterfallRound,
@@ -44,8 +46,14 @@ interface EditorProps {
   /** Players entering the bracket (with `standingsSource`: the players registered), or null while it can't be known yet. */
   entrantCount: number | null;
   roomSize: RoomSize;
-  /** The graph is fed by a qualification table: its final standings are a source of the graph, routed by rank. Default false. */
+  /** The graph is fed by a qualification table or a group stage: the final standings (or the group exit order) are a source of the graph, routed by rank. Default false. */
   standingsSource?: boolean;
+  /** Which of the two feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
+  standingsKind?: StandingsSourceKind;
+  /** After a group stage: the sizes of the groups the roster splits into, null while no roster is loaded. */
+  groupSizes?: readonly number[] | null;
+  /** After a group stage: how many go through, per group, an even split or a fair cut (the labels of the ranks follow it). */
+  groupExit?: GroupExitMode;
   /** No control that changes the graph is rendered; the round list, room tables and side panel still show. */
   readOnly?: boolean;
   /** Labels of rounds that have already started: rename/resize/remove/Final-toggle are hidden for them, but their own routing stays editable. */
@@ -90,18 +98,33 @@ function StartButtons({ onBlank, onExample }: { onBlank?: () => void; onExample:
   );
 }
 
-/** "Players registered: 37 · sent on: 24 · eliminated: 13". */
+/** "Players registered: 37 · sent on: 24 · eliminated: 13"; after groups "… · groups: 5, 4, 4 · sent on: 8 …". */
 function QualificationHeader({
   entrantCount,
   qualRoutes,
+  groupSizes,
+  afterGroups = false,
 }: {
   entrantCount: number | null;
   qualRoutes: WaterfallSlotDestination[];
+  groupSizes?: readonly number[] | null;
+  afterGroups?: boolean;
 }) {
   const { sentOn, eliminated } = waterfallQualCounts(qualRoutes, entrantCount);
   return (
     <span className='text-sm'>
-      Players registered: <b>{entrantCount ?? 'not known yet'}</b> · sent on: <b>{sentOn}</b>
+      Players registered: <b>{entrantCount ?? 'not known yet'}</b>
+      {afterGroups ? (
+        groupSizes ? (
+          <>
+            {' '}
+            · groups: <b>{groupSizes.join(', ')}</b>
+          </>
+        ) : (
+          <span className='text-xs text-muted'> (load a roster to see the groups)</span>
+        )
+      ) : null}{' '}
+      · sent on: <b>{sentOn}</b>
       {eliminated === null ? (
         <span className='text-xs text-muted'> (load a roster to see how many are eliminated)</span>
       ) : (
@@ -127,6 +150,9 @@ function DraftEditor({
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
+  standingsKind,
+  groupSizes,
+  groupExit = 'per-group',
   finalsMatch,
   onAddRanks,
 }: Omit<EditorProps, 'text'> & { draft: WaterfallDraft; status: GraphStatus; onAddRanks?: () => void }) {
@@ -140,6 +166,20 @@ function DraftEditor({
   const roomCount = qualSelected ? 1 : round.roomCount;
   const slotsPerRoom = qualSelected ? (draft.qualRoutes?.length ?? 0) : round.roomSize;
   const intake = waterfallRoundIntake(draft);
+  const afterGroups = standingsSource && standingsKind === 'groups';
+  // What each rank of the group exit is: for the ranks the line sends on (the total follows the highest routed one).
+  const highestRouted = draft.qualRoutes
+    ? draft.qualRoutes.reduce((highest, slot, index) => (slot === null ? highest : index + 1), 0)
+    : 0;
+  const rankLabels = useMemo(
+    () =>
+      afterGroups && groupSizes && highestRouted > 0
+        ? groupExitRankLabels(groupSizes, groupExit, highestRouted)
+        : afterGroups && groupSizes
+          ? []
+          : null,
+    [afterGroups, groupSizes, groupExit, highestRouted],
+  );
 
   const clearPicked = () => {
     setPicked(new Set());
@@ -240,7 +280,7 @@ function DraftEditor({
   const startBlank = () => {
     if (!confirmReplace()) return;
     setSelectedLabel('');
-    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource }));
+    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource, standingsKind }));
   };
   const loadExample = (exampleText: string) => {
     if (!confirmReplace()) return;
@@ -253,7 +293,12 @@ function DraftEditor({
     <div>
       <div className='mb-3 flex flex-wrap items-center gap-2'>
         {standingsSource && draft.qualRoutes ? (
-          <QualificationHeader entrantCount={entrantCount} qualRoutes={draft.qualRoutes} />
+          <QualificationHeader
+            afterGroups={afterGroups}
+            entrantCount={entrantCount}
+            groupSizes={groupSizes}
+            qualRoutes={draft.qualRoutes}
+          />
         ) : (
           <span className='text-sm'>
             Players entering the bracket: <b>{entrantCount ?? 'not known yet'}</b>
@@ -299,6 +344,7 @@ function DraftEditor({
               actions={readOnly ? undefined : actions}
               draft={draft}
               picked={picked}
+              rankLabels={rankLabels}
             />
           ) : (
             <WaterfallRoundEditor
@@ -338,6 +384,9 @@ export function WaterfallGraphEditor({
   showColumns = true,
   allowReplace = true,
   standingsSource = false,
+  standingsKind,
+  groupSizes,
+  groupExit,
   finalsMatch,
 }: EditorProps) {
   // Ranks shown past the last routed one while the head count isn't known ("+ Add ranks").
@@ -347,10 +396,11 @@ export function WaterfallGraphEditor({
     () =>
       parseWaterfallDraft(text, {
         standingsSource,
+        standingsKind,
         rankCount: entrantCount ?? undefined,
         padRanks: max + extraRanks,
       }),
-    [text, standingsSource, entrantCount, max, extraRanks],
+    [text, standingsSource, standingsKind, entrantCount, max, extraRanks],
   );
   const raw = useMemo(() => parseWaterfallGraph(text, { allowIncomplete: true }), [text]);
   const status = useMemo<GraphStatus>(() => {
@@ -359,11 +409,40 @@ export function WaterfallGraphEditor({
       roomSize: { min, max, ideal },
       entrantCount: entrantCount ?? undefined,
       standingsSource,
+      standingsKind,
     });
     return validated.ok ? { ok: true } : { ok: false, error: validated.error };
-  }, [raw, min, max, ideal, entrantCount, standingsSource]);
-  // A Qual line left over from a qualification table: the table below ignores it, and writing the graph back drops it.
+  }, [raw, min, max, ideal, entrantCount, standingsSource, standingsKind]);
+  // A Qual or Groups line left over from another pooling phase: the table below ignores it, and writing the graph back drops it.
   const hasStrayQualLine = !standingsSource && raw.ok && raw.value.qualBands !== null;
+  // The other of the two lines than this tournament's pooling phase feeds: it can be switched to the right one.
+  const wrongLine =
+    standingsSource &&
+    raw.ok &&
+    raw.value.standingsKind !== null &&
+    raw.value.standingsKind !== (standingsKind ?? 'qual')
+      ? raw.value.standingsKind
+      : null;
+
+  if (!parsed.ok && wrongLine !== null && !readOnly) {
+    const right = (standingsKind ?? 'qual') === 'groups' ? 'Groups' : 'Qual';
+    const wrong = wrongLine === 'groups' ? 'Groups' : 'Qual';
+    return (
+      <Alert tone='info'>
+        <p>
+          This graph has a {wrong} line, but this tournament's pooling phase needs a {right} line.
+        </p>
+        <ButtonRow className='mt-2'>
+          <Button
+            onClick={() => onChange(text.replace(new RegExp(`^(\\s*)${wrong}\\s*:`, 'im'), `$1${right}:`))}
+            size='sm'
+          >
+            Use it as the {right} line
+          </Button>
+        </ButtonRow>
+      </Alert>
+    );
+  }
 
   if (!parsed.ok) {
     return (
@@ -401,7 +480,11 @@ export function WaterfallGraphEditor({
               onClick={() =>
                 onChange(
                   serializeWaterfallDraft(
-                    blankWaterfallDraft(entrantCount, { min, max, ideal }, { standingsSource }),
+                    blankWaterfallDraft(
+                      entrantCount,
+                      { min, max, ideal },
+                      { standingsSource, standingsKind },
+                    ),
                   ),
                 )
               }
@@ -421,11 +504,14 @@ export function WaterfallGraphEditor({
       {hasStrayQualLine && !readOnly ? (
         <Alert className='mb-3' tone='info'>
           <p>
-            This graph has a Qual line, but this tournament has no qualification table, so it can't be used.
+            This graph has a {raw.ok && raw.value.standingsKind === 'groups' ? 'Groups' : 'Qual'} line, but
+            this tournament has no{' '}
+            {raw.ok && raw.value.standingsKind === 'groups' ? 'group stage' : 'qualification table'}, so it
+            can't be used.
           </p>
           <ButtonRow className='mt-2'>
             <Button onClick={() => onChange(serializeWaterfallDraft(parsed.value))} size='sm'>
-              Remove the Qual line
+              Remove the {raw.ok && raw.value.standingsKind === 'groups' ? 'Groups' : 'Qual'} line
             </Button>
           </ButtonRow>
         </Alert>
@@ -441,7 +527,10 @@ export function WaterfallGraphEditor({
         onChange={onChange}
         readOnly={readOnly}
         roomSize={roomSize}
+        groupExit={groupExit}
+        groupSizes={groupSizes}
         showColumns={showColumns}
+        standingsKind={standingsKind}
         standingsSource={standingsSource}
         startedColumns={startedColumns}
         status={status}

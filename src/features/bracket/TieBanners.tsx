@@ -9,6 +9,7 @@ import { formatStandingValue, tieResolutionList } from '../../domain/tournament/
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { cutoffTieHeading } from './cutoff-tie-heading';
 
 /** The tied value of a cut-off tie: "7 pts", or "1.3 pts per match" in a group stage with per-match standings. */
 function cutoffPointsText(tie: { fp: number; players: ReadonlyArray<{ averagePoints?: number }> }): string {
@@ -44,13 +45,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
       const isExitTie = key === GROUP_EXIT_TIE_KEY;
       const heading = !isCutoff
         ? `⚠ Tie-break required — ${roundLabelOf(key) ? `${roundLabelOf(key)} · ` : ''}Room ${roomLetter(tie.rm)} (score ${tie.score})`
-        : isExitTie
-          ? `⚖ Groups: tie for the last spot (${cutoffValue})`
-          : 'groupLabel' in tie && tie.groupLabel
-            ? `⚖ Group ${tie.groupLabel} qualification tie at the cut-off (${cutoffValue})`
-            : boundaryText
-              ? `⚖ Qualification tie between ${boundaryText} (${cutoffValue})`
-              : `⚖ Qualification tie at the cut-off (${cutoffValue})`;
+        : cutoffTieHeading(key, tie, boundaryText, cutoffValue);
       return (
         <div
           className={cn(

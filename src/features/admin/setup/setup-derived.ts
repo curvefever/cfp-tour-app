@@ -2,6 +2,8 @@ import { bracketEntryCountFromSetup } from '../../../domain/tournament/bracket-e
 import { deriveRoomSize, getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
 import { computeSwissRoundCount, QUALIFICATION_ROUNDS } from '../../../domain/tournament/pooling';
 import { getMinimumBracketUnits } from '../../../domain/tournament/schedule-generation';
+import { groupSizesOf } from '../../../domain/tournament/group-exit';
+import type { StandingsSourceKind } from '../../../domain/tournament/waterfall-bracket';
 import { waterfallGraphQualAdvance } from '../../../domain/tournament/waterfall-draft';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
 
@@ -26,9 +28,16 @@ export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQu
   const sharedFinalShare =
     (Number.parseInt(setup.finalOverride, 10) || derivedRoomSize.ideal) -
     (Number.parseInt(lbQualifiers, 10) || 0);
-  // After a qualification table the graph routes the final standings itself (its Qual source), so
-  // "Advance to bracket" is derived from it and the graph is checked against the registered head count.
-  const waterfallStandingsSource = isWaterfallBracket && setup.poolingPhase === 'qual-table';
+  // After a qualification table or a group stage the graph routes the pooling exit itself (its Qual or Groups
+  // source), so "Advance to bracket" is derived from it and the graph is checked against the registered head count.
+  const waterfallStandingsKind: StandingsSourceKind | null = !isWaterfallBracket
+    ? null
+    : setup.poolingPhase === 'qual-table'
+      ? 'qual'
+      : setup.poolingPhase === 'group-stage'
+        ? 'groups'
+        : null;
+  const waterfallStandingsSource = waterfallStandingsKind !== null;
   const waterfallEntrantCount = waterfallStandingsSource
     ? state.confirmedCount || null
     : bracketEntryCountFromSetup(
@@ -36,7 +45,14 @@ export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQu
         state.confirmedCount,
         getMinimumBracketUnits('waterfall-bracket', derivedRoomSize),
       );
-  const derivedAdvance = waterfallStandingsSource ? waterfallGraphQualAdvance(setup.waterfallGraph) : 0;
+  const derivedAdvance = waterfallStandingsKind
+    ? waterfallGraphQualAdvance(setup.waterfallGraph, waterfallStandingsKind)
+    : 0;
+  // The groups the roster splits into, when the Groups line decides the exit (null while no roster is loaded).
+  const waterfallGroupSizes =
+    waterfallStandingsKind === 'groups' && state.confirmedCount
+      ? groupSizesOf(state.confirmedCount, Number.parseInt(setup.groupSize, 10) || 4)
+      : null;
   return {
     derivedAdvance,
     derivedRoomSize,
@@ -48,6 +64,8 @@ export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQu
     sharedFinalShare,
     totalPoolingRounds,
     waterfallEntrantCount,
+    waterfallGroupSizes,
+    waterfallStandingsKind,
     waterfallStandingsSource,
   };
 }

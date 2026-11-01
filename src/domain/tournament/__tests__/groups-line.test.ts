@@ -10,6 +10,7 @@ import { isFedOnlyByStandings } from '../bracket-replay';
 import { expectedNextColumn } from '../expected-draw';
 import { generateTournament } from '../generation';
 import { resolveTournamentTie } from '../mutations';
+import { cutTieMarks, describeStandings } from '../standings-display';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -436,6 +437,26 @@ describe('a tie at a band boundary is the admin pick', () => {
     expect(r1).toContain(runners[2]);
     expect(r1).not.toContain(runners[0]);
     expect(roomsOf(next, indexOfLabel(next, 'R1C')).flat()).toContain(runners[0]);
+  });
+
+  it('marks the units of a band tie on the Standings tab: pending until picked, then placed', () => {
+    const settled = resolveEveryTieBut(levelExit(), 'group-band-4');
+    const names = getAllColumnTies(settled)['group-band-4'].players.map((player) => player.name);
+    const marks = (state: TournamentState) => {
+      const display = describeStandings(state);
+      if (!display) throw new Error('no standings');
+      return Object.values(cutTieMarks(state, display));
+    };
+    for (const table of marks(settled)) {
+      for (const name of names) expect(table.pending).toContain(name);
+    }
+    let decided = resolveTournamentTie(settled, 'group-band-4', names[2]);
+    decided = resolveTournamentTie(decided, 'group-band-4', names[1]);
+    for (const table of marks(decided)) {
+      for (const name of names) expect(table.pending).not.toContain(name);
+    }
+    const placed = marks(decided).flatMap((table) => table.placed);
+    for (const name of names) expect(placed).toContain(name);
   });
 
   it('a level pair inside one band raises nothing', () => {
