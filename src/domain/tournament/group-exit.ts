@@ -166,12 +166,25 @@ function orderCandidates(resolved: readonly string[]) {
     compareStandings(first, second) || rank(first.name) - rank(second.name);
 }
 
+/** The candidates at the lowest place among them, best first. */
+function lowestPlaceFirst(
+  open: readonly Candidate[],
+  better: (first: TournamentStanding, second: TournamentStanding) => number,
+): Candidate[] {
+  const lowest = Math.min(...open.map((candidate) => candidate.place));
+  return open
+    .filter((candidate) => candidate.place === lowest)
+    .sort((first, second) => better(first.entry, second.entry));
+}
+
 /**
  * Who goes through, from each group's table (best first, units without a counted match last, the within-group cut-off
  * order applied). The direct places of every group first, in tiers. Then the chance spots, one at a time: every size
  * class offers its best next in line (its lowest place still open, then points per match, then relative score), the
  * spot goes to the best of those, and a class takes at most its most spots while the fewest of every class stay
- * reachable. A team's 3rd place is therefore never passed over for another group's 4th of the same size.
+ * reachable. A team's 3rd place is therefore never passed over for another group's 4th of the same size. Last, while
+ * fewer units go through than the exit's entry count (a group left too short by removals cannot fill its places),
+ * the spots it lost go one at a time to the best next in line of every group, whatever its size or class.
  */
 export function groupExitSelection(
   state: Pick<TournamentState, 'groups' | 'cfg' | 'tieResolutions'>,
@@ -201,10 +214,7 @@ export function groupExitSelection(
       const entry = place <= last ? tables[group]?.[place - 1] : undefined;
       return entry ? [{ group, place, entry }] : [];
     });
-    const lowest = Math.min(...open.map((candidate) => candidate.place));
-    return open
-      .filter((candidate) => candidate.place === lowest)
-      .sort((first, second) => better(first.entry, second.entry));
+    return lowestPlaceFirst(open, better);
   };
   const spots = shape.mode === 'per-group' ? 0 : shape.amount - direct.reduce((sum, count) => sum + count, 0);
   for (let left = spots; left > 0; left -= 1) {
@@ -223,6 +233,21 @@ export function groupExitSelection(
     taken[winner.index] += 1;
     nextPlace[winner.best.group] += 1;
     steps.push({ picked: winner.best, rivals: offers.flatMap((offer) => offer.offer) });
+  }
+  // A group too short to fill its places gives the spot to the best next in line of the other groups.
+  const entryCount = groupExitEntryCount(shape, state.groups.length);
+  while (advancing.length + picks.length < entryCount) {
+    const offer = lowestPlaceFirst(
+      tables.flatMap((table, group) => {
+        const entry = table[nextPlace[group] - 1];
+        return entry ? [{ group, place: nextPlace[group], entry }] : [];
+      }),
+      better,
+    );
+    if (offer.length === 0) break;
+    picks.push(offer[0]);
+    nextPlace[offer[0].group] += 1;
+    steps.push({ picked: offer[0], rivals: offer });
   }
   advancing.push(...picks.map((pick) => pick.entry.name));
 

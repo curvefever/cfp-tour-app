@@ -6,9 +6,10 @@ import {
   groupExitRefusal,
   groupExitSelection,
   groupExitShape,
+  groupSizesOf,
   type GroupExitShape,
 } from '../group-exit';
-import { resolveTournamentTie } from '../mutations';
+import { removeRosterUnit, resolveTournamentTie } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { cutTieMarks, describeStandings } from '../standings-display';
@@ -744,6 +745,141 @@ describe.each([31, 37])('group exit with %i teams 4v4 in groups of 4', (count) =
       sizes.forEach((size, index) => expect(result.throughByGroup[index].length).toBeLessThan(size));
     },
   );
+});
+
+describe('a group too short to fill its places gives the spot to another group', () => {
+  it('15 teams 5/5/5, even split 12, two of A removed: 12 go through, the 13th spot is the better 5th of B and C', () => {
+    const tables = (b5: number, c5: number) => [
+      table('A', [3, 2.5, 2]),
+      table('B', [3, 2.5, 2, 1.5, b5]),
+      table('C', [3, 2.5, 2, 1.5, c5]),
+    ];
+    const lowerGroup = select([3, 5, 5], 'even-split', 12, tables(0.4, 0.8));
+    expect(lowerGroup.advancing).toHaveLength(12);
+    expect(lowerGroup.chance).toEqual(['C5']);
+    expect(lowerGroup.throughByGroup.map((names) => names.length)).toEqual([3, 4, 5]);
+    expect(lowerGroup.cutByGroup).toEqual([4, 4, 5]);
+    expect(select([3, 5, 5], 'even-split', 12, tables(0.9, 0.8)).chance).toEqual(['B5']);
+    expect(lowerGroup.tie).toBeNull();
+  });
+
+  it('12 teams 4/4/4, per group 3, two of A removed: 9 go through, the best 4th of B and C among them', () => {
+    const tables = [table('A', [3, 2]), table('B', [3, 2.5, 2, 1.2]), table('C', [3, 2.5, 2, 0.9])];
+    const result = select([2, 4, 4], 'per-group', 3, tables);
+    expect(result.advancing).toHaveLength(9);
+    expect(result.chance).toEqual(['B4']);
+    expect(result.throughByGroup[0]).toEqual(['A1', 'A2']);
+    expect(result.cutByGroup).toEqual([3, 4, 3]);
+  });
+
+  it("with B's and C's 4th level a cross-group tie is raised, and the organiser's pick decides it", () => {
+    const tables = [table('A', [3, 2]), table('B', [3, 2.5, 2, 1]), table('C', [3, 2.5, 2, 1])];
+    const tied = select([2, 4, 4], 'per-group', 3, tables);
+    expect(tied.tie?.players.map((player) => player.entry.name).sort()).toEqual(['B4', 'C4']);
+    expect(tied.tie?.spots).toBe(1);
+    const picked = select([2, 4, 4], 'per-group', 3, tables, { [GROUP_EXIT_TIE_KEY]: ['C4'] });
+    expect(picked.chance).toEqual(['C4']);
+  });
+
+  it('a unit without a counted match is a candidate too, last by the usual order', () => {
+    const tables = [
+      table('A', [3, 2]),
+      table('B', [3, 2.5, 2, 0]),
+      [...table('C', [3, 2.5, 2]), { ...standing('C4', 0), totalFP: null }],
+    ];
+    expect(select([2, 4, 4], 'per-group', 3, tables).chance).toEqual(['B4']);
+    expect(select([2, 4, 4], 'per-group', 3, [tables[0], tables[1].slice(0, 3), tables[2]]).chance).toEqual([
+      'C4',
+    ]);
+  });
+
+  it('fair cut, 13 teams (5/4/4), total 10, three of one group removed: every remaining unit, as the total is more', () => {
+    const tables = [table('A', [3, 2]), table('B', [3, 2.5, 2, 1.2]), table('C', [3, 2.5, 2, 0.9])];
+    const result = select([2, 4, 4], 'fair-cut', 10, tables);
+    expect(result.advancing).toHaveLength(10);
+    expect(new Set(result.advancing).size).toBe(10);
+    const fewer = select([1, 4, 4], 'fair-cut', 10, [table('A', [3]), tables[1], tables[2]]);
+    expect(fewer.advancing).toHaveLength(9);
+  });
+
+  it('no removal: nothing is refilled, the selection is the direct places and the chance spots', () => {
+    const result = select([5, 4, 4], 'fair-cut', 8, groups544(2.0, 1.5, 1.2, 1.0));
+    expect(result.advancing).toHaveLength(8);
+    expect(result.chance).toEqual(['A4']);
+    expect(
+      select([4, 4, 4], 'per-group', 3, [
+        table('A', [3, 2, 1, 0]),
+        table('B', [3, 2, 1, 0]),
+        table('C', [3, 2, 1, 0]),
+      ]).advancing,
+    ).toHaveLength(9);
+  });
+
+  it('no table yet: nothing is refilled', () => {
+    const result = select([2, 4, 4], 'per-group', 3, [[], [], []]);
+    expect(result.advancing).toEqual([]);
+    expect(result.cutByGroup).toEqual([3, 3, 3]);
+  });
+});
+
+describe.each([31, 37])(
+  'group exit with %i teams 4v4 in groups of 4, two units of one group removed',
+  (count) => {
+    const intact = groupSizesOf(count, 4);
+    const sizes = intact.map((size, index) => (index === 0 ? size - 2 : size));
+    const tables = sizes.map((size, index) =>
+      table(
+        String.fromCharCode(65 + index),
+        Array.from({ length: size }, (_, place) => 3 - place * 0.4 - index * 0.01),
+      ),
+    );
+    const left = sizes.reduce((sum, size) => sum + size, 0);
+
+    it.each([
+      ['per-group', 2],
+      ['even-split', 16],
+      ['fair-cut', 16],
+    ] as const)(
+      '%s at %i: min(entry count, units left) go through, every winner in, no duplicates',
+      (mode, amount) => {
+        const entry = mode === 'per-group' ? sizes.length * amount : amount;
+        const result = select(sizes, mode, amount, tables);
+        expect(result.advancing).toHaveLength(Math.min(entry, left));
+        expect(new Set(result.advancing).size).toBe(result.advancing.length);
+        sizes.forEach((_, index) =>
+          expect(result.throughByGroup[index]).toContain(`${String.fromCharCode(65 + index)}1`),
+        );
+      },
+    );
+  },
+);
+
+describe('a played group stage with units removed: per group 3 of 12 teams, two of A removed', () => {
+  function levelAtLastRound(): TournamentState {
+    const start = generated(12, { qualifiersPerGroup: '3' });
+    let state = [...start.groups[0].members.slice(0, 2)].reduce(removeRosterUnit, start);
+    for (let guard = 0; guard < 12 && state.rounds[state.curRound + 1]?.isGroupStage; guard += 1) {
+      const result = advanceTournamentRound(scoreLevel(state));
+      if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
+      state = result.state;
+    }
+    return scoreLevel(state);
+  }
+
+  it('raises the cross-group tie for the refill spot, marks it and holds Next Round back', () => {
+    const state = levelAtLastRound();
+    const ties = getAllTies(state, state.curRound);
+    expect(ties[GROUP_EXIT_TIE_KEY]?.players.length).toBeGreaterThan(1);
+    expect(advanceTournamentRound(state).status).toBe('blocked');
+    const display = describeStandings(state);
+    if (!display) throw new Error('no standings');
+    const names = ties[GROUP_EXIT_TIE_KEY].players.map((player) => player.name);
+    expect(
+      Object.values(cutTieMarks(state, display)).some((mark) =>
+        names.every((name) => mark.pending.includes(name)),
+      ),
+    ).toBe(true);
+  });
 });
 
 describe('per group is unchanged', () => {
