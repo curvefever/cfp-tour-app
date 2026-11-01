@@ -18,7 +18,12 @@ import {
   getMinimumBracketUnits,
   type TournamentProgressionInput,
 } from './schedule-generation';
-import { type MatchResultPoints, parseMatchResultPoints, resolveTieMargin } from './match-results';
+import {
+  type MatchResultPoints,
+  matchResultsAllowed,
+  parseMatchResultPoints,
+  resolveTieMargin,
+} from './match-results';
 import { matchFormatConfig } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
@@ -390,9 +395,9 @@ export function generateTournament(
 
   let matchResults: { points: MatchResultPoints; tieMargin: number } | undefined;
   if (config.scoring === 'match-results') {
-    if (config.poolingPhase !== 'group-stage') {
+    if (!matchResultsAllowed(config.poolingPhase, form.gameFormat, form.oddCountStrategy)) {
       return generationError(
-        'Match results scoring is only available for a Group Stage — pick Standard points or a Custom points table.',
+        'Match results scoring is only available for a Group Stage, or for Swiss or a qualification table when every room holds two units (a head-to-head format without Flex) — pick Standard points or a Custom points table.',
       );
     }
     const points = parseMatchResultPoints(form.matchResultPoints);
@@ -677,10 +682,12 @@ export function generateTournament(
   const roomCapError = validateRoomCap(progression.rounds, format);
   if (roomCapError) return generationError(roomCapError);
   if (matchResults) {
-    const longMatch = progression.rounds.find((round) => round.isGroupStage && (round.bestOf ?? 0) > 3);
+    const longMatch = progression.rounds.find(
+      (round) => (round.isGroupStage || round.isQual || round.isSwiss) && (round.bestOf ?? 0) > 3,
+    );
     if (longMatch) {
       return generationError(
-        `Match results scoring can't score a Best of ${longMatch.bestOf} group round yet — use a Best of 3, summed games, or another scoring system.`,
+        `Match results scoring can't score a Best of ${longMatch.bestOf} ${longMatch.isGroupStage ? 'group' : 'pooling'} round yet — use a Best of 3, summed games, or another scoring system.`,
       );
     }
   }

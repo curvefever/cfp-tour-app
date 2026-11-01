@@ -19,7 +19,7 @@ import {
   withHeadToHead,
 } from './group-standings';
 import { kingsValleyRoundMoves } from './kings-valley';
-import { matchResultSettings } from './match-results';
+import { matchResultSettings, matchResultsOfRoom, matchResultsWin } from './match-results';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
 import {
@@ -185,7 +185,7 @@ export function detectTieBreaks(
 ): Record<string, RoomTieCluster> {
   if (round.isFinal) return {};
   // Equal scores are a defined result under match results (a Tie), and the place in the room feeds no points: no room tie.
-  if (round.isGroupStage && matchResultSettings(state)) return {};
+  if ((round.isGroupStage || round.isQual || round.isSwiss) && matchResultSettings(state)) return {};
   const ties: Record<string, RoomTieCluster> = {};
   for (let room = 1; room <= round.rooms.length; room += 1) {
     const scored = scoreRoom(state, roundIndex, room, null).sort(compareRankScores);
@@ -826,13 +826,16 @@ function walkoverNames(state: TournamentState, roundIndex: number, round: Tourna
 }
 
 function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutcome {
+  const settings = matchResultSettings(state);
+  const win = settings ? matchResultsWin(state, roundIndex, settings) : null;
   return {
     roundIndex,
     score: null,
     rank: null,
-    points: roomPointsByPlace(state, 1)[0] ?? 0,
+    points: win ? win.points : (roomPointsByPlace(state, 1)[0] ?? 0),
     bye: true,
     share: null,
+    ...(win ? { results: win.results } : {}),
   };
 }
 
@@ -856,6 +859,23 @@ export function roomOutcomes(
   }));
 }
 
+/** A played room's results: the places and room share as usual, the points by place or, under match results, by the result of the match (none until the room is fully scored). */
+export function playedOutcomes(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+): Array<RoundOutcome & { name: string }> {
+  const outcomes = roomOutcomes(state, roundIndex, room);
+  const settings = matchResultSettings(state);
+  if (!settings) return outcomes;
+  const sides = matchResultsOfRoom(state, roundIndex, room, settings);
+  if (!sides) return [];
+  const seatedNames = (state.assignments[roundIndex] ?? [])
+    .filter((entry) => entry.room === room)
+    .map((entry) => entry.name);
+  return outcomes.map((outcome) => ({ ...outcome, ...sides[seatedNames.indexOf(outcome.name)] }));
+}
+
 export function computeQualificationStandings(
   state: TournamentState,
   options?: StandingsOptions,
@@ -868,7 +888,7 @@ export function computeQualificationStandings(
     for (let room = 1; room <= round.rooms.length; room += 1) {
       if (isWalkoverRoom(state, roundIndex, room) || isHeldBackLiveRoom(state, roundIndex, room, options))
         continue;
-      for (const { name, ...outcome } of roomOutcomes(state, roundIndex, room)) {
+      for (const { name, ...outcome } of playedOutcomes(state, roundIndex, room)) {
         accumulators.get(name)?.rounds.push(outcome);
       }
     }

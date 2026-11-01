@@ -3,13 +3,13 @@ import {
   activeGroupByes,
   type RoundOutcome,
   rankingPoints,
-  roomOutcomes,
+  playedOutcomes,
   roomPointsByPlace,
   roundHasBegun,
   sameRoomShare,
   samePoints,
 } from './advancement';
-import { matchResultSettings, matchResultsOfRoom } from './match-results';
+import { matchResultSettings, matchResultsWin } from './match-results';
 import type { TournamentStanding, TournamentState } from './types';
 
 type NamedOutcome = RoundOutcome & { name: string };
@@ -204,18 +204,17 @@ export function groupRoundMisses(state: TournamentState, seats: GroupSeats): Map
  * for each game of the round, a Best of N as one match. No score and no room share: nothing to compare.
  */
 function absentOpponentWin(state: TournamentState, roundIndex: number): RoundOutcome {
-  const round = state.rounds[roundIndex];
   const settings = matchResultSettings(state);
-  const games = round?.bestOf !== undefined ? 1 : Math.max(round?.numGames ?? 1, 1);
+  const win = settings ? matchResultsWin(state, roundIndex, settings) : null;
   return {
     roundIndex,
     score: null,
     rank: null,
-    points: settings ? settings.points[0] * games : (roomPointsByPlace(state, 2)[0] ?? 0),
+    points: win ? win.points : (roomPointsByPlace(state, 2)[0] ?? 0),
     bye: false,
     share: null,
     walkover: true,
-    ...(settings ? { results: Array.from({ length: games }, () => 'W' as const) } : {}),
+    ...(win ? { results: win.results } : {}),
   };
 }
 
@@ -257,21 +256,6 @@ export function groupRoomOutcomes(
   const absent = roundHasBegun(state, roundIndex) ? absentInRoom(state, roundIndex, room) : [];
   if (absent.length > 0) return absent.map((name) => absenceOutcome(roundIndex, seats.holderOf(name)));
   if (heldBack) return [];
-  const played = playedOutcomes(
-    state,
-    roundIndex,
-    room,
-    seated.map((entry) => entry.name),
-  );
+  const played = playedOutcomes(state, roundIndex, room);
   return played.map((outcome) => ({ ...outcome, name: seats.holderOf(outcome.name) }));
-}
-
-/** A played room's results: the places and room share as usual, the points by place or, under match results, by the result of the match (none until the room is fully scored). */
-function playedOutcomes(state: TournamentState, roundIndex: number, room: number, seatedNames: string[]) {
-  const outcomes = roomOutcomes(state, roundIndex, room);
-  const settings = matchResultSettings(state);
-  if (!settings) return outcomes;
-  const sides = matchResultsOfRoom(state, roundIndex, room, settings);
-  if (!sides) return [];
-  return outcomes.map((outcome) => ({ ...outcome, ...sides[seatedNames.indexOf(outcome.name)] }));
 }

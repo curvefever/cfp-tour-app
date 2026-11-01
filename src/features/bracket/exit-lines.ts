@@ -123,9 +123,7 @@ export function poolingExitLines(state: TournamentState, roundIndex: number, roo
   if (rule.kind === 'standings' || rule.kind === 'standings-cutoff') {
     return counted
       ? [
-          ...(state.rounds[roundIndex]?.isGroupStage && matchResultSettings(state)
-            ? matchResultLines(state)
-            : pointsLines(state, roomSize)),
+          ...(matchResultSettings(state) ? matchResultLines(state) : pointsLines(state, roomSize)),
           { tone: null, places: 'All', where: `→ ${standingsInline(state)}` },
         ]
       : [{ tone: null, places: 'All', where: 'seeding only, not counted' }];

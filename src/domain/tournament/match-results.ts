@@ -1,3 +1,4 @@
+import { getGameFormat, resolveOddCountStrategy } from './formats';
 import { roomMatch } from './match-format';
 import { getUnitScoreForGame } from './scoring';
 import type { GameFormatKey, MatchResultCode, TournamentState } from './types';
@@ -5,7 +6,8 @@ import type { GameFormatKey, MatchResultCode, TournamentState } from './types';
 /**
  * Match-result scoring: a head-to-head match of a group stage gives points by how it was won. Per game, a win by more
  * than the tie margin is a Win, a win by the margin or less a Tie Win, the same for a loss, and equal scores a Tie.
- * A Best of 3 is read as one match: 2-0 is a Win / Loss, 2-1 a Tie Win / Tie Loss.
+ * A Best of 3 is read as one match: 2-0 is a Win / Loss, 2-1 a Tie Win / Tie Loss. A group stage is always head to
+ * head; Swiss and the qualification table can use it when every room holds two units.
  */
 
 /** The four points of a match result, in the order Win, Tie win, Tie loss, Loss. */
@@ -180,7 +182,44 @@ export function tieMarginAfterFormatChange(typed: string, from: GameFormatKey, t
   return next === undefined ? '' : String(next);
 }
 
-/** Match results exist only in a group stage: any other pooling phase falls back to Standard points. */
-export function scoringForPooling<T extends string>(scoring: T, poolingPhase: string): T | 'fairpoints' {
-  return scoring === 'match-results' && poolingPhase !== 'group-stage' ? 'fairpoints' : scoring;
+/**
+ * Whether match results can score this pooling phase: a group stage, or Swiss or a qualification table whose rooms
+ * are always two units (a head-to-head format without Flex, whose third unit would make a room of 3).
+ */
+export function matchResultsAllowed(
+  poolingPhase: string,
+  gameFormat?: GameFormatKey,
+  oddCountStrategy?: string,
+): boolean {
+  if (poolingPhase === 'group-stage') return true;
+  if (poolingPhase !== 'swiss' && poolingPhase !== 'qual-table') return false;
+  const format = gameFormat ? getGameFormat(gameFormat) : undefined;
+  if (!format || format.idealRoomSize !== 2) return false;
+  return (
+    resolveOddCountStrategy(format, oddCountStrategy as Parameters<typeof resolveOddCountStrategy>[1]) !==
+    'flex'
+  );
+}
+
+/** Any other pooling phase, or a format whose rooms are not two units, falls back to Standard points. */
+export function scoringForPooling<T extends string>(
+  scoring: T,
+  poolingPhase: string,
+  gameFormat?: GameFormatKey,
+  oddCountStrategy?: string,
+): T | 'fairpoints' {
+  return scoring === 'match-results' && !matchResultsAllowed(poolingPhase, gameFormat, oddCountStrategy)
+    ? 'fairpoints'
+    : scoring;
+}
+
+/** What a clean win of a head-to-head round is worth under match results: a Win for each game (a Best of N is one match). */
+export function matchResultsWin(
+  state: Pick<TournamentState, 'rounds'>,
+  roundIndex: number,
+  settings: MatchResultSettings,
+): { points: number; results: MatchResultCode[] } {
+  const round = state.rounds[roundIndex];
+  const games = round?.bestOf !== undefined ? 1 : Math.max(round?.numGames ?? 1, 1);
+  return { points: settings.points[0] * games, results: Array.from({ length: games }, () => 'W' as const) };
 }

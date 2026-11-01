@@ -127,14 +127,22 @@ describe('visibleFormatFields', () => {
     );
   });
 
-  it('shows the match-result points and the tie margin only for match results in a group stage', () => {
+  it('shows the match-result points and the tie margin for match results where the rooms are two units', () => {
     const fields: FormatField[] = ['matchResultPoints', 'tieMargin'];
-    expect(fieldsOf({ poolingPhase: 'group-stage', scoring: 'match-results' })).toEqual(
-      expect.arrayContaining(fields),
-    );
-    expect(fieldsOf({ poolingPhase: 'group-stage', scoring: 'fairpoints' })).not.toContain('tieMargin');
-    for (const poolingPhase of ['none', 'qual-table', 'swiss'] as const) {
-      const shown = fieldsOf({ poolingPhase, scoring: 'match-results' });
+    for (const poolingPhase of ['group-stage', 'qual-table', 'swiss'] as const) {
+      expect(fieldsOf({ poolingPhase, gameFormat: 'team-4v4', scoring: 'match-results' })).toEqual(
+        expect.arrayContaining(fields),
+      );
+      expect(fieldsOf({ poolingPhase, gameFormat: 'team-4v4', scoring: 'fairpoints' })).not.toContain(
+        'tieMargin',
+      );
+    }
+    expect(fieldsOf({ poolingPhase: 'none', scoring: 'match-results' })).not.toContain('tieMargin');
+    for (const choices of [
+      { gameFormat: 'ffa-individual' as const },
+      { gameFormat: 'team-4v4' as const, oddCountStrategy: 'flex' as const },
+    ]) {
+      const shown = fieldsOf({ poolingPhase: 'qual-table', scoring: 'match-results', ...choices });
       for (const field of fields) expect(shown).not.toContain(field);
     }
   });

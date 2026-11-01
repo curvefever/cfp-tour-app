@@ -6,6 +6,20 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Match results scoring for Swiss and the qualification table, head to head (done — 2026-11-01)
+
+**Context.** Plan: `plans/2026-11-01-match-results-swiss-qual.md` (urgent, approved by the organiser). Match results (Win / Tie win / Tie loss / Loss / Tie by the gap against a tie margin) was offered only with a group stage. The organiser wanted it for Swiss and the qualification table when every room holds two units, 4v4 being the case that matters. The roadmap line "Match results in Swiss" is built and removed from `docs/roadmap.md`.
+
+**The rule.** `matchResultsAllowed(poolingPhase, gameFormat, oddCountStrategy)` (`match-results.ts`) is the one predicate: a group stage, or Swiss or a qualification table of a head-to-head format (`idealRoomSize` 2) whose odd-count strategy is not Flex. Generation refuses everything else with a message naming why, Setup shows the option and its two fields only where it holds (`format-fields.ts`, `FormatPanel.tsx`; `scoringForPooling` takes the format and the odd-count strategy, and picking a format or strategy that no longer allows it puts the scoring back to Standard points). Same defaults and parsing as the group stage (`3, 2, 1, 0`, a Tie at 1.5, margin 100 for 4v4, Best of 5 and 7 refused in a pooling round). The standings read the match result through the group stage's overlay, which moved to `advancement.ts` as `playedOutcomes` and is used by both `computeGroupStandings` and `computeQualificationStandings`; points are summed over the counted rounds. A bye, and a room left with one present unit, count as a Win for each game of the round: `matchResultsWin` is the one value, shared with the group stage's walkover win. `detectTieBreaks` raises no room tie card for a qualification or Swiss room under match results (a bracket room still does). The Bracket's exit lines, the Admin settings recap and the standings explanation read the pooling rounds of any kind.
+
+**Testing.** `match-results-pooling.test.ts`: 4v4 qualification table with 13 teams (a bye each round): margin 100 read from the format; a Win by 150 (3 / 0), a Tie win by 100 (2 / 1), a Tie on equal scores (1.5 each), the bye 3 points; a room not fully scored gives none; the standings sort by the sums; no room tie card on equal scores (and one without match results); a room left with one present team gives it the Win; 4v4 Swiss with 16 teams, round 2 paired from the points; generation accepted for 4v4 with either phase, refused for FFA, 2v2v2v2 and Flex; a Best of 5 refused in a qualification round. `format-fields.test.ts` updated for the fields by phase and format; the group stage's match-result tests pass unchanged (one test that asserted the old refusal for Swiss and qualification moved here).
+
+**Full suite:** to be run at the final review (shared code).
+
+**Out of scope.** The W / TW / TL / L codes in the qualification and Swiss standings cells (the group tables show them; the Bracket room cards already do). Match results in rooms of more than two units.
+
+---
+
 ## A Custom bracket routes the group exit by rank: the "Groups" line (done — 2026-11-01)
 
 **Context.** Plan: `plans/2026-11-01-groups-line.md`. After a qualification table the graph's `Qual` line routes the final standings by rank into several rounds; after a group stage the whole exit went into one entry round. The organiser wanted the same for groups: the exit order (every group's winner best first, then the runners-up, …, then the chance and refill picks) routed by rank, e.g. 3 groups of 4, fair cut 8, `Groups: 1-4->R1, 5-8->R1C`. It reuses the snake of "The first bracket round after a pooling phase is seeded by the standings".

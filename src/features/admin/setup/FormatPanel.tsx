@@ -8,6 +8,7 @@ import {
 import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
 import {
   defaultTieMargin,
+  matchResultsAllowed,
   scoringForPooling,
   tieMarginAfterFormatChange,
 } from '../../../domain/tournament/match-results';
@@ -135,6 +136,7 @@ export function FormatPanel({
     updateSetup((current) => ({
       ...current,
       oddCountStrategy: value as PersistedSetup['oddCountStrategy'],
+      scoring: scoringForPooling(current.scoring, current.poolingPhase, current.gameFormat, value),
       scheduleLogic: reconcileScheduleLogicForFormat(
         current.scheduleLogic,
         compatible,
@@ -197,7 +199,12 @@ export function FormatPanel({
       ...current,
       gameFormat: value,
       tieMargin: tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, value),
-      scoring: leavesPooling ? scoringForPooling(current.scoring, 'none') : current.scoring,
+      scoring: scoringForPooling(
+        current.scoring,
+        leavesPooling ? 'none' : current.poolingPhase,
+        value,
+        defaultOdd,
+      ),
       oddCountStrategy: defaultOdd,
       teamScoringRule: nextTeamScoringRule(current, nextFormat?.teamSize),
       scheduleLogic: reconcileScheduleLogicForFormat(
@@ -266,7 +273,12 @@ export function FormatPanel({
               updateSetup((current) => ({
                 ...current,
                 poolingPhase: e.target.value as PersistedSetup['poolingPhase'],
-                scoring: scoringForPooling(current.scoring, e.target.value),
+                scoring: scoringForPooling(
+                  current.scoring,
+                  e.target.value,
+                  current.gameFormat,
+                  current.oddCountStrategy,
+                ),
               }))
             }
           >
@@ -427,7 +439,7 @@ export function FormatPanel({
               >
                 <option value='fairpoints'>{SCORING_SYSTEM_OPTION_LABELS.fairpoints}</option>
                 <option value='positional-points'>{SCORING_SYSTEM_OPTION_LABELS['positional-points']}</option>
-                {setup.poolingPhase === 'group-stage' ? (
+                {matchResultsAllowed(setup.poolingPhase, setup.gameFormat, setup.oddCountStrategy) ? (
                   <option value='match-results'>{SCORING_SYSTEM_OPTION_LABELS['match-results']}</option>
                 ) : null}
               </Select>

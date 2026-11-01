@@ -69,7 +69,7 @@ function scoringText(
   state: TournamentState,
 ): string {
   const results = matchResultSettings(state);
-  if (settings.poolingPhase === 'group-stage' && settings.scoring === 'match-results' && results) {
+  if (settings.scoring === 'match-results' && results) {
     return `Match results: ${results.points.join(' / ')}, tie margin ${results.tieMargin}`;
   }
   return scoringSystemLabel(

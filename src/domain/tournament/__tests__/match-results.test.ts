@@ -262,13 +262,6 @@ describe('generating with match results', () => {
     });
   });
 
-  it.each(['swiss', 'qual-table'] as const)('refuses %s', (poolingPhase) => {
-    expect(generate({ ...group, poolingPhase }, 'team-4v4')).toMatchObject({
-      status: 'invalid',
-      message: expect.stringContaining('Group Stage'),
-    });
-  });
-
   it('refuses a Best of 5 group round, from the stage or from an override, and takes a Best of 3', () => {
     expect(generate({ ...group, poolingBestOf: '5' }, 'team-4v4')).toMatchObject({
       status: 'invalid',

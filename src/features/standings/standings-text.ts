@@ -48,7 +48,7 @@ function matchResultsSentence(state: TournamentState): string {
   const [win, tieWin, tieLoss, loss] = settings.points;
   const margin = settings.tieMargin;
   const tie = formatStandingValue((tieWin + tieLoss) / 2);
-  const groupRounds = state.rounds.filter((round) => round.isGroupStage);
+  const groupRounds = state.rounds.filter((round) => round.isGroupStage || round.isQual || round.isSwiss);
   const bestOf = groupRounds.some((round) => round.bestOf !== undefined)
     ? ' A Best of 3 counts as one match: 2–0 is a win, 2–1 a tie win.'
     : '';

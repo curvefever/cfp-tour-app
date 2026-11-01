@@ -1,4 +1,5 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
+import { matchResultsAllowed } from '../../../domain/tournament/match-results';
 import type { MatchSettings, RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
 import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournament/waterfall-bracket';
@@ -7,7 +8,11 @@ import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournam
 export type FormatField = keyof TournamentSettings;
 
 /** What decides which settings apply: the format, the schedule logic, the pooling phase and the scoring system. */
-export type FormatChoices = Pick<PersistedSetup, 'gameFormat' | 'scheduleLogic' | 'poolingPhase' | 'scoring'>;
+export type FormatChoices = Pick<
+  PersistedSetup,
+  'gameFormat' | 'scheduleLogic' | 'poolingPhase' | 'scoring'
+> &
+  Partial<Pick<PersistedSetup, 'oddCountStrategy'>>;
 
 /** How Setup and the Admin recap word the choices of the draw publication and the round-robin settings. */
 export const DRAW_PUBLICATION_LABELS = {
@@ -111,7 +116,8 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(
-    poolingPhase === 'group-stage' && choices.scoring === 'match-results',
+    choices.scoring === 'match-results' &&
+      matchResultsAllowed(poolingPhase, choices.gameFormat, choices.oddCountStrategy),
     'matchResultPoints',
     'tieMargin',
   );
