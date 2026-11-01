@@ -116,15 +116,17 @@ interface SwapCandidate {
 }
 
 /**
- * The unit to swap with a colliding one: a unit of the same group place if there is one (a winner stays against a
- * runner-up, not another winner), the closest to it in exit order, the first room on a tie; otherwise the first that fits.
+ * The unit to swap with a colliding one. Without the group exit, the first that fits. With it, the closest to the
+ * moving unit in exit order (the first room on a tie), among the units of the same group place if any fits (a winner
+ * stays against a runner-up, not another winner), otherwise among all that fit: best against weakest holds as far as
+ * the group-mates allow.
  */
 function swapPartner(
   fitting: readonly SwapCandidate[],
   moving: string,
   exit: GroupExitOrder | undefined,
 ): SwapCandidate | undefined {
-  if (!exit) return fitting[0];
+  if (!exit || fitting.length === 0) return fitting[0];
   const placeOf = new Map(
     exit.throughByGroup.flatMap((names) => names.map((name, position) => [name, position + 1] as const)),
   );
@@ -133,9 +135,12 @@ function swapPartner(
   const samePlace = fitting.filter(
     (candidate) => place !== undefined && placeOf.get(candidate.name) === place,
   );
-  if (samePlace.length === 0) return fitting[0];
-  const distance = (candidate: SwapCandidate) => Math.abs(rank(candidate.name) - rank(moving));
-  return samePlace.reduce((closest, candidate) =>
+  const candidates = samePlace.length > 0 ? samePlace : fitting;
+  const distance = (candidate: SwapCandidate) =>
+    rank(moving) < 0 || rank(candidate.name) < 0
+      ? Number.POSITIVE_INFINITY
+      : Math.abs(rank(candidate.name) - rank(moving));
+  return candidates.reduce((closest, candidate) =>
     distance(candidate) < distance(closest) ? candidate : closest,
   );
 }
@@ -143,7 +148,7 @@ function swapPartner(
 /**
  * Best effort: a unit that shares a room with a group-mate swaps rooms with a unit that fits (its group not in this
  * room, the moving unit's group not in that room). With the group exit given, the partner is preferably a unit of the
- * same group place, closest in exit order, so the seeding holds; a collision with no fitting swap stays.
+ * same group place, closest in exit order, so the seeding holds (else the closest that fits); a collision with no fitting swap stays.
  */
 export function avoidSameGroupInFirstBracketRound(
   input: RoundAssignment[],

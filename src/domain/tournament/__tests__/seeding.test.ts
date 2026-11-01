@@ -153,7 +153,7 @@ describe('avoidSameGroupInFirstBracketRound', () => {
       expect(roomsOf(avoidSameGroupInFirstBracketRound(sixteen, fourGroups, exit))[3]).toEqual(['A2', 'D1']);
     });
 
-    it('swaps with another place when no unit of the same group place fits', () => {
+    it('swaps with the closest in exit order when no unit of the same group place fits', () => {
       const trio: TournamentGroup[] = [
         { label: 'A', members: ['A1', 'A2'] },
         { label: 'B', members: ['B1'] },
@@ -164,11 +164,37 @@ describe('avoidSameGroupInFirstBracketRound', () => {
         ['B1', 'C1'],
       ]);
       const exit = exitOf(trio, ['A1', 'B1', 'C1', 'A2'], 2);
-      expect(avoidSameGroupInFirstBracketRound(input, trio, exit)).toEqual(
-        avoidSameGroupInFirstBracketRound(input, trio),
-      );
-      const result = avoidSameGroupInFirstBracketRound(input, trio, exit);
-      expect(result.find((entry) => entry.name === 'A2')?.room).toBe(2);
+      // A2 is rank 4: C1 (rank 3) is closer than B1 (rank 2), though B1 comes first in room order.
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(input, trio, exit)).slice(0, 2)).toEqual([
+        ['A1', 'C1'],
+        ['A2', 'B1'],
+      ]);
+      // Without the exit the first that fits is taken, as before.
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(input, trio)).slice(0, 2)).toEqual([
+        ['A1', 'B1'],
+        ['A2', 'C1'],
+      ]);
+    });
+
+    it('3 winners and the best runner-up into 2 matches: 1v3 | 2v4, best against weakest as far as group-mates allow', () => {
+      const three: TournamentGroup[] = [
+        { label: 'A', members: ['WA', 'RA'] },
+        { label: 'B', members: ['WB'] },
+        { label: 'C', members: ['WC'] },
+      ];
+      // Ranks 1-4 are WA, WB, WC, RA; the snake gives WA v RA (group-mates) and WB v WC.
+      const snake = draw([
+        ['WA', 'RA'],
+        ['WB', 'WC'],
+      ]);
+      const exit: GroupExitOrder = {
+        advancing: ['WA', 'WB', 'WC', 'RA'],
+        throughByGroup: [['WA', 'RA'], ['WB'], ['WC']],
+      };
+      expect(roomsOf(avoidSameGroupInFirstBracketRound(snake, three, exit)).slice(0, 2)).toEqual([
+        ['WA', 'WC'],
+        ['RA', 'WB'],
+      ]);
     });
 
     it('leaves as many same-group pairs as without the exit when the collisions are forced', () => {

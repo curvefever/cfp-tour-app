@@ -14,11 +14,13 @@ import { cutTieMarks, describeStandings } from '../standings-display';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
+import { replayBracketPools } from '../bracket-replay';
+import { advanceTournamentRound, seedRoundFromPendingPool } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 import { scoreCurrentRound } from './play-through';
+import { buildRound } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -539,3 +541,78 @@ function seedScores(state: TournamentState, seed: number): TournamentState {
   }
   return { ...state, scores };
 }
+
+describe('a round fed only by the Groups line is drawn with the group swap', () => {
+  const names = ['W1', 'W2', 'W3', 'W4', 'R5', 'R6', 'R7', 'R8'];
+  const standing = (name: string, points: number) => ({
+    name,
+    totalFP: points,
+    totalScore: 0,
+    played: 1,
+    roomShare: 1,
+  });
+  // Groups A {W1, R8}, B {W2, R5}, C {W3, R6}, D {W4, R7}; the exit order is W1..W4 then R5..R8.
+  const members = [
+    ['W1', 'R8'],
+    ['W2', 'R5'],
+    ['W3', 'R6'],
+    ['W4', 'R7'],
+  ];
+  const points: Record<string, number> = { W1: 40, W2: 30, W3: 20, W4: 10, R5: 8, R6: 7, R7: 6, R8: 5 };
+  const pooled = () =>
+    createDefaultTournamentState({
+      cfg: { poolingPhase: 'group-stage', qualifiersPerGroup: 2 },
+      gamemodeConfig: { roomSize: ROOM },
+      groups: members.map((group, index) => ({ label: 'ABCD'[index], members: group })),
+      groupStandings: Object.fromEntries(
+        members.map((group, index) => ['ABCD'[index], group.map((name) => standing(name, points[name]))]),
+      ),
+      rounds: [
+        buildRound({
+          roundNum: 1,
+          isGroupStage: true,
+          isNoElim: true,
+          rooms: [2],
+          standingsRoutes: [1, 1, 1, 1, 1, 1, 1, 1],
+        }),
+        buildRound({ roundNum: 2, isWaterfall: true, customLabel: 'R1', rooms: [2, 2, 2, 2], players: 8 }),
+      ],
+      pendingBracketSeeds: {
+        1: names.map((name, index) => ({ name, isLucky: false, tierRank: index, pct: 1 })),
+      },
+      curRound: 0,
+    });
+
+  it('takes the group swap, not the met-pairs pass: 1v6 | 2v8 | 3v7 | 4v5', () => {
+    const state = pooled();
+    expect(seedRoundFromPendingPool(state, 1)).toBeNull();
+    const rooms = roomsOf(state, 1).map((room) =>
+      room.map((name) => names.indexOf(name) + 1).sort((a, b) => a - b),
+    );
+    expect(rooms.map((room) => room.join('v')).join(' | ')).toBe('1v6 | 2v8 | 3v7 | 4v5');
+  });
+});
+
+describe('the replay of a Groups line without a stored exit order', () => {
+  it('recomputes the group exit and gives the same pools as the stored order', () => {
+    const exit = atTheExit(generated(12, TWO_BANDS, { groupExit: 'fair-cut' }), (state) =>
+      scoreCurrentRound(state, 4),
+    );
+    const next = advanced(exit);
+    const stored = replayBracketPools(next, indexOfLabel(next, 'R2'));
+    const last = next.rounds.findIndex((round) => round.standingsRoutes);
+    const withoutOrder = {
+      ...next,
+      rounds: next.rounds.map((round, index) => {
+        if (index !== last) return round;
+        const { standingsExitOrder: _order, ...rest } = round;
+        return rest;
+      }),
+    };
+    expect(next.rounds[last].standingsExitOrder).toBeDefined();
+    const recomputed = replayBracketPools(withoutOrder, indexOfLabel(next, 'R2'));
+    const names = (replay: typeof stored) =>
+      [...replay.pools.entries()].map(([index, pool]) => [index, pool.map((entry) => entry.name)]);
+    expect(names(recomputed)).toEqual(names(stored));
+  });
+});
