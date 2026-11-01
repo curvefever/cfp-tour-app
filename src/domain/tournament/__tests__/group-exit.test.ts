@@ -781,6 +781,13 @@ describe('a group too short to fill its places gives the spot to another group',
     expect(picked.chance).toEqual(['C4']);
   });
 
+  it("the lowest place goes first: C's 4th is taken before B's 5th that has more points per match", () => {
+    const tables = [table('A', [3]), table('B', [3, 2.5, 2, 1.5, 1.4]), table('C', [3, 2.5, 2, 1, 0.1])];
+    const result = select([1, 5, 5], 'per-group', 3, tables);
+    expect(result.advancing).toHaveLength(9);
+    expect(result.chance).toEqual(['B4', 'C4']);
+  });
+
   it('a unit without a counted match is a candidate too, last by the usual order', () => {
     const tables = [
       table('A', [3, 2]),
