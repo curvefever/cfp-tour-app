@@ -292,24 +292,29 @@ export function avoidMetPairsNearRank(
 }
 
 /**
- * A pool that arrives in standings order (a waterfall round fed only by the Qual source: `tierRank` is the standing
- * within the pool), drawn like the first bracket round after a pooling exit: the snake over the rooms, then the
- * near-neighbour pass for the units that have met.
+ * A pool that arrives in standings order (a waterfall round fed only by the Qual or Groups source: `tierRank` is the
+ * standing within the pool), drawn like the first bracket round after a pooling exit: the snake over the rooms, then
+ * the separation for the kind of pooling phase. After a group stage (`groups` given) the group-mates apart, with the
+ * group places from `throughByGroup`; otherwise the near-neighbour pass for the units that have met.
  */
 export function seedPoolByStanding(options: {
   pool: PendingBracketSeed[];
   roomSizes: number[];
   state: Pick<TournamentState, 'assignments'>;
   targetRoundIndex: number;
+  groups?: { groups: TournamentGroup[]; throughByGroup: string[][] };
 }): RoundAssignment[] {
-  const { pool, roomSizes, state, targetRoundIndex } = options;
+  const { pool, roomSizes, state, targetRoundIndex, groups } = options;
   const ordered = [...pool].sort((first, second) => first.tierRank - second.tierRank);
+  const exitOrder = ordered.map((entry) => entry.name);
   const snake = snakeSeed(ordered, roomSizes);
-  return avoidMetPairsNearRank(
-    snake,
-    ordered.map((entry) => entry.name),
-    metPairs(state, targetRoundIndex - 1),
-  );
+  if (groups) {
+    return avoidSameGroupInFirstBracketRound(snake, groups.groups, {
+      advancing: exitOrder,
+      throughByGroup: groups.throughByGroup,
+    });
+  }
+  return avoidMetPairsNearRank(snake, exitOrder, metPairs(state, targetRoundIndex - 1));
 }
 
 /**

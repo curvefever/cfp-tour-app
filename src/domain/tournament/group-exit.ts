@@ -363,3 +363,81 @@ function evenSplitRefusal(
   const unit = unitPlural.replace(/s$/, '');
   return `Advance to bracket (${total}) is too many for an even split of ${groups}: it sends the same number from every group, so each group loses at least one ${unit} and at most ${most} can go through. Advance fewer, or use the fair cut, which keeps only each group's winner safe.`;
 }
+
+function ordinal(place: number): string {
+  const lastTwo = place % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return `${place}th`;
+  const suffix: Record<number, string> = { 1: 'st', 2: 'nd', 3: 'rd' };
+  return `${place}${suffix[place % 10] ?? 'th'}`;
+}
+
+function joinWithAnd(parts: readonly string[]): string {
+  return parts.length < 2
+    ? (parts[0] ?? '')
+    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+/** "group of 5", "groups of 4", "groups of 5 and 4": the groups at these positions, told by their sizes. */
+function groupsBySize(groupSizes: readonly number[], groups: readonly number[]): string {
+  const sizes = distinctSizes(groups.map((group) => groupSizes[group]));
+  return `${groups.length === 1 ? 'group' : 'groups'} of ${joinWithAnd(sizes.map(String))}`;
+}
+
+/** A place across some groups: "Group winners", "Runners-up", "3rd places"; for only some of the groups "3rds, groups of 4". */
+function tierLabel(groupSizes: readonly number[], groups: readonly number[], place: number): string {
+  if (groups.length === groupSizes.length) {
+    if (place === 1) return 'Group winners';
+    return place === 2 ? 'Runners-up' : `${ordinal(place)} places`;
+  }
+  return `${ordinal(place)}${groups.length === 1 ? '' : 's'}, ${groupsBySize(groupSizes, groups)}`;
+}
+
+/** What may take a chance spot: one place of one size class ("3rds", "4th of the group of 5"). */
+function chanceCandidate(
+  groupSizes: readonly number[],
+  groups: readonly number[],
+  place: number,
+  plural: boolean,
+): string {
+  const places = `${ordinal(place)}${plural ? 's' : ''}`;
+  return groups.length === groupSizes.length
+    ? places
+    : `${places} of the ${groupsBySize(groupSizes, groups)}`;
+}
+
+/**
+ * What each rank of the group exit order is, in plain words, for the Setup editor: one label per rank, rank 1 first.
+ * The ranks are the tiers of places every group sends in turn (the winners, then the runners-up, ...) and then the
+ * chance spots, which go to the best next in line: "Best 3rds", or "Best of: 4th of the group of 5, 3rds of the
+ * groups of 4" where groups of different sizes compete. `total` is the number of ranks (the units that go through);
+ * per group it must be a multiple of the number of groups.
+ */
+export function groupExitRankLabels(
+  groupSizes: readonly number[],
+  mode: GroupExitMode,
+  total: number,
+): string[] {
+  const groupCount = groupSizes.length;
+  if (groupCount === 0 || total < 1) return [];
+  const shape = groupExitShape(
+    groupSizes,
+    mode,
+    mode === 'per-group' ? Math.floor(total / groupCount) : total,
+  );
+  const direct = groupDirectCounts(shape, groupCount);
+  const labels: string[] = [];
+  for (let place = 1; place <= Math.max(...direct); place += 1) {
+    const groups = allGroups(groupSizes).filter((group) => direct[group] >= place);
+    const label = tierLabel(groupSizes, groups, place);
+    labels.push(...groups.map(() => label));
+  }
+  const chanceCount = Math.max(0, total - labels.length);
+  const chancePlaces = shape.classes.flatMap((cls) => cls.chancePlaces.map((chance) => ({ cls, chance })));
+  const alone = chancePlaces.length === 1;
+  const candidates = chancePlaces.map(({ cls, chance }) =>
+    chanceCandidate(groupSizes, cls.groups, chance.place, alone ? chanceCount > 1 : cls.groups.length > 1),
+  );
+  const chance = alone ? `Best ${candidates[0]}` : `Best of: ${candidates.join(', ')}`;
+  if (chancePlaces.length > 0) labels.push(...Array.from({ length: chanceCount }, () => chance));
+  return labels.slice(0, total);
+}

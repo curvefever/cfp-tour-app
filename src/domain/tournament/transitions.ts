@@ -1,12 +1,15 @@
 import { hasBlockingAbsenceQuestions, PENDING_ABSENCES_MESSAGE } from './absences';
 import {
+  computeGroupStandings,
   doubleEliminationComputeAdvancement,
   hasPendingColumnTies,
   isStandingsCutoffRound,
   kingsValleyComputeAdvancement,
+  orderedGroupExit,
   orderedQualificationTable,
   refreshRoundStandings,
   roomBasedComputeAdvancement,
+  selectGroupExit,
 } from './advancement';
 import {
   doubleEliminationContributions,
@@ -33,7 +36,13 @@ import {
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
-import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
+import type {
+  PendingBracketSeed,
+  RoundAssignment,
+  TournamentRound,
+  TournamentStanding,
+  TournamentState,
+} from './types';
 import { declaredWaterfallSeats, fitWaterfallRound } from './waterfall-bracket';
 import { currentColumn, isRoundDone, nextColumnStart, roundColumn } from './round-columns';
 
@@ -272,7 +281,20 @@ export function seedRoundFromPendingPool(
   const roomSizes = state.rounds[roundIndex].rooms;
   const assignments =
     !options.seedingOverride && isFedOnlyByStandings(state.rounds, roundIndex)
-      ? seedPoolByStanding({ pool, roomSizes, state, targetRoundIndex: roundIndex })
+      ? seedPoolByStanding({
+          pool,
+          roomSizes,
+          state,
+          targetRoundIndex: roundIndex,
+          ...(state.rounds.some((round) => round.isGroupStage && round.standingsRoutes)
+            ? {
+                groups: {
+                  groups: state.groups,
+                  throughByGroup: selectGroupExit(state, state.groupStandings).throughByGroup,
+                },
+              }
+            : {}),
+        })
       : tieredBracketSeed({
           pool,
           roomSizes,
@@ -461,7 +483,10 @@ function fitWaterfallRoundAt(
   return null;
 }
 
-function standingsShortfallMessage(ranked: number, highestRoutedRank: number): string {
+function standingsShortfallMessage(ranked: number, highestRoutedRank: number, afterGroups: boolean): string {
+  if (afterGroups) {
+    return `Can't advance -- the group stage sends ${ranked} unit(s) on, but the custom bracket graph routes group exit ranks up to ${highestRoutedRank}. A withdrawal during the groups has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
+  }
   return `Can't advance -- the qualification table ranks ${ranked} unit(s), but the custom bracket graph routes qualification ranks up to ${highestRoutedRank}. A withdrawal during qualification has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
 }
 
@@ -532,12 +557,28 @@ function advanceWaterfallBracket(input: TournamentState): RoundAdvanceResult {
 }
 
 /**
- * The pooling exit of a waterfall graph with a Qual source: the ordered
- * qualification table is routed through the last qualification round's
- * `standingsRoutes`. It does not go through roomBasedComputeAdvancement's
- * `advancing` list (that is the top `qualAdv` names, which includes ranks the
- * graph eliminates inside its range) and has no bye or tieredSeed step: the
- * waterfall has no byes, and every destination is drawn from its pool.
+ * The units a pooling exit sends through the standings routing, best first: the group exit order (a group stage,
+ * its band-tie picks applied) or the qualification table (every cut-off tie pick applied). Sets the table the exit
+ * was read from on `state`.
+ */
+function standingsExitOf(state: TournamentState, round: TournamentRound): TournamentStanding[] {
+  if (round.isGroupStage) {
+    state.groupStandings = computeGroupStandings(state);
+    return orderedGroupExit(state, state.groupStandings);
+  }
+  const { qualTable, ordered } = orderedQualificationTable(state);
+  state.qualTable = qualTable;
+  return ordered;
+}
+
+/**
+ * The pooling exit of a waterfall graph with a Qual or Groups source: the
+ * ordered qualification table (or group exit order) is routed through the last
+ * pooling round's `standingsRoutes`. It does not go through
+ * roomBasedComputeAdvancement's `advancing` list (that is the top `qualAdv`
+ * names, which includes ranks the graph eliminates inside its range) and has
+ * no bye or tieredSeed step: the waterfall has no byes, and every destination
+ * is drawn from its pool.
  */
 function advanceFromStandings(
   input: TournamentState,
@@ -545,14 +586,13 @@ function advanceFromStandings(
   round: TournamentRound,
 ): RoundAdvanceResult {
   const state = cloneForTransition(input);
-  const { qualTable, ordered } = orderedQualificationTable(state);
-  state.qualTable = qualTable;
+  const ordered = standingsExitOf(state, round);
   const highestRoutedRank = round.standingsRoutes?.length ?? 0;
   if (ordered.length < highestRoutedRank) {
     return {
       status: 'blocked',
       reason: 'too-few-units',
-      message: standingsShortfallMessage(ordered.length, highestRoutedRank),
+      message: standingsShortfallMessage(ordered.length, highestRoutedRank, Boolean(round.isGroupStage)),
       state: input,
     };
   }

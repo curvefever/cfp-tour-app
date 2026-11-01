@@ -1,6 +1,8 @@
 import {
   buildAdvancementTiers,
+  computeGroupStandings,
   doubleEliminationComputeAdvancement,
+  orderedGroupExit,
   orderedQualificationTable,
 } from './advancement';
 import { rosterKeys } from './roster';
@@ -145,9 +147,9 @@ export function routeStandings(
 }
 
 /**
- * True when every unit of a waterfall round comes from the Qual source: the qualification round's `standingsRoutes`
- * name it and no waterfall round routes into it. Such a round is drawn in standings order; one that also takes units
- * from another round keeps the wave fill.
+ * True when every unit of a waterfall round comes from the pooling exit (the Qual or Groups source): the last
+ * pooling round's `standingsRoutes` name it and no waterfall round routes into it. Such a round is drawn in exit
+ * order; one that also takes units from another round keeps the wave fill.
  */
 export function isFedOnlyByStandings(rounds: readonly TournamentRound[], roundIndex: number): boolean {
   const fromStandings = rounds.some((round) => round.standingsRoutes?.includes(roundIndex));
@@ -190,7 +192,11 @@ export function replayBracketPools(state: TournamentState, beforeIndex: number):
   const qualIndex = state.rounds.findIndex((round) => round.standingsRoutes);
   if (qualIndex !== -1 && qualIndex < beforeIndex) {
     const qualRound = state.rounds[qualIndex];
-    const exitOrder = qualRound.standingsExitOrder ?? orderedQualificationTable(state).ordered;
+    const exitOrder =
+      qualRound.standingsExitOrder ??
+      (qualRound.isGroupStage
+        ? orderedGroupExit(state, computeGroupStandings(state))
+        : orderedQualificationTable(state).ordered);
     addToPools(routeStandings(exitOrder, qualRound));
   }
   for (let index = 0; index < beforeIndex; index += 1) {

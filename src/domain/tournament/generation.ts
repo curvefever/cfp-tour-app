@@ -8,7 +8,7 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { groupExitRefusal } from './group-exit';
+import { groupExitRefusal, groupSizesOf } from './group-exit';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -74,6 +74,30 @@ function resolveWaterfallGraph(
   const validatedGraph = validateAndOrderWaterfallGraph(parsedGraph.value, options);
   if (!validatedGraph.ok) return { ok: false, message: validatedGraph.error };
   return { ok: true, graph: validatedGraph.value };
+}
+
+/**
+ * The group exit a Groups line implies, written onto `config`: its highest routed rank is the total of an even split
+ * or a fair cut, and per group it is the qualifiers per group times the groups. Why the line can't be shared between
+ * the groups (or the exit's own refusal), or null.
+ */
+function deriveGroupExitFromLine(
+  config: Pick<GeneratedTournamentConfig, 'n' | 'groupSize' | 'groupExit' | 'qualAdv' | 'qualifiersPerGroup'>,
+  sentOn: number,
+  unitPlural: string,
+): string | null {
+  const groupCount = groupSizesOf(config.n, config.groupSize).length;
+  if (config.groupExit === undefined) {
+    if (sentOn % groupCount !== 0) {
+      const lower = sentOn - (sentOn % groupCount);
+      const routes = lower > 0 ? `${lower} or ${lower + groupCount}` : `${groupCount}`;
+      return `The Groups line sends ${sentOn} on, but ${groupCount} groups can't each send the same number -- route ${routes}, or choose Even split or Fair cut.`;
+    }
+    config.qualifiersPerGroup = sentOn / groupCount;
+    return groupExitRefusal(config.n, config.groupSize, 'per-group', config.qualifiersPerGroup, unitPlural);
+  }
+  config.qualAdv = sentOn;
+  return groupExitRefusal(config.n, config.groupSize, config.groupExit, sentOn, unitPlural);
 }
 
 function kingsValleyTooLargeMessage(input: {
@@ -203,7 +227,8 @@ export function generateTournament(
         `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
       );
     }
-    if (config.groupExit === undefined) {
+    // A Groups line decides how many go through, so the form's qualifiers per group wait for it (below).
+    if (config.groupExit === undefined && schedule !== 'waterfall-bracket') {
       const refusal = groupExitRefusal(
         config.n,
         config.groupSize,
@@ -217,10 +242,11 @@ export function generateTournament(
   const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
   const roomSize = deriveRoomSize(format, oddCountStrategy);
 
-  // After a qualification table the waterfall graph's own Qual routing decides who advances, so
-  // "Advance to bracket" is derived from it (the highest routed rank), not read from the form.
+  // After a qualification table or a group stage the waterfall graph's own Qual or Groups routing decides
+  // who advances, so "Advance to bracket" is derived from it (the highest routed rank), not read from the form.
   let waterfallGraph: OrderedWaterfallGraph | undefined;
   const graphHasQualSource = schedule === 'waterfall-bracket' && config.poolingPhase === 'qual-table';
+  const graphHasGroupsSource = schedule === 'waterfall-bracket' && config.poolingPhase === 'group-stage';
   if (graphHasQualSource) {
     const resolved = resolveWaterfallGraph(form.waterfallGraph, {
       roomSize,
@@ -230,6 +256,17 @@ export function generateTournament(
     if (!resolved.ok) return generationError(resolved.message);
     waterfallGraph = resolved.graph;
     config.qualAdv = waterfallGraph.qualRoutes?.length ?? config.qualAdv;
+  } else if (graphHasGroupsSource) {
+    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
+      roomSize,
+      entrantCount: config.n,
+      standingsSource: true,
+      standingsKind: 'groups',
+    });
+    if (!resolved.ok) return generationError(resolved.message);
+    waterfallGraph = resolved.graph;
+    const refusal = deriveGroupExitFromLine(config, waterfallGraph.qualRoutes?.length ?? 0, unitPlural);
+    if (refusal) return generationError(refusal);
   } else if (config.poolingPhase !== 'none') {
     const requestedQualAdv = parseAdvanceToBracket(form.qualAdv);
     if (requestedQualAdv === null) {
@@ -315,7 +352,7 @@ export function generateTournament(
   // rule 9 checks the graph's declared entry total against bracketEntryCount, the real
   // post-pooling entrant count computed just above -- not config.qualAdv, which is meaningless
   // for Group Stage.
-  if (schedule === 'waterfall-bracket' && !graphHasQualSource) {
+  if (schedule === 'waterfall-bracket' && !graphHasQualSource && !graphHasGroupsSource) {
     const resolved = resolveWaterfallGraph(form.waterfallGraph, {
       roomSize,
       entrantCount: bracketEntryCount,

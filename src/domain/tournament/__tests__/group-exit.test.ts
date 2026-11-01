@@ -3,6 +3,7 @@ import { getAllTies, hasPendingTies, isTieResolved, selectGroupExit } from '../a
 import { generateTournament } from '../generation';
 import {
   GROUP_EXIT_TIE_KEY,
+  groupExitRankLabels,
   groupExitRefusal,
   groupExitSelection,
   groupExitShape,
@@ -995,4 +996,42 @@ describe('group-mates apart in the first bracket round keep the seeding', () => 
       expect(partedGroupMates).toBeGreaterThan(0);
     },
   );
+});
+
+describe('groupExitRankLabels: what each rank of the exit order is', () => {
+  it('4, 4, 4 with a fair cut of 8: the winners, the runners-up, the best 3rds', () => {
+    expect(groupExitRankLabels([4, 4, 4], 'fair-cut', 8)).toEqual([
+      'Group winners',
+      'Group winners',
+      'Group winners',
+      'Runners-up',
+      'Runners-up',
+      'Runners-up',
+      'Best 3rds',
+      'Best 3rds',
+    ]);
+  });
+
+  it('5, 4, 4 with a fair cut of 8: the 5-group sends its 3rd, one spot goes to the best of two places', () => {
+    const labels = groupExitRankLabels([5, 4, 4], 'fair-cut', 8);
+    expect(labels.slice(0, 6)).toEqual([...Array(3).fill('Group winners'), ...Array(3).fill('Runners-up')]);
+    expect(labels[6]).toBe('3rd, group of 5');
+    expect(labels[7]).toBe('Best of: 4th of the group of 5, 3rds of the groups of 4');
+  });
+
+  it('5, 4, 4 with an even split of 8: the same tiers, the two spots to the best 3rds', () => {
+    expect(groupExitRankLabels([5, 4, 4], 'even-split', 8).slice(6)).toEqual(['Best 3rds', 'Best 3rds']);
+  });
+
+  it('per group 2 over 4 groups: winners then runners-up', () => {
+    expect(groupExitRankLabels([4, 4, 4, 4], 'per-group', 8)).toEqual([
+      ...Array(4).fill('Group winners'),
+      ...Array(4).fill('Runners-up'),
+    ]);
+  });
+
+  it('one chance spot is singular, and a total of 0 has no labels', () => {
+    expect(groupExitRankLabels([4, 4, 4], 'fair-cut', 10).slice(9)).toEqual(['Best 4th']);
+    expect(groupExitRankLabels([4, 4, 4], 'fair-cut', 0)).toEqual([]);
+  });
 });

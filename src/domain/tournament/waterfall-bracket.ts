@@ -44,7 +44,10 @@ import type { RoomSize, TournamentRound } from './types';
  * After a qualification table, a reserved "Qual" line routes the final
  * standings the same way, by rank ("Qual: 1-16->R1, 17-24->R1C"). It has no
  * room letter, may leave ranks unrouted (they are eliminated), and is only
- * valid for a qualification-table pooling phase (`standingsSource`).
+ * valid for a qualification-table pooling phase (`standingsSource`). After a
+ * group stage the reserved "Groups" line does the same for the group exit
+ * order ("Groups: 1-4->R1, 5-8->R1C"); each line is refused under the other
+ * pooling phase.
  */
 
 export interface WaterfallRoundSpec {
@@ -114,8 +117,10 @@ interface RawRouteLine {
 export interface RawWaterfallGraph {
   roundLines: RawRoundLine[];
   routeLines: RawRouteLine[];
-  /** The bands of the "Qual" route line (the qualification table as a source), null when the text has none. */
+  /** The bands of the "Qual" or "Groups" route line (the pooling exit as a source), null when the text has none. */
   qualBands: RawRouteBand[] | null;
+  /** Which of the two lines `qualBands` came from, null when the text has none. */
+  standingsKind: StandingsSourceKind | null;
 }
 
 /** A round name: letters and digits, with single spaces or dashes between words; it starts and ends with a letter or digit. */
@@ -123,6 +128,24 @@ export const LABEL_PATTERN = /^[A-Za-z0-9]+(?:[ -]+[A-Za-z0-9]+)*$/;
 export const ELIMINATED = 'eliminated';
 /** The reserved route-line label for the qualification table; never a declared round. */
 export const QUAL_LABEL = 'Qual';
+/** The reserved route-line label for the group stage's exit order; never a declared round. */
+export const GROUPS_LABEL = 'Groups';
+
+/** What feeds the graph from the pooling phase: the qualification table (the Qual line) or the group exit (the Groups line). */
+export type StandingsSourceKind = 'qual' | 'groups';
+
+const SOURCE_LINE: Record<StandingsSourceKind, string> = { qual: QUAL_LABEL, groups: GROUPS_LABEL };
+/** What a rank of the line is called in messages. */
+const SOURCE_RANK: Record<StandingsSourceKind, string> = {
+  qual: 'qualification rank',
+  groups: 'group exit rank',
+};
+
+function sourceKindOfLabel(label: string): StandingsSourceKind | null {
+  const lower = label.toLowerCase();
+  if (lower === QUAL_LABEL.toLowerCase()) return 'qual';
+  return lower === GROUPS_LABEL.toLowerCase() ? 'groups' : null;
+}
 /** Rooms are addressed by a single letter in ROUTES, so a round can have at most 26. */
 export const MAX_ROOMS_PER_ROUND = 26;
 
@@ -206,6 +229,11 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
   if (label.toLowerCase() === QUAL_LABEL.toLowerCase()) {
     return err(
       `Round label "${label}" is reserved -- "Qual" stands for the qualification table and can't be used as a round label.`,
+    );
+  }
+  if (label.toLowerCase() === GROUPS_LABEL.toLowerCase()) {
+    return err(
+      `Round label "${label}" is reserved -- "Groups" stands for the group stage's exit and can't be used as a round label.`,
     );
   }
 
@@ -424,23 +452,33 @@ export function parseWaterfallGraph(
 
   const routeLines: RawRouteLine[] = [];
   let qualBands: RawRouteBand[] | null = null;
+  let standingsKind: StandingsSourceKind | null = null;
   for (const line of routesLines) {
     const result = parseRouteLine(line);
     if (!result.ok) return result;
-    if (result.value.label.toLowerCase() !== QUAL_LABEL.toLowerCase()) {
+    const kind = sourceKindOfLabel(result.value.label);
+    if (kind === null) {
       routeLines.push(result.value);
       continue;
     }
+    const name = SOURCE_LINE[kind];
     if (result.value.room !== null) {
+      const what = kind === 'qual' ? 'the qualification table has' : "the group stage's exit has";
       return err(
-        `ROUTES line "${line}" gives "Qual" a room letter -- the qualification table has no rooms, write "Qual: ..." instead.`,
+        `ROUTES line "${line}" gives "${name}" a room letter -- ${what} no rooms, write "${name}: ..." instead.`,
       );
     }
-    if (qualBands) return err('The Qual line appears more than once -- combine them into one.');
+    if (standingsKind !== null && standingsKind !== kind) {
+      return err(
+        'A graph has a Qual line or a Groups line, not both -- keep the one that matches the pooling phase.',
+      );
+    }
+    if (qualBands) return err(`The ${name} line appears more than once -- combine them into one.`);
     qualBands = result.value.bands;
+    standingsKind = kind;
   }
 
-  return ok({ roundLines, routeLines, qualBands });
+  return ok({ roundLines, routeLines, qualBands, standingsKind });
 }
 
 export function expandRankTokens(tokens: string[]): WaterfallParseResult<number[]> {
@@ -489,26 +527,28 @@ function buildRoomDestinations(
 }
 
 /**
- * The per-rank destination labels of the Qual line: ranks the line doesn't
- * route are eliminated (gaps allowed), and trailing eliminated ranks are
- * trimmed so the array's length is the highest routed rank.
+ * The per-rank destination labels of the Qual or Groups line: ranks the line
+ * doesn't route are eliminated (gaps allowed), and trailing eliminated ranks
+ * are trimmed so the array's length is the highest routed rank.
  */
 function buildQualDestinations(
   bands: RawRouteBand[],
   roundByLabel: Map<string, RawRoundLine>,
+  kind: StandingsSourceKind,
 ): WaterfallParseResult<string[]> {
+  const name = SOURCE_LINE[kind];
   const destinations: Array<string | undefined> = [];
   for (const band of bands) {
     const expanded = expandRankTokens(band.rankTokens);
-    if (!expanded.ok) return err(`Qual: ${expanded.error}`);
+    if (!expanded.ok) return err(`${name}: ${expanded.error}`);
     const destKey = band.destinationLabel.toLowerCase();
     if (destKey !== ELIMINATED && !roundByLabel.has(destKey)) {
-      return err(`Qual routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
+      return err(`${name} routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
     }
     for (const rank of expanded.value) {
-      if (rank < 1) return err(`Qual: rank ${rank} is out of range -- qualification ranks start at 1.`);
+      if (rank < 1) return err(`${name}: rank ${rank} is out of range -- ${SOURCE_RANK[kind]}s start at 1.`);
       if (destinations[rank - 1] !== undefined) {
-        return err(`Qual: rank ${rank} is routed more than once -- bands must not overlap.`);
+        return err(`${name}: rank ${rank} is routed more than once -- bands must not overlap.`);
       }
       destinations[rank - 1] = band.destinationLabel;
     }
@@ -516,9 +556,21 @@ function buildQualDestinations(
   let length = destinations.length;
   while (length > 0 && (destinations[length - 1] ?? ELIMINATED).toLowerCase() === ELIMINATED) length -= 1;
   if (length === 0) {
-    return err('The Qual line sends no qualification rank on -- route at least one rank to a round.');
+    return err(`The ${name} line sends no ${SOURCE_RANK[kind]} on -- route at least one rank to a round.`);
   }
   return ok(Array.from({ length }, (_, index) => destinations[index] ?? ELIMINATED));
+}
+
+/** What is wrong with the line a graph has, when the tournament's pooling phase (`kind`, null for neither) wants another. */
+function wrongSourceLineMessage(line: StandingsSourceKind, kind: StandingsSourceKind | null): string {
+  if (line === 'qual') {
+    return kind === 'groups'
+      ? 'The Qual line routes a qualification table, but this tournament has a group stage -- use a Groups line instead.'
+      : 'The Qual line routes the qualification table, but this tournament has no qualification table -- remove the Qual line.';
+  }
+  return kind === 'qual'
+    ? 'The Groups line routes a group stage, but this tournament has a qualification table -- use a Qual line instead.'
+    : "The Groups line routes the group stage's exit, but this tournament has no group stage -- remove the Groups line.";
 }
 
 /** The one round nothing routes into, or an error when there is none or more than one. */
@@ -558,11 +610,14 @@ export function validateAndOrderWaterfallGraph(
      */
     entrantCount?: number;
     /**
-     * True when the graph is fed by a qualification table: the Qual line is allowed (a graph without
-     * one is read as `Qual: 1-<entry round total> -> <entry round>`), and every declared round
-     * must be fed by Qual or another round. False: a Qual line is an error.
+     * True when the graph is fed by a qualification table or a group stage: the Qual (or, with
+     * `standingsKind: 'groups'`, the Groups) line is allowed (a graph without one is read as
+     * `Qual: 1-<entry round total> -> <entry round>`), and every declared round must be fed by it or
+     * another round. False: a Qual or Groups line is an error.
      */
     standingsSource?: boolean;
+    /** Which line feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
+    standingsKind?: StandingsSourceKind;
     /**
      * Round labels, in play order, that the returned order must start with
      * exactly (a live edit's already-reached rounds, which can't be
@@ -578,11 +633,10 @@ export function validateAndOrderWaterfallGraph(
 ): WaterfallParseResult<OrderedWaterfallGraph> {
   const { roundLines, routeLines } = graph;
   const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
+  const kind: StandingsSourceKind | null = standingsSource ? (options.standingsKind ?? 'qual') : null;
 
-  if (!standingsSource && graph.qualBands) {
-    return err(
-      'The Qual line routes the qualification table, but this tournament has no qualification table -- remove the Qual line.',
-    );
+  if (graph.standingsKind !== null && graph.standingsKind !== kind) {
+    return err(wrongSourceLineMessage(graph.standingsKind, kind));
   }
 
   // Rule 1: every declared room size must fit the format's own bounds.
@@ -740,8 +794,8 @@ export function validateAndOrderWaterfallGraph(
   // entry round (entryLabel) to special-case below.
   let qualLabels: string[] | null = null;
   let entryLabel: string | null = null;
-  if (standingsSource && graph.qualBands) {
-    const built = buildQualDestinations(graph.qualBands, roundByLabel);
+  if (kind !== null && graph.qualBands) {
+    const built = buildQualDestinations(graph.qualBands, roundByLabel, kind);
     if (!built.ok) return built;
     qualLabels = built.value;
   } else {
@@ -761,7 +815,7 @@ export function validateAndOrderWaterfallGraph(
     const unfed = labels.find((label) => (inDegree.get(label) ?? 0) === 0);
     if (unfed) {
       return err(
-        `Round "${roundByLabel.get(unfed)!.label}" has nothing routing into it -- send it a qualification rank or route another round into it.`,
+        `Round "${roundByLabel.get(unfed)!.label}" has nothing routing into it -- send it a ${SOURCE_RANK[kind ?? 'qual']} or route another round into it.`,
       );
     }
   }
@@ -884,7 +938,7 @@ export function validateAndOrderWaterfallGraph(
   if (qualLabels) {
     if (entrantCount !== undefined && qualLabels.length > entrantCount) {
       return err(
-        `The graph sends qualification rank ${qualLabels.length} on, but only ${entrantCount} players are registered -- route fewer ranks or wait for more registrations.`,
+        `The graph sends ${SOURCE_RANK[kind ?? 'qual']} ${qualLabels.length} on, but only ${entrantCount} players are registered -- route fewer ranks or wait for more registrations.`,
       );
     }
   } else if (entryLabel !== null) {

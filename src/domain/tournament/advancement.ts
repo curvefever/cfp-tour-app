@@ -104,7 +104,7 @@ interface RoomTieCluster {
 interface CutoffTieCluster {
   key: string;
   players: TournamentStanding[];
-  /** Standings rank of the cluster's first unit, set only for clusters found against a Qual source's band boundaries. */
+  /** Standings (or group exit) rank of the cluster's first unit, set only for clusters found against a Qual or Groups source's band boundaries. */
   firstRank?: number;
   fp: number;
   roomShare: number | null;
@@ -254,6 +254,9 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
     }
     const exitTie = detectGroupExitTie(standings);
     if (exitTie) ties[exitTie.key] = exitTie;
+    for (const bandTie of rankGroupExit(standings, standings.groupStandings).bandTies) {
+      ties[bandTie.key] = bandTie;
+    }
   }
   return ties;
 }
@@ -539,6 +542,92 @@ function detectGroupExitTie(
     roomShare: tie.players[0].entry.roomShare ?? null,
     rm: null,
   };
+}
+
+/** Key prefix of the ties between groups at a band boundary of a Groups line's routing. */
+export const GROUP_BAND_KEY_PREFIX = 'group-band-';
+
+/** True for the tie-resolution keys of a Groups line's band-boundary ties. */
+export function isGroupBandKey(key: string): boolean {
+  return key.startsWith(GROUP_BAND_KEY_PREFIX);
+}
+
+interface GroupExitRanking {
+  /** The group exit order, rank 1 first, with the organiser's picks at the band-boundary ties applied. */
+  ordered: TournamentStanding[];
+  bandTies: CutoffTieCluster[];
+}
+
+/**
+ * The group exit order against a Groups line's routing: a run of consecutive exit ranks of one group place that are
+ * level on points per match and room share (`sameStanding`) and straddle a band boundary (a rank whose destination
+ * differs from the next one's, eliminated counting as a destination) is one tie, keyed `group-band-<first rank>`. A
+ * 1st always ranks before a 2nd, so only units of one place can be level. The organiser's picks order a cluster inside
+ * its ranks. Without a Groups line (no `standingsRoutes`) the order is the group exit's own and there are no band ties.
+ */
+function rankGroupExit(
+  state: Pick<TournamentState, 'groups' | 'cfg' | 'tieResolutions' | 'rounds'>,
+  groupStandings: Record<string, TournamentStanding[]>,
+): GroupExitRanking {
+  const selection = selectGroupExit(state, groupStandings);
+  const byName = new Map(
+    Object.values(groupStandings).flatMap((table) => table.map((entry) => [entry.name, entry])),
+  );
+  const natural = selection.advancing.flatMap((name) => byName.get(name) ?? []);
+  const routes = qualStandingsRoutes(state);
+  if (!routes) return { ordered: natural, bandTies: [] };
+  const placeOf = new Map(
+    selection.throughByGroup.flatMap((names) => names.map((name, index) => [name, index + 1] as const)),
+  );
+  const destinationAt = (rank: number) => routes[rank - 1] ?? 'eliminated';
+  const ordered = [...natural];
+  const bandTies: CutoffTieCluster[] = [];
+  let first = 0;
+  while (first < natural.length) {
+    let last = first;
+    while (
+      last + 1 < natural.length &&
+      placeOf.get(natural[last + 1].name) === placeOf.get(natural[first].name) &&
+      sameStanding(natural[last + 1], natural[first])
+    ) {
+      last += 1;
+    }
+    const firstRank = first + 1;
+    const straddles = Array.from({ length: last - first }, (_, offset) => firstRank + offset).some(
+      (rank) => destinationAt(rank) !== destinationAt(rank + 1),
+    );
+    if (straddles && rankingPoints(natural[first]) !== null) {
+      const players = natural.slice(first, last + 1);
+      const key = `${GROUP_BAND_KEY_PREFIX}${firstRank}`;
+      bandTies.push({
+        key,
+        players,
+        firstRank,
+        fp: rankingPoints(players[0]) ?? 0,
+        roomShare: players[0].roomShare ?? null,
+        rm: null,
+      });
+      const resolved = tieResolutionList(state, key);
+      const names = players.map((entry) => entry.name);
+      const inOrder = [
+        ...resolved.filter((name) => names.includes(name)),
+        ...names.filter((name) => !resolved.includes(name)),
+      ];
+      for (const [offset, name] of inOrder.entries()) {
+        ordered[first + offset] = players.find((entry) => entry.name === name) ?? ordered[first + offset];
+      }
+    }
+    first = last + 1;
+  }
+  return { ordered, bandTies };
+}
+
+/** The group exit order with a Groups line's band-tie picks applied, rank 1 first (what the line routes). */
+export function orderedGroupExit(
+  state: Pick<TournamentState, 'groups' | 'cfg' | 'tieResolutions' | 'rounds'>,
+  groupStandings: Record<string, TournamentStanding[]>,
+): TournamentStanding[] {
+  return rankGroupExit(state, groupStandings).ordered;
 }
 
 /**
