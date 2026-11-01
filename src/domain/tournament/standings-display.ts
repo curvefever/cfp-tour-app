@@ -325,9 +325,7 @@ export function cutTieMarks(state: TournamentState, display: StandingsDisplay): 
       const exitNames = exitTie ? exitTie.players.map((player) => player.name) : [];
       const exitDecided = exitTie ? isTieResolved(GROUP_EXIT_TIE_KEY, exitTie, state) : false;
       // A Groups line's band-boundary ties sit across the groups' tables, like the tie at the last spot.
-      const bandKeys = [...new Set([...Object.keys(ties), ...Object.keys(state.tieResolutions)])].filter(
-        isGroupBandKey,
-      );
+      const bandKeys = Object.keys(ties).filter(isGroupBandKey);
       const bandPending = bandKeys.flatMap((key) => {
         const cluster = ties[key];
         return cluster && !isTieResolved(key, cluster, state)

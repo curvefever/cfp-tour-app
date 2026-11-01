@@ -1,14 +1,21 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupSizesOf } from '../../../domain/tournament/group-exit';
 import { GROUPS_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cutoffTieHeading } from '../../bracket/cutoff-tie-heading';
 import { setupDerived } from '../setup/setup-derived';
 import { groupsLineExitText } from '../setup/group-exit-help';
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
+import { generateTournament } from '../../../domain/tournament/generation';
+import { createTournamentRuntime } from '../../../domain/tournament/runtime';
+import { RunningWaterfallPanel } from './RunningWaterfallPanel';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
 import { describeRankLabels, sourceName, standingsSourceName } from './waterfall-format';
+
+vi.mock('../../tournament/TournamentProvider', () => ({
+  useTournamentApp: () => ({ state: null, updateState: () => {} }),
+}));
 
 afterEach(cleanup);
 
@@ -190,5 +197,33 @@ describe('the helpers behind the Groups block and the banner', () => {
     expect(qual.waterfallStandingsKind).toBe('qual');
     expect(qual.waterfallGroupSizes).toBeNull();
     expect(GROUPS_LABEL).toBe('Groups');
+  });
+});
+
+describe('the Groups block of a running tournament', () => {
+  it('shows the Groups source with the labels of the groups as they stand', () => {
+    const teams = Array.from({ length: 13 }, (_, index) => ({
+      teamId: `t${index + 1}`,
+      teamName: `Team ${index + 1}`,
+      members: Array.from({ length: 4 }, (_, slot) => ({ name: `p${index}-${slot}` })),
+    }));
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 13, players: teams }),
+      createDefaultSetup({
+        gameFormat: 'team-4v4',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        groupExit: 'fair-cut',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'waterfall-bracket',
+        waterfallGraph: GRAPH('Groups: 1-4->R1, 5-8->R1C'),
+      }),
+      createTournamentRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(result.message);
+    render(<RunningWaterfallPanel state={result.state} />);
+    expect(screen.getAllByText('Groups').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Qualification table')).toBeNull();
+    expect(screen.getByTestId('rank-labels').textContent).toContain('1–3 Group winners');
   });
 });

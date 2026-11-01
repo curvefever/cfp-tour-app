@@ -8,7 +8,7 @@ import {
   seedFromGroupStageRound,
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { groupExitRefusal, groupSizesOf } from './group-exit';
+import { groupExitRefusal, groupSizesOf, groupsLineExit } from './group-exit';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -77,27 +77,23 @@ function resolveWaterfallGraph(
 }
 
 /**
- * The group exit a Groups line implies, written onto `config`: its highest routed rank is the total of an even split
- * or a fair cut, and per group it is the qualifiers per group times the groups. Why the line can't be shared between
- * the groups (or the exit's own refusal), or null.
+ * The group exit a Groups line implies, written onto `config` (see `groupsLineExit`). Why the line can't be shared
+ * between the groups (or the exit's own refusal), or null.
  */
 function deriveGroupExitFromLine(
   config: Pick<GeneratedTournamentConfig, 'n' | 'groupSize' | 'groupExit' | 'qualAdv' | 'qualifiersPerGroup'>,
   sentOn: number,
   unitPlural: string,
 ): string | null {
-  const groupCount = groupSizesOf(config.n, config.groupSize).length;
-  if (config.groupExit === undefined) {
-    if (sentOn % groupCount !== 0) {
-      const lower = sentOn - (sentOn % groupCount);
-      const routes = lower > 0 ? `${lower} or ${lower + groupCount}` : `${groupCount}`;
-      return `The Groups line sends ${sentOn} on, but ${groupCount} groups can't each send the same number -- route ${routes}, or choose Even split or Fair cut.`;
-    }
-    config.qualifiersPerGroup = sentOn / groupCount;
-    return groupExitRefusal(config.n, config.groupSize, 'per-group', config.qualifiersPerGroup, unitPlural);
-  }
-  config.qualAdv = sentOn;
-  return groupExitRefusal(config.n, config.groupSize, config.groupExit, sentOn, unitPlural);
+  const exit = groupsLineExit(
+    groupSizesOf(config.n, config.groupSize),
+    config.groupExit ?? 'per-group',
+    sentOn,
+    unitPlural,
+  );
+  if (exit.qualAdv !== undefined) config.qualAdv = exit.qualAdv;
+  if (exit.qualifiersPerGroup !== undefined) config.qualifiersPerGroup = exit.qualifiersPerGroup;
+  return exit.refusal;
 }
 
 function kingsValleyTooLargeMessage(input: {

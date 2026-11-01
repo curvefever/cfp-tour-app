@@ -1,6 +1,8 @@
 import { withoutRoundAbsences } from './absences';
-import { isQualCutoffKey } from './advancement';
+import { isGroupBandKey, isQualCutoffKey } from './advancement';
 import { currentUnit, replayBracketPools } from './bracket-replay';
+import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
+import { unitLabelPluralLower } from './formats';
 import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
 import { currentColumn, isRoundDone, isRoundReached } from './round-columns';
@@ -39,13 +41,65 @@ function sameNameSet(assignments: string[], seeds: PendingBracketSeed[]): boolea
 }
 
 /**
- * A qualification-table tournament's graph has a Qual source: the last
- * qualification round carries the standings routing (`standingsRoutes`) and
- * `cfg.qualAdv` is the highest rank it sends on.
+ * A qualification-table or group-stage tournament's graph has a Qual or Groups source: the last pooling round
+ * carries the standings routing (`standingsRoutes`) and the highest rank it sends on is the exit total. A group
+ * stage generated without a Groups line stores no routing and keeps the one entry round.
  */
-function lastQualificationIndex(state: TournamentState, firstWaterfallIndex: number): number {
-  const index = state.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
-  return index >= 0 && index < firstWaterfallIndex ? index : -1;
+function standingsRoundIndex(state: TournamentState, firstWaterfallIndex: number): number {
+  const groupStage = state.cfg.poolingPhase === 'group-stage';
+  if (!groupStage && state.cfg.poolingPhase !== 'qual-table') return -1;
+  const index = state.rounds
+    .map((round) => Boolean(groupStage ? round.isGroupStage : round.isQual))
+    .lastIndexOf(true);
+  if (index < 0 || index >= firstWaterfallIndex) return -1;
+  return groupStage && !state.rounds[index].standingsRoutes ? -1 : index;
+}
+
+/** Whether a tie resolution belongs to the Groups line's exit: a band boundary, or the cut-off the exit total sets. */
+function isGroupExitTieKey(key: string, includeCutoffs: boolean): boolean {
+  return (
+    isGroupBandKey(key) || (includeCutoffs && (key === GROUP_EXIT_TIE_KEY || key.startsWith('group-cutoff-')))
+  );
+}
+
+type GroupsLineSettings = { ok: true; cfg: TournamentState['cfg'] } | { ok: false; error: string };
+
+/**
+ * The exit settings a Groups line implies. While the groups are played it sets the total (or the qualifiers per
+ * group), checked against the groups as they stand now. Once the bracket is entered the exit is over: the line may
+ * only route ranks that actually left the groups, and the settings stay.
+ */
+function groupsLineSettings(
+  state: TournamentState,
+  sentOn: number,
+  standingsRound: TournamentRound,
+  bracketEntered: boolean,
+): GroupsLineSettings {
+  if (bracketEntered) {
+    const left = standingsRound.standingsExitOrder?.length;
+    if (left !== undefined && sentOn > left) {
+      return {
+        ok: false,
+        error: `Can't save: only ${left} left the groups, so the Groups line can't route rank ${sentOn}.`,
+      };
+    }
+    return { ok: true, cfg: state.cfg };
+  }
+  const exit = groupsLineExit(
+    state.groups.map((group) => group.members.length),
+    state.cfg.groupExit ?? 'per-group',
+    sentOn,
+    unitLabelPluralLower(state.settings?.gameFormat),
+  );
+  if (exit.refusal) return { ok: false, error: `Can't save: ${exit.refusal}` };
+  return {
+    ok: true,
+    cfg: {
+      ...state.cfg,
+      qualAdv: exit.qualAdv ?? state.cfg.qualAdv,
+      qualifiersPerGroup: exit.qualifiersPerGroup ?? state.cfg.qualifiersPerGroup,
+    },
+  };
 }
 
 /** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
@@ -111,10 +165,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   }
 
   const entryRound = state.rounds[firstWaterfallIndex];
-  const qualIndex =
-    state.cfg.poolingPhase === 'qual-table' ? lastQualificationIndex(state, firstWaterfallIndex) : -1;
+  const qualIndex = standingsRoundIndex(state, firstWaterfallIndex);
   const standingsSource = qualIndex !== -1;
-  // With a Qual source the head count is the units still registered (a withdrawal shrinks it), not the entry round's size.
+  const standingsKind = state.cfg.poolingPhase === 'group-stage' ? 'groups' : 'qual';
+  // With a Qual or Groups source the head count is the units still registered (a withdrawal shrinks it), not the entry round's size.
   const entrantCount = standingsSource ? rosterKeys(state.players).length : entryRound.players;
   // Empty while still in pooling (the bracket hasn't been entered yet). A started column counts whole.
   const reachedCount =
@@ -143,6 +197,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     fixedColumns,
     firstOpenColumn: fixedColumns?.length ? Math.max(...fixedColumns) + 1 : 1,
     standingsSource,
+    standingsKind,
   });
   if (!validated.ok) return { ok: false, error: validated.error };
   const graph = validated.value;
@@ -214,18 +269,28 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     ...Array.from({ length: tailLength }, (): string[] => []),
   ];
 
-  const qualAdv = graph.qualRoutes?.length ?? state.cfg.qualAdv;
+  const sentOn = graph.qualRoutes?.length;
+  let cfg: TournamentState['cfg'] = { ...state.cfg, qualAdv: sentOn ?? state.cfg.qualAdv };
+  if (standingsSource && standingsKind === 'groups' && sentOn !== undefined) {
+    const settings = groupsLineSettings(state, sentOn, state.rounds[qualIndex], reachedCount > 0);
+    if (!settings.ok) return settings;
+    cfg = settings.cfg;
+  }
   // A tie resolution made for the old cut lines can't be trusted for new ones, but once the bracket is
   // entered the draw already used them, so they stay.
   const routingChanged =
     JSON.stringify(state.rounds[qualIndex]?.standingsRoutes) !== JSON.stringify(standingsRoutes);
+  const exitChanged =
+    cfg.qualAdv !== state.cfg.qualAdv || cfg.qualifiersPerGroup !== state.cfg.qualifiersPerGroup;
   const dropStaleTies = standingsSource && routingChanged && reachedCount === 0;
+  const isStale = (key: string) =>
+    standingsKind === 'groups' ? isGroupExitTieKey(key, exitChanged) : isQualCutoffKey(key);
   const tieResolutions = dropStaleTies
-    ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isQualCutoffKey(key)))
+    ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isStale(key)))
     : state.tieResolutions;
   let working: TournamentState = {
     ...state,
-    cfg: { ...state.cfg, qualAdv },
+    cfg,
     rounds,
     assignments,
     byes,

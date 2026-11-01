@@ -9,7 +9,7 @@ import {
 import { isFedOnlyByStandings } from '../bracket-replay';
 import { expectedNextColumn } from '../expected-draw';
 import { generateTournament } from '../generation';
-import { resolveTournamentTie } from '../mutations';
+import { removeRosterUnit, resolveTournamentTie } from '../mutations';
 import { cutTieMarks, describeStandings } from '../standings-display';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
@@ -17,6 +17,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { replayBracketPools } from '../bracket-replay';
 import { advanceTournamentRound, seedRoundFromPendingPool } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
+import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 import { scoreCurrentRound } from './play-through';
@@ -614,5 +615,136 @@ describe('the replay of a Groups line without a stored exit order', () => {
     const names = (replay: typeof stored) =>
       [...replay.pools.entries()].map(([index, pool]) => [index, pool.map((entry) => entry.name)]);
     expect(names(recomputed)).toEqual(names(stored));
+  });
+});
+
+describe('a pick left behind by a score correction marks nothing on the Standings tab', () => {
+  it('reads the band ties from the live ties only', () => {
+    const exit = atTheExit(generated(12, TWO_BANDS, { groupExit: 'fair-cut' }), (state) =>
+      seedScores(scoreCurrentRound(state, 4), 3),
+    );
+    expect(
+      Object.keys(getAllColumnTies(exit)).filter((key) => key.startsWith(GROUP_BAND_KEY_PREFIX)),
+    ).toEqual([]);
+    const name = exit.groups[0].members[0];
+    const stale = { ...exit, tieResolutions: { 'group-band-4': [name] } };
+    const display = describeStandings(stale);
+    if (!display) throw new Error('no standings');
+    for (const table of Object.values(cutTieMarks(stale, display))) {
+      expect(table.placed).not.toContain(name);
+      expect(table.pending).not.toContain(name);
+    }
+  });
+});
+
+describe('editing the Groups line of a running tournament', () => {
+  const GAP = TWO_BANDS.replace('Groups: 1-4->R1, 5-8->R1C', 'Groups: 1-4->R1, 5->eliminated, 6-9->R1C');
+  const SWAP = TWO_BANDS.replace('Groups: 1-4->R1, 5-8->R1C', 'Groups: 1-3, 5->R1, 4, 6-8->R1C');
+  const start = (count = 12, setup: Setup = { groupExit: 'fair-cut' }) => generated(count, TWO_BANDS, setup);
+  const edit = (state: TournamentState, text: string) => {
+    const result = applyWaterfallGraphEdit(state, text);
+    if (!result.ok) throw new Error(result.error);
+    return result;
+  };
+  const refusal = (state: TournamentState, text: string) => {
+    const result = applyWaterfallGraphEdit(state, text);
+    if (result.ok) throw new Error('expected a refusal');
+    return result.error;
+  };
+  const lastGroupRound = (state: TournamentState) => state.rounds.find((round) => round.standingsRoutes);
+  const enterBracket = (
+    score: (state: TournamentState) => TournamentState = (state) => scoreCurrentRound(state, 4),
+  ) => advanced(atTheExit(start(), score));
+
+  it('during the groups, a band change is accepted and the total follows: 5 out, 6-9 to R1C', () => {
+    const state = start();
+    expect(state.cfg.qualAdv).toBe(8);
+    const edited = edit(state, GAP).state;
+    expect(edited.cfg.qualAdv).toBe(9);
+    const r1 = indexOfLabel(edited, 'R1');
+    const r1c = indexOfLabel(edited, 'R1C');
+    expect(lastGroupRound(edited)?.standingsRoutes).toEqual([
+      ...Array(4).fill(r1),
+      'eliminated',
+      ...Array(4).fill(r1c),
+    ]);
+    // Playing on routes by the new bands: the 5th of the exit is out, ranks 6-9 play R1C.
+    const exit = atTheExit(edited, (current) => seedScores(scoreCurrentRound(current, 4), 5));
+    const order = selectGroupExit(exit, computedStandings(exit)).advancing;
+    expect(order).toHaveLength(9);
+    const next = advanced(exit);
+    expect(roomsOf(next, indexOfLabel(next, 'R1C')).flat().sort()).toEqual(order.slice(5).sort());
+  });
+
+  it('during the groups, a per group exit refuses a total the groups cannot share', () => {
+    expect(refusal(start(16, {}), GAP)).toBe(
+      "Can't save: The Groups line sends 9 on, but 4 groups can't each send the same number -- route 8 or 12, or choose Even split or Fair cut.",
+    );
+  });
+
+  it('during the groups, the routing is checked against the units still in the roster', () => {
+    let state = start();
+    for (const name of state.assignments[0].slice(0, 5).map((entry) => entry.name)) {
+      state = removeRosterUnit(state, name);
+    }
+    expect(refusal(state, TWO_BANDS)).toContain('only 7 players are registered');
+  });
+
+  it('during the groups, drops the band picks the new routing makes stale, and keeps the cut-offs when the total stays', () => {
+    const state = {
+      ...start(),
+      tieResolutions: { 'group-band-4': ['x'], 'group-exit-cutoff': ['y'], 'group-cutoff-A': ['z'] },
+    };
+    expect(edit(state, SWAP).state.tieResolutions).toEqual({
+      'group-exit-cutoff': ['y'],
+      'group-cutoff-A': ['z'],
+    });
+    expect(edit(state, GAP).state.tieResolutions).toEqual({});
+  });
+
+  it('after the exit, accepts an edit that keeps the played line-ups', () => {
+    const entered = enterBracket();
+    const reordered = TWO_BANDS.replace('Groups: 1-4->R1, 5-8->R1C', 'Groups: 5-8->R1C, 1-4->R1');
+    const result = edit(entered, reordered);
+    expect(result.redrawnRound).toBeNull();
+    expect(roomsOf(result.state, indexOfLabel(result.state, 'R1'))).toEqual(
+      roomsOf(entered, indexOfLabel(entered, 'R1')),
+    );
+    expect(result.state.cfg).toEqual(entered.cfg);
+  });
+
+  it('after the exit, re-draws unscored rounds when the edit moves a rank between them', () => {
+    const entered = enterBracket();
+    const order = (lastGroupRound(entered)?.standingsExitOrder ?? []).map((entry) => entry.name);
+    const result = edit(entered, SWAP);
+    expect(result.redrawnRound).toBe('R1 + R1C');
+    expect(roomsOf(result.state, indexOfLabel(result.state, 'R1')).flat().sort()).toEqual(
+      [order[0], order[1], order[2], order[4]].sort(),
+    );
+    expect(roomsOf(result.state, indexOfLabel(result.state, 'R1C')).flat().sort()).toEqual(
+      [order[3], order[5], order[6], order[7]].sort(),
+    );
+  });
+
+  it('after the exit, refuses an edit that changes a scored round', () => {
+    const entered = scoreCurrentRound(enterBracket(), 4);
+    expect(refusal(entered, SWAP)).toContain('a score has already been entered in "R1"');
+  });
+
+  it('after the exit, refuses a rank that never left the groups', () => {
+    expect(refusal(enterBracket(), GAP)).toBe(
+      "Can't save: only 8 left the groups, so the Groups line can't route rank 9.",
+    );
+  });
+
+  it('plays on to the Final after an edit during the groups (13 teams, groups of 5, 4, 4)', () => {
+    const state = start(13);
+    const edited = edit(state, GAP).state;
+    let current = atTheExit(edited, (round) => scoreCurrentRound(round, 4));
+    current = advanced(current);
+    for (let guard = 0; guard < 20 && !current.rounds[current.curRound].isFinal; guard += 1) {
+      current = advanced(scoreCurrentRound(current, 4));
+    }
+    expect(current.rounds[current.curRound].isFinal).toBe(true);
   });
 });

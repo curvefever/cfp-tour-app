@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { rosterKeys } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
+import type { StandingsSourceKind } from '../../../domain/tournament/waterfall-bracket';
 import {
   finalsMatchOf,
   serializeWaterfallDraft,
@@ -34,9 +35,11 @@ function reachedRounds(state: TournamentState): {
   return { lockedRounds, currentRoundLabels };
 }
 
-/** A qualification-table graph has a Qual source and is checked against the units still registered, not the entry round's size. */
-function hasStandingsSource(state: TournamentState): boolean {
-  return state.cfg.poolingPhase === 'qual-table' && state.rounds.some((round) => round.isQual);
+/** Which pooling exit feeds the graph: a qualification table (Qual line), a group stage that routes its exit (Groups line), or neither. */
+function standingsKindOf(state: TournamentState): StandingsSourceKind | null {
+  if (state.cfg.poolingPhase === 'qual-table' && state.rounds.some((round) => round.isQual)) return 'qual';
+  const routesExit = state.rounds.some((round) => round.isGroupStage && round.standingsRoutes);
+  return state.cfg.poolingPhase === 'group-stage' && routesExit ? 'groups' : null;
 }
 
 /** The stored column of every round that has started, by label. */
@@ -75,8 +78,15 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const roomSize = state.gamemodeConfig.roomSize;
   if (!roomSize) return null;
   const entryRound = state.rounds.find((round) => round.isWaterfall);
-  const standingsSource = hasStandingsSource(state);
+  const standingsKind = standingsKindOf(state);
+  const standingsSource = standingsKind !== null;
   const entrantCount = standingsSource ? rosterKeys(state.players).length : (entryRound?.players ?? null);
+  // What the editor needs to name the source and label the ranks of a Groups line.
+  const sourceProps = {
+    standingsKind: standingsKind ?? undefined,
+    groupSizes: standingsKind === 'groups' ? state.groups.map((group) => group.members.length) : null,
+    groupExit: state.cfg.groupExit ?? ('per-group' as const),
+  };
   const { lockedRounds, currentRoundLabels } = reachedRounds(state);
   // A tournament generated before columns existed plays one round at a time once its bracket has started,
   // and its rounds keep no column; before that, a save gives it columns.
@@ -149,6 +159,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           roomSize={roomSize}
           showColumns={showColumns}
           standingsSource={standingsSource}
+          {...sourceProps}
           startedColumns={startedColumns}
           text={savedText(state)}
         />
@@ -182,6 +193,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         roomSize={roomSize}
         showColumns={showColumns}
         standingsSource={standingsSource}
+        {...sourceProps}
         startedColumns={startedColumns}
         text={draftText}
       />

@@ -323,7 +323,17 @@ export function groupExitRefusal(
   total: number,
   unitPlural: string,
 ): string | null {
-  const groupSizes = groupSizesOf(unitCount, groupSize);
+  return groupExitRefusalForSizes(groupSizesOf(unitCount, groupSize), mode, total, unitPlural);
+}
+
+/** `groupExitRefusal` for groups that already exist (a running tournament's real sizes, after any withdrawals). */
+export function groupExitRefusalForSizes(
+  groupSizes: readonly number[],
+  mode: GroupExitMode,
+  total: number,
+  unitPlural: string,
+): string | null {
+  const unitCount = groupSizes.reduce((sum, size) => sum + size, 0);
   const groups = describeGroupSizes(groupSizes);
   if (mode === 'per-group') return perGroupRefusal(groupSizes, groups, unitCount, total, unitPlural);
   if (total < groupSizes.length) {
@@ -334,6 +344,37 @@ export function groupExitRefusal(
     return `Advance to bracket (${total}) would put every one of the ${unitCount} ${unitPlural} through: the fair cut needs at least one out, so at most ${unitCount - 1} can go through.`;
   }
   return null;
+}
+
+/** What a Groups line that sends `sentOn` units on makes of the group exit settings, or why the groups can't take it. */
+export type GroupsLineExit = { refusal: string | null; qualAdv?: number; qualifiersPerGroup?: number };
+
+/**
+ * The group exit a Groups line implies: its highest routed rank is the total of an even split or a fair cut, and per
+ * group it is the qualifiers per group times the groups (the groups must share it evenly).
+ */
+export function groupsLineExit(
+  groupSizes: readonly number[],
+  mode: GroupExitMode,
+  sentOn: number,
+  unitPlural: string,
+): GroupsLineExit {
+  const groupCount = groupSizes.length;
+  if (mode !== 'per-group') {
+    return { refusal: groupExitRefusalForSizes(groupSizes, mode, sentOn, unitPlural), qualAdv: sentOn };
+  }
+  if (sentOn % groupCount !== 0) {
+    const lower = sentOn - (sentOn % groupCount);
+    const routes = lower > 0 ? `${lower} or ${lower + groupCount}` : `${groupCount}`;
+    return {
+      refusal: `The Groups line sends ${sentOn} on, but ${groupCount} groups can't each send the same number -- route ${routes}, or choose Even split or Fair cut.`,
+    };
+  }
+  const qualifiersPerGroup = sentOn / groupCount;
+  return {
+    refusal: groupExitRefusalForSizes(groupSizes, 'per-group', qualifiersPerGroup, unitPlural),
+    qualifiersPerGroup,
+  };
 }
 
 /** Qualifiers per group's refusal: below 1, or enough to take every unit of the smallest group. */
