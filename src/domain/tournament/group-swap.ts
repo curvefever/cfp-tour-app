@@ -20,6 +20,7 @@ export interface ClearedRoom {
 }
 
 const GROUPS_FIXED = 'Round 2 is drawn — groups are fixed from here.';
+const REDRAW_NEEDED = 'Generate the schedule again to swap groups.';
 
 /** Cutoff and band ties of the group stage are keyed by group and rank: they read the groups as they stood. */
 const STANDINGS_TIE_PREFIX = 'group-';
@@ -28,7 +29,8 @@ const STANDINGS_TIE_PREFIX = 'group-';
 export function groupSwapWindow(state: TournamentState): string | null {
   if (state.cfg.poolingPhase !== 'group-stage') return 'This tournament has no group stage.';
   if (!state.groups.length) return 'The schedule has not been generated yet.';
-  if (!state.started) return null;
+  // Back to draft clears Round 1's line-up and the only way on is to generate again, which draws new groups.
+  if (!state.started) return (state.assignments[0] ?? []).length ? null : REDRAW_NEEDED;
   const firstGroupRound = state.rounds.findIndex((round) => round.isGroupStage);
   const laterDrawn = state.assignments.some((entries, index) => index > state.curRound && entries.length > 0);
   return state.curRound === firstGroupRound && !laterDrawn ? null : GROUPS_FIXED;

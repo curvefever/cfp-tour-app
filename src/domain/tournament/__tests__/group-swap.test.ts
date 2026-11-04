@@ -220,6 +220,14 @@ describe('swapping during Round 1', () => {
     expect(groupSwapClears(scoreRooms(base, [5]), inRoomOne, inRoomThree)).toEqual([]);
   });
 
+  it('clears a room that holds only an absence, no score yet', () => {
+    const marked = { ...base, absences: { 'r0-rm1-p1': 'absent' as const } };
+    expect(groupSwapClears(marked, inRoomOne, inRoomThree)).toEqual([
+      { room: 1, units: [seat(base, 1, 0), seat(base, 1, 1)] },
+    ]);
+    expect(swapped(marked, inRoomOne, inRoomThree).absences).toEqual({});
+  });
+
   it('shows the swapped units without a result in the standings, and the others as they were', () => {
     const result = swapped(scored, inRoomOne, inRoomThree);
     const rows = Object.values(computeGroupStandings(result)).flat();
@@ -250,6 +258,8 @@ describe('swapping during Round 1', () => {
     expect(scoredKeys(result, 1)).toHaveLength(2);
     expect(scoredKeys(result, 5)).toHaveLength(2);
     expect(result.rounds[0].groupByes).toContain(other);
+    expect(result.byes[0]).toContain(other);
+    expect(result.byes[0]).not.toContain(onBye);
     expect(result.assignments[0].find((entry) => entry.name === other)?.room).toBeNull();
     expect(result.assignments[0].find((entry) => entry.name === onBye)?.room).toBe(3);
   });
@@ -344,17 +354,21 @@ describe('the window', () => {
 });
 
 describe('after Back to draft', () => {
-  it('is open again: the groups and the rounds keep, and the swap exchanges them', () => {
+  it('is closed until the schedule is generated again: the groups keep but Round 1 has no line-up', () => {
     const back = resetTournamentState(scoreRooms(started(drawn(13)), [1, 3]));
     expect(back.groups).toHaveLength(3);
-    expect(groupSwapWindow(back)).toBeNull();
-    const first = back.groups[0].members[0];
-    const second = back.groups[2].members[3];
-    const result = swapped(back, first, second);
-    expect(result.groups[0].members[0]).toBe(second);
-    expect(result.groups[2].members[3]).toBe(first);
+    expect(groupSwapWindow(back)).toBe('Generate the schedule again to swap groups.');
+    expect(swapBetweenGroups(back, back.groups[0].members[0], back.groups[1].members[0])).toEqual({
+      ok: false,
+      error: 'Generate the schedule again to swap groups.',
+    });
+  });
+
+  it('is open again once the schedule is generated again', () => {
+    const again = drawn(13);
+    expect(groupSwapWindow(again)).toBeNull();
+    const result = swapped(again, again.groups[0].members[0], again.groups[2].members[3]);
     expectCompleteRoundRobin(result);
-    expect(result.assignments).toEqual([]);
   });
 });
 
