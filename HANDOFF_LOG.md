@@ -6,6 +6,24 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## To-do lists merged: open-items and roadmap by topic, build bundles (done — 2026-11-04)
+
+Solo session, docs only. The organiser asked to check their own lists (a notes file of comments from recent tours, and a new list given in chat) against the docs: what is already built, what goes to `docs/open-items.md` or `docs/roadmap.md`, which items are worth building together, and to group both files by topic.
+
+**Found already built** (not added): moving players between groups (group swap, 2026-11-04); ranking matches for finished players (the RANKING mark, 2026-11-01); group tables in the Standings column and tab; a reserve's bye in a group (per-match standings, a match against an absent unit is void, 2026-10-31); a Best-of Semis re-checked after a withdrawal (2026-11-04); a mark when rules change at a round (the round notes under each title bar; the organiser closed it); several games in any round after the qualifiers (Best of N everywhere; closed by the organiser, the race Grand Final stays with uneven win targets); reserve players and new teams added in Rankings for team formats (individual reserves, 2026-10-31); past rounds folding on their own (by design, `docs/views.md`); a test tournament missing from the production Tournaments page (a production test run is hidden by design, now covered by the "Unofficial" roadmap entry).
+
+**Organiser's answers.** The double elimination of test tournament `1793550672870` should let the pooling places split qualifiers between the Winners and the Losers bracket (a Custom bracket can, the built-in double elimination can't). "Strict limits to the scheduling capacity" means a lock that keeps every room at the format's own size (no 7-player room in an 8-player FFA, no 3-team room in 2v2v2v2), merged with the flexible room sizes into one "Room-size policy" entry.
+
+**What changed.**
+- `docs/roadmap.md`: sections Schedule structure and room sizes, Formats, Custom bracket, Scoring ties and match formats, Seeding and draws, Roster and organiser tools, Tournaments accounts and safety, Viewer features, Outside the app. New entries: room-size policy (flexible sizes with the organiser's order 8 > 7 > 6 > 9 = 5 > 10 = 4, and the strict lock; replaces "Flexible FFA room sizes"), the app's decisions shown next to the overrides, a consistency audit of rules across formats, letting the app choose the best setup (merged with the auto-derived waterfall entry), Swiss as a whole-tournament system (Buchholz, no rematch), double elimination entered by pooling place, tie wins and losses in every format, counting each unit's best games of a round, grading units into levels for the draw (4v4 value groups included), one place for the roster in the Players tab (admin name of Rankings, drag-and-drop line-up), line-up corrections in every round, undoing an organiser decision, Unofficial tournaments and limited admins, export and import, a confirmed-only schedule (added to the confirmation entry), a draft schedule while Starting soon, the Final as a live leaderboard, pre-created CFP rooms. The rigidity entry now includes whether the Semis stays a special stage.
+- `docs/open-items.md`: grouped by topic, each entry tagged Gap / To do / Decision pending / Limitation / Idea (every earlier entry kept, text unchanged but for cross-references); the work queue's order is unchanged, its "Not placed yet" list now names every new entry; a "Build bundles" section (A schedule engine's derived numbers, B Custom bracket routing, C ties and match results, D draws and pairing, E roster and organiser tools, F lifecycle and safety, G viewer polish); a "To clarify" section for the items raised with screenshots. New To do entries: Best of N texts more visible, score-table spacing, the lucky-loser race box, the multi-game room box, one page width across tabs, the browser Back button, the texts review, the Custom bracket's "R1" after qualification rounds, the phone's dark colours; Decision pending: a 0 in One score per team not blocking; Idea: game scores outside the Bracket (Best-of leftovers).
+
+Full suite: not run (docs only).
+
+**Out of scope.** The organiser's notes file's DONE part (not re-checked, at the organiser's request); the screenshot items, which wait for the organiser's description.
+
+---
+
 ## Swap two units between groups, until Round 2 is drawn (done — 2026-11-04)
 
 **Context.** A group stage draws its groups at generation (`assignGroupMembers`, `pooling.ts`) and stores the whole round robin by name (`state.groups[].members`, each group round's `matches`, `groupByes`, the drawn `assignments`). Nothing let the organiser change who is in which group: line-up corrections refuse a group stage and the only way was to generate again, which draws new groups. Plan: `plans/2026-11-01-swap-between-groups.md`.
