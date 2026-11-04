@@ -5,9 +5,6 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 ## Work queue
 The organiser's order for what is built next. Each line names an entry of this file or of `docs/roadmap.md` by its title. Every entry not listed here is unprioritised until the organiser places it.
 
-**Ready to build** (plan written, waiting for the organiser's go-ahead):
-- **Swapping two units between groups until Round 2 is drawn** (`docs/roadmap.md`). Plan approved, then set aside by the organiser for other priorities.
-
 **Next, in this order (high priority):**
 1. **A waterfall's routing is fixed by place** (Known gaps below).
 2. **Uneven win targets in one match** (`docs/roadmap.md`), after 1: both change the waterfall routes.

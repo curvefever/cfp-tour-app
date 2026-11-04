@@ -9,6 +9,7 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { TableCell, TableHeadCell, TableRow, cn } from '../../components/ui';
 import { ResultStripe } from '../tournament/components/ResultStripe';
+import type { GroupSwapPicking } from './GroupSwap';
 import {
   rowSurfaceClasses,
   standingsGroupStarts,
@@ -136,6 +137,7 @@ function StandingsRow({
   placed,
   pending,
   sharesPercent,
+  swap,
 }: {
   index: number;
   table: StandingsDisplayTable;
@@ -148,11 +150,15 @@ function StandingsRow({
   pending: boolean;
   /** Another unit on the same points shows the same whole percent. */
   sharesPercent: boolean;
+  /** Set while the admin swaps units between groups: the name becomes a button. */
+  swap: GroupSwapPicking | null;
 }) {
   const points = pointsCell(entry);
   const isTeam = Boolean(unitDisplay(state, entry.name).members?.length);
+  const unit = <TournamentUnit state={state} name={entry.name} wrapMembers />;
+  const picked = swap?.picked === entry.name;
   return (
-    <TableRow className={cn(points.detail ? 'h-12' : 'h-10', rowSurfaceClasses(index, followed))}>
+    <TableRow className={cn(points.detail ? 'h-12' : 'h-10', rowSurfaceClasses(index, followed || picked))}>
       <TableCell className='border-0 py-0 pl-4'>
         <div className='flex items-center gap-3'>
           <span className='w-5.5 text-right text-[15px] font-bold text-muted'>{entry.rank ?? '—'}</span>
@@ -162,7 +168,18 @@ function StandingsRow({
         </div>
       </TableCell>
       <TableCell className={cn('border-0 py-0 pl-1 text-base', isTeam ? TEAM_CELL : 'whitespace-nowrap')}>
-        <TournamentUnit state={state} name={entry.name} wrapMembers />
+        {swap ? (
+          <button
+            aria-pressed={picked}
+            className='cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+            onClick={() => swap.pick(entry.name)}
+            type='button'
+          >
+            {unit}
+          </button>
+        ) : (
+          unit
+        )}
         <TieMark placed={placed} pending={pending} />
       </TableCell>
       {roundIndexes.map((roundIndex) => (
@@ -213,6 +230,7 @@ export function StandingsTable({
   followKey,
   marks,
   state,
+  swap = null,
   table,
   unitLabel,
 }: {
@@ -221,6 +239,7 @@ export function StandingsTable({
   followKey: string | null;
   marks: CutTieMarks | undefined;
   state: TournamentState;
+  swap?: GroupSwapPicking | null;
   table: StandingsDisplayTable;
   unitLabel: string;
 }) {
@@ -252,6 +271,7 @@ export function StandingsTable({
               roundIndexes={roundIndexes}
               sharesPercent={sharesPercent[index]}
               state={state}
+              swap={swap}
               table={table}
             />,
           ])}

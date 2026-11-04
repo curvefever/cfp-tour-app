@@ -16,6 +16,7 @@ import {
 } from '../tournament/components/result-row';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
 import { entriesSharingPercent, pointsCell, standingsHeads, standingsRoundLabel } from './standings-text';
+import type { GroupSwapPicking } from './GroupSwap';
 import { TieMark } from './StandingsTable';
 
 type Entry = StandingsDisplayTable['entries'][number];
@@ -44,6 +45,7 @@ export function StandingsCompactList({
   followKey,
   marks,
   state,
+  swap = null,
   table,
   unitLabel,
 }: {
@@ -52,6 +54,7 @@ export function StandingsCompactList({
   followKey: string | null;
   marks: CutTieMarks | undefined;
   state: TournamentState;
+  swap?: GroupSwapPicking | null;
   table: StandingsDisplayTable;
   unitLabel: string;
 }) {
@@ -72,18 +75,20 @@ export function StandingsCompactList({
   function renderRow(entry: Entry, index: number) {
     const info = unitDisplay(state, entry.name);
     const detailId = `${listId}-${index}`;
-    const isOpen = open.has(entry.name);
+    const isOpen = !swap && open.has(entry.name);
+    const picked = swap?.picked === entry.name;
     return (
       <div key={entry.name}>
         {groupStarts.includes(index) ? <div className='h-3' /> : null}
         <button
           aria-controls={isOpen ? detailId : undefined}
-          aria-expanded={isOpen}
+          // While swapping groups a row is picked, not unfolded.
+          {...(swap ? { 'aria-pressed': picked } : { 'aria-expanded': isOpen })}
           className={cn(
             'flex min-h-11 w-full cursor-pointer items-center gap-1.75 px-3 py-0.75 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary',
-            rowSurfaceClasses(index, followKey === entry.name),
+            rowSurfaceClasses(index, followKey === entry.name || picked),
           )}
-          onClick={() => toggle(entry.name)}
+          onClick={() => (swap ? swap.pick(entry.name) : toggle(entry.name))}
           type='button'
         >
           <span className='w-6 shrink-0 text-right text-sm font-bold text-muted tabular-nums'>

@@ -10,6 +10,7 @@ import { columnTitleClassName } from '../../components/ui';
 import { ExitIcon } from '../bracket/ExitIcon';
 import { standingsExitLines } from '../bracket/exit-lines';
 import { PhaseBadge } from '../bracket/PhaseBadge';
+import type { GroupSwapPicking } from './GroupSwap';
 import { StandingsCompactList } from './StandingsCompactList';
 import { StandingsTable } from './StandingsTable';
 
@@ -44,11 +45,13 @@ export function TournamentStandings({
   display,
   followKey,
   marks,
+  swap = null,
 }: {
   state: TournamentState;
   display: StandingsDisplay;
   followKey: string | null;
   marks: Record<string, CutTieMarks>;
+  swap?: GroupSwapPicking | null;
 }) {
   const unitLabel = getGameFormat(state.gameFormat)?.unitLabel ?? 'Player';
   const labels = bracketRoundLabels(state);
@@ -63,6 +66,7 @@ export function TournamentStandings({
             followKey={followKey}
             marks={marks[table.key]}
             state={state}
+            swap={swap}
             table={table}
             unitLabel={unitLabel}
           />
@@ -72,6 +76,7 @@ export function TournamentStandings({
             followKey={followKey}
             marks={marks[table.key]}
             state={state}
+            swap={swap}
             table={table}
             unitLabel={unitLabel}
           />

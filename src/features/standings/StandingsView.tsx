@@ -13,6 +13,7 @@ import { Alert, PageHeading, cn } from '../../components/ui';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { FollowBar } from '../bracket/FollowBanner';
 import { rememberedFollow, standingsFollowDetail } from '../bracket/follow-text';
+import { GroupSwapBar, useGroupSwap } from './GroupSwap';
 import { TournamentStandings } from './TournamentStandings';
 import { standingsNames } from './standings-names';
 import { standingsExplanation } from './standings-text';
@@ -71,6 +72,7 @@ export function StandingsView() {
     if (hydrated) setFollowKey(rememberedFollow(state, readBracketFollow(window.localStorage)));
     // Read again when another tournament loads and once its roster arrives, not on every state change.
   }, [hydrated, state.tournamentId, rosterLoaded]);
+  const groupSwap = useGroupSwap();
   const display = useMemo(() => describeStandings(state), [state]);
   const marks = useMemo(() => (display ? cutTieMarks(state, display) : null), [state, display]);
   if (!display || !marks) {
@@ -90,7 +92,14 @@ export function StandingsView() {
           </div>
         ) : null}
         <Explanation display={display} state={state} />
-        <TournamentStandings state={state} display={display} followKey={followKey} marks={marks} />
+        <GroupSwapBar control={groupSwap} />
+        <TournamentStandings
+          state={state}
+          display={display}
+          followKey={followKey}
+          marks={marks}
+          swap={groupSwap.picking}
+        />
       </div>
     </>
   );
