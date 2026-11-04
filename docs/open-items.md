@@ -6,7 +6,6 @@ Known gaps, accepted limitations and undecided questions. Read when planning a f
 The organiser's order for what is built next. Each line names an entry of this file or of `docs/roadmap.md` by its title. Every entry not listed here is unprioritised until the organiser places it.
 
 **Ready to build** (plan written, waiting for the organiser's go-ahead):
-- **Bracket preview of a round fed only by the Qual or Groups line** (Known gaps below). Small, display only; touches shared code, so it ends with a full suite.
 - **Swapping two units between groups until Round 2 is drawn** (`docs/roadmap.md`). Plan approved, then set aside by the organiser for other priorities.
 
 **Next, in this order (high priority):**
@@ -19,7 +18,6 @@ The organiser's order for what is built next. Each line names an entry of this f
 **Not placed yet** (raised recently, no priority given): in `docs/roadmap.md`, "A group exit cut that compares teams across groups", "Match results for Best of 5 and 7", "Tie-margin defaults per mode".
 
 ## Known gaps
-- **Bracket preview of a round fed only by the Qual or Groups line pairs the places by a round-robin, not the real draw's snake.** `projectFutureRoundSlots` (`bracket.ts`) spreads the routed ranks with `distributeTierMajorPool`, which moves to the next room for every rank, so `Groups: 1-4->` into a `2x2` round previews #1 v #3 and #2 v #4. The real draw (`seedPoolByStanding`, `docs/seeding.md`) snakes them, #1 v #4 and #2 v #3, then separates group-mates. Display only, and only until the pooling phase is scored: the expected draw then shows the real pairs. Seen on tournament `1793555835749`.
 - **The expected draw covers only the next column; later rounds keep placeholder labels.** The Bracket shows names for the next column once the round in play is scored (`expectedNextColumn`); a column after that still shows "Round 3 · 2nd"-style places, since its line-up depends on results not yet played. A follow box naming a unit's expected next room is in `docs/roadmap.md`.
 - **`AppShell.render.test.tsx` prints "Timeout calling onTaskUpdate" from the vitest worker** when the whole render sweep runs (about 70 s on the review machine). The tests all pass; it looks like the sweep starving the worker's reporting channel, so a runner that treats an unhandled error as a failure may need the sweep split or its timeout raised. It depends on the machine's load: under load the file can end with that error and exit 1 although every test passes, and a re-run passes (the same file alone ended with exit 1 once, 94.9 s, and with exit 0 on the next run, 58.2 s).
 - **Partial automated test coverage** — nothing exercises interactions (the organiser tools, `window.prompt` flows, score entry), the `TournamentProvider` and the sync hooks, or the server functions, which are covered through their pure validators and by live checks; what is covered: `docs/platform.md`, "Tests". Not live-tested: the refusal of a screenshot upload or delete on a finished tournament.
