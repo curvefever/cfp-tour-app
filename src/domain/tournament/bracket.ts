@@ -2,6 +2,7 @@ import { ordinal } from '../../lib/ordinal';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
+import { snakeSeed } from './seeding';
 import type { TournamentRound, TournamentState } from './types';
 import { isRoundReached, nextColumnStart, previousColumnStart, roundColumn } from './round-columns';
 
@@ -406,6 +407,27 @@ function distributeTierMajorPool(pool: ProjectedSlotLabel[], roomSizes: number[]
 }
 
 /**
+ * Places a pool made only of standings places the way the real draw does (`seedPoolByStanding`): best place first
+ * into the rooms by the snake, so the best meets the weakest. The places are sorted first, as the real draw sorts
+ * by exit rank (a line can route several bands into one round, e.g. `1-2,7-8`).
+ */
+function snakeStandingsPool(pool: ProjectedSlotLabel[], roomSizes: number[]): ProjectedSlotLabel[][] {
+  const byPlace = [...pool].sort((first, second) => standingsRankOf(first) - standingsRankOf(second));
+  const byRoom: ProjectedSlotLabel[][] = roomSizes.map(() => []);
+  snakeSeed(
+    byPlace.map((_, index) => String(index)),
+    roomSizes,
+  ).forEach(({ room }, index) => {
+    if (room !== null) byRoom[room - 1].push(byPlace[index]);
+  });
+  return byRoom;
+}
+
+function standingsRankOf(entry: ProjectedSlotLabel): number {
+  return entry.kind === 'standings-rank' ? entry.rank : 0;
+}
+
+/**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
  * predecessor (e.g. the "None" pooling phase's warmup rounds, or a mid-Qualification-
@@ -664,7 +686,11 @@ export function projectFutureRoundSlots(
     // honest tradeoff: every projected slot always matches its own room's
     // displayed size exactly (no more blank dashes or invisible overflow
     // into another room), which is the property this display is for.
-    result[targetIndex] = distributeTierMajorPool(pool, round.rooms);
+    // A pool of standings places only is the exception: its order is known before any score, so it takes the
+    // real draw's snake (seedPoolByStanding), minus the separation passes, which depend on results.
+    result[targetIndex] = predecessors.every(({ edge }) => edge === 'standings')
+      ? snakeStandingsPool(pool, round.rooms)
+      : distributeTierMajorPool(pool, round.rooms);
   }
   return result;
 }

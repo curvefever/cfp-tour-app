@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { expectedNextColumn } from '../expected-draw';
 import { removeRosterUnit } from '../mutations';
+import { roomPairKey } from '../seeding';
 import { currentColumn, nextColumnStart } from '../round-columns';
 import { scoreKeysForPosition, scoredTeamSize } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { buildQualWaterfall } from './qual-waterfall';
 import { scoreByHash, spreadConfig, startSpread } from './spread-play';
-import { buildState } from './play-through';
+import { buildState, scoreCurrentRound } from './play-through';
 
 /** Scores every round of the column in play, so each room is complete. */
 function scoreColumn(state: TournamentState): TournamentState {
@@ -237,5 +238,93 @@ describe('expectedNextColumn changes nothing', () => {
     const frozen = deepFreeze(structuredClone(scored));
     expect(expectedNextColumn(frozen)).not.toBeNull();
     expect(frozen).toEqual(before);
+  });
+});
+
+const HEAD_TO_HEAD_QUAL_GRAPH = `
+ROUNDS:
+R1 = 4x2
+R2 = 2x2
+Final = 2 FINAL
+
+ROUTES:
+Qual: 1-8->R1
+R1.A: 1->R2, 2->eliminated
+R1.B: 1->R2, 2->eliminated
+R1.C: 1->R2, 2->eliminated
+R1.D: 1->R2, 2->eliminated
+R2.A: 1->Final, 2->eliminated
+R2.B: 1->Final, 2->eliminated
+`;
+
+/** Scores the round in play, then spreads the scores with a seed so the table comes out differently. */
+function scoreWithSeed(state: TournamentState, seed: number): TournamentState {
+  const scored = scoreCurrentRound(state, 0);
+  let draw = seed * 7919 + state.curRound + 1;
+  const scores = { ...scored.scores };
+  for (const key of Object.keys(scores)) {
+    if (!key.startsWith(`r${state.curRound}-`)) continue;
+    draw = (draw * 48271) % 2147483647;
+    scores[key] = (100 + (draw % 900)) * 100 + (draw % 97);
+  }
+  return { ...scored, scores };
+}
+
+/** The pairs that shared a room in the rounds up to the round in play. */
+function pairsThatMet(state: TournamentState): Set<string> {
+  const met = new Set<string>();
+  for (let roundIndex = 0; roundIndex <= state.curRound; roundIndex += 1) {
+    const byRoom = new Map<number, string[]>();
+    for (const entry of state.assignments[roundIndex] ?? []) {
+      if (entry.room !== null) byRoom.set(entry.room, [...(byRoom.get(entry.room) ?? []), entry.name]);
+    }
+    for (const names of byRoom.values()) {
+      for (const [index, first] of names.entries())
+        for (const second of names.slice(index + 1)) met.add(roomPairKey(first, second));
+    }
+  }
+  return met;
+}
+
+describe('the expected draw after a qualification table includes the trade that parts units that met', () => {
+  it('head-to-head rooms at 31, 37 and 43: the expected 4x2 round is what Next Round draws, no pair met before', () => {
+    let trades = 0;
+    for (const count of [31, 37, 43]) {
+      for (let seed = 0; seed < 16; seed += 1) {
+        let state = buildQualWaterfall(
+          count,
+          HEAD_TO_HEAD_QUAL_GRAPH,
+          { gameFormat: 'individual-1v1' },
+          { columns: true },
+        );
+        while (!state.rounds[state.curRound + 1]?.isWaterfall) {
+          state = advanced(scoreWithSeed(state, seed));
+        }
+        const scored = scoreWithSeed(state, seed);
+        const next = advanced(scored);
+        const entry = scored.curRound + 1;
+        const exitOrder = (next.rounds.find((round) => round.standingsRoutes)?.standingsExitOrder ?? []).map(
+          (unit) => unit.name,
+        );
+        const met = pairsThatMet(scored);
+        const pairs = (rooms: string[][]) =>
+          rooms.flatMap((room) => (room.length === 2 ? [roomPairKey(room[0], room[1])] : []));
+        // The snake alone pairs the best with the weakest: 1v8, 2v7, 3v6, 4v5.
+        const snake = [0, 1, 2, 3].map((index) => [exitOrder[index], exitOrder[7 - index]]);
+        if (pairs(snake).some((key) => met.has(key))) trades += 1;
+
+        const expected = new Map(expectedNextColumn(scored) ?? []);
+        expect(expected.get(entry)?.assignments, `${count} seed ${seed}`).toEqual(next.assignments[entry]);
+        const rooms = new Map<number, string[]>();
+        for (const unit of next.assignments[entry] ?? []) {
+          if (unit.room !== null) rooms.set(unit.room, [...(rooms.get(unit.room) ?? []), unit.name]);
+        }
+        expect(
+          pairs([...rooms.values()]).filter((key) => met.has(key)),
+          `${count} seed ${seed}`,
+        ).toEqual([]);
+      }
+    }
+    expect(trades).toBeGreaterThan(0);
   });
 });

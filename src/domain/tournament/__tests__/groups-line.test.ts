@@ -6,6 +6,7 @@ import {
   isTieResolved,
   selectGroupExit,
 } from '../advancement';
+import { projectFutureRoundSlots } from '../bracket';
 import { isFedOnlyByStandings } from '../bracket-replay';
 import { expectedNextColumn } from '../expected-draw';
 import { generateTournament } from '../generation';
@@ -746,5 +747,78 @@ describe('editing the Groups line of a running tournament', () => {
       current = advanced(scoreCurrentRound(current, 4));
     }
     expect(current.rounds[current.curRound].isFinal).toBe(true);
+  });
+});
+
+describe('the Groups line of 11 teams (groups of 4, 4, 3): the preview and the expected draw', () => {
+  const start = () => generated(11, TWO_BANDS, { groupExit: 'fair-cut' });
+  const exitFor = (seed: number) =>
+    atTheExit(start(), (state) => seedScores(scoreCurrentRound(state, 4), seed));
+  const SEEDS = Array.from({ length: 16 }, (_, seed) => seed);
+
+  /** The exit order, and the pairs the snake alone would make from it (R1: 1v4, 2v3; R1C: 5v8, 6v7). */
+  function exitOrderAndSnake(exit: TournamentState) {
+    const order = selectGroupExit(exit, computedStandings(exit)).advancing;
+    const snake = [
+      [order[0], order[3]],
+      [order[1], order[2]],
+      [order[4], order[7]],
+      [order[5], order[6]],
+    ];
+    return { order, snake };
+  }
+
+  const sharesAGroup = (state: TournamentState, names: string[]) =>
+    new Set(names.map((name) => groupOf(state, name))).size < names.length;
+
+  it('the preview places each rank where the real draw does when no group-mates meet', () => {
+    let checked = 0;
+    for (const seed of SEEDS) {
+      const exit = exitFor(seed);
+      const { order, snake } = exitOrderAndSnake(exit);
+      if (snake.some((pair) => sharesAGroup(exit, pair))) continue;
+      const next = advanced(exit);
+      for (const label of ['R1', 'R1C']) {
+        const index = indexOfLabel(exit, label);
+        const projected = projectFutureRoundSlots(exit)[index] ?? [];
+        const real = roomsOf(next, index);
+        expect(
+          projected.map((room) =>
+            room.map((slot) => (slot.kind === 'standings-rank' ? order[slot.rank - 1] : '')).sort(),
+          ),
+        ).toEqual(real.map((room) => [...room].sort()));
+      }
+      checked += 1;
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  it('the expected draw equals what Next Round draws, group-mates trade included, and keeps groups apart', () => {
+    let trades = 0;
+    let lowerChecked = false;
+    for (const seed of SEEDS) {
+      const exit = exitFor(seed);
+      const { order, snake } = exitOrderAndSnake(exit);
+      const expected = new Map(expectedNextColumn(exit) ?? []);
+      const next = advanced(exit);
+      for (const label of ['R1', 'R1C']) {
+        const index = indexOfLabel(exit, label);
+        expect(expected.get(index)?.assignments, `seed ${seed} ${label}`).toEqual(next.assignments[index]);
+        for (const room of roomsOf(next, index)) expect(sharesAGroup(exit, room), `seed ${seed}`).toBe(false);
+      }
+      if (snake.some((pair) => sharesAGroup(exit, pair))) trades += 1;
+      if (!lowerChecked && sharesAGroup(exit, [order[4], order[7]])) {
+        const lower = roomsOf(next, indexOfLabel(next, 'R1C')).map((room) =>
+          room.map((name) => order.indexOf(name) + 1).sort((first, second) => first - second),
+        );
+        expect(lower).toEqual([
+          [5, 7],
+          [6, 8],
+        ]);
+        lowerChecked = true;
+      }
+    }
+    expect(trades).toBeGreaterThan(0);
+    expect(lowerChecked).toBe(true);
   });
 });

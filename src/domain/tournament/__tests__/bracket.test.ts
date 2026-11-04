@@ -972,3 +972,80 @@ describe('roundGameCount on a Best-of round', () => {
     expect(countOf(buildRound({ roundNum: 1, numGames: 3 }))).toEqual({ games: 3, upTo: false });
   });
 });
+
+describe("projectFutureRoundSlots -- a round fed only by the Qual or Groups line is placed by the real draw's snake", () => {
+  const places = (rooms: ReturnType<typeof project>[number]) =>
+    (rooms ?? []).map((room) =>
+      room.map((slot) => projectedSlotLabelText(slot).replace('Qualification #', '')),
+    );
+
+  /** A pooling round routing its final standings (rank 1 first) to the rounds after it, each of the given rooms. */
+  function standingsLine(routes: Array<number | 'eliminated'>, ...targets: number[][]) {
+    return [
+      buildRound({ roundNum: 1, isGroupStage: true, rooms: [4], players: 4, standingsRoutes: routes }),
+      ...targets.map((rooms, index) =>
+        buildRound({
+          roundNum: index + 2,
+          isWaterfall: true,
+          rooms,
+          players: rooms.reduce((total, size) => total + size, 0),
+        }),
+      ),
+    ];
+  }
+
+  it('pairs best against weakest: Groups 1-4 to Upper and 5-8 to Lower, both 2x2', () => {
+    const projected = project(standingsLine([1, 1, 1, 1, 2, 2, 2, 2], [2, 2], [2, 2]), 0);
+    expect(places(projected[1])).toEqual([
+      ['1', '4'],
+      ['2', '3'],
+    ]);
+    expect(places(projected[2])).toEqual([
+      ['5', '8'],
+      ['6', '7'],
+    ]);
+  });
+
+  it('skips the full room on the last pass: 7 ranks into rooms of 4 and 3', () => {
+    const projected = project(standingsLine([1, 1, 1, 1, 1, 1, 1], [4, 3]), 0);
+    expect(places(projected[1])).toEqual([
+      ['1', '4', '5', '7'],
+      ['2', '3', '6'],
+    ]);
+  });
+
+  it('places 37 ranks into rooms of 8, 8, 7, 7, 7 the way the real draw does', () => {
+    const projected = project(standingsLine(Array(37).fill(1), [8, 8, 7, 7, 7]), 0);
+    expect(places(projected[1])).toEqual([
+      ['1', '10', '11', '20', '21', '30', '31', '37'],
+      ['2', '9', '12', '19', '22', '29', '32', '36'],
+      ['3', '8', '13', '18', '23', '28', '33'],
+      ['4', '7', '14', '17', '24', '27', '34'],
+      ['5', '6', '15', '16', '25', '26', '35'],
+    ]);
+  });
+
+  it('sorts non-contiguous bands by rank: 1-2 and 7-8 into one 2x2 round', () => {
+    const routes: Array<number | 'eliminated'> = [1, 1, ...Array<'eliminated'>(4).fill('eliminated'), 1, 1];
+    const projected = project(standingsLine(routes, [2, 2]), 0);
+    expect(places(projected[1])).toEqual([
+      ['1', '8'],
+      ['2', '7'],
+    ]);
+  });
+
+  it('keeps the round-robin for a round fed by the standings line and by a waterfall room', () => {
+    // Round 2 takes ranks 3-4 of the standings and both places of round 1's room (ranks 1-2 go to round 1).
+    const rounds = [
+      buildRound({ roundNum: 1, isGroupStage: true, rooms: [4], players: 4, standingsRoutes: [1, 1, 2, 2] }),
+      buildRound({ roundNum: 2, isWaterfall: true, rooms: [2], players: 2, waterfallRoutes: [[2, 2]] }),
+      buildRound({ roundNum: 3, isWaterfall: true, rooms: [2, 2], players: 4 }),
+    ];
+    const projected = project(rounds, 0);
+    expect((projected[2] ?? []).map((room) => room.map((slot) => slot.kind))).toEqual([
+      ['standings-rank', 'waterfall-rank'],
+      ['standings-rank', 'waterfall-rank'],
+    ]);
+    expect(places(projected[2]).map((room) => room[0])).toEqual(['3', '4']);
+  });
+});
