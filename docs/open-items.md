@@ -10,10 +10,9 @@ The organiser's order for what is built next. Each line names an entry of this f
 - **Swapping two units between groups until Round 2 is drawn** (`docs/roadmap.md`). Plan approved, then set aside by the organiser for other priorities.
 
 **Next, in this order (high priority):**
-1. **A Best-of Semis after a withdrawal, tested.** Test only: `fitRoundToPool` recomputes a Best-of round's game count when its room changes, but only the Final case has a test (cases to add: head to head `[2,2]` down to 3 units, FFA `[8,8]` down to 15).
-2. **A waterfall's routing is fixed by place** (Known gaps below).
-3. **Uneven win targets in one match** (`docs/roadmap.md`), after 2: both change the waterfall routes.
-4. **Last, and larger: how rigid the bracket structure is** (`docs/roadmap.md`, "How rigid the bracket structure is"): an audit of schedule creation as a whole, started only after 1–3.
+1. **A waterfall's routing is fixed by place** (Known gaps below).
+2. **Uneven win targets in one match** (`docs/roadmap.md`), after 1: both change the waterfall routes.
+3. **Last, and larger: how rigid the bracket structure is** (`docs/roadmap.md`, "How rigid the bracket structure is"): an audit of schedule creation as a whole, started only after 1–2.
 
 **Low priority, parked by the organiser:** everything under "Accepted limitations" and "UX ideas" below (not built without a request); in `docs/roadmap.md`, "Seeding qualification rounds by results" (kept as it is for now) and the "What do I need?" line (parked).
 

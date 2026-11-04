@@ -6,6 +6,24 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A Best-of Semis after withdrawals, tested (done — 2026-11-04)
+
+**Context.** Open item (work queue 1). `fitRoundToPool` reshapes a round for the units that really reach it and, for a Best-of round, works `numGames` out again for the largest new room (`stageMatchFields(1, round.bestOf, Math.max(...rooms))`). The only refit test that changed the count was a hand-built Final (8 refitted to 6, 9 games to 7); the Semis tests (2v2v2v2 at 43, the waterfall round) kept their largest room, so deleting the recompute failed only the Final test. A Best-of Semis in head to head or FFA was not tested at all, nor through the real path (`advanceTournamentRound` -> `fitNextRound` -> `fitRoundToPool`). Test only, no production code changed.
+
+**Finding while planning: how a Semis gets short.** A single withdrawal before the Semis never shrinks it: the round before still fills its target from the units left (the fair cut keeps `advTotal` while the present units exceed it). A withdrawal during the Semis leaves its rooms as drawn. The Semis is refitted only when the round before ends with no more present units than its target ("everyone present advances and the next round is short"). FFA: the round before (rooms of 7/7/6 or 7/6/6, target 16) needs 4-6 withdrawals, depending on its size. Head to head: the round before (`[2, 2, 2, 2]`, target 4) needs 5 (both units of two rooms and one of a third), leaving 3 units; with the default "Bye" strategy the Semis is one room of 2 plus a bye, not the `[2, 1]` lone room `fitRoundToPool` gives at unit level when it isn't handed the bye.
+
+**Corrected example.** The open item's `[8, 8]` down to 15 is `[8, 7]`: the largest room stays 8 and `numGames` stays 9. The case that changes the count is `[8, 8]` down to 14 (`[7, 7]`, 8 games = 7 x 1 + 1). Both are tested: 15 pins "the largest room, not the smallest", 14 pins the recompute.
+
+**Tests** (`semis-finals-best-of.test.ts`). In "refitting a Best of N round to the units that reach it", a describe "a Best of N Semis": head-to-head Best of 3 one unit short keeps 3 games (`[2, 1]`); the same with its bye taken first is `[2]`, `byeCount` 1; FFA down to 15 keeps 9 games; FFA down to 14 plays 8; Best of 5 down to 14 plays 15 (7 x 2 + 1). New describe "a Best-of Semis left short by withdrawals, played to the Final" (`playWithRemovals`, Best of 3 Semis and Final): FFA at 37 with one withdrawal keeps `[8, 8]`, 9 games (control); FFA at 31, 37, 53 with 5 withdrawals before the Semis gives `[8, 7]`, 9 games, with 6 gives `[7, 7]`, 8 games; FFA at 43 with 5 gives `[7, 7]`, 8 games, with 6 gives `[7, 6]`, 8 games; every FFA Final is `[8]`, 9 games; 1v1 and 2v2 at 31, 37, 43, 53 with 5 withdrawals (lowest room first) give a Semis of `[2]` with one bye, 3 games, and a Final `[2]`, 3 games. Counts are the awkward ones (31, 37, 43, 53). Team size passed to `scoreCurrentRound` is 0 for individual formats (1v1, FFA), 2 for 2v2.
+
+**Testing performed.** eslint, prettier, typecheck clean on the test file. `vitest related` on it plus `room-distribution.test.ts` and `best-of-cross-room.test.ts`: 3 files, 95 tests passed. Mutation checks: left to the reviewer.
+
+Full suite: not run (test only, no production code).
+
+**Out of scope.** Any change to `fitRoundToPool`, `fitNextRound` or the fair cut. A withdrawal during the Semis (covered by the lone-unit test in `best-of-cross-room.test.ts`). The 2v2v2v2 Semis, Kings Valley, the shared-Final double elimination Final, the race Grand Final, waterfall rounds. A late joiner growing the Semis.
+
+---
+
 ## Render checks on Node 26: Node's own localStorage switched off in Vitest (done — 2026-11-04)
 
 **Context.** The project moved to a new Windows computer with Node 26.13.0 (the current LTS; corepack is no longer bundled, so pnpm 11.19.0 was installed with npm). There the full suite failed 370 of 4310 tests, all jsdom render checks: `TypeError: Cannot read properties of undefined (reading 'getItem')` in `readBracketFollow` (`src/lib/persistence/storage.ts`). Node 25+ defines its own global `localStorage` (Web Storage, on by default), which hides jsdom's; without `--localstorage-file` its methods are missing. No app code is wrong: the browser, the dev server and the e2e specs use the real browser storage.
