@@ -6,7 +6,8 @@ import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { PersistedSetup, TournamentRound, TournamentState, TournamentTeam } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { generate as generateStarted, SE_FFA as SE_FFA_SETUP } from './fair-cut-fixtures';
+import { playWithRemovals, scoreCurrentRound } from './play-through';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 type Setup = Partial<PersistedSetup>;
@@ -242,6 +243,79 @@ describe('refitting a Best of N round to the units that reach it', () => {
     expect(fitRoundToPool(final, 8, roomSize)).toBe(final);
   });
 
+  describe('a Best of N Semis', () => {
+    const headToHead = { min: 2, max: 2, ideal: 2 };
+    const ffa = { min: 6, max: 8, ideal: 8 };
+    const semis: TournamentRound = {
+      ...final,
+      roundNum: 8,
+      players: 4,
+      rooms: [2, 2],
+      isSemis: true,
+      isFinal: false,
+      advPerRoom: 1,
+      advTotal: 2,
+      numGames: 3,
+    };
+    const ffaSemis: TournamentRound = {
+      ...semis,
+      players: 16,
+      rooms: [8, 8],
+      advPerRoom: 4,
+      advTotal: 8,
+      numGames: 9,
+    };
+
+    it('a head-to-head Best of 3 Semis one unit short keeps its 3 games', () => {
+      expect(fitRoundToPool(semis, 3, headToHead)).toMatchObject({
+        rooms: [2, 1],
+        players: 3,
+        advTotal: 2,
+        bestOf: 3,
+        numGames: 3,
+      });
+    });
+
+    it('a head-to-head Semis with its bye taken first is one room of 2', () => {
+      expect(fitRoundToPool({ ...semis, byeCount: 1 }, 2, headToHead)).toMatchObject({
+        rooms: [2],
+        players: 3,
+        byeCount: 1,
+        bestOf: 3,
+        numGames: 3,
+      });
+    });
+
+    it('an FFA Semis down to 15 keeps 9 games: its largest room is still 8', () => {
+      expect(fitRoundToPool(ffaSemis, 15, ffa)).toMatchObject({
+        rooms: [8, 7],
+        players: 15,
+        advTotal: 8,
+        bestOf: 3,
+        numGames: 9,
+      });
+    });
+
+    it('an FFA Semis down to 14 plays 8 games (7 x 1 + 1)', () => {
+      expect(fitRoundToPool(ffaSemis, 14, ffa)).toMatchObject({
+        rooms: [7, 7],
+        players: 14,
+        advTotal: 8,
+        bestOf: 3,
+        numGames: 8,
+      });
+    });
+
+    it('a Best of 5 Semis down to 14 plays 15 games (7 x 2 + 1)', () => {
+      const bestOfFive = { ...ffaSemis, bestOf: 5, numGames: 17 };
+      expect(fitRoundToPool(bestOfFive, 14, ffa)).toMatchObject({
+        rooms: [7, 7],
+        bestOf: 5,
+        numGames: 15,
+      });
+    });
+  });
+
   it('leaves a Final of summed games alone', () => {
     const summed = { ...final, bestOf: undefined, numGames: 3 };
     delete summed.bestOf;
@@ -249,5 +323,96 @@ describe('refitting a Best of N round to the units that reach it', () => {
       rooms: [6],
       numGames: 3,
     });
+  });
+});
+
+describe('a Best-of Semis left short by withdrawals, played to the Final', () => {
+  const SE_FFA: Setup = { ...SE_FFA_SETUP };
+  const lowestRoomFirst = (state: TournamentState) =>
+    (state.assignments[state.curRound] ?? [])
+      .filter((entry) => entry.room !== null)
+      .sort((first, second) => (first.room ?? 0) - (second.room ?? 0))[0]?.name;
+
+  function playToFinal(
+    count: number,
+    setup: Setup,
+    teamSize: number,
+    withdrawals: number,
+    victimFor?: (state: TournamentState) => string | undefined,
+  ) {
+    const start = generateStarted(`${setup.gameFormat} ${count}`, count, {
+      ...setup,
+      semisBestOf: '3',
+      finalsBestOf: '3',
+    });
+    const semisIndex = start.rounds.findIndex((round) => round.isSemis);
+    const played = playWithRemovals(
+      start,
+      teamSize,
+      Array<number>(withdrawals).fill(semisIndex - 1),
+      victimFor,
+    );
+    return {
+      outcome: played.outcome,
+      state: played.state,
+      semis: played.state.rounds[semisIndex],
+      final: played.state.rounds[semisIndex + 1],
+    };
+  }
+
+  it('FFA at 37: one withdrawal never shortens the Semis', () => {
+    const { outcome, semis, final } = playToFinal(37, SE_FFA, 0, 1);
+    expect(outcome.kind).toBe('ok');
+    expect(semis).toMatchObject({ rooms: [8, 8], numGames: 9 });
+    expect(final).toMatchObject({ rooms: [8], numGames: 9 });
+  });
+
+  it.each([31, 37, 53])('FFA at %i, 5 withdrawals: Semis [8, 7] keeps its 9 games', (count) => {
+    const { outcome, state, semis, final } = playToFinal(count, SE_FFA, 0, 5);
+    expect(outcome.kind).toBe('ok');
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+    expect(semis).toMatchObject({ rooms: [8, 7], players: 15, bestOf: 3, numGames: 9 });
+    expect(final).toMatchObject({ rooms: [8], numGames: 9 });
+  });
+
+  it.each([31, 37, 53])('FFA at %i, 6 withdrawals: Semis [7, 7] plays 8 games', (count) => {
+    const { outcome, state, semis, final } = playToFinal(count, SE_FFA, 0, 6);
+    expect(outcome.kind).toBe('ok');
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+    expect(semis).toMatchObject({ rooms: [7, 7], players: 14, bestOf: 3, numGames: 8 });
+    expect(final).toMatchObject({ rooms: [8], numGames: 9 });
+  });
+
+  it('FFA at 43 (round before 7/6/6), 5 withdrawals: Semis [7, 7] plays 8 games', () => {
+    const { outcome, state, semis, final } = playToFinal(43, SE_FFA, 0, 5);
+    expect(outcome.kind).toBe('ok');
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+    expect(semis).toMatchObject({ rooms: [7, 7], numGames: 8 });
+    expect(final).toMatchObject({ rooms: [8], numGames: 9 });
+  });
+
+  it('FFA at 43, 6 withdrawals: Semis [7, 6] plays 8 games', () => {
+    const { outcome, state, semis, final } = playToFinal(43, SE_FFA, 0, 6);
+    expect(outcome.kind).toBe('ok');
+    expect(state.rounds[state.curRound].isFinal).toBe(true);
+    expect(semis).toMatchObject({ rooms: [7, 6], players: 13, numGames: 8 });
+    expect(final).toMatchObject({ rooms: [8], numGames: 9 });
+  });
+
+  describe.each([
+    ['1v1', 'individual-1v1', 0],
+    ['2v2', 'team-2v2', 2],
+  ] as const)('%s', (_label, gameFormat, teamSize) => {
+    it.each([31, 37, 43, 53])(
+      'at %i, 5 withdrawals leave a Semis of one room of 2 and a bye, 3 games',
+      (count) => {
+        const setup = { ...SE_FFA, gameFormat };
+        const { outcome, state, semis, final } = playToFinal(count, setup, teamSize, 5, lowestRoomFirst);
+        expect(outcome.kind).toBe('ok');
+        expect(state.rounds[state.curRound].isFinal).toBe(true);
+        expect(semis).toMatchObject({ rooms: [2], byeCount: 1, players: 3, bestOf: 3, numGames: 3 });
+        expect(final).toMatchObject({ rooms: [2], numGames: 3 });
+      },
+    );
   });
 });
