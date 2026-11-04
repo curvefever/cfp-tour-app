@@ -20,7 +20,9 @@ Solo session, docs only. The organiser asked to check their own lists (a notes f
 
 Full suite: not run (docs only).
 
-**Out of scope.** The organiser's notes file's DONE part (not re-checked, at the organiser's request); the screenshot items, which wait for the organiser's description.
+**Follow-up, same day: the screenshot items described.** The organiser described the screenshots: the score rows (input box on its own line), the lucky-loser race box (no through / still in / out distinction), the multi-game room box (4 game columns squeeze the names), the phone's dark background (to check again later), and two new items from live tournament `1793555835749`: the "?" box's long destination row in a Custom bracket (To do), and a Best-of Semi in the same column as one-game rounds holding up the next column's expected draw and start (added to "Waterfall dependency play" and to the expected-draw gap). New Decision pending: ranking units eliminated in a group stage when groups differ in size (Curveblast 9th with the worst results, from a group of 3). The error-message screenshots were names with invalid characters, already handled; the "To clarify" section is removed.
+
+**Out of scope.** The organiser's notes file's DONE part (not re-checked, at the organiser's request).
 
 ---
 
