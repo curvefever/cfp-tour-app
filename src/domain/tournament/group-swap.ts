@@ -83,17 +83,15 @@ function hasResultsIn(state: TournamentState, room: ClearedRoom): boolean {
   return (
     keyed(state.scores, (value) => value !== null) ||
     keyed(state.absences, () => true) ||
-    keyed(state.tieResolutions, () => true) ||
-    room.units.some((unit) =>
-      (state.defenderChanges[unit] ?? []).some((change) => change.round === state.curRound),
-    )
+    keyed(state.tieResolutions, () => true)
   );
 }
 
 /**
  * The rooms of the round in play where swapping `first` and `second` would clear something: their scores, the
- * absences, the room tie resolutions or the Save your Buddy defender changes. Empty before the start, for a
- * unit on a bye, and for a room nothing has been entered in.
+ * absences or the room tie resolutions. Save your Buddy defender changes are not cleared: they are keyed by
+ * team, not by room, so a team takes its chosen defender into its new room. Empty before the start, for a unit
+ * on a bye, and for a room nothing has been entered in.
  */
 export function groupSwapClears(state: TournamentState, first: string, second: string): ClearedRoom[] {
   return roomsOfUnits(state, first, second).filter((room) => hasResultsIn(state, room));
@@ -105,17 +103,10 @@ function withoutRoomsResults(state: TournamentState, rooms: ClearedRoom[]): Part
   const inRoom = (key: string) => prefixes.some((prefix) => key.startsWith(prefix));
   const without = <T>(record: Record<string, T>) =>
     Object.fromEntries(Object.entries(record).filter(([key]) => !inRoom(key)));
-  const seated = new Set(rooms.flatMap((room) => room.units));
   return {
     scores: without(state.scores),
     absences: without(state.absences),
     tieResolutions: without(state.tieResolutions),
-    defenderChanges: Object.fromEntries(
-      Object.entries(state.defenderChanges).map(([unit, changes]) => [
-        unit,
-        seated.has(unit) ? changes.filter((change) => change.round !== state.curRound) : changes,
-      ]),
-    ),
   };
 }
 

@@ -279,26 +279,19 @@ describe('swapping teams of 2 scored by the sum of their members', () => {
     expect(scoredKeys(result, 5)).toHaveLength(4);
   });
 
-  it('clears the Save your Buddy defender changes of the units of those rooms, and no other', () => {
+  it('keeps the Save your Buddy defender changes: a team takes its defender into its new room', () => {
     const buddy = started(drawn(13, { gameFormat: 'team-2v2', teamScoringRule: 'designated-player' }));
-    const swappedOut = seat(buddy, 1, 0);
-    const opponent = seat(buddy, 1, 1);
-    const elsewhere = seat(buddy, 5, 0);
-    const result = swapped(
-      {
-        ...scoreRooms(buddy, [1, 3], 2),
-        defenderChanges: {
-          [swappedOut]: [{ round: 0, memberIdx: 1 }],
-          [opponent]: [{ round: 0, memberIdx: 1 }],
-          [elsewhere]: [{ round: 0, memberIdx: 1 }],
-        },
-      },
-      swappedOut,
-      seat(buddy, 3, 1),
-    );
-    expect(result.defenderChanges[swappedOut]).toEqual([]);
-    expect(result.defenderChanges[opponent]).toEqual([]);
-    expect(result.defenderChanges[elsewhere]).toEqual([{ round: 0, memberIdx: 1 }]);
+    const first = seat(buddy, 1, 0);
+    const second = seat(buddy, 3, 1);
+    const defenderChanges = {
+      [first]: [{ round: 0, memberIdx: 1 }],
+      [second]: [{ round: 0, memberIdx: 1 }],
+      [seat(buddy, 1, 1)]: [{ round: 0, memberIdx: 1 }],
+    };
+    const before = { ...scoreRooms(buddy, [1, 3], 2), defenderChanges };
+    expect(swapped(before, first, second).defenderChanges).toEqual(defenderChanges);
+    // A room holding only a defender choice has no result to lose: nothing to confirm.
+    expect(groupSwapClears({ ...buddy, defenderChanges }, first, second)).toEqual([]);
   });
 });
 
