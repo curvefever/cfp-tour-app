@@ -22,6 +22,9 @@ export default defineConfig({
     // Playwright's own e2e specs live under e2e/ and match Vitest's default
     // *.spec.ts glob too -- exclude them so each runner only picks up its own.
     exclude: [...configDefaults.exclude, 'e2e/**'],
+    // Node 25+ has its own global localStorage, which hides jsdom's in the render
+    // checks (its getItem is undefined without a storage file). Switch it off.
+    poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] } },
   },
   resolve: {
     tsconfigPaths: true,

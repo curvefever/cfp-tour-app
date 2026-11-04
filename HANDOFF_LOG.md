@@ -6,6 +6,18 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Render checks on Node 26: Node's own localStorage switched off in Vitest (done — 2026-11-04)
+
+**Context.** The project moved to a new Windows computer with Node 26.13.0 (the current LTS; corepack is no longer bundled, so pnpm 11.19.0 was installed with npm). There the full suite failed 370 of 4310 tests, all jsdom render checks: `TypeError: Cannot read properties of undefined (reading 'getItem')` in `readBracketFollow` (`src/lib/persistence/storage.ts`). Node 25+ defines its own global `localStorage` (Web Storage, on by default), which hides jsdom's; without `--localstorage-file` its methods are missing. No app code is wrong: the browser, the dev server and the e2e specs use the real browser storage.
+
+**Change.** `vite.config.ts`, `test.poolOptions.forks.execArgv: ['--no-experimental-webstorage']`, so the test workers (Vitest's default `forks` pool) start without Node's storage and jsdom's is the one the components see. The flag exists from Node 22.4, so older LTS versions are unaffected. Decided with the organiser over installing Node 24 instead, since `docs/platform.md` asks for Node LTS.
+
+**Testing.** eslint, prettier, typecheck clean on `vite.config.ts`. Full suite on Node 26 with the change: 164 files, 4310 tests passed (run twice). The first run with the change had 3 timing failures in `SessionExpired.render.test.tsx` and `RoundOverrideList.render.test.tsx` that passed when the two files were re-run alone (17/17) and on the next full run; both full runs printed the known load-dependent "Timeout calling onTaskUpdate" worker error and exited 1 (`docs/open-items.md`). Smoke e2e: 7 passed on this computer before the change (unaffected by Vitest config).
+
+Full suite: passed on `df1280e` + this change (4310 tests; exit 1 from the known onTaskUpdate worker timeout only).
+
+**Out of scope.** The onTaskUpdate worker timeout itself (open item, load-dependent). Git push sign-in on the new computer (`credential.helper manager`, a machine setting, not a repo change).
+
 ## Custom bracket ranking matches: the RANKING mark (done — 2026-11-01)
 
 **Context.** The organiser's test tournament `1793551470828` (12 teams of 4, group stage into a Custom bracket) has two placement matches, "Round 5 - Ranking" (the two Round 4 - Lower losers) and "Round 6 - Ranking" (the two Round 5 - Lower losers), meant to give eliminated teams an exact place. Two problems: (1) the validator refused any non-Final round that sends nobody on (rule 10, there to catch a forgotten route), so the graph could not be generated; (2) Rankings orders eliminated units by the round they went out in, and inside a column the routing walk put the Ranking rounds after the Lower rounds, so both Round 6 - Ranking teams would have ranked above the Round 6 - Lower loser. Small change, built solo in the planner session at the organiser's request (short on usage), no plan file.
