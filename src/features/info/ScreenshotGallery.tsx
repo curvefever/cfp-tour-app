@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Modal, ModalActions } from '../../components/ui';
+import { FullSizeImage } from './FullSizeImage';
 import { ScreenshotThumb } from './ScreenshotThumb';
 
 /** The lobby screenshots of a tournament, as thumbnails that open full size. */
@@ -20,14 +20,7 @@ export function ScreenshotGallery({ tournamentId, imageIds }: { tournamentId: st
           />
         ))}
       </div>
-      {openSrc ? (
-        <Modal className='max-w-[min(1200px,95vw)]' title='Screenshot' titleId='screenshot-title'>
-          <img alt='Screenshot, full size' className='max-h-[70vh] w-full object-contain' src={openSrc} />
-          <ModalActions>
-            <Button onClick={() => setOpenSrc(null)}>Close</Button>
-          </ModalActions>
-        </Modal>
-      ) : null}
+      {openSrc ? <FullSizeImage onClose={() => setOpenSrc(null)} src={openSrc} title='Screenshot' /> : null}
     </>
   );
 }

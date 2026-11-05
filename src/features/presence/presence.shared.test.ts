@@ -94,9 +94,10 @@ describe('fieldOfControl', () => {
     expect(fieldOfControl('info-rules-text')).toBe('info.rulesText');
   });
 
-  it('maps every round settings textarea onto the one roundNotes field', () => {
+  it('maps every round settings textarea, game boxes included, onto the one roundNotes field', () => {
     expect(fieldOfControl('info-round-note-0')).toBe('info.roundNotes');
     expect(fieldOfControl('info-round-note-7')).toBe('info.roundNotes');
+    expect(fieldOfControl('info-round-note-3-g2')).toBe('info.roundNotes');
   });
 
   it('maps no other info- id', () => {

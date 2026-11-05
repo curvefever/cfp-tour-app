@@ -1,13 +1,15 @@
 import { cn } from '../../components/ui';
 import { useScreenshot } from './useScreenshot';
 
-/** A lobby screenshot as a small picture; clicking it asks for the full size. */
+/** A stored picture (a lobby screenshot, a settings picture) as a small image; clicking it asks for the full size. */
 export function ScreenshotThumb({
+  alt = 'Screenshot',
   tournamentId,
   imageId,
   onOpen,
   className,
 }: {
+  alt?: string;
   tournamentId: string;
   imageId: string;
   onOpen?: (src: string) => void;
@@ -26,7 +28,7 @@ export function ScreenshotThumb({
       onClick={() => onOpen?.(source.src)}
       type='button'
     >
-      <img alt='Screenshot' className='h-full w-full object-cover' src={source.src} />
+      <img alt={alt} className='h-full w-full object-cover' src={source.src} />
     </button>
   );
 }

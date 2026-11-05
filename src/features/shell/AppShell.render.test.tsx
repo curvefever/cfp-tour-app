@@ -6,7 +6,7 @@ import { fixtureTournaments, loadedState, type FixtureTournament } from '../../.
 import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
 import { nextColumnStart } from '../../domain/tournament/round-columns';
-import { roundNoteNames } from '../../domain/tournament/round-notes';
+import { noteGameCount, roundNoteNames } from '../../domain/tournament/round-notes';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { renderApp, tabsFor, type AppRole } from './test-app';
 
@@ -688,8 +688,12 @@ describe('Round settings editor', () => {
     if (!fixture) throw new Error(`the ${id} fixture is missing`);
     return fixture;
   };
-  const boxesOf = (view: ReturnType<typeof renderApp>) => [
-    ...view.container.querySelectorAll<HTMLTextAreaElement>('textarea[id^="info-round-note-"]'),
+  const boxesOf = (view: ReturnType<typeof renderApp>) =>
+    [...view.container.querySelectorAll<HTMLTextAreaElement>('textarea[id^="info-round-note-"]')].filter(
+      (box) => /^info-round-note-\d+$/.test(box.id),
+    );
+  const gameBoxesOf = (view: ReturnType<typeof renderApp>) => [
+    ...view.container.querySelectorAll<HTMLTextAreaElement>('textarea[id^="info-round-note-"][id*="-g"]'),
   ];
 
   it.each(['drawn-ffa-31', 'waterfall-column-19'])(
@@ -718,6 +722,24 @@ describe('Round settings editor', () => {
       'Target score: **80**\nMap size: large\nPowers: Ghost and Zap',
     );
     expect((view.getByLabelText('Round 6') as HTMLTextAreaElement).value).toBe('');
+  });
+
+  it('gives a round of several games a labelled box and a picture tile per game, under its own box', () => {
+    const fixture = fixtureOf('drawn-ffa-31');
+    const state = loadedState(fixture);
+    const view = renderApp(fixture, { role: 'admin', tab: 'admin' });
+    const gameBoxes = gameBoxesOf(view);
+    const names = roundNoteNames(state);
+    const expected = names.flatMap((name, index) =>
+      Array.from({ length: noteGameCount(state, index) }, (_game, game) => `${index}-g${game + 1}`),
+    );
+
+    expect(expected.length).toBeGreaterThan(0);
+    expect(gameBoxes.map((box) => box.id)).toEqual(expected.map((suffix) => `info-round-note-${suffix}`));
+    expect(gameBoxes.every((box) => box.rows === 1 && box.maxLength === 160)).toBe(true);
+    expect(view.getAllByText('Game 1').length).toBeGreaterThan(0);
+    expect(view.getAllByLabelText(/^Add a picture to /)).toHaveLength(names.length + expected.length);
+    expect(view.getByText('0 of 24 settings pictures used')).toBeTruthy();
   });
 
   it('asks the organiser to generate the schedule first when there are no rounds', () => {

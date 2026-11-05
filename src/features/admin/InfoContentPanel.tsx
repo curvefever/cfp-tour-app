@@ -8,18 +8,11 @@ import { ScreenshotThumb } from '../info/ScreenshotThumb';
 import { MAX_SCREENSHOTS } from '../tournaments/screenshots.shared';
 import { deleteScreenshot, uploadScreenshot } from '../tournaments/screenshots.server-fns';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { CLIPBOARD_REFUSED_MESSAGE, errorText, NO_IMAGE_MESSAGE } from './image-upload';
 import { RoundNotesField } from './RoundNotesField';
 
 const FORMATTING_HINT =
   'A blank line starts a paragraph, "- " a list, **bold** for bold, [text](https://address) for a link. Saved when you leave the box.';
-
-const NO_IMAGE_MESSAGE = 'The clipboard holds no image: copy a screenshot first.';
-const CLIPBOARD_REFUSED_MESSAGE =
-  'The browser did not let the page read the clipboard: press Ctrl+V instead.';
-
-function errorText(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : 'Something went wrong. Try again.';
-}
 
 /** The rules text, typed here and saved when the box is left, so what comes back from the database never cuts into it. */
 export function RulesTextField() {
