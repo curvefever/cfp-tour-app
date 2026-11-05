@@ -193,13 +193,11 @@ export interface RoundSettings {
   games: Array<{ label: string; note: string; picture?: string }>;
 }
 
-/** The settings of the round at `roundIndex` for viewers; `null` when it has nothing at all. */
-export function roundSettingsOf(
+function settingsFor(
   state: RoundSettingsState & Pick<TournamentState, 'info'>,
+  name: string,
   roundIndex: number,
 ): RoundSettings | null {
-  const name = roundNoteNames(state)[roundIndex];
-  if (name === undefined) return null;
   const info: RoundSettingsInfo = state.info ?? {};
   const picture = pictureAt(info.notePictures, name, 'round');
   const games = gameRowsOf(name, noteGameCount(state, roundIndex), info)
@@ -212,6 +210,22 @@ export function roundSettingsOf(
   const note = roundNote(info.roundNotes, name);
   if (!note && !picture && games.length === 0) return null;
   return { note, ...(picture && { picture }), games };
+}
+
+/** The settings of every round for viewers, index-aligned with `state.rounds`: `null` for a round with nothing at all. */
+export function roundSettingsByRound(
+  state: RoundSettingsState & Pick<TournamentState, 'info'>,
+): Array<RoundSettings | null> {
+  return roundNoteNames(state).map((name, index) => settingsFor(state, name, index));
+}
+
+/** The settings of the round at `roundIndex` for viewers; `null` when it has nothing at all. */
+export function roundSettingsOf(
+  state: RoundSettingsState & Pick<TournamentState, 'info'>,
+  roundIndex: number,
+): RoundSettings | null {
+  const name = roundNoteNames(state)[roundIndex];
+  return name === undefined ? null : settingsFor(state, name, roundIndex);
 }
 
 /** The notes with one changed: blank text deletes it, and an empty map is dropped (`undefined` when nothing is left). Entries that are not text are dropped. */

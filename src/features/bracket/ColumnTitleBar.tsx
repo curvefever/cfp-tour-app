@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Badge, cn, columnTitleClassName } from '../../components/ui';
 import type { RoundGameCount } from '../../domain/tournament/bracket';
+import type { RoundSettings } from '../../domain/tournament/round-notes';
 import { RoundSettingsPopup } from './RoundSettingsPopup';
 import type { RoomsScored } from './still-playing';
 
@@ -79,9 +80,10 @@ export function ColumnTitleBar({
   notCounted = false,
   now = false,
   onToggle,
+  popupSettings = null,
   progress = null,
-  settingsNote = '',
   title,
+  tournamentId = '',
 }: {
   /** A settings band follows directly under the bar: its bottom corners are square. */
   attached?: boolean;
@@ -98,11 +100,13 @@ export function ColumnTitleBar({
   notCounted?: boolean;
   now?: boolean;
   onToggle?: () => void;
+  /** The round's settings, while the bands are hidden: the bar then has a button that opens them in a pop-up. */
+  popupSettings?: RoundSettings | null;
   /** Rooms scored out of the round's rooms, for an admin on a round in play; nothing when null or without rooms. */
   progress?: RoomsScored | null;
-  /** The round's settings note, while the bands are hidden: the bar then has a button that opens it in a pop-up. */
-  settingsNote?: string;
   title: string;
+  /** Where the settings pictures are stored. */
+  tournamentId?: string;
 }) {
   return (
     <div
@@ -126,7 +130,9 @@ export function ColumnTitleBar({
       <div className='ml-auto flex shrink-0 items-center'>
         {progress && progress.total > 0 ? <RoomsScoredTag progress={progress} /> : null}
         {extra}
-        {settingsNote ? <RoundSettingsPopup note={settingsNote} /> : null}
+        {popupSettings ? (
+          <RoundSettingsPopup settings={popupSettings} title={title} tournamentId={tournamentId} />
+        ) : null}
         {onToggle ? <FoldButton onToggle={onToggle} title={title} /> : null}
       </div>
     </div>

@@ -682,6 +682,21 @@ describe('Bracket tab, the round settings notes', () => {
   });
 });
 
+describe('Bracket tab, the game lines of the round settings', () => {
+  it("lists the games with a note in the Final's band, and leaves every other round quiet", () => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === 'ffa43-quarters');
+    if (!fixture) throw new Error('the ffa43-quarters fixture is missing');
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+    const bands = view.queryAllByRole('note');
+
+    expect(bands).toHaveLength(1);
+    expect(bands[0].textContent).toContain('G1Powers: Ghost');
+    expect(bands[0].textContent).toContain('G3Target score: 120Map size: small');
+    expect(bands[0].textContent).not.toContain('G2');
+    expect(view.queryAllByText('No specific settings').length).toBeGreaterThan(0);
+  });
+});
+
 describe('Round settings editor', () => {
   const fixtureOf = (id: string) => {
     const fixture = fixtureTournaments().find((entry) => entry.id === id);

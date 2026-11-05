@@ -155,7 +155,7 @@ export function StandingsColumn({
         onToggle={onToggle}
         title={names.title}
       />
-      {banded ? <RoundSettingsBand empty note='' /> : null}
+      {banded ? <RoundSettingsBand empty settings={null} /> : null}
       {groupBoxes ? (
         <div className={cn('mt-4.5 flex flex-col gap-3', banded && 'min-[701px]:self-start')}>
           {display.tables.map((table) => (

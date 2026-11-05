@@ -1,12 +1,21 @@
+import type { RoundSettings } from '../../domain/tournament/round-notes';
 import { PopupIcon } from './PopupIcon';
-import { RoundNoteLines, SlidersIcon } from './RoundSettingsBand';
+import { RoundSettingsContent, SlidersIcon } from './RoundSettingsBand';
 
 /**
- * The title bar's sliders button, shown on a round with a note while the Bracket hides the round settings bands:
- * it opens the note's lines in a pop-up, the way the exit icon opens its lines. Like the fold chevron beside it, it
+ * The title bar's sliders button, shown on a round with settings while the Bracket hides the round settings bands:
+ * it opens the settings in a pop-up, the way the exit icon opens its lines. Like the fold chevron beside it, it
  * has no background of its own and takes the bar's text colour.
  */
-export function RoundSettingsPopup({ note }: { note: string }) {
+export function RoundSettingsPopup({
+  settings,
+  title,
+  tournamentId,
+}: {
+  settings: RoundSettings;
+  title: string;
+  tournamentId: string;
+}) {
   return (
     <PopupIcon
       buttonClassName='size-7 max-[700px]:size-11'
@@ -17,7 +26,9 @@ export function RoundSettingsPopup({ note }: { note: string }) {
     >
       {(touch) => (
         <div className={touch ? 'pr-8' : undefined}>
-          <RoundNoteLines note={note} />
+          <div className='flex'>
+            <RoundSettingsContent settings={settings} title={title} tournamentId={tournamentId} />
+          </div>
         </div>
       )}
     </PopupIcon>

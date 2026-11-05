@@ -6,6 +6,7 @@ import { removeRosterUnit, withLoadedRoster } from '../../src/domain/tournament/
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type {
   PersistedSetup,
+  GameNotes,
   RoundNotes,
   TournamentAnnotation,
   TournamentRound,
@@ -36,6 +37,8 @@ export interface FixtureTournament {
   tabs: string[];
   rulesText?: string;
   roundNotes?: RoundNotes;
+  /** One note per game of a round that plays several (the Final's three games, in `ffa43-quarters`). */
+  gameNotes?: GameNotes;
   screenshotIds?: string[];
   /** A unit to follow in the Bracket: the spec types it into the follow box and captures that too. */
   follow?: string;
@@ -614,6 +617,11 @@ const COLUMN_NOTES: RoundNotes = {
   Final: 'Target score: **120**',
 };
 
+/** A note for the first and the third game of the Final (three games), none for the second: only games with a note show. */
+const FINAL_GAME_NOTES: GameNotes = {
+  Final: { g1: 'Powers: **Ghost**', g3: 'Target score: **120**\nMap size: small' },
+};
+
 /** A wave box with one losers round (WB Round 3 and LB Round 4, both with a note) and one with two (WB Round 5, only LB Round 6 has one). */
 const DOUBLE_ELIMINATION_NOTES: RoundNotes = {
   'Round 2': 'Target score: **40**',
@@ -703,7 +711,7 @@ export function fixtureTournaments(): FixtureTournament[] {
       tabs: ['Bracket', 'Groups', 'Rankings', 'Info'],
       exitPopups: [0],
     }),
-    entry('ffa43-quarters', ffaQuarters(43)),
+    entry('ffa43-quarters', ffaQuarters(43), { gameNotes: FINAL_GAME_NOTES }),
     entry('ffa53-quarters', ffaQuarters(53)),
     entry('teams2v2-13', teams2v2(), { notesPanel: true }),
     entry('teams2v2-13-finished', teams2v2FinalComplete(), { status: 'finished' }),
@@ -751,6 +759,7 @@ export function loadedState(fixture: FixtureTournament): TournamentState {
       scheduledAt: scheduledAtOf(fixture),
       rulesText: fixture.rulesText ?? '',
       ...(fixture.roundNotes ? { roundNotes: fixture.roundNotes } : {}),
+      ...(fixture.gameNotes ? { gameNotes: fixture.gameNotes } : {}),
       screenshots: fixture.screenshotIds ?? [],
     },
   };

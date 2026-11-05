@@ -13,7 +13,7 @@ import {
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { isFinalComplete } from '../../domain/tournament/rankings';
-import { roundNote, roundNoteNames } from '../../domain/tournament/round-notes';
+import { type RoundSettings, roundSettingsByRound } from '../../domain/tournament/round-notes';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { StandingsColumn } from './StandingsColumn';
@@ -33,7 +33,7 @@ import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
-import { hasRoundNotes, isNotCountedRound, roundProgress, showsNowPill } from './title-bar-marks';
+import { isNotCountedRound, roundProgress, showsNowPill } from './title-bar-marks';
 import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
@@ -52,6 +52,7 @@ const bandedStripClass =
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
 export function RoundColumn({
+  banded = false,
   children,
   collapsed = false,
   current = false,
@@ -59,11 +60,12 @@ export function RoundColumn({
   folded,
   gameCount,
   label,
-  note = null,
   onToggle,
   phoneShown = true,
+  popupSettings = null,
   progress,
-  settingsNote = '',
+  settings = null,
+  tournamentId = '',
 }: {
   children: ReactNode;
   collapsed?: boolean;
@@ -74,17 +76,20 @@ export function RoundColumn({
   folded: FoldedRoundSummary;
   gameCount?: RoundGameCount | null;
   label: string;
-  /** The round's settings note ('' for none) when the tournament has bands, null when it has none: no band then. */
-  note?: string | null;
+  /** The tournament shows settings bands: the box has a band. */
+  banded?: boolean;
   onToggle?: () => void;
   /** The box is the one a phone shows (`RoundStrip`): always open there, whatever its fold state; others are hidden. */
   phoneShown?: boolean;
+  /** The round's settings while the bands are hidden (`ColumnTitleBar` shows a button for them); null for none. */
+  popupSettings?: RoundSettings | null;
   /** The admin's rooms-scored tracker on the title bar (`ColumnTitleBar`); a folded box shows none. */
   progress?: RoomsScored | null;
-  /** The round's note while the bands are hidden (`ColumnTitleBar` shows a button for it); '' for none. */
-  settingsNote?: string;
+  /** What the band shows; null for a round with no settings (a quiet "No specific settings"). */
+  settings?: RoundSettings | null;
+  /** Where the settings pictures are stored. */
+  tournamentId?: string;
 }) {
-  const banded = note !== null;
   const open = (
     <div
       className={cn(
@@ -101,11 +106,12 @@ export function RoundColumn({
         notCounted={folded.notCounted}
         now={current}
         onToggle={onToggle}
+        popupSettings={popupSettings}
         progress={progress}
-        settingsNote={settingsNote}
         title={label}
+        tournamentId={tournamentId}
       />
-      {banded ? <RoundSettingsBand note={note} /> : null}
+      {banded ? <RoundSettingsBand settings={settings} title={label} tournamentId={tournamentId} /> : null}
       <div className='mt-4.5 flex flex-col gap-5.5'>{children}</div>
     </div>
   );
@@ -210,14 +216,15 @@ export function BracketRounds({
   const finalComplete = useMemo(() => isFinalComplete(state), [state]);
   const isNow = (roundIndex: number) => showsNowPill(state, roundIndex, finalComplete);
   const progressOf = (roundIndex: number) => roundProgress(state, roundIndex, editable);
-  const hasNotes = useMemo(() => hasRoundNotes(state), [state]);
-  const banded = hasNotes && showSettings;
-  const noteNames = useMemo(() => roundNoteNames(state), [state]);
-  const textOf = (roundIndex: number) => roundNote(state.info?.roundNotes, noteNames[roundIndex] ?? '');
-  /** The note a round band shows; null when no band shows (no note anywhere, or the settings are hidden). */
-  const noteOf = (roundIndex: number) => (banded ? textOf(roundIndex) : null);
-  /** The note a round title bar button opens: only while the bands are hidden. */
-  const popupNoteOf = (roundIndex: number) => (hasNotes && !showSettings ? textOf(roundIndex) : '');
+  const settingsByRound = useMemo(() => roundSettingsByRound(state), [state]);
+  const hasSettings = settingsByRound.some((settings) => settings !== null);
+  const banded = hasSettings && showSettings;
+  const tournamentId = state.tournamentId ?? '';
+  /** The settings a round band shows; null for a round with none. */
+  const settingsOf = (roundIndex: number) => settingsByRound[roundIndex] ?? null;
+  /** The settings a round title bar button opens: only while the bands are hidden. */
+  const popupSettingsOf = (roundIndex: number) =>
+    hasSettings && !showSettings ? settingsOf(roundIndex) : null;
   function renderSingle(roundIndex: number, shown: boolean) {
     const collapsed = collapse?.[roundIndex] ?? bracketRoundDefaultCollapsed(state, roundIndex);
     const column = (
@@ -229,11 +236,13 @@ export function BracketRounds({
         gameCount={roundGameCount(state, roundIndex)}
         key={roundIndex}
         label={labels[roundIndex]?.label ?? ''}
-        note={noteOf(roundIndex)}
+        banded={banded}
         onToggle={onToggleCollapse ? () => onToggleCollapse(roundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(roundIndex)}
-        settingsNote={popupNoteOf(roundIndex)}
+        popupSettings={popupSettingsOf(roundIndex)}
+        settings={settingsOf(roundIndex)}
+        tournamentId={tournamentId}
       >
         <RoundBody
           state={state}
@@ -288,11 +297,14 @@ export function BracketRounds({
           expected={expectedDraw?.has(roundIndex) ?? false}
           gameCount={roundGameCount(state, roundIndex)}
           notCounted={isNotCountedRound(state, roundIndex)}
+          popupSettings={popupSettingsOf(roundIndex)}
           progress={progressOf(roundIndex)}
-          settingsNote={popupNoteOf(roundIndex)}
+          tournamentId={tournamentId}
           title={title}
         />
-        {banded ? <RoundSettingsBand note={noteOf(roundIndex) ?? ''} /> : null}
+        {banded ? (
+          <RoundSettingsBand settings={settingsOf(roundIndex)} title={title} tournamentId={tournamentId} />
+        ) : null}
         <div className='mt-4.5 flex flex-col gap-5.5'>{bodyOf(roundIndex)}</div>
       </div>
     );
@@ -309,11 +321,13 @@ export function BracketRounds({
         gameCount={roundGameCount(state, first)}
         key={first}
         label={labels[first]?.label ?? ''}
-        note={noteOf(first)}
+        banded={banded}
         onToggle={onToggleCollapse ? () => onToggleCollapse(first, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(first)}
-        settingsNote={popupNoteOf(first)}
+        popupSettings={popupSettingsOf(first)}
+        settings={settingsOf(first)}
+        tournamentId={tournamentId}
       >
         {bodyOf(first)}
         {others.map((roundIndex) => renderStacked(roundIndex, labels[roundIndex]?.label ?? ''))}
@@ -340,11 +354,13 @@ export function BracketRounds({
           box.winnersRoundIndex,
           box.losersRoundIndices.length > 0 ? 'Winners' : null,
         )}
-        note={noteOf(box.winnersRoundIndex)}
+        banded={banded}
         onToggle={onToggleCollapse ? () => onToggleCollapse(box.winnersRoundIndex, collapsed) : undefined}
         phoneShown={shown}
         progress={progressOf(box.winnersRoundIndex)}
-        settingsNote={popupNoteOf(box.winnersRoundIndex)}
+        popupSettings={popupSettingsOf(box.winnersRoundIndex)}
+        settings={settingsOf(box.winnersRoundIndex)}
+        tournamentId={tournamentId}
       >
         {bodyOf(box.winnersRoundIndex)}
         {box.losersRoundIndices.map((roundIndex) =>

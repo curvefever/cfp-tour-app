@@ -8,6 +8,7 @@ import {
   roundNoteNames,
   roundNoteRowLabel,
   roundNoteRows,
+  roundSettingsByRound,
   roundSettingsOf,
   setRoundNote,
 } from '../round-notes';
@@ -371,6 +372,29 @@ describe('roundSettingsOf', () => {
     expect(rows.find((row) => row.name === 'Semis')?.games).toEqual([
       { key: 'g1', label: 'Game 1', note: 'left over', orphan: true },
     ]);
+  });
+});
+
+describe('roundSettingsByRound', () => {
+  it('is index-aligned with the rounds and equals roundSettingsOf for each', () => {
+    const state = withInfo(twoGameQual(3), {
+      roundNotes: { 'Round 2': 'Powers: Zap' },
+      gameNotes: { Final: { g3: 'Target 120' } },
+      notePictures: { Semis: { round: 'picRound01' } },
+    });
+    const all = roundSettingsByRound(state);
+    expect(all).toHaveLength(state.rounds.length);
+    expect(all.map((settings, index) => (settings === null ? null : roundNoteNames(state)[index]))).toEqual([
+      null,
+      'Round 2',
+      null,
+      null,
+      null,
+      null,
+      'Semis',
+      'Final',
+    ]);
+    all.forEach((settings, index) => expect(settings).toEqual(roundSettingsOf(state, index)));
   });
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Textarea } from '../../components/ui';
+import { cn, Textarea } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 /** The most characters a settings note holds, a round's or a game's. */
@@ -43,7 +43,7 @@ export function NoteTextarea({
   }
   return (
     <Textarea
-      className={`min-h-8.5 resize-none overflow-hidden py-1 text-sm leading-5 ${className ?? ''}`}
+      className={cn('min-h-8.5 resize-none overflow-hidden py-1 text-sm leading-5', className)}
       disabled={readOnly}
       id={id}
       maxLength={MAX_NOTE_LENGTH}
