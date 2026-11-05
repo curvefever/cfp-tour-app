@@ -1,7 +1,8 @@
-import { MAX_ROUND_NAME_LENGTH } from '../../../domain/tournament/round-notes';
-import type { RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
+import { MAX_GAME_BOXES, MAX_ROUND_NAME_LENGTH } from '../../../domain/tournament/round-notes';
+import type { GameNotes, RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
 import { readTournamentSettings } from '../../../domain/tournament/tournament-settings';
 import { TOURNAMENT_ID_PATTERN, isValidPathSegment } from '../../sync/tournament-write.shared';
+import { notePictureCount, notePicturesOf } from '../../tournaments/note-pictures.shared';
 
 export const TOURNAMENT_NOT_FOUND_MESSAGE =
   'No tournament with that id on this site. Test and production tournaments are separate.';
@@ -25,6 +26,13 @@ export function parseTournamentReference(input: string): string | null {
   return TOURNAMENT_ID_PATTERN.test(candidate) ? candidate : null;
 }
 
+/** The info of a source tournament that is copied with its settings: the texts the Setup form's Info panel holds. */
+export interface CopiedInfo {
+  rulesText: string;
+  roundNotes: RoundNotes | undefined;
+  gameNotes: GameNotes | undefined;
+}
+
 export type SettingsSnapshotResult =
   | {
       ok: true;
@@ -32,7 +40,10 @@ export type SettingsSnapshotResult =
       title: string;
       rulesText: string;
       roundNotes: RoundNotes | undefined;
+      gameNotes: GameNotes | undefined;
       screenshotCount: number;
+      /** How many settings pictures the source holds, for the copy that follows. */
+      notePictureCount: number;
     }
   | { ok: false; reason: 'not-found' | 'no-settings' };
 
@@ -52,6 +63,21 @@ function readRoundNotes(raw: unknown): RoundNotes | undefined {
       : [],
   );
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+const GAME_KEY_PATTERN = new RegExp(`^g[1-${MAX_GAME_BOXES}]$`);
+
+/** A source tournament's game notes, keeping only well-formed entries (valid round names, keys g1-g9, non-blank text); `undefined` when none are. */
+function readGameNotes(raw: unknown): GameNotes | undefined {
+  if (!isRecord(raw)) return undefined;
+  const rounds = Object.entries(raw).flatMap(([name, games]): Array<[string, Record<string, string>]> => {
+    if (!isValidPathSegment(name) || name.length > MAX_ROUND_NAME_LENGTH || !isRecord(games)) return [];
+    const notes = Object.entries(games).flatMap(([key, text]): Array<[string, string]> =>
+      GAME_KEY_PATTERN.test(key) && typeof text === 'string' && text.trim() ? [[key, text.trim()]] : [],
+    );
+    return notes.length > 0 ? [[name, Object.fromEntries(notes)]] : [];
+  });
+  return rounds.length > 0 ? Object.fromEntries(rounds) : undefined;
 }
 
 /**
@@ -78,6 +104,8 @@ export function settingsFromSnapshot(raw: unknown, setupRaw?: unknown): Settings
     title,
     rulesText,
     roundNotes: readRoundNotes(info.roundNotes),
+    gameNotes: readGameNotes(info.gameNotes),
     screenshotCount,
+    notePictureCount: notePictureCount(notePicturesOf(info.notePictures)),
   };
 }

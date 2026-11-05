@@ -61,6 +61,7 @@ describe('settingsFromSnapshot', () => {
       title: 'Unnamed Tournament',
       rulesText: '',
       screenshotCount: 0,
+      notePictureCount: 0,
     });
   });
 
@@ -73,6 +74,7 @@ describe('settingsFromSnapshot', () => {
       title: 'My Tournament',
       rulesText: '',
       screenshotCount: 0,
+      notePictureCount: 0,
     });
   });
 });
@@ -173,5 +175,59 @@ describe('settingsFromSnapshot with round settings notes', () => {
     expect(notesOf({ title: 'Old', settings: settingsFromForm(createDefaultSetup()) })).toBeUndefined();
     expect(notesOf(rawWith('text'))).toBeUndefined();
     expect(notesOf(rawWith(['x']))).toBeUndefined();
+  });
+});
+
+describe('settingsFromSnapshot with game notes and settings pictures', () => {
+  const rawWith = (info: Record<string, unknown>) => ({
+    title: 'Cup',
+    settings: settingsFromForm(createDefaultSetup()),
+    info: { rulesText: '', ...info },
+  });
+  const read = (info: Record<string, unknown>) => {
+    const result = settingsFromSnapshot(rawWith(info));
+    if (!result.ok) throw new Error('the snapshot should be readable');
+    return result;
+  };
+
+  it('carries the game notes of the source, by round name and game key', () => {
+    const gameNotes = { 'Round 1': { g1: 'Powers: Ghost', g2: 'Powers: Zap' }, Final: { g3: 'Target 120' } };
+    expect(read({ gameNotes }).gameNotes).toEqual(gameNotes);
+  });
+
+  it('drops malformed game notes: g10, g0, a non-text value, a name with a dot, a long name, blank text', () => {
+    const long = 'N'.repeat(61);
+    const ok = 'N'.repeat(60);
+    expect(
+      read({
+        gameNotes: {
+          'Round 1': { g1: ' a ', g10: 'x', g0: 'y', G1: 'z', g2: 5, g3: '   ', g4: ['x'] },
+          'Round 6.1': { g1: 'x' },
+          'bad/name': { g1: 'x' },
+          [long]: { g1: 'x' },
+          [ok]: { g9: 'last' },
+          Text: 'not a map',
+          List: ['x'],
+          Emptied: { g1: '  ' },
+        },
+      }).gameNotes,
+    ).toEqual({ 'Round 1': { g1: 'a' }, [ok]: { g9: 'last' } });
+  });
+
+  it('gives no game notes when none survive or the source has none', () => {
+    expect(read({}).gameNotes).toBeUndefined();
+    expect(read({ gameNotes: { Final: { g12: 'x' } } }).gameNotes).toBeUndefined();
+    expect(read({ gameNotes: 'text' }).gameNotes).toBeUndefined();
+  });
+
+  it('counts the settings pictures of the source, well-formed entries only', () => {
+    const notePictures = {
+      Final: { round: 'image00000001', g1: 'image00000002', g10: 'image00000003', g2: '../x' },
+      'Round 1': { g1: 'image00000004' },
+      'Round 6.1': { round: 'image00000005' },
+    };
+    expect(read({ notePictures }).notePictureCount).toBe(3);
+    expect(read({}).notePictureCount).toBe(0);
+    expect(read({ notePictures: 'text' }).notePictureCount).toBe(0);
   });
 });

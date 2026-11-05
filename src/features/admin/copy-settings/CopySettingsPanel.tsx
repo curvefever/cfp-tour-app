@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import type { RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
+import type { TournamentSettings } from '../../../domain/tournament/types';
 import { fetchSetupOnce, fetchTournamentOnce } from '../../sync/firebase-client';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
+import { copyNotePictures } from '../../tournaments/note-pictures.server-fns';
 import { copyScreenshots } from '../../tournaments/screenshots.server-fns';
 import { copyableTournaments } from '../../tournaments/tournament-index';
 import { useTournamentIndex, type TournamentIndexState } from '../../tournaments/useTournamentIndex';
 import { Alert, Button, ButtonRow, Field, Input, Select } from '../../../components/ui';
 import {
+  type CopiedInfo,
   parseTournamentReference,
   settingsFromSnapshot,
   TOURNAMENT_NOT_FOUND_MESSAGE,
@@ -16,12 +18,7 @@ import {
 
 export interface CopySettingsProps {
   /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
-  onApply(
-    settings: TournamentSettings,
-    sourceTitle: string,
-    rulesText: string,
-    roundNotes: RoundNotes | undefined,
-  ): string;
+  onApply(settings: TournamentSettings, sourceTitle: string, info: CopiedInfo): string;
 }
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
@@ -70,17 +67,34 @@ export function CopySettings({ onApply }: CopySettingsProps) {
   const [error, setError] = useState('');
   const [confirmation, setConfirmation] = useState('');
 
-  /** Copies the screenshots of the source tournament onto the one being set up; the text to add to the confirmation. */
-  async function copyScreenshotsFrom(sourceId: string, count: number): Promise<string> {
-    if (!count || !app.state.tournamentId) return '';
+  /** Copies one kind of image from the source tournament onto the one being set up; the text to add to the confirmation. */
+  async function copyImages(
+    noun: string,
+    run: (copy: { fromTournamentId: string; toTournamentId: string }) => Promise<{ copied: number }>,
+    sourceId: string,
+  ): Promise<string> {
+    if (!app.state.tournamentId) return '';
     try {
-      const { copied } = await copyScreenshots({
-        data: { fromTournamentId: sourceId, toTournamentId: app.state.tournamentId },
-      });
-      return copied ? ` ${copied} screenshot${copied === 1 ? '' : 's'} copied.` : '';
+      const { copied } = await run({ fromTournamentId: sourceId, toTournamentId: app.state.tournamentId });
+      return copied ? ` ${copied} ${noun}${copied === 1 ? '' : 's'} copied.` : '';
     } catch (error) {
-      return ` The screenshots could not be copied: ${error instanceof Error ? error.message : 'unknown error'}`;
+      return ` The ${noun}s could not be copied: ${error instanceof Error ? error.message : 'unknown error'}`;
     }
+  }
+
+  /** Copies the lobby screenshots and the settings pictures of the source; the text to add to the confirmation. */
+  async function copyPicturesFrom(
+    sourceId: string,
+    screenshots: number,
+    notePictures: number,
+  ): Promise<string> {
+    const screenshotText = screenshots
+      ? await copyImages('screenshot', (data) => copyScreenshots({ data }), sourceId)
+      : '';
+    const pictureText = notePictures
+      ? await copyImages('settings picture', (data) => copyNotePictures({ data }), sourceId)
+      : '';
+    return `${screenshotText}${pictureText}`;
   }
 
   /** Loads a stored tournament and its Setup form, and applies its settings, or shows why it cannot be. */
@@ -100,8 +114,13 @@ export function CopySettings({ onApply }: CopySettingsProps) {
         );
         return;
       }
-      const message = onApply(result.settings, result.title, result.rulesText, result.roundNotes);
-      setConfirmation(`${message}${await copyScreenshotsFrom(tournamentId, result.screenshotCount)}`);
+      const message = onApply(result.settings, result.title, {
+        rulesText: result.rulesText,
+        roundNotes: result.roundNotes,
+        gameNotes: result.gameNotes,
+      });
+      const pictures = await copyPicturesFrom(tournamentId, result.screenshotCount, result.notePictureCount);
+      setConfirmation(`${message}${pictures}`);
     } catch {
       setConfirmation('');
       setError(NETWORK_ERROR_MESSAGE);

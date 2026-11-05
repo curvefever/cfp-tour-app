@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { generateTournament } from '../../domain/tournament/generation';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
-import type { RoundNotes, TournamentSettings } from '../../domain/tournament/types';
+import type { TournamentSettings } from '../../domain/tournament/types';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import type { CopiedInfo } from './copy-settings/past-tournament-settings';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ConfirmStartBar } from './setup/ConfirmStartBar';
 import { FormatPanel } from './setup/FormatPanel';
@@ -30,18 +31,18 @@ export function SetupView() {
   function applyCopiedSettings(
     settings: TournamentSettings,
     sourceTitle: string,
-    rulesText: string,
-    roundNotes: RoundNotes | undefined,
+    { rulesText, roundNotes, gameNotes }: CopiedInfo,
   ): string {
     const previousGameFormat = setup.gameFormat;
     updateSetup((current) => applyTournamentSettings(current, settings));
-    if (rulesText || roundNotes) {
+    if (rulesText || roundNotes || gameNotes) {
       updateState((current) => ({
         ...current,
         info: {
           ...(current.info ?? createDefaultInfo()),
           ...(rulesText ? { rulesText } : {}),
           ...(roundNotes ? { roundNotes } : {}),
+          ...(gameNotes ? { gameNotes } : {}),
         },
       }));
     }
