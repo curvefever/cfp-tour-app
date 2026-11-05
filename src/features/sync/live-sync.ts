@@ -43,7 +43,7 @@ export function withoutServerOwned(state: TournamentState): TournamentState {
   const copy = { ...state };
   for (const key of SERVER_OWNED_KEYS) delete copy[key as keyof TournamentState];
   if (copy.info) {
-    const { screenshots: _screenshots, ...info } = copy.info;
+    const { screenshots: _screenshots, notePictures: _notePictures, ...info } = copy.info;
     copy.info = info as TournamentState['info'];
   }
   return copy;

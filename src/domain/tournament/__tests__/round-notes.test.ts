@@ -214,6 +214,13 @@ describe('noteGameCount', () => {
     });
   });
 
+  it('is 0 for a one-game Final, which is its own game, and gives it no game rows', () => {
+    const state = generated(37, { qualAdv: '30', finalsGames: '1' });
+    const finalIndex = roundNoteNames(state).indexOf('Final');
+    expect(noteGameCount(state, finalIndex)).toBe(0);
+    expect(roundNoteRows(state, undefined)[finalIndex].games).toEqual([]);
+  });
+
   it('is 0 for a round that does not exist', () => {
     expect(noteGameCount(twoGameQual(), 99)).toBe(0);
   });

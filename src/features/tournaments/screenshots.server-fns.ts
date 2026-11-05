@@ -10,23 +10,9 @@ import {
   withScreenshotRemoved,
   withScreenshotsAdded,
 } from './screenshots.shared';
-import { readStoredFacts, requestPaths } from './tournament-store.server';
-import type { TournamentPaths } from '../sync/firebase-paths';
+import { newImageId, requestPaths, requireEditableTournament } from './tournament-store.server';
 
 const FULL_MESSAGE = `A tournament holds at most ${MAX_SCREENSHOTS} screenshots. Delete one first.`;
-
-function newImageId(): string {
-  return crypto.randomUUID().replace(/-/g, '').slice(0, 20);
-}
-
-/** Refuses a tournament that does not exist or is finished: the screenshots are part of what a finished tournament keeps. */
-async function requireEditable(paths: TournamentPaths): Promise<void> {
-  const facts = await readStoredFacts(paths);
-  if (!facts.lifecycle) throw new Error('This tournament does not exist.');
-  if (facts.lifecycle.status === 'finished') {
-    throw new Error('This tournament is finished. Reopen it to change its screenshots.');
-  }
-}
 
 /** Stores one shrunk screenshot and lists it on the tournament, never going over the limit even when two admins upload at once. */
 export const uploadScreenshot = createServerFn({ method: 'POST' })
@@ -34,7 +20,7 @@ export const uploadScreenshot = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<{ imageId: string }> => {
     await requireTourAdminPermission();
     const paths = requestPaths(data.tournamentId);
-    await requireEditable(paths);
+    await requireEditableTournament(paths, 'screenshots');
     const imageId = newImageId();
     await updateFirebase({ [`${paths.media}/${imageId}`]: data.dataUrl });
     const listed = await transactFirebase(`${paths.tournament}/info/screenshots`, (current) =>
@@ -52,7 +38,7 @@ export const deleteScreenshot = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<void> => {
     await requireTourAdminPermission();
     const paths = requestPaths(data.tournamentId);
-    await requireEditable(paths);
+    await requireEditableTournament(paths, 'screenshots');
     await transactFirebase(`${paths.tournament}/info/screenshots`, (current) =>
       withScreenshotRemoved(current, data.imageId),
     );
@@ -66,7 +52,7 @@ export const copyScreenshots = createServerFn({ method: 'POST' })
     await requireTourAdminPermission();
     const from = requestPaths(data.fromTournamentId);
     const to = requestPaths(data.toTournamentId);
-    await requireEditable(to);
+    await requireEditableTournament(to, 'screenshots');
     const sourceIds = screenshotIdsOf(await readFirebaseOnce(`${from.tournament}/info/screenshots`));
     const room =
       MAX_SCREENSHOTS - screenshotIdsOf(await readFirebaseOnce(`${to.tournament}/info/screenshots`)).length;

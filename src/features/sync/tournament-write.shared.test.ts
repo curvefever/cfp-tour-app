@@ -134,7 +134,7 @@ describe('validateSetupPatchInput', () => {
   });
 });
 
-describe('validatePatchInput and the screenshot list', () => {
+describe('validatePatchInput and the lists only the server writes', () => {
   it('refuses a patch that writes the screenshot list, as a path or inside the info block', () => {
     expect(() => validatePatchInput({ tournamentId: 't1', patch: { 'info/screenshots': ['a'] } })).toThrow(
       'patch path',
@@ -142,6 +142,25 @@ describe('validatePatchInput and the screenshot list', () => {
     expect(() =>
       validatePatchInput({ tournamentId: 't1', patch: { info: { rulesText: '', screenshots: ['a'] } } }),
     ).toThrow('patch path');
+  });
+
+  it('refuses a patch that writes the settings pictures, as a path or inside the info block', () => {
+    const pictures = { 'Round 1': { round: 'image00000001' } };
+    expect(() =>
+      validatePatchInput({ tournamentId: 't1', patch: { 'info/notePictures': pictures } }),
+    ).toThrow('patch path');
+    expect(() =>
+      validatePatchInput({ tournamentId: 't1', patch: { info: { rulesText: '', notePictures: pictures } } }),
+    ).toThrow('patch path');
+  });
+
+  it('still accepts the round and game notes, which the client writes', () => {
+    expect(() =>
+      validatePatchInput({
+        tournamentId: 't1',
+        patch: { 'info/roundNotes': { Final: 'x' }, 'info/gameNotes': { Final: { g1: 'y' } } },
+      }),
+    ).not.toThrow();
   });
 
   it('still accepts the other parts of the info block', () => {

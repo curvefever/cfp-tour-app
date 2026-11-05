@@ -33,19 +33,24 @@ export function decodedBase64Size(base64: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
+/** The data URL of an uploaded image, checked: a base64 WebP, PNG or JPEG that is not empty and not over the size limit. `what` names it in the messages. */
+export function validateImageDataUrl(dataUrl: unknown, what: string): string {
+  const match = typeof dataUrl === 'string' ? DATA_URL_PATTERN.exec(dataUrl) : null;
+  if (!match) throw new Error(`The ${what} must be a WebP, PNG or JPEG image.`);
+  const size = decodedBase64Size(match[2]);
+  if (size === 0) throw new Error(`The ${what} is empty.`);
+  if (size > MAX_SCREENSHOT_BYTES) {
+    throw new Error(
+      `The ${what} is too large (${Math.ceil(size / 1024)} KB; the limit is ${MAX_SCREENSHOT_BYTES / 1024} KB).`,
+    );
+  }
+  return match[0];
+}
+
 export function validateUploadInput(input: UploadScreenshotInput): UploadScreenshotInput {
   if (!input || typeof input !== 'object') throw new Error('Invalid screenshot.');
   const tournamentId = validateTournamentId(input.tournamentId);
-  const match = typeof input.dataUrl === 'string' ? DATA_URL_PATTERN.exec(input.dataUrl) : null;
-  if (!match) throw new Error('The screenshot must be a WebP, PNG or JPEG image.');
-  const size = decodedBase64Size(match[2]);
-  if (size === 0) throw new Error('The screenshot is empty.');
-  if (size > MAX_SCREENSHOT_BYTES) {
-    throw new Error(
-      `The screenshot is too large (${Math.ceil(size / 1024)} KB; the limit is ${MAX_SCREENSHOT_BYTES / 1024} KB).`,
-    );
-  }
-  return { tournamentId, dataUrl: input.dataUrl };
+  return { tournamentId, dataUrl: validateImageDataUrl(input.dataUrl, 'screenshot') };
 }
 
 export function validateImageInput(input: ScreenshotRef): ScreenshotRef {

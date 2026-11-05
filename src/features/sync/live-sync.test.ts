@@ -604,6 +604,45 @@ describe('SyncCoordinator', () => {
       expect(remoteStates.at(-1)?.info?.screenshots).toEqual(['image00000001', 'image00000002']);
     });
 
+    it('never sends the settings pictures, which only the picture functions write', async () => {
+      const stored = createDefaultTournamentState({
+        info: {
+          scheduledAt: null,
+          rulesText: '',
+          screenshots: [],
+          notePictures: { Final: { round: 'image00000001' } },
+        },
+      });
+      const { coordinator, handlers, transport } = startWriter(stored);
+      // This tab's copy lacks a picture another admin added, and has a game note of its own.
+      coordinator.updateLocal(
+        stored,
+        createDefaultTournamentState({
+          info: { scheduledAt: null, rulesText: '', screenshots: [], gameNotes: { Final: { g1: 'Zap' } } },
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(400);
+      expect(transport.update).toHaveBeenCalledTimes(1);
+      expect(transport.update).toHaveBeenCalledWith('t1', { 'info/gameNotes': { Final: { g1: 'Zap' } } });
+
+      handlers.onValue(
+        marshalForFirebase(
+          createDefaultTournamentState({
+            info: {
+              scheduledAt: null,
+              rulesText: '',
+              screenshots: [],
+              gameNotes: { Final: { g1: 'Zap' } },
+              notePictures: { Final: { round: 'image00000001', g1: 'image00000002' } },
+            },
+          }),
+        ),
+      );
+      expect(remoteStates.at(-1)?.info?.notePictures).toEqual({
+        Final: { round: 'image00000001', g1: 'image00000002' },
+      });
+    });
+
     it("keeps an edit that is not sent yet when a snapshot with someone else's change arrives", async () => {
       const stored = createDefaultTournamentState({ title: 'Cup' });
       const { coordinator, handlers, transport } = startWriter(stored);

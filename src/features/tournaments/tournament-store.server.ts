@@ -45,6 +45,20 @@ export async function readStoredFacts(paths: TournamentPaths): Promise<StoredFac
   };
 }
 
+/** The id of a newly stored image under `media/{tournamentId}`. */
+export function newImageId(): string {
+  return crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+}
+
+/** Refuses a tournament that does not exist or is finished; `what` names what a finished tournament keeps ("screenshots"). */
+export async function requireEditableTournament(paths: TournamentPaths, what: string): Promise<void> {
+  const facts = await readStoredFacts(paths);
+  if (!facts.lifecycle) throw new Error('This tournament does not exist.');
+  if (facts.lifecycle.status === 'finished') {
+    throw new Error(`This tournament is finished. Reopen it to change its ${what}.`);
+  }
+}
+
 /** The whole stored tournament, read once (when it is finished, to find its winners). */
 export async function readStoredState(
   paths: TournamentPaths,

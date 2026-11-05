@@ -32,10 +32,18 @@ function isValidPatchPath(path: string): boolean {
   return !PATCH_FORBIDDEN_TOP_LEVEL_KEYS.has(segments[0]);
 }
 
-/** The screenshots are listed by the upload functions only: a patch that wrote the list could drop another admin's upload. */
-function carriesScreenshots(path: string, value: unknown): boolean {
-  if (path === 'info/screenshots') return true;
-  return path === 'info' && typeof value === 'object' && value !== null && 'screenshots' in value;
+/** The info lists only the server functions write: a patch that wrote one could drop another admin's upload. */
+const SERVER_LISTED_INFO_KEYS = ['screenshots', 'notePictures'];
+
+/** Whether a patch entry writes the screenshots or the settings pictures: as their own path, or inside the info block. */
+function carriesServerListedInfo(path: string, value: unknown): boolean {
+  if (SERVER_LISTED_INFO_KEYS.some((key) => path === `info/${key}`)) return true;
+  return (
+    path === 'info' &&
+    typeof value === 'object' &&
+    value !== null &&
+    SERVER_LISTED_INFO_KEYS.some((key) => key in value)
+  );
 }
 
 /** Checks every path of a patch (the value can be anything, `null` deleting) and drops legacy `adminProof` paths. */
@@ -44,7 +52,7 @@ export function cleanPatchPaths(patch: unknown): Record<string, unknown> {
     throw new Error('Invalid tournament patch.');
   const cleaned: Record<string, unknown> = {};
   for (const [path, value] of Object.entries(patch)) {
-    if (!isValidPatchPath(path) || carriesScreenshots(path, value)) {
+    if (!isValidPatchPath(path) || carriesServerListedInfo(path, value)) {
       throw new Error(`Invalid tournament patch path: ${path}`);
     }
     if (path.split('/')[0] !== 'adminProof') cleaned[path] = value;
