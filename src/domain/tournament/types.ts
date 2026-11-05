@@ -374,12 +374,22 @@ export interface TournamentLifecycle {
 /** Short free-text settings notes shown on the Bracket under a round's title bar: the round's name (`roundNoteNames`) to its note, non-blank text only. */
 export type RoundNotes = Record<string, string>;
 
+/** The settings note of each game of a round with several games: the round's name (`roundNoteNames`) to its game keys (`g1`…`g9`) to the text, non-blank text only. */
+export type GameNotes = Record<string, Record<string, string>>;
+
+/** The picture of each settings box: the round's name to its slot (`round`, or the game keys `g1`…`g9`) to a stored image id. Written only by server functions, like `screenshots`. */
+export type NotePictures = Record<string, Record<string, string>>;
+
 export interface TournamentInfo {
   /** Epoch milliseconds of the scheduled start; null while undecided. */
   scheduledAt: number | null;
   rulesText: string;
   /** Optional: Firebase drops empty objects, and older tournaments have none. */
   roundNotes?: RoundNotes;
+  /** Optional like `roundNotes`: one note per game of a round that has several. */
+  gameNotes?: GameNotes;
+  /** Optional: the pictures of the settings boxes, listed by the server functions only (`info/notePictures`). */
+  notePictures?: NotePictures;
   /** Ids of the screenshots stored for this tournament. */
   screenshots: string[];
 }

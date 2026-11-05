@@ -88,10 +88,17 @@ describe('roundProgress', () => {
 });
 
 describe('hasRoundNotes', () => {
-  const withNotes = (roundNotes: TournamentInfo['roundNotes']) => ({
+  const withInfo = (extra: Partial<TournamentInfo>) => ({
     ...twoRounds(),
-    info: { ...createDefaultInfo(), roundNotes },
+    info: { ...createDefaultInfo(), ...extra },
   });
+  const withNotes = (roundNotes: TournamentInfo['roundNotes']) => withInfo({ roundNotes });
+  /** Round 1 plays 2 games, the Final one. */
+  const withGames = (extra: Partial<TournamentInfo>) => {
+    const state = withInfo(extra);
+    state.rounds[0] = { ...state.rounds[0], numGames: 2 };
+    return state;
+  };
 
   it('is false without notes', () => {
     expect(hasRoundNotes(twoRounds())).toBe(false);
@@ -106,6 +113,17 @@ describe('hasRoundNotes', () => {
   it('is false when the notes belong to no round of this tournament, or are blank', () => {
     expect(hasRoundNotes(withNotes({ 'Round 9': 'x' }))).toBe(false);
     expect(hasRoundNotes(withNotes({ Final: '   ' }))).toBe(false);
+  });
+
+  it('is true for a game note only, or a picture only, of a round that plays several games', () => {
+    expect(hasRoundNotes(withGames({ gameNotes: { 'Round 1': { g2: 'Powers: Zap' } } }))).toBe(true);
+    expect(hasRoundNotes(withGames({ notePictures: { 'Round 1': { g1: 'picGame001' } } }))).toBe(true);
+    expect(hasRoundNotes(withInfo({ notePictures: { Final: { round: 'picRound01' } } }))).toBe(true);
+  });
+
+  it('is false for a game note beyond the games of its round, or of a one-game round', () => {
+    expect(hasRoundNotes(withGames({ gameNotes: { 'Round 1': { g3: 'beyond' } } }))).toBe(false);
+    expect(hasRoundNotes(withInfo({ gameNotes: { Final: { g1: 'left over' } } }))).toBe(false);
   });
 
   it('ignores the stage notes of an earlier build', () => {

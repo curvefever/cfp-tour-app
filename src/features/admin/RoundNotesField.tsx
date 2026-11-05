@@ -70,7 +70,7 @@ function RoundNoteRowFields({ row, id }: { row: RoundNoteRow; id: string }) {
 /** The settings note of every round of the generated schedule, one compact row each; who else is in any of them shows on the group's title. */
 export function RoundNotesField() {
   const { state } = useTournamentApp();
-  const rows = roundNoteRows(state, state.info?.roundNotes);
+  const rows = roundNoteRows(state, state.info);
   return (
     <div className='flex flex-col gap-2.5'>
       <div>

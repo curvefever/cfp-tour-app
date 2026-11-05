@@ -1,3 +1,4 @@
+import { MAX_ROUND_NAME_LENGTH } from '../../../domain/tournament/round-notes';
 import type { RoundNotes, TournamentSettings } from '../../../domain/tournament/types';
 import { readTournamentSettings } from '../../../domain/tournament/tournament-settings';
 import { TOURNAMENT_ID_PATTERN, isValidPathSegment } from '../../sync/tournament-write.shared';
@@ -38,8 +39,6 @@ export type SettingsSnapshotResult =
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
-
-const MAX_ROUND_NAME_LENGTH = 60;
 
 /** A source tournament's round settings notes, keeping only well-formed entries; `undefined` when none are. */
 function readRoundNotes(raw: unknown): RoundNotes | undefined {
