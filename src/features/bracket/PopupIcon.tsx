@@ -1,5 +1,29 @@
-import { type FocusEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type FocusEvent,
+  type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from '../../components/ui';
+
+const PopupPinContext = createContext<((pinned: boolean) => void) | null>(null);
+
+/**
+ * Called by something in a pop-up's content that opens a window of its own (a full-size picture): while `pinned`, the
+ * pop-up stays open whatever the mouse or the focus does, and Escape is left to that window.
+ */
+export function usePopupPin(pinned: boolean): void {
+  const pin = useContext(PopupPinContext);
+  useEffect(() => {
+    if (!pinned || !pin) return;
+    pin(true);
+    return () => pin(false);
+  }, [pinned, pin]);
+}
 
 /** Whether the visitor has no hover (a phone or tablet): the pop-up then opens on tap and has a close button. */
 function useTouchOnly(): boolean {
@@ -34,27 +58,36 @@ export function PopupIcon({
   popupClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pins, setPins] = useState(0);
   const touch = useTouchOnly();
   const container = useRef<HTMLSpanElement>(null);
+  const pinned = pins > 0;
+  const pin = useCallback((on: boolean) => {
+    setPins((count) => count + (on ? 1 : -1));
+    // With a mouse, a pop-up that was kept open only by the pin closes when nothing hovers or holds it any more.
+    if (!on) setOpen((wasOpen) => wasOpen && (container.current?.matches(':hover') ?? false));
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || pinned) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false);
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
-  }, [open]);
+  }, [open, pinned]);
 
   const hoverProps = touch
     ? {}
     : {
         onBlur: (event: FocusEvent) => {
-          if (!container.current?.contains(event.relatedTarget)) setOpen(false);
+          if (!pinned && !container.current?.contains(event.relatedTarget)) setOpen(false);
         },
         onFocus: () => setOpen(true),
         onMouseEnter: () => setOpen(true),
-        onMouseLeave: () => setOpen(false),
+        onMouseLeave: () => {
+          if (!pinned) setOpen(false);
+        },
       };
   return (
     <span className={cn('flex items-center', containerClassName)} ref={container} {...hoverProps}>
@@ -89,7 +122,9 @@ export function PopupIcon({
               ✕
             </button>
           ) : null}
-          {typeof children === 'function' ? children(touch) : children}
+          <PopupPinContext.Provider value={pin}>
+            {typeof children === 'function' ? children(touch) : children}
+          </PopupPinContext.Provider>
         </div>
       ) : null}
     </span>

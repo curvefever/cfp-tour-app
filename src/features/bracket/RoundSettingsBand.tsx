@@ -5,6 +5,7 @@ import { FullSizeImage } from '../info/FullSizeImage';
 import { roundNoteLines } from '../info/round-note-lines';
 import { Inlines } from '../info/RulesText';
 import { ScreenshotThumb } from '../info/ScreenshotThumb';
+import { usePopupPin } from './PopupIcon';
 
 /** Box classes that make an open Bracket box a subgrid of the rounds strip (title bar, band, body) on a desktop. */
 export const alignedBoxClass = 'min-[701px]:grid min-[701px]:grid-rows-subgrid';
@@ -51,6 +52,7 @@ function SettingsThumb({
   tournamentId: string;
 }) {
   const [openSrc, setOpenSrc] = useState<string | null>(null);
+  usePopupPin(openSrc !== null);
   return (
     <>
       <ScreenshotThumb

@@ -109,4 +109,29 @@ describe('RoundSettingsPopup', () => {
     expect(view.getByText('G2')).toBeTruthy();
     expect(view.getByText('Zap only')).toBeTruthy();
   });
+  it('stays open while a picture is shown full size, in the page body, and Escape closes the view first', () => {
+    const view = render(
+      <RoundSettingsPopup
+        settings={{ note: 'Powers: Ghost', games: [{ label: 'G1', note: '', picture: 'picGame001' }] }}
+        title='Final'
+        tournamentId='t1'
+      />,
+    );
+    const button = view.getByRole('button', { name: 'Round settings' });
+    fireEvent.focus(button);
+    fireEvent.click(view.getByAltText('Picture of Final · Game 1'));
+    const dialog = view.getByRole('dialog');
+    expect(dialog.closest('[role="tooltip"]')).toBeNull();
+    expect(document.body.contains(dialog)).toBe(true);
+
+    // The focus moving into the full-size view, or the mouse leaving the pop-up, does not close the pop-up under it.
+    fireEvent.blur(button, { relatedTarget: dialog });
+    fireEvent.mouseLeave(button.parentElement as HTMLElement);
+    expect(view.getByRole('tooltip')).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(view.queryByRole('dialog')).toBeNull();
+    // Nothing hovers the pop-up any more, so it closes with the view it was holding open.
+    expect(view.queryByRole('tooltip')).toBeNull();
+  });
 });

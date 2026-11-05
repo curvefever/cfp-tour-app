@@ -266,12 +266,63 @@ async function captureExitPopup(page: Page, fixtureId: string, nth: number, widt
   await page.mouse.move(0, 0);
 }
 
+const POPUP_FIXTURE = 'ffa43-quarters';
+
+/** Opens the Bracket of the fixture with the settings bands hidden, on the Final (the one round with settings). */
+async function openHiddenFinal(page: Page, width: number): Promise<void> {
+  const fixture = fixtureTournaments().find((entry) => entry.id === POPUP_FIXTURE);
+  if (!fixture) throw new Error(`the ${POPUP_FIXTURE} fixture is missing`);
+  await page.addInitScript(() => window.localStorage.setItem('curveFFA_round_settings_hidden', 'hidden'));
+  await serve(page, servedFor(fixture));
+  await open(page, `/?t=${fixture.id}`);
+  await page
+    .getByRole('navigation', { name: 'Tournament sections' })
+    .getByRole('button', { name: /Bracket/ })
+    .click();
+  // A phone shows one round at a time: its strip picks the Final.
+  if (width < 700)
+    await page
+      .getByRole('tab', { name: /^Final/ })
+      .first()
+      .click();
+}
+
+/** The full-size view's overlay covers the screen, and nothing (header, sticky panels, other columns) is drawn over it. */
+async function expectViewOnTop(page: Page): Promise<void> {
+  const covered = await page.evaluate(() => {
+    const dialog = document.querySelector('[role="dialog"]');
+    const overlay = dialog?.parentElement;
+    if (!dialog || !overlay) return ['no dialog'];
+    const { innerWidth: width, innerHeight: height } = window;
+    const box = dialog.getBoundingClientRect();
+    const points: Array<[number, number]> = [
+      [4, 4],
+      [width - 4, 4],
+      [4, height - 4],
+      [width - 4, height - 4],
+      [width / 2, 4],
+      [box.left + 8, box.top + 8],
+      [box.right - 8, box.top + 8],
+      [box.left + box.width / 2, box.top + box.height / 2],
+      [box.left + 8, box.bottom - 8],
+      [box.right - 8, box.bottom - 8],
+    ];
+    return points
+      .filter(([x, y]) => !overlay.contains(document.elementFromPoint(x, y)))
+      .map(([x, y]) => `${Math.round(x)},${Math.round(y)}`);
+  });
+  expect(covered, 'points where something is drawn over the full-size view').toEqual([]);
+}
+
 function servedFor(fixture: FixtureTournament): ServedPage {
   return {
     index: { [fixture.id]: fixtureIndexEntry(fixture) },
     stored: { [fixture.id]: storedState(fixture) },
     screenshots: Object.fromEntries(
-      (fixture.screenshotIds ?? []).map((id, index) => [id, lobbyPicture(index)]),
+      [
+        ...(fixture.screenshotIds ?? []),
+        ...Object.values(fixture.notePictures ?? {}).flatMap((slots) => Object.values(slots)),
+      ].map((id, index) => [id, lobbyPicture(index)]),
     ),
   };
 }
@@ -399,6 +450,56 @@ test.describe('screenshots of the viewer tabs', () => {
       });
     }
 
+    test(`a settings picture opens full size from the pop-up, above everything, at ${width}px`, async ({
+      page,
+    }) => {
+      const errors = collectConsoleErrors(page);
+      await page.setViewportSize({ width, height: 900 });
+      await openHiddenFinal(page, width);
+      const button = page.locator('button[aria-label="Round settings"][aria-expanded]:visible');
+      await button.focus();
+      const popup = page.getByRole('tooltip');
+      await expect(popup).toBeVisible();
+      await expect(popup.getByRole('img')).toHaveCount(2);
+      await popup.getByRole('button', { name: /Picture of Final · Game 1/ }).click();
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText('Final · Game 1');
+      await expect(dialog).toContainText('Powers: Ghost');
+      await expectViewOnTop(page);
+      const box = await dialog.boundingBox();
+      if (!box) throw new Error('the full-size view has no box');
+      // The pop-up must stay open under the view while the mouse moves over it.
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(200);
+      await expect(dialog).toBeVisible();
+      await page.screenshot({
+        path: `${OUTPUT_DIR}/${POPUP_FIXTURE}/settings-picture-full-size-${width}.png`,
+      });
+      await dialog.getByRole('button', { name: 'Close' }).click();
+      await expect(dialog).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
+
+    test(`a settings picture opens from the keyboard and Escape closes the full-size view at ${width}px`, async ({
+      page,
+    }) => {
+      test.skip(width !== WIDTHS[0], 'a keyboard check once is enough');
+      await page.setViewportSize({ width, height: 900 });
+      await openHiddenFinal(page, width);
+      await page.locator('button[aria-label="Round settings"][aria-expanded]:visible').focus();
+      // The pictures are read from the cache a moment after the pop-up opens; they take the focus once they are buttons.
+      await expect(page.getByRole('button', { name: /Picture of Final · Game 1/ })).toBeVisible();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('button', { name: /Picture of Final · Game 1/ })).toBeFocused();
+      await page.keyboard.press('Enter');
+      const dialog = page.getByRole('dialog');
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(dialog).toHaveCount(0);
+    });
+
     test(`the tournament list at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       // The one ongoing tournament loads by itself; its own fixture is the Quarters one.
@@ -462,6 +563,28 @@ test.describe('screenshots with touch', () => {
     hasTouch: true,
     isMobile: true,
     viewport: { width: 390, height: 844 },
+  });
+
+  test('a settings picture opens full size from the tapped pop-up, above everything, and closes', async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await openHiddenFinal(page, 390);
+    mkdirSync(`${OUTPUT_DIR}/${POPUP_FIXTURE}`, { recursive: true });
+    await page.locator('button[aria-label="Round settings"][aria-expanded]:visible').tap();
+    const popup = page.getByRole('tooltip');
+    await expect(popup).toBeVisible();
+    await popup.getByRole('button', { name: /Picture of Final · Game 1/ }).tap();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expectViewOnTop(page);
+    await page.screenshot({
+      path: `${OUTPUT_DIR}/${POPUP_FIXTURE}/settings-picture-full-size-touch-390.png`,
+    });
+    await dialog.getByRole('button', { name: 'Close' }).tap();
+    await expect(dialog).toHaveCount(0);
+    await expect(popup).toBeVisible();
+    expect(errors).toEqual([]);
   });
 
   test('the exit pop-ups open on tap, have a close button and stay inside the screen', async ({ page }) => {
