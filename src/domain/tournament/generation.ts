@@ -650,7 +650,7 @@ export function generateTournament(
     pointsVersion: 2,
     cutVersion: 2,
     groupAverageVersion: 2,
-    absenceVersion: 1,
+    absenceVersion: 2,
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

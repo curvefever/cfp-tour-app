@@ -3,6 +3,7 @@ import { orderRoomByScore } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import {
+  absenteeDestination,
   fitWaterfallRound,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
@@ -541,6 +542,41 @@ describe('waterfallDestination', () => {
     expect(pendingR3).toEqual([...(expectedByDestination.get(2) ?? [])].sort());
     expect(actualR2).toHaveLength(7);
     expect(pendingR3).toEqual(['B2', 'B4']);
+  });
+});
+
+describe('absenteeDestination', () => {
+  const round = buildRound({
+    roundNum: 1,
+    rooms: [8],
+    players: 8,
+    waterfallRoutes: [[1, 1, 2, 2, 3, 3, 3, 3]],
+  });
+
+  it('keeps a rank whose destination is the destination of the room’s last place', () => {
+    expect(absenteeDestination(round, 1, 8, 4)).toBe(3);
+    expect(absenteeDestination(round, 1, 8, 7)).toBe(3);
+  });
+
+  it('sends a rank that leads elsewhere out', () => {
+    expect(absenteeDestination(round, 1, 8, 0)).toBeNull();
+    expect(absenteeDestination(round, 1, 8, 3)).toBeNull();
+  });
+
+  it('reads the last place from the drawn size, not the declared one', () => {
+    expect(absenteeDestination(round, 1, 4, 3)).toBe(2);
+    expect(absenteeDestination(round, 1, 4, 1)).toBeNull();
+  });
+
+  it('is out everywhere when the last place is out', () => {
+    const lastOut = buildRound({
+      roundNum: 1,
+      rooms: [4],
+      players: 4,
+      waterfallRoutes: [[1, 1, 'eliminated', 'eliminated']],
+    });
+    expect(absenteeDestination(lastOut, 1, 4, 0)).toBeNull();
+    expect(absenteeDestination(lastOut, 1, 4, 3)).toBeNull();
   });
 });
 

@@ -1,13 +1,15 @@
+import { absentInRoom, routesAbsenteesByLastPlace } from './absences';
 import {
   buildAdvancementTiers,
   computeGroupStandings,
   doubleEliminationComputeAdvancement,
   orderedGroupExit,
   orderedQualificationTable,
+  roomUnitCount,
 } from './advancement';
 import { rosterKeys } from './roster';
 import type { PendingBracketSeed, TournamentRound, TournamentStanding, TournamentState } from './types';
-import { waterfallDestination } from './waterfall-bracket';
+import { absenteeDestination, waterfallDestination } from './waterfall-bracket';
 
 /**
  * Where the units of the bracket rounds already advanced from sit now, rebuilt from the recorded results:
@@ -81,6 +83,27 @@ export function doubleEliminationContributions(
   return { additions, lucky };
 }
 
+/** Where a unit of `room` at `rank` goes: its rank's destination, or for an absentee of a v2 tournament `absenteeDestination`. */
+function memberDestination(
+  state: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+): (name: string, room: number, rank: number) => number | null {
+  if (!routesAbsenteesByLastPlace(state)) {
+    return (_name, room, rank) => waterfallDestination(round, room, rank);
+  }
+  const absentByRoom = new Map<number, Set<string>>();
+  const absentIn = (room: number): Set<string> => {
+    const absent = absentByRoom.get(room) ?? new Set(absentInRoom(state, roundIndex, room));
+    absentByRoom.set(room, absent);
+    return absent;
+  };
+  return (name, room, rank) =>
+    absentIn(room).has(name)
+      ? absenteeDestination(round, room, roomUnitCount(state, roundIndex, room), rank)
+      : waterfallDestination(round, room, rank);
+}
+
 /**
  * Ranks every occupant of a waterfall round within their own room
  * (buildAdvancementTiers, called once over the WHOLE room, not a pre-split
@@ -92,7 +115,8 @@ export function doubleEliminationContributions(
  * inspect a round's outcome against a hypothetical routing without mutating
  * any pool. `round` is passed separately from `state.rounds[roundIndex]` so
  * a caller can rank against the live scores while routing through an edited
- * (not-yet-committed) round object.
+ * (not-yet-committed) round object. With `routesAbsenteesByLastPlace`, an absentee goes through
+ * `absenteeDestination` (it keeps its rank's seat only where the room's last place goes), not its bare rank.
  */
 export function routeWaterfallRound(
   state: TournamentState,
@@ -101,11 +125,12 @@ export function routeWaterfallRound(
 ): Map<number, PendingBracketSeed[]> {
   const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
   const tiers = buildAdvancementTiers(state, roundIndex, names);
+  const destinationOf = memberDestination(state, roundIndex, round);
 
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const tier of tiers) {
     for (const member of tier.members) {
-      const destination = waterfallDestination(round, member.sourceRoom, tier.rank);
+      const destination = destinationOf(member.name, member.sourceRoom, tier.rank);
       if (destination === null) continue;
       const additions = additionsByDestination.get(destination) ?? [];
       additions.push({ name: member.name, isLucky: false, tierRank: tier.rank, pct: member.pct });

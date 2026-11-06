@@ -3,6 +3,7 @@ import {
   isMemberMarkedAbsent,
   seatAbsenceKeys,
   oneScoreTeamMemberKey,
+  usesAbsences,
 } from '../../domain/tournament/absences';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { isOneScorePerTeam } from '../../domain/tournament/formats';
@@ -120,7 +121,7 @@ export interface OneScoreTeamMarkChoice {
 }
 
 function canMarkMembers(state: TournamentState): boolean {
-  return state.gamemodeConfig.absenceVersion === 1 && isOneScorePerTeam(state);
+  return usesAbsences(state) && isOneScorePerTeam(state);
 }
 
 /** The teams seated in the column in play, in seat order, with each member and whether it is marked. Empty outside One score per team. */

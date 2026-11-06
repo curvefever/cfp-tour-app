@@ -1127,6 +1127,21 @@ export function waterfallDestination(round: TournamentRound, room: number, rankI
   return typeof destination === 'number' ? destination : null;
 }
 
+/**
+ * Where an absentee at `rankIndex` of a room of `roomSize` drawn units (present and absent together) goes: its
+ * rank's destination only when that equals the destination of the room's last place, else null (it is out).
+ * An absentee never takes a seat above the room's last place. `room` 1-indexed, `rankIndex` 0-indexed.
+ */
+export function absenteeDestination(
+  round: TournamentRound,
+  room: number,
+  roomSize: number,
+  rankIndex: number,
+): number | null {
+  const destination = waterfallDestination(round, room, rankIndex);
+  return destination === waterfallDestination(round, room, roomSize - 1) ? destination : null;
+}
+
 /** The seats the graph declares for a waterfall round, whether or not it was drawn short. */
 export function declaredWaterfallRooms(round: TournamentRound): number[] {
   return round.declaredRooms ?? round.rooms;

@@ -1,5 +1,5 @@
 /**
- * Absentees (`gamemodeConfig.absenceVersion` 1). A typed score of 0 in the column in play asks the organiser whether
+ * Absentees (`gamemodeConfig.absenceVersion` 1 or 2). A typed score of 0 in the column in play asks the organiser whether
  * that unit (or member) played or was absent; the answer is kept in `state.absences`, keyed by the score key the 0
  * is stored under (`r{ri}-rm{room}-p{pos}`, then `-g{n}` in a multi-game round, then `-m{i}` for a member).
  *
@@ -41,7 +41,12 @@ export interface RoomAbsenceQuestions {
 
 /** The one switch: a tournament generated without `absenceVersion` behaves as before, with no questions and no marks. */
 export function usesAbsences(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
-  return state.gamemodeConfig.absenceVersion === 1;
+  return (state.gamemodeConfig.absenceVersion ?? 0) >= 1;
+}
+
+/** Whether a Custom bracket room keeps an absentee out of any seat above the room's last place (`absenceVersion` 2). */
+export function routesAbsenteesByLastPlace(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
+  return (state.gamemodeConfig.absenceVersion ?? 0) >= 2;
 }
 
 /** Whether a round's 0s are asked: every round but the Final and the grand final. */

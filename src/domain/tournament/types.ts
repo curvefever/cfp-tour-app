@@ -275,8 +275,8 @@ export interface MaterializedGamemodeConfig {
   cutVersion?: 2;
   /** How a group stage ranks its groups. Absent = total points, a bye and a lone unit's walkover counted as wins; 2 = points per match played, with a bye or a match against an absent or removed unit not counted (group-standings.ts, `usesGroupAverages`). generation.ts writes 2; a stored tournament without it keeps its standings. */
   groupAverageVersion?: 2;
-  /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 1; a stored tournament without it keeps its scores. */
-  absenceVersion?: 1;
+  /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 2; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`). */
+  absenceVersion?: 1 | 2;
   drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */
