@@ -1,6 +1,7 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
 import { isUnitAbsentFromRoom, withoutAbsenceAnswer, withoutSeatAbsences } from './absences';
 import { moveConfirmation } from './confirmations';
+import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { getGameFormat } from './formats';
@@ -223,7 +224,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     ),
     finalScores,
   };
-  return moveConfirmation(renamed, oldName, trimmed);
+  return moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed);
 }
 
 function rebuildFutureRounds(state: TournamentState): TournamentState | null {
@@ -1035,7 +1036,9 @@ export function renameTeamMember(
       index === memberIndex && item ? { ...item, name: trimmed } : item,
     ),
   }));
-  return renamed === state ? state : moveConfirmation(renamed, oldName, trimmed);
+  return renamed === state
+    ? state
+    : moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed);
 }
 
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
@@ -1082,6 +1085,7 @@ export function resetRoster(state: TournamentState): TournamentState {
     reserves: [],
     reserveIndividuals: [],
     confirmations: {},
+    backFromAbsence: {},
     confirmedCount: null,
     withdrawnUnits: [],
     reserveOpen: true,
@@ -1110,6 +1114,7 @@ export function withoutDrawnSchedule(state: TournamentState): TournamentState {
     pendingBracketSeeds: {},
     tieResolutions: {},
     absences: {},
+    backFromAbsence: {},
     defenderChanges: {},
     roomHistory: {},
     anonymousFinalists: [],
@@ -1130,6 +1135,7 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     pendingBracketSeeds: {},
     tieResolutions: {},
     absences: {},
+    backFromAbsence: {},
     luckyLosers: [],
     byes: [],
     defenderChanges: {},

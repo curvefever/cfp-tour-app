@@ -1,5 +1,5 @@
 /**
- * Absentees (`gamemodeConfig.absenceVersion` 1 or 2). A typed score of 0 in the column in play asks the organiser whether
+ * Absentees (`gamemodeConfig.absenceVersion` 1, 2 or 3). A typed score of 0 in the column in play asks the organiser whether
  * that unit (or member) played or was absent; the answer is kept in `state.absences`, keyed by the score key the 0
  * is stored under (`r{ri}-rm{room}-p{pos}`, then `-g{n}` in a multi-game round, then `-m{i}` for a member).
  *
@@ -43,6 +43,11 @@ export interface RoomAbsenceQuestions {
 /** The one switch: a tournament generated without `absenceVersion` behaves as before, with no questions and no marks. */
 export function usesAbsences(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
   return (state.gamemodeConfig.absenceVersion ?? 0) >= 1;
+}
+
+/** Whether the draws and the confirmation marks know who was absent last round (`absenceVersion` 3, `likely-absentees.ts`). */
+export function tracksLikelyAbsentees(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
+  return (state.gamemodeConfig.absenceVersion ?? 0) >= 3;
 }
 
 /** Whether a Custom bracket room keeps an absentee out of any seat above the room's last place (`absenceVersion` 2). */
@@ -195,6 +200,25 @@ export function isUnitAbsentFromRoom(
   const unit = unitsOfRoom(state, roundIndex, room)[position];
   if (!hasAnswers(state) || !roundAsks(state.rounds[roundIndex]) || unit === undefined) return false;
   return isSeatAbsent(state, seatQuestions(state, roundIndex, room, position, unit));
+}
+
+/**
+ * Whether the unit at `position` of the room played: a score of its own that is not an absence. An unanswered 0 does not
+ * count yet (its question is still open), except in One score per team where a 0 is never asked and counts as played.
+ */
+export function seatHasPlayed(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  position: number,
+): boolean {
+  const unit = unitsOfRoom(state, roundIndex, room)[position];
+  if (unit === undefined || !roundAsks(state.rounds[roundIndex])) return false;
+  return seatQuestions(state, roundIndex, room, position, unit).some(({ key }) => {
+    const score = scoreOrDefault(state.scores[key], null);
+    if (score === null || isMarkedAbsent(state, key)) return false;
+    return score > 0 || answerOf(state, key) === 'played' || isOneScorePerTeam(state);
+  });
 }
 
 /** The units absent from a room, in seat order. */
