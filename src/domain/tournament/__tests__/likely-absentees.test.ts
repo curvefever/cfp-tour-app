@@ -7,7 +7,14 @@ import {
   markBack,
   unmarkBack,
 } from '../likely-absentees';
-import { renameIndividual, resetRoster, resetTournamentState, swapIndividual } from '../mutations';
+import { ONE_SCORE_PER_TEAM } from '../formats';
+import {
+  renameIndividual,
+  renameTeamMember,
+  resetRoster,
+  resetTournamentState,
+  swapIndividual,
+} from '../mutations';
 import type { TournamentState } from '../types';
 import { oneRoomState, teamOf } from './test-fixtures';
 
@@ -109,6 +116,20 @@ describe('likely absentees', () => {
     expect(likelyAbsentees(back, 1).size).toBe(0);
   });
 
+  it('in One score per team a 0 is never asked, so an unanswered 0 in a later round is a round played', () => {
+    const base = oneRoomState({
+      gameFormat: 'team-2v2v2v2',
+      rule: ONE_SCORE_PER_TEAM,
+      rounds: [{}, {}, {}],
+      players: [teamOf('Red', ['a', 'b']), teamOf('Blue', ['c', 'd'])],
+      scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50, 'r1-rm1-p0': 0, 'r1-rm1-p1': 50 },
+    });
+    const state = { ...base, gamemodeConfig: { ...base.gamemodeConfig, absenceVersion: 3 as const } };
+    const absent = answerAbsence({ ...state, curRound: 0 }, ['r0-rm1-p0'], 'absent');
+    expect([...likelyAbsentees(absent, 1)]).toEqual(['Red']);
+    expect(isLikelyAbsent(absent, 'Red', 2)).toBe(false);
+  });
+
   it('a version 2 state never has likely absentees, and marking back changes nothing', () => {
     const state = annAbsentInRound1(2);
     expect(likelyAbsentees(state, 1).size).toBe(0);
@@ -125,6 +146,21 @@ describe('likely absentees', () => {
 });
 
 describe('the back marks of a tournament', () => {
+  it('follow a renamed team member: the mark moves to the new name and the team stays back', () => {
+    const base = oneRoomState({
+      gameFormat: 'team-2v2v2v2',
+      rule: 'sum-members',
+      rounds: [{}, {}],
+      players: [teamOf('Red', ['a', 'b']), teamOf('Blue', ['c', 'd'])],
+      scores: { 'r0-rm1-p0-m0': 0, 'r0-rm1-p0-m1': 0, 'r0-rm1-p1-m0': 50, 'r0-rm1-p1-m1': 50 },
+    });
+    const state = { ...base, gamemodeConfig: { ...base.gamemodeConfig, absenceVersion: 3 as const } };
+    const absent = answerAbsence(state, ['r0-rm1-p0-m0', 'r0-rm1-p0-m1'], 'absent');
+    const renamed = renameTeamMember(markBack(absent, 'b'), 'Red', 1, 'bee');
+    expect(renamed.backFromAbsence).toEqual({ bee: 0 });
+    expect(likelyAbsentees(renamed, 1).size).toBe(0);
+  });
+
   it('follow a rename', () => {
     const renamed = renameIndividual(markBack(annAbsentInRound1(), 'Ann'), 'Ann', 'Anna');
     expect(renamed.backFromAbsence).toEqual({ Anna: 0 });
