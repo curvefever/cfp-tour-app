@@ -5,6 +5,7 @@ import {
   isStandingsCutoffRound,
 } from './advancement';
 import { lateJoinersOf } from './late-joiners';
+import { likelyAbsentees } from './likely-absentees';
 import { lexicographicMinAssignment } from './assignment';
 import type { GroupExitSelection } from './group-exit';
 import {
@@ -308,18 +309,55 @@ export function seedPoolByStanding(options: {
   state: Pick<TournamentState, 'assignments'>;
   targetRoundIndex: number;
   groups?: { groups: TournamentGroup[]; throughByGroup: string[][] };
+  /** The units of the pool likely to be absent (`likelyAbsentees`): placed first, one to a room. */
+  likelyAbsent?: ReadonlySet<string>;
 }): RoundAssignment[] {
   const { pool, roomSizes, state, targetRoundIndex, groups } = options;
   const ordered = [...pool].sort((first, second) => first.tierRank - second.tierRank);
-  const exitOrder = ordered.map((entry) => entry.name);
-  const snake = snakeSeed(ordered, roomSizes);
-  if (groups) {
-    return avoidSameGroupInFirstBracketRound(snake, groups.groups, {
-      advancing: exitOrder,
-      throughByGroup: groups.throughByGroup,
-    });
-  }
-  return avoidMetPairsNearRank(snake, exitOrder, metPairs(state, targetRoundIndex - 1));
+  return snakeAroundLikelyAbsentees(
+    ordered,
+    roomSizes,
+    options.likelyAbsent ?? new Set<string>(),
+    targetRoundIndex,
+    (snake, exitOrder) =>
+      groups
+        ? avoidSameGroupInFirstBracketRound(snake, groups.groups, {
+            advancing: exitOrder,
+            throughByGroup: groups.throughByGroup,
+          })
+        : avoidMetPairsNearRank(snake, exitOrder, metPairs(state, targetRoundIndex - 1)),
+  );
+}
+
+/**
+ * The snake over the rooms for candidates in exit order (best first), with the likely absentees placed first, one to
+ * a room (`placeLikelyAbsentees`): the others snake into the seats left, and `separate` (the near-neighbour or
+ * group-mate pass) works over them alone. Without a likely absentee it is the plain snake and separation.
+ */
+function snakeAroundLikelyAbsentees(
+  ordered: SeedCandidate[],
+  roomSizes: readonly number[],
+  likelyAbsent: ReadonlySet<string>,
+  targetRoundIndex: number,
+  separate: (snake: RoundAssignment[], exitOrder: string[]) => RoundAssignment[],
+): RoundAssignment[] {
+  const members = ordered.map((candidate, index) => ({ name: candidate.name, tierRank: index }));
+  const weights = { roomHistory: {}, targetRoundIndex, diversityWeight: 0, balanceWeight: 1 };
+  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, roomSizes, likelyAbsent, weights);
+  const others = ordered.filter((candidate) => rest.some((member) => member.name === candidate.name));
+  const seeded = separate(
+    snakeSeed(others, seatsLeft),
+    others.map((candidate) => candidate.name),
+  );
+  const luckyNames = new Set(
+    ordered.filter((candidate) => candidate.isLucky).map((candidate) => candidate.name),
+  );
+  const absentees: RoundAssignment[] = placed.map(({ name, room }) => ({
+    name,
+    room,
+    isLucky: luckyNames.has(name),
+  }));
+  return inPoolOrder(absentees, seeded, members);
 }
 
 /**
@@ -341,11 +379,16 @@ export function seedFromPoolingExit(options: {
   if (seedingOverride) {
     seeded = tieredSeed({ state, roundIndex, advancing, seedingOverride }).seeded;
   } else {
-    seeded = snakeSeed(advancing, state.rounds[roundIndex + 1]?.rooms ?? []);
-    if (!isGroupExit) {
-      const exitOrder = advancing.map((entry) => entry.name);
-      seeded = avoidMetPairsNearRank(seeded, exitOrder, metPairs(state, roundIndex));
-    }
+    const rooms = state.rounds[roundIndex + 1]?.rooms ?? [];
+    seeded = isGroupExit
+      ? snakeSeed(advancing, rooms)
+      : snakeAroundLikelyAbsentees(
+          advancing,
+          rooms,
+          likelyAbsentees(state, roundIndex + 1),
+          roundIndex + 1,
+          (snake, exitOrder) => avoidMetPairsNearRank(snake, exitOrder, metPairs(state, roundIndex)),
+        );
   }
   return isGroupExit ? avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit) : seeded;
 }
@@ -626,6 +669,37 @@ export interface WaveMember {
   tierRank: number;
 }
 
+interface RoomChoiceWeights {
+  roomHistory: Record<string, number>;
+  targetRoundIndex: number;
+  diversityWeight: number;
+  balanceWeight: number;
+}
+
+/**
+ * What seating `member` in `room` costs: the repeat pairs it makes with the room's units so far (recency weighted)
+ * and how far its tierRank total pushes the room from `mean`, blended by the weights.
+ */
+function roomChoiceCost(
+  member: WaveMember,
+  room: number,
+  roomMembersSoFar: Map<number, string[]>,
+  roomBalanceSoFar: Map<number, number>,
+  mean: number,
+  options: RoomChoiceWeights,
+): number {
+  let repeatScore = 0;
+  for (const existing of roomMembersSoFar.get(room) ?? []) {
+    const lastRound = options.roomHistory[roomPairKey(member.name, existing)];
+    // A meeting at or after the round being drawn is a stale or planned entry (e.g. a
+    // re-draw of an already drawn round), not a past repeat; roundsAgo would be 0 or negative.
+    if (lastRound === undefined || lastRound >= options.targetRoundIndex) continue;
+    repeatScore += recencyWeight(options.targetRoundIndex - lastRound);
+  }
+  const balanceCost = Math.abs((roomBalanceSoFar.get(room) ?? 0) + member.tierRank - mean);
+  return options.diversityWeight * repeatScore + options.balanceWeight * balanceCost;
+}
+
 /**
  * Assigns `members` (one candidate per room this wave) to `roomNumbers`,
  * picking whichever assignment minimizes a weighted blend of (a) new
@@ -669,23 +743,78 @@ export function assignWaveToRooms(
   const mean = totalBalance / (totalRooms.size || 1);
 
   const cost = members.map((member) =>
-    roomNumbers.map((room) => {
-      let repeatScore = 0;
-      for (const existing of roomMembersSoFar.get(room) ?? []) {
-        const lastRound = options.roomHistory[roomPairKey(member.name, existing)];
-        // A meeting at or after the round being drawn is a stale or planned entry (e.g. a
-        // re-draw of an already drawn round), not a past repeat; roundsAgo would be 0 or negative.
-        if (lastRound === undefined || lastRound >= options.targetRoundIndex) continue;
-        repeatScore += recencyWeight(options.targetRoundIndex - lastRound);
-      }
-      const balanceCost = Math.abs((roomBalanceSoFar.get(room) ?? 0) + member.tierRank - mean);
-      return options.diversityWeight * repeatScore + options.balanceWeight * balanceCost;
-    }),
+    roomNumbers.map((room) =>
+      roomChoiceCost(member, room, roomMembersSoFar, roomBalanceSoFar, mean, options),
+    ),
   );
   return lexicographicMinAssignment(cost).map((column, index) => ({
     name: members[index].name,
     room: roomNumbers[column],
   }));
+}
+
+export interface LikelyAbsenteePlacement {
+  placed: Array<{ name: string; room: number }>;
+  /** The seats each room has left for the other units (its planned size less the absentees placed), by room number - 1. */
+  seatsLeft: number[];
+  /** The members that are not placed, in their order. */
+  rest: WaveMember[];
+}
+
+/**
+ * Places the likely absentees among `members` (best tier first) before anyone else, so no room is drawn full of
+ * players while another waits for the ones who do not come. A room is judged by its expected size, its planned seats
+ * less the absentees already placed. Each absentee goes to a room with the fewest absentees so far (never two in one
+ * room while another has fewer), of those to the one with the largest expected size (none in a room that is already
+ * the smaller one while a larger has none), then to the room the repeat pairs and balance of `weights` prefer, then to
+ * the lowest room number. The others are drawn as usual into `seatsLeft`. Rooms of two (head to head) place nobody.
+ */
+export function placeLikelyAbsentees(
+  members: WaveMember[],
+  roomSizes: readonly number[],
+  likelyAbsent: ReadonlySet<string>,
+  weights: RoomChoiceWeights,
+): LikelyAbsenteePlacement {
+  const seatsLeft = [...roomSizes];
+  const absentees =
+    likelyAbsent.size === 0 || roomSizes.every((size) => size <= 2)
+      ? []
+      : members.filter((member) => likelyAbsent.has(member.name));
+  const rooms = roomSizes.map((_, index) => index + 1);
+  const absenteesIn = new Map<number, string[]>(rooms.map((room) => [room, []]));
+  const balance = new Map<number, number>(rooms.map((room) => [room, 0]));
+  const placed: Array<{ name: string; room: number }> = [];
+  for (const member of absentees) {
+    const open = rooms.filter((room) => seatsLeft[room - 1] > 0);
+    if (open.length === 0) break;
+    const fewest = Math.min(...open.map((room) => absenteesIn.get(room)?.length ?? 0));
+    const lightest = open.filter((room) => (absenteesIn.get(room)?.length ?? 0) === fewest);
+    const largest = Math.max(...lightest.map((room) => seatsLeft[room - 1]));
+    const tied = lightest.filter((room) => seatsLeft[room - 1] === largest);
+    const mean =
+      ([...balance.values()].reduce((sum, value) => sum + value, 0) + member.tierRank) / rooms.length;
+    const costs = tied.map((room) => roomChoiceCost(member, room, absenteesIn, balance, mean, weights));
+    const room = tied[costs.indexOf(Math.min(...costs))];
+    absenteesIn.set(room, [...(absenteesIn.get(room) ?? []), member.name]);
+    balance.set(room, (balance.get(room) ?? 0) + member.tierRank);
+    seatsLeft[room - 1] -= 1;
+    placed.push({ name: member.name, room });
+  }
+  const placedNames = new Set(placed.map(({ name }) => name));
+  return { placed, seatsLeft, rest: members.filter((member) => !placedNames.has(member.name)) };
+}
+
+/** The assignments of `placed` and `drawn` together, in the order of `order` (the pool order every draw returns). */
+function inPoolOrder<T extends { name: string }>(
+  placed: T[],
+  drawn: T[],
+  order: Array<{ name: string }>,
+): T[] {
+  if (placed.length === 0) return drawn;
+  const position = new Map(order.map((member, index) => [member.name, index]));
+  return [...placed, ...drawn].sort(
+    (first, second) => (position.get(first.name) ?? 0) - (position.get(second.name) ?? 0),
+  );
 }
 
 /**
@@ -732,6 +861,31 @@ function fillRoomsByWaves(options: {
   return result;
 }
 
+/** A 'random' override: the likely absentees are placed first as in every draw, the others are shuffled into the seats left. */
+function randomRoomAssignmentAround(
+  names: string[],
+  rooms: number[],
+  seedKey: string,
+  isLuckyByName: Map<string, boolean>,
+  likelyAbsent: ReadonlySet<string>,
+): RoundAssignment[] {
+  const members = names.map((name, index) => ({ name, tierRank: index }));
+  const weights = { roomHistory: {}, targetRoundIndex: 0, diversityWeight: 0, balanceWeight: 0 };
+  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, rooms, likelyAbsent, weights);
+  const drawn = seededRandomRoomAssignment(
+    rest.map((member) => member.name),
+    seatsLeft,
+    seedKey,
+    isLuckyByName,
+  );
+  const absentees = placed.map(({ name, room }) => ({
+    name,
+    room,
+    isLucky: isLuckyByName.get(name) ?? false,
+  }));
+  return [...drawn, ...absentees].sort((first, second) => (first.room ?? 0) - (second.room ?? 0));
+}
+
 /**
  * Replaces snakeSeed for every ordinary room-based reseed (no-elim/pooling
  * warmup, Qualification Table, and real single-elimination/team-format
@@ -758,13 +912,15 @@ export function tieredSeed(options: {
 
   const isLuckyByName = new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)]));
 
+  const likelyAbsent = likelyAbsentees(state, targetRoundIndex);
   if (seedingOverride === 'random') {
     return {
-      seeded: seededRandomRoomAssignment(
+      seeded: randomRoomAssignmentAround(
         advancing.map((entry) => candidateName(entry)),
         nextRound.rooms,
         `${targetRoundIndex}`,
         isLuckyByName,
+        likelyAbsent,
       ),
     };
   }
@@ -789,11 +945,22 @@ export function tieredSeed(options: {
   }
 
   const allRoomNumbers = nextRound.rooms.map((_, index) => index + 1);
+  // The likely absentees go first, one to a room; everyone else is drawn into the seats that are left.
+  const {
+    placed: absentees,
+    seatsLeft,
+    rest,
+  } = placeLikelyAbsentees(flat, nextRound.rooms, likelyAbsent, {
+    roomHistory: state.roomHistory,
+    targetRoundIndex,
+    diversityWeight,
+    balanceWeight,
+  });
   const fill = (members: WaveMember[], roomNumbers: number[]) =>
     fillRoomsByWaves({
       members,
       roomNumbers,
-      roomSizes: nextRound.rooms,
+      roomSizes: seatsLeft,
       roomHistory: state.roomHistory,
       targetRoundIndex,
       diversityWeight,
@@ -808,8 +975,8 @@ export function tieredSeed(options: {
     : splitByFinishingPlace;
   const split = spreadsSmallerRoomSeats(nextRound)
     ? splitRound(
-        flat,
-        nextRound.rooms,
+        rest,
+        seatsLeft,
         smallerRoomSeatsBefore(state, targetRoundIndex),
         new Set(lateJoinersOf(state, roundIndex)),
       )
@@ -817,14 +984,15 @@ export function tieredSeed(options: {
   let result: Array<{ name: string; room: number }>;
   if (split) {
     const largeRooms = allRoomNumbers.filter((room) => !split.smallRooms.includes(room));
-    const placed = [...fill(split.small, split.smallRooms), ...fill(split.large, largeRooms)];
+    const drawn = [...fill(split.small, split.smallRooms), ...fill(split.large, largeRooms)];
     const position = new Map(flat.map((member, index) => [member.name, index]));
-    result = placed.sort(
+    result = drawn.sort(
       (first, second) => (position.get(first.name) ?? 0) - (position.get(second.name) ?? 0),
     );
   } else {
-    result = fill(flat, allRoomNumbers);
+    result = fill(rest, allRoomNumbers);
   }
+  result = inPoolOrder(absentees, result, flat);
 
   const seeded: RoundAssignment[] = result.map(({ name, room }) => ({
     name,
@@ -886,19 +1054,23 @@ export function tieredBracketSeed(options: {
   rounds: TournamentRound[];
   targetRoundIndex: number;
   seedingOverride?: SeedingOverride;
+  /** The units of the pool likely to be absent (`likelyAbsentees`): placed first, one to a room. */
+  likelyAbsent?: ReadonlySet<string>;
 }): { seeded: RoundAssignment[] } {
   const { pool, roomSizes, roomHistory, rounds, targetRoundIndex, seedingOverride } = options;
+  const likelyAbsent = options.likelyAbsent ?? new Set<string>();
   if (roomSizes.length === 0) return { seeded: [] };
 
   const isLuckyByName = new Map(pool.map((entry) => [entry.name, Boolean(entry.isLucky)]));
 
   if (seedingOverride === 'random') {
     return {
-      seeded: seededRandomRoomAssignment(
+      seeded: randomRoomAssignmentAround(
         pool.map((entry) => entry.name),
         roomSizes,
         `${targetRoundIndex}`,
         isLuckyByName,
+        likelyAbsent,
       ),
     };
   }
@@ -918,37 +1090,16 @@ export function tieredBracketSeed(options: {
       first.tierRank - second.tierRank || second.pct - first.pct || first.name.localeCompare(second.name),
   );
 
-  const allRoomNumbers = roomSizes.map((_, index) => index + 1);
-  const maxWave = Math.max(0, ...roomSizes);
-  const roomMembersSoFar = new Map<number, string[]>(allRoomNumbers.map((room) => [room, []]));
-  const roomBalanceSoFar = new Map<number, number>(allRoomNumbers.map((room) => [room, 0]));
-  const result: Array<{ name: string; room: number }> = [];
-  let cursor = 0;
-  for (let wave = 0; wave < maxWave; wave += 1) {
-    const waveRooms = roomSizes
-      .map((size, index) => ({ size, room: index + 1 }))
-      .filter(({ size }) => size > wave)
-      .map(({ room }) => room);
-    const members = sorted.slice(cursor, cursor + waveRooms.length).map((entry) => ({
-      name: entry.name,
-      tierRank: entry.tierRank,
-    }));
-    cursor += waveRooms.length;
-    if (members.length === 0) continue;
-    const assigned = assignWaveToRooms(members, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
-      roomHistory,
-      targetRoundIndex,
-      allRoomNumbers,
-      diversityWeight,
-      balanceWeight,
-    });
-    for (const { name, room } of assigned) {
-      roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
-      const tierRank = members.find((member) => member.name === name)?.tierRank ?? 0;
-      roomBalanceSoFar.set(room, (roomBalanceSoFar.get(room) ?? 0) + tierRank);
-      result.push({ name, room });
-    }
-  }
+  const members: WaveMember[] = sorted.map((entry) => ({ name: entry.name, tierRank: entry.tierRank }));
+  const weights = { roomHistory, targetRoundIndex, diversityWeight, balanceWeight };
+  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, roomSizes, likelyAbsent, weights);
+  const drawn = fillRoomsByWaves({
+    ...weights,
+    members: rest,
+    roomNumbers: roomSizes.map((_, index) => index + 1),
+    roomSizes: seatsLeft,
+  });
+  const result = inPoolOrder(placed, drawn, members);
 
   const seeded: RoundAssignment[] = result.map(({ name, room }) => ({
     name,

@@ -20,6 +20,7 @@ import {
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
+import { likelyAbsentees } from './likely-absentees';
 import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
@@ -279,6 +280,7 @@ export function seedRoundFromPendingPool(
   const failure = fitNextRound(state, roundIndex, pool.length, byeNames.length);
   if (failure) return failure;
   const roomSizes = state.rounds[roundIndex].rooms;
+  const likelyAbsent = likelyAbsentees(state, roundIndex);
   const assignments =
     !options.seedingOverride && isFedOnlyByStandings(state.rounds, roundIndex)
       ? seedPoolByStanding({
@@ -286,6 +288,7 @@ export function seedRoundFromPendingPool(
           roomSizes,
           state,
           targetRoundIndex: roundIndex,
+          likelyAbsent,
           ...(state.rounds.some((round) => round.isGroupStage && round.standingsRoutes)
             ? {
                 groups: {
@@ -302,6 +305,7 @@ export function seedRoundFromPendingPool(
           rounds: state.rounds,
           targetRoundIndex: roundIndex,
           seedingOverride: options.seedingOverride,
+          likelyAbsent,
         }).seeded;
   state.byes[roundIndex] = byeNames;
   for (const name of byeNames) {
