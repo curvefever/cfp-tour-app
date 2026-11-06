@@ -183,6 +183,14 @@ describe('One score per team member marks', () => {
     expect(oneScoreTeamMarkChoices(marked)[1].members.map((member) => member.marked)).toEqual([true, false]);
   });
 
+  it('offers the same marks in a tournament of absenceVersion 2', () => {
+    const base = oneScorePerTeam();
+    const state = { ...base, gamemodeConfig: { ...base.gamemodeConfig, absenceVersion: 2 as const } };
+    expect(oneScoreTeamMarkChoices(state).map((choice) => choice.teamLabel)).toEqual(['Red', 'Blue']);
+    const marked = markOneScoreTeamMemberAbsent(state, 0, 1, 1, 0);
+    expect(oneScoreTeamMarkRows(marked).map((row) => row.label)).toEqual(['Cy (Blue)']);
+  });
+
   it('offers nothing in a tournament without absenceVersion, even with a mark stored', () => {
     const state = oneRoomState({
       gameFormat: 'team-2v2v2v2',
