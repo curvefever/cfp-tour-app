@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
 import { routeWaterfallRound } from '../bracket-replay';
-import { generateTournament } from '../generation';
 import { computeRankings } from '../rankings';
-import { createTournamentRuntime } from '../runtime';
-import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { scoreCurrentRound } from './play-through';
+import { ABSENTEE_GRAPH, r1WithFiveAbsent } from './absentee-bracket-fixture';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 type Routes = Array<number | 'eliminated'>;
@@ -103,53 +101,8 @@ describe('a Custom bracket room routes its absentees by the room’s last place 
   });
 });
 
-const GRAPH = `
-ROUNDS:
-R1 = 2x8
-Semi A = 8
-Lower = 8
-Final = 8 FINAL
-
-ROUTES:
-R1.A: 1-4->Semi A, 5-8->Lower
-R1.B: 1-4->Semi A, 5-8->Lower
-Semi A: 1-4->Final, 5-8->eliminated
-Lower: 1-4->Final, 5-8->eliminated
-`;
-
 const indexOf = (state: TournamentState, label: string): number =>
   state.rounds.findIndex((round: TournamentRound) => round.customLabel === label);
-
-/** 16 FFA players, no pooling, advanced to R1; room A of R1 has 5 absent (seats 4-8), room B all present. */
-function r1WithFiveAbsent(): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: 16,
-      players: Array.from({ length: 16 }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({
-      gameFormat: 'ffa-individual',
-      scheduleLogic: 'waterfall-bracket',
-      poolingPhase: 'none',
-      waterfallGraph: GRAPH,
-    }),
-    createTournamentRuntime(),
-  );
-  if (result.status !== 'generated') throw new Error('generation failed');
-  let state: TournamentState = { ...result.state, started: true };
-  while (state.rounds[state.curRound].customLabel !== 'R1') {
-    const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-    if (advanced.status !== 'advanced') throw new Error(`could not reach R1: ${advanced.status}`);
-    state = advanced.state;
-  }
-  const keys = [3, 4, 5, 6, 7].map((seat) => `r${state.curRound}-rm1-p${seat}`);
-  const scored = scoreCurrentRound(state, 0);
-  const zeroed = {
-    ...scored,
-    scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
-  };
-  return answerAbsence(zeroed, keys, 'absent');
-}
 
 describe('a generated Custom bracket with absentees in a room', () => {
   it('generation writes absenceVersion 2', () => {
@@ -195,7 +148,7 @@ describe('a generated Custom bracket with absentees in a room', () => {
   it('the live graph edit replays the advanced round to the same line-ups', () => {
     const advanced = advanceTournamentRound(r1WithFiveAbsent());
     if (advanced.status !== 'advanced') throw new Error('expected to advance');
-    const edited = applyWaterfallGraphEdit(advanced.state, GRAPH);
+    const edited = applyWaterfallGraphEdit(advanced.state, ABSENTEE_GRAPH);
     expect(edited.ok).toBe(true);
     if (!edited.ok) return;
     const semiIndex = indexOf(advanced.state, 'Semi A');
