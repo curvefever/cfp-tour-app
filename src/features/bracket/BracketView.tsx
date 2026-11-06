@@ -28,6 +28,8 @@ import { FollowBanner } from './FollowBanner';
 import { rememberedFollow } from './follow-text';
 import { RoundSettingsToggle } from './RoundSettingsToggle';
 import { AbsenceBanners } from './AbsenceBanners';
+import { LIKELY_ABSENT_LINE_ID, LikelyAbsentLine } from './LikelyAbsentLine';
+import { likelyAbsentChips } from './likely-absent-line';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
 import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
@@ -72,6 +74,7 @@ export function BracketView() {
     );
   }
   const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
+  const likelyAbsent = editable ? likelyAbsentChips(app.state) : [];
   const pendingTies = hasPendingColumnTies(app.state);
   const pendingAbsences = hasBlockingAbsenceQuestions(app.state);
   const currentRound = app.state.rounds[app.state.curRound];
@@ -154,6 +157,7 @@ export function BracketView() {
       </div>
       {editable ? <TieBanners state={app.state} /> : null}
       {editable ? <AbsenceBanners state={app.state} /> : null}
+      <LikelyAbsentLine chips={likelyAbsent} />
       {message ? <Alert tone='danger'>{message}</Alert> : null}
       {app.unlocked && !app.isViewer && finishReminderFor(app.state) ? (
         <div className='mb-4.5'>
@@ -212,6 +216,20 @@ export function BracketView() {
               }
             >
               ← Previous
+            </Button>
+          ) : null}
+          {likelyAbsent.length ? (
+            <Button
+              className='ml-auto text-cfp-danger-text'
+              onClick={() =>
+                document
+                  .getElementById(LIKELY_ABSENT_LINE_ID)
+                  ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }
+              size='sm'
+              variant='ghost'
+            >
+              {likelyAbsent.length} likely absent ↑
             </Button>
           ) : null}
         </ButtonRow>
