@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Likely absent on the Bracket: a line of names to mark back, and a count beside Next Round (built — 2026-11-06, on local `test`, not pushed)
+## Likely absent on the Bracket: a line of names to mark back, and a count beside Next Round (done — 2026-11-06, on `main`; the test site was down, so `test` was not pushed)
 
 **Context.** After "Absentees in the draw" the organiser asked what stops someone being missed or forgotten as likely absent: the red "?" lives only on the Players/Rankings tab, which is not the tab a tournament is run from, and a fast tournament leaves no time to visit it. Nothing is lost when a mark is forgotten (the unit is drawn like anyone, and a score makes it present), but the draw is better when a returning unit is marked back before Next Round. The decision (2026-11-06): a line on the Bracket, before the Custom bracket small fixes.
 
@@ -18,7 +18,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** `likely-absent-line.test.ts` (9 tests), on the generated 31-player tournament (rooms 8, 8, 8, 7) of `afterRound1`: six units absent in round 1 listed after the draw in room order, with the title "Absent in Round 1 — click when back"; before Next Round the five answered absent in a Custom bracket's round in play; a unit marked back and a unit with a score in the new round not listed, the others kept; a version 2 state lists nobody; a swapped-out unit and its replacement not listed; a withdrawn unit not listed even when the assignments still hold it; a unit of a side round of the column in play (Lower beside Semi A) listed; a team with every member absent is one chip (label "Red", first member "a" to click), and a team with one member absent or one member back is not. `LikelyAbsentLine.render.test.tsx` (5 tests): the admin Bracket shows "Likely absent (6)", a chip per name and "6 likely absent ↑"; a chip click gives the same alert as the toggle ("… is back: moved to Room X."), the unit moves, the line drops to 5 and the count with it; a viewer sees neither; nobody absent and a version 2 state show neither. `vitest related` on the 7 changed files: 14 files, 404 tests, with eslint, prettier and the types clean. The reviewer's 7 mutation checks (withdrawn kept, no room order, a team clicking its unit name, only the first round of the column walked, the line shown to viewers, the count's number dropped, no alert from the shared hook) were all caught. Screenshots (screens project, temporary fake admin removed afterwards), cropped: the line and the sticky bar at 1280 and 390 px, with two names and with one team chip; at 390 px the detail line wraps to two lines and the count sits on its own row under the buttons.
 
-**Full suite:** not run (no shared code).
+**Full suite:** not run for the build (no shared code); passed on `3b5fbac` before the push to `main` (reviewer; 178 files, 4561 tests, no failure).
 
 **Live check:** none (the line reads the state and calls the toggle's own click, live-checked in "Absentees in the draw").
 
