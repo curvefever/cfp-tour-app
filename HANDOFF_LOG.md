@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Custom bracket: an absentee never takes a seat above the room's last place (built — 2026-11-06, on local `test`, not pushed)
+## Custom bracket: an absentee never takes a seat above the room's last place (done — 2026-11-06, on `main` at `cb50c29`; the test site was down, so `test` was not pushed)
 
 **Context.** In a Custom bracket (code: waterfall) an absentee was ranked after every present unit of its room and routed by that rank, so a room of 8 routing 1-4 to Semi A and 5-8 to Lower, with 5 absent, sent its 3 present units and the first absentee to Semi A. This was the queue item "A waterfall's routing is fixed by place", narrowed by the organiser to absentees. Built in three stages on local `test`, one commit each, with a review after each.
 
