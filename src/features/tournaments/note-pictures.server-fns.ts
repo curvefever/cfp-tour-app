@@ -5,6 +5,7 @@ import {
   copyableNotePictures,
   MAX_NOTE_PICTURES,
   type NotePictureEntry,
+  notePicturesAfterRemoval,
   notePicturesOf,
   storedNotePictures,
   validateNotePictureSlot,
@@ -12,7 +13,6 @@ import {
   validateNotePictureUpload,
   withNotePicture,
   withNotePicturesAdded,
-  withoutNotePicture,
 } from './note-pictures.shared';
 import { newImageId, requestPaths, requireEditableTournament } from './tournament-store.server';
 
@@ -56,9 +56,9 @@ export const deleteNotePicture = createServerFn({ method: 'POST' })
     await requireEditableTournament(paths, CHANGING);
     let removed: string | undefined;
     await transactFirebase(picturesPath(paths.tournament), (current) => {
-      const change = withoutNotePicture(current, data.roundName, data.slot);
-      removed = change.replaced;
-      return removed ? storedNotePictures(change.pictures) : undefined;
+      const step = notePicturesAfterRemoval(current, data.roundName, data.slot);
+      removed = step.removed;
+      return step.value;
     });
     if (removed) await updateFirebase({ [`${paths.media}/${removed}`]: null });
   });

@@ -123,6 +123,27 @@ export function withoutNotePicture(stored: unknown, roundName: string, slot: str
   };
 }
 
+export interface NotePictureRemoval {
+  /** What the transaction writes: the map without the box, or the stored value as it is when the box was empty. */
+  value: unknown;
+  /** The id of the picture taken out of its box, whose image can be deleted. */
+  removed?: string;
+}
+
+/**
+ * The step of a transaction that empties a box. It never aborts (returns `undefined`): the Admin SDK's first call sees
+ * `null` when nothing is cached, and an aborted transaction is not retried, so a map that exists would be left as it
+ * is. Writing the stored value back makes the server check it and call again with the real one.
+ */
+export function notePicturesAfterRemoval(
+  stored: unknown,
+  roundName: string,
+  slot: string,
+): NotePictureRemoval {
+  const { pictures, replaced } = withoutNotePicture(stored, roundName, slot);
+  return replaced ? { value: storedNotePictures(pictures), removed: replaced } : { value: stored ?? null };
+}
+
 export interface NotePicturesAddition {
   pictures: NotePictures;
   /** The entries put in: those whose box was empty, as far as the limit leaves room. */

@@ -4,6 +4,7 @@ import {
   copyableNotePictures,
   MAX_NOTE_PICTURES,
   notePictureCount,
+  notePicturesAfterRemoval,
   notePicturesOf,
   storedNotePictures,
   validateNotePictureSlot,
@@ -171,6 +172,23 @@ describe('withoutNotePicture', () => {
       'round',
     );
     expect(storedNotePictures(pictures)).toEqual(marshalForFirebase({}));
+  });
+});
+
+describe('notePicturesAfterRemoval', () => {
+  it('writes the map without the box and returns the image to delete', () => {
+    const stored = storedNotePictures({ Final: { round: id(1), g3: id(2) } });
+    const step = notePicturesAfterRemoval(stored, 'Final', 'g3');
+    expect(step.removed).toBe(id(2));
+    expect(step.value).toEqual(storedNotePictures({ Final: { round: id(1) } }));
+  });
+
+  it('never aborts: a transaction whose first call sees null has to be retried with the real value', () => {
+    const first = notePicturesAfterRemoval(null, 'Final', 'g3');
+    expect(first).toEqual({ value: null });
+    const stored = storedNotePictures({ Final: { g3: id(2) } });
+    expect(notePicturesAfterRemoval(stored, 'Final', 'g1').value).toBe(stored);
+    expect(notePicturesAfterRemoval(undefined, 'Final', 'g1').value).toBeNull();
   });
 });
 
