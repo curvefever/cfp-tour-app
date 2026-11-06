@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { TeamConfirmation } from '../../domain/tournament/confirmations';
-import { clickConfirmation } from '../../domain/tournament/confirmations';
+import { clickConfirmationAndSeat } from '../../domain/tournament/returning-unit';
 import { Button, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { teamConfirmationText, toggleTitle, type ToggleMark } from './confirmation-view';
@@ -34,7 +34,11 @@ export function ConfirmToggle({
       aria-pressed={confirmed}
       className={cn(SIZES[size], confirmed && 'bg-cfp-green-dim text-cfp-green-text disabled:opacity-70')}
       disabled={source === 'score'}
-      onClick={() => app.updateState((current) => clickConfirmation(current, name))}
+      onClick={() => {
+        const { state, notice } = clickConfirmationAndSeat(app.state, name);
+        app.updateState(state);
+        if (notice) window.alert(notice);
+      }}
       size='sm'
       title={title}
       variant={confirmed ? 'secondary' : 'danger'}

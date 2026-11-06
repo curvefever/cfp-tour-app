@@ -1,4 +1,4 @@
-import { withoutRoundAbsences } from './absences';
+import { withoutRoomAbsences, withoutRoundAbsences } from './absences';
 import { getGameFormat } from './formats';
 import { splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
@@ -6,6 +6,7 @@ import { roundHasAnyScore } from './scoring';
 import { isPoolingRound } from './pooling';
 import { recordRoomHistory, rewindRoomHistory } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
+import { advancingSeats, declaredWaterfallRooms } from './waterfall-bracket';
 
 /**
  * Line-up correction of the round about to be played: move a unit to another
@@ -152,6 +153,64 @@ function manualEntries(current: RoundAssignment[], draft: RoundAssignment[]): Ro
   });
 }
 
+/**
+ * Writes `entries` as the line-up of round `roundIndex`: the round's room shape and advancement follow, the room history
+ * is rewound and recorded again, and the answers and tie decisions of the rooms the line-up changes are dropped (every
+ * room of the round when `changedRooms` is not given).
+ */
+function commitLineup(
+  state: TournamentState,
+  roundIndex: number,
+  entries: RoundAssignment[],
+  changedRooms?: number[],
+): TournamentState {
+  const round = state.rounds[roundIndex];
+  const byeCount = entries.filter((entry) => entry.room === null).length;
+  const rooms = countByRoom(entries, round.rooms.length);
+  const split = round.advPerRoom === null ? {} : splitAdvancement(round.advTotal, byeCount, rooms.length);
+  const updated: TournamentRound = {
+    ...round,
+    players: entries.length,
+    rooms,
+    byeCount,
+    ...(round.isNoElim ? { advTotal: entries.length } : {}),
+    ...split,
+    ...(round.isWaterfall ? { advTotal: advancingSeats(round, rooms) } : {}),
+  };
+  const kept = new Set(entries.map((entry) => entry.name));
+  const at = <T>(list: T[], value: T) => list.map((entry, index) => (index === roundIndex ? value : entry));
+  const prefixes = (changedRooms ?? [null]).map((room) =>
+    room === null ? `r${roundIndex}-` : `r${roundIndex}-rm${room}-`,
+  );
+  const assignments = at(state.assignments, entries);
+  return {
+    ...state,
+    rounds: at(state.rounds, updated),
+    assignments,
+    byes: at(
+      state.byes,
+      (state.byes[roundIndex] ?? []).filter((name) => kept.has(name)),
+    ),
+    luckyLosers: at(
+      state.luckyLosers,
+      (state.luckyLosers[roundIndex] ?? []).filter((name) => kept.has(name)),
+    ),
+    tieResolutions: Object.fromEntries(
+      Object.entries(state.tieResolutions).filter(
+        ([key]) => !prefixes.some((prefix) => key.startsWith(prefix)),
+      ),
+    ),
+    absences: changedRooms
+      ? withoutRoomAbsences(state.absences, roundIndex, changedRooms)
+      : withoutRoundAbsences(state.absences, roundIndex),
+    roomHistory: recordRoomHistory(
+      rewindRoomHistory(state.roomHistory, assignments, roundIndex),
+      entries,
+      roundIndex,
+    ),
+  };
+}
+
 export function applyLineupEdit(state: TournamentState, draft: RoundAssignment[]): LineupEditResult {
   const scope = lineupEditScope(state);
   if (!scope.ok) return { ok: false, error: scope.reason };
@@ -163,44 +222,112 @@ export function applyLineupEdit(state: TournamentState, draft: RoundAssignment[]
   if (problem) return { ok: false, error: problem };
 
   const entries = manualEntries(current, draft);
-  const byeCount = entries.filter((entry) => entry.room === null).length;
-  const rooms = countByRoom(entries, round.rooms.length);
   if (format) {
-    const roomCapError = validateRoomCap([{ roundNum: round.roundNum, rooms }], format);
+    const roomCapError = validateRoomCap(
+      [{ roundNum: round.roundNum, rooms: countByRoom(entries, round.rooms.length) }],
+      format,
+    );
     if (roomCapError) return { ok: false, error: roomCapError };
   }
-  const split = round.advPerRoom === null ? {} : splitAdvancement(round.advTotal, byeCount, rooms.length);
-  const updated: TournamentRound = {
-    ...round,
-    players: entries.length,
-    rooms,
-    byeCount,
-    ...(round.isNoElim ? { advTotal: entries.length } : {}),
-    ...split,
-  };
-  const kept = new Set(entries.map((entry) => entry.name));
-  const at = <T>(list: T[], value: T) => list.map((entry, index) => (index === cur ? value : entry));
-  const prefix = `r${cur}-`;
-  const assignments = at(state.assignments, entries);
-  return {
-    ok: true,
-    state: {
-      ...state,
-      rounds: at(state.rounds, updated),
-      assignments,
-      byes: at(
-        state.byes,
-        (state.byes[cur] ?? []).filter((name) => kept.has(name)),
-      ),
-      luckyLosers: at(
-        state.luckyLosers,
-        (state.luckyLosers[cur] ?? []).filter((name) => kept.has(name)),
-      ),
-      tieResolutions: Object.fromEntries(
-        Object.entries(state.tieResolutions).filter(([key]) => !key.startsWith(prefix)),
-      ),
-      absences: withoutRoundAbsences(state.absences, cur),
-      roomHistory: recordRoomHistory(rewindRoomHistory(state.roomHistory, assignments, cur), entries, cur),
-    },
-  };
+  return { ok: true, state: commitLineup(state, cur, entries) };
+}
+
+/** Whether any score is entered in a room (any game of any unit): its seats are keyed by position, so they cannot be re-seated. */
+export function roomHasScore(state: TournamentState, roundIndex: number, room: number): boolean {
+  const prefix = `r${roundIndex}-rm${room}-`;
+  return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
+}
+
+/** Why a unit's room cannot be changed in a round, or null: the round's draw is fixed, or has its own mechanism. */
+function moveRoundRefusal(state: TournamentState, round: TournamentRound): string | null {
+  if (!state.started) return 'The tournament has not started.';
+  if (round.isGroupStage || round.bracket || round.isKingsValley || round.isFinal) {
+    return "A unit can't be moved in this kind of round.";
+  }
+  if (round.isWaterfall) return null;
+  if (state.cfg.poolingPhase === 'group-stage')
+    return "Line-up corrections aren't available for group stage.";
+  if (!isPoolingRound(round) && state.scheduleLogic !== 'single-elimination') {
+    return "Line-up corrections aren't available for this bracket format.";
+  }
+  if (
+    isPoolingRound(round) &&
+    (round.fixedRoomAssignments || state.gamemodeConfig.drawPublication === 'fixed')
+  ) {
+    return "This round's draw was published in advance and can't be changed.";
+  }
+  return null;
+}
+
+/** The room sizes a move may not break: nobody above the round's largest room (a Custom bracket room, its declared size), none below its smallest. */
+function moveSizeProblem(
+  state: TournamentState,
+  round: TournamentRound,
+  counts: number[],
+  from: number,
+  to: number,
+): string | null {
+  const [left, joined] = [counts[from - 1] - 1, counts[to - 1] + 1];
+  const smallest = round.isWaterfall ? 2 : Math.max(2, state.gamemodeConfig.roomSize?.min ?? 2);
+  if (left < smallest)
+    return `Room ${from} would have only ${left} units — a room needs at least ${smallest}.`;
+  const largest = round.isWaterfall
+    ? (declaredWaterfallRooms(round)[to - 1] ?? Infinity)
+    : (state.gamemodeConfig.roomSize?.max ?? Infinity);
+  if (joined > largest) return `Room ${to} would have ${joined} units; the limit is ${largest}.`;
+  if (!round.isNoElim && !round.isWaterfall && left <= (round.advPerRoom ?? 0)) {
+    return `Room ${from} would have ${left} units but ${round.advPerRoom} advance — someone must be cut.`;
+  }
+  return null;
+}
+
+/**
+ * Why a unit of a drawn round cannot move to `room`, or null when it can: the round allows it, neither room has a score
+ * (the unit's own room loses a seat, so its positions shift), and the room sizes stay within the round's limits.
+ */
+export function unitMoveProblem(
+  state: TournamentState,
+  roundIndex: number,
+  unit: string,
+  room: number,
+): string | null {
+  const round = state.rounds[roundIndex];
+  const entry = (state.assignments[roundIndex] ?? []).find((candidate) => candidate.name === unit);
+  if (!round || !entry || entry.room === null) return `${unit} has no room in this round.`;
+  const refusal = moveRoundRefusal(state, round);
+  if (refusal) return refusal;
+  if (room < 1 || room > round.rooms.length) return `Room ${room} doesn't exist.`;
+  if (room === entry.room) return `${unit} is already in Room ${room}.`;
+  for (const scored of [entry.room, room]) {
+    if (roomHasScore(state, roundIndex, scored)) return `Room ${scored} already has scores.`;
+  }
+  const counts = countByRoom(state.assignments[roundIndex], round.rooms.length);
+  return moveSizeProblem(state, round, counts, entry.room, room);
+}
+
+/**
+ * Moves one unit of a drawn round to another room, and nobody else: every other unit keeps its room and position, and
+ * the rooms with a score are never touched. The unit is marked as placed by hand, like any line-up correction.
+ */
+export function moveUnitToRoom(
+  state: TournamentState,
+  roundIndex: number,
+  unit: string,
+  room: number,
+): LineupEditResult {
+  const problem = unitMoveProblem(state, roundIndex, unit, room);
+  if (problem) return { ok: false, error: problem };
+  const current = state.assignments[roundIndex];
+  const from = current.find((entry) => entry.name === unit)?.room ?? room;
+  const draft = current.map((entry) => (entry.name === unit ? { ...entry, room } : entry));
+  return { ok: true, state: commitLineup(state, roundIndex, manualEntries(current, draft), [from, room]) };
+}
+
+/** The rooms a drawn unit may be in after a move: its own, and every room it can move to (`unitMoveProblem`). */
+export function lineupMoveCandidates(state: TournamentState, roundIndex: number, unit: string): number[] {
+  const own = (state.assignments[roundIndex] ?? []).find((entry) => entry.name === unit)?.room;
+  if (own === null || own === undefined) return [];
+  return state.rounds[roundIndex].rooms
+    .map((_, index) => index + 1)
+    .filter((room) => room === own || unitMoveProblem(state, roundIndex, unit, room) === null);
 }

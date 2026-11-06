@@ -102,7 +102,7 @@ export function likelyAbsentees(state: TournamentState, targetRoundIndex: number
 }
 
 /** The units a player stands for: the teams that have it as a member, or the player itself. */
-function unitsOfPlayer(state: TournamentState, name: string): string[] {
+export function unitsOfPlayer(state: TournamentState, name: string): string[] {
   const teams = Object.entries(buildTeamMap(state)).filter(([, team]) =>
     team.members.some((member) => member?.name === name),
   );

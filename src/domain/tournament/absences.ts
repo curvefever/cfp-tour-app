@@ -431,6 +431,16 @@ export function withoutRoundAbsences(
   return withoutAbsences(absences, (key) => key.startsWith(prefix));
 }
 
+/** The answers without those of some rooms of one round: for rooms whose line-up changes while the others keep their scores. */
+export function withoutRoomAbsences(
+  absences: TournamentState['absences'],
+  roundIndex: number,
+  rooms: number[],
+): TournamentState['absences'] {
+  const prefixes = rooms.map((room) => `r${roundIndex}-rm${room}-`);
+  return withoutAbsences(absences, (key) => prefixes.some((prefix) => key.startsWith(prefix)));
+}
+
 /** The answers without those of one seat (every game and member, and the hand mark of a member of a team with one score): for a swapped-out unit. */
 export function withoutSeatAbsences(
   absences: TournamentState['absences'],

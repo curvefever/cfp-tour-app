@@ -15,6 +15,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { PendingBracketSeed, TournamentState } from '../types';
 import { scoreCurrentRound } from './play-through';
+import { afterRound1 } from './absentee-bracket-fixture';
 import { buildRound, oneRoomState } from './test-fixtures';
 
 const weights = { roomHistory: {}, targetRoundIndex: 1, diversityWeight: 0, balanceWeight: 0 };
@@ -193,37 +194,6 @@ describe('a Custom bracket round fed only by the Qual or Groups line (seedPoolBy
     expect(seed()[0].room).toBe(1);
   });
 });
-
-/** A started FFA tournament of 31 (rooms 8, 8, 8, 7), round 1 scored with the given seats answered absent, advanced to round 2. */
-function afterRound1(
-  absentSeats: Array<[room: number, position: number]>,
-  version: 2 | 3,
-  count = 31,
-): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: count,
-      players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({ gameFormat: 'ffa-individual' }),
-    createTournamentRuntime(),
-  );
-  if (result.status !== 'generated') throw new Error('generation failed');
-  const started: TournamentState = {
-    ...result.state,
-    started: true,
-    gamemodeConfig: { ...result.state.gamemodeConfig, absenceVersion: version },
-  };
-  const keys = absentSeats.map(([room, position]) => `r0-rm${room}-p${position}`);
-  const scored = scoreCurrentRound(started, 0);
-  const zeroed = {
-    ...scored,
-    scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
-  };
-  const advanced = advanceTournamentRound(answerAbsence(zeroed, keys, 'absent'));
-  if (advanced.status !== 'advanced') throw new Error(`could not advance: ${advanced.status}`);
-  return advanced.state;
-}
 
 const SIX_ABSENT: Array<[number, number]> = [1, 2].flatMap((room) =>
   [0, 1, 2].map((p) => [room, p] as [number, number]),

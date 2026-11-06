@@ -1162,7 +1162,7 @@ function removeSeatsFromLastRooms(declared: number[], missing: number): number[]
 }
 
 /** The units a drawn room set sends on: every rank whose band isn't 'eliminated' (a Final keeps its single winner). */
-function advancingSeats(round: TournamentRound, rooms: number[]): number {
+export function advancingSeats(round: TournamentRound, rooms: number[]): number {
   if (round.isFinal || !round.waterfallRoutes) return round.advTotal;
   return rooms.reduce(
     (total, size, index) =>

@@ -669,7 +669,7 @@ export interface WaveMember {
   tierRank: number;
 }
 
-interface RoomChoiceWeights {
+export interface RoomChoiceWeights {
   roomHistory: Record<string, number>;
   targetRoundIndex: number;
   diversityWeight: number;
@@ -680,7 +680,7 @@ interface RoomChoiceWeights {
  * What seating `member` in `room` costs: the repeat pairs it makes with the room's units so far (recency weighted)
  * and how far its tierRank total pushes the room from `mean`, blended by the weights.
  */
-function roomChoiceCost(
+export function roomChoiceCost(
   member: WaveMember,
   room: number,
   roomMembersSoFar: Map<number, string[]>,
