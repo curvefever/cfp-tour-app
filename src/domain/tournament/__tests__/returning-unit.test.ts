@@ -182,6 +182,22 @@ describe('seatReturningUnit: where it may not move', () => {
     expect(result.state).toBe(undrawn);
   });
 
+  it('an elimination room that would drop to the places it advances keeps the unit', () => {
+    const rooms = [
+      ['Ann', 'P2', 'P3', 'P4', 'P5'],
+      ['Bea', 'P7', 'P8', 'P9'],
+    ];
+    const elimination = { isNoElim: false, advPerRoom: 4, advTotal: 8 };
+    expect(seatReturningUnit(back(drawn(rooms, ['Ann', 'Bea'], elimination), 'Ann'), 'Ann')).toMatchObject({
+      outcome: 'stays',
+      room: 1,
+    });
+    const fewerAdvance = { ...elimination, advPerRoom: 2, advTotal: 4 };
+    expect(seatReturningUnit(back(drawn(rooms, ['Ann', 'Bea'], fewerAdvance), 'Ann'), 'Ann').outcome).toBe(
+      'moved',
+    );
+  });
+
   it('a double elimination round keeps its draw', () => {
     const state = back(drawn(rooms, ['Ann', 'Bea'], { bracket: 'winners' }), 'Ann');
     expect(seatReturningUnit(state, 'Ann').outcome).toBe('stays');
@@ -217,13 +233,18 @@ describe('seatReturningUnit in a Custom bracket round', () => {
   const routes = [1, 1, 1, 1, 'eliminated', 'eliminated', 'eliminated', 'eliminated'] as const;
   const secondRoom = [1, 1, 1, 1, 1, 1, 1, 'eliminated'] as const;
   const bracket = (rooms: string[][], declared: number[]) =>
-    drawn(rooms, ['Ann', 'Bea'], {
-      isWaterfall: true,
-      isNoElim: false,
-      waterfallRoutes: [[...routes], [...secondRoom]],
-      declaredRooms: declared,
-      advTotal: 10,
-    });
+    drawn(
+      rooms,
+      ['Ann', 'Bea'],
+      {
+        isWaterfall: true,
+        isNoElim: false,
+        waterfallRoutes: [[...routes], [...secondRoom]],
+        declaredRooms: declared,
+        advTotal: 10,
+      },
+      { scheduleLogic: 'waterfall-bracket' },
+    );
 
   it('moves into a room that is below its declared size, and the round’s advancement follows the new room sizes', () => {
     const rooms = [
