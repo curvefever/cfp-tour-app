@@ -1,4 +1,4 @@
-import { absentInRoom } from './absences';
+import { absenteeLeavesCustomBracket, absentInRoom } from './absences';
 import {
   compareStandings,
   isRoomFullyScored,
@@ -339,10 +339,15 @@ function outOfCompleteRooms(
     const round = state.rounds[roundIndex];
     // An absentee of a winners round drops to the losers bracket: still in play.
     if (round.bracket === 'winners') continue;
-    for (const [index, name] of absentInRoom(state, roundIndex, room).entries()) {
+    const absent = absentInRoom(state, roundIndex, room);
+    for (const [index, name] of absent.entries()) {
       // An absentee is ranked last of its room: a custom bracket or Kings Valley routes it by that rank, every other round cuts it.
       const band = exitBandAtRank(rooms[room - 1] ?? [], scored.length + index + 1);
-      if (!(round.isWaterfall || round.isKingsValley) || !band || band.kind === 'eliminate') out.add(name);
+      // A custom bracket of absenceVersion 2 keeps an absentee only where the room's last place goes.
+      const roomSize = scored.length + absent.length;
+      const leaves = absenteeLeavesCustomBracket(state, round, room, roomSize, scored.length + index);
+      if (leaves || !(round.isWaterfall || round.isKingsValley) || !band || band.kind === 'eliminate')
+        out.add(name);
     }
   }
   return out;

@@ -21,13 +21,15 @@ export interface RoomRowInput {
   absentee?: AbsenteeFate;
 }
 
-/** What becomes of an absentee: a custom bracket and Kings Valley route it by its rank (last of its room), a winners round drops it to the losers bracket, every other round cuts it. */
+/** What becomes of an absentee: a custom bracket and Kings Valley route it by its rank (last of its room; a v2 custom bracket cuts one whose seat does not lead where the room's last place goes), a winners round drops it to the losers bracket, every other round cuts it. */
 export type AbsenteeFate = 'rank' | 'drop' | 'eliminate';
 
 export function absenteeFate(
   round: Pick<TournamentRound, 'bracket' | 'isWaterfall' | 'isKingsValley'>,
+  leavesCustomBracket = false,
 ): AbsenteeFate {
   if (round.bracket === 'winners') return 'drop';
+  if (round.isWaterfall && leavesCustomBracket) return 'eliminate';
   return round.isWaterfall || round.isKingsValley ? 'rank' : 'eliminate';
 }
 

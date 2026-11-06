@@ -16,6 +16,7 @@ import { buildTeamMap } from './roster';
 import { currentColumn } from './round-columns';
 import { occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
 import type { AbsenceAnswer, TournamentRound, TournamentState } from './types';
+import { absenteeDestination } from './waterfall-bracket';
 
 export const PENDING_ABSENCES_MESSAGE = 'Answer every score of 0 before advancing.';
 
@@ -47,6 +48,24 @@ export function usesAbsences(state: Pick<TournamentState, 'gamemodeConfig'>): bo
 /** Whether a Custom bracket room keeps an absentee out of any seat above the room's last place (`absenceVersion` 2). */
 export function routesAbsenteesByLastPlace(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
   return (state.gamemodeConfig.absenceVersion ?? 0) >= 2;
+}
+
+/**
+ * Whether the absentee at `rankIndex` (0-indexed, after every present unit) of a Custom bracket room of `roomSize` drawn
+ * units is out of the bracket: its rank's seat does not lead where the room's last place goes (`absenceVersion` 2).
+ */
+export function absenteeLeavesCustomBracket(
+  state: Pick<TournamentState, 'gamemodeConfig'>,
+  round: Pick<TournamentRound, 'isWaterfall' | 'waterfallRoutes'>,
+  room: number,
+  roomSize: number,
+  rankIndex: number,
+): boolean {
+  return (
+    Boolean(round.isWaterfall) &&
+    routesAbsenteesByLastPlace(state) &&
+    absenteeDestination(round as TournamentRound, room, roomSize, rankIndex) === null
+  );
 }
 
 /** Whether a round's 0s are asked: every round but the Final and the grand final. */

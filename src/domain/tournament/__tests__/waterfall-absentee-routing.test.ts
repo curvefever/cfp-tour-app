@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
 import { routeWaterfallRound } from '../bracket-replay';
 import { generateTournament } from '../generation';
+import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -173,6 +174,22 @@ describe('a generated Custom bracket with absentees in a room', () => {
       [...roomA.slice(4), ...roomB.slice(4)].map((entry) => entry.name).sort(),
     );
     expect(arrivals('Lower')).not.toContain(overflow);
+  });
+
+  it('Rankings lists the overflow absentee as eliminated once the room is scored, the other absentees still in', () => {
+    const state = r1WithFiveAbsent();
+    const roomA = state.assignments[state.curRound].filter((entry) => entry.room === 1).map((e) => e.name);
+    const rankings = computeRankings(state);
+    expect(rankings?.eliminatedList.map((entry) => entry.name)).toEqual([roomA[3]]);
+    const active = rankings?.stillActive.map((entry) => entry.name) ?? [];
+    expect(active).toEqual(expect.arrayContaining([...roomA.slice(0, 3), ...roomA.slice(4)]));
+    expect(active).not.toContain(roomA[3]);
+  });
+
+  it('a v1 state keeps the first absentee in, as before', () => {
+    const state = r1WithFiveAbsent();
+    const v1 = { ...state, gamemodeConfig: { ...state.gamemodeConfig, absenceVersion: 1 as const } };
+    expect(computeRankings(v1)?.eliminatedList).toEqual([]);
   });
 
   it('the live graph edit replays the advanced round to the same line-ups', () => {

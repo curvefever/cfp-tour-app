@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { absentInRoom } from '../../domain/tournament/absences';
+import { absenteeLeavesCustomBracket, absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
 import { groupSeats, usesGroupAverages } from '../../domain/tournament/group-standings';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
@@ -184,13 +184,13 @@ export function RoomCard({
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
         const absent = absentNames.includes(entry.name);
+        const absentRank = presentScored.length + absentNames.indexOf(entry.name);
+        const leavesBracket = absenteeLeavesCustomBracket(state, round, room, units.length, absentRank);
         const { result, star } = roomRowResult({
           rule: exitRule,
           bands,
-          rank: absent
-            ? presentScored.length + absentNames.indexOf(entry.name) + 1
-            : (entry.place ?? index + 1),
-          absentee: absent ? absenteeFate(round) : undefined,
+          rank: absent ? absentRank + 1 : (entry.place ?? index + 1),
+          absentee: absent ? absenteeFate(round, leavesBracket) : undefined,
           lucky,
           pendingTie,
           roomComplete: showResults,

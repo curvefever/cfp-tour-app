@@ -261,6 +261,31 @@ describe('roomRowResult: an absentee', () => {
     expect(absenteeFate(round)).toBe(fate);
   });
 
+  it.each([
+    [
+      'a custom bracket cuts one whose seat does not lead where the last place goes',
+      { isWaterfall: true },
+      'eliminate',
+    ],
+    ['Kings Valley still routes by rank', { isKingsValley: true }, 'rank'],
+    ['a winners round still drops it', { bracket: 'winners' as const, isWaterfall: true }, 'drop'],
+  ])('%s', (_label, round, fate) => {
+    expect(absenteeFate(round, true)).toBe(fate);
+  });
+
+  it('a custom bracket room of 8, 5 absent: the first absentee is red, the others read the second band’s colour', () => {
+    const topFourThenLower: RoomExitBand[] = [
+      { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
+      { kind: 'advance', fromRank: 5, toRank: 8, destination: 6 },
+    ];
+    const fateOf = (rank: number) =>
+      rank === 4 ? absenteeFate({ isWaterfall: true }, true) : absenteeFate({ isWaterfall: true });
+    expect(row({ bands: topFourThenLower, rank: 4, absentee: fateOf(4) }).result).toBe('eliminate');
+    for (const rank of [5, 6, 7, 8]) {
+      expect(row({ bands: topFourThenLower, rank, absentee: fateOf(rank) }).result).toBe('advance-second');
+    }
+  });
+
   it('is cut in a cut round even where its rank would advance, and drops in a winners round', () => {
     expect(row({ bands, rank: 2, absentee: 'eliminate' }).result).toBe('eliminate');
     expect(row({ bands, rank: 2, absentee: 'drop' }).result).toBe('drop');
