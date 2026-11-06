@@ -275,12 +275,12 @@ describe('scoredPlayers, team formats', () => {
     expect(rosterConfirmationSummary(state)).toMatchObject({ teamsConfirmed: 1 });
   });
 
-  it('One score per team and Save your Buddy confirm nobody from a score', () => {
+  it('One score per team and Save your Buddy confirm both members of a team that has a score', () => {
     const oneScorePerTeam = { ...base(ONE_SCORE_PER_TEAM), scores: { [key(0, fifth)]: 7 } };
-    expect(scoredPlayers(oneScorePerTeam).size).toBe(0);
+    expect([...scoredPlayers(oneScorePerTeam)].sort()).toEqual(['T5a', 'T5b']);
     const buddy = { ...base('designated-player'), scores: { [key(0, fifth, '-m0')]: 7 } };
-    expect(scoredPlayers(buddy).size).toBe(0);
-    expect(rosterConfirmationSummary(buddy)).toMatchObject({ confirmed: 0, teamsConfirmed: 0 });
+    expect([...scoredPlayers(buddy)].sort()).toEqual(['T5a', 'T5b']);
+    expect(rosterConfirmationSummary(buddy)).toMatchObject({ confirmed: 2, teamsConfirmed: 1 });
   });
 
   it('a score belongs to whoever holds the slot now', () => {

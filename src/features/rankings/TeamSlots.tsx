@@ -139,7 +139,7 @@ export function TeamMemberRow({
           {designated && defender === memberIndex ? ' 🛡 Defender' : ''}
         </span>
         <span className='flex gap-1'>
-          <ConfirmToggle source={confirmations.source(member.name)} name={member.name} />
+          <ConfirmToggle mark={confirmations.toggle(member.name)} name={member.name} />
           {designated && defender !== memberIndex ? (
             <Button
               aria-label={`Make ${member.name} defender`}

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import type { ConfirmationSource, TeamConfirmation } from '../../domain/tournament/confirmations';
-import { isManuallyConfirmed, setConfirmed } from '../../domain/tournament/confirmations';
+import type { TeamConfirmation } from '../../domain/tournament/confirmations';
+import { clickConfirmation } from '../../domain/tournament/confirmations';
 import { Button, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { teamConfirmationText } from './confirmation-view';
+import { teamConfirmationText, toggleTitle, type ToggleMark } from './confirmation-view';
 import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
 
 const SIZES = {
@@ -11,32 +11,30 @@ const SIZES = {
   chip: `${CHIP_BUTTON} text-xs`,
 } as const;
 
-/** The first control of a player row: ✓ on green when confirmed, ? on red when not, so the state is not only colour. A score confirms the player and locks the toggle. */
+/**
+ * The first control of a player row: ✓ on green when confirmed, ? on red when not, so the state is not only colour. A
+ * score confirms the player and locks the toggle. A likely absentee reads ? until the organiser clicks it back to ✓.
+ */
 export function ConfirmToggle({
+  mark,
   name,
   size = 'row',
-  source,
 }: {
+  mark: ToggleMark;
   name: string;
   size?: keyof typeof SIZES;
-  source: ConfirmationSource;
 }) {
   const app = useTournamentApp();
+  const { source } = mark;
   const confirmed = source !== null;
-  const title = {
-    score: 'Confirmed — has a score',
-    manual: 'Confirmed — click to undo',
-    none: 'Not confirmed yet — click to confirm',
-  }[source ?? 'none'];
+  const title = toggleTitle(mark);
   return (
     <Button
       aria-label={`Confirmed: ${name}`}
       aria-pressed={confirmed}
       className={cn(SIZES[size], confirmed && 'bg-cfp-green-dim text-cfp-green-text disabled:opacity-70')}
       disabled={source === 'score'}
-      onClick={() =>
-        app.updateState((current) => setConfirmed(current, name, !isManuallyConfirmed(current, name)))
-      }
+      onClick={() => app.updateState((current) => clickConfirmation(current, name))}
       size='sm'
       title={title}
       variant={confirmed ? 'secondary' : 'danger'}

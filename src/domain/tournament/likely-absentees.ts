@@ -12,9 +12,11 @@ import { absentInRoom, seatHasPlayed, tracksLikelyAbsentees } from './absences';
 import { buildTeamMap } from './roster';
 import type { TournamentState } from './types';
 
+type TeamMap = ReturnType<typeof buildTeamMap>;
+
 /** The player names behind a unit: a team's members, or the player itself. */
-function playersOfUnit(state: TournamentState, unit: string): string[] {
-  const team = buildTeamMap(state)[unit];
+function playersOfUnit(teams: TeamMap, unit: string): string[] {
+  const team = teams[unit];
   if (!team) return [unit];
   return team.members.flatMap((member) => (member ? [member.name] : []));
 }
@@ -65,7 +67,9 @@ export function latestAbsenceRound(
 
 /** Whether one of the unit's players was marked back from the absence of round `absenceRound`. */
 function isBackFrom(state: TournamentState, unit: string, absenceRound: number): boolean {
-  return playersOfUnit(state, unit).some((name) => state.backFromAbsence?.[name] === absenceRound);
+  return playersOfUnit(buildTeamMap(state), unit).some(
+    (name) => state.backFromAbsence?.[name] === absenceRound,
+  );
 }
 
 /**
@@ -132,4 +136,36 @@ export function moveBackMark(state: TournamentState, oldName: string, newName: s
   if (round === undefined) return state;
   const { [oldName]: _removed, ...rest } = state.backFromAbsence;
   return { ...state, backFromAbsence: { ...rest, [newName]: round } };
+}
+
+export interface AbsenceMarks {
+  /** Players likely absent since the round (the index): their toggle reads "?" and nothing confirms them. */
+  absent: Map<string, number>;
+  /** Players marked back from the absence of the round (the index): their toggle reads ✓. */
+  back: Map<string, number>;
+}
+
+/**
+ * The confirmation marks the absences give every player, worked out once for a panel: a unit's players are absent
+ * while the unit is likely absent, and the ones marked back from its latest absence are back (the others of a team
+ * with a member back are neither). Empty before `absenceVersion` 3.
+ */
+export function absenceMarks(state: TournamentState): AbsenceMarks {
+  const marks: AbsenceMarks = { absent: new Map(), back: new Map() };
+  if (!tracksLikelyAbsentees(state)) return marks;
+  const teams = buildTeamMap(state);
+  const seen = new Set<string>();
+  for (const round of state.assignments) {
+    for (const { name } of round) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const absenceRound = latestAbsenceRound(state, name);
+      if (absenceRound === null) continue;
+      const players = playersOfUnit(teams, name);
+      const back = players.filter((player) => state.backFromAbsence?.[player] === absenceRound);
+      for (const player of back) marks.back.set(player, absenceRound);
+      if (back.length === 0) for (const player of players) marks.absent.set(player, absenceRound);
+    }
+  }
+  return marks;
 }

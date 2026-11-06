@@ -300,7 +300,7 @@ function ReserveChipName({
     return (
       <>
         <TournamentUnit state={state} name={name} />
-        <ConfirmToggle source={confirmations.source(name)} name={name} size='chip' />
+        <ConfirmToggle mark={confirmations.toggle(name)} name={name} size='chip' />
       </>
     );
   return (
@@ -312,7 +312,7 @@ function ReserveChipName({
         member ? (
           <span className='flex items-center gap-1' key={member.name}>
             {member.name}
-            <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
+            <ConfirmToggle mark={confirmations.toggle(member.name)} name={member.name} size='chip' />
           </span>
         ) : null,
       )}
@@ -366,7 +366,7 @@ function ReserveIndividuals({
         {state.reserveIndividuals.map((member, index) => (
           <div className={RESERVE_CHIP} key={`${member.name}-${index}`}>
             {member.name}
-            <ConfirmToggle source={confirmations.source(member.name)} name={member.name} size='chip' />
+            <ConfirmToggle mark={confirmations.toggle(member.name)} name={member.name} size='chip' />
             <Button
               aria-label={`Remove ${member.name} from the individual reserves`}
               className={cn(CHIP_BUTTON, 'text-warning')}
@@ -522,7 +522,7 @@ export function ManageRoster({ state }: { state: TournamentState }) {
               className='break-inside-avoid'
               controls={
                 <>
-                  <ConfirmToggle source={confirmations.source(name)} name={name} />
+                  <ConfirmToggle mark={confirmations.toggle(name)} name={name} />
                   <ToolIconButton
                     glyph='✎'
                     label={`Rename ${name}`}
