@@ -8,6 +8,7 @@ import {
   seedFromPoolingExit,
   seedPoolByStanding,
   tieredBracketSeed,
+  tieredSeed,
 } from '../seeding';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -56,6 +57,24 @@ describe('placeLikelyAbsentees', () => {
   it('never two in one room while another has fewer, even when the rooms differ by more than a seat', () => {
     expect(perRoom(place([8, 6], ['U1', 'U2']).placed, 2)).toEqual([1, 1]);
     expect(perRoom(place([8, 6], ['U1', 'U2', 'U3']).placed, 2)).toEqual([2, 1]);
+  });
+
+  it('puts them in the larger rooms even when the smaller room comes first', () => {
+    const rooms = place([3, 4, 4, 4], ['U1', 'U2']).placed.map(({ room }) => room);
+    expect(new Set(rooms).size).toBe(2);
+    expect(rooms.every((room) => room >= 2)).toBe(true);
+  });
+
+  it('chooses between rooms that tie by the repeat pairs: not the room of the unit it met', () => {
+    const met = {
+      roomHistory: { [roomPairKey('U1', 'U4')]: 0 },
+      targetRoundIndex: 1,
+      diversityWeight: 1,
+      balanceWeight: 0,
+    };
+    const { placed } = placeLikelyAbsentees(tiered(named(12)), [4, 4, 4], new Set(named(4)), met);
+    expect(placed.find(({ name }) => name === 'U1')?.room).toBe(1);
+    expect(placed.find(({ name }) => name === 'U4')?.room).not.toBe(1);
   });
 
   it('places in tier order, and leaves the others in their order', () => {
@@ -151,6 +170,22 @@ describe('a Custom bracket round fed only by the Qual or Groups line (seedPoolBy
     expect(room('U1')).not.toBe(room('U2'));
     expect(perRoom(seeded as Array<{ room: number }>, 4)).toEqual([4, 4, 4, 3]);
     expect(seeded.map((entry) => entry.name)).toEqual(named(15));
+  });
+
+  it('splits two absentees the plain snake would put in one room', () => {
+    const eight = pool.slice(0, 8);
+    const room = (seeded: Array<{ name: string; room: number | null }>, name: string) =>
+      seeded.find((entry) => entry.name === name)?.room;
+    const plain = seedPoolByStanding({ pool: eight, roomSizes: [4, 4], state, targetRoundIndex: 3 });
+    expect(room(plain, 'U1')).toBe(room(plain, 'U4'));
+    const placed = seedPoolByStanding({
+      pool: eight,
+      roomSizes: [4, 4],
+      state,
+      targetRoundIndex: 3,
+      likelyAbsent: new Set(['U1', 'U4']),
+    });
+    expect(room(placed, 'U1')).not.toBe(room(placed, 'U4'));
   });
 
   it('is the plain snake without a likely absentee', () => {
@@ -337,5 +372,65 @@ describe('the first round after a pooling exit', () => {
 
   it('a version 2 tournament keeps the plain snake: the first and last of the exit order share room 1', () => {
     expect(roomsOf(2)).toEqual([1, 1]);
+  });
+});
+
+const roomTotals = (state: TournamentState, roundIndex: number) =>
+  state.rounds[roundIndex].rooms.map(
+    (_, index) => state.assignments[roundIndex].filter((entry) => entry.room === index + 1).length,
+  );
+
+describe('round 2 of a generated tournament keeps every room at its planned size', () => {
+  it('with the smaller-room split: 31 with six absentees', () => {
+    const state = afterRound1(SIX_ABSENT, 3);
+    expect(roomTotals(state, 1)).toEqual(state.rounds[1].rooms);
+  });
+
+  it('without the split (every room expected the same size): 32 with one absentee in each room', () => {
+    const state = afterRound1(
+      [1, 2, 3, 4].map((room) => [room, 0] as [number, number]),
+      3,
+      32,
+    );
+    expect(state.rounds[1].rooms).toEqual([8, 8, 8, 8]);
+    expect(roomTotals(state, 1)).toEqual([8, 8, 8, 8]);
+    const absent = state.assignments[0].filter((e, i, all) => all.findIndex((x) => x.room === e.room) === i);
+    expect(
+      new Set(absent.map(({ name }) => state.assignments[1].find((e) => e.name === name)?.room)).size,
+    ).toBe(4);
+  });
+});
+
+describe('a round drawn without the smaller-room spread (Semis)', () => {
+  it('seats the others into the seats left: every room totals its planned size', () => {
+    const drawn = afterRound1(SIX_ABSENT, 3);
+    const rounds = drawn.rounds.map((round, index) => (index === 1 ? { ...round, isSemis: true } : round));
+    const state = { ...drawn, rounds };
+    const advancing = state.assignments[0].map(({ name }) => ({ name }));
+    const seeded = tieredSeed({ state, roundIndex: 0, advancing }).seeded;
+    expect(perRoom(seeded as Array<{ room: number }>, 4)).toEqual(state.rounds[1].rooms);
+    const roomOf = (room: number, position: number) =>
+      seeded.find(
+        (entry) => entry.name === state.assignments[0].filter((e) => e.room === room)[position].name,
+      )?.room;
+    const counts = [1, 2, 3, 4].map((room) => SIX_ABSENT.filter(([r, p]) => roomOf(r, p) === room).length);
+    expect(counts).toEqual([2, 2, 1, 1]);
+  });
+});
+
+describe('the "random" override of tieredSeed', () => {
+  it('also places the likely absentees first, one to a room', () => {
+    const state = afterRound1(SIX_ABSENT, 3);
+    const advancing = state.assignments[0].map(({ name }) => ({ name }));
+    const seeded = tieredSeed({ state, roundIndex: 0, advancing, seedingOverride: 'random' }).seeded;
+    const absent = SIX_ABSENT.map(([room, position]) => {
+      const name = state.assignments[0].filter((entry) => entry.room === room)[position].name;
+      return seeded.find((entry) => entry.name === name)?.room;
+    });
+    const counts = state.rounds[1].rooms.map(
+      (_, index) => absent.filter((room) => room === index + 1).length,
+    );
+    expect(counts).toEqual([2, 2, 1, 1]);
+    expect(perRoom(seeded as Array<{ room: number }>, 4)).toEqual(state.rounds[1].rooms);
   });
 });
