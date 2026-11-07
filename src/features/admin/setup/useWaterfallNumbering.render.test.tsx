@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { useEffect, useReducer } from 'react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { useEffect, useReducer, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
 import { rosterFor } from '../../../domain/tournament/__tests__/test-fixtures';
-import { useWaterfallNumbering } from './useWaterfallNumbering';
+import { computeSwissRoundCount } from '../../../domain/tournament/pooling';
+import { createTournamentRuntime } from '../../../domain/tournament/runtime';
+import { fixedIdSource } from '../../../domain/tournament/__tests__/test-fixtures';
+import { RosterPanel } from './RosterPanel';
+import { useSetupChange } from './useSetupChange';
+import { useWaterfallNumbering, WaterfallNumberingContext } from './useWaterfallNumbering';
 
 /** The tournament and its Setup, held outside React so a test can change them the way the Setup form does. */
 const store = vi.hoisted(() => ({
@@ -23,6 +28,7 @@ vi.mock('../../tournament/TournamentProvider', () => ({
       return () => void store.listeners.delete(refresh);
     }, []);
     return {
+      runtime: createTournamentRuntime({ ids: fixedIdSource() }),
       setup: store.setup,
       state: store.state,
       updateSetup: (updater: PersistedSetup | ((current: PersistedSetup) => PersistedSetup)) => {
@@ -35,6 +41,14 @@ vi.mock('../../tournament/TournamentProvider', () => ({
       },
     };
   },
+}));
+vi.mock('../../presence/PresenceField', () => ({
+  PresenceField: ({ label, children }: { label: ReactNode; children: ReactNode }) => (
+    <div>
+      <span>{label}</span>
+      {children}
+    </div>
+  ),
 }));
 vi.mock('../../tournaments/note-pictures.server-fns', () => ({
   renameNotePictureRounds: (call: unknown) => renameNotePictureRounds(call),
@@ -170,9 +184,15 @@ describe("the Setup numbering of a Custom bracket's default round names", () => 
       groupSize: '4',
       waterfallGraph: GRAPH.replace('Qual:', 'Groups:')
         .replaceAll('Round 4', 'Round 6')
-        .replace('Round 5', 'Round 7'),
+        .replaceAll('Round 5', 'Round 7'),
       waterfallNumberedFrom: '6',
     };
+    // Control: the graph reads, so unnumbered it is marked with the number of an empty roster.
+    load({ ...groups, waterfallNumberedFrom: '' }, { players: [], confirmedCount: null });
+    const control = renderHook(() => useWaterfallNumbering());
+    act(() => control.result.current.changeGraph(store.setup.waterfallGraph.replace('= 2x8', '= 2x8 BO3')));
+    expect(store.setup.waterfallNumberedFrom).toBe('1');
+    cleanup();
     load(groups, { players: [], confirmedCount: null });
     const { result } = renderHook(() => useWaterfallNumbering());
     act(() => result.current.changeGraph(store.setup.waterfallGraph.replace('= 2x8', '= 2x8 BO3')));
@@ -257,5 +277,105 @@ describe("the Setup numbering of a Custom bracket's default round names", () => 
     expect(renameNotePictureRounds).not.toHaveBeenCalled();
     renameNotePictureRounds.mockRejectedValue(new Error('nope'));
     expect(await result.current.movePictures(new Map([['Round 4', 'Round 5']]))).toBe('nope');
+  });
+});
+
+/** The Setup view provides its numbering to the panels; these are the panels' own edits. */
+function NumberingProvider({ children }: { children: ReactNode }) {
+  const numbering = useWaterfallNumbering();
+  return (
+    <WaterfallNumberingContext.Provider value={numbering}>{children}</WaterfallNumberingContext.Provider>
+  );
+}
+
+describe('the panels of the Setup go through the numbering', () => {
+  it('a field edit renumbers inside the Setup view and does not outside it (the plain update)', () => {
+    load({});
+    const inside = renderHook(() => useSetupChange(), { wrapper: NumberingProvider });
+    act(() => inside.result.current('qualRoundsOverride', '4'));
+    expect(store.setup.qualRoundsOverride).toBe('4');
+    expect(store.setup.waterfallGraph).toContain('Round 5 = 2x8');
+    expect(store.setup.waterfallNumberedFrom).toBe('5');
+    cleanup();
+    load({});
+    const outside = renderHook(() => useSetupChange());
+    act(() => outside.result.current('qualRoundsOverride', '4'));
+    expect(store.setup.qualRoundsOverride).toBe('4');
+    expect(store.setup.waterfallGraph).toBe(GRAPH);
+    expect(store.setup.waterfallNumberedFrom).toBe('4');
+  });
+
+  it('Load roster in a group stage renumbers the default names once, with the notes and pictures', async () => {
+    const names = Array.from({ length: 37 }, (_, index) => `Player ${index + 1}`);
+    load(
+      {
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        waterfallGraph: GRAPH.replace('Qual:', 'Groups:'),
+        roster: names.join('\n'),
+      },
+      { players: rosterFor('individual-1v1', 31), confirmedCount: 31 },
+    );
+    render(
+      <NumberingProvider>
+        <RosterPanel onLoaded={() => {}} />
+      </NumberingProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Load roster/ }));
+    await waitFor(() => expect(renameNotePictureRounds).toHaveBeenCalledTimes(1));
+    expect(store.state.players).toHaveLength(37);
+    expect(store.setup.waterfallNumberedFrom).toBe('6');
+    expect(store.setup.waterfallGraph).toContain('Round 6 = 2x8');
+    expect(store.state.info?.roundNotes).toHaveProperty('Round 6', 'powers off');
+  });
+
+  describe('Clear roster', () => {
+    const first = computeSwissRoundCount(37) + 1;
+    const SWISS_GRAPH = [
+      'ROUNDS:',
+      `Round ${first} = 2`,
+      'Final = 2 FINAL',
+      '',
+      'ROUTES:',
+      `Round ${first}: 1->Final, 2->eliminated`,
+    ].join('\n');
+    const loadSwiss = () =>
+      load(
+        {
+          gameFormat: 'individual-1v1',
+          scheduleLogic: 'waterfall-bracket',
+          poolingPhase: 'swiss',
+          waterfallGraph: SWISS_GRAPH,
+          waterfallNumberedFrom: String(first),
+        },
+        { players: rosterFor('individual-1v1', 37), confirmedCount: 37 },
+      );
+    const clear = () => {
+      render(
+        <NumberingProvider>
+          <RosterPanel onLoaded={() => {}} />
+        </NumberingProvider>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Clear roster/ }));
+    };
+
+    it('renumbers nothing when the confirmation is cancelled: the roster is still there', () => {
+      loadSwiss();
+      vi.spyOn(window, 'confirm').mockReturnValue(false);
+      clear();
+      expect(store.state.players).toHaveLength(37);
+      expect(store.setup.waterfallGraph).toBe(SWISS_GRAPH);
+      expect(store.setup.waterfallNumberedFrom).toBe(String(first));
+    });
+
+    it('renumbers for no units once the roster is cleared', () => {
+      loadSwiss();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      clear();
+      expect(store.state.players).toHaveLength(0);
+      expect(store.setup.waterfallNumberedFrom).toBe(String(computeSwissRoundCount(0) + 1));
+      expect(store.setup.waterfallNumberedFrom).not.toBe(String(first));
+    });
   });
 });

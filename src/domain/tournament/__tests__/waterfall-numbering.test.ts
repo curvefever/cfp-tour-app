@@ -176,12 +176,26 @@ describe('withWaterfallNumbering', () => {
 describe('a numbered graph keeps its number', () => {
   const GROUPS_GRAPH = QUAL_GRAPH.replace('Qual:', 'Groups:')
     .replaceAll('Round 4', 'Round 6')
-    .replace('Round 5', 'Round 7');
+    .replaceAll('Round 5', 'Round 7');
   const numberedFromSix = setupOf({
     poolingPhase: 'group-stage',
     groupSize: '4',
     waterfallGraph: GROUPS_GRAPH,
     waterfallNumberedFrom: '6',
+  });
+
+  it('is a graph that reads: unnumbered, the same setup is marked 1 with an empty roster', () => {
+    const unnumbered = { ...numberedFromSix, waterfallNumberedFrom: '' };
+    expect(withWaterfallNumbering(unnumbered, 0).waterfallNumberedFrom).toBe('1');
+    // ...and numbered from 4, the same graph is renumbered by 37 units (first number 6): the names are read.
+    const renames = renumberWaterfallDefaults(
+      { ...numberedFromSix, waterfallNumberedFrom: '4' },
+      37,
+    )?.renames;
+    expect([...(renames ?? [])]).toEqual([
+      ['Round 6', 'Round 8'],
+      ['Round 7', 'Round 9'],
+    ]);
   });
 
   it('is not re-marked by an edit while the head count is unknown (an empty roster would say 1)', () => {
