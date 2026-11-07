@@ -539,16 +539,33 @@ export function waterfallRoundIntake(draft: WaterfallDraft): WaterfallIntake {
   };
 }
 
-/** A new draft: an entry round and a Final, every rank out. Rooms are sized to fit the entrants when they divide evenly. */
+/** The default name of the round played as number `number`: "Round 4". */
+export function defaultRoundName(number: number): string {
+  return `Round ${number}`;
+}
+
+/** The number in a default round name ("Round 4", any letter case, spaces collapsed); null for any other name. */
+function defaultRoundNumber(label: string): number | null {
+  const match = /^round (\d+)$/i.exec(normalizeRoundLabel(label));
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+/**
+ * A new draft: an entry round and a Final, every rank out. Rooms are sized to fit the entrants when they divide
+ * evenly. The entry round is named "Round <firstRoundNumber>": the number after the pooling rounds played before
+ * the bracket (`roundsBeforeBracket` + 1).
+ */
 export function blankWaterfallDraft(
   entrantCount: number | null,
   roomSize: RoomSize,
-  options: Pick<WaterfallDraftParseOptions, 'standingsSource' | 'standingsKind'> = {},
+  options: Pick<WaterfallDraftParseOptions, 'standingsSource' | 'standingsKind'> & {
+    firstRoundNumber?: number;
+  } = {},
 ): WaterfallDraft {
   const fits = entrantCount !== null && entrantCount > 0 && entrantCount % roomSize.ideal === 0;
   const rounds: WaterfallDraftRound[] = [
     {
-      label: 'R1',
+      label: defaultRoundName(options.firstRoundNumber ?? 1),
       roomCount: fits ? Math.min(entrantCount / roomSize.ideal, MAX_ROOMS_PER_ROUND) : 1,
       roomSize: roomSize.ideal,
       isFinal: false,
@@ -568,12 +585,19 @@ export function blankWaterfallDraft(
   };
 }
 
-/** Adds a 1-room round, before the Final when the last round is one. */
-export function addWaterfallRound(draft: WaterfallDraft, roomSize: number): WaterfallDraft {
-  let number = draft.rounds.length + 1;
-  while (labelIsTaken(draft, `R${number}`)) number += 1;
+/**
+ * Adds a 1-room round, before the Final when the last round is one. It is named on from the rounds already
+ * there: "Round <firstRoundNumber + the rounds that are not the Final>", bumped until the name is free.
+ */
+export function addWaterfallRound(
+  draft: WaterfallDraft,
+  roomSize: number,
+  firstRoundNumber: number = 1,
+): WaterfallDraft {
+  let number = firstRoundNumber + draft.rounds.filter((round) => !round.isFinal).length;
+  while (labelIsTaken(draft, defaultRoundName(number))) number += 1;
   const added: WaterfallDraftRound = {
-    label: `R${number}`,
+    label: defaultRoundName(number),
     roomCount: 1,
     roomSize,
     isFinal: false,
@@ -602,6 +626,46 @@ function unsetQualRoutesTo(
   label: string,
 ): WaterfallSlotDestination[] | null {
   return qualRoutes?.map((destination) => (destination === label ? null : destination)) ?? null;
+}
+
+/**
+ * The renames that move every default round name ("Round 4") from the numbering that starts at `from` to the one
+ * that starts at `to`: each number shifts by the difference, all at once. Names the organiser typed ("Round 4 -
+ * Upper", "Final") are not defaults and stay. Empty when nothing shifts (`from === to`) and when the shift can't be
+ * made whole: a number would fall below 1, or two names would land on the same one ("Round 5" and "Round 05",
+ * both defaults, written differently). A name a typed one already has can't happen: a new name is always "Round n".
+ */
+export function defaultNameShift(draft: WaterfallDraft, from: number, to: number): Map<string, string> {
+  const renames = new Map<string, string>();
+  if (from === to) return renames;
+  for (const round of draft.rounds) {
+    const number = defaultRoundNumber(round.label);
+    if (number !== null) renames.set(round.label, defaultRoundName(number + to - from));
+  }
+  const targets = [...renames.values()].map((name) => name.toLowerCase());
+  const impossible =
+    targets.some((name) => (defaultRoundNumber(name) ?? 0) < 1) || new Set(targets).size !== targets.length;
+  return impossible ? new Map() : renames;
+}
+
+/** Renames many rounds in one step (`renames` is old name to new name, a map as `defaultNameShift` makes), so a name may be taken by another round that is also renamed. Routes follow. */
+export function renameWaterfallRounds(
+  draft: WaterfallDraft,
+  renames: ReadonlyMap<string, string>,
+): WaterfallDraft {
+  if (renames.size === 0) return draft;
+  const renamed = (label: string) => renames.get(label) ?? label;
+  const rounds = draft.rounds.map((round) => ({ ...round, label: renamed(round.label) }));
+  const routes: Record<string, WaterfallSlotDestination[][]> = {};
+  for (const round of draft.rounds) {
+    routes[renamed(round.label)] = (draft.routes[round.label] ?? []).map((room) =>
+      room.map((destination) => (destination === null ? null : renamed(destination))),
+    );
+  }
+  const qualRoutes = draft.qualRoutes?.map((destination) =>
+    destination === null ? null : renamed(destination),
+  );
+  return { ...draft, rounds, routes, qualRoutes: qualRoutes ?? null };
 }
 
 export function renameWaterfallRound(

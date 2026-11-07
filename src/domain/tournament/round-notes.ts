@@ -285,3 +285,57 @@ export function infoWithGameNote(
   const gameNotes = setGameNote(previous, name, key, text);
   return gameNotes ? { ...rest, gameNotes } : rest;
 }
+
+/**
+ * `entries` with the keys in `renames` moved to their new names, all at once (so "Round 4" to "Round 5" and
+ * "Round 5" to "Round 6" never collide). A name that is not renamed and already holds something keeps it: the moved
+ * entry is dropped rather than overwrite it. `merge` joins two values under one name (the moved one under the kept).
+ */
+function withRenamedKeys<T>(
+  entries: Array<[string, T]>,
+  renames: ReadonlyMap<string, string>,
+  merge: (kept: T, moved: T) => T,
+): Record<string, T> {
+  const next: Record<string, T> = {};
+  for (const [name, value] of entries) if (!renames.has(name)) next[name] = value;
+  for (const [name, value] of entries) {
+    const target = renames.get(name);
+    if (target === undefined) continue;
+    next[target] = Object.hasOwn(next, target) ? merge(next[target], value) : value;
+  }
+  return next;
+}
+
+/**
+ * The info with rounds renamed (`renames` is old name to new name): the round notes and the game notes move to
+ * the new names with their round. A name that is not itself renamed keeps the note it already has (the moved
+ * one is dropped); a game box it leaves empty takes the moved one. Pictures are server-owned and move there
+ * (`renameNotePictureRounds`).
+ */
+export function infoWithRenamedRounds(
+  info: TournamentInfo,
+  renames: ReadonlyMap<string, string>,
+): TournamentInfo {
+  if (renames.size === 0) return info;
+  const { roundNotes, gameNotes, ...rest } = info;
+  const movedNotes =
+    roundNotes && Object.keys(roundNotes).length > 0
+      ? withRenamedKeys(storedNotes(roundNotes), renames, (kept, moved) => (kept.trim() ? kept : moved))
+      : undefined;
+  const movedGameNotes =
+    gameNotes && Object.keys(gameNotes).length > 0
+      ? withRenamedKeys(
+          entriesOf(gameNotes).map(([round, texts]): [string, Record<string, string>] => [
+            round,
+            Object.fromEntries(textEntries(texts)),
+          ]),
+          renames,
+          (kept, moved) => ({ ...moved, ...kept }),
+        )
+      : undefined;
+  return {
+    ...rest,
+    ...(movedNotes && { roundNotes: movedNotes }),
+    ...(movedGameNotes && { gameNotes: movedGameNotes }),
+  };
+}

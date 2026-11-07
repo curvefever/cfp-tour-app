@@ -9,6 +9,7 @@ import {
 } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { groupExitRefusal, groupSizesOf, groupsLineExit } from './group-exit';
+import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -114,17 +115,14 @@ function kingsValleyTooLargeMessage(input: {
   return `Kings Valley can take at most ${input.limit} ${input.unitPlural} into the ladder in ${input.formatLabel}: it has to reach the Final within ${MAX_KINGS_VALLEY_ROUNDS} rounds, and ${input.entrants} would enter. ${fix}`;
 }
 
-/** Sanity ceiling for a manually-overridden pooling-phase round count, matching single-elimination.ts's own MAX_ELIMINATION_ROUNDS-style cap. */
-const MAX_POOLING_ROUNDS_OVERRIDE = 12;
-
 function resolvePoolingRoundsOverride(
   raw: string,
   defaultValue: number,
   label: string,
 ): { ok: true; value: number } | { ok: false; error: string } {
-  if (!raw) return { ok: true, value: defaultValue };
-  const parsedValue = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsedValue) || parsedValue < 1 || parsedValue > MAX_POOLING_ROUNDS_OVERRIDE) {
+  const parsedValue = parsePoolingRoundsOverride(raw);
+  if (parsedValue === undefined) return { ok: true, value: defaultValue };
+  if (parsedValue === null) {
     return {
       ok: false,
       error: `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`,

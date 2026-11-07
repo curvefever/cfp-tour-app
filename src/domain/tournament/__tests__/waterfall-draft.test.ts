@@ -17,11 +17,13 @@ import {
   assignWaterfallSlots,
   blankWaterfallDraft,
   compressWaterfallRanks,
+  defaultNameShift,
   finalsMatchOf,
   groupRoomByDestination,
   parseWaterfallDraft,
   removeWaterfallRound,
   renameWaterfallRound,
+  renameWaterfallRounds,
   resizeWaterfallRound,
   serializeWaterfallDraft,
   setWaterfallColumn,
@@ -257,14 +259,100 @@ describe('waterfallFlowEdges / waterfallRoundIntake', () => {
   });
 });
 
+const SHIFT_GRAPH = `
+ROUNDS:
+Round 4 = 2x8
+Round 5 = 8
+Round 4 - Upper = 8
+Final = 8 FINAL
+
+ROUTES:
+Round 4.A: 1-4->Round 5, 5-8->Round 4 - Upper
+Round 4.B: 1-4->Round 5, 5-8->eliminated
+Round 5: 1-4->Final, 5-8->eliminated
+Round 4 - Upper: 1-4->Final, 5-8->eliminated
+`;
+
+describe('default round names', () => {
+  it('shifts every default name by the change in the first number, all at once, and leaves typed names', () => {
+    const draft = draftOf(SHIFT_GRAPH);
+    const renames = defaultNameShift(draft, 4, 5);
+    expect([...renames]).toEqual([
+      ['Round 4', 'Round 5'],
+      ['Round 5', 'Round 6'],
+    ]);
+    const shifted = renameWaterfallRounds(draft, renames);
+    expect(shifted.rounds.map((round) => round.label)).toEqual([
+      'Round 5',
+      'Round 6',
+      'Round 4 - Upper',
+      'Final',
+    ]);
+    // The routes follow the new names: no slot points at a name that is gone.
+    expect(shifted.routes['Round 5'][0].slice(0, 8)).toEqual([
+      'Round 6',
+      'Round 6',
+      'Round 6',
+      'Round 6',
+      'Round 4 - Upper',
+      'Round 4 - Upper',
+      'Round 4 - Upper',
+      'Round 4 - Upper',
+    ]);
+    expect(shifted.routes['Round 6'][0].slice(0, 4)).toEqual(Array(4).fill('Final'));
+    // And the text still validates as one graph.
+    expect(parseWaterfallDraft(serializeWaterfallDraft(shifted)).ok).toBe(true);
+  });
+
+  it('shifts down as well as up, and treats the letter case and spacing of "Round n" as the default', () => {
+    const draft = draftOf('ROUNDS:\nround  6 = 8\nROUND 7 = 8\nFinal = 8 FINAL\nROUTES:');
+    expect([...defaultNameShift(draft, 6, 4)]).toEqual([
+      ['round 6', 'Round 4'],
+      ['ROUND 7', 'Round 5'],
+    ]);
+  });
+
+  it('is empty when the first number did not change', () => {
+    expect(defaultNameShift(draftOf(SHIFT_GRAPH), 4, 4).size).toBe(0);
+  });
+
+  it('is empty when two defaults would land on one name ("Round 5" and "Round 05"): the shift is skipped whole', () => {
+    const clash = draftOf('ROUNDS:\nRound 5 = 8\nRound 05 = 8\nFinal = 8 FINAL\nROUTES:');
+    expect(defaultNameShift(clash, 4, 5).size).toBe(0);
+    const apart = draftOf('ROUNDS:\nRound 4 = 8\nRound 05 = 8\nFinal = 8 FINAL\nROUTES:');
+    expect([...defaultNameShift(apart, 4, 5)]).toEqual([
+      ['Round 4', 'Round 5'],
+      ['Round 05', 'Round 6'],
+    ]);
+  });
+
+  it('is empty when a number would fall below 1', () => {
+    const draft = draftOf('ROUNDS:\nRound 2 = 8\nFinal = 8 FINAL\nROUTES:');
+    expect(defaultNameShift(draft, 6, 3).size).toBe(0);
+  });
+
+  it('renames in one step: "Round 4" to "Round 5" while "Round 5" goes on to "Round 6"', () => {
+    const draft = draftOf('ROUNDS:\nRound 4 = 8\nRound 5 = 8\nFinal = 8 FINAL\nROUTES:\nRound 4: 1->Round 5');
+    const shifted = renameWaterfallRounds(
+      draft,
+      new Map([
+        ['Round 4', 'Round 5'],
+        ['Round 5', 'Round 6'],
+      ]),
+    );
+    expect(shifted.rounds.map((round) => round.label)).toEqual(['Round 5', 'Round 6', 'Final']);
+    expect(shifted.routes['Round 5'][0][0]).toBe('Round 6');
+  });
+});
+
 describe('waterfall draft edits', () => {
   it('starts blank with an entry round sized to the entrants when they divide into rooms', () => {
     const draft = blankWaterfallDraft(24, FFA_ROOM_SIZE);
     expect(draft.rounds).toEqual([
-      { label: 'R1', roomCount: 3, roomSize: 8, isFinal: false, column: null, match: null },
+      { label: 'Round 1', roomCount: 3, roomSize: 8, isFinal: false, column: null, match: null },
       { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true, column: null, match: null },
     ]);
-    expect(draft.routes.R1).toEqual(Array.from({ length: 3 }, () => Array(8).fill(null)));
+    expect(draft.routes['Round 1']).toEqual(Array.from({ length: 3 }, () => Array(8).fill(null)));
   });
 
   it('starts with a single room when the entrants are unknown or do not divide evenly', () => {
@@ -275,11 +363,37 @@ describe('waterfall draft edits', () => {
   it('adds a round before the Final, with a name nobody uses yet', () => {
     const base = draftOf(SECOND_CHANCE_GRAPH);
     const added = addWaterfallRound(base, 8);
-    expect(added.rounds.map((round) => round.label)).toEqual(['R1', 'SemiB', 'R4', 'Final']);
-    expect(added.routes.R4).toEqual([Array(8).fill(null)]);
-    const clash = addWaterfallRound(draftOf('ROUNDS:\nR2 = 8\nF = 8 FINAL\nROUTES:'), 8);
-    expect(clash.rounds.map((round) => round.label)).toEqual(['R2', 'R3', 'F']);
-    expect(addWaterfallRound(draftOf('ROUNDS:\nR3 = 8\nF = 8 FINAL\nROUTES:'), 8).rounds[1].label).toBe('R4');
+    expect(added.rounds.map((round) => round.label)).toEqual(['R1', 'SemiB', 'Round 3', 'Final']);
+    expect(added.routes['Round 3']).toEqual([Array(8).fill(null)]);
+    const typed = addWaterfallRound(draftOf('ROUNDS:\nRound 2 = 8\nF = 8 FINAL\nROUTES:'), 8);
+    expect(typed.rounds.map((round) => round.label)).toEqual(['Round 2', 'Round 3', 'F']);
+  });
+
+  it('names the rounds on from the pooling rounds: Round 4 after 3 qualification rounds, then Round 5', () => {
+    const blank = blankWaterfallDraft(24, FFA_ROOM_SIZE, { firstRoundNumber: 4 });
+    expect(blank.rounds.map((round) => round.label)).toEqual(['Round 4', 'Final']);
+    const added = addWaterfallRound(blank, 8, 4);
+    expect(added.rounds.map((round) => round.label)).toEqual(['Round 4', 'Round 5', 'Final']);
+    expect(addWaterfallRound(added, 8, 4).rounds.map((round) => round.label)).toEqual([
+      'Round 4',
+      'Round 5',
+      'Round 6',
+      'Final',
+    ]);
+  });
+
+  it('names the first round "Round 3" when there is no pooling phase (two warm-up rounds come first)', () => {
+    expect(blankWaterfallDraft(24, FFA_ROOM_SIZE, { firstRoundNumber: 3 }).rounds[0].label).toBe('Round 3');
+  });
+
+  it("bumps an added round's number until its name is free, whatever the letter case", () => {
+    const draft = draftOf('ROUNDS:\nRound 4 = 8\nround 5 = 8\nF = 8 FINAL\nROUTES:');
+    expect(addWaterfallRound(draft, 8, 4).rounds.map((round) => round.label)).toEqual([
+      'Round 4',
+      'round 5',
+      'Round 6',
+      'F',
+    ]);
   });
 
   it('removes a round and makes every slot that pointed at it out', () => {

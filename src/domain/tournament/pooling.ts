@@ -14,6 +14,9 @@ import type {
 } from './types';
 
 export const QUALIFICATION_ROUNDS = 3;
+
+/** The rounds played when there is no pooling phase: two warm-up rounds before the bracket. */
+export const WARMUP_ROUNDS = 2;
 const MIN_SWISS_ROUNDS = 3;
 const MAX_SWISS_ROUNDS = 7;
 const IDEAL_GROUP_SIZE = 4;
@@ -220,13 +223,22 @@ function assignGroupMembers(sortedUnits: string[], groupSizes: number[]): Tourna
   return groups;
 }
 
+/** How many rounds a group stage plays: the longest group's schedule (a round robin, twice over in a double one). */
+export function groupStageRoundCount(groupSizes: readonly number[], roundRobinMode: RoundRobinMode): number {
+  const longest = Math.max(0, ...groupSizes.map((size) => circleMethodSchedule(size).numRounds));
+  return roundRobinMode === 'double' ? 2 * longest : longest;
+}
+
 function buildRoundRobinRounds(groups: TournamentGroup[], roundRobinMode: RoundRobinMode): RoundRobinRound[] {
   const schedules = groups.map((group) => {
     const schedule = circleMethodSchedule(group.members.length);
     const rounds = roundRobinMode === 'double' ? [...schedule.rounds, ...schedule.rounds] : schedule.rounds;
     return { group, phantomPosition: schedule.phantomPosition, rounds };
   });
-  const maxRounds = schedules.reduce((maximum, schedule) => Math.max(maximum, schedule.rounds.length), 0);
+  const maxRounds = groupStageRoundCount(
+    groups.map((group) => group.members.length),
+    roundRobinMode,
+  );
 
   return Array.from({ length: maxRounds }, (_, roundIndex) => {
     const matches: GroupStageMatch[] = [];
@@ -316,9 +328,9 @@ export function noEliminationWarmupPoolingPhase(
   config: Pick<PoolingConfig, 'n'>,
   format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy'>,
 ): PoolingPhaseResult {
-  const rounds = Array.from({ length: 2 }, (_, index) => {
+  const rounds = Array.from({ length: WARMUP_ROUNDS }, (_, index) => {
     const distribution = distributeRoomsWithBye(config.n, format.roomSize, format.oddCountStrategy);
     return createPoolingRound(index + 1, config.n, distribution.rooms, distribution.byeCount);
   });
-  return { rounds, seedTotal: config.n, nextRoundNum: 3 };
+  return { rounds, seedTotal: config.n, nextRoundNum: rounds.length + 1 };
 }

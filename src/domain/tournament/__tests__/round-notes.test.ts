@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   gameNoteRowLabel,
   infoWithGameNote,
+  infoWithRenamedRounds,
   infoWithRoundNote,
   noteGameCount,
   roundNote,
@@ -516,5 +517,69 @@ describe('roundNoteRowLabel', () => {
     expect(roundNoteRowLabel({ name: 'Round 4', note: 'x', games: [], orphan: true })).toBe(
       'Round 4 · not in the schedule',
     );
+  });
+});
+
+describe('infoWithRenamedRounds', () => {
+  const infoOf = (parts: Partial<TournamentInfo>): TournamentInfo => ({ ...createDefaultInfo(), ...parts });
+  const SHIFT = new Map([
+    ['Round 4', 'Round 5'],
+    ['Round 5', 'Round 6'],
+  ]);
+
+  it('moves the round notes and the game notes with their rounds, all at once (no name overwrites another)', () => {
+    const moved = infoWithRenamedRounds(
+      infoOf({
+        roundNotes: { 'Round 4': 'four', 'Round 5': 'five', 'Round 4 - Upper': 'typed', Final: 'final' },
+        gameNotes: { 'Round 4': { g1: 'four g1' }, 'Round 5': { g2: 'five g2' } },
+      }),
+      SHIFT,
+    );
+    expect(moved.roundNotes).toEqual({
+      'Round 5': 'four',
+      'Round 6': 'five',
+      'Round 4 - Upper': 'typed',
+      Final: 'final',
+    });
+    expect(moved.gameNotes).toEqual({ 'Round 5': { g1: 'four g1' }, 'Round 6': { g2: 'five g2' } });
+  });
+
+  it('leaves the pictures and every other field as they are', () => {
+    const pictures: NotePictures = { 'Round 4': { round: 'image-1' } };
+    const info = infoOf({ roundNotes: { 'Round 4': 'four' }, notePictures: pictures });
+    const moved = infoWithRenamedRounds(info, SHIFT);
+    expect(moved.notePictures).toBe(pictures);
+    expect(moved.rulesText).toBe(info.rulesText);
+  });
+
+  it('is the same info when nothing is renamed, and when there are no notes', () => {
+    const info = infoOf({ roundNotes: { 'Round 4': 'four' } });
+    expect(infoWithRenamedRounds(info, new Map())).toBe(info);
+    const bare = infoOf({});
+    expect(infoWithRenamedRounds(bare, SHIFT)).toEqual(bare);
+    expect('roundNotes' in infoWithRenamedRounds(bare, SHIFT)).toBe(false);
+  });
+
+  it('keeps the note a name outside the renames already has, and takes the moved one only when that is empty', () => {
+    // "Round 5" is moved away here, so the target is free; a name that stays and is taken keeps its own note.
+    const rename = new Map([['Round 4', 'Round 9']]);
+    const kept = infoWithRenamedRounds(
+      infoOf({ roundNotes: { 'Round 4': 'moved', 'Round 9': 'already here' } }),
+      rename,
+    );
+    expect(kept.roundNotes).toEqual({ 'Round 9': 'already here' });
+    const empty = infoWithRenamedRounds(
+      infoOf({ roundNotes: { 'Round 4': 'moved', 'Round 9': '  ' } }),
+      rename,
+    );
+    expect(empty.roundNotes).toEqual({ 'Round 9': 'moved' });
+  });
+
+  it('merges game notes box by box: a box the target already holds keeps its text, an empty one takes the moved text', () => {
+    const merged = infoWithRenamedRounds(
+      infoOf({ gameNotes: { 'Round 4': { g1: 'moved 1', g2: 'moved 2' }, 'Round 9': { g1: 'kept 1' } } }),
+      new Map([['Round 4', 'Round 9']]),
+    );
+    expect(merged.gameNotes).toEqual({ 'Round 9': { g1: 'kept 1', g2: 'moved 2' } });
   });
 });
