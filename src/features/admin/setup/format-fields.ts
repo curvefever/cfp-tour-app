@@ -130,6 +130,6 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(isSingle || isShared, 'finalOverride', 'eliminationRoundTargets', 'eliminationSeedingOverrides');
   add(poolingPhase === 'qual-table', 'qualRoundsOverride');
   add(poolingPhase === 'swiss', 'swissRoundsOverride');
-  add(choices.scheduleLogic === 'waterfall-bracket', 'waterfallGraph');
+  add(choices.scheduleLogic === 'waterfall-bracket', 'waterfallGraph', 'waterfallNumberedFrom');
   return fields;
 }

@@ -16,9 +16,17 @@ import {
   TOURNAMENT_REFERENCE_INVALID_MESSAGE,
 } from './past-tournament-settings';
 
+/** What applying the copied settings leaves for this panel to show and do. */
+export interface CopyOutcome {
+  /** The confirmation message, including any "generate/load again" notes. */
+  message: string;
+  /** Moves the settings pictures of rounds the copy renamed (the pooling rounds differ from the source's); run once the pictures are copied, never before: the copied ones arrive under the source's names. Resolves with the error text, '' when it went well. */
+  movePictures?: () => Promise<string>;
+}
+
 export interface CopySettingsProps {
-  /** Applies the copied settings and returns the confirmation message (including any "generate/load again" notes) to show in this panel. */
-  onApply(settings: TournamentSettings, sourceTitle: string, info: CopiedInfo): string;
+  /** Applies the copied settings. */
+  onApply(settings: TournamentSettings, sourceTitle: string, info: CopiedInfo): CopyOutcome;
 }
 
 const NETWORK_ERROR_MESSAGE = 'Could not reach the tournament server — check your connection and try again.';
@@ -114,13 +122,17 @@ export function CopySettings({ onApply }: CopySettingsProps) {
         );
         return;
       }
-      const message = onApply(result.settings, result.title, {
+      const outcome = onApply(result.settings, result.title, {
         rulesText: result.rulesText,
         roundNotes: result.roundNotes,
         gameNotes: result.gameNotes,
       });
       const pictures = await copyPicturesFrom(tournamentId, result.screenshotCount, result.notePictureCount);
-      setConfirmation(`${message}${pictures}`);
+      const moveError = result.notePictureCount && outcome.movePictures ? await outcome.movePictures() : '';
+      const moved = moveError
+        ? ` The settings pictures could not follow the renamed rounds: ${moveError}`
+        : '';
+      setConfirmation(`${outcome.message}${pictures}${moved}`);
     } catch {
       setConfirmation('');
       setError(NETWORK_ERROR_MESSAGE);

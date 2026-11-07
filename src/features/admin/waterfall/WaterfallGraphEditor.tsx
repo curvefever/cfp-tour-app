@@ -43,7 +43,10 @@ import { parseSlotKey, slotKey } from './waterfall-format';
 interface EditorProps {
   /** The persisted ROUNDS:/ROUTES: text; the editor reads it and writes it back on every change. */
   text: string;
-  onChange: (text: string) => void;
+  /** Writes the graph text back. `renamed` is set when the change renames a round by hand, so what is kept under the round's name (notes, pictures) can follow it. */
+  onChange: (text: string, renamed?: { from: string; to: string }) => void;
+  /** The number a new round's default name starts from: the round after the pooling rounds before the bracket ("Round 4" after 3 qualification rounds). */
+  firstRoundNumber: number;
   /** Players entering the bracket (with `standingsSource`: the players registered), or null while it can't be known yet. */
   entrantCount: number | null;
   roomSize: RoomSize;
@@ -142,6 +145,7 @@ function DraftEditor({
   draft,
   status,
   onChange,
+  firstRoundNumber,
   entrantCount,
   roomSize,
   readOnly,
@@ -186,8 +190,8 @@ function DraftEditor({
     setPicked(new Set());
     setLastRank(null);
   };
-  const commit = (next: WaterfallDraft) => {
-    onChange(serializeWaterfallDraft(next));
+  const commit = (next: WaterfallDraft, renamed?: { from: string; to: string }) => {
+    onChange(serializeWaterfallDraft(next), renamed);
     clearPicked();
   };
   const select = (label: string) => {
@@ -229,8 +233,9 @@ function DraftEditor({
     onRename: (name) => {
       const result = renameWaterfallRound(draft, round.label, name);
       if (!result.ok) return result.error;
-      setSelectedLabel(normalizeRoundLabel(name));
-      commit(result.value);
+      const to = normalizeRoundLabel(name);
+      setSelectedLabel(to);
+      commit(result.value, { from: round.label, to });
       return null;
     },
     onResize: (roomCount, roomSize) => commit(resizeWaterfallRound(draft, round.label, roomCount, roomSize)),
@@ -285,7 +290,7 @@ function DraftEditor({
     : undefined;
 
   const addRound = () => {
-    const next = addWaterfallRound(draft, round.roomSize);
+    const next = addWaterfallRound(draft, round.roomSize, firstRoundNumber);
     const added = next.rounds.find((candidate) => !draft.rounds.some((old) => old.label === candidate.label));
     commit(next);
     setSelectedLabel(added?.label ?? '');
@@ -293,7 +298,7 @@ function DraftEditor({
   const startBlank = () => {
     if (!confirmReplace()) return;
     setSelectedLabel('');
-    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource, standingsKind }));
+    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource, standingsKind, firstRoundNumber }));
   };
   const loadExample = (exampleText: string) => {
     if (!confirmReplace()) return;
@@ -388,6 +393,7 @@ function DraftEditor({
 export function WaterfallGraphEditor({
   text,
   onChange,
+  firstRoundNumber,
   entrantCount,
   roomSize,
   readOnly,
@@ -496,7 +502,7 @@ export function WaterfallGraphEditor({
                     blankWaterfallDraft(
                       entrantCount,
                       { min, max, ideal },
-                      { standingsSource, standingsKind },
+                      { standingsSource, standingsKind, firstRoundNumber },
                     ),
                   ),
                 )
@@ -535,6 +541,7 @@ export function WaterfallGraphEditor({
         draft={parsed.value}
         entrantCount={entrantCount}
         finalsMatch={finalsMatch}
+        firstRoundNumber={firstRoundNumber}
         lockedRounds={lockedRounds}
         onAddRanks={entrantCount === null ? () => setExtraRanks((count) => count + max) : undefined}
         onChange={onChange}

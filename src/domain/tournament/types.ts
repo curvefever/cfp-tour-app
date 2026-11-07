@@ -444,6 +444,8 @@ export interface PersistedSetup {
   eliminationSeedingOverrides: string;
   /** The organiser-authored ROUNDS:/ROUTES: mini-language text (waterfall-bracket.ts). Only read when scheduleLogic === 'waterfall-bracket'. */
   waterfallGraph: string;
+  /** The number the default round names ("Round 4") of `waterfallGraph` are numbered from: the first round after the pooling rounds. '' = not numbered (a graph saved before this was kept): its names are never renumbered. */
+  waterfallNumberedFrom: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

@@ -60,6 +60,7 @@ type RecapField = Exclude<
   | 'losersBestOf'
   | 'matchResultPoints'
   | 'tieMargin'
+  | 'waterfallNumberedFrom'
 >;
 
 /** "Match results: 3 / 2 / 1 / 0, tie margin 100" for a tournament scored by match results (its resolved settings), else the system's name. */

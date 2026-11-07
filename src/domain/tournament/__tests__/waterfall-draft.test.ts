@@ -382,7 +382,7 @@ describe('default round names', () => {
 
 describe('waterfall draft edits', () => {
   it('starts blank with an entry round sized to the entrants when they divide into rooms', () => {
-    const draft = blankWaterfallDraft(24, FFA_ROOM_SIZE);
+    const draft = blankWaterfallDraft(24, FFA_ROOM_SIZE, { firstRoundNumber: 1 });
     expect(draft.rounds).toEqual([
       { label: 'Round 1', roomCount: 3, roomSize: 8, isFinal: false, column: null, match: null },
       { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true, column: null, match: null },
@@ -391,16 +391,16 @@ describe('waterfall draft edits', () => {
   });
 
   it('starts with a single room when the entrants are unknown or do not divide evenly', () => {
-    expect(blankWaterfallDraft(null, FFA_ROOM_SIZE).rounds[0].roomCount).toBe(1);
-    expect(blankWaterfallDraft(21, FFA_ROOM_SIZE).rounds[0].roomCount).toBe(1);
+    expect(blankWaterfallDraft(null, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomCount).toBe(1);
+    expect(blankWaterfallDraft(21, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomCount).toBe(1);
   });
 
   it('adds a round before the Final, with a name nobody uses yet', () => {
     const base = draftOf(SECOND_CHANCE_GRAPH);
-    const added = addWaterfallRound(base, 8);
+    const added = addWaterfallRound(base, 8, 1);
     expect(added.rounds.map((round) => round.label)).toEqual(['R1', 'SemiB', 'Round 3', 'Final']);
     expect(added.routes['Round 3']).toEqual([Array(8).fill(null)]);
-    const typed = addWaterfallRound(draftOf('ROUNDS:\nRound 2 = 8\nF = 8 FINAL\nROUTES:'), 8);
+    const typed = addWaterfallRound(draftOf('ROUNDS:\nRound 2 = 8\nF = 8 FINAL\nROUTES:'), 8, 1);
     expect(typed.rounds.map((round) => round.label)).toEqual(['Round 2', 'Round 3', 'F']);
   });
 
@@ -742,7 +742,7 @@ R2: 1-4->Final, 5-8->eliminated`;
   });
 
   it('writes an all-eliminated Qual routing as an explicit line, so it is never read as "no Qual line"', () => {
-    const blank = blankWaterfallDraft(37, FFA_ROOM_SIZE, qualOptions);
+    const blank = blankWaterfallDraft(37, FFA_ROOM_SIZE, { ...qualOptions, firstRoundNumber: 1 });
     expect(blank.qualRoutes).toEqual(Array(37).fill(null));
     const text = serializeWaterfallDraft(blank);
     expect(text).toContain('Qual: 1-37->eliminated');
@@ -867,7 +867,7 @@ describe('waterfall columns in a draft', () => {
   });
 
   it('gives an added round an automatic column', () => {
-    const added = addWaterfallRound(draftOf(NUMBERED_GRAPH), 8);
+    const added = addWaterfallRound(draftOf(NUMBERED_GRAPH), 8, 1);
     expect(added.rounds.map((round) => round.column)).toEqual([null, null, 3, null, null, null, null, 6]);
   });
 

@@ -1,15 +1,20 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
 import { finalsMatchOf } from '../../../domain/tournament/waterfall-draft';
-import { SectionPanel } from '../../../components/ui';
+import { Alert, SectionPanel } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
 import { setupDerived } from './setup-derived';
-import { useSetupChange } from './useSetupChange';
+import type { WaterfallNumbering } from './useWaterfallNumbering';
 
 /** The waterfall bracket graph, for a tournament whose schedule logic is the waterfall bracket. */
-export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
+export function WaterfallPanel({
+  lbQualifiers,
+  numbering,
+}: {
+  lbQualifiers: string;
+  numbering: WaterfallNumbering;
+}) {
   const { state, setup } = useTournamentApp();
-  const change = useSetupChange();
   const format = getGameFormat(setup.gameFormat);
   const {
     derivedRoomSize,
@@ -33,12 +38,18 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
           Number.parseInt(setup.finalsGames, 10) || undefined,
           Number.parseInt(setup.finalsBestOf, 10) || undefined,
         )}
-        onChange={(text) => change('waterfallGraph', text)}
+        firstRoundNumber={numbering.firstRoundNumber}
+        onChange={numbering.changeGraph}
         roomSize={derivedRoomSize}
         standingsKind={waterfallStandingsKind ?? undefined}
         standingsSource={waterfallStandingsSource}
         text={setup.waterfallGraph}
       />
+      {numbering.pictureError ? (
+        <Alert className='mt-3' id='waterfall-picture-error' tone='danger'>
+          The settings pictures could not follow the renamed rounds: {numbering.pictureError}
+        </Alert>
+      ) : null}
       <p className='mt-3 text-xs text-muted'>
         Every round, room count/size, and rank routing is set up here, and can still be corrected from the
         Admin tab while the tournament is running. There's no automatic reseeding beyond that, no automatic

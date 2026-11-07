@@ -39,7 +39,15 @@ R2.B: 1->Final, 2->eliminated
 const ROOM = { min: 2, max: 2, ideal: 2 };
 
 function editor(props: Partial<Parameters<typeof WaterfallGraphEditor>[0]> & { text: string }) {
-  return render(<WaterfallGraphEditor entrantCount={null} onChange={() => {}} roomSize={ROOM} {...props} />);
+  return render(
+    <WaterfallGraphEditor
+      entrantCount={null}
+      firstRoundNumber={1}
+      onChange={() => {}}
+      roomSize={ROOM}
+      {...props}
+    />,
+  );
 }
 
 describe('the Groups block of the graph editor', () => {

@@ -74,6 +74,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     eliminationRoundTargets: '',
     eliminationSeedingOverrides: '',
     waterfallGraph: '',
+    waterfallNumberedFrom: '',
     oddCountStrategy: '',
     teamScoringRule: '',
     roster: '',

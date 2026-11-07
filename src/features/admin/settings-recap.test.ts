@@ -242,7 +242,11 @@ describe('the recap against the Setup form', () => {
       const listed = groups.filter((group) => group.title !== 'ROSTER AND SHARING');
       // The Best of N settings are read through the Semis and Finals format rows, and the match-result settings through the scoring row, not listed of their own.
       const shown = [...visibleFormatFields(choice)].filter(
-        (field) => !field.endsWith('BestOf') && field !== 'matchResultPoints' && field !== 'tieMargin',
+        (field) =>
+          !field.endsWith('BestOf') &&
+          field !== 'matchResultPoints' &&
+          field !== 'tieMargin' &&
+          field !== 'waterfallNumberedFrom',
       );
       expect(listed.flatMap((group) => group.items)).toHaveLength(shown.length);
     }

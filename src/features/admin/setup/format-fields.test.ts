@@ -70,7 +70,7 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'eliminationSeedingOverrides',
   ],
   'kings-valley': ['bracketGames', 'bracketBestOf', 'finalsGames', 'finalsBestOf'],
-  'waterfall-bracket': ['finalsGames', 'finalsBestOf', 'waterfallGraph'],
+  'waterfall-bracket': ['finalsGames', 'finalsBestOf', 'waterfallGraph', 'waterfallNumberedFrom'],
 };
 
 function fieldsOf(choices: Partial<FormatChoices>): FormatField[] {

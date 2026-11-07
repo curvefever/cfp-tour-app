@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { createDefaultInfo } from '../../domain/tournament/state-defaults';
 import { generateTournament } from '../../domain/tournament/generation';
+import { rosterKeys } from '../../domain/tournament/roster';
+import { infoWithRenamedRounds } from '../../domain/tournament/round-notes';
 import { applyTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings } from '../../domain/tournament/types';
+import { renumberWaterfallDefaults } from '../../domain/tournament/waterfall-numbering';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import type { CopyOutcome } from './copy-settings/CopySettingsPanel';
 import type { CopiedInfo } from './copy-settings/past-tournament-settings';
 import { InfoContentPanel } from './InfoContentPanel';
 import { ConfirmStartBar } from './setup/ConfirmStartBar';
@@ -11,12 +15,19 @@ import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
 import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
+import { useWaterfallNumbering } from './setup/useWaterfallNumbering';
 import { WaterfallPanel } from './setup/WaterfallPanel';
+
+/** The two settings a renumbering rewrites. */
+function numberedGraphOf({ graph, numberedFrom }: { graph: string; numberedFrom: string }) {
+  return { waterfallGraph: graph, waterfallNumberedFrom: numberedFrom };
+}
 
 export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
   const [error, setError] = useState('');
   const [lbQualifiers, setLbQualifiers] = useState('2');
+  const numbering = useWaterfallNumbering();
 
   function generate() {
     const result = generateTournament(state, { ...setup, lbQualifiers }, runtime);
@@ -32,17 +43,26 @@ export function SetupView() {
     settings: TournamentSettings,
     sourceTitle: string,
     { rulesText, roundNotes, gameNotes }: CopiedInfo,
-  ): string {
+  ): CopyOutcome {
     const previousGameFormat = setup.gameFormat;
-    updateSetup((current) => applyTournamentSettings(current, settings));
+    // The copied graph's default names ("Round 4") are numbered for the source's pooling rounds: renumber them for
+    // this tournament's, with the copied notes. The pictures arrive later, under the source's names.
+    const renumbering = renumberWaterfallDefaults(
+      applyTournamentSettings(setup, settings),
+      rosterKeys(state.players).length,
+    );
+    const renames = renumbering?.renames ?? new Map<string, string>();
+    const copied = renumbering ? { ...settings, ...numberedGraphOf(renumbering) } : settings;
+    updateSetup((current) => applyTournamentSettings(current, copied));
     if (rulesText || roundNotes || gameNotes) {
+      const carried = infoWithRenamedRounds({ ...createDefaultInfo(), roundNotes, gameNotes }, renames);
       updateState((current) => ({
         ...current,
         info: {
           ...(current.info ?? createDefaultInfo()),
           ...(rulesText ? { rulesText } : {}),
-          ...(roundNotes ? { roundNotes } : {}),
-          ...(gameNotes ? { gameNotes } : {}),
+          ...(carried.roundNotes ? { roundNotes: carried.roundNotes } : {}),
+          ...(carried.gameNotes ? { gameNotes: carried.gameNotes } : {}),
         },
       }));
     }
@@ -54,7 +74,10 @@ export function SetupView() {
     if (state.confirmedCount !== null && settings.gameFormat !== previousGameFormat) {
       message += ' The game format changed: load the roster again.';
     }
-    return message;
+    return {
+      message,
+      ...(renames.size > 0 ? { movePictures: () => numbering.movePictures(renames) } : {}),
+    };
   }
 
   return (
@@ -67,7 +90,7 @@ export function SetupView() {
           onGenerate={generate}
           setLbQualifiers={setLbQualifiers}
         />
-        <WaterfallPanel lbQualifiers={lbQualifiers} />
+        <WaterfallPanel lbQualifiers={lbQualifiers} numbering={numbering} />
         <InfoContentPanel />
         <RosterPanel onLoaded={() => setError('')} />
       </div>

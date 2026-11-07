@@ -78,6 +78,8 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const roomSize = state.gamemodeConfig.roomSize;
   if (!roomSize) return null;
   const entryRound = state.rounds.find((round) => round.isWaterfall);
+  // A round added here is named on from the tournament's own numbering (its bracket's first round), and never renumbered.
+  const firstRoundNumber = entryRound?.roundNum ?? 1;
   const standingsKind = standingsKindOf(state);
   const standingsSource = standingsKind !== null;
   const entrantCount = standingsSource ? rosterKeys(state.players).length : (entryRound?.players ?? null);
@@ -153,6 +155,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
           currentRoundLabels={currentRoundLabels}
           entrantCount={entrantCount}
           finalsMatch={finalsMatchOfState(state)}
+          firstRoundNumber={firstRoundNumber}
           lockedRounds={lockedRounds}
           onChange={() => {}}
           readOnly
@@ -185,6 +188,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
         currentRoundLabels={currentRoundLabels}
         entrantCount={entrantCount}
         finalsMatch={finalsMatchOfState(state)}
+        firstRoundNumber={firstRoundNumber}
         lockedRounds={lockedRounds}
         onChange={(next) => {
           setDraftText(next);

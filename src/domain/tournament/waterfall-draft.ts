@@ -550,6 +550,11 @@ function defaultRoundNumber(label: string): number | null {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
+/** Whether any round of the draft has a default name ("Round 4"). */
+export function hasDefaultRoundNames(draft: WaterfallDraft): boolean {
+  return draft.rounds.some((round) => defaultRoundNumber(round.label) !== null);
+}
+
 /**
  * A new draft: an entry round and a Final, every rank out. Rooms are sized to fit the entrants when they divide
  * evenly. The entry round is named "Round <firstRoundNumber>": the number after the pooling rounds played before
@@ -559,13 +564,13 @@ export function blankWaterfallDraft(
   entrantCount: number | null,
   roomSize: RoomSize,
   options: Pick<WaterfallDraftParseOptions, 'standingsSource' | 'standingsKind'> & {
-    firstRoundNumber?: number;
-  } = {},
+    firstRoundNumber: number;
+  },
 ): WaterfallDraft {
   const fits = entrantCount !== null && entrantCount > 0 && entrantCount % roomSize.ideal === 0;
   const rounds: WaterfallDraftRound[] = [
     {
-      label: defaultRoundName(options.firstRoundNumber ?? 1),
+      label: defaultRoundName(options.firstRoundNumber),
       roomCount: fits ? Math.min(entrantCount / roomSize.ideal, MAX_ROOMS_PER_ROUND) : 1,
       roomSize: roomSize.ideal,
       isFinal: false,
@@ -592,7 +597,7 @@ export function blankWaterfallDraft(
 export function addWaterfallRound(
   draft: WaterfallDraft,
   roomSize: number,
-  firstRoundNumber: number = 1,
+  firstRoundNumber: number,
 ): WaterfallDraft {
   let number = firstRoundNumber + draft.rounds.filter((round) => !round.isFinal).length;
   while (labelIsTaken(draft, defaultRoundName(number))) number += 1;

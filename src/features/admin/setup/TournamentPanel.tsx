@@ -2,7 +2,7 @@ import { Input, SectionPanel } from '../../../components/ui';
 import type { TournamentSettings } from '../../../domain/tournament/types';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
-import { CopySettings } from '../copy-settings/CopySettingsPanel';
+import { CopySettings, type CopyOutcome } from '../copy-settings/CopySettingsPanel';
 import type { CopiedInfo } from '../copy-settings/past-tournament-settings';
 import { ScheduledTimeField } from '../ScheduledTimeField';
 import { usePublishMissing } from '../usePublishMissing';
@@ -11,7 +11,7 @@ import { usePublishMissing } from '../usePublishMissing';
 export function TournamentPanel({
   onApplyCopiedSettings,
 }: {
-  onApplyCopiedSettings: (settings: TournamentSettings, sourceTitle: string, info: CopiedInfo) => string;
+  onApplyCopiedSettings: (settings: TournamentSettings, sourceTitle: string, info: CopiedInfo) => CopyOutcome;
 }) {
   const { state, updateState } = useTournamentApp();
   const publishMissing = usePublishMissing();

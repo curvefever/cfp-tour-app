@@ -52,6 +52,7 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   eliminationRoundTargets: '32,24',
   eliminationSeedingOverrides: 'diversity,balance',
   waterfallGraph: 'ROUNDS:\nFinal = 4 FINAL\nROUTES:',
+  waterfallNumberedFrom: '4',
   oddCountStrategy: 'bye',
   teamScoringRule: 'sum-members',
   matchOverrides: 'Round 2: GAMES 2\nSemis: BO3',
