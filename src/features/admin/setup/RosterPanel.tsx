@@ -8,6 +8,7 @@ import {
   parseMemberLine,
   parseTeamLines,
   rosterFitsFormat,
+  rosterKeys,
   rosterNames,
 } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
@@ -18,6 +19,7 @@ import { refuseUnstorableNames } from '../../tournament/unstorable-names';
 import { plural } from './plural';
 import { rosterLoadStatus, scheduleReloadStatus } from './roster-status';
 import { useSetupChange } from './useSetupChange';
+import { useSetupNumbering } from './useWaterfallNumbering';
 
 /** The header count of the roster: "37 players · 2 reserves", or a nudge while none is loaded. */
 function rosterCount(state: TournamentState, unit: string): string {
@@ -30,6 +32,7 @@ function rosterCount(state: TournamentState, unit: string): string {
 export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   const { state, setup, runtime, updateState } = useTournamentApp();
   const change = useSetupChange();
+  const numbering = useSetupNumbering();
   const [status, setStatus] = useState('');
   const format = getGameFormat(setup.gameFormat);
   const teamSize = format?.teamSize;
@@ -40,6 +43,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
   function applyRoster(loaded: Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>): string {
     const edit = reloadRosterBeforeStart(state, setup.gameFormat, loaded, runtime);
     updateState(edit.state);
+    numbering?.renumberForRoster(rosterKeys(edit.state.players).length);
     return scheduleReloadStatus(state.rounds.length > 0, edit.redrawRefusal);
   }
 
@@ -160,6 +164,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
               )
             )
               updateState(resetRoster(state));
+            numbering?.renumberForRoster(0);
           }}
         >
           ↺ Clear roster

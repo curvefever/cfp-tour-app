@@ -76,16 +76,49 @@ export function renumberWaterfallDefaults(
   return { graph, numberedFrom: String(to), renames };
 }
 
+/** Whether the graph already has a number its default names are numbered from. */
+export function isWaterfallNumbered(setup: Pick<PersistedSetup, 'waterfallNumberedFrom'>): boolean {
+  return Number.isFinite(Number.parseInt(setup.waterfallNumberedFrom, 10));
+}
+
 /**
- * The setup with its graph marked as numbered from the current first number, when the graph has a default name
- * ("Round 4") to number: the first save of such a graph sets it, and a graph saved before this existed has none, so it
- * is never renumbered until then.
+ * The setup with its graph marked as numbered from the current first number, when it is not numbered yet and the graph
+ * has a default name ("Round 4") to number: the first save of such a graph sets it, once. A graph saved before this
+ * existed has none, so it is never renumbered until then; a numbered graph keeps its number (only a renumbering moves
+ * it), so a graph edited while the head count is unknown is not re-marked with the number of an empty roster.
  */
 export function withWaterfallNumbering(setup: PersistedSetup, entrantCount: number): PersistedSetup {
-  if (setup.scheduleLogic !== 'waterfall-bracket') return setup;
+  if (setup.scheduleLogic !== 'waterfall-bracket' || isWaterfallNumbered(setup)) return setup;
   const draft = draftOfSetup(setup);
-  if (!draft) return setup;
-  if (!hasDefaultRoundNames(draft)) return setup;
-  const first = waterfallFirstRoundNumber(setup, entrantCount);
-  return { ...setup, waterfallNumberedFrom: String(first) };
+  if (!draft || !hasDefaultRoundNames(draft)) return setup;
+  return { ...setup, waterfallNumberedFrom: String(waterfallFirstRoundNumber(setup, entrantCount)) };
+}
+
+/** The graph and numbering a Setup edit rewrites, and the renames to carry the notes and pictures along. */
+export interface NumberingAfterEdit {
+  fields: Partial<Pick<PersistedSetup, 'waterfallGraph' | 'waterfallNumberedFrom'>>;
+  renames: Map<string, string>;
+}
+
+/**
+ * What a Setup edit made in this tab does to the graph's numbering: it renumbers the default names when the edit moved
+ * the first number, and marks a graph whose text the edit changed (see `withWaterfallNumbering`). The numbering is a
+ * consequence of a local edit, never of a Setup that arrives from another tab, which arrives already renumbered.
+ */
+export function numberingAfterEdit(
+  before: PersistedSetup,
+  after: PersistedSetup,
+  entrantCount: number,
+): NumberingAfterEdit {
+  const renumbering = renumberWaterfallDefaults(after, entrantCount);
+  if (renumbering) {
+    return {
+      fields: { waterfallGraph: renumbering.graph, waterfallNumberedFrom: renumbering.numberedFrom },
+      renames: renumbering.renames,
+    };
+  }
+  if (after.waterfallGraph === before.waterfallGraph) return { fields: {}, renames: new Map() };
+  const marked = withWaterfallNumbering(after, entrantCount);
+  const fields = marked === after ? {} : { waterfallNumberedFrom: marked.waterfallNumberedFrom };
+  return { fields, renames: new Map() };
 }

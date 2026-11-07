@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import { CopySettings, type CopyOutcome } from './CopySettingsPanel';
 
-const calls = vi.hoisted(() => ({ order: [] as string[], finishCopy: () => {} }));
+const calls = vi.hoisted(() => ({ order: [] as string[], finishCopy: () => {}, sourcePictures: 2 }));
 
 vi.mock('../../tournament/TournamentProvider', () => ({
   useTournamentApp: () => ({ state: { tournamentId: 'target-1' } }),
@@ -40,12 +40,13 @@ vi.mock('./past-tournament-settings', async (importOriginal) => ({
     roundNotes: undefined,
     gameNotes: undefined,
     screenshotCount: 0,
-    notePictureCount: 2,
+    notePictureCount: calls.sourcePictures,
   }),
 }));
 
 beforeEach(() => {
   calls.order.length = 0;
+  calls.sourcePictures = 2;
 });
 afterEach(cleanup);
 
@@ -88,5 +89,15 @@ describe('Copy settings and the pictures of renamed rounds', () => {
     calls.finishCopy();
     const confirmation = await screen.findByText(/Copied settings\./);
     expect(confirmation.textContent).not.toContain('renamed rounds');
+  });
+
+  it('never moves pictures when the source has none, even when rounds were renamed', async () => {
+    calls.sourcePictures = 0;
+    const movePictures = vi.fn(() => Promise.resolve(''));
+    copyFromLink(() => ({ message: 'Copied settings.', movePictures }));
+    const confirmation = await screen.findByText(/Copied settings\./);
+    expect(confirmation.textContent).not.toContain('renamed rounds');
+    expect(movePictures).not.toHaveBeenCalled();
+    expect(calls.order).toEqual([]);
   });
 });

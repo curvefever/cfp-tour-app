@@ -5,6 +5,7 @@ import { createDefaultInfo, createDefaultSetup } from '../state-defaults';
 import type { PersistedSetup } from '../types';
 import {
   renumberWaterfallDefaults,
+  numberingAfterEdit,
   standingsKindOfSetup,
   waterfallFirstRoundNumber,
   withWaterfallNumbering,
@@ -169,5 +170,55 @@ describe('withWaterfallNumbering', () => {
       const setup = setupOf({ waterfallNumberedFrom: '', ...overrides });
       expect(withWaterfallNumbering(setup, 37)).toBe(setup);
     }
+  });
+});
+
+describe('a numbered graph keeps its number', () => {
+  const GROUPS_GRAPH = QUAL_GRAPH.replace('Qual:', 'Groups:')
+    .replaceAll('Round 4', 'Round 6')
+    .replace('Round 5', 'Round 7');
+  const numberedFromSix = setupOf({
+    poolingPhase: 'group-stage',
+    groupSize: '4',
+    waterfallGraph: GROUPS_GRAPH,
+    waterfallNumberedFrom: '6',
+  });
+
+  it('is not re-marked by an edit while the head count is unknown (an empty roster would say 1)', () => {
+    expect(withWaterfallNumbering(numberedFromSix, 0)).toBe(numberedFromSix);
+    const edited = { ...numberedFromSix, waterfallGraph: GROUPS_GRAPH.replace('= 2x8', '= 2x8 BO3') };
+    expect(numberingAfterEdit(numberedFromSix, edited, 0)).toEqual({ fields: {}, renames: new Map() });
+  });
+
+  it('then moves nothing when the roster comes back (37 units in groups of 4 play 5 rounds)', () => {
+    expect(renumberWaterfallDefaults(numberedFromSix, 37)).toBeNull();
+  });
+});
+
+describe('numberingAfterEdit', () => {
+  it('renumbers when the edit moves the first number, carrying the renames', () => {
+    const before = setupOf({});
+    const after = { ...before, qualRoundsOverride: '4' };
+    const edit = numberingAfterEdit(before, after, 37);
+    expect(edit.fields.waterfallNumberedFrom).toBe('5');
+    expect(edit.fields.waterfallGraph).toContain('Round 5 = 2x8');
+    expect([...edit.renames]).toEqual([
+      ['Round 4', 'Round 5'],
+      ['Round 5', 'Round 6'],
+    ]);
+  });
+
+  it('marks a graph whose text the edit changed, and not an edit of another setting', () => {
+    const unmarked = setupOf({ waterfallNumberedFrom: '' });
+    const otherSetting = { ...unmarked, groupSize: '5' };
+    expect(numberingAfterEdit(unmarked, otherSetting, 37).fields).toEqual({});
+    const graphEdit = { ...unmarked, waterfallGraph: QUAL_GRAPH.replace('= 2x8', '= 2x8 BO3') };
+    expect(numberingAfterEdit(unmarked, graphEdit, 37).fields).toEqual({ waterfallNumberedFrom: '4' });
+  });
+
+  it('changes nothing for an edit that does not touch the numbering', () => {
+    const before = setupOf({});
+    const edit = numberingAfterEdit(before, { ...before, scoring: 'positional-points' }, 37);
+    expect(edit).toEqual({ fields: {}, renames: new Map() });
   });
 });

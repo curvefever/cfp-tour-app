@@ -4,17 +4,12 @@ import { Alert, SectionPanel } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
 import { setupDerived } from './setup-derived';
-import type { WaterfallNumbering } from './useWaterfallNumbering';
+import { useSetupNumbering } from './useWaterfallNumbering';
 
 /** The waterfall bracket graph, for a tournament whose schedule logic is the waterfall bracket. */
-export function WaterfallPanel({
-  lbQualifiers,
-  numbering,
-}: {
-  lbQualifiers: string;
-  numbering: WaterfallNumbering;
-}) {
+export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
   const { state, setup } = useTournamentApp();
+  const numbering = useSetupNumbering();
   const format = getGameFormat(setup.gameFormat);
   const {
     derivedRoomSize,
@@ -24,7 +19,7 @@ export function WaterfallPanel({
     waterfallStandingsKind,
     waterfallStandingsSource,
   } = setupDerived(setup, state, lbQualifiers);
-  if (!isWaterfallBracket || !format) return null;
+  if (!isWaterfallBracket || !format || !numbering) return null;
   return (
     <SectionPanel
       hint='route the ranks of every room that go on; the rest are out'

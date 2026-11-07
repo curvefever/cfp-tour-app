@@ -35,7 +35,7 @@ import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
 import { setupDerived } from './setup-derived';
 import { useMatchSettingsChange } from './useMatchSettingsChange';
-import { useSetupChange } from './useSetupChange';
+import { useSetupChange, useSetupUpdate } from './useSetupChange';
 
 /**
  * A format or odd-count-strategy change can make the currently-selected
@@ -94,7 +94,8 @@ export function FormatPanel({
   onGenerate: () => void;
   setLbQualifiers: (value: string) => void;
 }) {
-  const { state, setup, updateSetup } = useTournamentApp();
+  const { state, setup } = useTournamentApp();
+  const updateSetup = useSetupUpdate();
   const change = useSetupChange();
   const changeMatchSettings = useMatchSettingsChange();
   const registered = state.confirmedCount ?? null;

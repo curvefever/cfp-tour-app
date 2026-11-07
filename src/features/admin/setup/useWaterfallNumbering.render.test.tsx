@@ -77,8 +77,8 @@ function load(setup: Partial<PersistedSetup>, state: Partial<TournamentState> = 
   };
 }
 
-/** The Setup form changes a setting. */
-function change(setup: Partial<PersistedSetup>) {
+/** A Setup that arrives from outside (another tab, through SetupSync): it replaces the stored one without going through the hook. */
+function arrives(setup: Partial<PersistedSetup>) {
   act(() => {
     store.setup = { ...store.setup, ...setup };
     store.listeners.forEach((listener) => listener());
@@ -92,20 +92,27 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const withOverride = (value: string) => (current: PersistedSetup) => ({
+  ...current,
+  qualRoundsOverride: value,
+});
+
 describe("the Setup numbering of a Custom bracket's default round names", () => {
-  it('names new rounds from the pooling rounds: Round 4 after 3 qualification rounds, Round 5 after 4', () => {
+  it("names new rounds from the graph's own numbering, else from the pooling rounds", () => {
     load({});
     const { result } = renderHook(() => useWaterfallNumbering());
     expect(result.current.firstRoundNumber).toBe(4);
-    change({ qualRoundsOverride: '4' });
-    expect(result.current.firstRoundNumber).toBe(5);
+    cleanup();
+    load({ waterfallNumberedFrom: '', qualRoundsOverride: '4' });
+    expect(renderHook(() => useWaterfallNumbering()).result.current.firstRoundNumber).toBe(5);
   });
 
-  it('changing the qualification rounds 3 to 4 renames "Round 4" to "Round 5" and moves its notes and pictures', async () => {
+  it('a local edit of the qualification rounds 3 to 4 renames "Round 4" to "Round 5" and moves its notes and pictures, once', async () => {
     load({});
-    renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
+    const { result } = renderHook(() => useWaterfallNumbering());
+    act(() => result.current.updateSetup(withOverride('4')));
     await waitFor(() => expect(renameNotePictureRounds).toHaveBeenCalledTimes(1));
+    expect(store.setup.qualRoundsOverride).toBe('4');
     expect(store.setup.waterfallGraph).toContain('Round 5 = 2x8');
     expect(store.setup.waterfallGraph).toContain('Qual: 1-16->Round 5, 17-20->Round 4 - Upper');
     expect(store.setup.waterfallNumberedFrom).toBe('5');
@@ -120,36 +127,81 @@ describe("the Setup numbering of a Custom bracket's default round names", () => 
         ],
       },
     });
-  });
-
-  it('renumbers once: another render of the same setup moves nothing again', async () => {
-    load({});
-    const { rerender } = renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
-    await waitFor(() => expect(renameNotePictureRounds).toHaveBeenCalledTimes(1));
-    rerender();
-    change({ qualRoundsOverride: '4' });
+    // The same edit again moves nothing more.
+    act(() => result.current.updateSetup(withOverride('4')));
     expect(renameNotePictureRounds).toHaveBeenCalledTimes(1);
     expect(store.state.info?.roundNotes).toEqual({ 'Round 5': 'powers off', 'Round 4 - Upper': 'typed' });
   });
 
+  it('a Setup that arrives from another tab renumbers nothing and calls no server function', () => {
+    load({});
+    renderHook(() => useWaterfallNumbering());
+    // The other tab's override reaches this one before its renumbered graph does, as SetupSync applies it field by field.
+    arrives({ qualRoundsOverride: '4' });
+    expect(store.setup.waterfallGraph).toBe(GRAPH);
+    expect(store.setup.waterfallNumberedFrom).toBe('4');
+    expect(store.state.info?.roundNotes).toEqual({ 'Round 4': 'powers off', 'Round 4 - Upper': 'typed' });
+    expect(renameNotePictureRounds).not.toHaveBeenCalled();
+    arrives({ waterfallGraph: GRAPH.replaceAll('Round 4 ', 'Round 5 '), waterfallNumberedFrom: '5' });
+    expect(renameNotePictureRounds).not.toHaveBeenCalled();
+  });
+
+  it('a roster load in a group stage renumbers the defaults, with the notes and pictures', async () => {
+    const groups = {
+      poolingPhase: 'group-stage' as const,
+      groupSize: '4',
+      waterfallGraph: GRAPH.replace('Qual:', 'Groups:'),
+    };
+    load(groups, { players: rosterFor('ffa-individual', 31), confirmedCount: 31 });
+    const { result } = renderHook(() => useWaterfallNumbering());
+    // 31 units in groups of 4 play 3 rounds: still Round 4. 37 play 5, so the bracket starts at Round 6.
+    act(() => result.current.renumberForRoster(31));
+    expect(renameNotePictureRounds).not.toHaveBeenCalled();
+    act(() => result.current.renumberForRoster(37));
+    await waitFor(() => expect(renameNotePictureRounds).toHaveBeenCalledTimes(1));
+    expect(store.setup.waterfallNumberedFrom).toBe('6');
+    expect(store.setup.waterfallGraph).toContain('Round 6 = 2x8');
+    expect(store.state.info?.roundNotes).toHaveProperty('Round 6', 'powers off');
+  });
+
+  it('a graph edited while the roster is empty keeps its number, so the roster coming back moves nothing', () => {
+    const groups = {
+      poolingPhase: 'group-stage' as const,
+      groupSize: '4',
+      waterfallGraph: GRAPH.replace('Qual:', 'Groups:')
+        .replaceAll('Round 4', 'Round 6')
+        .replace('Round 5', 'Round 7'),
+      waterfallNumberedFrom: '6',
+    };
+    load(groups, { players: [], confirmedCount: null });
+    const { result } = renderHook(() => useWaterfallNumbering());
+    act(() => result.current.changeGraph(store.setup.waterfallGraph.replace('= 2x8', '= 2x8 BO3')));
+    expect(store.setup.waterfallNumberedFrom).toBe('6');
+    act(() => result.current.renumberForRoster(37));
+    expect(store.setup.waterfallNumberedFrom).toBe('6');
+    expect(store.setup.waterfallGraph).toContain('Round 6 = 2x8');
+    expect(renameNotePictureRounds).not.toHaveBeenCalled();
+  });
+
   it('never renumbers a graph that is not numbered, nor a tournament that has started', () => {
     load({ waterfallNumberedFrom: '' });
-    renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
+    const { result } = renderHook(() => useWaterfallNumbering());
+    act(() => result.current.updateSetup(withOverride('4')));
     expect(store.setup.waterfallGraph).toBe(GRAPH);
+    expect(store.setup.waterfallNumberedFrom).toBe('');
     cleanup();
     load({}, { started: true });
-    renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
+    const started = renderHook(() => useWaterfallNumbering());
+    act(() => started.result.current.updateSetup(withOverride('4')));
+    act(() => started.result.current.renumberForRoster(40));
     expect(store.setup.waterfallGraph).toBe(GRAPH);
     expect(renameNotePictureRounds).not.toHaveBeenCalled();
   });
 
   it('does not call the server before the tournament has an id, and still moves the notes', async () => {
     load({}, { tournamentId: null });
-    renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
+    const { result } = renderHook(() => useWaterfallNumbering());
+    act(() => result.current.updateSetup(withOverride('4')));
     await waitFor(() => expect(store.state.info?.roundNotes).toHaveProperty('Round 5'));
     expect(renameNotePictureRounds).not.toHaveBeenCalled();
   });
@@ -179,10 +231,12 @@ describe("the Setup numbering of a Custom bracket's default round names", () => 
     expect(renameNotePictureRounds).not.toHaveBeenCalled();
   });
 
-  it('the first save of a graph with default names marks it as numbered', () => {
+  it('the first save of a graph with default names marks it as numbered; an edit of another field does not', () => {
     load({ waterfallNumberedFrom: '' });
     const { result } = renderHook(() => useWaterfallNumbering());
-    act(() => result.current.changeGraph(GRAPH));
+    act(() => result.current.updateSetup((current) => ({ ...current, groupSize: '5' })));
+    expect(store.setup.waterfallNumberedFrom).toBe('');
+    act(() => result.current.changeGraph(GRAPH.replace('= 2x8', '= 2x8 BO3')));
     expect(store.setup.waterfallNumberedFrom).toBe('4');
   });
 
@@ -190,7 +244,7 @@ describe("the Setup numbering of a Custom bracket's default round names", () => 
     load({});
     renameNotePictureRounds.mockRejectedValue(new Error('The tournament has finished.'));
     const { result } = renderHook(() => useWaterfallNumbering());
-    change({ qualRoundsOverride: '4' });
+    act(() => result.current.updateSetup(withOverride('4')));
     await waitFor(() => expect(result.current.pictureError).toBe('The tournament has finished.'));
     expect(store.setup.waterfallGraph).toContain('Round 5 = 2x8');
     expect(store.state.info?.roundNotes).toHaveProperty('Round 5');

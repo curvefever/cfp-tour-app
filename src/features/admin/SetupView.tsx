@@ -15,7 +15,7 @@ import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
 import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
-import { useWaterfallNumbering } from './setup/useWaterfallNumbering';
+import { useWaterfallNumbering, WaterfallNumberingContext } from './setup/useWaterfallNumbering';
 import { WaterfallPanel } from './setup/WaterfallPanel';
 
 /** The two settings a renumbering rewrites. */
@@ -81,23 +81,25 @@ export function SetupView() {
   }
 
   return (
-    <div className='flex flex-wrap items-start gap-5' id='panel-setup'>
-      <div className='flex min-w-0 flex-[999_1_560px] flex-col gap-4.5 [&>*]:mb-0'>
-        <TournamentPanel onApplyCopiedSettings={applyCopiedSettings} />
-        <FormatPanel
-          error={error}
-          lbQualifiers={lbQualifiers}
-          onGenerate={generate}
-          setLbQualifiers={setLbQualifiers}
-        />
-        <WaterfallPanel lbQualifiers={lbQualifiers} numbering={numbering} />
-        <InfoContentPanel />
-        <RosterPanel onLoaded={() => setError('')} />
+    <WaterfallNumberingContext.Provider value={numbering}>
+      <div className='flex flex-wrap items-start gap-5' id='panel-setup'>
+        <div className='flex min-w-0 flex-[999_1_560px] flex-col gap-4.5 [&>*]:mb-0'>
+          <TournamentPanel onApplyCopiedSettings={applyCopiedSettings} />
+          <FormatPanel
+            error={error}
+            lbQualifiers={lbQualifiers}
+            onGenerate={generate}
+            setLbQualifiers={setLbQualifiers}
+          />
+          <WaterfallPanel lbQualifiers={lbQualifiers} />
+          <InfoContentPanel />
+          <RosterPanel onLoaded={() => setError('')} />
+        </div>
+        <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
+          <SchedulePreviewPanel />
+        </aside>
+        <ConfirmStartBar pinned />
       </div>
-      <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
-        <SchedulePreviewPanel />
-      </aside>
-      <ConfirmStartBar pinned />
-    </div>
+    </WaterfallNumberingContext.Provider>
   );
 }
