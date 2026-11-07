@@ -26,6 +26,20 @@ export interface CopyNotePicturesInput {
   toTournamentId: string;
 }
 
+/** One round renamed: its pictures move to the new name. */
+export interface RoundRename {
+  from: string;
+  to: string;
+}
+
+export interface RenameNotePictureRoundsInput {
+  tournamentId: string;
+  renames: RoundRename[];
+}
+
+/** The most rounds one call renames (a graph has far fewer). */
+export const MAX_ROUND_RENAMES = 100;
+
 /** One picture to put into a box of a tournament. */
 export interface NotePictureEntry {
   roundName: string;
@@ -45,6 +59,29 @@ export function validateNotePictureSlot(input: NotePictureSlot): NotePictureSlot
     throw new Error('Invalid settings box.');
   }
   return { tournamentId, roundName: input.roundName, slot: input.slot };
+}
+
+export function validateNotePictureRenames(
+  input: RenameNotePictureRoundsInput,
+): RenameNotePictureRoundsInput {
+  if (!input || typeof input !== 'object') throw new Error('Invalid rename.');
+  const tournamentId = validateTournamentId(input.tournamentId);
+  if (!Array.isArray(input.renames) || input.renames.length > MAX_ROUND_RENAMES) {
+    throw new Error('Invalid rename.');
+  }
+  const renames = input.renames.map((rename): RoundRename => {
+    if (!rename || typeof rename !== 'object') throw new Error('Invalid rename.');
+    if (!isStorableRoundName(rename.from) || !isStorableRoundName(rename.to)) {
+      throw new Error('Invalid round name.');
+    }
+    return { from: rename.from, to: rename.to };
+  });
+  const distinct = (pick: (rename: RoundRename) => string) =>
+    new Set(renames.map(pick)).size === renames.length;
+  if (renames.some(({ from, to }) => from === to) || !distinct((r) => r.from) || !distinct((r) => r.to)) {
+    throw new Error('Invalid rename.');
+  }
+  return { tournamentId, renames };
 }
 
 export function validateNotePictureUpload(input: UploadNotePictureInput): UploadNotePictureInput {
@@ -177,4 +214,39 @@ export function copyableNotePictures(source: NotePictures, target: NotePictures)
       .map(([slot, imageId]) => ({ roundName, slot, imageId })),
   );
   return entries.slice(0, room);
+}
+
+export interface NotePictureRenaming {
+  /** What the transaction writes: the map with the rounds moved, or the stored value as it is when nothing moved. */
+  value: unknown;
+  /** The ids of pictures a move left without a box (the new name already held a picture in that box): their images can be deleted. */
+  dropped: string[];
+}
+
+/**
+ * The step of a transaction that renames rounds: each round's boxes move to its new name, all at once (so "Round 4"
+ * to "Round 5" and "Round 5" to "Round 6" never collide). A name that is not itself renamed and already holds a
+ * picture in a box keeps it; the moved picture is dropped. Like `notePicturesAfterRemoval` it never returns
+ * `undefined`: the first call may see `null` when nothing is cached, and an aborted transaction is not retried, so
+ * the stored value goes back as it is when nothing moves and the server calls again with the real one.
+ */
+export function notePicturesAfterRename(stored: unknown, renames: RoundRename[]): NotePictureRenaming {
+  const current = notePicturesOf(stored);
+  const target = new Map(renames.map(({ from, to }) => [from, to]));
+  if (!Object.keys(current).some((name) => target.has(name))) return { value: stored ?? null, dropped: [] };
+  const moved: NotePictures = {};
+  for (const [name, slots] of Object.entries(current)) if (!target.has(name)) moved[name] = slots;
+  const dropped: string[] = [];
+  for (const [name, slots] of Object.entries(current)) {
+    const to = target.get(name);
+    if (to === undefined) continue;
+    const kept = Object.hasOwn(moved, to) ? moved[to] : {};
+    dropped.push(
+      ...Object.entries(slots)
+        .filter(([slot]) => slot in kept)
+        .map(([, imageId]) => imageId),
+    );
+    moved[to] = { ...slots, ...kept };
+  }
+  return { value: storedNotePictures(moved), dropped };
 }

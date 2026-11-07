@@ -5,8 +5,10 @@ import {
   MAX_NOTE_PICTURES,
   notePictureCount,
   notePicturesAfterRemoval,
+  notePicturesAfterRename,
   notePicturesOf,
   storedNotePictures,
+  validateNotePictureRenames,
   validateNotePictureSlot,
   validateNotePicturesCopyInput,
   validateNotePictureUpload,
@@ -189,6 +191,112 @@ describe('notePicturesAfterRemoval', () => {
     const stored = storedNotePictures({ Final: { g3: id(2) } });
     expect(notePicturesAfterRemoval(stored, 'Final', 'g1').value).toBe(stored);
     expect(notePicturesAfterRemoval(undefined, 'Final', 'g1').value).toBeNull();
+  });
+});
+
+describe('validateNotePictureRenames', () => {
+  const ok = {
+    tournamentId: 't1',
+    renames: [
+      { from: 'Round 4', to: 'Round 5' },
+      { from: 'Round 5', to: 'Round 6' },
+    ],
+  };
+
+  it('accepts a list of renames, an empty one too', () => {
+    expect(validateNotePictureRenames(ok)).toEqual(ok);
+    expect(validateNotePictureRenames({ ...ok, renames: [] }).renames).toEqual([]);
+  });
+
+  it('refuses a round name a key cannot hold or over 60 characters, as the other functions do', () => {
+    for (const bad of ['Round 6.1', 'a/b', '', 'x'.repeat(61), 7 as never]) {
+      expect(() => validateNotePictureRenames({ ...ok, renames: [{ from: 'Round 4', to: bad }] })).toThrow(
+        'Invalid round name.',
+      );
+      expect(() => validateNotePictureRenames({ ...ok, renames: [{ from: bad, to: 'Round 5' }] })).toThrow(
+        'Invalid round name.',
+      );
+    }
+    const long = 'x'.repeat(60);
+    expect(
+      validateNotePictureRenames({ ...ok, renames: [{ from: long, to: 'Round 5' }] }).renames,
+    ).toHaveLength(1);
+  });
+
+  it('refuses a bad tournament id, a missing input, a rename to the same name, a repeated name and too many renames', () => {
+    expect(() => validateNotePictureRenames({ ...ok, tournamentId: 'a/b' })).toThrow(
+      'Invalid tournament ID.',
+    );
+    expect(() => validateNotePictureRenames(null as never)).toThrow('Invalid rename.');
+    expect(() => validateNotePictureRenames({ ...ok, renames: 'Round 4' as never })).toThrow(
+      'Invalid rename.',
+    );
+    expect(() => validateNotePictureRenames({ ...ok, renames: [null as never] })).toThrow('Invalid rename.');
+    const same = [{ from: 'Round 4', to: 'Round 4' }];
+    expect(() => validateNotePictureRenames({ ...ok, renames: same })).toThrow('Invalid rename.');
+    const twice = [
+      { from: 'Round 4', to: 'Round 5' },
+      { from: 'Round 4', to: 'Round 6' },
+    ];
+    expect(() => validateNotePictureRenames({ ...ok, renames: twice })).toThrow('Invalid rename.');
+    const sameTarget = [
+      { from: 'Round 4', to: 'Round 6' },
+      { from: 'Round 5', to: 'Round 6' },
+    ];
+    expect(() => validateNotePictureRenames({ ...ok, renames: sameTarget })).toThrow('Invalid rename.');
+    const many = Array.from({ length: 101 }, (_, n) => ({ from: `A${n}`, to: `B${n}` }));
+    expect(() => validateNotePictureRenames({ ...ok, renames: many })).toThrow('Invalid rename.');
+  });
+});
+
+describe('notePicturesAfterRename', () => {
+  const shift = [
+    { from: 'Round 4', to: 'Round 5' },
+    { from: 'Round 5', to: 'Round 6' },
+  ];
+
+  it('moves every box of a renamed round with it, all at once, and leaves the other rounds', () => {
+    const stored = storedNotePictures({
+      'Round 4': { round: id(1), g1: id(2) },
+      'Round 5': { round: id(3) },
+      'Round 4 - Upper': { round: id(4) },
+      Final: { g2: id(5) },
+    });
+    const step = notePicturesAfterRename(stored, shift);
+    expect(step.dropped).toEqual([]);
+    expect(notePicturesOf(step.value)).toEqual({
+      'Round 5': { round: id(1), g1: id(2) },
+      'Round 6': { round: id(3) },
+      'Round 4 - Upper': { round: id(4) },
+      Final: { g2: id(5) },
+    });
+  });
+
+  it('keeps the count of pictures, whatever the move', () => {
+    const stored = filled(23);
+    const step = notePicturesAfterRename(stored, [{ from: 'Round 1', to: 'Round 9' }]);
+    expect(notePictureCount(notePicturesOf(step.value))).toBe(23);
+  });
+
+  it('never returns undefined: null, undefined and a map with nothing to move come back as they are', () => {
+    expect(notePicturesAfterRename(null, shift)).toEqual({ value: null, dropped: [] });
+    expect(notePicturesAfterRename(undefined, shift)).toEqual({ value: null, dropped: [] });
+    const stored = storedNotePictures({ Final: { g3: id(2) } });
+    expect(notePicturesAfterRename(stored, shift).value).toBe(stored);
+    expect(notePicturesAfterRename(stored, []).value).toBe(stored);
+    for (const input of [null, undefined, {}, 'x', stored]) {
+      expect(notePicturesAfterRename(input, shift).value).not.toBeUndefined();
+    }
+  });
+
+  it('keeps the picture a name outside the renames already holds in a box, and drops the moved one (its image to delete)', () => {
+    const stored = storedNotePictures({
+      'Round 4': { round: id(1), g1: id(2) },
+      'Round 9': { round: id(3) },
+    });
+    const step = notePicturesAfterRename(stored, [{ from: 'Round 4', to: 'Round 9' }]);
+    expect(step.dropped).toEqual([id(1)]);
+    expect(notePicturesOf(step.value)).toEqual({ 'Round 9': { round: id(3), g1: id(2) } });
   });
 });
 

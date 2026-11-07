@@ -6,9 +6,11 @@ import {
   MAX_NOTE_PICTURES,
   type NotePictureEntry,
   notePicturesAfterRemoval,
+  notePicturesAfterRename,
   notePicturesOf,
   storedNotePictures,
   validateNotePictureSlot,
+  validateNotePictureRenames,
   validateNotePicturesCopyInput,
   validateNotePictureUpload,
   withNotePicture,
@@ -61,6 +63,28 @@ export const deleteNotePicture = createServerFn({ method: 'POST' })
       return step.value;
     });
     if (removed) await updateFirebase({ [`${paths.media}/${removed}`]: null });
+  });
+
+/**
+ * Moves the pictures of renamed rounds to their new names, in one transaction (a rename of a round in the Setup's
+ * graph carries its pictures). The image files stay where they are: their path is the image id, not the round name.
+ * A picture a move leaves without a box is deleted.
+ */
+export const renameNotePictureRounds = createServerFn({ method: 'POST' })
+  .inputValidator(validateNotePictureRenames)
+  .handler(async ({ data }): Promise<void> => {
+    await requireTourAdminPermission();
+    const paths = requestPaths(data.tournamentId);
+    await requireEditableTournament(paths, CHANGING);
+    let dropped: string[] = [];
+    await transactFirebase(picturesPath(paths.tournament), (current) => {
+      const step = notePicturesAfterRename(current, data.renames);
+      dropped = step.dropped;
+      return step.value;
+    });
+    if (dropped.length) {
+      await updateFirebase(Object.fromEntries(dropped.map((imageId) => [`${paths.media}/${imageId}`, null])));
+    }
   });
 
 /**
