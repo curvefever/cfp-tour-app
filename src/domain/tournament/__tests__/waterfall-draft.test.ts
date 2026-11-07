@@ -331,6 +331,41 @@ describe('default round names', () => {
     expect(defaultNameShift(draft, 6, 3).size).toBe(0);
   });
 
+  it.each(['qual', 'groups'] as const)(
+    'renames the destinations of the %s line with the rounds (eliminated ranks stay out)',
+    (kind) => {
+      const line = kind === 'groups' ? 'Groups' : 'Qual';
+      const text = [
+        'ROUNDS:',
+        'Round 4 = 2x8',
+        'Round 5 = 8',
+        'Final = 8 FINAL',
+        '',
+        'ROUTES:',
+        `${line}: 1-16->Round 4, 17-20->Round 5`,
+        'Round 4.A: 1-4->Final, 5-8->eliminated',
+        'Round 4.B: 1-4->Final, 5-8->eliminated',
+        'Round 5: 1-4->Final, 5-8->eliminated',
+      ].join('\n');
+      const parsed = parseWaterfallDraft(text, { standingsSource: true, standingsKind: kind, rankCount: 24 });
+      if (!parsed.ok) throw new Error(parsed.error);
+      const shifted = renameWaterfallRounds(parsed.value, defaultNameShift(parsed.value, 4, 5));
+      expect(shifted.qualRoutes).toEqual([
+        ...Array(16).fill('Round 5'),
+        ...Array(4).fill('Round 6'),
+        ...Array(4).fill(null),
+      ]);
+      const written = serializeWaterfallDraft(shifted);
+      expect(written).toContain(`${line}: 1-16->Round 5, 17-20->Round 6`);
+      expect(
+        parseWaterfallDraft(written, { standingsSource: true, standingsKind: kind, rankCount: 24 }),
+      ).toEqual({
+        ok: true,
+        value: shifted,
+      });
+    },
+  );
+
   it('renames in one step: "Round 4" to "Round 5" while "Round 5" goes on to "Round 6"', () => {
     const draft = draftOf('ROUNDS:\nRound 4 = 8\nRound 5 = 8\nFinal = 8 FINAL\nROUTES:\nRound 4: 1->Round 5');
     const shifted = renameWaterfallRounds(
