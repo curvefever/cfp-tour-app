@@ -74,17 +74,20 @@ describe('bracketLegend', () => {
   });
 
   it.each([31, 37, 43, 53])(
-    'a Qual source with two destinations (%i players) has a yellow row naming the second one and no purple row',
+    'a Qual source with two destinations (%i players) has the generic yellow row and no purple row',
     (count) => {
       const legend = bracketLegend(buildQualWaterfall(count, QUAL_GRAPH));
       expect(legend.rows.filter((row) => row.tone === 'yellow')).toEqual([
-        expect.objectContaining({ name: 'Through to R1C' }),
+        expect.objectContaining({
+          name: 'Through to another round',
+          meaning: "A second group of places; a room's arrow shows where",
+        }),
       ]);
       expect(legend.rows.some((row) => row.tone === 'purple')).toBe(false);
     },
   );
 
-  it('a waterfall with three destinations has a yellow and a purple row naming them, and no Losers bracket row', () => {
+  it('a waterfall with three destinations has a generic yellow and purple row, and no Losers bracket row', () => {
     const graph = `
 ROUNDS:
 R1 = 2x8
@@ -101,14 +104,15 @@ R1D: 1-2->Final, 3-8->eliminated
 `;
     const legend = bracketLegend(buildQualWaterfall(40, graph));
     const rows = legend.rows.map((row) => [row.tone, row.name]);
-    expect(rows).toContainEqual(['yellow', 'Through to R1C']);
-    expect(rows).toContainEqual(['purple', 'Through to R1D']);
+    expect(rows).toContainEqual(['yellow', 'Through to another round']);
+    expect(rows).toContainEqual(['purple', 'Through to a third round']);
+    expect(legend.rows.find((row) => row.tone === 'purple')?.meaning).toBe('A third group of places');
     expect(legend.rows.map((row) => row.name)).not.toContain('Losers bracket');
     // Purple only ever means one thing in a tournament.
     expect(legend.rows.filter((row) => row.tone === 'purple')).toHaveLength(1);
   });
 
-  it('a waterfall room that sends places to three rounds names the second and third of them', () => {
+  it('a waterfall room that sends places to three rounds has the generic second and third rows', () => {
     const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32');
     if (!example) throw new Error('no spreadsheet example');
     const legend = bracketLegend(
@@ -120,12 +124,24 @@ R1D: 1-2->Final, 3-8->eliminated
     );
     const yellow = legend.rows.find((row) => row.tone === 'yellow');
     const purple = legend.rows.find((row) => row.tone === 'purple');
-    // Rooms order their destinations differently, so each colour names every round that is second (or third) somewhere.
-    expect(yellow?.name).toMatch(/^Through to /);
-    expect(yellow?.name).toContain('R6B');
-    expect(purple?.name).toMatch(/^Through to /);
-    expect(purple?.name).toContain('R6C');
+    expect(yellow?.name).toBe('Through to another round');
+    expect(purple?.name).toBe('Through to a third round');
     expect(legend.rows.map((row) => row.name)).not.toContain('Losers bracket');
+  });
+
+  it('a waterfall where every room and the Qual source have one destination has no yellow or purple row', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1
+R1.A: 1-4->Final, 5-8->eliminated
+R1.B: 1-4->Final, 5-8->eliminated
+`;
+    const legend = bracketLegend(buildQualWaterfall(32, graph));
+    expect(legend.rows.some((row) => row.tone === 'yellow' || row.tone === 'purple')).toBe(false);
   });
 });
 
