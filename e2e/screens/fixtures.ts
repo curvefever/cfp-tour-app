@@ -7,6 +7,7 @@ import { advanceTournamentRound } from '../../src/domain/tournament/transitions'
 import { currentColumn, roundColumn, roundsInPlay } from '../../src/domain/tournament/round-columns';
 import { goBack } from '../../src/domain/tournament/waterfall-steps';
 import { UPPER_LOWER_GRAPH } from '../../src/domain/tournament/__tests__/upper-lower-graph';
+import { WATERFALL_EXAMPLES } from '../../src/domain/tournament/waterfall-examples';
 import type {
   PersistedSetup,
   GameNotes,
@@ -571,6 +572,19 @@ function waterfallQual(): TournamentState {
   );
 }
 
+/** The built-in "32 players, spreadsheet layout" with Round 5 fully scored and not sent on: its exit colours follow the destination, in every room. */
+function spreadsheet32Round5(): TournamentState {
+  const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32');
+  if (!example) throw new Error('the spreadsheet example is missing');
+  const start = generate(32, {
+    scheduleLogic: 'waterfall-bracket',
+    poolingPhase: 'none',
+    waterfallGraph: example.text,
+  });
+  const atRound5 = playUntil(start, (round) => round.customLabel === 'R5', 1);
+  return scoreCurrentRound(atRound5, { seed: 5 });
+}
+
 const COLUMN_GRAPH = `
 ROUNDS:
 Round 5 Upper = 2x4
@@ -849,6 +863,11 @@ export function fixtureTournaments(): FixtureTournament[] {
       roundNotes: DOUBLE_ELIMINATION_NOTES,
     }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
+    entry('spreadsheet-32-round5', spreadsheet32Round5(), {
+      tabs: NO_STANDINGS_TABS,
+      infoBox: true,
+      exitPopups: [6],
+    }),
     // A tournament stored before dependency play: its column is played together.
     entry('waterfall-column-19', withoutDependencyPlay(waterfallColumn()), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),

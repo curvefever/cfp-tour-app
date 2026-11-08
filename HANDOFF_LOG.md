@@ -6,6 +6,49 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Exit colours follow the destination, in every room of a round (done — 2026-11-08, on `test`; plan `plans/2026-11-08-exit-colours-per-round.md`)
+
+**Context.** A row's stripe colour was decided per room: the room's first destination, top to bottom, was green, the second yellow, the third and later purple. So the colour did not say where a player goes, and it changed from room to room within one round. On the built-in "32 players, spreadsheet layout", Round 5 showed SemiA green in rooms A and B but R6B/R6C green in room D and yellow in room C, with green missing from rooms C and D altogether.
+
+**The organiser's decision (seen as a mockup and approved).** Players going on in the same conditions have the same colour, in every room of the round. Colours may still differ from one round to the next (going to R5L from an upper room is not the same as from a lower room, and the organiser named this as correct). Decisions made in the plan:
+- One player's difference still counts as the same conditions: average places within 1 of each other (`SIMILAR_PLACE_GAP = 1`), room sizes within 1.
+- Standings tables follow the same rule (a Qual source's bands), so a snake split of the table reads green throughout while a top and bottom split reads green then yellow.
+- It is display only: it changes no advancement, draw or ranking, needs no version flag, and applies to every tournament, running or stored, at its next render.
+
+**The rule** (`src/domain/tournament/exit-groups.ts`, pure over the state). Read the round's declared routes, room A first, ranks top to bottom. Each new destination takes the next group number from 0 unless it is in the same conditions as one already read, in which case it takes that one's number. Two destinations are in the same conditions when: neither is the Final; they have the same number of rooms with sizes within 1 (declared rooms); their exits match room by room once trailing eliminations are dropped; and they take from the same sources (a feeder round's rooms taken together, or a round's `standingsRoutes`) with the average place taken from each within `SIMILAR_PLACE_GAP`. Group 0 is green, 1 yellow, 2 and later purple; a trailing elimination stays red. It reads the declared `waterfallRoutes` and rooms, never the drawn bands, so a removal that shrinks a room cannot change the colours of the round.
+
+**Walked through (prototype run on the real graphs; now pinned by `exit-groups.test.ts`).**
+- `spreadsheet-32` Round 5: SemiA green, R6B and R6C yellow; 8 rows change from before (A 6–7, B 6–7, C 1 and 4, D 1 and 4). The same graph with R6B of 7 and R6C of 8: the same result.
+- `UPPER_LOWER_GRAPH`: R4U gives SemiA green and R5L yellow; R4L gives R5L green and R5R yellow; R5L gives R6L green and R6R yellow; SemiA gives Final green and SemiB yellow. No row changes.
+- `THREE_CHAIN_GRAPH`: X2 and Y2 have the same exits but different intake, so they stay apart (Y1: Y2 green, X2 yellow). No row changes.
+- `second-chance-16`, `QUAL_GRAPH`, `TIE_GRAPH`, `ALL_ROUTED_GRAPHS` 37 and 43: as before.
+- A top and bottom split (`1-4->X, 5-8->Y`, X and Y with the same exits): X green, Y yellow, average places 2.5 and 6.5. A Qual snake (`1,4,5,8,9,12,13,16->RA, 2,3,6,7,10,11,14,15->RB`): RA and RB both green (RB was yellow).
+
+**Change.**
+- `exit-groups.ts` (new): `exitGroups(state, routes)` and `roundExitGroups(state, roundIndex)` as above.
+- `room-exits.ts`: the `advance` band carries `group?: number` (absent means the first group, so other formats and old literals are unchanged); `roundExitRule` computes the groups once for a waterfall round and `waterfallRoomBands` stamps `group` on each advance band when it is not 0.
+- `standings-display.ts`: `StandingsBand.group?`, stamped by `standingsBands` from `exitGroups`; bands still merge by destination, so the table's gaps and the pop-up's lines are as before.
+- `result-row.ts`: `destinationGroupResult(group = 0)`; `standingsRowResult` uses it and its own destination list is gone.
+- `room-row-result.ts`: `advanceResult(band)` reads `destinationGroupResult(band.group)`; the loop over a room's bands is gone. `exit-lines.ts`: `roomBandLine` no longer takes `bands`.
+- `bracket-legend.ts`: `extraDestinations` reads `roundExitGroups` per round (any group 1: the second row; any group 2 or later: the third); `advanceDestinations` is gone. Row wording is unchanged.
+- `ranking-results.ts` needed no change; it reads `roomRowResult`.
+
+**Testing.**
+- Stage 1 (`72f7b0f`, review additions `cc2e044`): `exit-groups.test.ts`, 19 tests. Every line of the walked table, built from real generated graphs; the three-destination round (0, 1, 2); only room A reaching the Final; a destination never joining the Final (the Final given the same routes as a leaf, so only the guard separates them); average places exactly 1 apart join and 1.5 apart stay separate; room sizes 1 apart join and 2 apart stay separate; an empty map for a round with no routes. The review added the three conditions no case isolated: exits differing while rooms and intake are alike (a snake split with different exits), the Final guard, and a destination with an extra source staying apart from one read first with fewer.
+- Stage 2 (`4b4b8bb`, review additions `e420ae8`): real bands from `roundExitRule` on `spreadsheet-32` give all 32 rows (A and B green x4 then yellow x4; C and D yellow x4 then red x4); absentees routed by rank take their rank's colour; the pop-ups of rooms A and C; a unit placed 1st in room C reads `advance-second`; the legend's rows for `spreadsheet-32` (yellow, no purple) and for three destinations (both); the Qual snake and a top and bottom split in the table. The existing test `%i players: 1-16 green, 17-24 yellow, the rest out` covers `QUAL_GRAPH` at 31, 37, 43 and 53. The review added the invariant that a removal cannot change a round's colours: a real `removeRosterUnit` that takes away the room holding the only early reading of a destination (a graph where Q is read in room A before R in room B), and a round fitted to a smaller pool (`rooms: [6]`, `declaredRooms: [8]`) still grouped as declared.
+- Related tests on the changed files at each stage; mutation checks by the reviewer on the rule, the stamp and the readers.
+- Stage 3: `pnpm run test:screens` with a new fixture `spreadsheet-32-round5` (32 players, spreadsheet layout, Round 5 fully scored) at 1280 and 390 px, including the open exit pop-up of room C (yellow, yellow, yellow, red) and the "?" box (a yellow row, no purple). Full suite: left to the reviewer.
+
+**Out of scope.**
+- **Parallel chains:** R6B → R7B and R6C → R7C, where R7B and R7C are alike, stay two colours, because their exits are not literally the same. They are still consistent in every room. Recorded under Limitations in `docs/open-items.md`.
+- **Colours between rounds:** R5L yellow from R4U and green from R4L stays.
+- **The Setup editor's colours** (`destinationColor`, one per round): its job is to tell rounds apart.
+- **Rankings rows waiting for a round:** always green ("through"), the same in every room.
+- **Group tables:** no bands; their pop-up is unchanged.
+- **The "?" box wording:** unchanged (the organiser decided it earlier); yellow's "A second group of places" still reads correctly in the screenshots.
+
+---
+
 ## Waterfall dependency play: a Custom bracket round starts as soon as its own feeders are sent on (done — 2026-11-08, on production, `main` `ef82257`; live check passed)
 
 **Context.** For the FFA tournament of about 2026-11-19, with the organiser's instruction that there will always be a tournament soon, so everything must work as intended before it. In a Custom bracket a column was one step: every round of a column had to finish before the next column started (live tournament `1793555835749`: Semi-Final A, a Best of 3, held up Round 6, fed only by Round 5 - Lower). Stage 0 (the follow box and the scrollbar) is the entry below; stages 1 to 7 are this one.
