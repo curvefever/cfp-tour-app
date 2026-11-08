@@ -1,4 +1,5 @@
-import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
+import { roundExitGroups } from '../../domain/tournament/exit-groups';
+import { roundExitRule } from '../../domain/tournament/room-exits';
 import { usesFairCut } from '../../domain/tournament/fair-cut';
 import type { TournamentState } from '../../domain/tournament/types';
 import type { StripeTone } from '../tournament/components/result-row';
@@ -24,16 +25,6 @@ const FAIR_CUT_LUCKY_TEXT =
   "Each room size loses its fair share of the cut. Within a size, places count first, then score relative to the room's average. A spare cut falls on whichever next in line ranks lower against every room of their size so far.";
 const EARLIER_LUCKY_TEXT = "Spare spots are awarded to players by score relative to their room's average.";
 
-/** The distinct advance destinations of a room's bands, in the order the bands list them. */
-function advanceDestinations(bands: RoomExitBand[]): number[] {
-  const destinations: number[] = [];
-  for (const band of bands) {
-    if (band.kind === 'advance' && !destinations.includes(band.destination))
-      destinations.push(band.destination);
-  }
-  return destinations;
-}
-
 /** A fair-cut round has a place where only some units of a room size advance. */
 function hasLuckyChance(state: TournamentState, roundIndex: number): boolean {
   const rule = roundExitRule(state, roundIndex);
@@ -42,27 +33,10 @@ function hasLuckyChance(state: TournamentState, roundIndex: number): boolean {
   );
 }
 
-/** Whether any round sends units to a second, or to a third, destination (waterfall rooms and Qual/Groups bands). */
+/** Whether any round has a second, or a third, group of destinations (waterfall rooms and Qual bands). */
 function extraDestinations(state: TournamentState): { hasSecond: boolean; hasThird: boolean } {
-  let hasSecond = false;
-  let hasThird = false;
-  state.rounds.forEach((_, roundIndex) => {
-    const rule = roundExitRule(state, roundIndex);
-    if (rule.kind === 'per-room') {
-      for (const bands of rule.rooms) {
-        const destinations = advanceDestinations(bands);
-        if (destinations[1] !== undefined) hasSecond = true;
-        if (destinations[2] !== undefined) hasThird = true;
-      }
-    } else if (rule.kind === 'standings-cutoff' && rule.bands) {
-      const distinct = new Set(
-        rule.bands.flatMap((band) => (band.destination === 'eliminated' ? [] : [band.destination])),
-      );
-      if (distinct.size > 1) hasSecond = true;
-      if (distinct.size > 2) hasThird = true;
-    }
-  });
-  return { hasSecond, hasThird };
+  const groups = state.rounds.flatMap((_, roundIndex) => [...roundExitGroups(state, roundIndex).values()]);
+  return { hasSecond: groups.some((group) => group === 1), hasThird: groups.some((group) => group >= 2) };
 }
 
 /**

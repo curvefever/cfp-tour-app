@@ -39,11 +39,11 @@ function luckySpots(band: Extract<RoomExitBand, { kind: 'lucky-chance' }>): stri
   return `${range} spot${band.spots === 1 ? '' : 's'}, ${group}`;
 }
 
-function roomBandLine(band: RoomExitBand, bands: RoomExitBand[], labels: Labels): ExitLine {
+function roomBandLine(band: RoomExitBand, labels: Labels): ExitLine {
   switch (band.kind) {
     case 'advance':
       return {
-        tone: stripeTone(advanceResult(bands, band.destination)),
+        tone: stripeTone(advanceResult(band)),
         places: rankRange(band.fromRank, band.toRank),
         where: `→ ${destinationLabel(band.destination, labels)}`,
       };
@@ -76,7 +76,7 @@ function roomBandLine(band: RoomExitBand, bands: RoomExitBand[], labels: Labels)
 
 /** The lines of a room's exit pop-up, one per band, coloured like the rows they describe. */
 export function roomExitLines(bands: RoomExitBand[], labels: Labels): ExitLine[] {
-  return bands.map((band) => roomBandLine(band, bands, labels));
+  return bands.map((band) => roomBandLine(band, labels));
 }
 
 /** "1st +8", then "2nd +7 … 7th +2 points": what the places of a room of `roomSize` earn, from the tournament's own scoring. */

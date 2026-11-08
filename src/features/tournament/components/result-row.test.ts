@@ -10,6 +10,7 @@ import {
 } from '../../../domain/tournament/__tests__/qual-waterfall';
 import { describeStandings, type StandingsDisplayTable } from '../../../domain/tournament/standings-display';
 import {
+  destinationGroupResult,
   rowSurfaceClasses,
   standingsGroupStarts,
   standingsRowResult,
@@ -117,6 +118,33 @@ describe('standingsRowResult: no cut, and a Qual source', () => {
     expect(standingsGroupStarts(table)).toEqual([16, 24]);
   });
 
+  const qualSplit = (qualLine: string) => `
+ROUNDS:
+RA = 8
+RB = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: ${qualLine}
+RA: 1-4->Final, 5-8->eliminated
+RB: 1-4->Final, 5-8->eliminated
+`;
+  const exitResults = (graph: string) => {
+    const { table } = tableOf(playToQualificationExit(buildQualWaterfall(16, graph)));
+    return resultsOf(table, 'final');
+  };
+
+  it('a snake split of the standings reads green throughout', () => {
+    const results = exitResults(qualSplit('1,4,5,8,9,12,13,16->RA, 2,3,6,7,10,11,14,15->RB'));
+    expect(results).toHaveLength(16);
+    expect(results.every((result) => result === 'advance')).toBe(true);
+  });
+
+  it('a top and bottom split reads green then yellow', () => {
+    const results = exitResults(qualSplit('1-8->RA, 9-16->RB'));
+    expect(results).toEqual([...Array(8).fill('advance'), ...Array(8).fill('advance-second')]);
+  });
+
   it('colours a third destination purple', () => {
     const graph = `
 ROUNDS:
@@ -141,6 +169,36 @@ R1D: 1-2->Final, 3-8->eliminated
       'eliminate',
     ]);
     expect(standingsGroupStarts(table)).toEqual([16, 24, 32]);
+  });
+});
+
+describe('destinationGroupResult and the groups of a table’s bands', () => {
+  it.each<[number | undefined, RowResult]>([
+    [undefined, 'advance'],
+    [0, 'advance'],
+    [1, 'advance-second'],
+    [2, 'advance-third'],
+    [5, 'advance-third'],
+  ])('group %s reads %s', (group, result) => {
+    expect(destinationGroupResult(group)).toBe(result);
+  });
+
+  it('reads a band by its own group, and an out band as eliminated', () => {
+    const table = {
+      cut: 6,
+      bands: [
+        { start: 0, destination: 'A' },
+        { start: 2, destination: 'B', group: 1 },
+        { start: 4, destination: 'C', group: 2 },
+        { start: 6, destination: 'out' },
+      ],
+    };
+    expect([0, 2, 4, 6].map((index) => standingsRowResult(index, table, 'live'))).toEqual([
+      'advance',
+      'advance-second',
+      'advance-third',
+      'eliminate',
+    ]);
   });
 });
 

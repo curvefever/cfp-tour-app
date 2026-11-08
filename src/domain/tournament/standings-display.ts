@@ -22,6 +22,7 @@ import {
   sameGroupStanding,
   usesGroupAverages,
 } from './group-standings';
+import { exitGroups } from './exit-groups';
 import { GROUP_EXIT_TIE_KEY, groupExitShapeOf, type GroupExitShape } from './group-exit';
 import { tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
@@ -61,6 +62,8 @@ export interface StandingsBand {
   start: number;
   /** The destination round's label, or "out" when the run is eliminated. */
   destination: string;
+  /** The destination's group (`exit-groups.ts`), stamped when it isn't the first: destinations in the same conditions share one. */
+  group?: number;
 }
 
 export interface StandingsDisplay {
@@ -125,6 +128,7 @@ function standingsBands(
   routes: NonNullable<ReturnType<typeof qualStandingsRoutes>>,
   rowCount: number,
 ): StandingsBand[] {
+  const groups = exitGroups(state, routes);
   const bands: StandingsBand[] = [];
   for (let index = 0; index < rowCount; index += 1) {
     const route = routes[index] ?? 'eliminated';
@@ -132,7 +136,10 @@ function standingsBands(
       route === 'eliminated'
         ? 'out'
         : (state.rounds[route]?.customLabel ?? `Round ${state.rounds[route]?.roundNum}`);
-    if (bands.at(-1)?.destination !== destination) bands.push({ start: index, destination });
+    const group = route === 'eliminated' ? 0 : (groups.get(route) ?? 0);
+    if (bands.at(-1)?.destination !== destination) {
+      bands.push({ start: index, destination, ...(group ? { group } : {}) });
+    }
   }
   return bands;
 }

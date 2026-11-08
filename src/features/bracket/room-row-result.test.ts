@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import { buildQualWaterfall } from '../../domain/tournament/__tests__/qual-waterfall';
+import { removeRosterUnit } from '../../domain/tournament/mutations';
 import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
+import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
 import { absenteeFate, roomRowResult, type RoomRowInput } from './room-row-result';
 
 const perRoom = (bands: RoomExitBand[]): RoundExitRule => ({ kind: 'per-room', rooms: [bands] });
@@ -67,7 +70,7 @@ describe('roomRowResult: where an advancing row goes', () => {
   it('two destinations: the first is green, the second yellow (waterfall room)', () => {
     const bands: RoomExitBand[] = [
       { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
-      { kind: 'advance', fromRank: 5, toRank: 6, destination: 7 },
+      { kind: 'advance', fromRank: 5, toRank: 6, destination: 7, group: 1 },
       { kind: 'eliminate', fromRank: 7, toRank: 8 },
     ];
     expect([1, 4, 5, 6, 7].map((rank) => row({ bands, rank }).result)).toEqual([
@@ -82,9 +85,9 @@ describe('roomRowResult: where an advancing row goes', () => {
   it('three destinations: green, yellow, then purple; a repeated destination keeps its colour', () => {
     const bands: RoomExitBand[] = [
       { kind: 'advance', fromRank: 1, toRank: 2, destination: 5 },
-      { kind: 'advance', fromRank: 3, toRank: 3, destination: 7 },
-      { kind: 'advance', fromRank: 4, toRank: 5, destination: 9 },
-      { kind: 'advance', fromRank: 6, toRank: 6, destination: 7 },
+      { kind: 'advance', fromRank: 3, toRank: 3, destination: 7, group: 1 },
+      { kind: 'advance', fromRank: 4, toRank: 5, destination: 9, group: 2 },
+      { kind: 'advance', fromRank: 6, toRank: 6, destination: 7, group: 1 },
     ];
     expect([1, 2, 3, 4, 5, 6].map((rank) => row({ bands, rank }).result)).toEqual([
       'advance',
@@ -96,19 +99,9 @@ describe('roomRowResult: where an advancing row goes', () => {
     ]);
   });
 
-  it("the first destination is the room's own first band, so another room may colour the same round differently", () => {
-    const roomA: RoomExitBand[] = [
-      { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
-      { kind: 'advance', fromRank: 5, toRank: 8, destination: 6 },
-    ];
-    const roomC: RoomExitBand[] = [
-      { kind: 'advance', fromRank: 1, toRank: 4, destination: 6 },
-      { kind: 'advance', fromRank: 5, toRank: 8, destination: 5 },
-    ];
-    expect(row({ bands: roomA, rank: 1 }).result).toBe('advance');
-    expect(row({ bands: roomC, rank: 1 }).result).toBe('advance');
-    expect(row({ bands: roomA, rank: 5 }).result).toBe('advance-second');
-    expect(row({ bands: roomC, rank: 5 }).result).toBe('advance-second');
+  it('a band without a group is the first group, whatever the room', () => {
+    const bands: RoomExitBand[] = [{ kind: 'advance', fromRank: 1, toRank: 4, destination: 6 }];
+    expect(row({ bands, rank: 1 }).result).toBe('advance');
   });
 
   it('a drop to the losers bracket reads as a drop, a rank past the bands as eliminate', () => {
@@ -276,7 +269,7 @@ describe('roomRowResult: an absentee', () => {
   it('a custom bracket room of 8, 5 absent: the first absentee is red, the others read the second band’s colour', () => {
     const topFourThenLower: RoomExitBand[] = [
       { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
-      { kind: 'advance', fromRank: 5, toRank: 8, destination: 6 },
+      { kind: 'advance', fromRank: 5, toRank: 8, destination: 6, group: 1 },
     ];
     const fateOf = (rank: number) =>
       rank === 4 ? absenteeFate({ isWaterfall: true }, true) : absenteeFate({ isWaterfall: true });
@@ -298,5 +291,55 @@ describe('roomRowResult: an absentee', () => {
 
   it('is undecided until the room is complete', () => {
     expect(row({ bands, rank: 7, absentee: 'eliminate', roomComplete: false }).result).toBe('undecided');
+  });
+});
+
+describe('roomRowResult: one colour per destination in every room of a Custom bracket round', () => {
+  const spreadsheet = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32')?.text ?? '';
+  const state = buildQualWaterfall(32, spreadsheet, { poolingPhase: 'none' });
+  const roundIndex = state.rounds.findIndex((round) => round.customLabel === 'R5');
+  const rule = roundExitRule(state, roundIndex);
+  const rooms = rule.kind === 'per-room' ? rule.rooms : [];
+  const rowsOf = (roomBands: RoomExitBand[], ranks: number, absentee?: RoomRowInput['absentee']) =>
+    Array.from({ length: ranks }, (_, index) => row({ bands: roomBands, rank: index + 1, absentee }).result);
+
+  it('reads SemiA green and R6B and R6C yellow in all four rooms; rooms C and D show yellow and red', () => {
+    const green = 'advance';
+    const yellow = 'advance-second';
+    expect(rooms.map((bands) => rowsOf(bands, 8))).toEqual([
+      [green, green, green, green, yellow, yellow, yellow, yellow],
+      [green, green, green, green, yellow, yellow, yellow, yellow],
+      [yellow, yellow, yellow, yellow, 'eliminate', 'eliminate', 'eliminate', 'eliminate'],
+      [yellow, yellow, yellow, yellow, 'eliminate', 'eliminate', 'eliminate', 'eliminate'],
+    ]);
+  });
+
+  it('an absentee routed by its rank takes its rank’s colour', () => {
+    expect(rowsOf(rooms[0], 8, 'rank')[4]).toBe('advance-second');
+    expect(rowsOf(rooms[2], 8, 'rank')[0]).toBe('advance-second');
+    expect(rowsOf(rooms[2], 8, 'rank')[6]).toBe('eliminate');
+  });
+
+  it('a removal that shrinks room A below rank 6 changes no colour of any remaining row', () => {
+    let drawn = state;
+    while (drawn.curRound < roundIndex) {
+      const advanced = advanceTournamentRound(scoreCurrentRound(drawn, 0));
+      if (advanced.status !== 'advanced') throw new Error('could not reach R5');
+      drawn = advanced.state;
+    }
+    const before = roundExitRule(drawn, roundIndex);
+    const roomAUnits = (drawn.assignments[roundIndex] ?? [])
+      .filter((entry) => entry.room === 1)
+      .map((entry) => entry.name);
+    const shrunk = roomAUnits.slice(0, 3).reduce(removeRosterUnit, drawn);
+    const after = roundExitRule(shrunk, roundIndex);
+    const roomsOf = (exitRule: RoundExitRule) => (exitRule.kind === 'per-room' ? exitRule.rooms : []);
+    expect(roomsOf(after)[0].at(-1)).toMatchObject({ toRank: 5 });
+    const sizes = [5, 8, 8, 8];
+    for (const index of [0, 1, 2, 3]) {
+      expect(rowsOf(roomsOf(after)[index], sizes[index])).toEqual(
+        rowsOf(roomsOf(before)[index], 8).slice(0, sizes[index]),
+      );
+    }
   });
 });

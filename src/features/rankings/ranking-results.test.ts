@@ -8,6 +8,8 @@ import {
 import { computeRankings } from '../../domain/tournament/rankings';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
+import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
+import { placeInRoom } from '../bracket/folded-round';
 import { stillInResults } from './ranking-results';
 
 function advance(state: TournamentState): TournamentState {
@@ -75,6 +77,28 @@ describe('the stripe of a unit waiting in a waterfall', () => {
     const results = resultsOf(next.state);
     for (const name of order.slice(16, 24)) expect(results.get(name)).toBe('advance');
     for (const name of order.slice(0, 16)) expect(results.get(name)).toBe('undecided');
+  });
+});
+
+describe('the stripe of a unit in a Custom bracket room', () => {
+  it('is yellow for 1st of room C, which goes to R6C, and green for 1st of room A, which goes to SemiA', () => {
+    const spreadsheet = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32')?.text ?? '';
+    let state = buildQualWaterfall(32, spreadsheet, { poolingPhase: 'none' });
+    const roundIndex = state.rounds.findIndex((round) => round.customLabel === 'R5');
+    while (state.curRound < roundIndex) state = advance(state);
+    state = scoreCurrentRound(state, 0);
+    const rankings = computeRankings(state);
+    if (!rankings) throw new Error('no rankings');
+    const results = stillInResults(state, rankings.lastRi, rankings.stillActive);
+    const firstOf = (room: number) => {
+      const entry = rankings.stillActive.find(
+        (active) => active.room === room && placeInRoom(state, roundIndex, room, active.name)?.place === 1,
+      );
+      if (!entry) throw new Error(`no first place in room ${room}`);
+      return entry.name;
+    };
+    expect(results.get(firstOf(1))).toBe('advance');
+    expect(results.get(firstOf(3))).toBe('advance-second');
   });
 });
 

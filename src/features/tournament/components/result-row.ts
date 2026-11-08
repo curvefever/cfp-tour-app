@@ -57,6 +57,12 @@ export function stripeTone(result: RowResult): StripeTone | null {
   }
 }
 
+/** The result of a row going on to a destination of the given group: the first group green, the second yellow, the third and later purple. */
+export function destinationGroupResult(group = 0): RowResult {
+  if (group <= 0) return 'advance';
+  return group === 1 ? 'advance-second' : 'advance-third';
+}
+
 /** A row's surface: alternating grounds, flush against each other; a followed row gets the lighter ground and a ring. */
 export function rowSurfaceClasses(index: number, followed: boolean) {
   return cn(
@@ -70,7 +76,7 @@ export function rowSurfaceClasses(index: number, followed: boolean) {
 
 /**
  * How a row of a standings table reads: through (green; with a Qual source's bands the first destination is green,
- * the second yellow, the third and later purple) or out (red: past the cut, or in an "out" band). Live or final,
+ * the second yellow, the third and later purple, by the band's destination group) or out (red: past the cut, or in an "out" band). Live or final,
  * the same: the TEMPORARY badge says the table may still change. Nothing before the standings start, and nothing
  * for a row that has no rank yet (`ranked` false): a result nobody has earned. `ranked` defaults to true because
  * the exit pop-ups ask for the colour of a place, not of a unit.
@@ -84,13 +90,7 @@ export function standingsRowResult(
   if (phase === 'upcoming' || !ranked) return '';
   if (isStandingsRowOut(table, index)) return 'eliminate';
   if (table.bands && table.bands.length > 0) {
-    const bands = table.bands;
-    const band = standingsBandAt(bands, index);
-    const destinations = [
-      ...new Set(bands.filter((entry) => entry.destination !== 'out').map((entry) => entry.destination)),
-    ];
-    const position = destinations.indexOf(band.destination);
-    return position <= 0 ? 'advance' : position === 1 ? 'advance-second' : 'advance-third';
+    return destinationGroupResult(standingsBandAt(table.bands, index).group);
   }
   return 'advance';
 }

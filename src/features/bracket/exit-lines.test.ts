@@ -19,6 +19,7 @@ import {
   firstEliminationIndex,
   generate,
 } from '../../domain/tournament/__tests__/fair-cut-fixtures';
+import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
 import { poolingExitLines, roomExitLines, standingsExitLines } from './exit-lines';
 
 const labels = (names: string[]) => names.map((label, index) => ({ label, roundNumber: index + 1 }));
@@ -47,8 +48,8 @@ describe('roomExitLines', () => {
   it('colours a second destination yellow and a third purple (waterfall)', () => {
     const bands: RoomExitBand[] = [
       { kind: 'advance', fromRank: 1, toRank: 4, destination: 5 },
-      { kind: 'advance', fromRank: 5, toRank: 6, destination: 6 },
-      { kind: 'advance', fromRank: 7, toRank: 7, destination: 4 },
+      { kind: 'advance', fromRank: 5, toRank: 6, destination: 6, group: 1 },
+      { kind: 'advance', fromRank: 7, toRank: 7, destination: 4, group: 2 },
       { kind: 'eliminate', fromRank: 8, toRank: 8 },
     ];
     expect(roomExitLines(bands, names).map((line) => [line.places, line.tone, line.where])).toEqual([
@@ -56,6 +57,29 @@ describe('roomExitLines', () => {
       ['5–6', 'yellow', '→ Final'],
       ['7', 'purple', '→ Round 5'],
       ['8', 'red', 'out'],
+    ]);
+  });
+
+  it('a Custom bracket round colours its pop-ups by destination group: room A green then yellow, room C yellow then red', () => {
+    const spreadsheet = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32')?.text ?? '';
+    const state = buildQualWaterfall(32, spreadsheet, { poolingPhase: 'none' });
+    const roundIndex = state.rounds.findIndex((round) => round.customLabel === 'R5');
+    const rule = roundExitRule(state, roundIndex);
+    if (rule.kind !== 'per-room') throw new Error('expected a per-room rule');
+    const roundLabels = bracketRoundLabels(state);
+    const lines = (room: number) =>
+      roomExitLines(rule.rooms[room], roundLabels).map((line) => [line.tone, line.where]);
+    expect(lines(0)).toEqual([
+      ['green', '→ SemiA'],
+      ['yellow', '→ R6B'],
+      ['yellow', '→ R6C'],
+      ['yellow', '→ R6B'],
+    ]);
+    expect(lines(2)).toEqual([
+      ['yellow', '→ R6C'],
+      ['yellow', '→ R6B'],
+      ['yellow', '→ R6C'],
+      ['red', 'out'],
     ]);
   });
 

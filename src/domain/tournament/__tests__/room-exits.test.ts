@@ -8,6 +8,7 @@ import { createTournamentRuntime } from '../runtime';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { waterfallBracketPhase, type OrderedWaterfallGraph } from '../waterfall-bracket';
+import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { buildAssignments, buildRound } from './test-fixtures';
@@ -426,7 +427,7 @@ describe('roundExitRule -- waterfall', () => {
       { kind: 'eliminate', fromRank: 6, toRank: 7 },
     ]);
     expect(rule.rooms[1]).toEqual([
-      { kind: 'advance', fromRank: 1, toRank: 2, destination: 2 },
+      { kind: 'advance', fromRank: 1, toRank: 2, destination: 2, group: 1 },
       { kind: 'advance', fromRank: 3, toRank: 4, destination: 1 },
       { kind: 'eliminate', fromRank: 5, toRank: 6 },
     ]);
@@ -455,6 +456,36 @@ describe('roundExitRule -- waterfall', () => {
       { kind: 'advance', fromRank: 3, toRank: 3, destination: 1 },
       { kind: 'eliminate', fromRank: 4, toRank: 4 },
     ]);
+  });
+});
+
+describe('roundExitRule -- exit groups on waterfall bands', () => {
+  const spreadsheet = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32')?.text ?? '';
+  const state = buildQualWaterfall(32, spreadsheet, { poolingPhase: 'none' });
+  const rule = roundExitRule(
+    state,
+    state.rounds.findIndex((round) => round.customLabel === 'R5'),
+  );
+  const rooms = rule.kind === 'per-room' ? rule.rooms : [];
+  const groups = (bands: RoomExitBand[]) =>
+    bands.map((band) => (band.kind === 'advance' ? (band.group ?? 0) : 'out'));
+
+  it('stamps the destination group on every advance band, the same in every room', () => {
+    expect(groups(rooms[0])).toEqual([0, 1, 1, 1]);
+    expect(groups(rooms[1])).toEqual([0, 1, 1, 1]);
+    expect(groups(rooms[2])).toEqual([1, 1, 1, 'out']);
+    expect(groups(rooms[3])).toEqual([1, 1, 1, 'out']);
+  });
+
+  it('leaves the first group unstamped', () => {
+    expect(rooms[0][0]).toEqual({ kind: 'advance', fromRank: 1, toRank: 4, destination: expect.any(Number) });
+    expect(rooms[0][0]).not.toHaveProperty('group');
+  });
+
+  it('gives a non-waterfall round no group', () => {
+    const plain = roundExitRule(buildQualWaterfall(37), 0);
+    const bands = plain.kind === 'per-room' ? plain.rooms.flat() : [];
+    expect(bands.some((band) => 'group' in band)).toBe(false);
   });
 });
 

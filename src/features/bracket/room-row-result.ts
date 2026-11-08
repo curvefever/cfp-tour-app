@@ -1,6 +1,6 @@
 import { exitBandAtRank, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
 import type { TournamentRound } from '../../domain/tournament/types';
-import type { RowResult } from '../tournament/components/result-row';
+import { destinationGroupResult, type RowResult } from '../tournament/components/result-row';
 
 export interface RoomRowInput {
   /** The round's exit rule: only a per-room rule gives a row a result of its own. */
@@ -40,29 +40,21 @@ export interface RoomRowResult {
 }
 
 /**
- * The first destination of a room's advance bands reads green, the second yellow, the third and later purple
- * (the same colours as the standings column's destination groups).
+ * An advance band reads green, yellow or purple by its destination's group in the round (`exit-groups.ts`): the
+ * same colour in every room of the round, and the same as the standings column's destination groups.
  */
-export function advanceResult(bands: RoomExitBand[], destination: number): RowResult {
-  const destinations: number[] = [];
-  for (const band of bands) {
-    if (band.kind === 'advance' && !destinations.includes(band.destination))
-      destinations.push(band.destination);
-  }
-  const position = destinations.indexOf(destination);
-  if (position <= 0) return 'advance';
-  return position === 1 ? 'advance-second' : 'advance-third';
+export function advanceResult(band: Extract<RoomExitBand, { kind: 'advance' }>): RowResult {
+  return destinationGroupResult(band.group);
 }
 
 function bandResult(
   band: RoomExitBand | null,
-  bands: RoomExitBand[],
   { lucky, roundDecided }: Pick<RoomRowInput, 'lucky' | 'roundDecided'>,
 ): RoomRowResult {
   if (!band) return { result: 'eliminate', star: null };
   switch (band.kind) {
     case 'advance':
-      return { result: advanceResult(bands, band.destination), star: null };
+      return { result: advanceResult(band), star: null };
     case 'lucky-chance':
       if (!roundDecided) return { result: 'candidate', star: 'candidate' };
       if (lucky) return { result: 'lucky', star: 'lucky' };
@@ -86,5 +78,5 @@ export function roomRowResult(input: RoomRowInput): RoomRowResult {
   if (input.absentee === 'drop') return { result: 'drop', star: null };
   if (input.absentee === 'eliminate') return { result: 'eliminate', star: null };
   if (pendingTie) return { result: 'pending', star: null };
-  return bandResult(exitBandAtRank(bands, rank), bands, input);
+  return bandResult(exitBandAtRank(bands, rank), input);
 }

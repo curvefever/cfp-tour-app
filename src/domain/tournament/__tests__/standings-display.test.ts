@@ -527,7 +527,7 @@ describe('a qualification table feeding a waterfall graph (Qual source)', () => 
     const table = describeStandings(exit)?.tables[0];
     expect(table?.bands).toEqual([
       { start: 0, destination: 'R1' },
-      { start: 16, destination: 'R1C' },
+      { start: 16, destination: 'R1C', group: 1 },
       { start: 24, destination: 'out' },
     ]);
     expect(table?.cut).toBe(24);
@@ -545,7 +545,7 @@ describe('a qualification table feeding a waterfall graph (Qual source)', () => 
     expect(table?.bands).toEqual([
       { start: 0, destination: 'R1' },
       { start: 16, destination: 'out' },
-      { start: 19, destination: 'R1C' },
+      { start: 19, destination: 'R1C', group: 1 },
       { start: 27, destination: 'out' },
     ]);
   });

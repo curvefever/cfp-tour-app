@@ -1,4 +1,5 @@
 import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
+import { roundExitGroups } from './exit-groups';
 import { groupExitIsTotal } from './group-exit';
 import { roundFairCutShape, usesFairCut, type FairCutGroup } from './fair-cut';
 import { kingsValleyRoundMoves, type KingsValleyRoomBandCounts } from './kings-valley';
@@ -19,7 +20,14 @@ import { waterfallDestination } from './waterfall-bracket';
  * (advancement.ts) already compute.
  */
 export type RoomExitBand =
-  | { kind: 'advance'; fromRank: number; toRank: number; destination: number } // absolute round index
+  | {
+      kind: 'advance';
+      fromRank: number;
+      toRank: number;
+      destination: number; // absolute round index
+      /** The destination's group in its round (`exit-groups.ts`): 0, the first, when absent. Only waterfall rounds stamp one. */
+      group?: number;
+    }
   | { kind: 'drop'; fromRank: number; toRank: number; destination: number } // double-elim: to the losers bracket
   | {
       kind: 'lucky-chance';
@@ -229,9 +237,14 @@ function kingsValleyRoomBands(
  * into one band; two ranks that happen to share a destination but aren't
  * adjacent (a real, deliberate shape -- e.g. "ranks 1 and 3 both go to
  * SemiA, but rank 2 goes elsewhere") stay as separate bands, never merged
- * across the gap.
+ * across the gap. An advance band carries its destination's group in the round (only when it isn't the first).
  */
-function waterfallRoomBands(round: TournamentRound, roomIndex: number, actualSize: number): RoomExitBand[] {
+function waterfallRoomBands(
+  round: TournamentRound,
+  roomIndex: number,
+  actualSize: number,
+  groups: ReadonlyMap<number, number>,
+): RoomExitBand[] {
   const room = roomIndex + 1;
   const bands: RoomExitBand[] = [];
   let start = 0; // 0-indexed rank, matching waterfallDestination's own convention
@@ -244,11 +257,22 @@ function waterfallRoomBands(round: TournamentRound, roomIndex: number, actualSiz
     bands.push(
       destination === null
         ? { kind: 'eliminate', fromRank: start + 1, toRank: end + 1 }
-        : { kind: 'advance', fromRank: start + 1, toRank: end + 1, destination },
+        : {
+            kind: 'advance',
+            fromRank: start + 1,
+            toRank: end + 1,
+            destination,
+            ...stampedGroup(groups.get(destination)),
+          },
     );
     start = end + 1;
   }
   return bands;
+}
+
+/** `{ group }` for a destination outside the first group, else nothing: an absent group means the first. */
+function stampedGroup(group: number | undefined): { group?: number } {
+  return group ? { group } : {};
 }
 
 function perRoomRule(
@@ -337,8 +361,9 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
   }
 
   if (round.isWaterfall) {
+    const groups = roundExitGroups(state, roundIndex);
     return perRoomRule(round, assignments, (roomIndex, actualSize) =>
-      waterfallRoomBands(round, roomIndex, actualSize),
+      waterfallRoomBands(round, roomIndex, actualSize, groups),
     );
   }
 
