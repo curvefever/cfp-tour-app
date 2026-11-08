@@ -5,10 +5,18 @@ import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
 import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
-import { currentColumn, isRoundDone, isRoundReached } from './round-columns';
+import {
+  currentColumn,
+  isRoundDone,
+  isRoundReached,
+  reopenedRounds,
+  roundColumn,
+  usesDependencyPlay,
+} from './round-columns';
 import { rewindRoomHistory } from './seeding';
 import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
+import { routesTo } from './waterfall-steps';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   declaredWaterfallRooms,
@@ -153,6 +161,80 @@ function redrawRounds(
   return { state: working };
 }
 
+/** The rounds a save treats as already started. `drawn` are drawn (they keep their round and draw); `fixed` also holds the undrawn rounds of a column that has started, whose label and column stay. */
+interface StartedRounds {
+  drawn: number;
+  fixed: number;
+}
+
+/**
+ * Which rounds of the bracket have started. Column play: the column in play and every one before it, whole. Dependency
+ * play: the drawn rounds are a prefix of the bracket's rounds in the common shape, and a column with any drawn round
+ * counts whole. Other shapes, and a reopened press, are refused: the save can't tell which draws its replay would keep.
+ */
+function startedRounds(
+  state: TournamentState,
+  firstWaterfallIndex: number,
+): StartedRounds | { error: string } {
+  if (!usesDependencyPlay(state)) {
+    const count =
+      state.curRound < firstWaterfallIndex ? 0 : currentColumn(state).end - firstWaterfallIndex + 1;
+    return { drawn: count, fixed: count };
+  }
+  const label = (index: number) => state.rounds[index].customLabel ?? `Round ${state.rounds[index].roundNum}`;
+  const reopened = reopenedRounds(state);
+  if (reopened.length > 0) {
+    const names = reopened.map((index) => `"${label(index)}"`).join(', ');
+    return {
+      error: `Can't save while ${names} ${reopened.length > 1 ? 'are' : 'is'} reopened with Previous: press Next Round to send ${reopened.length > 1 ? 'them' : 'it'} on again first.`,
+    };
+  }
+  const bracket = state.rounds.map((_, index) => index).filter((index) => index >= firstWaterfallIndex);
+  const reached = bracket.filter((index) => isRoundReached(state, index));
+  const gap = bracket.find((index, offset) => offset < reached.length && !isRoundReached(state, index));
+  if (gap !== undefined) {
+    const later = reached.find((index) => index > gap) as number;
+    return {
+      error: `Can't save yet: "${label(gap)}" has not been drawn, but "${label(later)}" has. Play on until "${label(gap)}" is drawn, then save the graph.`,
+    };
+  }
+  const last = firstWaterfallIndex + reached.length - 1;
+  return {
+    drawn: reached.length,
+    fixed: roundColumn(state.rounds, last).end - firstWaterfallIndex + 1,
+  };
+}
+
+/** A drawn round can't take units from a round that is not done: its draw would be missing them. Null when it doesn't. */
+function lateFeederRefusal(
+  state: TournamentState,
+  rounds: TournamentRound[],
+  firstWaterfallIndex: number,
+  drawn: number,
+): string | null {
+  const label = (round: TournamentRound) => round.customLabel ?? `Round ${round.roundNum}`;
+  for (let index = firstWaterfallIndex; index < firstWaterfallIndex + drawn; index += 1) {
+    const source = rounds.findIndex(
+      (round, candidate) => routesTo(round, index) && !isRoundDone(state, candidate),
+    );
+    if (source !== -1) {
+      return `Can't save: "${label(rounds[source])}" is not done yet, so it can't feed "${label(rounds[index])}", which is already drawn.`;
+    }
+  }
+  return null;
+}
+
+/** The pooling rounds before the bracket, as they stand. */
+function poolingBefore(state: TournamentState, firstWaterfallIndex: number): TournamentRound[] {
+  return state.rounds.slice(0, firstWaterfallIndex);
+}
+
+/** The advances the replay of a save repeats: the rounds before the column in play, or in dependency play the set of rounds done. */
+function advancesReplayed(state: TournamentState): number | ReadonlySet<number> {
+  if (!usesDependencyPlay(state)) return currentColumn(state).start;
+  return new Set(state.rounds.flatMap((_, index) => (isRoundDone(state, index) ? [index] : [])));
+}
+
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const firstWaterfallIndex = state.rounds.findIndex((round) => round.isWaterfall);
   if (firstWaterfallIndex === -1) {
@@ -171,15 +253,19 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // With a Qual or Groups source the head count is the units still registered (a withdrawal shrinks it), not the entry round's size.
   const entrantCount = standingsSource ? rosterKeys(state.players).length : entryRound.players;
   // Empty while still in pooling (the bracket hasn't been entered yet). A started column counts whole.
-  const reachedCount =
-    state.curRound < firstWaterfallIndex ? 0 : currentColumn(state).end - firstWaterfallIndex + 1;
+  const started = startedRounds(state, firstWaterfallIndex);
+  if ('error' in started) return { ok: false, error: started.error };
+  const reachedCount = started.drawn;
   const reached = state.rounds.slice(firstWaterfallIndex, firstWaterfallIndex + reachedCount);
-  const fixedPrefix = reached.map((round) => round.customLabel as string);
+  const fixedRounds = state.rounds.slice(firstWaterfallIndex, firstWaterfallIndex + started.fixed);
+  const fixedPrefix = fixedRounds.map((round) => round.customLabel as string);
   // A tournament generated before columns existed has none stored: once its bracket has started it
   // keeps playing one round at a time. Before that, a save gives it its columns.
   const columnsStored = entryRound.waterfallColumn !== undefined;
   const writeColumns = columnsStored || reachedCount === 0;
-  const fixedColumns = columnsStored ? reached.map((round) => round.waterfallColumn as number) : undefined;
+  const fixedColumns = columnsStored
+    ? fixedRounds.map((round) => round.waterfallColumn as number)
+    : undefined;
 
   const parsed = parseWaterfallGraph(text);
   if (!parsed.ok) return { ok: false, error: parsed.error };
@@ -250,6 +336,16 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     return single;
   });
 
+  if (usesDependencyPlay(state)) {
+    const refusal = lateFeederRefusal(
+      state,
+      [...poolingBefore(state, firstWaterfallIndex), ...newBracketRounds],
+      firstWaterfallIndex,
+      reached.length,
+    );
+    if (refusal) return { ok: false, error: refusal };
+  }
+
   const keptLength = firstWaterfallIndex + reached.length;
   const tailLength = newBracketRounds.length - reached.length;
   const poolingRounds = state.rounds
@@ -290,6 +386,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     : state.tieResolutions;
   let working: TournamentState = {
     ...state,
+    ...(reachedCount === 0 && state.waterfallSteps?.length ? { waterfallSteps: [] } : {}),
     cfg,
     rounds,
     assignments,
@@ -298,13 +395,13 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     tieResolutions,
   };
 
-  // Replay every advance before the current column (it hasn't been advanced from yet) under the new
+  // Replay every advance of the rounds done (in column play: every round before the current column) under the new
   // routing, accumulating per-destination pools exactly as advanceTournamentRound would across a
   // sequence of real advances. Recorded line-ups still hold the units that withdrew or were swapped
   // out: a replayed pool keeps only the units now in the tournament (a swapped-out unit becomes its
   // replacement), so a withdrawal never moves anyone else up into the empty seat.
   const roster = new Set(rosterKeys(state.players));
-  const { pools: replayPools } = replayBracketPools(working, currentColumn(state).start);
+  const { pools: replayPools } = replayBracketPools(working, advancesReplayed(state));
 
   // Compare every reached round against what the new routing would have
   // produced -- except, without a Qual source, the entry round (which has no
