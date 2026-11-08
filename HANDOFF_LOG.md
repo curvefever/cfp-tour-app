@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Stage 0 of the waterfall dependency play: the follow box "Out" and the scrollbar over the panel (done — 2026-11-08, on local `test`)
+## Stage 0 of the waterfall dependency play: the follow box "Out" and the scrollbar over the panel (done — 2026-11-08, on production, `main` `d881b50`)
 
 **Context.** Stage 0 of the waterfall dependency play build: two small fixes that stand alone and can reach production before the rest. Nothing of dependency play is built here.
 
