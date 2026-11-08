@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expectedRounds } from '../../src/domain/tournament/expected-draw';
 import {
   fixtureTournaments,
   fixtureIndexEntry,
@@ -656,6 +657,29 @@ test.describe('screenshots of the viewer tabs', () => {
       );
       expect(heights, 'one band is visible on a phone').toHaveLength(1);
       expect(heights[0] ?? 99).toBeLessThan(BAND_MINIMUM);
+    });
+
+    test('upper-lower-37 at 390px shows the expected draw of R6R and R6L in their one box', async ({
+      page,
+    }) => {
+      const fixture = fixtureTournaments().find((entry) => entry.id === 'upper-lower-37');
+      if (!fixture) throw new Error('the upper-lower-37 fixture is missing');
+      const draw = expectedRounds(fixture.state);
+      const unitOf = (label: string): string => {
+        const index = fixture.state.rounds.findIndex((round) => round.customLabel === label);
+        const name = draw?.get(index)?.assignments.find((entry) => entry.room !== null)?.name;
+        if (!name) throw new Error(`${label} has no expected draw`);
+        return name;
+      };
+      await openBracket(page, fixture.id, WIDTHS[1]);
+      await page.getByRole('tab', { name: /R6R/ }).click();
+      await expect(page.getByText('EXPECTED', { exact: true }).filter({ visible: true })).toHaveCount(2);
+      for (const label of ['R6L', 'R6R']) {
+        await expect(page.getByText(unitOf(label), { exact: true }).filter({ visible: true })).toHaveCount(1);
+      }
+      await expectNoSidewaysPageScroll(page, WIDTHS[1]);
+      mkdirSync(`${OUTPUT_DIR}/${fixture.id}`, { recursive: true });
+      await page.screenshot({ path: `${OUTPUT_DIR}/${fixture.id}/bracket-390-expected.png` });
     });
   });
 });
