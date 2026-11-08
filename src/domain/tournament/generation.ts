@@ -724,6 +724,7 @@ export function generateTournament(
     groupStandings,
     tieResolutions: {},
     absences: {},
+    waterfallSteps: [],
     defenderChanges: {},
     reserveOpen: true,
     started: false,

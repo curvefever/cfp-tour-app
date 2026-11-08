@@ -160,6 +160,13 @@ export interface AnonymousFinalist {
  * accumulate from more than one source round, by which point there is no
  * single round left to re-derive it from.
  */
+export interface PendingBracketSeed {
+  name: string;
+  isLucky?: boolean;
+  tierRank: number;
+  pct: number;
+}
+
 /** One press of Next Round in a Custom bracket of `dependencyPlayVersion`. */
 export interface WaterfallStep {
   /** The rounds this press sent on. */
@@ -168,13 +175,6 @@ export interface WaterfallStep {
   drew: number[];
   /** Undone by Previous, but a round it drew has a score: the draw stays and the rounds it sent on are in play again. */
   reopened?: boolean;
-}
-
-export interface PendingBracketSeed {
-  name: string;
-  isLucky?: boolean;
-  tierRank: number;
-  pct: number;
 }
 
 /** One counted round of a unit's standing. `score` and `rank` (place in its room) are null for a bye, which still earns points. */

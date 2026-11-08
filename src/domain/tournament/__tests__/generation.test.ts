@@ -121,6 +121,20 @@ describe('generateTournament -- validation failures', () => {
   });
 });
 
+describe('generateTournament -- the presses of a Custom bracket', () => {
+  it('leaves none when it generates from a state that holds some', () => {
+    const state = createDefaultTournamentState({
+      confirmedCount: 20,
+      players: names(20),
+      waterfallSteps: [{ sent: [1], drew: [2] }],
+    });
+    const result = generateTournament(state, createDefaultSetup(), createTournamentRuntime());
+    expect(result.status).toBe('generated');
+    if (result.status !== 'generated') return;
+    expect(result.state.waterfallSteps).toEqual([]);
+  });
+});
+
 describe('generateTournament -- non-counting rounds', () => {
   it('flags exactly the leading N rounds excludeFromStandings for a qual-table tournament (fixed at 3 rounds)', () => {
     const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
