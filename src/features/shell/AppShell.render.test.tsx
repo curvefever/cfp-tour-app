@@ -268,6 +268,103 @@ describe('Bracket, the expected draw', () => {
   );
 });
 
+describe('Bracket, dependency play', () => {
+  const dependency = (id: string): FixtureTournament => {
+    const fixture = fixtureTournaments().find((entry) => entry.id === id);
+    if (!fixture) throw new Error(`the ${id} fixture is missing`);
+    return fixture;
+  };
+  const columnOf = (view: ReturnType<typeof renderApp>, title: string) => {
+    const column = view
+      .getAllByRole('heading', { name: title })
+      .map((heading) => heading.closest<HTMLElement>('[class*="min-w-82.5"], .flex-col'))
+      .find((found) => found !== null);
+    if (!column) throw new Error(`no column ${title}`);
+    return column;
+  };
+  const barOf = (view: ReturnType<typeof renderApp>, title: string) =>
+    view.getAllByRole('heading', { name: title })[0].parentElement as HTMLElement;
+
+  it.each(ROLES)(
+    'puts NOW on each round in play and DONE on a round sent on, in a column played together (%s)',
+    (role) => {
+      const view = renderApp(dependency('dependency-play-in-play'), { role, tab: 'bracket' });
+      // SemiA, R6R and R6L are in play: one NOW each. R5R and R5L, the other rounds of SemiA's column, were sent on.
+      expect(view.queryAllByText('NOW')).toHaveLength(3);
+      expect(within(barOf(view, 'SemiA')).queryAllByText('NOW')).toHaveLength(1);
+      expect(within(barOf(view, 'R5L')).queryAllByText('DONE')).toHaveLength(1);
+      expect(within(barOf(view, 'R5L')).queryAllByText('NOW')).toHaveLength(0);
+      expect(within(barOf(view, 'R5R')).queryAllByText('DONE')).toHaveLength(1);
+    },
+  );
+
+  it('shows the organiser score fields only in the rounds in play', () => {
+    const view = renderApp(dependency('dependency-play-in-play'), { role: 'admin', tab: 'bracket' });
+    expect(columnOf(view, 'SemiA').querySelectorAll('input').length).toBeGreaterThan(0);
+    expect(columnOf(view, 'R5L').querySelectorAll('input')).toHaveLength(0);
+    const viewer = renderApp(dependency('dependency-play-in-play'), { role: 'viewer', tab: 'bracket' });
+    expect(
+      viewer.container.querySelectorAll('#br-content input[type="number"], #br-content input[inputmode]'),
+    ).toHaveLength(0);
+  });
+
+  it('gives a viewer no Next Round button and no line, and an admin both', () => {
+    const viewer = renderApp(dependency('dependency-play-in-play'), { role: 'viewer', tab: 'bracket' });
+    expect(viewer.queryAllByRole('button', { name: /Next Round/ })).toHaveLength(0);
+    expect(viewer.queryAllByText(/nothing to draw yet/)).toHaveLength(0);
+    cleanup();
+    const admin = renderApp(dependency('dependency-play-in-play'), { role: 'admin', tab: 'bracket' });
+    expect(admin.getByRole('button', { name: /Next Round/ })).toHaveProperty('disabled', false);
+    expect(admin.getByText('Sends on R6R; nothing to draw yet. SemiA and R6L stay in play.')).toBeTruthy();
+  });
+
+  it.each([
+    ['dependency-play-draws', 'Draws R6R and R6L. SemiA stays in play.'],
+    [
+      'dependency-play-nothing-finished',
+      'Nothing is finished: Next Round sends on SemiA, R6R and R6L as they stand.',
+    ],
+  ])('says what a press does under the button: %s', (id, line) => {
+    const view = renderApp(dependency(id), { role: 'admin', tab: 'bracket' });
+    expect(view.getByText(line)).toBeTruthy();
+    expect(view.getByRole('button', { name: /Next Round/ })).toHaveProperty('disabled', false);
+  });
+
+  it('shows the reopened note instead of the drawn-ahead note, and keeps Next Round and Previous', () => {
+    const view = renderApp(dependency('dependency-play-reopened'), { role: 'admin', tab: 'bracket' });
+    expect(
+      view.getByText(
+        "R5R and R5L are open again. R6R and R6L are already drawn: a correction here won't change their draw.",
+      ),
+    ).toBeTruthy();
+    expect(view.queryAllByText(/is already drawn/)).toHaveLength(0);
+    expect(view.getByRole('button', { name: /Next Round/ })).toBeTruthy();
+    expect(view.getByRole('button', { name: /Previous/ })).toBeTruthy();
+  });
+
+  it('asks about the rooms not fully scored, only when nothing is finished', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    try {
+      const nothing = renderApp(dependency('dependency-play-nothing-finished'), {
+        role: 'admin',
+        tab: 'bracket',
+      });
+      fireEvent.click(nothing.getByRole('button', { name: /Next Round/ }));
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(String(confirm.mock.calls[0][0])).toMatch(
+        /^Not all scores in: .*SemiA · Room A.*Go on anyway[?]$/,
+      );
+      cleanup();
+      confirm.mockClear();
+      const finished = renderApp(dependency('dependency-play-in-play'), { role: 'admin', tab: 'bracket' });
+      fireEvent.click(finished.getByRole('button', { name: /Next Round/ }));
+      expect(confirm).not.toHaveBeenCalled();
+    } finally {
+      confirm.mockRestore();
+    }
+  });
+});
+
 describe('Players tab, confirmations in the organiser tools', () => {
   const upcomingFixture = (id: string, patch: Partial<TournamentState>): FixtureTournament => {
     const fixture = fixtureTournaments().find((entry) => entry.id === id);

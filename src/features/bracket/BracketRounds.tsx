@@ -35,7 +35,7 @@ import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
 import { isNotCountedRound, roundProgress, showsNowPill } from './title-bar-marks';
 import { RoundSettingsBand } from './RoundSettingsBand';
-import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
+import { isCurrentRound, isRoundDone, usesDependencyPlay } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
 export function roundColumnWidthClass() {
@@ -57,6 +57,7 @@ export function RoundColumn({
   popupSettings = null,
   progress,
   settings = null,
+  titleDone,
   tournamentId = '',
 }: {
   children: ReactNode;
@@ -79,6 +80,8 @@ export function RoundColumn({
   progress?: RoomsScored | null;
   /** What the band shows; null for a round with no settings (a quiet "No specific settings"). */
   settings?: RoundSettings | null;
+  /** Whether the title bar's own round is done, when that is not what the folded box shows (a column of rounds sent on one by one). */
+  titleDone?: boolean;
   /** Where the settings pictures are stored. */
   tournamentId?: string;
 }) {
@@ -92,7 +95,7 @@ export function RoundColumn({
     >
       <ColumnTitleBar
         attached={banded}
-        done={folded.done}
+        done={titleDone ?? folded.done}
         expected={expected}
         gameCount={gameCount}
         notCounted={folded.notCounted}
@@ -138,7 +141,8 @@ function waveRoundTitle(
  * whenever the column in play changes. A pick that no longer exists falls back to the default.
  */
 function useStripPick(state: TournamentState, hasStandings: boolean) {
-  const start = currentColumn(state).start;
+  // `curRound` is the first round in play: a press moves it only when that round changes.
+  const start = state.curRound;
   const [chosen, setChosen] = useState<StripPick | null>(null);
   const [seenStart, setSeenStart] = useState(start);
   if (seenStart !== start) {
@@ -289,6 +293,7 @@ export function BracketRounds({
           expected={expectedDraw?.has(roundIndex) ?? false}
           gameCount={roundGameCount(state, roundIndex)}
           notCounted={isNotCountedRound(state, roundIndex)}
+          now={usesDependencyPlay(state) && isNow(roundIndex)}
           popupSettings={popupSettingsOf(roundIndex)}
           progress={progressOf(roundIndex)}
           tournamentId={tournamentId}
@@ -319,6 +324,7 @@ export function BracketRounds({
         progress={progressOf(first)}
         popupSettings={popupSettingsOf(first)}
         settings={settingsOf(first)}
+        titleDone={usesDependencyPlay(state) ? isRoundDone(state, first) : undefined}
         tournamentId={tournamentId}
       >
         {bodyOf(first)}

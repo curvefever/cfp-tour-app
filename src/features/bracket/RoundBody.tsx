@@ -15,7 +15,12 @@ import { RoomCard } from './RoomCard';
 import { roomPoints, roomResultCodes, withSwappedNames } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
-import { isCurrentRound, isRoundReached, nextColumnStart } from '../../domain/tournament/round-columns';
+import {
+  isCurrentRound,
+  isRoundReached,
+  nextColumnStart,
+  usesDependencyPlay,
+} from '../../domain/tournament/round-columns';
 
 /** The organiser decided this tie: picked who ranks next, or shared the points. */
 function hasOrganiserDecision(state: TournamentState, key: string): boolean {
@@ -61,7 +66,9 @@ export function RoundBody({
           labels={labels}
           expected={expected}
         />
-        {roundIndex === nextColumnStart(state) ? <JoiningPanel state={state} /> : null}
+        {roundIndex === nextColumnStart(state) && !usesDependencyPlay(state) ? (
+          <JoiningPanel state={state} />
+        ) : null}
       </>
     );
   }

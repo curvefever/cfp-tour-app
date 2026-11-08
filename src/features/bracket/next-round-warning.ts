@@ -17,3 +17,15 @@ export function unscoredRoomsMessage(state: TournamentState, rooms: UnscoredRoom
   });
   return `No score yet in ${names.join(', ')}. Go to the next round anyway?`;
 }
+
+/** The confirmation in dependency play: every room not fully scored, each named with its round. */
+export function incompleteRoomsMessage(
+  state: TournamentState,
+  rooms: Array<{ roundIndex: number; room: number }>,
+): string {
+  const labels = bracketRoundLabels(state);
+  const names = rooms.map(
+    ({ roundIndex, room }) => `${labels[roundIndex]?.label ?? ''} · Room ${roomLetter(room)}`,
+  );
+  return `Not all scores in: ${names.join(', ')}. Go on anyway?`;
+}

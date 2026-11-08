@@ -5,7 +5,7 @@ import {
   shownRoundNumbers,
 } from '../../domain/tournament/bracket';
 import { isFinalComplete } from '../../domain/tournament/rankings';
-import { currentColumn, isRoundDone } from '../../domain/tournament/round-columns';
+import { isRoundDone } from '../../domain/tournament/round-columns';
 import type { StandingsDisplay } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { standingsNames } from '../standings/standings-names';
@@ -49,9 +49,9 @@ function boxLabel(state: TournamentState, box: BracketBox, labels: Array<{ label
   return labels[first]?.label ?? '';
 }
 
-/** A box is finished when its last round is before the column in play. */
+/** A box is finished when every round of it is done. */
 function isBoxDone(state: TournamentState, box: BracketBox): boolean {
-  return isRoundDone(state, Math.max(...boxRoundIndices(box)));
+  return boxRoundIndices(box).every((roundIndex) => isRoundDone(state, roundIndex));
 }
 
 function boxItem(
@@ -92,8 +92,10 @@ export function roundStrip(state: TournamentState, standings: StandingsDisplay |
   const boxes = bracketBoxes(state);
   const labels = bracketRoundLabels(state);
   const finalComplete = isFinalComplete(state);
-  const doneCount = boxes.filter((box) => isBoxDone(state, box)).length;
-  const groupSize = doneCount >= MIN_GROUPED_BOXES ? doneCount : 0;
+  // The finished boxes before the first one that is not: in dependency play a later box can be done while an earlier one is not.
+  const doneCount = boxes.findIndex((box) => !isBoxDone(state, box));
+  const leadingDone = doneCount === -1 ? boxes.length : doneCount;
+  const groupSize = leadingDone >= MIN_GROUPED_BOXES ? leadingDone : 0;
   const standingsBox = standings ? boxHoldingRound(boxes, standings.lastStandingsRoundIndex) : -1;
   const standingsItem: RoundStripItem | null = standings
     ? {
@@ -128,12 +130,12 @@ export function roundStrip(state: TournamentState, standings: StandingsDisplay |
 }
 
 /**
- * The box shown by default: the one holding the first round of the column in play. That is the first box before
+ * The box shown by default: the one holding the first round in play (`curRound`). That is the first box before
  * the start and the Final's box once the tournament is finished.
  */
 export function defaultStripSelection(state: TournamentState): number {
   const boxes = bracketBoxes(state);
-  const holding = boxHoldingRound(boxes, currentColumn(state).start);
+  const holding = boxHoldingRound(boxes, state.curRound);
   return holding >= 0 ? holding : Math.max(0, boxes.length - 1);
 }
 

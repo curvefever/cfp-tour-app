@@ -4,7 +4,8 @@ import { scoreKeysForPosition } from '../../src/domain/tournament/scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
 import { removeRosterUnit, withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
-import { currentColumn, roundColumn } from '../../src/domain/tournament/round-columns';
+import { currentColumn, roundColumn, roundsInPlay } from '../../src/domain/tournament/round-columns';
+import { goBack } from '../../src/domain/tournament/waterfall-steps';
 import { UPPER_LOWER_GRAPH } from '../../src/domain/tournament/__tests__/upper-lower-graph';
 import type {
   PersistedSetup,
@@ -612,6 +613,22 @@ function waterfallColumn(): TournamentState {
   return { ...scored, curRound: inBracket.curRound };
 }
 
+/** The upper and lower bracket at 37 players played in columns up to the one whose number is `column`, drawn and unscored. */
+function upperLowerAtColumn(column: number): TournamentState {
+  const start = generate(37, {
+    scheduleLogic: 'waterfall-bracket',
+    poolingPhase: 'qual-table',
+    qualAdv: '99',
+    waterfallGraph: UPPER_LOWER_GRAPH,
+  });
+  let state = start;
+  for (let guard = 0; guard < 40; guard += 1) {
+    if (state.rounds[state.curRound].waterfallColumn === column) return state;
+    state = advanceScoredColumn(state, 1);
+  }
+  throw new Error(`the tournament did not reach column ${column}`);
+}
+
 /** An upper and lower bracket at 37 players, in the column [R5R, SemiA, R5L] with only R5L scored: R6L and R6R show their expected draw. */
 function upperLower37(): TournamentState {
   const start = generate(37, {
@@ -629,6 +646,55 @@ function upperLower37(): TournamentState {
   if (column.curRound !== firstOfColumn) throw new Error('the tournament did not reach the column of R5L');
   const scored = scoreCurrentRound({ ...column, curRound: lower }, { seed: 12 });
   return { ...scored, curRound: column.curRound };
+}
+
+/**
+ * The upper and lower bracket at 37 played by dependency play, R4U and R4L sent on: SemiA, R5R and R5L are drawn and in
+ * play, nothing of them scored. `step` goes on from there:
+ *  - 'draws': R5L and R5R scored, SemiA not: the next press sends them and draws R6L and R6R;
+ *  - 'in play': that press made: R6L and R6R drawn beside SemiA, which is still in play and unscored, R6R scored;
+ *  - 'nothing finished': the same with no score entered in any round in play;
+ *  - 'reopened': R6L scored after the press, then Previous: the press that drew R6L and R6R is reopened.
+ */
+function dependencyPlay37(
+  step: 'start' | 'draws' | 'in play' | 'nothing finished' | 'reopened',
+): TournamentState {
+  const column = upperLowerAtColumn(2);
+  const base: TournamentState = {
+    ...column,
+    gamemodeConfig: { ...column.gamemodeConfig, dependencyPlayVersion: 1 },
+    waterfallSteps: [
+      { sent: labelIndexes(column, ['R4U', 'R4L']), drew: labelIndexes(column, ['R5R', 'SemiA', 'R5L']) },
+    ],
+  };
+  const inPlay = {
+    ...base,
+    curRound: roundsInPlay({ ...base, curRound: labelIndexes(base, ['R5R'])[0] })[0],
+  };
+  const scoreLabels = (state: TournamentState, labels: string[], seed: number) =>
+    labelIndexes(state, labels).reduce(
+      (current, index) => scoreCurrentRound({ ...current, curRound: index }, { seed }),
+      state,
+    );
+  const advanced = (state: TournamentState): TournamentState => {
+    const result = advanceTournamentRound(state);
+    if (result.status !== 'advanced') throw new Error(`the press did not advance: ${result.status}`);
+    return result.state;
+  };
+  const keepCurrent = (state: TournamentState, curRound: number) => ({ ...state, curRound });
+  if (step === 'start') return inPlay;
+  const sentRound5 = scoreLabels(inPlay, ['R5L', 'R5R'], 3);
+  const draws = keepCurrent(sentRound5, inPlay.curRound);
+  if (step === 'draws') return draws;
+  const beside = advanced(draws);
+  if (step === 'nothing finished') return beside;
+  if (step === 'in play') return keepCurrent(scoreLabels(beside, ['R6R'], 4), beside.curRound);
+  const scoredR6L = keepCurrent(scoreLabels(beside, ['R6L'], 4), beside.curRound);
+  return goBack(scoredR6L);
+}
+
+function labelIndexes(state: TournamentState, labels: string[]): number[] {
+  return labels.map((label) => state.rounds.findIndex((round) => round.customLabel === label));
 }
 
 /** Scores every round of the column in play, so every room is complete, then advances to the next column. */
@@ -779,6 +845,10 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('waterfall-column-19', waterfallColumn(), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),
+    entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
+    entry('dependency-play-in-play', dependencyPlay37('in play'), { tabs: ['Bracket'] }),
+    entry('dependency-play-nothing-finished', dependencyPlay37('nothing finished'), { tabs: ['Bracket'] }),
+    entry('dependency-play-reopened', dependencyPlay37('reopened'), { tabs: ['Bracket'] }),
     entry('upcoming-info', upcoming(), {
       setup: FFA_SETUP,
       tabs: ['Info', 'Players'],

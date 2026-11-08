@@ -32,10 +32,11 @@ import { LIKELY_ABSENT_LINE_ID, LikelyAbsentLine } from './LikelyAbsentLine';
 import { likelyAbsentChips } from './likely-absent-line';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
-import { nextColumnStart } from '../../domain/tournament/round-columns';
-import { canGoBack, goBack } from '../../domain/tournament/waterfall-steps';
+import { nextColumnStart, usesDependencyPlay } from '../../domain/tournament/round-columns';
+import { canGoBack, goBack, nextRoundPlan } from '../../domain/tournament/waterfall-steps';
 import { unscoredRooms } from '../../domain/tournament/scoring';
-import { unscoredRoomsMessage } from './next-round-warning';
+import { incompleteRoomsMessage, unscoredRoomsMessage } from './next-round-warning';
+import { nextRoundLine, reopenedNote } from './next-round-line';
 import { hasRoundNotes } from './title-bar-marks';
 import { usePanelSpace } from './use-panel-space';
 
@@ -78,20 +79,29 @@ export function BracketView() {
   }
   const editable = app.unlocked && !app.isViewer && app.state.started && !app.readOnly;
   const likelyAbsent = editable ? likelyAbsentChips(app.state) : [];
-  const pendingTies = hasPendingColumnTies(app.state);
-  const pendingAbsences = hasBlockingAbsenceQuestions(app.state);
+  // In dependency play the panel says what the press does (`nextRoundPlan`): the button is disabled only when nothing
+  // is finished and a tie or a question blocks; the line under it says what a press does.
+  const plan = usesDependencyPlay(app.state) ? nextRoundPlan(app.state) : null;
+  const pendingTies = plan ? plan.blocked === 'pending-ties' : hasPendingColumnTies(app.state);
+  const pendingAbsences = plan ? plan.blocked === 'pending-absences' : hasBlockingAbsenceQuestions(app.state);
   const currentRound = app.state.rounds[app.state.curRound];
-  const isLastRound =
-    nextColumnStart(app.state) >= app.state.rounds.length || currentRound?.bracket === 'grand-final';
+  const isLastRound = plan
+    ? plan.hidden
+    : nextColumnStart(app.state) >= app.state.rounds.length || currentRound?.bracket === 'grand-final';
   const previousAvailable = canGoBack(app.state);
-  const drawnAhead = isLastRound ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
+  const drawnAhead = isLastRound || plan ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
+  const planLine = plan ? nextRoundLine(app.state, plan) : null;
+  const reopened = plan ? reopenedNote(app.state) : null;
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
     // result instead of throwing, but this guards against any
     // future/unanticipated throw deep in the advancement logic crashing the
     // whole Bracket view mid-tournament.
-    const unscored = unscoredRooms(app.state);
-    if (unscored.length > 0 && !window.confirm(unscoredRoomsMessage(app.state, unscored))) return;
+    const confirmation = plan
+      ? { rooms: plan.roomsToConfirm, message: incompleteRoomsMessage }
+      : { rooms: unscoredRooms(app.state), message: unscoredRoomsMessage };
+    if (confirmation.rooms.length > 0 && !window.confirm(confirmation.message(app.state, confirmation.rooms)))
+      return;
     let result;
     try {
       result = advanceTournamentRound(app.state);
@@ -183,6 +193,11 @@ export function BracketView() {
         onOpenFullTable={() => app.setActiveTab('standings')}
         showSettings={settingsShown}
       />
+      {editable && reopened ? (
+        <div className='mt-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>
+          {reopened}
+        </div>
+      ) : null}
       {editable && drawnAhead !== 'none' ? (
         <div className='mt-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>
           {destinationLabel(nextColumnStart(app.state), labels)}{' '}
@@ -227,6 +242,7 @@ export function BracketView() {
               {likelyAbsent.length} likely absent ↑
             </Button>
           ) : null}
+          {planLine ? <p className='m-0 basis-full text-sm text-muted'>{planLine}</p> : null}
         </ButtonRow>
       ) : null}
     </div>

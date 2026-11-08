@@ -3,6 +3,7 @@ import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
+import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
 import { progressSummary } from './progress-summary';
 
 function ffa37(): TournamentState {
@@ -149,5 +150,31 @@ describe('progressSummary -- a waterfall column of two rounds', () => {
     const lower = start.curRound + 1;
     const scored = { ...scoreCurrentRound({ ...start, curRound: lower }, 2), curRound: start.curRound };
     expect(progressSummary(scored).text).toBe('Round 5 Upper + Round 5 Lower · 2 of 4 rooms scored');
+  });
+});
+
+describe('progressSummary in dependency play', () => {
+  const fixture = () => {
+    const found = fixtureTournaments().find((entry) => entry.id === 'dependency-play-in-play');
+    if (!found) throw new Error('the dependency play fixture is missing');
+    return loadedState(found);
+  };
+
+  it('names every round in play, whichever column it is in, and lists their rooms under their rounds', () => {
+    const summary = progressSummary(fixture());
+    expect(summary.roundName).toBe('SemiA + R6R + R6L');
+    expect(summary.rooms.map((room) => room.name)).toEqual(
+      expect.arrayContaining(['SemiA · Room A', 'R6R · Room A', 'R6L · Room A']),
+    );
+    expect(summary.rooms.some((room) => room.name.startsWith('R5L'))).toBe(false);
+  });
+
+  it('marks the rounds in play as now, the rounds sent on as done and the others as upcoming', () => {
+    const stages = new Map(progressSummary(fixture()).stages.map((stage) => [stage.name, stage.state]));
+    expect(stages.get('SemiA')).toBe('now');
+    expect(stages.get('R6L')).toBe('now');
+    expect(stages.get('R5L')).toBe('done');
+    expect(stages.get('R5R')).toBe('done');
+    expect(stages.get('SemiB')).toBe('upcoming');
   });
 });

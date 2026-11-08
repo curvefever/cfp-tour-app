@@ -170,6 +170,35 @@ describe('roundStrip, waterfall columns', () => {
   });
 });
 
+describe('roundStrip, dependency play', () => {
+  it('puts NOW on every box that holds a round in play, and a tick on a box only once every round of it is done', () => {
+    // SemiA, R6R and R6L are in play: the boxes [R5R, SemiA, R5L] and [R6R, R6L] both hold one; R4U and R4L are done.
+    const state = fixtureAt('dependency-play-in-play');
+    const items = roundStrip(state, describeStandings(state));
+    const named = (label: string) => items.find((item) => item.label === label);
+    expect(named('R5R')?.now).toBe(true);
+    expect(named('R5R')?.done).toBe(false);
+    expect(named('R6R')?.now).toBe(true);
+    expect(named('SemiB')?.now).toBe(false);
+  });
+
+  it('groups only the finished boxes before the first one that is not finished', () => {
+    const state = fixtureAt('dependency-play-in-play');
+    const group = roundStrip(state, describeStandings(state)).find((item) => item.kind === 'group');
+    // The pooling rounds and the first column are done; the boxes after the column in play are not grouped.
+    expect(group?.done).toBe(true);
+    const boxes = group?.boxes ?? [];
+    expect(boxes).toEqual(boxes.map((_, index) => index));
+    expect(state.rounds[state.curRound].customLabel).toBe('SemiA');
+  });
+
+  it('shows by default the box of the first round in play, the one curRound is in', () => {
+    const state = fixtureAt('dependency-play-in-play');
+    const labels = roundStripBoxLabels(state);
+    expect(labels[defaultStripSelection(state)]).toBe('R5R');
+  });
+});
+
 describe('roundStrip items', () => {
   it('say which boxes they stand for, and the table none', () => {
     const state = fixtureAt('ffa37-quarters');

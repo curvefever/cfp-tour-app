@@ -12,7 +12,7 @@ import {
   usesDependencyPlay,
 } from './round-columns';
 import { rosterKeys } from './roster';
-import { isRoomScored, occupiedRooms, roundHasAnyScore } from './scoring';
+import { isRoomScored, occupiedRooms, roundHasAnyScore, type UnscoredRoom } from './scoring';
 import {
   cloneForTransition,
   fitWaterfallRoundAt,
@@ -103,30 +103,74 @@ function roundsToSend(state: TournamentState): { sent: number[]; confirmed: bool
   return { sent: liveRoundsInPlay(state).filter((index) => !state.rounds[index].isFinal), confirmed: true };
 }
 
+/** What the next press does, read from the same functions the press uses, so what the Bracket says is what happens. */
+export interface NextRoundPlan {
+  /** Only the Final is in play and nothing is reopened: there is no press, and the button is hidden. */
+  hidden: boolean;
+  /** The rounds the press sends on, routing them into the pools (the finished ones, or every live one when none is). */
+  sends: number[];
+  /** The rounds of a reopened step: counted as done again, with no routing and no draw. */
+  clears: number[];
+  /** The rounds it draws. */
+  draws: number[];
+  /** The rounds in play that it leaves in play. */
+  staysInPlay: number[];
+  /** Nothing is finished: the press sends the rounds in play as they are, and the organiser confirms it first. */
+  confirm: boolean;
+  /** The rooms the confirmation lists: every room of a round it sends that is not fully scored, a partly scored one too. */
+  roomsToConfirm: UnscoredRoom[];
+  /** What stops the press: a tie or a blocking absence question in a round it would send on as it is. */
+  blocked: 'pending-ties' | 'pending-absences' | null;
+}
+
+/** The rooms of the round with two or more units that are not fully scored (a decided Best of counts as scored). */
+function roomsNotFullyScored(state: TournamentState, roundIndex: number): UnscoredRoom[] {
+  return occupiedRooms(state, roundIndex)
+    .filter((room) => !isUncontestedRoom(state, roundIndex, room) && !isRoomScored(state, roundIndex, room))
+    .map((room) => ({ roundIndex, room }));
+}
+
+/** What Next Round would do now in dependency play: `advanceDependencyPlay` does exactly this. */
+export function nextRoundPlan(state: TournamentState): NextRoundPlan {
+  const { sent, confirmed } = roundsToSend(state);
+  const clears = reopenedRounds(state);
+  const hidden = sent.length === 0 && clears.length === 0;
+  let blocked: NextRoundPlan['blocked'] = null;
+  if (confirmed && sent.some((index) => hasPendingTies(state, index))) blocked = 'pending-ties';
+  else if (confirmed && sent.some((index) => hasBlockingAbsenceQuestionsInRound(state, index))) {
+    blocked = 'pending-absences';
+  }
+  const stops = hidden || blocked !== null;
+  const confirm = confirmed && sent.length > 0;
+  return {
+    hidden,
+    sends: sent,
+    clears,
+    draws: stops ? [] : roundsReadyToDraw(state, doneAfterPress(state, sent)),
+    staysInPlay: roundsInPlay(state).filter((index) => !sent.includes(index) && !clears.includes(index)),
+    confirm,
+    roomsToConfirm: confirm ? sent.flatMap((index) => roomsNotFullyScored(state, index)) : [],
+    blocked,
+  };
+}
+
 /**
- * Next Round in dependency play. Sends on the finished rounds in play with no question, or when none is finished
- * every round in play (ties and absence questions block that); routes them into the pools; draws every round
- * whose feeders are then all sent on; records the press and moves `curRound` to the lowest round in play. A round
- * of a reopened step is counted as done without routing or drawing anything. The press is all or nothing: a round
- * that can't be drawn returns the input state unchanged.
+ * Next Round in dependency play (`nextRoundPlan`). Sends on the finished rounds in play with no question, or when
+ * none is finished every round in play (ties and absence questions block that); routes them into the pools; draws
+ * every round whose feeders are then all sent on; records the press and moves `curRound` to the lowest round in
+ * play. A round of a reopened step is counted as done without routing or drawing anything. The press is all or
+ * nothing: a round that can't be drawn returns the input state unchanged.
  */
 export function advanceDependencyPlay(input: TournamentState): RoundAdvanceResult {
-  const { sent, confirmed } = roundsToSend(input);
-  const reopened = reopenedRounds(input);
-  if (sent.length === 0 && reopened.length === 0) {
-    return { status: 'noop', reason: 'last-round', state: input };
-  }
-  if (confirmed && sent.some((index) => hasPendingTies(input, index))) {
+  const plan = nextRoundPlan(input);
+  if (plan.hidden) return { status: 'noop', reason: 'last-round', state: input };
+  if (plan.blocked === 'pending-ties') {
     return { status: 'blocked', reason: 'pending-ties', message: PENDING_TIES_MESSAGE, state: input };
   }
-  if (confirmed && sent.some((index) => hasBlockingAbsenceQuestionsInRound(input, index))) {
-    return {
-      status: 'blocked',
-      reason: 'pending-absences',
-      message: PENDING_ABSENCES_MESSAGE,
-      state: input,
-    };
+  if (plan.blocked === 'pending-absences') {
+    return { status: 'blocked', reason: 'pending-absences', message: PENDING_ABSENCES_MESSAGE, state: input };
   }
+  const { sends: sent, draws: ready } = plan;
 
   const state = cloneForTransition(input);
   for (const [destination, additions] of mergeAdditions(
@@ -137,7 +181,6 @@ export function advanceDependencyPlay(input: TournamentState): RoundAdvanceResul
       ...additions,
     ];
   }
-  const ready = roundsReadyToDraw(state, doneAfterPress(state, sent));
   for (const index of ready) {
     const arriving = (state.pendingBracketSeeds[index] ?? []).length;
     const shapeFailure = fitWaterfallRoundAt(state, index, arriving);
