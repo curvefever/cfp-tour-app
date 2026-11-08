@@ -275,3 +275,54 @@ describe('followBannerText: a unit in an expected draw', () => {
     expect(text.detail).toMatch(/^R5L · Room [A-Z] · \d+(st|nd|rd|th) → R6L$/);
   });
 });
+
+describe('followBannerText: a Custom bracket column and the units waiting after it', () => {
+  /** The upper and lower graph at 37, advanced until the column of `label` is drawn; with `scoredColumn`, that column advanced too. */
+  function playedTo(label: string, advanceColumn: boolean): TournamentState {
+    let state = buildQualWaterfall(37, UPPER_LOWER_GRAPH, {}, { columns: true });
+    const target = state.rounds.findIndex((round) => round.customLabel === label);
+    for (let guard = 0; guard < 30; guard += 1) {
+      const { start: first, end } = currentColumn(state);
+      const inTarget = target >= first && target <= end;
+      if (inTarget && !advanceColumn) return state;
+      let scores = state.scores;
+      for (let index = first; index <= end; index += 1) {
+        scores = scoreByHash({ ...state, curRound: index, scores }).state.scores;
+      }
+      state = advanced({ ...state, scores });
+      if (inTarget) return state;
+    }
+    throw new Error(`never reached ${label}`);
+  }
+
+  const names = (state: TournamentState) => [
+    ...new Set(state.assignments.flatMap((round) => round.map((entry) => entry.name))),
+  ];
+
+  it('never says "Out" for a unit in a round of the column being played', () => {
+    const state = playedTo('SemiA', false);
+    const { start, end } = currentColumn(state);
+    const inColumn = names(state).filter((name) =>
+      Object.keys(bracketFollowStatus(state, name)?.rounds ?? {}).some(
+        (index) => Number(index) >= start && Number(index) <= end,
+      ),
+    );
+    expect(inColumn.length).toBeGreaterThan(0);
+    for (const name of inColumn) {
+      const status = bracketFollowStatus(state, name);
+      if (status && status.lastRi >= start) expect(textFor(state, name).detail).not.toMatch(/^Out in/);
+    }
+  });
+
+  it('never says "Out" for a unit waiting in a pool, and still says it for a unit sent home', () => {
+    const state = playedTo('SemiA', true);
+    const waiting = Object.values(state.pendingBracketSeeds).flatMap((seeds) =>
+      seeds.map(({ name }) => name),
+    );
+    expect(waiting.length).toBeGreaterThan(0);
+    for (const name of waiting) expect(textFor(state, name).detail).not.toMatch(/^Out in/);
+    const r5r = state.rounds.findIndex((round) => round.customLabel === 'R5R');
+    const home = state.assignments[r5r][0].name;
+    expect(textFor(state, home).detail).toMatch(/^Out in R5R · Room /);
+  });
+});

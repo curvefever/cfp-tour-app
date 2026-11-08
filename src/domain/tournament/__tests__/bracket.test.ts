@@ -17,6 +17,9 @@ import { advanceTournamentRound } from '../transitions';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
 import { SPREADSHEET_GRAPH, buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
+import { currentColumn } from '../round-columns';
+import { scoreByHash } from './spread-play';
+import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
 import { buildState, scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
@@ -610,6 +613,8 @@ describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () =>
         [{ name: 'P1', room: 1, isLucky: false }], // round 2 ("SemiA") -- the skip-ahead destination
       ],
       byes: [[], [], []],
+      rounds: [],
+      pendingBracketSeeds: {},
     };
     const status = bracketFollowStatus(state, 'P1');
     expect(status?.rounds).toEqual({ 0: { room: 2, isBye: false }, 2: { room: 1, isBye: false } });
@@ -628,6 +633,8 @@ describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () =>
         [{ name: 'P2', room: 1, isLucky: false }], // P1 didn't survive this round
       ],
       byes: [[], []],
+      rounds: [],
+      pendingBracketSeeds: {},
     };
     const status = bracketFollowStatus(state, 'P1');
     expect(status?.lastRi).toBe(0);
@@ -1048,4 +1055,79 @@ describe("projectFutureRoundSlots -- a round fed only by the Qual or Groups line
     ]);
     expect(places(projected[2]).map((room) => room[0])).toEqual(['3', '4']);
   });
+});
+
+describe('bracketFollowStatus — units in a column of several rounds and units waiting in a pool', () => {
+  const EVERY_NAME = (state: TournamentState): string[] => [
+    ...new Set(state.assignments.flatMap((round) => round.map((entry) => entry.name))),
+  ];
+
+  /** The upper and lower graph in column play, advanced until `label`'s column is drawn (nothing in it scored). */
+  function atColumnOf(count: number, label: string): TournamentState {
+    let state = buildQualWaterfall(count, UPPER_LOWER_GRAPH, {}, { columns: true });
+    const target = state.rounds.findIndex((round) => round.customLabel === label);
+    for (let guard = 0; guard < 30; guard += 1) {
+      const { start, end } = currentColumn(state);
+      if (target >= start && target <= end) return state;
+      let scores = state.scores;
+      for (let index = start; index <= end; index += 1) {
+        scores = scoreByHash({ ...state, curRound: index, scores }).state.scores;
+      }
+      const result = advanceTournamentRound({ ...state, scores });
+      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
+      state = result.state;
+    }
+    throw new Error(`never reached ${label}`);
+  }
+
+  const labelOf = (state: TournamentState, index: number) => state.rounds[index].customLabel;
+
+  it.each([37, 43, 53])(
+    'reads nobody in a column being played as out, whichever round of it they sit in (%i players)',
+    (count) => {
+      const state = atColumnOf(count, 'R5L');
+      const { start, end } = currentColumn(state);
+      expect(end).toBeGreaterThan(start);
+      const inColumn = EVERY_NAME(state).filter((name) =>
+        Object.keys(bracketFollowStatus(state, name)?.rounds ?? {}).some(
+          (index) => Number(index) >= start && Number(index) <= end,
+        ),
+      );
+      expect(inColumn.length).toBeGreaterThan(0);
+      for (const name of inColumn) {
+        const status = bracketFollowStatus(state, name);
+        if (status && status.lastRi >= start) {
+          expect(status.eliminated, `${name} in ${labelOf(state, status.lastRi)}`).toBe(false);
+        }
+      }
+    },
+  );
+
+  it.each([37, 43, 53])(
+    'reads a unit waiting in a pool as not out, and a unit whose round fed nothing as out (%i players)',
+    (count) => {
+      const before = atColumnOf(count, 'R5L');
+      let scores = before.scores;
+      const { start, end } = currentColumn(before);
+      for (let index = start; index <= end; index += 1) {
+        scores = scoreByHash({ ...before, curRound: index, scores }).state.scores;
+      }
+      const result = advanceTournamentRound({ ...before, scores });
+      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
+      const state = result.state;
+      const waiting = new Set(
+        Object.values(state.pendingBracketSeeds).flatMap((seeds) => seeds.map(({ name }) => name)),
+      );
+      expect(waiting.size).toBeGreaterThan(0);
+      for (const name of waiting) {
+        expect(bracketFollowStatus(state, name)?.eliminated, name).toBe(false);
+      }
+      const r5r = state.rounds.findIndex((round) => round.customLabel === 'R5R');
+      const sentHome = state.assignments[r5r].map(({ name }) => name);
+      expect(sentHome.length).toBeGreaterThan(0);
+      for (const name of sentHome) {
+        expect(bracketFollowStatus(state, name)?.eliminated, name).toBe(true);
+      }
+    },
+  );
 });

@@ -36,6 +36,7 @@ import { nextColumnStart, previousColumnStart } from '../../domain/tournament/ro
 import { unscoredRooms } from '../../domain/tournament/scoring';
 import { unscoredRoomsMessage } from './next-round-warning';
 import { hasRoundNotes } from './title-bar-marks';
+import { usePanelSpace } from './use-panel-space';
 
 export function BracketView() {
   const app = useTournamentApp();
@@ -48,6 +49,7 @@ export function BracketView() {
   const [settingsShown, setSettingsShown] = useState(true);
   const [followKey, setFollowKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const panelSpace = usePanelSpace();
   const rosterLoaded = app.state.players.length > 0;
   useEffect(() => {
     if (!app.hydrated) return;
@@ -112,7 +114,7 @@ export function BracketView() {
     saveBracketFollow(window.localStorage, resolved);
   }
   return (
-    <div id='br-content'>
+    <div id='br-content' style={panelSpace.style}>
       <PageHeading label='Bracket' title={title} />
       <div className='relative mb-4.5 flex flex-wrap items-center gap-2.5'>
         <label className='sr-only' htmlFor='br-follow-input'>
@@ -189,7 +191,10 @@ export function BracketView() {
         </div>
       ) : null}
       {editable ? (
-        <ButtonRow className='sticky bottom-2.5 z-20 mt-4.5 rounded-xs bg-cfp-game-deep p-2.5 outline-2 outline-cfp-game-frame'>
+        <ButtonRow
+          className='sticky bottom-2.5 z-20 mt-4.5 rounded-xs bg-cfp-game-deep p-2.5 outline-2 outline-cfp-game-frame'
+          ref={panelSpace.panelRef}
+        >
           {!isLastRound ? (
             <Button
               variant='success'

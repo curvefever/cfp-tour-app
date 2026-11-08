@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, HTMLAttributes } from 'react';
+import type { ButtonHTMLAttributes, ComponentProps } from 'react';
 import { cn } from './cn';
 
 type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'accent' | 'ghost';
@@ -45,6 +45,6 @@ export function Button({
   );
 }
 
-export function ButtonRow({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function ButtonRow({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('mt-3.5 flex flex-wrap gap-2.5', className)} {...props} />;
 }

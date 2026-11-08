@@ -5,8 +5,9 @@ export const hiddenScrollbarClass = '[scrollbar-width:none] [&::-webkit-scrollba
 
 /**
  * The scrollbar of a sideways-scrolling strip, pinned to the bottom of the screen while the strip is on screen, so a
- * strip taller than the screen can be scrolled without first scrolling the page down to its end. It sits right under
- * the strip once the strip's end is in view, and is hidden while nothing overflows. Its bar is always drawn
+ * strip taller than the screen can be scrolled without first scrolling the page down to its end. For an admin it sits
+ * above the sticky Next Round panel (`usePanelSpace`), not under it. It sits right under the strip once the strip's
+ * end is in view, and is hidden while nothing overflows. Its bar is always drawn
  * (`game-scrollbar`), so viewers see that the strip scrolls sideways.
  */
 export function StickyScrollbar({ target }: { target: RefObject<HTMLElement | null> }) {
@@ -52,7 +53,7 @@ export function StickyScrollbar({ target }: { target: RefObject<HTMLElement | nu
       aria-hidden
       className={
         size.scrollWidth > size.clientWidth
-          ? 'game-scrollbar sticky bottom-0 overflow-x-auto bg-background max-[700px]:hidden'
+          ? 'game-scrollbar sticky bottom-[var(--next-round-panel-space,0px)] overflow-x-auto bg-background max-[700px]:hidden'
           : 'hidden'
       }
       onScroll={lead}

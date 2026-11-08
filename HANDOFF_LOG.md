@@ -6,6 +6,26 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Stage 0 of the waterfall dependency play: the follow box "Out" and the scrollbar over the panel (done — 2026-11-08, on local `test`)
+
+**Context.** Stage 0 of `plans/2026-11-08-waterfall-dependency-play.md`: two small fixes that stand alone and can reach production before the rest. Nothing of dependency play is built here.
+
+**Follow box.** `bracketFollowStatus` (`bracket.ts`) called a unit eliminated when its last round index was before the last drawn round's. Two wrong readings, both confirmed by a failing test first: a unit in an earlier round of a column of several rounds read "Out in SemiA · Room A" while the column was played (known, from the live check of the expected draw), and a unit waiting in a `pendingBracketSeeds` pool (a SemiA winner waiting for the Final, once the next column is drawn) read "Out" too (from the code; the test confirmed it). New rule: out when the column of its last round is before the column of the last drawn round, and the unit is in no pool. The state `Pick` gains `rounds` and `pendingBracketSeeds`. Rounds outside a waterfall column are their own column, so every other format compares as before; a double elimination unit waiting in a pool now reads "not out" too, which is what it is.
+
+**Scrollbar.** For an admin the sticky Next Round panel covered `StickyScrollbar`. `usePanelSpace` (`use-panel-space.ts`) measures the panel (height plus its gap from the bottom, `ResizeObserver`) into `--next-round-panel-space` on `#br-content`; the bar's `bottom` is `var(--next-round-panel-space,0px)`. A viewer has no panel, the variable is unset, and the bar keeps `bottom-0`. A phone has no bar. `ButtonRow` (`components/ui/Button.tsx`) now takes `ComponentProps<'div'>` so the panel can take a ref.
+
+**Testing.**
+- `bracket.test.ts`: nobody in a column being played reads out (37, 43, 53 on the upper and lower graph, column play), and a unit waiting in a pool reads not out while a unit sent home by R5R still reads out. The two older fixtures gained `rounds` and `pendingBracketSeeds`. All six new cases failed before the fix.
+- `follow-text.test.ts`: the same two cases through `followBannerText` ("Out in ..." never shown for those units, still shown for an R5R unit); both failed before the fix.
+- Live check of the bar, fixture `upper-lower-37` through the screens project with a temporary local `__FAKE_ADMIN__` change (restored, never committed) at 1280 x 700, scrolled to the middle: bar bottom 626 px = panel top 626 px, panel bottom 690 px (10 px gap), the variable 74 px. Playwright's `--hide-scrollbars` had to be switched off to draw the bar. No real tournament opened.
+- Checks: eslint, prettier, types clean on the changed files; `vitest related` 131 files, 4045 tests passed.
+
+**Full suite:** not run by the implementer; the reviewer runs it at this stage (shared code: `src/components/ui/`).
+
+**Out of scope.** Everything from stage 1 on. The panel's height will change in stage 6; the variable already follows it.
+
+---
+
 ## The expected draw of a Custom bracket round as soon as its own feeders are finished (done — 2026-11-08, on production, `main` `b8a18c4`)
 
 **Context.** Queue item 1 before the FFA tournament of about 2026-11-19. In a Custom bracket the expected draw waited for every round of the column in play. In live tournament `1793555835749` the Round 6 rounds, fed only by Round 5 - Lower (fully scored), showed place labels while Semi-Final A, a Best of 3 in the same column, was still played, though players could have known their rooms.

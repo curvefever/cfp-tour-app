@@ -109,8 +109,13 @@ export interface BracketFollowStatus {
   eliminated: boolean;
 }
 
+/**
+ * Where a unit stands in the Bracket. It is out when its last round is in a column before the last drawn round's,
+ * unless it waits in a pool for a round not drawn yet. Rounds of one column are played together, so a unit in an
+ * earlier round of the column being played is not out.
+ */
 export function bracketFollowStatus(
-  state: Pick<TournamentState, 'assignments' | 'byes'>,
+  state: Pick<TournamentState, 'assignments' | 'byes' | 'rounds' | 'pendingBracketSeeds'>,
   key: string | null,
 ): BracketFollowStatus | null {
   if (!key) return null;
@@ -134,8 +139,20 @@ export function bracketFollowStatus(
     lastRi,
     room,
     isBye,
-    eliminated: lastRi < lastAssignedRound(state),
+    eliminated: isBeforeLastDrawnColumn(state, lastRi) && !isWaitingInPool(state, key),
   };
+}
+
+function isBeforeLastDrawnColumn(
+  state: Pick<TournamentState, 'assignments' | 'rounds'>,
+  roundIndex: number,
+): boolean {
+  const lastDrawn = lastAssignedRound(state);
+  return roundColumn(state.rounds, roundIndex).start < roundColumn(state.rounds, lastDrawn).start;
+}
+
+function isWaitingInPool(state: Pick<TournamentState, 'pendingBracketSeeds'>, key: string): boolean {
+  return Object.values(state.pendingBracketSeeds).some((seeds) => seeds.some(({ name }) => name === key));
 }
 
 export function bracketRoundDefaultCollapsed(
