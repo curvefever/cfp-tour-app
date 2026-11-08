@@ -294,6 +294,19 @@ describe('roomRowResult: an absentee', () => {
   });
 });
 
+/** The tournament played (rounds scored and advanced) up to the point where `roundIndex` is drawn. */
+function drawnAt(start: TournamentState, roundIndex: number): TournamentState {
+  let drawn = start;
+  while (drawn.curRound < roundIndex) {
+    const advanced = advanceTournamentRound(scoreCurrentRound(drawn, 0));
+    if (advanced.status !== 'advanced') throw new Error(`could not reach round ${roundIndex}`);
+    drawn = advanced.state;
+  }
+  return drawn;
+}
+
+const roomsOf = (exitRule: RoundExitRule) => (exitRule.kind === 'per-room' ? exitRule.rooms : []);
+
 describe('roomRowResult: one colour per destination in every room of a Custom bracket round', () => {
   const spreadsheet = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32')?.text ?? '';
   const state = buildQualWaterfall(32, spreadsheet, { poolingPhase: 'none' });
@@ -321,25 +334,58 @@ describe('roomRowResult: one colour per destination in every room of a Custom br
   });
 
   it('a removal that shrinks room A below rank 6 changes no colour of any remaining row', () => {
-    let drawn = state;
-    while (drawn.curRound < roundIndex) {
-      const advanced = advanceTournamentRound(scoreCurrentRound(drawn, 0));
-      if (advanced.status !== 'advanced') throw new Error('could not reach R5');
-      drawn = advanced.state;
-    }
+    const drawn = drawnAt(state, roundIndex);
     const before = roundExitRule(drawn, roundIndex);
     const roomAUnits = (drawn.assignments[roundIndex] ?? [])
       .filter((entry) => entry.room === 1)
       .map((entry) => entry.name);
     const shrunk = roomAUnits.slice(0, 3).reduce(removeRosterUnit, drawn);
     const after = roundExitRule(shrunk, roundIndex);
-    const roomsOf = (exitRule: RoundExitRule) => (exitRule.kind === 'per-room' ? exitRule.rooms : []);
     expect(roomsOf(after)[0].at(-1)).toMatchObject({ toRank: 5 });
     const sizes = [5, 8, 8, 8];
     for (const index of [0, 1, 2, 3]) {
       expect(rowsOf(roomsOf(after)[index], sizes[index])).toEqual(
         rowsOf(roomsOf(before)[index], 8).slice(0, sizes[index]),
       );
+    }
+  });
+
+  it('a removal that takes away the room holding the first reading of a destination changes no colour', () => {
+    // Declared order reads P (group 0), Q (1) in room A, then R (2) in room B. Q is read first in room A's ranks 7-8,
+    // so a colour worked out from the seats left would give R group 1 and Q group 2.
+    const graph = `
+ROUNDS:
+R1 = 4x8
+P = 6
+Q = 8
+R = 6
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-6->P, 7-8->Q
+R1.B: 1-6->R, 7-8->eliminated
+R1.C: 1-3->Q, 4-8->eliminated
+R1.D: 1-3->Q, 4-8->eliminated
+P: 1-3->Final, 4-6->eliminated
+Q: 1-3->Final, 4-8->eliminated
+R: 1-2->Final, 3-6->eliminated
+`;
+    const start = buildQualWaterfall(32, graph, { poolingPhase: 'none' });
+    const first = start.rounds.findIndex((round) => round.customLabel === 'R1');
+    const drawn = drawnAt(start, first);
+    const before = roomsOf(roundExitRule(drawn, first));
+    const roomAUnits = (drawn.assignments[first] ?? [])
+      .filter((entry) => entry.room === 1)
+      .map((entry) => entry.name);
+    const shrunk = roomAUnits.slice(0, 2).reduce(removeRosterUnit, drawn);
+    const after = roomsOf(roundExitRule(shrunk, first));
+    expect(after[0].at(-1)).toMatchObject({ toRank: 6 });
+    const colours = (rooms: RoomExitBand[][], index: number, ranks: number) => rowsOf(rooms[index], ranks);
+    expect(colours(before, 1, 8).slice(0, 6)).toEqual(Array(6).fill('advance-third'));
+    expect(colours(before, 2, 8).slice(0, 3)).toEqual(Array(3).fill('advance-second'));
+    const sizes = [6, 8, 8, 8];
+    for (const index of [0, 1, 2, 3]) {
+      expect(colours(after, index, sizes[index])).toEqual(colours(before, index, 8).slice(0, sizes[index]));
     }
   });
 });

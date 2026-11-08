@@ -46,6 +46,17 @@ describe('exit groups of the built-in and fixture graphs', () => {
     expect(groupsOf(state, 'R5')).toEqual({ SemiA: 0, R6B: 1, R6C: 1 });
   });
 
+  it('rooms are read as declared: a round fitted to a smaller pool keeps its plan', () => {
+    const built = buildPlain(32, SPREADSHEET);
+    const state = {
+      ...built,
+      rounds: built.rounds.map((round) =>
+        round.customLabel === 'R6B' ? { ...round, rooms: [6], declaredRooms: [8] } : round,
+      ),
+    };
+    expect(groupsOf(state, 'R5')).toEqual({ SemiA: 0, R6B: 1, R6C: 1 });
+  });
+
   it('upper and lower: every round reads green then yellow, the Final never joins', () => {
     const state = buildQualWaterfall(37, UPPER_LOWER_GRAPH);
     expect(groupsOf(state, 'R4U')).toEqual({ SemiA: 0, R5L: 1 });
