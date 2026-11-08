@@ -1,6 +1,6 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
 import { hasPendingTies, isUncontestedRoom } from './advancement';
-import { replayBracketPools, routeWaterfallRound } from './bracket-replay';
+import { currentUnit, replayBracketPools, routeWaterfallRound } from './bracket-replay';
 import { discardRoundDraws, lastDrawnIndex } from './redraw';
 import {
   isRoundDone,
@@ -10,6 +10,7 @@ import {
   undrawnRounds,
   usesDependencyPlay,
 } from './round-columns';
+import { rosterKeys } from './roster';
 import { isRoomScored, occupiedRooms, roundHasAnyScore } from './scoring';
 import {
   cloneForTransition,
@@ -20,7 +21,7 @@ import {
   seedRoundFromPendingPool,
   type RoundAdvanceResult,
 } from './transitions';
-import type { TournamentRound, TournamentState } from './types';
+import type { PendingBracketSeed, TournamentRound, TournamentState, WaterfallStep } from './types';
 
 /**
  * Dependency play of a Custom bracket (`dependencyPlayVersion`): Next Round sends on every round that is finished
@@ -197,9 +198,10 @@ function withRoundInPlay(state: TournamentState): TournamentState {
 /**
  * Undoes the last press: its drawn rounds lose their draw, and the pools are rebuilt by replaying the rounds still
  * done, so the state is what it was before the press (a pool may list its units in another order, which no draw
- * reads). The rounds it sent on are in play again.
+ * reads). The rounds it sent on are in play again. Null when the replay does not explain the pools
+ * (`replayExplainsUndo`).
  */
-function undoLastStep(state: TournamentState): TournamentState {
+function undoLastStep(state: TournamentState): TournamentState | null {
   const steps = state.waterfallSteps ?? [];
   const dropped = steps[steps.length - 1];
   const undrawn = discardRoundDraws({ ...state, waterfallSteps: steps.slice(0, -1) }, dropped.drew ?? []);
@@ -209,8 +211,40 @@ function undoLastStep(state: TournamentState): TournamentState {
     const pool = pools.get(index);
     return pool ? [[index, pool] as const] : [];
   });
+  if (!replayExplainsUndo(state, undrawn, dropped, pools)) return null;
   const assignments = undrawn.assignments.slice(0, lastDrawnIndex(undrawn) + 1);
   return withRoundInPlay({ ...undrawn, assignments, pendingBracketSeeds: Object.fromEntries(waiting) });
+}
+
+/**
+ * Whether the pools the replay of the done rounds gives are the ones the undo of `dropped` should leave. A correction
+ * made while a step was reopened changes the scores of a done round but, by design, no draw, so its scores may no
+ * longer explain where the units are. For each round not reached once the step is gone, the units it should hold
+ * (for a round the step drew, its line-up; for any other, its pool; each without the units of the rounds the step sent
+ * on, which return to those rounds) must be the units the replay sends it, by current name. Anything else is an
+ * unknown state to rebuild from: Previous reopens the step instead. Column play's check (`replayExplainsPools`)
+ * assumes the reached rounds are a prefix and the rounds to advance again are the column after the one in play, so it
+ * does not apply here.
+ */
+function replayExplainsUndo(
+  state: TournamentState,
+  undrawn: TournamentState,
+  dropped: WaterfallStep,
+  pools: ReadonlyMap<number, PendingBracketSeed[]>,
+): boolean {
+  const roster = new Set(rosterKeys(state.players));
+  const current = (names: string[]) => names.flatMap((name) => currentUnit(state, roster, name) ?? []);
+  const lineUp = (index: number) => (state.assignments[index] ?? []).map((entry) => entry.name);
+  const sentUnits = new Set(current(dropped.sent.flatMap(lineUp)));
+  const drew = new Set(dropped.drew ?? []);
+  return undrawnRounds(undrawn).every((index) => {
+    const held = drew.has(index)
+      ? lineUp(index)
+      : (state.pendingBracketSeeds[index] ?? []).map((seed) => seed.name);
+    const expected = current(held).filter((name) => !sentUnits.has(name));
+    const replayed = (pools.get(index) ?? []).map((seed) => seed.name);
+    return JSON.stringify(expected.sort()) === JSON.stringify(replayed.sort());
+  });
 }
 
 /** Marks step `index` reopened: its sent rounds are in play and editable again, its drawn rounds stay as they are. */
@@ -241,7 +275,8 @@ export function goBack(state: TournamentState): TournamentState {
   const step = state.waterfallSteps[index];
   const drewScore = (step.drew ?? []).some((round) => roundHasAnyScore(state, round, state.rounds[round]));
   const isLast = index === state.waterfallSteps.length - 1;
-  return isLast && !drewScore ? undoLastStep(state) : reopenStep(state, index);
+  const undone = isLast && !drewScore ? undoLastStep(state) : null;
+  return undone ?? reopenStep(state, index);
 }
 
 /**

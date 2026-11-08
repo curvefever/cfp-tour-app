@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { replayBracketPools } from '../bracket-replay';
+import { drawnAheadStatus } from '../redraw';
 import { isRoundDone, previousColumnStart, roundsInPlay, usesDependencyPlay } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import type { TournamentState } from '../types';
@@ -211,6 +212,93 @@ describe('Previous with a later round scored: the example\'s "correct R5L" row',
     const pooling = goBack(goBack(goBack(scoredR6L)));
     const forward = pressed(pooling);
     expect(comparable(forward)).toEqual(comparable(scoredR6L));
+  });
+});
+
+describe('a correction made while a step was reopened', () => {
+  const entry = withDependencyPlay(atEntry(37, UPPER_LOWER_GRAPH));
+  const at = (label: string) => indexOf(entry, label);
+  const names = (state: TournamentState, label: string) =>
+    (state.assignments[at(label)] ?? []).map((unit) => unit.name);
+
+  /**
+   * R4U finished, R4L not: a press sends R4U and draws SemiA. SemiA is scored and Previous reopens that press. R4U is
+   * corrected so that its best and its worst unit trade places (no draw changes), then R4L is scored and a press sends
+   * R4L and SemiA and draws R5L and R5R, which stay unscored.
+   */
+  function pressAfterCorrection(): TournamentState {
+    const first = pressed(scoreRound(entry, at('R4U')));
+    const reopened = goBack(scoreRound(first, at('SemiA')));
+    expect(reopened.waterfallSteps[0].reopened).toBe(true);
+    const corrected = swapExtremes(reopened, at('R4U'));
+    return pressed(scoreRound(corrected, at('R4L')));
+  }
+
+  it('Previous does not undo the press when the corrected scores no longer explain the pools', () => {
+    const state = pressAfterCorrection();
+    expect(state.assignments[at('R5L')].length).toBeGreaterThan(0);
+    const back = goBack(state);
+    expect(back.waterfallSteps.at(-1)?.reopened).toBe(true);
+    expect(back.assignments).toEqual(state.assignments);
+  });
+
+  it('plays on with every unit of R4U and R4L in exactly one of SemiA, R5L and R5R', () => {
+    const back = goBack(pressAfterCorrection());
+    const played = playPastDependency(back);
+    const next = ['SemiA', 'R5L', 'R5R'].flatMap((label) => names(played, label));
+    const before = [...names(played, 'R4U'), ...names(played, 'R4L')];
+    expect(new Set(next).size).toBe(next.length);
+    expect(new Set(next)).toEqual(new Set(before));
+  });
+});
+
+describe('Previous under a reopened step', () => {
+  const entry = withDependencyPlay(atEntry(37, UPPER_LOWER_GRAPH));
+  const at = (label: string) => indexOf(entry, label);
+
+  it('reopens an earlier press whose draw has no score, instead of undoing it beneath a reopened one', () => {
+    // Press 1 sends R4U and draws SemiA, left unscored. Press 2 sends R4L and draws R5L and R5R; R5L is scored.
+    const first = pressed(scoreRound(entry, at('R4U')));
+    const second = pressed(scoreRound(first, at('R4L')));
+    expect(second.waterfallSteps.map((step) => step.drew)).toEqual([
+      [at('SemiA')],
+      indexes(second, 'R5L', 'R5R'),
+    ]);
+    const scored = scoreRound(second, at('R5L'));
+    const once = goBack(scored);
+    expect(once.waterfallSteps.map((step) => step.reopened)).toEqual([undefined, true]);
+    const twice = goBack(once);
+    expect(twice.waterfallSteps.map((step) => step.reopened)).toEqual([true, true]);
+    expect(twice.assignments).toEqual(scored.assignments);
+    expect(twice.pendingBracketSeeds).toEqual(scored.pendingBracketSeeds);
+  });
+});
+
+describe('a reopened bracket whose only score is cleared', () => {
+  const entry = withDependencyPlay(atEntry(37, UPPER_LOWER_GRAPH));
+  const at = (label: string) => indexOf(entry, label);
+
+  it('is redrawn from the pooling rounds with no presses left, and plays on to the draws of column play', () => {
+    // A confirmed press sends R4U and R4L unscored and draws SemiA, R5L and R5R; SemiA is scored, so Previous reopens.
+    const pressedUnscored = pressed(entry);
+    expect(pressedUnscored.waterfallSteps).toHaveLength(1);
+    const scored = scoreRound(pressedUnscored, at('SemiA'));
+    const pooling = goBack(goBack(scored));
+    expect(usesDependencyPlay(pooling)).toBe(false);
+    expect(pooling.waterfallSteps).toHaveLength(1);
+    // The organiser clears SemiA's scores: nothing drawn has a score, so Next Round re-draws.
+    const prefix = `r${at('SemiA')}-`;
+    const cleared = {
+      ...pooling,
+      scores: Object.fromEntries(Object.entries(pooling.scores).filter(([key]) => !key.startsWith(prefix))),
+    };
+    expect(drawnAheadStatus(cleared, cleared.curRound)).toBe('redraw');
+    const forward = pressed(cleared);
+    expect(forward.waterfallSteps).toEqual([]);
+    expect(usesDependencyPlay(forward)).toBe(true);
+    expect(roundsInPlay(forward)).toEqual(indexes(forward, 'R4U', 'R4L'));
+    expect(drawsOf(forward)).toEqual(drawsOf(entry));
+    expect(drawsOf(playPastDependency(forward))).toEqual(drawsOf(playColumns(entry)));
   });
 });
 
