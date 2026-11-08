@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## Stage 0 of the waterfall dependency play: the follow box "Out" and the scrollbar over the panel (done — 2026-11-08, on local `test`)
 
-**Context.** Stage 0 of `plans/2026-11-08-waterfall-dependency-play.md`: two small fixes that stand alone and can reach production before the rest. Nothing of dependency play is built here.
+**Context.** Stage 0 of the waterfall dependency play build: two small fixes that stand alone and can reach production before the rest. Nothing of dependency play is built here.
 
 **Follow box.** `bracketFollowStatus` (`bracket.ts`) called a unit eliminated when its last round index was before the last drawn round's. Two wrong readings, both confirmed by a failing test first: a unit in an earlier round of a column of several rounds read "Out in SemiA · Room A" while the column was played (known, from the live check of the expected draw), and a unit waiting in a `pendingBracketSeeds` pool (a SemiA winner waiting for the Final, once the next column is drawn) read "Out" too (from the code; the test confirmed it). New rule: out when the column of its last round is before the column of the last drawn round, and the unit is in no pool. The state `Pick` gains `rounds` and `pendingBracketSeeds`. Rounds outside a waterfall column are their own column, so every other format compares as before; a double elimination unit waiting in a pool now reads "not out" too, which is what it is.
 
@@ -20,7 +20,9 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 - Live check of the bar, fixture `upper-lower-37` through the screens project with a temporary local `__FAKE_ADMIN__` change (restored, never committed) at 1280 x 700, scrolled to the middle: bar bottom 626 px = panel top 626 px, panel bottom 690 px (10 px gap), the variable 74 px. Playwright's `--hide-scrollbars` had to be switched off to draw the bar. No real tournament opened.
 - Checks: eslint, prettier, types clean on the changed files; `vitest related` 131 files, 4045 tests passed.
 
-**Full suite:** not run by the implementer; the reviewer runs it at this stage (shared code: `src/components/ui/`).
+**Review.** Mutation checks on the follow rule, each caught by both test files: comparing round indexes instead of columns, dropping the pool check, treating any waiting unit as a reason nobody is out, counting the same column as out. Lint, format and types clean on every changed file. The viewer's bar was read from the code, not run: with no panel the variable is unset.
+
+Full suite: passed on `c1ef0ab` (182 test files).
 
 **Out of scope.** Everything from stage 1 on. The panel's height will change in stage 6; the variable already follows it.
 
