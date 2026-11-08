@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Settings bands at their own height, with a 59 px minimum (done — 2026-11-08, on local `test`; nothing pushed)
+## Settings bands at their own height, with a 59 px minimum (done — 2026-11-08, on production, `main` `d82dab9`)
 
 **Context.** Open item "Every round's settings band grows to the tallest one". On a wide screen the rounds strip was a grid whose open boxes were subgrids, so every band in the row took the height of the tallest. In the live tournament that showed it, Round 1 needed 39 px and got 126 px, because the Final, ten columns away and off screen, has game lines.
 
@@ -21,6 +21,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 **Full suite:** passed on `01998d6` (182 test files, 4640 tests), run before the push to `main`.
 
 **Review (planner, on 01998d6).** Lint, format and types clean on the four code files; related Vitest 14 files, 404 tests; the band and "round settings hidden" Playwright tests pass. Further mutations, each restored: the minimum also on a phone fails the 390 px test; a 56 px minimum fails the four 1280 px tests; the standings column's empty band without the minimum fails the `ffa43-quarters` and `waterfall-column-19` checks and "only the Final", so the standings column is really covered. A band stacked inside a column (further waterfall round, losers round) isn't measured by the tests: it shares `bandClass`, and the `waterfall-column-19` and `double-elim-1v1-16` screens were checked by eye. Correction: `docs/views.md` no longer says a phone "keeps" its flex layout, since every width now has it.
+
+**Live check:** passed on production, 2026-11-08, after the organiser's go-ahead for the push of `d82dab9` to `main` (the test site was down, 530; `origin/test` stays stale). One throwaway tournament created with the Test run flag (`1794133351563`), entered through an unused id, in the built-in browser as the signed-in organiser. No other tournament was opened or written to; the hub list showed their titles as it loaded, and no before-and-after comparison of their data was taken, because that would have meant reading them. 37 players, qualification table, 3-game Final, schedule generated and not started. At 1440 px: bands of a one-line note, a two-line note, "No specific settings" and the standings column 59 px with rooms 123 px below the top of the title bar; a three-line note 79 px and 143 px; the Final with its own note and G1–G3 148 px and 212 px. The toggle hid all eight bands, gave the four rounds with notes their title bar buttons and brought the bands back. At 375 px: one band of 39 px, no sideways scroll. No console errors. A note with a picture was not exercised there (nothing uploaded to production). The organiser deleted the test run; its tournament and `media` nodes read back `null`.
 
 **Parked.** `StandingsRows` in `StandingsColumn.tsx` has an unused `banded?` prop in its type, with a comment about the empty band. It predates this build and does nothing; remove it the next time that file is touched.
 
