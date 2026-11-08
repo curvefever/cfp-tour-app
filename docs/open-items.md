@@ -12,7 +12,7 @@ Entries are grouped by topic (the same topics as `docs/roadmap.md`), each tagged
 ## Work queue
 The organiser's order for what is built next. Each line names an entry of this file or of `docs/roadmap.md` by its title. Every entry not listed here is unprioritised until the organiser places it.
 
-**Next, before the next FFA tournament (about 2026-11-19):** a Custom bracket that can stand in for an upper and lower bracket without issue (the expected draw per round and dependency play are built, `docs/rules.md`, "Dependency play"; the live check is still to do), then the built-in format if it fits. Nothing unrelated is built before it.
+**Next, before the next FFA tournament (about 2026-11-19):** a Custom bracket that can stand in for an upper and lower bracket without issue (the expected draw per round and dependency play are built, `docs/rules.md`, "Dependency play"), then the built-in format if it fits. Nothing unrelated is built before it.
 1. **An upper and lower bracket after the pooling phase** (`docs/roadmap.md`), if it fits before the tournament.
 
 **After the tournament, in this order:**

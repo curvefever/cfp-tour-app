@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Waterfall dependency play: a Custom bracket round starts as soon as its own feeders are sent on (done — 2026-11-08, on local `test`; live check still to do)
+## Waterfall dependency play: a Custom bracket round starts as soon as its own feeders are sent on (done — 2026-11-08, on production, `main` `ef82257`; live check passed)
 
 **Context.** For the FFA tournament of about 2026-11-19, with the organiser's instruction that there will always be a tournament soon, so everything must work as intended before it. In a Custom bracket a column was one step: every round of a column had to finish before the next column started (live tournament `1793555835749`: Semi-Final A, a Best of 3, held up Round 6, fed only by Round 5 - Lower). Stage 0 (the follow box and the scrollbar) is the entry below; stages 1 to 7 are this one.
 
@@ -40,6 +40,16 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 **Review.** Every production hunk read, stage by stage. About 80 mutation checks; what survived was either code that did nothing (removed) or a test gap (closed). The review found the two defects named above and the bug of a 0 in a round in play outside `curRound`'s column going unasked until the readers changed. Not exercised anywhere: dependency play in a real browser against the real database. That is the live check.
 
 Full suite: passed on `310400b` (190 test files, 5070 tests). Smoke e2e: 7 passed on the same commit.
+
+**Live check:** passed on production, 2026-11-08, after the organiser's go-ahead for the push of `ef82257` to `main` (the test site was down, 530). Built-in browser, the organiser's signed-in session, entered through an unused id; no other tournament was opened or written to. One throwaway tournament with the Test run flag, `1794151237177` (index `testRun: true`, stored `dependencyPlayVersion` 1): FFA, 37 players, a qualification table of 3 rounds, the 32-player example graph with SemiA as a Best of 3. A first draft, `1794151137587`, was left unstarted: the flag had not registered, and it was made on the old build while the deploy landed. Passed, reading the screen and the stored `waterfallSteps`, `assignments` and pools:
+- The confirmation on R5 unscored ("Not all scores in: R5 · Room A, …"); cancelling changed nothing. R5 scored: no question, SemiA, R6B and R6C drawn, three NOW marks.
+- SemiA at game 1, R6B scored: Next Round sent R6B alone, with `drew` empty. A reload read that back unchanged.
+- R6C scored: R7A showed EXPECTED while SemiA was at game 1; Next Round drew the same eight names in the same order. The follow box read "SemiA · Room A" and "R7A · Room A".
+- A 0 in R7A beside SemiA asked the absence question and disabled Next Round. A tie in R7A showed its card and disabled it while nothing was finished; SemiA decided 2-0 enabled it, with the line "Sends on SemiA; nothing to draw yet. R7A stays in play." and no question, and SemiB waited for R7A.
+- Previous on an unscored press undid it, the same draw coming back on the next press (SemiA's send; R7A's press, SemiB's eight names identical). Previous with a score in SemiB reopened the press, with the note and SemiB kept. A correction that put R7A's winner last changed no draw, and the Final's press and its undo left no unit in two places.
+- 375 px with R7A and SemiB in play: a NOW dot on both strip items, the panel's line, no sideways scroll. A second tab of the same account, opened earlier, followed by itself.
+- Rankings with the Final drawn: 8 still in and 29 eliminated, all 37 once.
+Six 502s in the console, all on server functions of the old bundle during the deploy, followed by 200s; none on the new bundle. Not covered live: a signed-out viewer (the pane holds the organiser's session, covered by the render tests and the screens), a Previous refused by `replayExplainsUndo` (R7A feeds only a drawn round, so the undo was correct; covered by a test), the Final's later games and Finish.
 
 **Limitations** (in `docs/open-items.md`): the graph save refused while the drawn rounds are not a prefix or a press is reopened; the editor's column hints can suggest a column the save refuses; the strict odd-count team removal reads `curRound`; a unit's rank can improve after it is shown.
 
