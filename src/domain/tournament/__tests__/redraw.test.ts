@@ -7,7 +7,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
-import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
+import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall, withoutDependencyPlay } from './qual-waterfall';
 import { spreadConfig, startSpread } from './spread-play';
 
 /**
@@ -86,7 +86,8 @@ function scoreOneRound(state: TournamentState, teamSize: number, reversed: boole
 function build(config: SweepConfig): TournamentState {
   const state = buildState(config);
   if (!state) throw new Error(`generation refused: ${config.label}`);
-  return state;
+  // Next Round re-drawing a drawn-ahead round is column play: these tournaments are stored without dependency play.
+  return withoutDependencyPlay(state);
 }
 
 /** Plays (scored, distinct values) until `stop` holds on an unscored current round. */

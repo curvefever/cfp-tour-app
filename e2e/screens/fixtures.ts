@@ -693,6 +693,12 @@ function dependencyPlay37(
   return goBack(scoredR6L);
 }
 
+/** The state as a tournament generated before dependency play stores it: its Custom bracket is played a column at a time. */
+function withoutDependencyPlay(state: TournamentState): TournamentState {
+  const { dependencyPlayVersion: _version, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
 function labelIndexes(state: TournamentState, labels: string[]): number[] {
   return labels.map((label) => state.rounds.findIndex((round) => round.customLabel === label));
 }
@@ -843,7 +849,8 @@ export function fixtureTournaments(): FixtureTournament[] {
       roundNotes: DOUBLE_ELIMINATION_NOTES,
     }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
-    entry('waterfall-column-19', waterfallColumn(), { roundNotes: COLUMN_NOTES }),
+    // A tournament stored before dependency play: its column is played together.
+    entry('waterfall-column-19', withoutDependencyPlay(waterfallColumn()), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),
     entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
     entry('dependency-play-in-play', dependencyPlay37('in play'), { tabs: ['Bracket'] }),

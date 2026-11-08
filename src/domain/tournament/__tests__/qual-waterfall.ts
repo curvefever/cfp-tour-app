@@ -39,7 +39,7 @@ export function playerNames(count: number): string[] {
  */
 export function withoutColumns(state: TournamentState): TournamentState {
   return {
-    ...state,
+    ...withoutDependencyPlay(state),
     rounds: state.rounds.map((round) => {
       const { waterfallColumn: _column, waterfallColumnSet: _set, ...single } = round;
       return single;
@@ -48,8 +48,19 @@ export function withoutColumns(state: TournamentState): TournamentState {
 }
 
 /**
- * The state played by dependency play (`dependencyPlayVersion` 1). Generation does not write the version until the
- * engine exists, so a test that needs it sets it here.
+ * The state as a tournament generated before dependency play stores it: no `dependencyPlayVersion`, so its Custom
+ * bracket is played a column at a time. Generation writes the version now; a test that needs column play strips it.
+ */
+export function withoutDependencyPlay<T extends { gamemodeConfig: TournamentState['gamemodeConfig'] }>(
+  state: T,
+): T {
+  const { dependencyPlayVersion: _version, ...gamemodeConfig } = state.gamemodeConfig;
+  return { ...state, gamemodeConfig };
+}
+
+/**
+ * The state played by dependency play (`dependencyPlayVersion` 1): what generation writes now. `buildQualWaterfall` strips
+ * it (a test of column play starts from a state without it), so a dependency play test sets it here.
  */
 export function withDependencyPlay<T extends { gamemodeConfig: TournamentState['gamemodeConfig'] }>(
   state: T,
@@ -82,7 +93,7 @@ export function buildQualWaterfall(
   );
   if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
   const started = { ...result.state, started: true };
-  return options.columns ? started : withoutColumns(started);
+  return options.columns ? withoutDependencyPlay(started) : withoutColumns(started);
 }
 
 let columnsStored = false;
@@ -278,7 +289,7 @@ export function liveTournament(
     createTournamentRuntime({ ids: fixedIdSource() }),
   );
   if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-  return { ...result.state, started: true };
+  return withoutDependencyPlay({ ...result.state, started: true });
 }
 
 /** The 32-player spreadsheet layout: [5], [SemiA, 6B, 6C], [7A], [SemiB], [Final]. */
