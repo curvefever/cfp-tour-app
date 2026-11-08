@@ -45,9 +45,16 @@ import type {
   TournamentState,
 } from './types';
 import { declaredWaterfallSeats, fitWaterfallRound } from './waterfall-bracket';
-import { currentColumn, isRoundDone, nextColumnStart, roundColumn } from './round-columns';
+import {
+  currentColumn,
+  isRoundDone,
+  nextColumnStart,
+  roundColumn,
+  usesDependencyPlay,
+} from './round-columns';
+import { advanceDependencyPlay } from './waterfall-steps';
 
-const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
+export const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
 type RoundAdvanceBlockReason =
   | 'pending-ties'
@@ -59,7 +66,7 @@ type RoundAdvanceBlockReason =
 
 type RoundAdvanceNoopReason = 'last-round' | 'grand-final';
 
-type RoundAdvanceResult =
+export type RoundAdvanceResult =
   | { status: 'advanced'; state: TournamentState }
   | {
       status: 'blocked';
@@ -73,9 +80,14 @@ type RoundAdvanceResult =
       state: TournamentState;
     };
 
-function cloneForTransition(state: TournamentState): TournamentState {
+export function cloneForTransition(state: TournamentState): TournamentState {
   return {
     ...state,
+    waterfallSteps: (state.waterfallSteps ?? []).map((step) => ({
+      ...step,
+      sent: [...step.sent],
+      drew: [...(step.drew ?? [])],
+    })),
     rounds: state.rounds.map((round) => ({
       ...round,
       matches: round.matches?.map((match) => ({
@@ -136,7 +148,9 @@ function byeCandidates(advancing: SeedCandidate[], joiners: ReadonlySet<string>)
 }
 
 /** The state mutation performed indirectly by legacy renderAdminRound(). */
-function reserveWindowAtCurrentRound(state: Pick<TournamentState, 'cfg' | 'rounds' | 'curRound'>): boolean {
+export function reserveWindowAtCurrentRound(
+  state: Pick<TournamentState, 'cfg' | 'rounds' | 'curRound'>,
+): boolean {
   let cutRound = -1;
   if (state.cfg.poolingPhase === 'group-stage') {
     for (const [index, round] of state.rounds.entries()) {
@@ -152,7 +166,7 @@ function reserveWindowAtCurrentRound(state: Pick<TournamentState, 'cfg' | 'round
   return cutRound !== -1 && !isRoundDone(state, cutRound);
 }
 
-interface RoundFitFailure {
+export interface RoundFitFailure {
   reason: RoundAdvanceBlockReason;
   message: string;
 }
@@ -472,7 +486,7 @@ function malformedWaterfallRoundMessage(round: TournamentRound, actual: number):
 }
 
 /** Draws the waterfall round at `roundIndex` for `arriving` units, or says why it can't. */
-function fitWaterfallRoundAt(
+export function fitWaterfallRoundAt(
   state: TournamentState,
   roundIndex: number,
   arriving: number,
@@ -536,7 +550,9 @@ function enterNextWaterfallColumn(
 }
 
 /** Every destination's arrivals from several rounds, the rounds' own order kept within a destination. */
-function mergeAdditions(parts: Array<Map<number, PendingBracketSeed[]>>): Map<number, PendingBracketSeed[]> {
+export function mergeAdditions(
+  parts: Array<Map<number, PendingBracketSeed[]>>,
+): Map<number, PendingBracketSeed[]> {
   const merged = new Map<number, PendingBracketSeed[]>();
   for (const part of parts) {
     for (const [destination, additions] of part) {
@@ -635,6 +651,7 @@ function advanceFromStandings(
  * persistence and sync) are represented by the returned result/state.
  */
 export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
+  if (usesDependencyPlay(input)) return advanceDependencyPlay(input);
   const roundIndex = input.curRound;
   const round = input.rounds[roundIndex];
   const nextRound = input.rounds[nextColumnStart(input)];

@@ -1,22 +1,13 @@
-import { hasBlockingAbsenceQuestionsInRound } from './absences';
-import { hasPendingTies, isUncontestedRoom } from './advancement';
 import { currentColumn, nextColumnStart, roundColumn } from './round-columns';
-import { isRoomScored, occupiedRooms } from './scoring';
 import { advanceTournamentRound, drawWaterfallRoundAhead } from './transitions';
-import type { RoundAssignment, TournamentRound, TournamentState } from './types';
+import { isFeederFinished, isRoundScored, routesTo } from './waterfall-steps';
+import type { RoundAssignment, TournamentState } from './types';
 
 /** What one undrawn round is expected to look like: its room sizes as fitted to the units arriving, its line-up and the units sitting it out. */
 export interface ExpectedRound {
   rooms: number[];
   assignments: RoundAssignment[];
   byes: string[];
-}
-
-/** Whether every contested room of the round has every score in. */
-function isRoundScored(state: TournamentState, roundIndex: number): boolean {
-  return !occupiedRooms(state, roundIndex).some(
-    (room) => !isUncontestedRoom(state, roundIndex, room) && !isRoomScored(state, roundIndex, room),
-  );
 }
 
 /** Whether every contested room of every round of the column in play has every score in. */
@@ -35,20 +26,6 @@ function isNextColumnDecided(state: TournamentState, start: number, end: number)
     if (state.assignments[roundIndex]?.length || round.fixedRoomAssignments || round.matches) return true;
   }
   return false;
-}
-
-/** Whether the round has nothing left to settle before it sends its units on: every score in, no tie and no blocking absence question. */
-function isFeederFinished(state: TournamentState, roundIndex: number): boolean {
-  return (
-    isRoundScored(state, roundIndex) &&
-    !hasPendingTies(state, roundIndex) &&
-    !hasBlockingAbsenceQuestionsInRound(state, roundIndex)
-  );
-}
-
-/** Whether a unit of one of the round's rooms can go to the target round. An absentee's destination is always among its room's routes. */
-function routesTo(round: TournamentRound, target: number): boolean {
-  return round.waterfallRoutes?.some((room) => room.includes(target)) ?? false;
 }
 
 /** What the draw of `target` would be once the column in play's rounds that feed it are finished, or null while that is not known. */
