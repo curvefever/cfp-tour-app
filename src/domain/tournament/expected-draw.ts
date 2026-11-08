@@ -1,24 +1,29 @@
-import { isUncontestedRoom } from './advancement';
+import { hasBlockingAbsenceQuestionsInRound } from './absences';
+import { hasPendingTies, isUncontestedRoom } from './advancement';
 import { currentColumn, nextColumnStart, roundColumn } from './round-columns';
 import { isRoomScored, occupiedRooms } from './scoring';
-import { advanceTournamentRound } from './transitions';
-import type { RoundAssignment, TournamentState } from './types';
+import { advanceTournamentRound, drawWaterfallRoundAhead } from './transitions';
+import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
-/** What one round of the next column is expected to look like: its room sizes as fitted to the units arriving, its line-up and the units sitting it out. */
+/** What one undrawn round is expected to look like: its room sizes as fitted to the units arriving, its line-up and the units sitting it out. */
 export interface ExpectedRound {
   rooms: number[];
   assignments: RoundAssignment[];
   byes: string[];
 }
 
+/** Whether every contested room of the round has every score in. */
+function isRoundScored(state: TournamentState, roundIndex: number): boolean {
+  return !occupiedRooms(state, roundIndex).some(
+    (room) => !isUncontestedRoom(state, roundIndex, room) && !isRoomScored(state, roundIndex, room),
+  );
+}
+
 /** Whether every contested room of every round of the column in play has every score in. */
 function isColumnScored(state: TournamentState): boolean {
   const { start, end } = currentColumn(state);
   for (let roundIndex = start; roundIndex <= end; roundIndex += 1) {
-    const unscored = occupiedRooms(state, roundIndex).some(
-      (room) => !isUncontestedRoom(state, roundIndex, room) && !isRoomScored(state, roundIndex, room),
-    );
-    if (unscored) return false;
+    if (!isRoundScored(state, roundIndex)) return false;
   }
   return true;
 }
@@ -32,22 +37,67 @@ function isNextColumnDecided(state: TournamentState, start: number, end: number)
   return false;
 }
 
+/** Whether the round has nothing left to settle before it sends its units on: every score in, no tie and no blocking absence question. */
+function isFeederFinished(state: TournamentState, roundIndex: number): boolean {
+  return (
+    isRoundScored(state, roundIndex) &&
+    !hasPendingTies(state, roundIndex) &&
+    !hasBlockingAbsenceQuestionsInRound(state, roundIndex)
+  );
+}
+
+/** Whether a unit of one of the round's rooms can go to the target round. An absentee's destination is always among its room's routes. */
+function routesTo(round: TournamentRound, target: number): boolean {
+  return round.waterfallRoutes?.some((room) => room.includes(target)) ?? false;
+}
+
+/** What the draw of `target` would be once the column in play's rounds that feed it are finished, or null while that is not known. */
+function expectedWaterfallRound(state: TournamentState, target: number): ExpectedRound | null {
+  const { start, end } = currentColumn(state);
+  const feeders: number[] = [];
+  for (let index = start; index < target; index += 1) {
+    if (!routesTo(state.rounds[index], target)) continue;
+    if (index > end || !isFeederFinished(state, index)) return null;
+    feeders.push(index);
+  }
+  const drawn = drawWaterfallRoundAhead(state, target, feeders);
+  const assignments = drawn?.assignments[target] ?? [];
+  if (!drawn || assignments.length === 0) return null;
+  return { rooms: drawn.rounds[target].rooms, assignments, byes: drawn.byes[target] ?? [] };
+}
+
 /**
- * The draw of the next column as "Next Round" would make it from the results so far, or null while that is
- * not determined: the tournament has not started, there is no next column, a round of the column in play
- * still has a contested room without every score, a tie waits to be settled (or the advance is refused for
- * any other reason), or the next column is already drawn or published. Pure: nothing is written, and the
- * input state is not changed.
+ * Each undrawn round of a Custom bracket whose own feeders are all finished, drawn as its units arrive. Empty
+ * once a later round has a line-up (after Previous): the pools of later rounds then already hold what the
+ * column in play sent, and routing it again would count those units twice.
  */
-export function expectedNextColumn(state: TournamentState): Map<number, ExpectedRound> | null {
+function expectedWaterfallRounds(state: TournamentState): Map<number, ExpectedRound> {
+  const expected = new Map<number, ExpectedRound>();
+  const { end } = currentColumn(state);
+  for (let index = end + 1; index < state.rounds.length; index += 1) {
+    if (state.assignments[index]?.length) return expected;
+  }
+  for (let target = end + 1; target < state.rounds.length; target += 1) {
+    const round = expectedWaterfallRound(state, target);
+    if (round) expected.set(target, round);
+  }
+  return expected;
+}
+
+/**
+ * The next column as "Next Round" would draw it from the results so far, while that is determined: the round in
+ * play isn't a Custom bracket round, its column is fully scored, no tie waits (or the advance is refused for any
+ * other reason) and the next column is not drawn or published yet. When the advance enters a Custom bracket, the
+ * later rounds fed only by the table or the groups are drawn too.
+ */
+function expectedAfterAdvance(state: TournamentState): Map<number, ExpectedRound> {
+  const expected = new Map<number, ExpectedRound>();
   const start = nextColumnStart(state);
-  if (!state.started || start >= state.rounds.length) return null;
   const { end } = roundColumn(state.rounds, start);
-  if (isNextColumnDecided(state, start, end) || !isColumnScored(state)) return null;
+  if (isNextColumnDecided(state, start, end) || !isColumnScored(state)) return expected;
 
   const advanced = advanceTournamentRound(state);
-  if (advanced.status !== 'advanced') return null;
-  const expected = new Map<number, ExpectedRound>();
+  if (advanced.status !== 'advanced') return expected;
   for (let roundIndex = start; roundIndex <= end; roundIndex += 1) {
     const assignments = advanced.state.assignments[roundIndex] ?? [];
     if (assignments.length === 0) continue;
@@ -57,5 +107,21 @@ export function expectedNextColumn(state: TournamentState): Map<number, Expected
       byes: advanced.state.byes[roundIndex] ?? [],
     });
   }
+  if (!advanced.state.rounds[advanced.state.curRound].isWaterfall) return expected;
+  return new Map([...expectedWaterfallRounds(advanced.state), ...expected]);
+}
+
+/**
+ * The line-ups of undrawn rounds as "Next Round" would make them from the results so far, or null while none is
+ * determined: the tournament has not started, there is no next column, or nothing can be drawn yet. In a Custom
+ * bracket a round shows as soon as its own feeders are finished (every score in, no tie, no blocking absence
+ * question), whichever column it is in; elsewhere the next column shows once the column in play is fully scored
+ * and no tie waits. Display only: nothing is written, and the input state is not changed.
+ */
+export function expectedRounds(state: TournamentState): Map<number, ExpectedRound> | null {
+  if (!state.started || nextColumnStart(state) >= state.rounds.length) return null;
+  const expected = state.rounds[state.curRound].isWaterfall
+    ? expectedWaterfallRounds(state)
+    : expectedAfterAdvance(state);
   return expected.size > 0 ? expected : null;
 }

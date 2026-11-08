@@ -40,7 +40,7 @@ export function RoundBody({
   followKey: string | null;
   projected: ProjectedSlotLabel[][] | null;
   labels: ReturnType<typeof bracketRoundLabels>;
-  /** The expected draw of this round while it is not drawn yet (`expectedNextColumn`). */
+  /** The expected draw of this round while it is not drawn yet (`expectedRounds`). */
   expected?: ExpectedRound | null;
   finalTab?: number;
   onFinalTabChange?: (tab: number) => void;

@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { expectedNextColumn } from '../expected-draw';
+import { answerAbsence, hasBlockingAbsenceQuestionsInRound } from '../absences';
+import { getAllTies, hasPendingTies } from '../advancement';
+import { expectedRounds, type ExpectedRound } from '../expected-draw';
+import { isOneScorePerTeam, ONE_SCORE_PER_TEAM } from '../formats';
 import { removeRosterUnit } from '../mutations';
 import { roomPairKey } from '../seeding';
-import { currentColumn, nextColumnStart } from '../round-columns';
+import { currentColumn, nextColumnStart, roundColumn } from '../round-columns';
 import { scoreKeysForPosition, scoredTeamSize } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildQualWaterfall } from './qual-waterfall';
+import { WATERFALL_EXAMPLES } from '../waterfall-examples';
+import { buildQualWaterfall, liveTournament, playToQualificationExit, QUAL_GRAPH } from './qual-waterfall';
+import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
 import { scoreByHash, spreadConfig, startSpread } from './spread-play';
 import { buildState, scoreCurrentRound } from './play-through';
 
@@ -32,7 +37,7 @@ function expectEveryStepToMatch(start: TournamentState): number {
   let checked = 0;
   for (let guard = 0; guard < 30 && !state.rounds[state.curRound].isFinal; guard += 1) {
     const scored = scoreColumn(state);
-    const expected = expectedNextColumn(scored);
+    const expected = expectedRounds(scored);
     const next = advanced(scored);
     expect(expected).not.toBeNull();
     for (const [roundIndex, round] of expected ?? []) {
@@ -71,7 +76,7 @@ function started(config: Parameters<typeof buildState>[0]): TournamentState {
   return state;
 }
 
-describe('expectedNextColumn equals what Next Round then draws', () => {
+describe('expectedRounds equals what Next Round then draws', () => {
   it('37 FFA players, qualification table of 4 rounds: every pooling round and the cut after it', () => {
     expect(expectEveryStepToMatch(startSpread(FFA_QUAL))).toBeGreaterThan(4);
   });
@@ -102,7 +107,7 @@ describe('expectedNextColumn equals what Next Round then draws', () => {
     // Play to the last qualification round, then compare the waterfall entry column.
     while (!state.rounds[state.curRound + 1]?.isWaterfall) state = advanced(scoreColumn(state));
     const scored = scoreColumn(state);
-    const expected = expectedNextColumn(scored);
+    const expected = expectedRounds(scored);
     const next = advanced(scored);
     expect([...(expected?.keys() ?? [])]).toHaveLength(2);
     for (const [roundIndex, round] of expected ?? []) {
@@ -135,7 +140,7 @@ function fromFullestRoom(state: TournamentState): string {
   return [...seated].sort((a, b) => size(b.room) - size(a.room) || (a.room ?? 0) - (b.room ?? 0))[0].name;
 }
 
-describe('expectedNextColumn follows the shape the advance fits, not the planned one', () => {
+describe('expectedRounds follows the shape the advance fits, not the planned one', () => {
   it('a withdrawal from R1 leaves R3 a seat short: the expected room is 7, the planned 8, and Next Round draws the same', () => {
     let state = buildQualWaterfall(37, BOTTOM_ROUTES_ON, {}, { columns: true });
     const r1 = state.rounds.findIndex((round) => round.customLabel === 'R1');
@@ -144,7 +149,7 @@ describe('expectedNextColumn follows the shape the advance fits, not the planned
 
     const scored = scoreColumn(state);
     const r3 = scored.rounds.findIndex((round) => round.customLabel === 'R3');
-    const expected = expectedNextColumn(scored);
+    const expected = expectedRounds(scored);
     const next = advanced(scored);
 
     expect(scored.rounds[r3].rooms).toEqual([8]);
@@ -165,7 +170,7 @@ describe('expectedNextColumn follows the shape the advance fits, not the planned
         index === next ? { ...round, rooms: [...round.rooms, 1] } : round,
       ),
     };
-    const expected = expectedNextColumn(stale);
+    const expected = expectedRounds(stale);
     const drawn = advanced(stale);
     expect(stale.rounds[next].rooms).toHaveLength(cut.rooms.length + 1);
     expect(expected?.get(next)?.rooms).toEqual(drawn.rounds[next].rooms);
@@ -173,15 +178,15 @@ describe('expectedNextColumn follows the shape the advance fits, not the planned
   });
 });
 
-describe('expectedNextColumn is null until the draw is determined', () => {
+describe('expectedRounds is null until the draw is determined', () => {
   it('while one room is unscored', () => {
     const state = startSpread(FFA_QUAL);
     const scored = scoreColumn(state);
-    expect(expectedNextColumn(scored)).not.toBeNull();
+    expect(expectedRounds(scored)).not.toBeNull();
     const [lone] = Object.keys(scored.scores).filter((key) => key.startsWith('r0-rm3-'));
     const { [lone]: _removed, ...rest } = scored.scores;
-    expect(expectedNextColumn({ ...scored, scores: rest })).toBeNull();
-    expect(expectedNextColumn(state)).toBeNull();
+    expect(expectedRounds({ ...scored, scores: rest })).toBeNull();
+    expect(expectedRounds(state)).toBeNull();
   });
 
   it('while a tie at the cut waits to be settled', () => {
@@ -204,39 +209,39 @@ describe('expectedNextColumn is null until the draw is determined', () => {
       scores: { ...scored.scores, [keyOf(cutPosition)]: scored.scores[keyOf(cutPosition - 1)] },
     };
     expect(advanceTournamentRound(tied).status).toBe('blocked');
-    expect(expectedNextColumn(tied)).toBeNull();
+    expect(expectedRounds(tied)).toBeNull();
   });
 
   it('once the next round is drawn (after Previous)', () => {
     const scored = scoreColumn(startSpread(FFA_QUAL));
     const drawn = advanced(scored);
-    expect(expectedNextColumn({ ...drawn, curRound: drawn.curRound - 1 })).toBeNull();
+    expect(expectedRounds({ ...drawn, curRound: drawn.curRound - 1 })).toBeNull();
   });
 
   it('before the start', () => {
     const state = scoreColumn(startSpread(FFA_QUAL));
-    expect(expectedNextColumn({ ...state, started: false })).toBeNull();
+    expect(expectedRounds({ ...state, started: false })).toBeNull();
   });
 
   it('on the Final, where there is no next column', () => {
     let state = startSpread(FFA_QUAL);
     while (!state.rounds[state.curRound].isFinal) state = advanced(scoreColumn(state));
-    expect(expectedNextColumn(scoreColumn(state))).toBeNull();
+    expect(expectedRounds(scoreColumn(state))).toBeNull();
   });
 
   it('for a fixed draw, whose next round is already published', () => {
     const state = scoreColumn(startSpread(spreadConfig('ffa', 37, { fixed: true })));
     expect(state.rounds[state.curRound + 1].fixedRoomAssignments).toBeDefined();
-    expect(expectedNextColumn(state)).toBeNull();
+    expect(expectedRounds(state)).toBeNull();
   });
 });
 
-describe('expectedNextColumn changes nothing', () => {
+describe('expectedRounds changes nothing', () => {
   it('leaves a deeply frozen input state untouched (it would throw on any write)', () => {
     const scored = scoreColumn(startSpread(FFA_QUAL));
     const before = structuredClone(scored);
     const frozen = deepFreeze(structuredClone(scored));
-    expect(expectedNextColumn(frozen)).not.toBeNull();
+    expect(expectedRounds(frozen)).not.toBeNull();
     expect(frozen).toEqual(before);
   });
 });
@@ -313,7 +318,7 @@ describe('the expected draw after a qualification table includes the trade that 
         const snake = [0, 1, 2, 3].map((index) => [exitOrder[index], exitOrder[7 - index]]);
         if (pairs(snake).some((key) => met.has(key))) trades += 1;
 
-        const expected = new Map(expectedNextColumn(scored) ?? []);
+        const expected = new Map(expectedRounds(scored) ?? []);
         expect(expected.get(entry)?.assignments, `${count} seed ${seed}`).toEqual(next.assignments[entry]);
         const rooms = new Map<number, string[]>();
         for (const unit of next.assignments[entry] ?? []) {
@@ -326,5 +331,347 @@ describe('the expected draw after a qualification table includes the trade that 
       }
     }
     expect(trades).toBeGreaterThan(0);
+  });
+});
+
+// ---------- a Custom bracket round shows once its own feeders are finished ----------
+
+/** The label's round index; the generation orders a column's rounds its own way, so tests never hard-code one. */
+function indexOfRound(state: TournamentState, label: string): number {
+  const index = state.rounds.findIndex((round) => round.customLabel === label);
+  if (index < 0) throw new Error(`no round ${label}`);
+  return index;
+}
+
+/** Scores one round of the column in play, whatever `curRound` is. */
+function scoreRound(state: TournamentState, roundIndex: number): TournamentState {
+  return {
+    ...state,
+    scores: scoreByHash({ ...state, curRound: roundIndex, scores: state.scores }).state.scores,
+  };
+}
+
+function shown(state: TournamentState): Map<number, ExpectedRound> {
+  return expectedRounds(state) ?? new Map();
+}
+
+function indexes(state: TournamentState, ...labels: string[]): number[] {
+  return labels.map((label) => indexOfRound(state, label));
+}
+
+/** Plays whole columns until the column in play holds the labelled round. */
+function playToColumnOf(start: TournamentState, label: string): TournamentState {
+  const target = indexOfRound(start, label);
+  let state = start;
+  for (let guard = 0; guard < 40; guard += 1) {
+    const { start: first, end } = currentColumn(state);
+    if (target >= first && target <= end) return state;
+    state = advanced(scoreColumn(state));
+  }
+  throw new Error(`never reached ${label}`);
+}
+
+interface Walk {
+  /** Steps after which a round was shown while a round of the column in play was still unscored. */
+  early: number;
+  /** Columns after which a round beyond the next column was shown. */
+  ahead: number;
+}
+
+/** What Next Round draws equals what was shown, and a round shown for later is still shown, unchanged. */
+function expectNextRoundToMatch(scored: TournamentState, seen: Map<number, ExpectedRound>): TournamentState {
+  const next = advanced(scored);
+  const { start, end } = roundColumn(scored.rounds, nextColumnStart(scored));
+  for (let index = start; index <= end; index += 1)
+    expect(seen.has(index), `round ${index} shown`).toBe(true);
+  for (const [index, round] of seen) {
+    if (index > end) {
+      expect(shown(next).get(index), `round ${index} still shown after Next Round`).toEqual(round);
+      continue;
+    }
+    expect(next.assignments[index]).toEqual(round.assignments);
+    expect(next.byes[index] ?? []).toEqual(round.byes);
+    expect(next.rounds[index].rooms).toEqual(round.rooms);
+  }
+  return next;
+}
+
+/** Scores the tournament one round at a time, in a column's order or against it, to the Final. */
+function walkToFinal(start: TournamentState, backward: boolean): Walk {
+  const walk: Walk = { early: 0, ahead: 0 };
+  let state = start;
+  for (let guard = 0; guard < 30 && !state.rounds[state.curRound].isFinal; guard += 1) {
+    const { start: first, end } = currentColumn(state);
+    const order = Array.from({ length: end - first + 1 }, (_, offset) => first + offset);
+    if (backward) order.reverse();
+    const seen = new Map<number, ExpectedRound>();
+    for (const [step, roundIndex] of order.entries()) {
+      state = scoreRound(state, roundIndex);
+      const now = shown(state);
+      for (const [index, round] of seen)
+        expect(now.get(index), `round ${index} keeps its draw`).toEqual(round);
+      for (const [index, round] of now) seen.set(index, round);
+      if (step < order.length - 1 && now.size > 0) walk.early += 1;
+    }
+    const nextEnd = roundColumn(state.rounds, nextColumnStart(state)).end;
+    if ([...seen.keys()].some((index) => index > nextEnd)) walk.ahead += 1;
+    state = expectNextRoundToMatch(state, seen);
+  }
+  return walk;
+}
+
+const WALKS = [37, 43, 53].flatMap((count) =>
+  [true, false].flatMap((columns) =>
+    [false, true].map((backward) => ({
+      count,
+      columns,
+      backward,
+      name: `${count} players, ${columns ? 'columns stored' : 'one round at a time'}, ${backward ? 'backward' : 'forward'}`,
+    })),
+  ),
+);
+
+describe('a Custom bracket round shows as soon as its own feeders are finished', () => {
+  it.each(WALKS)('every step, $name: a shown draw never changes and is what Next Round draws', (walk) => {
+    const start = buildQualWaterfall(walk.count, UPPER_LOWER_GRAPH, {}, { columns: walk.columns });
+    const result = walkToFinal(start, walk.backward);
+    // Stored columns show a round before the column in play is scored; one at a time, a round two columns ahead.
+    expect(walk.columns ? result.early : result.ahead).toBeGreaterThan(0);
+  });
+
+  const SPREADSHEET = WATERFALL_EXAMPLES.find((example) => example.id === 'spreadsheet-32')?.text ?? '';
+  const spreadsheet = () => buildQualWaterfall(32, SPREADSHEET, { qualAdv: '32' }, { columns: true });
+
+  it.each([false, true])('spreadsheet-32, every step (backward: %s)', (backward) => {
+    // Scored backward, R6C and R6B come before SemiA and show R7A early; forward, R6C comes last.
+    expect(walkToFinal(spreadsheet(), backward).early > 0).toBe(backward);
+  });
+
+  it('spreadsheet-32: R7A needs both R6B and R6C, and does not wait for SemiA', () => {
+    const column = playToColumnOf(spreadsheet(), 'SemiA');
+    const [r6b, r6c, r7a] = indexes(column, 'R6B', 'R6C', 'R7A');
+    const onlyB = scoreRound(column, r6b);
+    expect(shown(onlyB).has(r7a)).toBe(false);
+    const both = scoreRound(onlyB, r6c);
+    expect(shown(both).has(r7a)).toBe(true);
+    const semiA = indexOfRound(both, 'SemiA');
+    expect(Object.keys(both.scores).some((key) => key.startsWith(`r${semiA}-`))).toBe(false);
+  });
+});
+
+/** The column [R5R, SemiA, R5L] of the upper and lower graph, nothing scored. */
+function atTheMiddleColumn(count = 37): TournamentState {
+  return playToColumnOf(buildQualWaterfall(count, UPPER_LOWER_GRAPH, {}, { columns: true }), 'R5L');
+}
+
+describe('the upper and lower example', () => {
+  it('R5L scored alone: R6L and R6R show, SemiB, the Final, R4 and the column in play do not', () => {
+    const column = atTheMiddleColumn();
+    expect(shown(column).size).toBe(0);
+    const scored = scoreRound(column, indexOfRound(column, 'R5L'));
+    expect([...shown(scored).keys()].sort()).toEqual(indexes(column, 'R6L', 'R6R').sort());
+  });
+
+  it('SemiA scored without R5L: nothing new shows (SemiB still waits for R6L)', () => {
+    const column = atTheMiddleColumn();
+    expect(shown(scoreRound(column, indexOfRound(column, 'SemiA'))).size).toBe(0);
+  });
+
+  it('R5L, SemiA and R5R scored, then Next Round: R6L and R6R are drawn exactly as shown', () => {
+    const column = atTheMiddleColumn();
+    const r5l = scoreRound(column, indexOfRound(column, 'R5L'));
+    const before = shown(r5l);
+    const next = advanced(scoreColumn(r5l));
+    for (const index of indexes(column, 'R6L', 'R6R')) {
+      expect(next.assignments[index]).toEqual(before.get(index)?.assignments);
+    }
+  });
+});
+
+/** Every room of the round scored 1000, 990, … by seat, the fifth seat tying the fourth. */
+function scoredWithATieAtTheFourth(state: TournamentState, roundIndex: number): TournamentState {
+  const scores = { ...state.scores };
+  const seen = new Map<number, number>();
+  for (const entry of state.assignments[roundIndex] ?? []) {
+    if (entry.room === null) continue;
+    const position = seen.get(entry.room) ?? 0;
+    seen.set(entry.room, position + 1);
+    const [key] = scoreKeysForPosition({
+      roundIndex,
+      room: entry.room,
+      position,
+      numGames: state.rounds[roundIndex].numGames ?? 1,
+      teamSize: scoredTeamSize(state),
+    });
+    scores[key] = 1000 - 10 * Math.min(position, 3) - (position > 4 ? position : 0);
+  }
+  return { ...state, scores };
+}
+
+/** The first unit of each tied cluster of the round picked, as the organiser does. */
+function withTiesResolved(state: TournamentState, roundIndex: number): TournamentState {
+  const tieResolutions = { ...state.tieResolutions };
+  for (const [key, tie] of Object.entries(getAllTies(state, roundIndex))) {
+    tieResolutions[key] = [tie.players[0].name];
+  }
+  return { ...state, tieResolutions };
+}
+
+describe('a tie holds back only the rounds it feeds', () => {
+  it('a tie across 4th and 5th in R5L hides R6L and R6R until it is resolved', () => {
+    const column = atTheMiddleColumn();
+    const r5l = indexOfRound(column, 'R5L');
+    const tied = scoredWithATieAtTheFourth(column, r5l);
+    expect(hasPendingTies(tied, r5l)).toBe(true);
+    expect(shown(tied).size).toBe(0);
+    const resolved = withTiesResolved(tied, r5l);
+    expect(hasPendingTies(resolved, r5l)).toBe(false);
+    expect([...shown(resolved).keys()].sort()).toEqual(indexes(column, 'R6L', 'R6R').sort());
+  });
+
+  it('the same tie in SemiA hides nothing', () => {
+    const column = atTheMiddleColumn();
+    const semiA = indexOfRound(column, 'SemiA');
+    const state = scoredWithATieAtTheFourth(scoreRound(column, indexOfRound(column, 'R5L')), semiA);
+    expect(hasPendingTies(state, semiA)).toBe(true);
+    expect([...shown(state).keys()].sort()).toEqual(indexes(column, 'R6L', 'R6R').sort());
+  });
+});
+
+/** The first seat of the round's first room set to a score of 0: an absence the bar has not been answered about. */
+function withAZeroIn(
+  state: TournamentState,
+  roundIndex: number,
+): { state: TournamentState; key: string; unit: string } {
+  const unit = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === 1)[0].name;
+  const keys = scoreKeysForPosition({
+    roundIndex,
+    room: 1,
+    position: 0,
+    numGames: state.rounds[roundIndex].numGames ?? 1,
+    teamSize: scoredTeamSize(state),
+  });
+  const zeroes = Object.fromEntries(keys.map((key) => [key, 0]));
+  return { state: { ...state, scores: { ...state.scores, ...zeroes } }, key: keys[0], unit };
+}
+
+describe('an absence question holds back only the rounds it feeds', () => {
+  it('an unanswered 0 in R5L hides R6L and R6R; "absent" shows them, the absentee at the last place destination, as Next Round draws', () => {
+    const column = atTheMiddleColumn();
+    const r5l = indexOfRound(column, 'R5L');
+    const [r6l, r6r] = indexes(column, 'R6L', 'R6R');
+    const zeroed = withAZeroIn(scoreColumn(column), r5l);
+    expect(hasBlockingAbsenceQuestionsInRound(zeroed.state, r5l)).toBe(true);
+    expect(shown(zeroed.state).size).toBe(0);
+
+    const answered = answerAbsence(zeroed.state, [zeroed.key], 'absent');
+    const draw = shown(answered);
+    expect([...draw.keys()].sort()).toEqual([r6l, r6r].sort());
+    expect(draw.get(r6r)?.assignments.map((entry) => entry.name)).toContain(zeroed.unit);
+    const next = advanced(answered);
+    expect(draw.get(r6l)?.assignments).toEqual(next.assignments[r6l]);
+    expect(draw.get(r6r)?.assignments).toEqual(next.assignments[r6r]);
+  });
+
+  it('an unanswered 0 in R5R hides nothing', () => {
+    const column = atTheMiddleColumn();
+    const r5r = indexOfRound(column, 'R5R');
+    const state = scoreRound(withAZeroIn(scoreRound(column, r5r), r5r).state, indexOfRound(column, 'R5L'));
+    expect(hasBlockingAbsenceQuestionsInRound(state, r5r)).toBe(true);
+    expect([...shown(state).keys()].sort()).toEqual(indexes(column, 'R6L', 'R6R').sort());
+  });
+
+  /** Round 6 is fed by both halves of Round 5; Round 5 Lower has a score of 0 nobody has answered about. */
+  function roundSixWithAZeroInTheLower(setup: Parameters<typeof liveTournament>[1]) {
+    const column = playToColumnOf(liveTournament(16, setup), 'Round 5 Lower');
+    const [lower, upper] = indexes(column, 'Round 5 Lower', 'Round 5 Upper');
+    const { state } = withAZeroIn(scoreRound(scoreRound(column, upper), lower), lower);
+    return { state, lower, roundSix: indexOfRound(column, 'Round 6') };
+  }
+
+  it('with one score per team an unanswered 0 hides nothing, where the default scoring waits for the answer', () => {
+    const waiting = roundSixWithAZeroInTheLower({});
+    expect(hasBlockingAbsenceQuestionsInRound(waiting.state, waiting.lower)).toBe(true);
+    expect(shown(waiting.state).has(waiting.roundSix)).toBe(false);
+
+    const oneScore = roundSixWithAZeroInTheLower({ teamScoringRule: ONE_SCORE_PER_TEAM });
+    expect(isOneScorePerTeam(oneScore.state)).toBe(true);
+    expect(hasBlockingAbsenceQuestionsInRound(oneScore.state, oneScore.lower)).toBe(false);
+    expect(shown(oneScore.state).has(oneScore.roundSix)).toBe(true);
+  });
+});
+
+describe('a round that cannot be drawn', () => {
+  it('stays out of the map and does not hide the other round', () => {
+    const column = atTheMiddleColumn();
+    const [r6l, r6r] = indexes(column, 'R6L', 'R6R');
+    const scored = scoreRound(column, indexOfRound(column, 'R5L'));
+    expect([...shown(scored).keys()].sort()).toEqual([r6l, r6r].sort());
+    // R6L declared with half its seats: the eight arriving units no longer fit.
+    const edited = {
+      ...scored,
+      rounds: scored.rounds.map((round, index) =>
+        index === r6l ? { ...round, rooms: [4], declaredRooms: [4] } : round,
+      ),
+    };
+    expect([...shown(edited).keys()]).toEqual([r6r]);
+  });
+});
+
+describe('after Previous on a Custom bracket', () => {
+  it('nothing is shown, though later rounds are undrawn and their feeders are scored', () => {
+    const column = atTheMiddleColumn();
+    const scored = scoreColumn(column);
+    const next = advanced(scored);
+    expect(next.assignments[indexOfRound(column, 'SemiB')] ?? []).toHaveLength(0);
+    expect(expectedRounds(scored)).not.toBeNull();
+    expect(expectedRounds({ ...next, curRound: column.curRound })).toBeNull();
+  });
+});
+
+describe('a withdrawal and the expected draw of a Custom bracket round', () => {
+  it('a unit removed from a neighbouring round leaves the shown draw unchanged', () => {
+    const column = atTheMiddleColumn();
+    const scored = scoreRound(column, indexOfRound(column, 'R5L'));
+    const before = shown(scored);
+    const neighbour = scored.assignments[indexOfRound(column, 'SemiA')][0].name;
+    expect(shown(removeRosterUnit(scored, neighbour))).toEqual(before);
+  });
+
+  it('a unit removed from the feeder before Next Round changes it, and it still equals the real draw', () => {
+    const column = atTheMiddleColumn();
+    const r5l = indexOfRound(column, 'R5L');
+    const scored = scoreRound(column, r5l);
+    const before = shown(scored);
+    const leaver = scored.assignments[r5l].find((entry) => entry.room === 1)?.name as string;
+    const removed = scoreRound(removeRosterUnit(scored, leaver), r5l);
+    const after = shown(removed);
+    expect(after).not.toEqual(before);
+    const next = advanced(scoreColumn(removed));
+    for (const [index, round] of after) expect(round.assignments).toEqual(next.assignments[index]);
+  });
+});
+
+describe('a later round fed only by the qualification table', () => {
+  it('R1C shows at the qualification exit and is what its own Next Round draws', () => {
+    const exit = playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH));
+    const r1c = indexOfRound(exit, 'R1C');
+    const draw = shown(exit);
+    expect(draw.has(r1c)).toBe(true);
+    expect(draw.has(indexOfRound(exit, 'R2'))).toBe(false);
+    let state = advanced(exit);
+    while (state.curRound < r1c) state = advanced(scoreColumn(state));
+    expect(draw.get(r1c)?.assignments).toEqual(state.assignments[r1c]);
+  });
+});
+
+describe('expectedRounds on a Custom bracket changes nothing', () => {
+  it('leaves a deeply frozen, partly scored column untouched', () => {
+    const column = atTheMiddleColumn();
+    const partly = scoreRound(column, indexOfRound(column, 'R5L'));
+    const before = structuredClone(partly);
+    const frozen = deepFreeze(structuredClone(partly));
+    expect(expectedRounds(frozen)).not.toBeNull();
+    expect(frozen).toEqual(before);
   });
 });

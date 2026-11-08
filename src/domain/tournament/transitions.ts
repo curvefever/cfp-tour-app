@@ -561,6 +561,26 @@ function advanceWaterfallBracket(input: TournamentState): RoundAdvanceResult {
 }
 
 /**
+ * A copy of the state with one undrawn Custom bracket round drawn, from the units already waiting for it plus
+ * what `feeders` (finished rounds of the column in play) send it; null when that round can't be drawn. For a
+ * look ahead only: the input isn't changed and `curRound` stays where it is.
+ */
+export function drawWaterfallRoundAhead(
+  input: TournamentState,
+  roundIndex: number,
+  feeders: number[],
+): TournamentState | null {
+  const state = cloneForTransition(input);
+  const additions = mergeAdditions(
+    feeders.map((index) => routeWaterfallRound(state, index, state.rounds[index])),
+  );
+  const arriving = [...(state.pendingBracketSeeds[roundIndex] ?? []), ...(additions.get(roundIndex) ?? [])];
+  state.pendingBracketSeeds[roundIndex] = arriving;
+  if (fitWaterfallRoundAt(state, roundIndex, arriving.length)) return null;
+  return seedRoundFromPendingPool(state, roundIndex) ? null : state;
+}
+
+/**
  * The units a pooling exit sends through the standings routing, best first: the group exit order (a group stage,
  * its band-tie picks applied) or the qualification table (every cut-off tie pick applied). Sets the table the exit
  * was read from on `state`.

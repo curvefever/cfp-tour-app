@@ -182,7 +182,7 @@ export function BracketRounds({
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
   projectedSlots: ReturnType<typeof projectFutureRoundSlots>;
-  /** The draw of the next column as Next Round would make it now, while it is determined (`expectedNextColumn`). */
+  /** The line-ups of undrawn rounds as Next Round would make them now, while they are determined (`expectedRounds`). */
   expectedDraw?: Map<number, ExpectedRound> | null;
   editable: boolean;
   followKey: string | null;

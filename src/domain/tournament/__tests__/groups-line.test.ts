@@ -8,7 +8,7 @@ import {
 } from '../advancement';
 import { projectFutureRoundSlots } from '../bracket';
 import { isFedOnlyByStandings } from '../bracket-replay';
-import { expectedNextColumn } from '../expected-draw';
+import { expectedRounds } from '../expected-draw';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, resolveTournamentTie } from '../mutations';
 import { cutTieMarks, describeStandings } from '../standings-display';
@@ -479,11 +479,11 @@ describe('a tie at a band boundary is the admin pick', () => {
 });
 
 describe('a re-draw and the expected column give the first advance', () => {
-  it('expectedNextColumn equals what Next Round draws, and a re-advance after Previous equals the first', () => {
+  it('expectedRounds equals what Next Round draws, and a re-advance after Previous equals the first', () => {
     const exit = atTheExit(generated(12, TWO_BANDS, { groupExit: 'fair-cut' }), (state) =>
       scoreCurrentRound(state, 4),
     );
-    const expected = expectedNextColumn(exit);
+    const expected = expectedRounds(exit);
     const first = advanced(exit);
     expect(expected).not.toBeNull();
     for (const [roundIndex, round] of expected ?? []) {
@@ -799,7 +799,7 @@ describe('the Groups line of 11 teams (groups of 4, 4, 3): the preview and the e
     for (const seed of SEEDS) {
       const exit = exitFor(seed);
       const { order, snake } = exitOrderAndSnake(exit);
-      const expected = new Map(expectedNextColumn(exit) ?? []);
+      const expected = new Map(expectedRounds(exit) ?? []);
       const next = advanced(exit);
       for (const label of ['R1', 'R1C']) {
         const index = indexOfLabel(exit, label);

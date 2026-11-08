@@ -4,6 +4,8 @@ import { scoreKeysForPosition } from '../../src/domain/tournament/scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
 import { removeRosterUnit, withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
+import { roundColumn } from '../../src/domain/tournament/round-columns';
+import { UPPER_LOWER_GRAPH } from '../../src/domain/tournament/__tests__/upper-lower-graph';
 import type {
   PersistedSetup,
   GameNotes,
@@ -610,6 +612,21 @@ function waterfallColumn(): TournamentState {
   return { ...scored, curRound: inBracket.curRound };
 }
 
+/** An upper and lower bracket at 37 players, in the column [R5R, SemiA, R5L] with only R5L scored: R6L and R6R show their expected draw. */
+function upperLower37(): TournamentState {
+  const start = generate(37, {
+    scheduleLogic: 'waterfall-bracket',
+    poolingPhase: 'qual-table',
+    qualAdv: '99',
+    waterfallGraph: UPPER_LOWER_GRAPH,
+  });
+  const lower = start.rounds.findIndex((round) => round.customLabel === 'R5L');
+  const firstOfColumn = roundColumn(start.rounds, lower).start;
+  const column = playUntil(start, (_round, index) => index === firstOfColumn, 1);
+  const scored = scoreCurrentRound({ ...column, curRound: lower }, { seed: 12 });
+  return { ...scored, curRound: column.curRound };
+}
+
 /** Round settings notes of every shape: one line, three lines, two lines, a Final note, a different note on each pooling round and rounds without one. */
 const COLUMN_NOTES: RoundNotes = {
   'Round 1': 'Powers: **Ghost**',
@@ -742,6 +759,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     }),
     entry('waterfall-qual-37', waterfallQual(), { infoBox: true }),
     entry('waterfall-column-19', waterfallColumn(), { roundNotes: COLUMN_NOTES }),
+    entry('upper-lower-37', upperLower37()),
     entry('upcoming-info', upcoming(), {
       setup: FFA_SETUP,
       tabs: ['Info', 'Players'],

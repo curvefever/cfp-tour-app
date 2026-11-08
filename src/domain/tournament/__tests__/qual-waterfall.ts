@@ -250,8 +250,11 @@ export function teams(count: number): TournamentTeam[] {
   }));
 }
 
-/** The live tournament's shape: 2v2v2v2 teams, three qualification rounds, the live graph. */
-export function liveTournament(teamCount: number): TournamentState {
+/** The live tournament's shape: 2v2v2v2 teams, three qualification rounds, the live graph (`setup` adds to the Setup form, for instance the scoring rule). */
+export function liveTournament(
+  teamCount: number,
+  setup: Parameters<typeof createDefaultSetup>[0] = {},
+): TournamentState {
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: teamCount, players: teams(teamCount) }),
     createDefaultSetup({
@@ -260,6 +263,7 @@ export function liveTournament(teamCount: number): TournamentState {
       poolingPhase: 'qual-table',
       qualAdv: '99',
       waterfallGraph: LIVE_GRAPH,
+      ...setup,
     }),
     createTournamentRuntime({ ids: fixedIdSource() }),
   );

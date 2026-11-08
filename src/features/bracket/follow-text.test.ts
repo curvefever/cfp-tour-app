@@ -5,7 +5,11 @@ import {
   playToQualificationExit,
 } from '../../domain/tournament/__tests__/qual-waterfall';
 import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
+import { expectedRounds } from '../../domain/tournament/expected-draw';
+import { currentColumn } from '../../domain/tournament/round-columns';
 import { describeStandings } from '../../domain/tournament/standings-display';
+import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
+import { UPPER_LOWER_GRAPH } from '../../domain/tournament/__tests__/upper-lower-graph';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
 import {
@@ -240,5 +244,34 @@ describe('standingsFollowDetail: before any round is scored', () => {
     if (!display) throw new Error('no standings');
     const name = display.tables[0].entries[0].name;
     expect(standingsFollowDetail(display, name, bracketRoundLabels(state))).toBe('');
+  });
+});
+
+describe('followBannerText: a unit in an expected draw', () => {
+  /** The upper and lower graph in the column [R5R, SemiA, R5L] with only R5L scored: R6L and R6R show their expected draw. */
+  function withRoundsAhead(): TournamentState {
+    let state = buildQualWaterfall(37, UPPER_LOWER_GRAPH, {}, { columns: true });
+    const target = state.rounds.findIndex((round) => round.customLabel === 'R5L');
+    for (;;) {
+      const { start: first, end } = currentColumn(state);
+      if (target >= first && target <= end) break;
+      let scores = state.scores;
+      for (let index = first; index <= end; index += 1) {
+        scores = scoreByHash({ ...state, curRound: index, scores }).state.scores;
+      }
+      state = advanced({ ...state, scores });
+    }
+    return { ...state, scores: scoreByHash({ ...state, curRound: target }).state.scores };
+  }
+
+  it('does not name the room the expected draw gives it: the unit is not drawn into a room yet', () => {
+    const state = withRoundsAhead();
+    const r6l = state.rounds.findIndex((round) => round.customLabel === 'R6L');
+    const expected = expectedRounds(state)?.get(r6l);
+    const unit = expected?.assignments.find((entry) => entry.room !== null)?.name;
+    if (!unit) throw new Error('R6L has no expected draw');
+    const text = textFor(state, unit);
+    // The text says where the unit played and that R6L is next; it gives no R6L room, which is not drawn yet.
+    expect(text.detail).toMatch(/^R5L · Room [A-Z] · \d+(st|nd|rd|th) → R6L$/);
   });
 });

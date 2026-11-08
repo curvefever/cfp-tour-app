@@ -6,6 +6,37 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The expected draw of a Custom bracket round as soon as its own feeders are finished (done — 2026-11-08, on local `test`; nothing pushed)
+
+**Context.** Queue item 1 before the FFA tournament of about 2026-11-19. In a Custom bracket the expected draw waited for every round of the column in play. In live tournament `1793555835749` the Round 6 rounds, fed only by Round 5 - Lower (fully scored), showed place labels while Semi-Final A, a Best of 3 in the same column, was still played, though players could have known their rooms.
+
+**The organiser's decisions (settled).**
+- Display only. How rounds are played does not change: columns still advance as one step, and Next Round and everything reading `curRound` stay as they are. Full dependency play stays after the tournament.
+- Rule: every undrawn round of a Custom bracket shows its expected draw once all its own feeders are finished, whichever column it is in. A feeder is finished when every contested room has every score in, no tie of that round waits and no blocking absence question of that round waits. A tie or question in another round of the column does not hold it back.
+- The follow box names only rooms that are really drawn. It does not use the expected draw (`bracketFollowText` already did not, and a test now pins that). The roadmap entry "The follow box naming the expected room" is removed: the organiser does not want it.
+- "Bracket preview after a waterfall withdrawal" (open items) is dropped: the expected draw replaces the phantom slot once the feeders are scored. The slot can still show while those feeders are being played, and the organiser accepted that.
+- Other formats keep today's behaviour exactly.
+
+**Why the draw is the real one.** Each unit has one destination, so the pools of different rounds are disjoint, and the draw reads only the pairs and histories of its own units. The planner checked this on the real engine with a throwaway test at 37, 43 and 53 players on this graph: reversing the finishing order of one round left the draw of every next-column round it does not feed identical (21 comparisons), while rounds it does feed changed in 24.
+
+**Change.**
+- `transitions.ts`: `drawWaterfallRoundAhead(state, roundIndex, feeders)` draws one undrawn Custom bracket round on a copy (the units already waiting plus what the finished feeders send, pending first, then the feeders in round order, as a real advance does); null when it cannot be drawn. `advanceWaterfallBracket` and `enterNextWaterfallColumn` are unchanged.
+- `absences.ts`: `hasBlockingAbsenceQuestionsInRound(state, roundIndex)`. `hasBlockingAbsenceQuestions` is unchanged.
+- `expected-draw.ts`: `expectedNextColumn` is now `expectedRounds` (renamed everywhere). New `isRoundScored`, `isFeederFinished`, `routesTo`, `expectedWaterfallRound` and `expectedWaterfallRounds`. A guard returns an empty map once a round after the column in play has a line-up (after Previous the later pools already hold what the column sent, so routing it again would count units twice). `expectedAfterAdvance` keeps today's body for a round in play that is not a Custom bracket round and, when the advance enters one, also shows the later rounds fed only by the qualification table or the groups, from the exit on.
+- The Bracket needed only the rename: `BracketRounds.tsx` already passes the expected draw and its tag per round, stacked rounds included, and `RoundBody` shows it for any undrawn round.
+
+**Testing.** Fixtures and generated states only; no real tournament was opened.
+- `expected-draw.test.ts`, on the upper and lower graph at 37, 43 and 53 in both shapes (stored columns, one round at a time), scoring forward and backward, one round at a time: a shown draw never changes, every round of the next column is shown once its column is scored, and what Next Round draws equals what was shown (rooms, line-ups, byes). Stored columns show a round before the column is scored; one at a time, a round beyond the next column. The same walk on `spreadsheet-32` (backward, R7A shows once R6B and R6C are scored, before SemiA; forward it cannot, R6C is last). The example (R5L alone shows R6L and R6R, not SemiB or the Final; SemiA alone shows nothing), ties (R5L hides R6L and R6R until resolved, the same tie in SemiA hides nothing), absences (an unanswered 0 in R5L hides them, "absent" shows them with the absentee at the last place's destination and the draw equals Next Round's, an unanswered 0 in R5R hides nothing, One score per team never hides), a round that cannot be drawn, Previous (nothing shown), withdrawals (a neighbouring round leaves the draw unchanged, a feeder's changes it and it still equals Next Round's), a round fed only by the qualification table (`QUAL_GRAPH`, R1C), and a deep-frozen partly scored column. The earlier cases, including null while a room is unscored, pass unchanged.
+- `follow-text.test.ts`: a unit in a shown expected round reads "R5L · Room A · 1st → R6L", with no R6L room.
+- `AppShell.render.test.tsx`, "Bracket, the expected draw", viewer and admin on the new `upper-lower-37` fixture (the graph at 37 players, in `[R5R, SemiA, R5L]` with only R5L scored): two EXPECTED tags, the units' names in R6L and R6R, SemiB and the Final keep their place labels.
+- Shared test code: the graph lives in `__tests__/upper-lower-graph.ts` (no test-runner import, so the screenshot fixtures can use it); `liveTournament` takes an optional Setup (its comment said One score per team, it never was).
+- Awkward counts: 37, 43 and 53 on this graph (31 does not fit it: it routes 32 ranks); the existing cases already cover 31 in head-to-head rooms and 37 in their own waterfall cases.
+- Checks: eslint, prettier and types clean on the changed files; `vitest related` 134 files, 4108 tests passed. Crops of the Bracket at 1280 and 390 px saved to `e2e-screens/upper-lower-37/` (gitignored) for the review.
+
+**Full suite:** to be run by the reviewer (touches `src/domain/`).
+
+**Out of scope.** Anything about how rounds are played (several rounds live at once, starting a round early, changes to Next Round, Previous, score entry, line-up corrections, NOW or folding); double elimination, Kings Valley and every other format's expected draw; the follow box naming an expected room (rejected by the organiser); the phantom slot while feeders are still played; any change to how the expected draw looks (tag, slots, header); a warning on Next Round while a column is only partly scored; the built-in upper and lower bracket.
+
 ## Settings bands at their own height, with a 59 px minimum (done — 2026-11-08, on production, `main` `d82dab9`)
 
 **Context.** Open item "Every round's settings band grows to the tallest one". On a wide screen the rounds strip was a grid whose open boxes were subgrids, so every band in the row took the height of the tallest. In the live tournament that showed it, Round 1 needed 39 px and got 126 px, because the Final, ten columns away and off screen, has game lines.

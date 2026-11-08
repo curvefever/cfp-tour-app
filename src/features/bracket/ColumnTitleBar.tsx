@@ -92,7 +92,7 @@ export function ColumnTitleBar({
   className?: string;
   /** The round is finished (`isRoundDone`): a green DONE after the title. */
   done?: boolean;
-  /** The round's line-up is the expected draw, not yet made (`expectedNextColumn`). */
+  /** The round's line-up is the expected draw, not yet made (`expectedRounds`). */
   expected?: boolean;
   extra?: ReactNode;
   gameCount?: RoundGameCount | null;

@@ -325,6 +325,13 @@ export function hasBlockingAbsenceQuestions(state: TournamentState): boolean {
   return !isOneScorePerTeam(state) && pendingAbsenceQuestions(state).length > 0;
 }
 
+/** True when an answer still missing in this round of the column in play holds back the rounds it feeds. */
+export function hasBlockingAbsenceQuestionsInRound(state: TournamentState, roundIndex: number): boolean {
+  return (
+    !isOneScorePerTeam(state) && pendingAbsenceQuestions(state).some((room) => room.roundIndex === roundIndex)
+  );
+}
+
 /** An answer changes who is in a room's ties: the decisions of the rooms it touches are checked again. */
 function invalidateTiesOfKeys(state: TournamentState, keys: string[]): TournamentState {
   const rooms = new Map<string, [number, number]>();

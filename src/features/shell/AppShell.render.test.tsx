@@ -5,6 +5,7 @@ import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, loadedState, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
+import { expectedRounds } from '../../domain/tournament/expected-draw';
 import { nextColumnStart } from '../../domain/tournament/round-columns';
 import { noteGameCount, roundNoteNames } from '../../domain/tournament/round-notes';
 import { TabErrorBoundary } from './TabErrorBoundary';
@@ -232,6 +233,39 @@ describe('Bracket, the expected draw', () => {
     expect(view.queryAllByText('EXPECTED')).toHaveLength(0);
     expect(view.queryAllByText(CUTOFF_PLACEHOLDER).length).toBeGreaterThan(0);
   });
+
+  it.each(ROLES)(
+    'shows %s the draw of R6L and R6R once R5L alone is scored, while SemiB and the Final keep their place labels',
+    (role) => {
+      const fixture = fixtureTournaments().find((entry) => entry.id === 'upper-lower-37');
+      if (!fixture) throw new Error('the upper-lower-37 fixture is missing');
+      const view = renderApp(fixture, { role, tab: 'bracket' });
+      const placeholder = /, Rank \d+$/;
+      const columnOf = (title: string) => {
+        const column = view
+          .getAllByRole('heading', { name: title })
+          .map((heading) => heading.closest<HTMLElement>('[class*="min-w-82.5"]'))
+          .find((found) => found !== null);
+        if (!column) throw new Error(`no column ${title}`);
+        return column;
+      };
+      const labelOf = (title: string) =>
+        fixture.state.rounds.findIndex((round) => round.customLabel === title);
+      const draw = expectedRounds(fixture.state);
+
+      expect(view.queryAllByText('EXPECTED')).toHaveLength(2);
+      for (const title of ['R6L', 'R6R']) {
+        const names = draw?.get(labelOf(title))?.assignments.map((entry) => entry.name) ?? [];
+        expect(names.length).toBeGreaterThan(0);
+        for (const name of names) expect(within(columnOf(title)).queryAllByText(name)).not.toHaveLength(0);
+        expect(within(columnOf(title)).queryAllByText(placeholder)).toHaveLength(0);
+      }
+      for (const title of ['SemiB', 'Final']) {
+        expect(within(columnOf(title)).queryAllByText('EXPECTED')).toHaveLength(0);
+        expect(within(columnOf(title)).queryAllByText(placeholder).length).toBeGreaterThan(0);
+      }
+    },
+  );
 });
 
 describe('Players tab, confirmations in the organiser tools', () => {
