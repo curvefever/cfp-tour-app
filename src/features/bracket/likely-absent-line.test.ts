@@ -7,6 +7,15 @@ import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { afterRound1, r1WithFiveAbsent } from '../../domain/tournament/__tests__/absentee-bracket-fixture';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
+import { scoreKeysForPosition } from '../../domain/tournament/scoring';
+import {
+  atEntry,
+  indexOf,
+  pressed,
+  scoreRound,
+} from '../../domain/tournament/__tests__/dependency-play-fixtures';
+import { withDependencyPlay } from '../../domain/tournament/__tests__/qual-waterfall';
+import { UPPER_LOWER_GRAPH } from '../../domain/tournament/__tests__/upper-lower-graph';
 import { likelyAbsentChips } from './likely-absent-line';
 
 const unitsOf = (state: TournamentState) => likelyAbsentChips(state).map((chip) => chip.unit);
@@ -119,5 +128,27 @@ describe('a team on the line', () => {
   it('is not listed while a member is not absent, nor once a member is back', () => {
     expect(likelyAbsentChips({ ...half, curRound: 1 })).toEqual([]);
     expect(likelyAbsentChips({ ...markBack(all, 'b'), curRound: 1 })).toEqual([]);
+  });
+});
+
+describe('the likely-absent line in dependency play', () => {
+  it('lists a likely absent unit of a round in play outside the column of curRound', () => {
+    // R5L answers one unit absent and is sent on with R5R, drawing R6L and R6R; SemiA is still in play and unscored, so
+    // curRound is SemiA, whose column holds neither R6 round.
+    const entry = withDependencyPlay(atEntry(37, UPPER_LOWER_GRAPH));
+    const at = (label: string) => indexOf(entry, label);
+    const afterRound4 = pressed(scoreRound(scoreRound(entry, at('R4U')), at('R4L')));
+    const scored = scoreRound(scoreRound(afterRound4, at('R5L')), at('R5R'));
+    const absent = scored.assignments[at('R5L')].filter((entryUnit) => entryUnit.room === 1)[0].name;
+    const key = scoreKeysForPosition({ roundIndex: at('R5L'), room: 1, position: 0 })[0];
+    const answered = answerAbsence({ ...scored, scores: { ...scored.scores, [key]: 0 } }, [key], 'absent');
+    const state = pressed(answered);
+    const column = currentColumn(state);
+    const seatedIn = ['R6L', 'R6R'].find((label) =>
+      state.assignments[at(label)].some((seat) => seat.name === absent),
+    );
+    expect(seatedIn).toBeDefined();
+    expect(at(seatedIn as string)).toBeGreaterThan(column.end);
+    expect(unitsOf(state)).toContain(absent);
   });
 });

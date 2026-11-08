@@ -275,83 +275,159 @@ describe('what the Bracket shows ahead is what the next press draws', () => {
   });
 });
 
-describe.each([37, 43, 53].map((count) => ({ count })))(
-  'the rankings in dependency play: $count players',
-  ({ count }) => {
-    const start = atEntry(count, UPPER_LOWER_GRAPH);
-    const columnPlay = computeRankings(playColumns(start));
+/** Every unit of the roster appears exactly once across Rankings' active (waiting ones included), eliminated and finalists. */
+function expectEveryUnitOnce(
+  state: TournamentState,
+  rankings: NonNullable<ReturnType<typeof computeRankings>>,
+) {
+  const names = [
+    ...rankings.stillActive.map((unit) => unit.name),
+    ...rankings.eliminatedList.map((unit) => unit.name),
+    ...rankings.finalists.map((unit) => unit.name),
+  ];
+  expect(new Set(names).size, 'no unit twice').toBe(names.length);
+  expect([...names].sort(), 'no unit lost').toEqual(
+    (state.players as string[]).map((player) => player).sort(),
+  );
+}
 
-    it.each(Object.entries(STRATEGIES))(
-      "%s: nobody waiting or in play is ranked out, the final order is column play's",
-      (_name, strategy) => {
-        let state = withDependencyPlay(start);
-        let checked = 0;
-        const check = (current: TournamentState) => {
-          const rankings = computeRankings(current);
-          if (!rankings) return;
-          const out = new Map(rankings.eliminatedList.map((unit) => [unit.name, unit]));
-          const pooled = Object.values(current.pendingBracketSeeds).flatMap((seeds) =>
-            seeds.map((seed) => seed.name),
-          );
-          for (const name of pooled) expect(out.has(name), `${name} waits in a pool`).toBe(false);
-          for (const unit of rankings.eliminatedList) {
-            // A unit certainly out of a round still in play has no rank yet; every other eliminated unit is done.
-            if (unit.rank !== null)
-              expect(isRoundDone(current, unit.ri), `${unit.name} ranked from a round in play`).toBe(true);
-          }
-          const names = [
-            ...rankings.stillActive.map((unit) => unit.name),
-            ...rankings.eliminatedList.map((unit) => unit.name),
-            ...rankings.finalists.map((unit) => unit.name),
-          ];
-          expect(new Set(names).size, 'every unit once').toBe(names.length);
-          checked += 1;
-        };
-        for (
-          let guard = 0;
-          guard < 60 && roundsInPlay(state).some((index) => !state.rounds[index].isFinal);
-          guard += 1
-        ) {
-          const unscored = roundsInPlay(state).filter(
-            (index) => !state.rounds[index].isFinal && !isRoundScored(state, index),
-          );
-          for (const index of strategy(state, unscored, guard)) state = scoreRound(state, index);
-          check(state);
-          state = pressed(state);
-          check(state);
-        }
-        expect(checked).toBeGreaterThan(5);
-        const final = computeRankings(state);
-        const summary = (rankings: typeof final) =>
-          rankings?.eliminatedList.map((unit) => ({ name: unit.name, rank: unit.rank, ri: unit.ri }));
-        expect(summary(final)).toEqual(summary(columnPlay));
-        expect(final?.stillActive.map((unit) => unit.name).sort()).toEqual(
-          columnPlay?.stillActive.map((unit) => unit.name).sort(),
+describe.each(CASES)('the rankings in dependency play: $label', (testCase) => {
+  const start = atEntry(testCase.count, testCase.graph, testCase.setup);
+  const columnPlay = computeRankings(playColumns(start));
+
+  it.each(Object.entries(STRATEGIES))(
+    '%s: at every press every unit is ranked once, none waiting or in play is out, and the final order is that of column play',
+    (_name, strategy) => {
+      let state = withDependencyPlay(start);
+      let checked = 0;
+      const check = (current: TournamentState) => {
+        const rankings = computeRankings(current);
+        if (!rankings) return;
+        expectEveryUnitOnce(current, rankings);
+        const out = new Map(rankings.eliminatedList.map((unit) => [unit.name, unit]));
+        const pooled = Object.values(current.pendingBracketSeeds).flatMap((seeds) =>
+          seeds.map((seed) => seed.name),
         );
-      },
-    );
-  },
-);
+        for (const name of pooled) expect(out.has(name), `${name} waits in a pool`).toBe(false);
+        for (const unit of rankings.eliminatedList) {
+          // A unit certainly out of a round still in play has no rank yet; every other eliminated unit is done.
+          if (unit.rank !== null)
+            expect(isRoundDone(current, unit.ri), `${unit.name} ranked from a round in play`).toBe(true);
+        }
+        checked += 1;
+      };
+      for (
+        let guard = 0;
+        guard < 60 && roundsInPlay(state).some((index) => !state.rounds[index].isFinal);
+        guard += 1
+      ) {
+        const unscored = roundsInPlay(state).filter(
+          (index) => !state.rounds[index].isFinal && !isRoundScored(state, index),
+        );
+        for (const index of strategy(state, unscored, guard)) state = scoreRound(state, index);
+        check(state);
+        state = pressed(state);
+        check(state);
+      }
+      expect(checked).toBeGreaterThan(5);
+      const final = computeRankings(state);
+      const summary = (rankings: typeof final) =>
+        rankings?.eliminatedList.map((unit) => ({ name: unit.name, rank: unit.rank, ri: unit.ri }));
+      expect(summary(final)).toEqual(summary(columnPlay));
+      expect(final?.stillActive.map((unit) => unit.name).sort()).toEqual(
+        columnPlay?.stillActive.map((unit) => unit.name).sort(),
+      );
+    },
+  );
 
-describe('the cases used elsewhere still run in dependency play', () => {
-  it.each(CASES)('$label: Rankings read every unit once at the Final', (testCase) => {
-    const start = atEntry(testCase.count, testCase.graph, testCase.setup);
+  it('with the later round of a pair sent first, a unit waiting for an earlier-numbered round is still listed', () => {
+    // Backward scoring sends the higher-numbered round of a column first, so a round after it is drawn while a lower one
+    // still waits: the waiting units sit below a drawn round's index.
     let state = withDependencyPlay(start);
+    let sawLowerWaiting = 0;
     for (
       let guard = 0;
       guard < 60 && roundsInPlay(state).some((index) => !state.rounds[index].isFinal);
       guard += 1
     ) {
-      for (const index of roundsInPlay(state))
-        if (!isRoundScored(state, index)) state = scoreRound(state, index);
-      state = pressed(state);
+      const unscored = roundsInPlay(state).filter(
+        (index) => !state.rounds[index].isFinal && !isRoundScored(state, index),
+      );
+      state = pressed(scoreRound(state, unscored[unscored.length - 1]));
+      const highestDrawn = Math.max(
+        ...state.assignments.flatMap((round, index) => (round.length ? [index] : [])),
+      );
+      if (Object.keys(state.pendingBracketSeeds).some((key) => Number(key) < highestDrawn))
+        sawLowerWaiting += 1;
+      const rankings = computeRankings(state);
+      if (rankings) expectEveryUnitOnce(state, rankings);
     }
+    // On the three chains Y2 is drawn while X2, a lower round, still waits for X1.
+    if (testCase.label.startsWith('three chains')) expect(sawLowerWaiting).toBeGreaterThan(0);
+  });
+});
+
+describe('the rankings while a step is reopened', () => {
+  /** Up to the press that sends R6L and R6R and draws SemiB, then SemiB scored and Previous: that press is reopened. */
+  function reopenedAtSemiB(): TournamentState {
+    let state = afterRound4;
+    state = pressed(scoreRound(scoreRound(scoreRound(state, at('R5L')), at('R5R')), at('SemiA')));
+    state = pressed(scoreRound(scoreRound(state, at('R6L')), at('R6R')));
+    expect(state.assignments[at('SemiB')].length).toBeGreaterThan(0);
+    const back = goBack(scoreRound(state, at('SemiB')));
+    expect(back.waterfallSteps.at(-1)?.reopened).toBe(true);
+    return back;
+  }
+
+  const rankedUnits = (state: TournamentState) => {
     const rankings = computeRankings(state);
-    const names = [
-      ...(rankings?.stillActive ?? []).map((unit) => unit.name),
-      ...(rankings?.eliminatedList ?? []).map((unit) => unit.name),
-    ];
-    expect(new Set(names).size).toBe(names.length);
-    expect(names.length).toBe(state.players.length);
+    if (!rankings) throw new Error('no rankings');
+    return rankings;
+  };
+
+  it('lists every unit once, a unit sent on by a reopened round in the round it went to', () => {
+    const state = reopenedAtSemiB();
+    const rankings = rankedUnits(state);
+    expectEveryUnitOnce(state, rankings);
+    // A unit of R6L that moved on to SemiB is seated in both rounds in play: it shows once, in SemiB (unless SemiB puts it out).
+    const semiB = state.assignments[at('SemiB')].map((seat) => seat.name);
+    const fromR6L = state.assignments[at('R6L')]
+      .map((seat) => seat.name)
+      .filter((name) => semiB.includes(name));
+    const shown = fromR6L.flatMap((name) => rankings.stillActive.filter((unit) => unit.name === name));
+    expect(shown.length).toBeGreaterThan(0);
+    for (const unit of shown) expect(unit.ri, `${unit.name} shows in SemiB`).toBe(at('SemiB'));
+  });
+
+  it('reads a reopened round by where its units were sent: R6R, which sends nobody on, has every unit out, unranked', () => {
+    const state = reopenedAtSemiB();
+    const rankings = rankedUnits(state);
+    for (const seat of state.assignments[at('R6R')]) {
+      const out = rankings.eliminatedList.find((unit) => unit.name === seat.name);
+      expect(out?.ri, `${seat.name} is out of R6R`).toBe(at('R6R'));
+      expect(out?.rank).toBeNull();
+    }
+  });
+
+  it('keeps a unit in play after a correction that would put it out of the reopened round', () => {
+    const state = reopenedAtSemiB();
+    const r6l = at('R6L');
+    // The best score of room 1 of R6L and the worst trade places: the unit that moved on to SemiB now places last.
+    const seats = state.assignments[r6l].filter((seat) => seat.room === 1);
+    const keys = seats.map((_, position) => keyOf(state, r6l, position));
+    const ranked = [...keys].sort(
+      (first, second) => (state.scores[second] as number) - (state.scores[first] as number),
+    );
+    const [best, worst] = [ranked[0], ranked[ranked.length - 1]];
+    const corrected: TournamentState = {
+      ...state,
+      scores: { ...state.scores, [best]: state.scores[worst], [worst]: state.scores[best] },
+    };
+    const movedOn = seats[keys.indexOf(best)].name;
+    expect(state.assignments[at('SemiB')].some((seat) => seat.name === movedOn)).toBe(true);
+    const rankings = rankedUnits(corrected);
+    expectEveryUnitOnce(corrected, rankings);
+    expect(rankings.eliminatedList.some((unit) => unit.name === movedOn)).toBe(false);
+    expect(rankings.stillActive.find((unit) => unit.name === movedOn)?.ri).toBe(at('SemiB'));
   });
 });

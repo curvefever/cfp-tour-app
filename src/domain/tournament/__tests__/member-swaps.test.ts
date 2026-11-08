@@ -208,6 +208,27 @@ describe('swapTeamMember and the hand absent marks of One score per team', () =>
     expect(isMemberMarkedAbsent(swapped, 'r0-rm1-p0-m1')).toBe(true);
   });
 
+  it('clears the mark of a team in a round in play outside the column of curRound (dependency play)', () => {
+    // Rounds 0, 1 and 2 are the bracket in columns 1, 2 and 3. Round 0 is sent on, which drew rounds 1 and 2: both are in
+    // play, curRound is 1 and its column holds only round 1.
+    const base = oneRoomState({
+      gameFormat: 'team-2v2v2v2',
+      rule: ONE_SCORE_PER_TEAM,
+      players: [teamOf('Red', ['a', 'b']), teamOf('Blue', ['c', 'd'])],
+      rounds: [1, 2, 3].map((waterfallColumn) => ({ isWaterfall: true, waterfallColumn })),
+    });
+    const inPlay: TournamentState = {
+      ...base,
+      curRound: 1,
+      gamemodeConfig: { ...base.gamemodeConfig, dependencyPlayVersion: 1 },
+      waterfallSteps: [{ sent: [0], drew: [1, 2] }],
+    };
+    const marked = markOneScoreTeamMemberAbsent(inPlay, 2, 1, 0, 1);
+    expect(isMemberMarkedAbsent(marked, 'r2-rm1-p0-m1')).toBe(true);
+    const swapped = swapTeamMember(marked, 'Red', 1, { name: 'Gus' });
+    expect(isMemberMarkedAbsent(swapped, 'r2-rm1-p0-m1')).toBe(false);
+  });
+
   it('leaves the answers to scored 0s alone', () => {
     const state = {
       ...markOneScoreTeamMemberAbsent(oneScore(), 0, 1, 0, 1),

@@ -482,7 +482,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   if (lastRi === -1) return null;
 
   // The rounds in play: a unit in any of them is eliminated only once it is certainly out (outInPlay), and has no
-  // rank number until its round is advanced. A round of a reopened press is shown by the rounds it drew.
+  // rank number until its round is advanced. A round of a reopened press is read from where its units were sent.
   const phases = rankingPhases(state, lastRi);
   const eliminated = new Map<string, RoundElimination>();
   for (const roundIndex of phases.past) {
@@ -492,7 +492,15 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const outNow = new Set<string>();
   const reopened = new Set(reopenedRounds(state));
   for (const roundIndex of phases.inPlay) {
-    if (state.rounds[roundIndex].isFinal || reopened.has(roundIndex)) continue;
+    if (state.rounds[roundIndex].isFinal) continue;
+    if (reopened.has(roundIndex)) {
+      // Its draws stand whatever a correction says: a unit is out when no round or pool it was sent to holds it.
+      for (const [name, info] of eliminatedByPastRound(state, roundIndex)) {
+        eliminated.set(name, info);
+        outNow.add(name);
+      }
+      continue;
+    }
     const out = outInPlay(state, roundIndex);
     for (const [name, info] of eliminationsInRound(state, roundIndex, (name) => out.has(name))) {
       eliminated.set(name, info);
