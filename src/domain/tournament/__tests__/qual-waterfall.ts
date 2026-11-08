@@ -48,6 +48,16 @@ export function withoutColumns(state: TournamentState): TournamentState {
 }
 
 /**
+ * The state played by dependency play (`dependencyPlayVersion` 1). Generation does not write the version until the
+ * engine exists, so a test that needs it sets it here.
+ */
+export function withDependencyPlay<T extends { gamemodeConfig: TournamentState['gamemodeConfig'] }>(
+  state: T,
+): T {
+  return { ...state, gamemodeConfig: { ...state.gamemodeConfig, dependencyPlayVersion: 1 } };
+}
+
+/**
  * A started qualification-table + waterfall tournament, at the first qualification round. Its waterfall
  * rounds are played one at a time (the pre-columns shape, `withoutColumns`) unless `columns` is true, which
  * keeps the columns generation stores.

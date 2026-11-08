@@ -23,6 +23,7 @@ import {
   unflagFinalGameAnonymous,
   updateTeam,
   withLoadedRoster,
+  withoutDrawnSchedule,
 } from '../mutations';
 import { fillTeamSlot } from '../member-swaps';
 import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/sync/firebase-marshal';
@@ -1063,6 +1064,30 @@ describe('resetTournamentState', () => {
     const settings = settingsFromForm(createDefaultSetup());
     const state = createDefaultTournamentState({ settings });
     expect(resetTournamentState(state).settings).toEqual(settings);
+  });
+});
+
+describe('the presses of a Custom bracket played by dependency play', () => {
+  const withSteps = () =>
+    createDefaultTournamentState({
+      players: ['P1', 'P2'],
+      waterfallSteps: [
+        { sent: [1, 2], drew: [3] },
+        { sent: [3], drew: [4], reopened: true },
+      ],
+      started: true,
+    });
+
+  it('start empty in a new state', () => {
+    expect(createDefaultTournamentState().waterfallSteps).toEqual([]);
+  });
+
+  it.each([
+    ['going back to draft (reset tournament state)', resetTournamentState],
+    ['clearing the roster', resetRoster],
+    ['clearing the drawn schedule', withoutDrawnSchedule],
+  ])('are emptied by %s', (_label, reset) => {
+    expect(reset(withSteps()).waterfallSteps).toEqual([]);
   });
 });
 

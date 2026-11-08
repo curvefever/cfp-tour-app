@@ -25,6 +25,7 @@ export function createDefaultTournamentState(overrides: Partial<TournamentState>
     tieResolutions: {},
     absences: {},
     backFromAbsence: {},
+    waterfallSteps: [],
     defenderChanges: {},
     withdrawnUnits: [],
     anonymousFinalists: [],

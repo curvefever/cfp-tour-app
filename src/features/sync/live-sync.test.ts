@@ -860,6 +860,16 @@ describe('lossless Firebase encoding of empty values', () => {
       { byes: [[], [], ['P6', 'P9', 'P4', 'P12']], luckyLosers: [[], [], [], ['a', 'b']] },
     ],
     ['a whole state made only of empty containers', { a: [], b: {} }],
+    [
+      'the presses of a Custom bracket, one that drew nothing and one that sent nothing',
+      {
+        waterfallSteps: [
+          { sent: [1, 2], drew: [] },
+          { sent: [], drew: [4], reopened: true },
+        ],
+      },
+    ],
+    ['no presses yet', { waterfallSteps: [] }],
   ])('round-trips %s', (_label, value) => {
     expect(throughFirebase(value)).toEqual(value);
   });

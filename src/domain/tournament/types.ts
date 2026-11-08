@@ -160,6 +160,16 @@ export interface AnonymousFinalist {
  * accumulate from more than one source round, by which point there is no
  * single round left to re-derive it from.
  */
+/** One press of Next Round in a Custom bracket of `dependencyPlayVersion`. */
+export interface WaterfallStep {
+  /** The rounds this press sent on. */
+  sent: number[];
+  /** The rounds this press drew. Read as `drew ?? []`: the database drops an empty list. */
+  drew: number[];
+  /** Undone by Previous, but a round it drew has a score: the draw stays and the rounds it sent on are in play again. */
+  reopened?: boolean;
+}
+
 export interface PendingBracketSeed {
   name: string;
   isLucky?: boolean;
@@ -273,6 +283,8 @@ export interface MaterializedGamemodeConfig {
   pointsVersion?: 2;
   /** Which cut an elimination round makes. Absent = the earlier cut (every room advances the same number, the rest are lucky losers across rooms); 2 = the fair cut (fair-cut.ts: each room size loses its share, a room's winner always advances) in single elimination, Semis and double elimination winners and losers rounds. generation.ts writes 2; a stored tournament without it keeps its cut. */
   cutVersion?: 2;
+  /** How a Custom bracket is played. Absent = a column at a time: Next Round sends on the whole column in play. 1 = dependency play: a round is drawn as soon as its own feeders are sent on, several rounds can be in play at once, and Next Round sends on every finished round (`usesDependencyPlay`, `waterfallSteps`, round-columns.ts). generation.ts writes 1 for a new Custom bracket; a stored tournament without it keeps column play. */
+  dependencyPlayVersion?: 1;
   /** How a group stage ranks its groups. Absent = total points, a bye and a lone unit's walkover counted as wins; 2 = points per match played, with a bye or a match against an absent or removed unit not counted (group-standings.ts, `usesGroupAverages`). generation.ts writes 2; a stored tournament without it keeps its standings. */
   groupAverageVersion?: 2;
   /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 3; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`); 3 = version 2 plus likely absentees: the draws place a unit absent from its last round first, one per room, and the confirmation mark reads "?" until the organiser marks it back (`tracksLikelyAbsentees`, `likely-absentees.ts`). */
@@ -337,6 +349,8 @@ export interface TournamentState {
   absences: Record<string, AbsenceAnswer>;
   /** Players the organiser marked back from an absence (likely-absentees.ts): player name -> the round index of the absence it answers. A unit is back while one of its players has the entry of its latest absence; a later absence has a later round index, so an old entry is harmless. */
   backFromAbsence: Record<string, number>;
+  /** The presses of Next Round in a Custom bracket of `dependencyPlayVersion`, oldest first (round-columns.ts reads which rounds are reached and done from them). Read as `?? []`: a stored tournament without the field, and the database dropping an empty list, both mean none. */
+  waterfallSteps: WaterfallStep[];
   defenderChanges: Record<string, DefenderChange[]>;
   withdrawnUnits: WithdrawnUnit[];
   /** The Final's placeholder roster, generated once a Final game is first flagged anonymous (see TournamentRound.anonymousGames) and held stable across the rest of that Final. */
