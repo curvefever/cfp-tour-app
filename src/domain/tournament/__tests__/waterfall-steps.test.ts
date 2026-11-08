@@ -7,7 +7,7 @@ import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
-import { inFeederOrder, isRoundScored, roundsReadyToDraw } from '../waterfall-steps';
+import { isRoundScored, roundsReadyToDraw } from '../waterfall-steps';
 import { buildQualWaterfall, playToQualificationExit, withDependencyPlay } from './qual-waterfall';
 import { scoreByHash } from './spread-play';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
@@ -228,27 +228,12 @@ describe.each(CASES)('the draw does not depend on the order of the presses: $lab
 
 describe('a pool fed by two rounds that send the same places', () => {
   // T3 takes the first four of X2 and of Y2. Scored by seat, their units tie on place and relative score, so only the
-  // order of the pool tells them apart: it must be the order column play fills it in, whichever round is sent first.
+  // order of the pool tells them apart: the draw must still match column play, whichever round is sent first.
   const entry = atEntry(31, THREE_CHAIN_GRAPH, { qualAdv: '24' });
   const reference = drawsOf(playColumns(entry, (state) => state, scoreBySeat));
 
   it.each(Object.entries(STRATEGIES))('%s draws T3 and the Final as column play does', (_name, strategy) => {
     expect(drawsOf(playDependency(entry, strategy, (state) => state, scoreBySeat))).toEqual(reference);
-  });
-});
-
-describe('a pool read in feeder order', () => {
-  const seed = (name: string, sourceRound?: number) => ({ name, tierRank: 0, pct: 1, sourceRound });
-
-  it('lists the units by the round that sent them, the order inside a round kept, a unit with no source first', () => {
-    const pool = [seed('c', 7), seed('a', 5), seed('d', 7), seed('qual'), seed('b', 5)];
-    expect(inFeederOrder(pool).map((entry) => entry.name)).toEqual(['qual', 'a', 'b', 'c', 'd']);
-  });
-
-  it('leaves the pool it is given as it was', () => {
-    const pool = [seed('b', 6), seed('a', 5)];
-    inFeederOrder(pool);
-    expect(pool.map((entry) => entry.name)).toEqual(['b', 'a']);
   });
 });
 
@@ -294,6 +279,15 @@ describe('what a press does', () => {
     expect(advanceTournamentRound(played).status).toBe('noop');
     expect(roundsInPlay(played)).toEqual([final]);
     expect(played.curRound).toBe(final);
+  });
+
+  it('is a noop with the Final fully scored too, and adds no step', () => {
+    const played = playDependency(atEntry(37, UPPER_LOWER_GRAPH), STRATEGIES['all at once']);
+    const scored = scoreRound(played, final);
+    expect(isRoundScored(scored, final)).toBe(true);
+    const result = advanceTournamentRound(scored);
+    expect(result.status).toBe('noop');
+    expect(result.state.waterfallSteps).toEqual(played.waterfallSteps);
   });
 
   it('lists the rounds a press would draw, from the rounds that would be done', () => {
@@ -425,6 +419,53 @@ describe('a press while a step is reopened', () => {
     expect(next.waterfallSteps.at(-1)?.sent).toEqual(indexes(entry, 'SemiA', 'R5L', 'R5R'));
     expect(next.waterfallSteps.at(-1)?.sent).not.toContain(at('R4U'));
     expect(roundsInPlay(next)).toEqual(indexes(entry, 'R6L', 'R6R'));
+  });
+});
+
+describe('an unanswered 0 in dependency play', () => {
+  const entry = withDependencyPlay(atEntry(37, UPPER_LOWER_GRAPH));
+  const at = (label: string) => indexOf(entry, label);
+  const afterRound4 = pressed(scoreRound(scoreRound(entry, at('R4U')), at('R4L')));
+
+  /** The score key of the unit at `position` of room 1 of a round. */
+  const keyOf = (state: TournamentState, roundIndex: number, position: number) =>
+    scoreKeysForPosition({
+      roundIndex,
+      room: 1,
+      position,
+      numGames: state.rounds[roundIndex].numGames ?? 1,
+    })[0];
+
+  /** SemiA and R5R scored, R5L scored with a 0 for its first unit that nobody has answered. */
+  const withZero = () => {
+    const state = ['SemiA', 'R5R', 'R5L'].reduce(
+      (current, label) => scoreRound(current, at(label)),
+      afterRound4,
+    );
+    const key = keyOf(state, at('R5L'), 0);
+    return { state: { ...state, scores: { ...state.scores, [key]: 0 } }, key };
+  };
+
+  it('keeps its round in play while the finished rounds are sent, and draws nothing that round feeds', () => {
+    const { state } = withZero();
+    const next = pressed(state);
+    expect(next.waterfallSteps.at(-1)).toEqual({ sent: indexes(next, 'SemiA', 'R5R'), drew: [] });
+    expect(roundsInPlay(next)).toEqual([at('R5L')]);
+    expect(next.assignments[at('R6L')] ?? []).toEqual([]);
+    expect(next.assignments[at('R6R')] ?? []).toEqual([]);
+  });
+
+  it('blocks a press that has only that round left, and sends it once answered', () => {
+    const waiting = pressed(withZero().state);
+    const blocked = advanceTournamentRound(waiting);
+    expect(blocked.status).toBe('blocked');
+    if (blocked.status === 'blocked') expect(blocked.reason).toBe('pending-absences');
+    const answered = answerAbsence(waiting, [withZero().key], 'absent');
+    const next = pressed(answered);
+    expect(next.waterfallSteps.at(-1)).toEqual({
+      sent: [at('R5L')],
+      drew: indexes(next, 'R6L', 'R6R'),
+    });
   });
 });
 

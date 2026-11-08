@@ -1,5 +1,5 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
-import { hasPendingTies, isUncontestedRoom, refreshRoundStandings } from './advancement';
+import { hasPendingTies, isUncontestedRoom } from './advancement';
 import { routeWaterfallRound } from './bracket-replay';
 import { isRoundDone, roundColumn, roundsInPlay, undrawnRounds } from './round-columns';
 import { isRoomScored, occupiedRooms } from './scoring';
@@ -12,7 +12,7 @@ import {
   seedRoundFromPendingPool,
   type RoundAdvanceResult,
 } from './transitions';
-import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
+import type { TournamentRound, TournamentState } from './types';
 
 /**
  * Dependency play of a Custom bracket (`dependencyPlayVersion`): Next Round sends on every round that is finished
@@ -91,22 +91,6 @@ function doneAfterPress(state: TournamentState, sent: readonly number[]): Set<nu
   return done;
 }
 
-/** What a round sends on, each unit stamped with the round it came from (see `PendingBracketSeed.sourceRound`). */
-function routedFrom(state: TournamentState, roundIndex: number): Map<number, PendingBracketSeed[]> {
-  const routed = routeWaterfallRound(state, roundIndex, state.rounds[roundIndex]);
-  return new Map(
-    [...routed].map(([destination, seeds]) => [
-      destination,
-      seeds.map((seed) => ({ ...seed, sourceRound: roundIndex })),
-    ]),
-  );
-}
-
-/** A pool in the order column play fills it: by the round the units came from, the order within a round kept. */
-export function inFeederOrder(pool: PendingBracketSeed[]): PendingBracketSeed[] {
-  return [...pool].sort((first, second) => (first.sourceRound ?? -1) - (second.sourceRound ?? -1));
-}
-
 /**
  * Which rounds a press would send on, without the question: the finished ones in play, or, when none is finished,
  * every live round in play, which the Next Round button confirms first. Empty when only the Final is in play.
@@ -125,27 +109,27 @@ function roundsToSend(state: TournamentState): { sent: number[]; confirmed: bool
  * that can't be drawn returns the input state unchanged.
  */
 export function advanceDependencyPlay(input: TournamentState): RoundAdvanceResult {
-  let prepared = input;
-  for (const index of roundsInPlay(input)) prepared = refreshRoundStandings(prepared, index);
-  const { sent, confirmed } = roundsToSend(prepared);
-  const reopened = reopenedRounds(prepared);
+  const { sent, confirmed } = roundsToSend(input);
+  const reopened = reopenedRounds(input);
   if (sent.length === 0 && reopened.length === 0) {
     return { status: 'noop', reason: 'last-round', state: input };
   }
-  if (confirmed && sent.some((index) => hasPendingTies(prepared, index))) {
-    return { status: 'blocked', reason: 'pending-ties', message: PENDING_TIES_MESSAGE, state: prepared };
+  if (confirmed && sent.some((index) => hasPendingTies(input, index))) {
+    return { status: 'blocked', reason: 'pending-ties', message: PENDING_TIES_MESSAGE, state: input };
   }
-  if (confirmed && sent.some((index) => hasBlockingAbsenceQuestionsInRound(prepared, index))) {
+  if (confirmed && sent.some((index) => hasBlockingAbsenceQuestionsInRound(input, index))) {
     return {
       status: 'blocked',
       reason: 'pending-absences',
       message: PENDING_ABSENCES_MESSAGE,
-      state: prepared,
+      state: input,
     };
   }
 
-  const state = cloneForTransition(prepared);
-  for (const [destination, additions] of mergeAdditions(sent.map((index) => routedFrom(state, index)))) {
+  const state = cloneForTransition(input);
+  for (const [destination, additions] of mergeAdditions(
+    sent.map((index) => routeWaterfallRound(state, index, state.rounds[index])),
+  )) {
     state.pendingBracketSeeds[destination] = [
       ...(state.pendingBracketSeeds[destination] ?? []),
       ...additions,
@@ -158,7 +142,6 @@ export function advanceDependencyPlay(input: TournamentState): RoundAdvanceResul
     if (shapeFailure) return { status: 'blocked', ...shapeFailure, state: input };
   }
   for (const index of ready) {
-    state.pendingBracketSeeds[index] = inFeederOrder(state.pendingBracketSeeds[index] ?? []);
     const fitFailure = seedRoundFromPendingPool(state, index);
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   }

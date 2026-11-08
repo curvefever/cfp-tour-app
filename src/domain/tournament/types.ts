@@ -165,8 +165,6 @@ export interface PendingBracketSeed {
   isLucky?: boolean;
   tierRank: number;
   pct: number;
-  /** The round that sent the unit on, stamped in a Custom bracket of `dependencyPlayVersion`: pools fill in the order rounds are sent on, and the draw sorts a pool by this to read it in feeder round order, as column play fills it. */
-  sourceRound?: number;
 }
 
 /** One press of Next Round in a Custom bracket of `dependencyPlayVersion`. */

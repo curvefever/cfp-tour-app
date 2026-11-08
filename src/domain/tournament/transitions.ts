@@ -83,11 +83,6 @@ export type RoundAdvanceResult =
 export function cloneForTransition(state: TournamentState): TournamentState {
   return {
     ...state,
-    waterfallSteps: (state.waterfallSteps ?? []).map((step) => ({
-      ...step,
-      sent: [...step.sent],
-      drew: [...(step.drew ?? [])],
-    })),
     rounds: state.rounds.map((round) => ({
       ...round,
       matches: round.matches?.map((match) => ({
