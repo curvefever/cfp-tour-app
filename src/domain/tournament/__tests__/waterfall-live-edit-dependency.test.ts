@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roundsInPlay, undrawnRounds } from '../round-columns';
+import { roundsInPlay, undrawnRounds, usesDependencyPlay } from '../round-columns';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
@@ -201,5 +201,31 @@ describe('a column that has started', () => {
     if (!result.ok) return;
     expect(result.state.assignments[at('R5R')]).toEqual(sentOnlyR4L.assignments[at('R5R')]);
     expect(result.state.rounds[at('R5R')].customLabel).toBe('R5R');
+  });
+});
+
+describe('a save made back in the pooling rounds', () => {
+  it('leaves no presses of the bracket that was drawn, and Next Round enters the new bracket and plays on to the Final', () => {
+    // A confirmed press with nothing scored sends R4U and R4L and draws SemiA, R5R and R5L; SemiA is scored, so Previous
+    // reopens it, and Previous again goes back to the pooling rounds, which still hold the press.
+    const scored = scoreRound(pressed(entry), at('SemiA'));
+    const pooling = goBack(goBack(scored));
+    expect(usesDependencyPlay(pooling)).toBe(false);
+    expect(pooling.waterfallSteps).toHaveLength(1);
+    const saved = applyWaterfallGraphEdit(pooling, graphOf(pooling).replaceAll('SemiB', 'Semi2'));
+    expect(saved.ok).toBe(true);
+    if (!saved.ok) return;
+    expect(saved.state.waterfallSteps).toEqual([]);
+    let state = pressed(saved.state);
+    expect(usesDependencyPlay(state)).toBe(true);
+    expect(roundsInPlay(state)).toEqual(indexes(state, 'R4U', 'R4L'));
+    for (let guard = 0; guard < 60 && !onlyFinalInPlay(state); guard += 1) {
+      for (const index of roundsInPlay(state)) {
+        if (!state.rounds[index].isFinal) state = scoreRound(state, index);
+      }
+      state = pressed(state);
+    }
+    expect(onlyFinalInPlay(state)).toBe(true);
+    expect(state.assignments[indexOf(state, 'Final')].length).toBeGreaterThan(0);
   });
 });
