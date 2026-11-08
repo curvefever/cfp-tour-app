@@ -6,6 +6,43 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Waterfall dependency play: a Custom bracket round starts as soon as its own feeders are sent on (done — 2026-11-08, on local `test`; live check still to do)
+
+**Context.** For the FFA tournament of about 2026-11-19, with the organiser's instruction that there will always be a tournament soon, so everything must work as intended before it. In a Custom bracket a column was one step: every round of a column had to finish before the next column started (live tournament `1793555835749`: Semi-Final A, a Best of 3, held up Round 6, fed only by Round 5 - Lower). Stage 0 (the follow box and the scrollbar) is the entry below; stages 1 to 7 are this one.
+
+**What the organiser decided.** In time for the FFA. One Next Round button, in the same place, that sends on every finished round in play and draws whatever is then ready; unfinished rounds stay in play. Previous undoes the last press, one press at a time; the rounds it drew are removed unless one has a score, in which case the draw stays and a correction no longer changes it.
+
+**Planner decisions (lower stakes, open to correction).**
+- No Setup switch: every new tournament writes `dependencyPlayVersion` 1 (it only has an effect in a Custom bracket); a tournament stored without it plays by columns from start to finish.
+- A manual `COLUMN n` holds a round back until its feeders and every round of the earlier columns are sent on, so numbering every round is exactly column play: the organiser's fallback, per graph, with no new setting.
+- The Final waits for every other round to be sent on, so `finalComplete`, Finish and Rankings read as before.
+- `curRound` stays, as the lowest round in play. The roadmap said it is replaced everywhere; the code does not need that, because its raw readers are pooling-only or refuse a waterfall (`lineup-edit`, `live-advancement-edit`, `group-swap`, `fixed-draws`, `standings-display`, `rebuildFutureRounds`).
+- Columns stay: the Bracket's layout, the validation of the graph and the hold above.
+- Other formats, pooling rounds and running tournaments do not change.
+
+**Model** (`docs/rules.md`, "Dependency play"). `gamemodeConfig.dependencyPlayVersion` and `state.waterfallSteps: { sent, drew, reopened? }[]`, one per press. `usesDependencyPlay(state)`; reached, done and in play derived from the steps. Reached rounds are not a prefix of `state.rounds`, which was the trap of the build and the reason every reader was swept.
+
+**Built, by stage** (each reviewed apart; the commits are on `test`).
+1. Model and helpers: `round-columns.ts` (`usesDependencyPlay`, `roundsInPlay`, `undrawnRounds`, `reopenedRounds`, and `isCurrentRound`, `isRoundReached`, `isRoundDone` reading them), the field and its reset points (back to draft, clear roster, generation).
+2. The press, `waterfall-steps.ts`: finished rounds in play, rounds ready to draw, `advanceDependencyPlay`; `advanceTournamentRound` dispatches to it. `roundInPlayOf` reads the rounds in play, which removals need.
+3. Previous: `goBack`, `canGoBack`; `discardRoundDraws` extracted from `discardDrawsAfter`; `replayBracketPools` takes a set of rounds. A review found a real defect: after a correction made while a step was reopened, the replay of the done rounds could put a unit in two rounds, so a press is undone only when `replayExplainsUndo` says the replay explains the pools, and is reopened otherwise.
+4. The readers: ties, absences (`zeroScoresInPlay` and the others), `unscoredRooms`, member swaps, the follow status, folding, projected slots, the expected draw and Rankings (`rankingPhases`). A review found a second defect: a reopened round's units, which it sends nowhere, read as still active; a reopened round is now read by where its units were sent.
+5. The live graph edit: refused while the drawn rounds are not a prefix or a press is reopened; the replay of the done rounds; a drawn round cannot gain a feeder that is not done; a column with any drawn round counts whole; a save back in the pooling rounds clears the presses.
+6. The Bracket: `nextRoundPlan` is the one decision, the press follows it, and the panel (button, line under it, confirmation, reopened note), the title bars, the strip and the progress summary read it.
+7. Generation writes the version. The tests of column play start from a state without it (`withoutDependencyPlay`): the helper in `qual-waterfall.ts` (applied by `buildQualWaterfall`, `liveTournament` and `withoutColumns`), `redraw.test.ts` and the screens fixtures (the one column fixture). Nothing was deleted; 3 files needed it, and every failure before it was a test that assumed column play from a generated state.
+
+**One finding that departs from the plan.** The plan expected the draw to depend on the order pools fill in and stamped each seed with its source round to sort by. It does not: `tieredBracketSeed` sorts by place, relative score and name, so the draw is identical with the pool reversed. The stamp and its sort were dropped (a tie-by-seat walk and the invariant over every press order stay, and would catch a future seeder that reads pool order).
+
+**An import cycle is accepted.** `transitions.ts` calls `advanceDependencyPlay` and `waterfall-steps.ts` imports `seedRoundFromPendingPool` and the fit helpers from `transitions.ts`. Only functions are used at call time and no lint rule forbids it.
+
+**Testing** (fixtures and generated states only; no real tournament). The invariant: for every press order (all at once, one round at a time forward and backward, two changing mixes) every round gets the draw column play gives it, on the upper and lower graph at 37, 43 and 53, the 32-player spreadsheet layout at 32 and 37 and a three-chain graph written for 31 (rooms, line-ups, byes and room history). Press then Previous returns the state as it was (pools up to order) at every press of those walks. The walked example (a Best of 3 SemiA, a tie in R6L, a decided 2-0, the Final waiting). Rankings walked press by press with every unit listed once and none waiting or in play out, ending in column play's order. The expected draw equals what each press draws. Absentees, withdrawals from a pool and from a round in play land where column play puts them. A stored tournament without the version plays by columns, and a newly generated one by dependency play; `pnpm run test:e2e`: 7 passed. Screenshots of the panel in each state, the title bars and the strip at 1280 and 390 px.
+
+**Limitations** (in `docs/open-items.md`): the graph save refused while the drawn rounds are not a prefix or a press is reopened; the editor's column hints can suggest a column the save refuses; the strict odd-count team removal reads `curRound`; a unit's rank can improve after it is shown.
+
+**Out of scope.** Dependency play in double elimination, Kings Valley or any built-in format; starting a round before its feeders are finished, or by room; a per-round reopen control or per-round Next buttons; Rankings by bracket depth ("Waterfall depth in Rankings" stays pending); uneven win targets, the fair cut in waterfall rounds, the band boundary tie in a live edit, line-up corrections in waterfall rounds and the built-in upper and lower format stay queued as they were.
+
+---
+
 ## Stage 0 of the waterfall dependency play: the follow box "Out" and the scrollbar over the panel (done — 2026-11-08, on production, `main` `d881b50`)
 
 **Context.** Stage 0 of the waterfall dependency play build: two small fixes that stand alone and can reach production before the rest. Nothing of dependency play is built here.
