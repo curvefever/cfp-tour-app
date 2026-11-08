@@ -157,7 +157,7 @@ SemiB.B: 1-3->Final, 4-6->eliminated
   });
 
   it('a destination never joins the Final, whatever its routes', () => {
-    // The Final and Semi are alike in rooms, exits (none) and intake (average places 4 and 5); the Final stands alone.
+    // The Final is given the same routes as Semi, so rooms, exits (none) and intake (average places 4 and 5) are alike.
     const graph = `
 ROUNDS:
 R1 = 2x8
@@ -169,7 +169,14 @@ R1.A: 1,3,5,7->Final, 2,4,6,8->Semi
 R1.B: 1,3,5,7->Final, 2,4,6,8->Semi
 Semi: 1-8->eliminated
 `;
-    const state = buildPlain(16, graph);
+    const built = buildPlain(16, graph);
+    const semi = built.rounds[indexOfLabel(built, 'Semi')];
+    const state = {
+      ...built,
+      rounds: built.rounds.map((round) =>
+        round.customLabel === 'Final' ? { ...round, waterfallRoutes: semi.waterfallRoutes } : round,
+      ),
+    };
     expect(groupsOf(state, 'R1')).toEqual({ Final: 0, Semi: 1 });
   });
 
@@ -238,5 +245,46 @@ X: 1-4->Final, 5-8->eliminated
 Y: 1-4->Final, 5-6->eliminated
 `;
     expect(groupsOf(buildPlain(14, graph), 'R1')).toEqual({ X: 0, Y: 1 });
+  });
+
+  it('exits that differ keep alike rooms and alike intake apart', () => {
+    // A snake split gives X and Y the average place 4.5 and 8 seats each; only the order of their exits differs.
+    const graph = `
+ROUNDS:
+R1 = 2x8
+X = 8
+Y = 8
+Semi = 8 RANKING
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1,4,5,8->X, 2,3,6,7->Y
+R1.B: 1,4,5,8->X, 2,3,6,7->Y
+X: 1-4->Final, 5-8->Semi
+Y: 1-4->Semi, 5-8->Final
+Semi: 1-8->eliminated
+`;
+    expect(groupsOf(buildPlain(16, graph), 'R1')).toEqual({ X: 0, Y: 1 });
+  });
+
+  it('a destination with an extra source stays apart from one read first with fewer', () => {
+    // X takes only from R1; Y takes from R1 (average place 4.5, like X) and from Extra.
+    const graph = `
+ROUNDS:
+R1 = 2x8
+Extra = 8
+X = 8
+Y = 8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-16->R1, 17-24->Extra
+R1.A: 1,4,5,8->X, 2,3,6,7->Y
+R1.B: 1,4,5,8->X, 2,3,6,7->eliminated
+Extra: 1-4->Y, 5-8->eliminated
+X: 1-4->Final, 5-8->eliminated
+Y: 1-4->Final, 5-8->eliminated
+`;
+    expect(groupsOf(buildQualWaterfall(24, graph), 'R1')).toEqual({ X: 0, Y: 1 });
   });
 });

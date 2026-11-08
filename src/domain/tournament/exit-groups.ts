@@ -11,7 +11,7 @@ import { declaredWaterfallRooms } from './waterfall-bracket';
 type Route = number | 'eliminated';
 
 /** Two destinations whose average place taken from the same source differs by at most this many places are alike. */
-export const SIMILAR_PLACE_GAP = 1;
+const SIMILAR_PLACE_GAP = 1;
 
 /** Rooms of two destinations differ in size by at most this many seats. */
 const SIMILAR_ROOM_SIZE_GAP = 1;
