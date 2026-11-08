@@ -188,13 +188,18 @@ export interface BracketReplay {
 }
 
 /**
- * Replays every advance before round `beforeIndex`, in order: the Qual exit (the qualification round's
- * stored `standingsExitOrder` through its `standingsRoutes`) when that round is before it, then each double
- * elimination or waterfall round. Each pool keeps the order a real advance builds it in. Every name goes
- * through `currentUnit`, so a withdrawn unit is dropped (nobody moves up into its seat) and a swapped-out
- * one is its replacement. A table with no stored exit order is recomputed from the standings.
+ * Replays every advance of `rounds`, in round order: the Qual exit (the qualification round's stored
+ * `standingsExitOrder` through its `standingsRoutes`) when that round is replayed, then each double elimination
+ * or waterfall round. `rounds` is a round index (the rounds before it, column play) or the set of rounds to replay
+ * (dependency play, where the rounds done are not a prefix). Each pool keeps the order a real advance builds it in
+ * in column play. Every name goes through `currentUnit`, so a withdrawn unit is dropped (nobody moves up into its
+ * seat) and a swapped-out one is its replacement. A table with no stored exit order is recomputed from the standings.
  */
-export function replayBracketPools(state: TournamentState, beforeIndex: number): BracketReplay {
+export function replayBracketPools(
+  state: TournamentState,
+  rounds: number | ReadonlySet<number>,
+): BracketReplay {
+  const replays = (index: number) => (typeof rounds === 'number' ? index < rounds : rounds.has(index));
   const roster = new Set(rosterKeys(state.players));
   const pools = new Map<number, PendingBracketSeed[]>();
   const lucky = new Map<number, string[]>();
@@ -215,7 +220,7 @@ export function replayBracketPools(state: TournamentState, beforeIndex: number):
   };
 
   const qualIndex = state.rounds.findIndex((round) => round.standingsRoutes);
-  if (qualIndex !== -1 && qualIndex < beforeIndex) {
+  if (qualIndex !== -1 && replays(qualIndex)) {
     const qualRound = state.rounds[qualIndex];
     const exitOrder =
       qualRound.standingsExitOrder ??
@@ -224,7 +229,8 @@ export function replayBracketPools(state: TournamentState, beforeIndex: number):
         : orderedQualificationTable(state).ordered);
     addToPools(routeStandings(exitOrder, qualRound));
   }
-  for (let index = 0; index < beforeIndex; index += 1) {
+  for (let index = 0; index < state.rounds.length; index += 1) {
+    if (!replays(index)) continue;
     const round = state.rounds[index];
     if (round.bracket) {
       const { additions, lucky: luckyNames } = doubleEliminationContributions(state, index);

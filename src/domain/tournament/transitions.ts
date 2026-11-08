@@ -52,7 +52,7 @@ import {
   roundColumn,
   usesDependencyPlay,
 } from './round-columns';
-import { advanceDependencyPlay } from './waterfall-steps';
+import { advanceDependencyPlay, withPressesResumed } from './waterfall-steps';
 
 export const PENDING_TIES_MESSAGE = 'Resolve all tie-breaks before advancing.';
 
@@ -677,7 +677,7 @@ export function advanceTournamentRound(input: TournamentState): RoundAdvanceResu
   }
   const drawnAhead = drawnAheadStatus(prepared, roundIndex);
   if (drawnAhead === 'locked') {
-    const state = { ...prepared, curRound: nextColumnStart(prepared) };
+    const state = withPressesResumed({ ...prepared, curRound: nextColumnStart(prepared) });
     return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
   }
   const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;

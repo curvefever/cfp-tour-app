@@ -32,7 +32,8 @@ import { LIKELY_ABSENT_LINE_ID, LikelyAbsentLine } from './LikelyAbsentLine';
 import { likelyAbsentChips } from './likely-absent-line';
 import { TieBanners } from './TieBanners';
 import { destinationLabel } from './exit-text';
-import { nextColumnStart, previousColumnStart } from '../../domain/tournament/round-columns';
+import { nextColumnStart } from '../../domain/tournament/round-columns';
+import { canGoBack, goBack } from '../../domain/tournament/waterfall-steps';
 import { unscoredRooms } from '../../domain/tournament/scoring';
 import { unscoredRoomsMessage } from './next-round-warning';
 import { hasRoundNotes } from './title-bar-marks';
@@ -82,7 +83,7 @@ export function BracketView() {
   const currentRound = app.state.rounds[app.state.curRound];
   const isLastRound =
     nextColumnStart(app.state) >= app.state.rounds.length || currentRound?.bracket === 'grand-final';
-  const previousStart = previousColumnStart(app.state);
+  const previousAvailable = canGoBack(app.state);
   const drawnAhead = isLastRound ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
@@ -211,18 +212,7 @@ export function BracketView() {
               Next Round →
             </Button>
           ) : null}
-          {previousStart !== null ? (
-            <Button
-              onClick={() =>
-                app.updateState((current) => ({
-                  ...current,
-                  curRound: previousColumnStart(current) ?? current.curRound,
-                }))
-              }
-            >
-              ← Previous
-            </Button>
-          ) : null}
+          {previousAvailable ? <Button onClick={() => app.updateState(goBack)}>← Previous</Button> : null}
           {likelyAbsent.length ? (
             <Button
               className='ml-auto text-cfp-danger-text'

@@ -1,8 +1,16 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
 import { hasPendingTies, isUncontestedRoom } from './advancement';
-import { routeWaterfallRound } from './bracket-replay';
-import { isRoundDone, roundColumn, roundsInPlay, undrawnRounds } from './round-columns';
-import { isRoomScored, occupiedRooms } from './scoring';
+import { replayBracketPools, routeWaterfallRound } from './bracket-replay';
+import { discardRoundDraws, lastDrawnIndex } from './redraw';
+import {
+  isRoundDone,
+  previousColumnStart,
+  roundColumn,
+  roundsInPlay,
+  undrawnRounds,
+  usesDependencyPlay,
+} from './round-columns';
+import { isRoomScored, occupiedRooms, roundHasAnyScore } from './scoring';
 import {
   cloneForTransition,
   fitWaterfallRoundAt,
@@ -146,9 +154,104 @@ export function advanceDependencyPlay(input: TournamentState): RoundAdvanceResul
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
   }
 
+  state.assignments = Array.from(
+    { length: state.assignments.length },
+    (_, index) => state.assignments[index] ?? [],
+  );
   state.waterfallSteps = state.waterfallSteps.map(({ reopened: _reopened, ...step }) => step);
   if (sent.length > 0 || ready.length > 0) state.waterfallSteps.push({ sent, drew: ready });
   state.curRound = roundsInPlay(state)[0] ?? state.curRound;
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   return { status: 'advanced', state };
+}
+
+/** The index of the last step Previous can act on: the last one that is not reopened, or -1. */
+function lastOpenStep(state: TournamentState): number {
+  const steps = state.waterfallSteps ?? [];
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (!steps[index].reopened) return index;
+  }
+  return -1;
+}
+
+/** The first round of the bracket (the rounds before it are the pooling rounds), or -1 in a state with none. */
+function firstBracketRound(state: TournamentState): number {
+  return state.rounds.findIndex((round) => round.isWaterfall);
+}
+
+/**
+ * Whether Previous does anything: in dependency play, while a press can be undone or reopened, or the pooling rounds
+ * before the bracket can be returned to; otherwise (column play, pooling) while there is a column before.
+ */
+export function canGoBack(state: TournamentState): boolean {
+  if (!usesDependencyPlay(state)) return previousColumnStart(state) !== null;
+  return lastOpenStep(state) !== -1 || firstBracketRound(state) > 0;
+}
+
+/** `state` with `curRound` on the lowest round in play and the reserve window read from there, as a press leaves them. */
+function withRoundInPlay(state: TournamentState): TournamentState {
+  const next = { ...state, curRound: roundsInPlay(state)[0] ?? state.curRound };
+  return { ...next, reserveOpen: reserveWindowAtCurrentRound(next) };
+}
+
+/**
+ * Undoes the last press: its drawn rounds lose their draw, and the pools are rebuilt by replaying the rounds still
+ * done, so the state is what it was before the press (a pool may list its units in another order, which no draw
+ * reads). The rounds it sent on are in play again.
+ */
+function undoLastStep(state: TournamentState): TournamentState {
+  const steps = state.waterfallSteps ?? [];
+  const dropped = steps[steps.length - 1];
+  const undrawn = discardRoundDraws({ ...state, waterfallSteps: steps.slice(0, -1) }, dropped.drew ?? []);
+  const done = new Set(undrawn.rounds.flatMap((_, index) => (isRoundDone(undrawn, index) ? [index] : [])));
+  const { pools } = replayBracketPools(undrawn, done);
+  const waiting = undrawnRounds(undrawn).flatMap((index) => {
+    const pool = pools.get(index);
+    return pool ? [[index, pool] as const] : [];
+  });
+  const assignments = undrawn.assignments.slice(0, lastDrawnIndex(undrawn) + 1);
+  return withRoundInPlay({ ...undrawn, assignments, pendingBracketSeeds: Object.fromEntries(waiting) });
+}
+
+/** Marks step `index` reopened: its sent rounds are in play and editable again, its drawn rounds stay as they are. */
+function reopenStep(state: TournamentState, index: number): TournamentState {
+  const steps = (state.waterfallSteps ?? []).map((step, position) =>
+    position === index ? { ...step, reopened: true } : step,
+  );
+  return withRoundInPlay({ ...state, waterfallSteps: steps });
+}
+
+/**
+ * Previous. Pure.
+ * In dependency play it takes the last step that is not reopened: when it is the last step and no round it drew has
+ * a score, the press is undone (`undoLastStep`); otherwise the step is reopened (`reopenStep`), because a draw with
+ * a score can't be thrown away. With every step reopened, or none, it returns to the last pooling round, where
+ * the tournament is no longer in dependency play and Next Round reads the bracket as drawn ahead.
+ * Elsewhere it goes to the column before.
+ */
+export function goBack(state: TournamentState): TournamentState {
+  if (!usesDependencyPlay(state)) {
+    return { ...state, curRound: previousColumnStart(state) ?? state.curRound };
+  }
+  const index = lastOpenStep(state);
+  if (index === -1) {
+    const first = firstBracketRound(state);
+    return first > 0 ? { ...state, curRound: first - 1 } : state;
+  }
+  const step = state.waterfallSteps[index];
+  const drewScore = (step.drew ?? []).some((round) => roundHasAnyScore(state, round, state.rounds[round]));
+  const isLast = index === state.waterfallSteps.length - 1;
+  return isLast && !drewScore ? undoLastStep(state) : reopenStep(state, index);
+}
+
+/**
+ * Stepping forward from the pooling rounds into a bracket that kept its presses (its draws had a score, so Next Round
+ * did not throw them away): the presses stand as they were, with no step reopened, and the lowest round in play is
+ * current. A tournament without presses, or not in dependency play, is returned as it is.
+ */
+export function withPressesResumed(state: TournamentState): TournamentState {
+  const steps = state.waterfallSteps ?? [];
+  if (steps.length === 0) return state;
+  const resumed = { ...state, waterfallSteps: steps.map(({ reopened: _reopened, ...step }) => step) };
+  return usesDependencyPlay(resumed) ? withRoundInPlay(resumed) : state;
 }

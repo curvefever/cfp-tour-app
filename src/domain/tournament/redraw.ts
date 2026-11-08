@@ -38,7 +38,8 @@ export function drawnAheadStatus(state: TournamentState, roundIndex: number): Dr
   return 'redraw';
 }
 
-function lastDrawnIndex(state: TournamentState): number {
+/** The last round with a line-up, or -1. */
+export function lastDrawnIndex(state: TournamentState): number {
   for (let index = state.assignments.length - 1; index >= 0; index -= 1) {
     if (state.assignments[index]?.length) return index;
   }
@@ -106,6 +107,59 @@ function replayExplainsPools(state: TournamentState, roundIndex: number): boolea
   return true;
 }
 
+/** What the draws of rounds leave besides their line-ups, which discarding a draw undoes. */
+interface DrawBookkeeping {
+  roomHistory: Record<string, number>;
+  poolingByeCounts: Record<string, number>;
+  byes: string[][];
+  tieResolutions: Record<string, string | string[]>;
+  absences: TournamentState['absences'];
+}
+
+function copyBookkeeping(state: TournamentState): DrawBookkeeping {
+  return {
+    roomHistory: state.roomHistory,
+    poolingByeCounts: { ...state.poolingByeCounts },
+    byes: state.byes.map((round) => [...round]),
+    tieResolutions: { ...state.tieResolutions },
+    absences: state.absences,
+  };
+}
+
+/**
+ * Undoes what the draw of round `index` left in `book` (mutated): its roomHistory entries, pooling-bye counts, byes,
+ * tie resolutions and absence answers. `state.assignments` still holds the draw, which the rewind of the history reads.
+ */
+function discardRoundDraw(book: DrawBookkeeping, state: TournamentState, index: number): void {
+  const round = state.rounds[index];
+  // A fixed draw is folded into the history at generation and never re-recorded.
+  if (!round.fixedRoomAssignments) {
+    book.roomHistory = rewindRoomHistory(book.roomHistory, state.assignments, index);
+  }
+  if (advanceCountedPoolingBye(round)) undoPoolingByeCounts(book.poolingByeCounts, book.byes[index] ?? []);
+  if (book.byes[index]) book.byes[index] = [];
+  for (const key of Object.keys(book.tieResolutions)) {
+    if (key.startsWith(`r${index}-`)) delete book.tieResolutions[key];
+  }
+  book.absences = withoutRoundAbsences(book.absences, index);
+}
+
+/**
+ * Pure. Throws away the draws of exactly the rounds listed (highest first, so each rewind still sees the earlier
+ * rounds it replays): line-ups and everything `discardRoundDraw` undoes. The pools are left to the caller.
+ */
+export function discardRoundDraws(state: TournamentState, roundIndices: readonly number[]): TournamentState {
+  const book = copyBookkeeping(state);
+  for (const index of [...roundIndices].sort((first, second) => second - first)) {
+    if (state.assignments[index]?.length) discardRoundDraw(book, state, index);
+  }
+  return {
+    ...state,
+    ...book,
+    assignments: state.assignments.map((round, index) => (roundIndices.includes(index) ? [] : round)),
+  };
+}
+
 /**
  * Pure. Throws away every draw after `roundIndex` so the next advance starts
  * from the same bookkeeping as a first advance: the discarded rounds'
@@ -114,15 +168,11 @@ function replayExplainsPools(state: TournamentState, roundIndex: number): boolea
  * rebuilt by replaying the rounds before `roundIndex`'s column (the units
  * those rounds sent on are the only ones that can be waiting). Highest round
  * first, so each rewind still sees the earlier (also stale) rounds it
- * replays. Round shapes are left alone; the advance re-fits them.
+ * replays. Round shapes are left alone; the advance re-fits them. A Custom
+ * bracket's presses go with its draws.
  */
 export function discardDrawsAfter(state: TournamentState, roundIndex: number): TournamentState {
   const keep = roundColumn(state.rounds, roundIndex).end;
-  let roomHistory = state.roomHistory;
-  const poolingByeCounts = { ...state.poolingByeCounts };
-  const byes = state.byes.map((round) => [...round]);
-  const tieResolutions = { ...state.tieResolutions };
-  let absences = state.absences;
   const replay = replayBracketPools(state, roundColumn(state.rounds, roundIndex).start);
   const pendingBracketSeeds = Object.fromEntries([
     ...Object.entries(state.pendingBracketSeeds).filter(([index]) => Number(index) <= keep),
@@ -131,31 +181,13 @@ export function discardDrawsAfter(state: TournamentState, roundIndex: number): T
   const luckyLosers = state.luckyLosers.map((round, index) =>
     index > keep ? [...(replay.lucky.get(index) ?? [])] : [...round],
   );
-
-  for (let index = state.assignments.length - 1; index > keep; index -= 1) {
-    if (!state.assignments[index]?.length) continue;
-    const round = state.rounds[index];
-    // A fixed draw is folded into the history at generation and never re-recorded.
-    if (!round.fixedRoomAssignments) {
-      roomHistory = rewindRoomHistory(roomHistory, state.assignments, index);
-    }
-    if (advanceCountedPoolingBye(round)) undoPoolingByeCounts(poolingByeCounts, byes[index] ?? []);
-    if (byes[index]) byes[index] = [];
-    for (const key of Object.keys(tieResolutions)) {
-      if (key.startsWith(`r${index}-`)) delete tieResolutions[key];
-    }
-    absences = withoutRoundAbsences(absences, index);
-  }
-
+  const drawn = state.assignments.flatMap((round, index) => (index > keep && round.length ? [index] : []));
+  const discarded = discardRoundDraws(state, drawn);
   return {
-    ...state,
+    ...discarded,
     assignments: state.assignments.slice(0, keep + 1),
-    roomHistory,
-    poolingByeCounts,
-    byes,
     luckyLosers,
-    tieResolutions,
-    absences,
     pendingBracketSeeds,
+    waterfallSteps: [],
   };
 }
