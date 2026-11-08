@@ -24,7 +24,7 @@ import { standingsNames } from '../standings/standings-names';
 import { standingsExitLines } from './exit-lines';
 import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
 import { RoomFrame } from './RoomCard';
-import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
+import { RoundSettingsBand } from './RoundSettingsBand';
 
 const COLUMN_BOX = 'overflow-hidden rounded-xs bg-cfp-game-deep outline-2 outline-cfp-game-frame';
 
@@ -136,9 +136,7 @@ export function StandingsColumn({
       className={cn(
         'relative flex w-82.5 min-w-82.5 shrink-0 flex-col',
         phoneFullWidthClass,
-        foldedOnDesktop
-          ? 'hidden max-[700px]:flex'
-          : cn(phoneHiddenClass(phoneShown), banded && alignedBoxClass),
+        foldedOnDesktop ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
       )}
       data-standings-column
     >
@@ -157,7 +155,7 @@ export function StandingsColumn({
       />
       {banded ? <RoundSettingsBand empty settings={null} /> : null}
       {groupBoxes ? (
-        <div className={cn('mt-4.5 flex flex-col gap-3', banded && 'min-[701px]:self-start')}>
+        <div className='mt-4.5 flex flex-col gap-3'>
           {display.tables.map((table) => (
             <RoomFrame key={table.key} title={table.label}>
               <StandingsRows display={display} followKey={followKey} state={state} table={table} />
@@ -166,7 +164,7 @@ export function StandingsColumn({
           {fullTableLink}
         </div>
       ) : (
-        <div className={cn('mt-4.5', COLUMN_BOX, banded && 'min-[701px]:self-start')}>
+        <div className={cn('mt-4.5', COLUMN_BOX)}>
           {display.phase !== 'upcoming' ? (
             display.tables.map((table) => (
               <StandingsRows

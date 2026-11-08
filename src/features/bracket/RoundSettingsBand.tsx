@@ -7,10 +7,8 @@ import { Inlines } from '../info/RulesText';
 import { ScreenshotThumb } from '../info/ScreenshotThumb';
 import { usePopupPin } from './PopupIcon';
 
-/** Box classes that make an open Bracket box a subgrid of the rounds strip (title bar, band, body) on a desktop. */
-export const alignedBoxClass = 'min-[701px]:grid min-[701px]:grid-rows-subgrid';
-
-const bandClass = 'rounded-b px-3.5 pt-2.25 pb-2.5';
+/** A band is at least 59 px tall on a wide screen (two lines of note), so short notes keep the rooms level. */
+const bandClass = 'rounded-b px-3.5 pt-2.25 pb-2.5 min-[701px]:min-h-14.75';
 
 /** The sliders icon of the round settings: three bars with a knob each. */
 export function SlidersIcon({ size = 16, strokeWidth = 1.6 }: { size?: number; strokeWidth?: number }) {
@@ -144,7 +142,7 @@ export function RoundSettingsContent({
 /**
  * The round's settings under its title bar, with a sliders icon, or, in a tournament where other rounds have
  * settings, a quiet "No specific settings" (`empty`: the same quiet band with no text, under the standings column's
- * title bar). In a grid of boxes the bands of one row all take the height of the tallest.
+ * title bar). Each band takes its own height, at least two lines on a wide screen.
  */
 export function RoundSettingsBand({
   className,
@@ -171,6 +169,7 @@ export function RoundSettingsBand({
           'bg-cfp-game-banner/35 text-[14px] leading-5 text-cfp-text-middle-muted',
           className,
         )}
+        data-settings-band
       >
         {empty ? null : 'No specific settings'}
       </div>
@@ -184,6 +183,7 @@ export function RoundSettingsBand({
         'flex gap-2.5 bg-cfp-game-banner text-[14px] leading-5 text-cfp-text',
         className,
       )}
+      data-settings-band
       role='note'
     >
       <span className='mt-0.5 shrink-0 text-cfp-sky'>

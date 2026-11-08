@@ -34,21 +34,13 @@ import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
 import { isNotCountedRound, roundProgress, showsNowPill } from './title-bar-marks';
-import { RoundSettingsBand, alignedBoxClass } from './RoundSettingsBand';
+import { RoundSettingsBand } from './RoundSettingsBand';
 import { currentColumn, isCurrentRound, isRoundDone } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
 export function roundColumnWidthClass() {
   return cn('w-82.5 min-w-82.5 shrink-0', phoneFullWidthClass);
 }
-
-/**
- * The rounds strip of a tournament with bands, on a desktop: a grid of three rows (title bar, band, body) that every
- * box spans, the open ones as subgrids, so the bands take the height of the tallest and the rooms start level.
- * The body row is flexible so a tall folded box or the standings column never stretches the other two.
- */
-const bandedStripClass =
-  'min-[701px]:grid min-[701px]:auto-cols-max min-[701px]:grid-flow-col min-[701px]:grid-rows-[2.875rem_auto_1fr] min-[701px]:justify-start min-[701px]:gap-y-0 min-[701px]:*:row-span-3';
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
 export function RoundColumn({
@@ -95,7 +87,7 @@ export function RoundColumn({
       className={cn(
         roundColumnWidthClass(),
         'flex flex-col',
-        collapsed ? 'hidden max-[700px]:flex' : cn(phoneHiddenClass(phoneShown), banded && alignedBoxClass),
+        collapsed ? 'hidden max-[700px]:flex' : phoneHiddenClass(phoneShown),
       )}
     >
       <ColumnTitleBar
@@ -378,11 +370,7 @@ export function BracketRounds({
         selectedKey={pickedItemKey(stripItems, pick)}
       />
       <div
-        className={cn(
-          'flex max-w-full items-start gap-7 overflow-x-auto pb-3',
-          banded && bandedStripClass,
-          hiddenScrollbarClass,
-        )}
+        className={cn('flex max-w-full items-start gap-7 overflow-x-auto pb-3', hiddenScrollbarClass)}
         id='br-rounds'
         ref={strip}
       >

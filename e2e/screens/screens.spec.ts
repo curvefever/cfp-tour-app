@@ -554,6 +554,110 @@ test.describe('screenshots of the viewer tabs', () => {
       await capture(page, 'tournament-list', fileName('Unavailable', String(width)));
     });
   }
+
+  test.describe('the settings bands', () => {
+    const BAND_MINIMUM = 59;
+    const TITLE_BAR_HEIGHT = 46;
+    const BODY_GAP = 18;
+    const TOLERANCE = 0.5;
+
+    interface OpenColumn {
+      title: string;
+      titleTop: number;
+      bandHeight: number;
+      bodyTop: number;
+    }
+
+    async function openBracket(page: Page, fixtureId: string, width: number): Promise<void> {
+      const fixture = fixtureTournaments().find((entry) => entry.id === fixtureId);
+      if (!fixture) throw new Error(`the ${fixtureId} fixture is missing`);
+      await page.setViewportSize({ width, height: 900 });
+      await serve(page, servedFor(fixture));
+      await open(page, `/?t=${fixture.id}`);
+      await page
+        .getByRole('navigation', { name: 'Tournament sections' })
+        .getByRole('button', { name: /Bracket/ })
+        .click();
+    }
+
+    /** The open columns of the rounds strip (visible, with a band as a direct child): title bar, band and body. */
+    async function openColumns(page: Page): Promise<OpenColumn[]> {
+      return page.evaluate(() => {
+        const strip = document.querySelector('#br-rounds');
+        const columns = [...(strip?.children ?? [])].filter(
+          (column) =>
+            column.getBoundingClientRect().width > 0 &&
+            [...column.children].some((child) => child.hasAttribute('data-settings-band')),
+        );
+        return columns.map((column) => {
+          const children = [...column.children];
+          const bandIndex = children.findIndex((child) => child.hasAttribute('data-settings-band'));
+          const titleBar = children[bandIndex - 1];
+          const band = children[bandIndex];
+          const body = children[bandIndex + 1];
+          if (!titleBar || !band || !body) throw new Error('a column lacks its title bar, band or body');
+          return {
+            title: titleBar.textContent ?? '',
+            titleTop: titleBar.getBoundingClientRect().top,
+            bandHeight: band.getBoundingClientRect().height,
+            bodyTop: body.getBoundingClientRect().top,
+          };
+        });
+      });
+    }
+
+    for (const fixtureId of ['ffa43-quarters', 'waterfall-column-19', 'double-elim-1v1-16']) {
+      test(`each settings band takes its own height at 1280px in ${fixtureId}`, async ({ page }) => {
+        await openBracket(page, fixtureId, WIDTHS[0]);
+        const columns = await openColumns(page);
+        expect(columns.length, 'open columns with a band').toBeGreaterThan(1);
+        for (const column of columns) {
+          expect(column.titleTop, `${column.title}: title bars level`).toBeCloseTo(
+            columns[0]?.titleTop ?? 0,
+            0,
+          );
+          expect(column.bandHeight, `${column.title}: band minimum`).toBeGreaterThanOrEqual(
+            BAND_MINIMUM - TOLERANCE,
+          );
+          // No gap and no stretching: the body follows the band directly.
+          const expectedTop = column.titleTop + TITLE_BAR_HEIGHT + column.bandHeight + BODY_GAP;
+          expect(
+            Math.abs(column.bodyTop - expectedTop),
+            `${column.title}: body follows its band`,
+          ).toBeLessThan(TOLERANCE);
+        }
+      });
+    }
+
+    test('only the Final, with game lines, has a band above 59 px at 1280px', async ({ page }) => {
+      await openBracket(page, 'ffa43-quarters', WIDTHS[0]);
+      const columns = await openColumns(page);
+      const final = columns.filter((column) => /^Final/.test(column.title));
+      const others = columns.filter((column) => !/^Final/.test(column.title));
+      expect(final).toHaveLength(1);
+      expect(final[0]?.bandHeight ?? 0, 'the Final band is taller').toBeGreaterThan(BAND_MINIMUM + TOLERANCE);
+      expect(others.length, 'the other columns (standings column included)').toBeGreaterThan(1);
+      for (const column of others) {
+        expect(
+          Math.abs(column.bandHeight - BAND_MINIMUM),
+          `${column.title}: exactly the minimum`,
+        ).toBeLessThan(TOLERANCE);
+        expect(column.bodyTop, `${column.title}: rooms start level`).toBeCloseTo(others[0]?.bodyTop ?? 0, 0);
+      }
+    });
+
+    test('a settings band has no minimum at 390px', async ({ page }) => {
+      await openBracket(page, 'ffa43-quarters', WIDTHS[1]);
+      const heights = await page.evaluate(() =>
+        [...document.querySelectorAll('[data-settings-band]')]
+          .map((band) => band.getBoundingClientRect())
+          .filter((box) => box.width > 0)
+          .map((box) => box.height),
+      );
+      expect(heights, 'one band is visible on a phone').toHaveLength(1);
+      expect(heights[0] ?? 99).toBeLessThan(BAND_MINIMUM);
+    });
+  });
 });
 
 test.describe('screenshots with touch', () => {

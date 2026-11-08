@@ -6,6 +6,22 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Settings bands at their own height, with a 59 px minimum (done — 2026-11-08, on local `test`; nothing pushed)
+
+**Context.** Open item "Every round's settings band grows to the tallest one". On a wide screen the rounds strip was a grid whose open boxes were subgrids, so every band in the row took the height of the tallest. In the live tournament that showed it, Round 1 needed 39 px and got 126 px, because the Final, ten columns away and off screen, has game lines.
+
+**The organiser's decision (settled).** Each band takes its own height, with a minimum of **59 px on a wide screen** (two lines of note). 59 px holds a one-line note (39 px), a note with a picture (51 px) and a two-line note (59 px), so none of them moves its rooms; a three-line note moves its column down 20 px. The rooms of ordinary rounds stay level, and only a round with more to say moves down. Phones keep no minimum (one column at a time). The minimum applies to every band: quiet "No specific settings" bands, the standings column's empty band (so its table stays level with the rooms), further rounds of a waterfall column and losers rounds.
+
+**Rejected.** No minimum (steps of 12 and 20 px look like mistakes, and the standings table sits 20 px high); level rooms with bare page above them (an 87 px gap with no visible cause); folded game lines (hides the powers behind a click, empty boxes remain). Mockups: private artifact `EpK8uaEVBX8wd8WAQe9m3T`.
+
+**Change (CSS classes only).** `RoundSettingsBand.tsx`: `alignedBoxClass` deleted; `bandClass` gains `min-[701px]:min-h-14.75`; `data-settings-band` on both forms of the band. `BracketRounds.tsx`: `bandedStripClass` deleted, and the open column no longer becomes a subgrid; `banded` still decides the band and the title bar's `attached`. `StandingsColumn.tsx`: `alignedBoxClass` and both `self-start` classes deleted. With bands the strip is the same flex row it already is with no notes, so folded boxes, the anonymous Final card and the standings column needed nothing new. The title bar stays 46 px (its own class), so the title bars stay level. No logic, state or stored data changed.
+
+**Testing.** Screens project (`e2e/screens/screens.spec.ts`, "the settings bands"), fixtures only, no real tournament opened. At 1280 px, in `ffa43-quarters`, `waterfall-column-19` and `double-elim-1v1-16`, every open column has its title bars level, a band of at least 59 px, and its body exactly title bar + 46 + band + 18 px below (no gap, no stretching). In `ffa43-quarters` only the Final's band is taller than 59 px, every other band (standings column included) is exactly 59 px, so every other column starts its rooms at the same top. At 390 px the one visible band is under 59 px. Mutation checks: without the `min-h` class the three 1280 px checks and the "only the Final" test fail; against the old grid code the "only the Final" test and the double-elimination check fail (the `ffa43-quarters` and waterfall body checks pass on the old code too, because the subgrid stretches the band and the body still follows it). The existing "the round settings hidden" tests still pass (9 passed with the new ones). Related Vitest: 14 files, 404 tests. Awkward counts: no count-dependent logic changed, so 31, 37 and 53 need no separate run; `ffa43-quarters` is the awkward-count fixture with notes.
+
+**Full suite:** not run (no shared code).
+
+**Out of scope.** Folding or shortening long notes, and any change to band content or the pop-up; a different minimum per round or per format; any change to the Final's or any other round's settings in a real tournament; the settings editor (`RoundNotesField.tsx`).
+
 ## The Custom bracket's small fixes: generic "?" rows, and round names that follow the pooling rounds (done — 2026-11-07, on local `test`; the test site was down, so nothing was pushed)
 
 **Context.** Two queue items raised on 2026-11-05: the "?" box of a Custom bracket named every second and third destination ("Through to Round 4 - Lower or Round 5 - Lower or Round 5 - Ranking or …", live tournament `1793555835749`), and a Custom bracket after 3 qualification rounds started its numbering at "R1". Built in five stages on local `test`, one commit each (reviews after each, so some stages have review-fix commits); the test site was down and `origin/test` stale, so nothing was pushed and nothing was opened on any site.
