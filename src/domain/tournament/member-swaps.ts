@@ -2,7 +2,7 @@ import { unmarkOneScoreTeamMemberAbsent } from './absences';
 import { getGameFormat } from './formats';
 import { updateTeam } from './mutations';
 import { findUnstorableNames, rosterNames, unstorableNamesMessage } from './roster';
-import { currentColumn } from './round-columns';
+import { roundsInPlay } from './round-columns';
 import type { TeamMember, TournamentState, TournamentTeam } from './types';
 
 /**
@@ -86,9 +86,8 @@ export function memberSwapRefusal(
  * the person who was absent. Answers to scored 0s are left alone.
  */
 function withoutSlotMarks(state: TournamentState, teamId: string, memberIndex: number): TournamentState {
-  const { start, end } = currentColumn(state);
   let next = state;
-  for (let roundIndex = start; roundIndex <= end; roundIndex += 1) {
+  for (const roundIndex of roundsInPlay(state)) {
     const seated = state.assignments[roundIndex] ?? [];
     for (const entry of seated) {
       if (entry.name !== teamId || entry.room === null) continue;

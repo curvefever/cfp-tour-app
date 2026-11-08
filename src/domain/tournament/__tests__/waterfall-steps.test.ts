@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
 import { getAllTies } from '../advancement';
-import { removeRosterUnit, resolveTournamentTie } from '../mutations';
+import { removeRosterUnit } from '../mutations';
 import { isRoundDone, roundsInPlay } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
@@ -19,65 +19,20 @@ import {
   playColumns,
   playDependency,
   pressed,
+  resolveEveryTie,
   scoreBySeat,
+  scoreGames,
   scoreRound,
+  scoreTied,
   type Hook,
 } from './dependency-play-fixtures';
 import { withDependencyPlay } from './qual-waterfall';
-import { scoreByHash } from './spread-play';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
 
 /**
  * Next Round in dependency play. The invariant: a round's draw reads only the units in its own pool and their
  * history, so whatever order the rounds are scored and sent on in, every round gets the draw column play gives it.
  */
-
-/** The first game of a round's rooms scored with the same order every game, for the games listed (a Best of N). */
-function scoreGames(state: TournamentState, roundIndex: number, games: number[]): TournamentState {
-  const all = scoreByHash({ ...state, curRound: roundIndex }).state.scores;
-  const round = state.rounds[roundIndex];
-  const scores = { ...state.scores };
-  const position = new Map<number, number>();
-  for (const entry of (state.assignments[roundIndex] ?? []).filter((candidate) => candidate.room !== null)) {
-    const room = entry.room as number;
-    const slot = position.get(room) ?? 0;
-    position.set(room, slot + 1);
-    const keys = scoreKeysForPosition({ roundIndex, room, position: slot, numGames: round.numGames ?? 1 });
-    const first = all[keys[0]] ?? all[`r${roundIndex}-rm${room}-p${slot}`];
-    for (const game of games) scores[keys[game - 1]] = first;
-  }
-  return { ...state, scores };
-}
-
-/** Scores a round with the fourth and fifth of every room level: a tie across the 1-4 / 5-8 boundary. */
-function scoreTied(state: TournamentState, roundIndex: number): TournamentState {
-  const scored = scoreRound(state, roundIndex);
-  const scores = { ...scored.scores };
-  const byRoom = new Map<number, string[]>();
-  const position = new Map<number, number>();
-  for (const entry of (state.assignments[roundIndex] ?? []).filter((candidate) => candidate.room !== null)) {
-    const room = entry.room as number;
-    const slot = position.get(room) ?? 0;
-    position.set(room, slot + 1);
-    byRoom.set(room, [
-      ...(byRoom.get(room) ?? []),
-      scoreKeysForPosition({ roundIndex, room, position: slot })[0],
-    ]);
-  }
-  for (const keys of byRoom.values()) {
-    const ranked = [...keys].sort((first, second) => (scores[second] as number) - (scores[first] as number));
-    scores[ranked[4]] = scores[ranked[3]];
-  }
-  return { ...scored, scores };
-}
-
-function resolveEveryTie(state: TournamentState, roundIndex: number): TournamentState {
-  let next = state;
-  for (const [key, cluster] of Object.entries(getAllTies(state, roundIndex))) {
-    for (const player of cluster.players) next = resolveTournamentTie(next, key, player.name);
-  }
-  return next;
-}
 
 describe.each(CASES)('the draw does not depend on the order of the presses: $label', (testCase) => {
   const entry = atEntry(testCase.count, testCase.graph, testCase.setup);

@@ -1,6 +1,19 @@
-import { currentColumn, nextColumnStart, roundColumn } from './round-columns';
+import {
+  currentColumn,
+  nextColumnStart,
+  roundColumn,
+  undrawnRounds,
+  usesDependencyPlay,
+} from './round-columns';
 import { advanceTournamentRound, drawWaterfallRoundAhead } from './transitions';
-import { isFeederFinished, isRoundScored, routesTo } from './waterfall-steps';
+import {
+  doneAfterPress,
+  finishedRoundsInPlay,
+  isFeederFinished,
+  isRoundScored,
+  roundsReadyToDraw,
+  routesTo,
+} from './waterfall-steps';
 import type { RoundAssignment, TournamentState } from './types';
 
 /** What one undrawn round is expected to look like: its room sizes as fitted to the units arriving, its line-up and the units sitting it out. */
@@ -37,10 +50,32 @@ function expectedWaterfallRound(state: TournamentState, target: number): Expecte
     if (index > end || !isFeederFinished(state, index)) return null;
     feeders.push(index);
   }
+  return drawnAhead(state, target, feeders);
+}
+
+/** The draw of `target` once the units of `feeders` (finished rounds not yet sent on) are added to its pool, or null when it can't be drawn. */
+function drawnAhead(state: TournamentState, target: number, feeders: number[]): ExpectedRound | null {
   const drawn = drawWaterfallRoundAhead(state, target, feeders);
   const assignments = drawn?.assignments[target] ?? [];
   if (!drawn || assignments.length === 0) return null;
   return { rooms: drawn.rounds[target].rooms, assignments, byes: drawn.byes[target] ?? [] };
+}
+
+/**
+ * Dependency play: every round the next press would draw, drawn as the press draws it: the rounds whose feeders are
+ * all sent on or finished (`roundsReadyToDraw` with the finished rounds counted done, so the Final and a manual
+ * COLUMN hold as they do there). A drawn round with a line-up is not undrawn, so Previous (which removes the draw)
+ * needs no guard here.
+ */
+function expectedDependencyRounds(state: TournamentState): Map<number, ExpectedRound> {
+  const finished = finishedRoundsInPlay(state);
+  const expected = new Map<number, ExpectedRound>();
+  for (const target of roundsReadyToDraw(state, doneAfterPress(state, finished))) {
+    const feeders = finished.filter((index) => routesTo(state.rounds[index], target));
+    const round = drawnAhead(state, target, feeders);
+    if (round) expected.set(target, round);
+  }
+  return expected;
 }
 
 /**
@@ -49,6 +84,7 @@ function expectedWaterfallRound(state: TournamentState, target: number): Expecte
  * column in play sent, and routing it again would count those units twice.
  */
 function expectedWaterfallRounds(state: TournamentState): Map<number, ExpectedRound> {
+  if (usesDependencyPlay(state)) return expectedDependencyRounds(state);
   const expected = new Map<number, ExpectedRound>();
   const { end } = currentColumn(state);
   for (let index = end + 1; index < state.rounds.length; index += 1) {
@@ -96,7 +132,7 @@ function expectedAfterAdvance(state: TournamentState): Map<number, ExpectedRound
  * and no tie waits. Display only: nothing is written, and the input state is not changed.
  */
 export function expectedRounds(state: TournamentState): Map<number, ExpectedRound> | null {
-  if (!state.started || nextColumnStart(state) >= state.rounds.length) return null;
+  if (!state.started || undrawnRounds(state).length === 0) return null;
   const expected = state.rounds[state.curRound].isWaterfall
     ? expectedWaterfallRounds(state)
     : expectedAfterAdvance(state);

@@ -25,7 +25,15 @@ import type {
   TournamentState,
   WithdrawnUnit,
 } from './types';
-import { isCurrentRound, roundColumn } from './round-columns';
+import {
+  isCurrentRound,
+  isRoundDone,
+  isRoundReached,
+  reopenedRounds,
+  roundColumn,
+  roundsInPlay,
+  usesDependencyPlay,
+} from './round-columns';
 
 export interface RankingDisplay {
   name: string;
@@ -230,6 +238,16 @@ function sharesRank(previous: EliminatedEntry, current: EliminatedEntry, perGrou
   );
 }
 
+/** A unit seated in two rounds in play (a reopened press and the rounds it drew) is shown in the later one. */
+function latestSeats<Seat extends RoundAssignment & { ri: number }>(seats: Seat[]): Seat[] {
+  const latest = new Map<string, Seat>();
+  for (const seat of seats) {
+    const known = latest.get(seat.name);
+    if (!known || seat.ri > known.ri) latest.set(seat.name, seat);
+  }
+  return seats.filter((seat) => latest.get(seat.name) === seat);
+}
+
 function assignmentsByRoom(assignments: RoundAssignment[]) {
   const rooms = new Map<string, RoundAssignment[]>();
   for (const assignment of assignments) {
@@ -392,7 +410,7 @@ function outInPlay(state: TournamentState, roundIndex: number): Set<string> {
  */
 function waitingUnits(
   state: TournamentState,
-  lastDrawnIndex: number,
+  isNotDrawn: (roundIndex: number) => boolean,
   roster: ReadonlySet<string>,
   active: RoundAssignment[],
 ): Array<{ name: string; isLucky: boolean; waitingFor: number }> {
@@ -400,7 +418,7 @@ function waitingUnits(
   const waiting: Array<{ name: string; isLucky: boolean; waitingFor: number }> = [];
   for (const [key, seeds] of Object.entries(state.pendingBracketSeeds)) {
     const waitingFor = Number(key);
-    if (waitingFor <= lastDrawnIndex) continue;
+    if (!isNotDrawn(waitingFor)) continue;
     for (const seed of seeds) {
       if (!roster.has(seed.name) || seen.has(seed.name)) continue;
       seen.add(seed.name);
@@ -423,22 +441,58 @@ function undrawnJoiners(
     .map((name) => ({ name, isLucky: false, waitingFor: state.curRound + 1, joining: true as const }));
 }
 
+/**
+ * Which rounds are past and which are in play for the ranking. Column play: the last drawn column is in play and
+ * every round before it is past (not a prefix test in dependency play, where a later round can be in play while an
+ * earlier one is not drawn). Dependency play: past is done, in play is drawn and not sent on, and a round is "not
+ * drawn" until it is reached.
+ */
+interface RankingPhases {
+  past: number[];
+  inPlay: number[];
+  isNotDrawn: (roundIndex: number) => boolean;
+  /** Whether the round that eliminated a unit is still being played: its rank is unknown until it is sent on. */
+  isStillPlayed: (roundIndex: number) => boolean;
+}
+
+function rankingPhases(state: TournamentState, lastRi: number): RankingPhases {
+  if (usesDependencyPlay(state)) {
+    const indices = state.rounds.map((_, index) => index);
+    return {
+      past: indices.filter((index) => isRoundDone(state, index)),
+      inPlay: roundsInPlay(state),
+      isNotDrawn: (roundIndex) => !isRoundReached(state, roundIndex),
+      isStillPlayed: (roundIndex) => !isRoundDone(state, roundIndex),
+    };
+  }
+  const lastColumn = roundColumn(state.rounds, lastRi);
+  const range = (from: number, to: number) =>
+    Array.from({ length: Math.max(to - from, 0) }, (_, offset) => from + offset);
+  return {
+    past: range(0, lastColumn.start),
+    inPlay: range(lastColumn.start, lastColumn.end + 1),
+    isNotDrawn: (roundIndex) => roundIndex > lastRi,
+    isStillPlayed: (roundIndex) => roundIndex >= lastColumn.start,
+  };
+}
+
 export function computeRankings(state: TournamentState): TournamentRankings | null {
   if (!state.rounds.length || !state.assignments.length) return null;
   const lastRi = lastAssignedRound(state);
   if (lastRi === -1) return null;
 
-  // The last drawn column is still in play, every round of it: a unit in any of them is eliminated only once it is
-  // certainly out (outInPlay), and has no rank number until its round is advanced.
-  const lastColumn = roundColumn(state.rounds, lastRi);
+  // The rounds in play: a unit in any of them is eliminated only once it is certainly out (outInPlay), and has no
+  // rank number until its round is advanced. A round of a reopened press is shown by the rounds it drew.
+  const phases = rankingPhases(state, lastRi);
   const eliminated = new Map<string, RoundElimination>();
-  for (let roundIndex = 0; roundIndex < lastColumn.start; roundIndex += 1) {
+  for (const roundIndex of phases.past) {
     if (state.rounds[roundIndex].isFinal) continue;
     for (const [name, info] of eliminatedByPastRound(state, roundIndex)) eliminated.set(name, info);
   }
   const outNow = new Set<string>();
-  for (let roundIndex = lastColumn.start; roundIndex <= lastColumn.end; roundIndex += 1) {
-    if (state.rounds[roundIndex].isFinal) continue;
+  const reopened = new Set(reopenedRounds(state));
+  for (const roundIndex of phases.inPlay) {
+    if (state.rounds[roundIndex].isFinal || reopened.has(roundIndex)) continue;
     const out = outInPlay(state, roundIndex);
     for (const [name, info] of eliminationsInRound(state, roundIndex, (name) => out.has(name))) {
       eliminated.set(name, info);
@@ -482,11 +536,10 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
         .sort((first, second) => second.total - first.total);
     } else active = [...lastAssignments];
   } else {
-    active = state.assignments
-      .slice(lastColumn.start, lastColumn.end + 1)
-      .flatMap((assignments, offset) =>
-        (assignments ?? []).map((entry) => ({ ...entry, ri: lastColumn.start + offset })),
-      );
+    const seats = phases.inPlay.flatMap((roundIndex) =>
+      (state.assignments[roundIndex] ?? []).map((entry) => ({ ...entry, ri: roundIndex })),
+    );
+    active = usesDependencyPlay(state) ? latestSeats(seats) : seats;
   }
 
   // A removed/swapped-out unit's old name can still linger in a round that
@@ -495,7 +548,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   // they never appear as "still in tournament".
   const rosterSet = new Set(rosterKeys(state.players));
   active = active.filter((entry) => rosterSet.has(entry.name) && !outNow.has(entry.name));
-  const pooled = finalComplete ? [] : waitingUnits(state, lastRi, rosterSet, active);
+  const pooled = finalComplete ? [] : waitingUnits(state, phases.isNotDrawn, rosterSet, active);
   const waiting = [
     ...pooled,
     ...(isCurrentRound(state, lastRi) && !finalComplete
@@ -531,7 +584,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       ri: entry.ri,
       round: entry.round,
       room: entry.room,
-      rank: entry.ri >= lastColumn.start ? null : rank,
+      rank: phases.isStillPlayed(entry.ri) ? null : rank,
       seat: entry.seat,
       place: entry.place,
       absent: Boolean(entry.absent),

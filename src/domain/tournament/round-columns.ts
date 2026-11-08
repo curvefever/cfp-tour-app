@@ -4,7 +4,7 @@ import type { TournamentRound, TournamentState } from './types';
  * What the column helpers read. The dependency play fields are optional so that a state without them (every other
  * format, an older tournament, a test's bare `{ rounds, curRound }`) reads as column play.
  */
-type ColumnState = Pick<TournamentState, 'rounds' | 'curRound'> &
+export type ColumnState = Pick<TournamentState, 'rounds' | 'curRound'> &
   Partial<Pick<TournamentState, 'gamemodeConfig' | 'waterfallSteps'>>;
 
 /** A run of rounds played together: `state.rounds[start]` to `state.rounds[end]`, both included. */
@@ -71,6 +71,14 @@ function dependencyRounds(state: ColumnState): DependencyRounds {
     for (const index of step.sent) done.add(index);
   }
   return { reached, done };
+}
+
+/**
+ * The rounds a reopened step sent on (Previous kept a draw with a score): in play again, but already routed into the
+ * pools, so a press counts them as done without routing them a second time.
+ */
+export function reopenedRounds(state: ColumnState): number[] {
+  return (state.waterfallSteps ?? []).filter((step) => step.reopened).flatMap((step) => step.sent);
 }
 
 /** Every round index, in order, that passes `keep`. */

@@ -5,6 +5,7 @@ import { discardRoundDraws, lastDrawnIndex } from './redraw';
 import {
   isRoundDone,
   previousColumnStart,
+  reopenedRounds,
   roundColumn,
   roundsInPlay,
   undrawnRounds,
@@ -50,14 +51,6 @@ export function routesTo(round: TournamentRound, target: number): boolean {
   return round.waterfallRoutes?.some((room) => room.includes(target)) ?? false;
 }
 
-/**
- * The rounds a reopened step sent on: in play again, but already routed into the pools, so a press counts them
- * as done without routing them a second time.
- */
-function reopenedRounds(state: TournamentState): number[] {
-  return (state.waterfallSteps ?? []).filter((step) => step.reopened).flatMap((step) => step.sent);
-}
-
 /** The rounds in play a press can send on with routing: every round in play but those of a reopened step. */
 function liveRoundsInPlay(state: TournamentState): number[] {
   const reopened = new Set(reopenedRounds(state));
@@ -92,7 +85,7 @@ export function roundsReadyToDraw(state: TournamentState, done: ReadonlySet<numb
 }
 
 /** Every round done after a press that sends `sent` on: the done rounds, those of a reopened step (done again), and `sent`. */
-function doneAfterPress(state: TournamentState, sent: readonly number[]): Set<number> {
+export function doneAfterPress(state: TournamentState, sent: readonly number[]): Set<number> {
   const done = new Set([...sent, ...reopenedRounds(state)]);
   state.rounds.forEach((_, index) => {
     if (isRoundDone(state, index)) done.add(index);

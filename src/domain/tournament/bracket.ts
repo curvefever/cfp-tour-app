@@ -4,7 +4,14 @@ import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
 import { snakeSeed } from './seeding';
 import type { TournamentRound, TournamentState } from './types';
-import { isRoundReached, nextColumnStart, previousColumnStart, roundColumn } from './round-columns';
+import {
+  isRoundDone,
+  isRoundReached,
+  roundColumn,
+  undrawnRounds,
+  usesDependencyPlay,
+  type ColumnState,
+} from './round-columns';
 
 interface BracketRoundLabel {
   label: string;
@@ -110,12 +117,14 @@ export interface BracketFollowStatus {
 }
 
 /**
- * Where a unit stands in the Bracket. It is out when its last round is in a column before the last drawn round's,
- * unless it waits in a pool for a round not drawn yet. Rounds of one column are played together, so a unit in an
- * earlier round of the column being played is not out.
+ * Where a unit stands in the Bracket. In column play it is out when its last round is in a column before the last
+ * drawn round's, unless it waits in a pool for a round not drawn yet: rounds of one column are played together, so a
+ * unit in an earlier round of the column being played is not out. In dependency play it is out when its last round
+ * is done and it waits in no pool (a round it was sent to would be its last round).
  */
 export function bracketFollowStatus(
-  state: Pick<TournamentState, 'assignments' | 'byes' | 'rounds' | 'pendingBracketSeeds'>,
+  state: Pick<TournamentState, 'assignments' | 'byes' | 'rounds' | 'pendingBracketSeeds' | 'curRound'> &
+    Partial<Pick<TournamentState, 'gamemodeConfig' | 'waterfallSteps'>>,
   key: string | null,
 ): BracketFollowStatus | null {
   if (!key) return null;
@@ -139,14 +148,15 @@ export function bracketFollowStatus(
     lastRi,
     room,
     isBye,
-    eliminated: isBeforeLastDrawnColumn(state, lastRi) && !isWaitingInPool(state, key),
+    eliminated: hasLeftTheBracket(state, lastRi) && !isWaitingInPool(state, key),
   };
 }
 
-function isBeforeLastDrawnColumn(
-  state: Pick<TournamentState, 'assignments' | 'rounds'>,
+function hasLeftTheBracket(
+  state: Pick<TournamentState, 'assignments' | 'rounds'> & ColumnState,
   roundIndex: number,
 ): boolean {
+  if (usesDependencyPlay(state)) return isRoundDone(state, roundIndex);
   const lastDrawn = lastAssignedRound(state);
   return roundColumn(state.rounds, roundIndex).start < roundColumn(state.rounds, lastDrawn).start;
 }
@@ -155,12 +165,18 @@ function isWaitingInPool(state: Pick<TournamentState, 'pendingBracketSeeds'>, ke
   return Object.values(state.pendingBracketSeeds).some((seeds) => seeds.some(({ name }) => name === key));
 }
 
-export function bracketRoundDefaultCollapsed(
-  state: Pick<TournamentState, 'rounds' | 'curRound'>,
-  roundIndex: number,
-): boolean {
-  const previous = previousColumnStart(state);
-  return previous !== null && roundIndex < previous;
+/**
+ * Whether a round's box is folded until opened: a column folds once it and the column after it are all done (in
+ * column play: the columns before the one just played).
+ */
+export function bracketRoundDefaultCollapsed(state: ColumnState, roundIndex: number): boolean {
+  const column = roundColumn(state.rounds, roundIndex);
+  const next = roundColumn(state.rounds, column.end + 1);
+  if (next.start >= state.rounds.length) return false;
+  for (let index = column.start; index <= next.end; index += 1) {
+    if (!isRoundDone(state, index)) return false;
+  }
+  return true;
 }
 
 export type BracketBox =
@@ -484,7 +500,7 @@ function standingsRankOf(entry: ProjectedSlotLabel): number {
  * removal); the planned sizes otherwise.
  */
 function seatedRoomSizes(
-  state: Pick<TournamentState, 'rounds' | 'curRound'> & Partial<Pick<TournamentState, 'assignments'>>,
+  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
   roundIndex: number,
 ): number[] {
   const planned = state.rounds[roundIndex].rooms;
@@ -508,15 +524,14 @@ function fairCutSlotPlan(
 }
 
 export function projectFutureRoundSlots(
-  state: Pick<TournamentState, 'rounds' | 'curRound'> &
-    Partial<Pick<TournamentState, 'assignments' | 'gamemodeConfig'>>,
+  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
 ): Record<number, ProjectedSlotLabel[][] | null> {
   const { rounds } = state;
   const labels = bracketRoundLabels({ rounds });
   const result: Record<number, ProjectedSlotLabel[][] | null> = {};
   const unresolved = new Set<number>();
 
-  for (let targetIndex = nextColumnStart(state); targetIndex < rounds.length; targetIndex += 1) {
+  for (const targetIndex of undrawnRounds(state)) {
     const round = rounds[targetIndex];
     if (
       !round ||

@@ -40,7 +40,7 @@ import {
 } from './scoring';
 import { rosterKeys } from './roster';
 import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
-import { currentColumn, isCurrentRound, isRoundDone } from './round-columns';
+import { isCurrentRound, isRoundDone, roundsInPlay } from './round-columns';
 
 /** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
 const EQUALITY_TOLERANCE = 1e-9;
@@ -276,15 +276,14 @@ export function pendingTieNames(state: TournamentState, roundIndex: number): Set
   );
 }
 
-/** The ties of every round in the column in play (a column of one round: that round's ties). */
+/** The ties of every round in play: the column in play, or in dependency play every round drawn and not sent on. */
 export function getAllColumnTies(state: TournamentState): Record<string, TournamentTieCluster> {
-  const { start, end } = currentColumn(state);
   let ties: Record<string, TournamentTieCluster> = {};
-  for (let index = start; index <= end; index += 1) ties = { ...ties, ...getAllTies(state, index) };
+  for (const index of roundsInPlay(state)) ties = { ...ties, ...getAllTies(state, index) };
   return ties;
 }
 
-/** True when a tie anywhere in the column in play is still undecided. */
+/** True when a tie anywhere in the rounds in play is still undecided. */
 export function hasPendingColumnTies(state: TournamentState): boolean {
   return Object.entries(getAllColumnTies(state)).some(
     ([key, cluster]) => !isTieResolved(key, cluster, state),

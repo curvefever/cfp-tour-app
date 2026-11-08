@@ -13,7 +13,7 @@ import { invalidateStaleTieResolutions } from './advancement';
 import { isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
-import { currentColumn } from './round-columns';
+import { isCurrentRound, roundsInPlay } from './round-columns';
 import { occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
 import type { AbsenceAnswer, TournamentRound, TournamentState } from './types';
 import { absenteeDestination } from './waterfall-bracket';
@@ -280,12 +280,11 @@ function roomQuestions(state: TournamentState, roundIndex: number, room: number)
 
 /**
  * The units of a room with a score of 0 still waiting for an answer, in a mode that blocks on it: their 0 may be an
- * absence, so a tie at 0 is held back until it is answered. Empty outside the column in play, in One score per team, and
+ * absence, so a tie at 0 is held back until it is answered. Empty outside the rounds in play, in One score per team, and
  * for a tournament without `absenceVersion`.
  */
 export function unitsAwaitingAnswer(state: TournamentState, roundIndex: number, room: number): Set<string> {
-  const { start, end } = currentColumn(state);
-  if (!usesAbsences(state) || isOneScorePerTeam(state) || roundIndex < start || roundIndex > end)
+  if (!usesAbsences(state) || isOneScorePerTeam(state) || !isCurrentRound(state, roundIndex))
     return new Set();
   if (!roundAsks(state.rounds[roundIndex])) return new Set();
   return new Set(
@@ -295,12 +294,11 @@ export function unitsAwaitingAnswer(state: TournamentState, roundIndex: number, 
   );
 }
 
-/** Every score of 0 in the column in play that the bar can ask about, answered or not, grouped by round and room. */
+/** Every score of 0 in the rounds in play that the bar can ask about, answered or not, grouped by round and room. */
 export function zeroScoresInPlay(state: TournamentState): RoomAbsenceQuestions[] {
   if (!usesAbsences(state)) return [];
-  const { start, end } = currentColumn(state);
   const rooms: RoomAbsenceQuestions[] = [];
-  for (let roundIndex = start; roundIndex <= end; roundIndex += 1) {
+  for (const roundIndex of roundsInPlay(state)) {
     if (!roundAsks(state.rounds[roundIndex])) continue;
     for (const room of occupiedRooms(state, roundIndex)) {
       const questions = roomQuestions(state, roundIndex, room);
@@ -310,7 +308,7 @@ export function zeroScoresInPlay(state: TournamentState): RoomAbsenceQuestions[]
   return rooms;
 }
 
-/** The questions the bar still asks: each score of 0 in the column in play with no answer, by round and room. */
+/** The questions the bar still asks: each score of 0 in the rounds in play with no answer, by round and room. */
 export function pendingAbsenceQuestions(state: TournamentState): RoomAbsenceQuestions[] {
   return zeroScoresInPlay(state)
     .map((room) => ({
@@ -325,7 +323,7 @@ export function hasBlockingAbsenceQuestions(state: TournamentState): boolean {
   return !isOneScorePerTeam(state) && pendingAbsenceQuestions(state).length > 0;
 }
 
-/** True when an answer still missing in this round of the column in play holds back the rounds it feeds. */
+/** True when an answer still missing in this round in play holds back the rounds it feeds. */
 export function hasBlockingAbsenceQuestionsInRound(state: TournamentState, roundIndex: number): boolean {
   return (
     !isOneScorePerTeam(state) && pendingAbsenceQuestions(state).some((room) => room.roundIndex === roundIndex)
@@ -346,7 +344,7 @@ function invalidateTiesOfKeys(state: TournamentState, keys: string[]): Tournamen
   return next;
 }
 
-/** Answers the given keys. Keys that are not a score of 0 in the column in play are ignored. */
+/** Answers the given keys. Keys that are not a score of 0 in the rounds in play are ignored. */
 export function answerAbsence(
   state: TournamentState,
   keys: string[],
@@ -377,17 +375,16 @@ export function withoutAbsenceAnswer(
   return withoutAbsences(absences, (candidate) => candidate === key);
 }
 
-/** Takes an answer back (the panel's undo), so the question is asked again. Only in the column in play. */
+/** Takes an answer back (the panel's undo), so the question is asked again. Only in the rounds in play. */
 export function clearAbsenceAnswer(state: TournamentState, key: string): TournamentState {
   const roundIndex = roundOfKey(key);
-  const { start, end } = currentColumn(state);
-  if (answerOf(state, key) === undefined || roundIndex === null || roundIndex < start || roundIndex > end) {
+  if (answerOf(state, key) === undefined || roundIndex === null || !isCurrentRound(state, roundIndex)) {
     return state;
   }
   return invalidateTiesOfKeys({ ...state, absences: withoutAbsenceAnswer(state.absences, key) }, [key]);
 }
 
-/** Marks a member of a team with one score absent by hand (display only). Ignored unless the member exists in the column in play. */
+/** Marks a member of a team with one score absent by hand (display only). Ignored unless the member exists in the rounds in play. */
 export function markOneScoreTeamMemberAbsent(
   state: TournamentState,
   roundIndex: number,
@@ -395,12 +392,11 @@ export function markOneScoreTeamMemberAbsent(
   position: number,
   memberIndex: number,
 ): TournamentState {
-  const { start, end } = currentColumn(state);
   const unit = unitsOfRoom(state, roundIndex, room)[position];
   const member = unit === undefined ? undefined : teamsOf(state)[unit]?.members?.[memberIndex];
   if (!usesAbsences(state) || !isOneScorePerTeam(state) || !roundAsks(state.rounds[roundIndex]) || !member)
     return state;
-  if (roundIndex < start || roundIndex > end) return state;
+  if (!isCurrentRound(state, roundIndex)) return state;
   return {
     ...state,
     absences: {

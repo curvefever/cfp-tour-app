@@ -8,7 +8,7 @@ import {
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { isOneScorePerTeam } from '../../domain/tournament/formats';
 import { buildTeamMap, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
-import { currentColumn } from '../../domain/tournament/round-columns';
+import { isCurrentRound, isRoundReached, roundsInPlay } from '../../domain/tournament/round-columns';
 import { occupiedRooms } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { roundAndRoom } from './ranking-where';
@@ -62,10 +62,10 @@ function inheritedAbsences(state: TournamentState, roundIndex: number): Set<stri
  */
 export function absentMatchRows(state: TournamentState): AbsentMatchRow[] {
   const labels = bracketRoundLabels(state);
-  const column = currentColumn(state);
   const onRoster = new Set(rosterKeys(state.players));
   const rows: AbsentMatchRow[] = [];
-  for (let roundIndex = 0; roundIndex <= column.end; roundIndex += 1) {
+  for (let roundIndex = 0; roundIndex < state.rounds.length; roundIndex += 1) {
+    if (!isRoundReached(state, roundIndex)) continue;
     const inherited = inheritedAbsences(state, roundIndex);
     for (const room of occupiedRooms(state, roundIndex)) {
       for (const { unit, position } of absentSeats(state, roundIndex, room)) {
@@ -78,7 +78,7 @@ export function absentMatchRows(state: TournamentState): AbsentMatchRow[] {
           roundIndex,
           room,
           keys: seatAbsenceKeys(state, roundIndex, room, position),
-          canMarkPlayed: roundIndex >= column.start,
+          canMarkPlayed: isCurrentRound(state, roundIndex),
           latest: false,
           streak: 1,
         });
@@ -128,9 +128,8 @@ function canMarkMembers(state: TournamentState): boolean {
 export function oneScoreTeamMarkChoices(state: TournamentState): OneScoreTeamMarkChoice[] {
   if (!canMarkMembers(state)) return [];
   const teams = buildTeamMap(state);
-  const column = currentColumn(state);
   const choices: OneScoreTeamMarkChoice[] = [];
-  for (let roundIndex = column.start; roundIndex <= column.end; roundIndex += 1) {
+  for (const roundIndex of roundsInPlay(state)) {
     if (state.rounds[roundIndex]?.isFinal || state.rounds[roundIndex]?.bracket === 'grand-final') continue;
     for (const room of occupiedRooms(state, roundIndex)) {
       const seated = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);

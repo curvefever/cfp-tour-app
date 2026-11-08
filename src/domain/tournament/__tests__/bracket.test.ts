@@ -614,6 +614,7 @@ describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () =>
       ],
       byes: [[], [], []],
       rounds: [],
+      curRound: 0,
       pendingBracketSeeds: {},
     };
     const status = bracketFollowStatus(state, 'P1');
@@ -634,6 +635,7 @@ describe('bracketFollowStatus — against a waterfall skip-ahead fixture', () =>
       ],
       byes: [[], []],
       rounds: [],
+      curRound: 0,
       pendingBracketSeeds: {},
     };
     const status = bracketFollowStatus(state, 'P1');

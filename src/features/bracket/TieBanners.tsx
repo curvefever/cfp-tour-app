@@ -4,7 +4,7 @@ import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/m
 import { GROUP_EXIT_TIE_KEY } from '../../domain/tournament/group-exit';
 import { isPoolingRound } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { currentColumn } from '../../domain/tournament/round-columns';
+import { roundsInPlay } from '../../domain/tournament/round-columns';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
@@ -23,11 +23,11 @@ export function TieBanners({ state }: { state: TournamentState }) {
   const app = useTournamentApp();
   const ties = getAllColumnTies(state);
   const round = state.rounds[state.curRound];
-  const column = currentColumn(state);
+  const several = roundsInPlay(state).length > 1;
   const labels = bracketRoundLabels(state);
-  // A column of several rounds names the round a room tie belongs to (the key starts "r<round index>-").
+  // Several rounds in play name the round a room tie belongs to (the key starts "r<round index>-").
   const roundLabelOf = (key: string): string =>
-    column.end > column.start ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
+    several ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
   const poolingRound = round ? isPoolingRound(round) : false;
   const tiedLabel = (name: string): string => {
     const group = state.groups.find((entry) => entry.members.includes(name))?.label;

@@ -1,5 +1,5 @@
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
-import { currentColumn } from '../../domain/tournament/round-columns';
+import { roundsInPlay } from '../../domain/tournament/round-columns';
 import type { UnscoredRoom } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 
@@ -9,11 +9,11 @@ import type { TournamentState } from '../../domain/tournament/types';
  * as the tie banners do.
  */
 export function unscoredRoomsMessage(state: TournamentState, rooms: UnscoredRoom[]): string {
-  const { start, end } = currentColumn(state);
+  const several = roundsInPlay(state).length > 1;
   const labels = bracketRoundLabels(state);
   const names = rooms.map(({ roundIndex, room }) => {
     const roomName = `Room ${roomLetter(room)}`;
-    return end > start ? `${labels[roundIndex]?.label ?? ''} · ${roomName}` : roomName;
+    return several ? `${labels[roundIndex]?.label ?? ''} · ${roomName}` : roomName;
   });
   return `No score yet in ${names.join(', ')}. Go to the next round anyway?`;
 }
