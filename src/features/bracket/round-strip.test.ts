@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
+import { bracketBoxes } from '../../domain/tournament/bracket';
+import { isRoundDone, roundsInPlay } from '../../domain/tournament/round-columns';
 import { describeStandings } from '../../domain/tournament/standings-display';
+import {
+  THREE_CHAIN_GRAPH,
+  atEntry,
+  indexOf,
+  pressed,
+  scoreRound,
+} from '../../domain/tournament/__tests__/dependency-play-fixtures';
+import { withDependencyPlay } from '../../domain/tournament/__tests__/qual-waterfall';
 import type { TournamentState } from '../../domain/tournament/types';
 import { defaultStripSelection, pickedItemKey, roundStrip, roundStripBoxLabels } from './round-strip';
 
@@ -190,6 +200,31 @@ describe('roundStrip, dependency play', () => {
     const boxes = group?.boxes ?? [];
     expect(boxes).toEqual(boxes.map((_, index) => index));
     expect(state.rounds[state.curRound].customLabel).toBe('SemiA');
+  });
+
+  it('groups only the finished boxes before the first unfinished one, though a later box is finished too', () => {
+    // Three chains: T3 is sent on while Z2, in the box before it, is still in play.
+    let state = withDependencyPlay(atEntry(31, THREE_CHAIN_GRAPH, { qualAdv: '24' }));
+    const t3 = indexOf(state, 'T3');
+    const z2 = indexOf(state, 'Z2');
+    for (let guard = 0; guard < 30 && !isRoundDone(state, t3); guard += 1) {
+      for (const index of roundsInPlay(state)) if (index !== z2) state = scoreRound(state, index);
+      state = pressed(state);
+    }
+    expect(isRoundDone(state, t3)).toBe(true);
+    expect(isRoundDone(state, z2)).toBe(false);
+    const boxes = bracketBoxes(state);
+    const t3Box = boxes.findIndex((box) => box.kind === 'single' && box.roundIndex === t3);
+    const firstUnfinished = boxes.findIndex((box) => box.kind === 'column' && box.roundIndices.includes(z2));
+    expect(firstUnfinished).toBeLessThan(t3Box);
+    const items = roundStrip(state, describeStandings(state));
+    const group = items.find((item) => item.kind === 'group');
+    // The leading finished boxes only: not the finished T3 box after the unfinished one.
+    expect(group?.boxes).toEqual(Array.from({ length: firstUnfinished }, (_, index) => index));
+    expect(group?.boxes).not.toContain(t3Box);
+    const t3Item = items.find((item) => item.boxes.includes(t3Box));
+    expect(t3Item?.kind).toBe('box');
+    expect(t3Item?.done).toBe(true);
   });
 
   it('shows by default the box of the first round in play, the one curRound is in', () => {

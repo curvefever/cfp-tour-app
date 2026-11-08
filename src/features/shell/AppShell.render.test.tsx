@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import type { ActiveTab, TournamentState } from '../../domain/tournament/types';
 import { fixtureTournaments, loadedState, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
+import { scoreTied } from '../../domain/tournament/__tests__/dependency-play-fixtures';
 import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
 import { expectedRounds } from '../../domain/tournament/expected-draw';
 import { nextColumnStart } from '../../domain/tournament/round-columns';
@@ -340,6 +341,21 @@ describe('Bracket, dependency play', () => {
     expect(view.queryAllByText(/is already drawn/)).toHaveLength(0);
     expect(view.getByRole('button', { name: /Next Round/ })).toBeTruthy();
     expect(view.getByRole('button', { name: /Previous/ })).toBeTruthy();
+  });
+
+  it('keeps Next Round enabled while R6L has a tie and R6R is finished, and disables it with the same tie when nothing is finished', () => {
+    const tied = (id: string): FixtureTournament => {
+      const fixture = dependency(id);
+      const r6l = fixture.state.rounds.findIndex((round) => round.customLabel === 'R6L');
+      return { ...fixture, state: scoreTied(fixture.state, r6l) };
+    };
+    const finished = renderApp(tied('dependency-play-in-play'), { role: 'admin', tab: 'bracket' });
+    expect(finished.getByRole('button', { name: /Next Round/ })).toHaveProperty('disabled', false);
+    cleanup();
+    const nothing = renderApp(tied('dependency-play-nothing-finished'), { role: 'admin', tab: 'bracket' });
+    const button = nothing.getByRole('button', { name: /Next Round/ });
+    expect(button).toHaveProperty('disabled', true);
+    expect(button.getAttribute('title')).toBe('Resolve the tie-break above first');
   });
 
   it('asks about the rooms not fully scored, only when nothing is finished', () => {
