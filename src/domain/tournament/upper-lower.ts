@@ -133,24 +133,20 @@ function round(
 }
 
 /**
- * A ranking match for units that are all going out: played only when it is a room the format can seat, in the graph's
- * own declared size and with the units that will really be there. Otherwise null, and those ranks are not routed.
+ * A ranking match for units that are all going out, declared at the size of the units that will really be there:
+ * played only when that is a room the format can seat. Otherwise null, and those ranks are not routed. The rooms that
+ * feed it route only the ranks they really hold, so a room a seat short sends one place fewer.
  */
-function rankingRound(
-  name: string,
-  declared: number,
-  real: number,
-  roomSize: RoomSize,
-): UpperLowerRound | null {
-  const seats = (size: number) => size >= roomSize.min && size <= roomSize.max;
-  return seats(declared) && seats(real) ? round(name, [declared], [real], [[]], { isRanking: true }) : null;
+function rankingRound(name: string, seats: number, roomSize: RoomSize): UpperLowerRound | null {
+  const fits = seats >= roomSize.min && seats <= roomSize.max;
+  return fits ? round(name, [seats], [seats], [[]], { isRanking: true }) : null;
 }
 
 function twoRoomRounds(rooms: number[], roomSize: RoomSize, first: number): UpperLowerRound[] {
   const half = halfOf(roomSize);
   const [upper, lower] = rooms;
   const names = { upper: `Round ${first} - Upper`, lower: `Round ${first} - Lower`, semi: 'Semi-Final' };
-  const ranking = rankingRound(`Round ${first + 1} - Ranking`, lower - half, lower - half, roomSize);
+  const ranking = rankingRound(`Round ${first + 1} - Ranking`, lower - half, roomSize);
   return [
     round(names.upper, [upper], [upper], [splitRoom(upper, half, 'Final', names.semi)]),
     round(names.lower, [lower], [lower], [splitRoom(lower, half, names.semi, ranking?.name ?? null)]),
@@ -175,18 +171,8 @@ function fourRoomRounds(rooms: number[], roomSize: RoomSize, first: number): Upp
     middle: `Round ${first + 1} - Lower`,
     late: `Round ${first + 2} - Lower`,
   };
-  const lowerRanking = rankingRound(
-    `Round ${first + 1} - Ranking`,
-    2 * largestLower - final,
-    lowerTotal - final,
-    roomSize,
-  );
-  const middleRanking = rankingRound(
-    `Round ${first + 2} - Ranking`,
-    2 * largestUpper - final,
-    upperTotal - final,
-    roomSize,
-  );
+  const lowerRanking = rankingRound(`Round ${first + 1} - Ranking`, lowerTotal - final, roomSize);
+  const middleRanking = rankingRound(`Round ${first + 2} - Ranking`, upperTotal - final, roomSize);
   const twice = <T>(value: T): T[] => [value, value];
   return [
     round(
@@ -199,14 +185,16 @@ function fourRoomRounds(rooms: number[], roomSize: RoomSize, first: number): Upp
       names.lower,
       twice(largestLower),
       lower,
-      twice(splitRoom(largestLower, half, names.middle, lowerRanking?.name ?? null)),
+      lower.map((seats) => splitRoom(seats, half, names.middle, lowerRanking?.name ?? null)),
     ),
     round(names.semiA, [final], [final], [splitRoom(final, half, 'Final', names.semiB)]),
     round(
       names.middle,
       twice(largestUpper),
       splitEvenly(upperTotal, 2),
-      twice(splitRoom(largestUpper, half, names.late, middleRanking?.name ?? null)),
+      splitEvenly(upperTotal, 2).map((seats) =>
+        splitRoom(seats, half, names.late, middleRanking?.name ?? null),
+      ),
     ),
     ...(lowerRanking ? [lowerRanking] : []),
     round(names.late, [final], [final], [splitRoom(final, half, names.semiB, null)]),

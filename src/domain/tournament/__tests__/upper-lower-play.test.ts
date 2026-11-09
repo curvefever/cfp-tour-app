@@ -53,8 +53,8 @@ const headToHead = (
 const CASES: PlayCase[] = [
   ...[12, 13, 16, 23, 24, 25, 27, 28, 29, 31, 32, 37, 43, 53].map(ffa),
   ...[8, 13, 17, 19, 23].map((count) => teams('team-2v2v2v2', count)),
-  ...[17, 19].map((count) => teams('team-2v2v2v2v2', count)),
-  ...[11, 13].map((count) => teams('team-2v2v2', count)),
+  ...[17, 18, 19].map((count) => teams('team-2v2v2v2v2', count)),
+  ...[9, 10, 11, 13].map((count) => teams('team-2v2v2', count)),
   ...[7, 9, 16].map((count) => headToHead('qual-table', 'individual-1v1', count)),
   ...[7, 9, 16].map((count) => headToHead('swiss', 'individual-1v1', count)),
   ...[8, 11].map((count) => headToHead('swiss', 'team-2v2', count)),
@@ -112,6 +112,7 @@ function expectedOrder(first: number, fourRooms: boolean): Array<string | null> 
         'Semi-Final B',
         `Round ${first + 2} - Lower`,
         `Round ${first + 2} - Ranking`,
+        `Round ${first + 1} - Lower`,
         `Round ${first + 1} - Ranking`,
         `Round ${first} - Lower`,
         null,
@@ -143,6 +144,8 @@ describe.each(CASES)('$label', (testCase) => {
       const played = playDependency(entered, strategy, expectRanked);
       expect(drawsOf(played)).toEqual(reference);
       expectRanked(played);
+      // The units the pooling phase cut are out before the bracket starts.
+      expect(ranksOutAt(played, null)).toHaveLength(testCase.count - entry);
       const finalIndex = played.rounds.length - 1;
       expect(played.assignments[finalIndex]).toHaveLength(upperLowerFinalSize(roomSize));
       const groups = expectedOrder(first, entry > 2 * roomSize.max)

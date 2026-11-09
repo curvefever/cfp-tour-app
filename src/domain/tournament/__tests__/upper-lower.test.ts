@@ -194,8 +194,36 @@ describe('the walked examples', () => {
     expect(shape.lower).toEqual([8, 7]);
     expect(roundNamed(shape.rounds, 'Round 5 - Lower')).toMatchObject({ declared: [8, 8], real: [8, 7] });
     expect(roundNamed(shape.rounds, 'Round 6 - Lower')).toMatchObject({ real: [8, 8] });
-    expect(roundNamed(shape.rounds, 'Round 6 - Ranking')).toMatchObject({ declared: [8], real: [7] });
+    expect(roundNamed(shape.rounds, 'Round 6 - Ranking')).toMatchObject({ declared: [7], real: [7] });
     expect(roundNamed(shape.rounds, 'Round 7 - Ranking')).toMatchObject({ declared: [8], real: [8] });
+  });
+
+  it('FFA 31 as text: the short room routes only the ranks it holds, and the ranking room is declared at 7', () => {
+    expect(upperLowerGraphText(31, FFA, 5).split('\n')).toEqual([
+      'ROUNDS:',
+      'Round 5 - Upper = 2x8',
+      'Round 5 - Lower = 2x8',
+      'Semi-Final A = 8',
+      'Round 6 - Lower = 2x8',
+      'Round 6 - Ranking = 7 RANKING',
+      'Round 7 - Lower = 8',
+      'Round 7 - Ranking = 8 RANKING',
+      'Semi-Final B = 8',
+      'Final = 8 FINAL',
+      '',
+      'ROUTES:',
+      'Qual: 1-16->Round 5 - Upper, 17-31->Round 5 - Lower',
+      'Round 5 - Upper.A: 1-4->Semi-Final A, 5-8->Round 6 - Lower',
+      'Round 5 - Upper.B: 1-4->Semi-Final A, 5-8->Round 6 - Lower',
+      'Round 5 - Lower.A: 1-4->Round 6 - Lower, 5-8->Round 6 - Ranking',
+      'Round 5 - Lower.B: 1-4->Round 6 - Lower, 5-7->Round 6 - Ranking',
+      'Semi-Final A: 1-4->Final, 5-8->Semi-Final B',
+      'Round 6 - Lower.A: 1-4->Round 7 - Lower, 5-8->Round 7 - Ranking',
+      'Round 6 - Lower.B: 1-4->Round 7 - Lower, 5-8->Round 7 - Ranking',
+      'Round 7 - Lower: 1-4->Semi-Final B',
+      'Semi-Final B: 1-4->Final',
+      '',
+    ]);
   });
 
   it('FFA 29: upper 15 [8, 7], lower 14 [7, 7]; Round 6 - Lower 15 [8, 7], Round 6 - Ranking 6, Round 7 - Ranking 7', () => {
@@ -204,7 +232,7 @@ describe('the walked examples', () => {
     expect(roundNamed(shape.rounds, 'Round 5 - Lower')).toMatchObject({ declared: [7, 7], real: [7, 7] });
     expect(roundNamed(shape.rounds, 'Round 6 - Lower')).toMatchObject({ declared: [8, 8], real: [8, 7] });
     expect(roundNamed(shape.rounds, 'Round 6 - Ranking')).toMatchObject({ declared: [6], real: [6] });
-    expect(roundNamed(shape.rounds, 'Round 7 - Ranking')).toMatchObject({ declared: [8], real: [7] });
+    expect(roundNamed(shape.rounds, 'Round 7 - Ranking')).toMatchObject({ declared: [7], real: [7] });
   });
 
   it('FFA 24: rooms of 6 and no ranking room', () => {
@@ -212,6 +240,12 @@ describe('the walked examples', () => {
     expect(shape.rounds.filter((round) => round.isRanking)).toEqual([]);
     expect(roundNamed(shape.rounds, 'Round 5 - Upper')?.real).toEqual([6, 6]);
     expect(roundNamed(shape.rounds, 'Round 6 - Lower')?.real).toEqual([6, 6]);
+  });
+
+  it('FFA 25 leaves both ranking rooms out (4 and 5 units): those ranks are not routed', () => {
+    const shape = upperLowerShape(25, FFA, 5);
+    expect(shape.rounds.some((round) => round.isRanking)).toBe(false);
+    expect(upperLowerGraphText(25, FFA, 5)).not.toContain('Ranking');
   });
 
   it('FFA 27: only the ranking room of Round 7 is left (5 and 6 units)', () => {
@@ -242,12 +276,36 @@ describe('the walked examples', () => {
     expect(shape.rounds.some((round) => round.isRanking)).toBe(false);
   });
 
-  it.each([37, 43, 53])('%i registered: 32 enter, with %i - 32 out at qualification', (count) => {
+  it.each([
+    [37, 5],
+    [43, 11],
+    [53, 21],
+  ])('%i registered: 32 enter, %i are out at qualification', (count, out) => {
     const result = upperLowerEntry(count, null, FFA);
     expect(result).toEqual({ ok: true, entry: 32 });
     const graph = graphOf(32, FFA, count);
     expect(graph.qualRoutes).toHaveLength(32);
+    expect(count - 32).toBe(out);
   });
+
+  it.each([
+    ['team-2v2v2', 9, { 'Round 6 - Ranking': 2, 'Round 7 - Ranking': 3 }],
+    ['team-3v3v3', 9, { 'Round 6 - Ranking': 2, 'Round 7 - Ranking': 3 }],
+    ['team-2v2v2', 11, { 'Round 6 - Ranking': 3 }],
+    ['team-3v3v3', 11, { 'Round 6 - Ranking': 3 }],
+    ['team-2v2v2v2v2', 17, { 'Round 6 - Ranking': 4, 'Round 7 - Ranking': 5 }],
+    ['team-2v2v2v2v2', 19, { 'Round 6 - Ranking': 5 }],
+  ])(
+    '%s at %i plays the ranking rooms it can seat, at the size of the units that are there',
+    (key, entry, rooms) => {
+      const roomSize = roomOf(key);
+      const shape = upperLowerShape(entry, roomSize, 5);
+      const ranking = shape.rounds.filter((round) => round.isRanking);
+      expect(Object.fromEntries(ranking.map((round) => [round.name, round.real[0]]))).toEqual(rooms);
+      for (const round of ranking) expect(round.declared).toEqual(round.real);
+      expect(validated(upperLowerGraphText(entry, roomSize, 5), entry, roomSize).ok).toBe(true);
+    },
+  );
 
   it('2v2v2 at 12 has no ranking room: 4 is over its room size of 3', () => {
     const teams = roomOf('team-2v2v2');
@@ -319,6 +377,13 @@ describe('every format, every head count', () => {
           expect(result.value.rounds.map((spec) => spec.label).sort()).toEqual(
             shape.rounds.map((round) => round.name).sort(),
           );
+          for (const round of shape.rounds.filter((candidate) => candidate.isRanking)) {
+            const routed = shape.rounds
+              .flatMap((feeder) => feeder.rooms.flat())
+              .filter((entry) => entry.to === round.name)
+              .reduce((total, entry) => total + entry.last - entry.first + 1, 0);
+            expect(routed, `${round.name} at ${entry} receives what it declares`).toBe(round.declared[0]);
+          }
           const realByName = new Map(shape.rounds.map((round) => [round.name, round.real]));
           expect(walk(result.value, realByName)).toBe(entry);
         }
