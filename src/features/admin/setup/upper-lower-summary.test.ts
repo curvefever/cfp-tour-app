@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
+import { generateTournament } from '../../../domain/tournament/generation';
+import { rosterFor, testRuntime } from '../../../domain/tournament/__tests__/test-fixtures';
+import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import { NO_ROSTER_TEXT, upperLowerSummary } from './upper-lower-summary';
 
 const form = (setup: Parameters<typeof createDefaultSetup>[0] = {}) =>
@@ -87,5 +89,42 @@ describe('the Setup panel of an upper and lower bracket', () => {
     expect(readyOf(upperLowerSummary(form({ upperLowerAdvance: '28' }), 31)).heading).toBe(
       '28 of 31 enter (3 out in the qualification table): upper 7, 7 · lower 7, 7',
     );
+  });
+});
+
+describe('the Setup panel and generation agree on a group stage', () => {
+  const groupForm = (setup: Parameters<typeof createDefaultSetup>[0]) =>
+    form({ poolingPhase: 'group-stage', groupSize: '4', oddCountStrategy: 'bye', ...setup });
+  const generated = (setup: ReturnType<typeof groupForm>, count: number) => {
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(setup.gameFormat, count) }),
+      setup,
+      testRuntime(),
+    );
+    return result.status === 'generated' ? null : result.message;
+  };
+  const cases = (['team-4v4', 'individual-1v1'] as const).flatMap((gameFormat) =>
+    (['per-group', 'even-split', 'fair-cut'] as const).flatMap((groupExit) =>
+      Array.from({ length: 14 }, (_, index) => ({ gameFormat, groupExit, count: index + 4 })),
+    ),
+  );
+
+  it.each(cases)(
+    '$gameFormat, $groupExit, $count teams: ready exactly when generation generates, the same words when not',
+    ({ gameFormat, groupExit, count }) => {
+      const setup = groupForm({ gameFormat, groupExit });
+      const summary = upperLowerSummary(setup, count);
+      const refusal = generated(setup, count);
+      expect(summary.kind === 'ready', String(refusal)).toBe(refusal === null);
+      if (summary.kind === 'refused') expect(summary.message).toBe(refusal);
+    },
+  );
+
+  it('8 of 8 teams enter with a fair cut, as 8 do from 9', () => {
+    for (const count of [8, 9]) {
+      const summary = upperLowerSummary(groupForm({ gameFormat: 'team-4v4', groupExit: 'fair-cut' }), count);
+      expect(summary.kind).toBe('ready');
+      if (summary.kind === 'ready') expect(summary.heading).toMatch(/^8 of /);
+    }
   });
 });

@@ -448,49 +448,41 @@ describe('group exit validation', () => {
     expect(refusal(13, 4, 'fair-cut', 2)).toMatch(/at least 3/);
   });
 
-  it('lets a fair cut send every team of a group, as long as one team is out in all', () => {
+  it('lets a fair cut and an even split send everyone, and refuses more than the units there are', () => {
     expect(refusal(12, 4, 'fair-cut', 10)).toBeNull();
     expect(refusal(12, 4, 'fair-cut', 11)).toBeNull();
-    expect(refusal(13, 4, 'fair-cut', 12)).toBeNull();
-    expect(refusal(12, 4, 'fair-cut', 12)).toMatch(/every one of the 12 teams.*at most 11/);
-  });
-
-  it('refuses an even split that would leave a group with nobody out, pointing to the fair cut', () => {
-    expect(refusal(12, 4, 'even-split', 10)).toMatch(
-      /even split of 3 groups \(4, 4, 4\).*at most 9.*fair cut/,
-    );
-    expect(refusal(13, 4, 'even-split', 10)).toMatch(/3 groups \(5, 4, 4\).*at most 9/);
-    expect(refusal(13, 4, 'even-split', 9)).toBeNull();
-    expect(refusal(12, 4, 'even-split', 9)).toBeNull();
+    expect(refusal(12, 4, 'fair-cut', 12)).toBeNull();
+    expect(refusal(12, 4, 'fair-cut', 13)).toMatch(/\(13\) is more than the 12 teams there are/);
+    expect(refusal(12, 4, 'even-split', 10)).toBeNull();
+    expect(refusal(13, 4, 'even-split', 13)).toBeNull();
+    expect(refusal(12, 4, 'even-split', 12)).toBeNull();
+    expect(refusal(13, 4, 'even-split', 14)).toMatch(/is more than the 13 teams there are/);
   });
 
   it.each([
     [
-      15,
-      4,
-      3,
-      /\(3\) would take every team of a group of 3: 15 teams make 4 groups \(4, 4, 4, 3\)\. Use at most 2/,
-    ],
-    [31, 4, 3, /8 groups \(4, 4, 4, 4, 4, 4, 4, 3\)\. Use at most 2/],
-    [
       11,
       5,
       4,
-      /\(4\) would take every team of a group of 3: 11 teams make 3 groups \(4, 4, 3\)\. Use at most 2/,
+      /\(4\) is more than the 3 teams of the smallest group: 11 teams make 3 groups \(4, 4, 3\)\. Use at most 3/,
     ],
-    [7, 5, 4, /2 groups \(4, 3\)\. Use at most 2/],
-    [16, 4, 4, /group of 4: 16 teams make 4 groups \(4, 4, 4, 4\)\. Use at most 3, or change the group size/],
+    [7, 5, 4, /2 groups \(4, 3\)\. Use at most 3/],
+    [15, 4, 4, /more than the 3 teams of the smallest group: 15 teams make 4 groups \(4, 4, 4, 3\)/],
   ])(
-    'refuses qualifiers per group that take a whole real group: %i teams, size %i, %i per group',
+    'refuses qualifiers per group above the smallest real group: %i teams, size %i, %i per group',
     (count, size, qualifiers, message) => {
       expect(refusal(count, size, 'per-group', qualifiers)).toMatch(message);
     },
   );
 
-  it('accepts qualifiers per group below the smallest real group', () => {
+  it('accepts qualifiers per group up to the smallest real group, which then sends every team', () => {
     expect(refusal(16, 4, 'per-group', 3)).toBeNull();
+    expect(refusal(16, 4, 'per-group', 4)).toBeNull();
+    expect(refusal(15, 4, 'per-group', 3)).toBeNull();
+    expect(refusal(31, 4, 'per-group', 3)).toBeNull();
     expect(refusal(37, 5, 'per-group', 3)).toBeNull();
-    expect(refusal(37, 5, 'per-group', 4)).toMatch(/group of 4: 37 teams make 8 groups/);
+    expect(refusal(37, 5, 'per-group', 4)).toBeNull();
+    expect(refusal(37, 5, 'per-group', 5)).toMatch(/of the smallest group/);
     expect(refusal(13, 4, 'per-group', 3)).toBeNull();
     expect(refusal(15, 4, 'per-group', 2)).toBeNull();
   });
@@ -542,17 +534,15 @@ describe('group exit in a generated tournament', () => {
   });
 
   it.each([
-    [15, '4', '3'],
-    [31, '4', '3'],
     [11, '5', '4'],
     [7, '5', '4'],
-    [12, '4', '4'],
+    [15, '4', '4'],
   ])(
-    'refuses qualifiers per group that take a whole group: %i teams, size %s, %s per group',
+    'refuses qualifiers per group above the smallest group: %i teams, size %s, %s per group',
     (count, size, per) => {
       const result = generate(count, { groupSize: size, qualifiersPerGroup: per });
       expect(result.status).toBe('invalid');
-      if (result.status === 'invalid') expect(result.message).toMatch(/would take every team of a group of/);
+      if (result.status === 'invalid') expect(result.message).toMatch(/of the smallest group/);
     },
   );
 
@@ -577,15 +567,16 @@ describe('group exit in a generated tournament', () => {
     const tooFew = generate(13, { groupExit: 'fair-cut', qualAdv: '2' });
     expect(tooFew.status).not.toBe('generated');
     if (tooFew.status !== 'generated') expect(tooFew.message).toMatch(/3 groups \(5, 4, 4\)/);
-    expect(generate(13, { groupExit: 'fair-cut', qualAdv: '13' }).status).not.toBe('generated');
-    expect(generate(13, { groupExit: 'even-split', qualAdv: '10' }).status).not.toBe('generated');
   });
 
-  it('12 teams in groups of 4: a fair cut sends 10 (3, 3 and 4), an even split refuses', () => {
+  it('12 teams in groups of 4: a fair cut sends 10 (3, 3 and 4), an even split sends 10 too', () => {
     const state = generated(12, { groupExit: 'fair-cut', qualAdv: '10' });
     expect(state.groups.map((group) => group.members.length)).toEqual([4, 4, 4]);
     expect(state.rounds.find((round) => !round.isGroupStage)?.players).toBe(10);
-    expect(generate(12, { groupExit: 'even-split', qualAdv: '10' }).status).not.toBe('generated');
+    expect(
+      generated(12, { groupExit: 'even-split', qualAdv: '10' }).rounds.find((round) => !round.isGroupStage)
+        ?.players,
+    ).toBe(10);
   });
 
   it('a total that is not a bracket size still goes through the bracket checks (6 teams: a Semis needs rooms)', () => {

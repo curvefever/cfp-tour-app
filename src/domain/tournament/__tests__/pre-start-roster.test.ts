@@ -251,9 +251,13 @@ describe('a pre-start removal whose redraw is refused, in a group stage', () => 
   const groups: Setup = { ...GROUP_STAGE, groupSize: '4' };
 
   it.each([
-    ['fair cut 11 of 12', { groupExit: 'fair-cut', qualAdv: '11' }, 12, /at most 10/],
-    ['even split 9 of 12', { groupExit: 'even-split', qualAdv: '9' }, 12, /even split/],
-    ['per group 3 at 16 (4/4/4/4)', { qualifiersPerGroup: '3' }, 16, /group of 3.*4 groups \(4, 4, 4, 3\)/],
+    [
+      'per group 4 at 16 (4/4/4/4)',
+      { qualifiersPerGroup: '4' },
+      16,
+      /smallest group.*4 groups [(]4, 4, 4, 3[)]/,
+    ],
+    ['per group 4 at 12 (4/4/4)', { qualifiersPerGroup: '4' }, 12, /smallest group.*3 groups [(]4, 4, 3[)]/],
   ] as const)(
     '%s: the schedule is cleared, the roster count follows, the settings stay',
     (_label, setup, count, refusal) => {

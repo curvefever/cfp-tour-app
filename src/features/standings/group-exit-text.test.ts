@@ -96,9 +96,10 @@ describe('groupExitHelpLine', () => {
   it('says nothing per group when generation accepts it, but the refusal when it would not', () => {
     expect(groupExitHelpLine(setup('per-group', '8'), 13, 'teams')).toBeNull();
     expect(groupExitHelpLine(setup('per-group', '8', '4', '3'), 16, 'teams')).toBeNull();
-    const refused = groupExitHelpLine(setup('per-group', '8', '4', '3'), 15, 'teams');
+    expect(groupExitHelpLine(setup('per-group', '8', '4', '3'), 15, 'teams')).toBeNull();
+    const refused = groupExitHelpLine(setup('per-group', '8', '4', '4'), 15, 'teams');
     expect(refused?.refused).toBe(true);
-    expect(refused?.text).toMatch(/4 groups \(4, 4, 4, 3\)\. Use at most 2/);
+    expect(refused?.text).toMatch(/4 groups \(4, 4, 4, 3\)\. Use at most 3/);
   });
 
   it('is nothing without a roster, or while a field is not a number', () => {
@@ -117,8 +118,8 @@ describe('groupExitHelpLine', () => {
     expect(refused?.text).toMatch(/3 groups \(5, 4, 4\)/);
   });
 
-  it('reads more than the roster as everyone, which no group stage can send', () => {
-    expect(groupExitHelpLine(setup('fair-cut', '99'), 13, 'teams')?.refused).toBe(true);
+  it('reads more than the roster as everyone, which a group stage may send', () => {
+    expect(groupExitHelpLine(setup('fair-cut', '99'), 13, 'teams')?.refused).toBe(false);
   });
 });
 

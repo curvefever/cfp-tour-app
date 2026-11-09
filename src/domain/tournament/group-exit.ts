@@ -311,10 +311,10 @@ export function describeGroupSizes(groupSizes: readonly number[]): string {
 
 /**
  * Why the exit amount can't be shared between the groups of `unitCount` units split by `groupSize`, or null when it
- * can. Every group sends its winner. Per group, `total` is the qualifiers per group: at least 1, and below the smallest
- * real group (the split can make groups smaller than the Setup's size), so each group loses at least one. Otherwise
- * `total` is the number of units advancing: an even split takes the same number from every group, so each group loses
- * at least one; a fair cut keeps only the winners safe (a group may send everyone), so it needs one unit out in all.
+ * can. Every group sends its winner, and everyone may go on (the groups then only decide who starts where). Per group,
+ * `total` is the qualifiers per group: at least 1, and at most the smallest real group (the split can make groups
+ * smaller than the Setup's size, and a smaller group can't send more than it has). Otherwise `total` is the number of
+ * units advancing: at least one per group and at most the units there are; an even split and a fair cut then share it.
  */
 export function groupExitRefusal(
   unitCount: number,
@@ -339,9 +339,8 @@ export function groupExitRefusalForSizes(
   if (total < groupSizes.length) {
     return `Advance to bracket (${total}) is below the number of groups: ${groups} each send their winner, so at least ${groupSizes.length} ${unitPlural} must go through.`;
   }
-  if (mode === 'even-split') return evenSplitRefusal(groupSizes, groups, total, unitPlural);
-  if (total >= unitCount) {
-    return `Advance to bracket (${total}) would put every one of the ${unitCount} ${unitPlural} through: the fair cut needs at least one out, so at most ${unitCount - 1} can go through.`;
+  if (total > unitCount) {
+    return `Advance to bracket (${total}) is more than the ${unitCount} ${unitPlural} there are.`;
   }
   return null;
 }
@@ -377,7 +376,7 @@ export function groupsLineExit(
   };
 }
 
-/** Qualifiers per group's refusal: below 1, or enough to take every unit of the smallest group. */
+/** Qualifiers per group's refusal: below 1, or more than the smallest group has (the whole group may go on). */
 function perGroupRefusal(
   groupSizes: readonly number[],
   groups: string,
@@ -387,22 +386,8 @@ function perGroupRefusal(
 ): string | null {
   if (qualifiers < 1) return `Qualifiers per group must be a positive number — got ${qualifiers}.`;
   const smallest = Math.min(...groupSizes);
-  if (qualifiers < smallest) return null;
-  const unit = unitPlural.replace(/s$/, '');
-  return `Qualifiers per group (${qualifiers}) would take every ${unit} of a group of ${smallest}: ${unitCount} ${unitPlural} make ${groups}. Use at most ${smallest - 1}, or change the group size.`;
-}
-
-/** An even split's refusal: one unit out of every group, so at most groups × (smallest group − 1) go through. */
-function evenSplitRefusal(
-  groupSizes: readonly number[],
-  groups: string,
-  total: number,
-  unitPlural: string,
-): string | null {
-  const most = groupSizes.length * (Math.min(...groupSizes) - 1);
-  if (total <= most) return null;
-  const unit = unitPlural.replace(/s$/, '');
-  return `Advance to bracket (${total}) is too many for an even split of ${groups}: it sends the same number from every group, so each group loses at least one ${unit} and at most ${most} can go through. Advance fewer, or use the fair cut, which keeps only each group's winner safe.`;
+  if (qualifiers <= smallest) return null;
+  return `Qualifiers per group (${qualifiers}) is more than the ${smallest} ${unitPlural} of the smallest group: ${unitCount} ${unitPlural} make ${groups}. Use at most ${smallest}, or change the group size.`;
 }
 
 function ordinal(place: number): string {

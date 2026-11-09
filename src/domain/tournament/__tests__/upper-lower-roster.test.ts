@@ -287,14 +287,9 @@ describe('a group stage', () => {
     expect(removed.cfg.qualAdv).toBe(8);
   });
 
-  it('9 to 8 to 7 teams: 8 enter and the 8-team count is refused, then 4 enter, in two rooms as generated fresh', () => {
+  it('9 to 8 to 7 teams: 8 enter at 9 and at 8 (everyone may go on), then 4 enter, as generated fresh', () => {
     const state = built(9, GROUPS);
     expect(state.cfg.qualAdv).toBe(8);
-    // At 8 teams a fair cut needs one out: the save is refused and the bracket stands as it was.
-    const eight = without(state, 5);
-    expect(shapeOf(eight)).toEqual(shapeOf(state));
-    const seven = without(eight, 5);
-    const fresh = built(7, GROUPS);
     const structure = (rounds: TournamentRound[]) =>
       rounds.map((round) => ({
         label: round.customLabel?.replace(/^Round [0-9]+/, 'Round N'),
@@ -303,6 +298,13 @@ describe('a group stage', () => {
         stage: round.graphMatchStage,
         ranking: round.waterfallRanking,
       }));
+    // At 8 teams everyone goes on: re-worked like a fresh generation at 8 (the round numbers stay those of the state).
+    const eight = without(state, 5);
+    expect(eight.cfg.qualAdv).toBe(8);
+    expect(structure(bracketOf(eight))).toEqual(structure(bracketOf(built(8, GROUPS))));
+    expectPlaysToTheFinal(eight);
+    const seven = without(eight, 5);
+    const fresh = built(7, GROUPS);
     expect(seven.cfg.qualAdv).toBe(4);
     expect(structure(bracketOf(seven))).toEqual(structure(bracketOf(fresh)));
     expect(bracketOf(seven)[0].roundNum).toBe(bracketOf(state)[0].roundNum);
