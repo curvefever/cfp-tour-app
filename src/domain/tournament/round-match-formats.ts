@@ -172,7 +172,7 @@ export function withFormMatchFormats(state: TournamentState, form: MatchSettings
  * A graph round of a Custom bracket has no stage: it plays the format of its own ROUNDS line, and the Final with none
  * of its own the Finals format. A drawn graph keeps the round's line in the config, so a Finals format change before
  * the start reaches that Final as generation would have given it. A round of the built-in upper and lower bracket has
- * a stage (`graphMatchStage`) and was formatted by it: only its Final is a graph round here.
+ * a stage (`graphMatchStage`, its Final included) and was formatted by it.
  */
 function withGraphFormat(round: TournamentRound, config: GamemodeConfig): TournamentRound {
   if (round.graphMatchStage) return round;
@@ -225,7 +225,7 @@ export function withMatchOverride(overridesText: string, name: string, token: st
 
 /**
  * The stage a round belongs to; null for a graph round of a Custom bracket and for the race Grand Final, which keep
- * their own format. A round of the built-in upper and lower bracket carries its stage (`graphMatchStage`); its Final stays a graph round.
+ * their own format. A round of the built-in upper and lower bracket carries its stage (`graphMatchStage`), its Final included.
  */
 export function matchStage(round: TournamentRound): RoundStage | null {
   if (round.isWaterfall) return round.graphMatchStage ?? null;

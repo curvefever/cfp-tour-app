@@ -123,8 +123,8 @@ export interface TournamentRound {
   waterfallColumnSet?: true;
   /** RANKING in the waterfall graph: a placement match that sends nobody on. Only set on waterfall rounds. */
   waterfallRanking?: true;
-  /** Which match stage a round of the built-in upper and lower bracket plays (`gamemodeConfig.upperLowerVersion`): a Semi-Final round the Semis format, every other round but the Final the bracket rounds format. Absent on every other waterfall round, which plays the format of its own graph line. */
-  graphMatchStage?: 'bracket' | 'semis';
+  /** Which match stage a round of the built-in upper and lower bracket plays (`gamemodeConfig.upperLowerVersion`): a Semi-Final round the Semis format, the Final the Finals format, every other round the bracket rounds format. Absent on every other waterfall round, which plays the format of its own graph line. */
+  graphMatchStage?: 'bracket' | 'semis' | 'finals';
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */

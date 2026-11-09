@@ -36,6 +36,14 @@ function stateOf(
   });
 }
 
+const UPPER_LOWER_GROUPS = {
+  scheduleLogic: 'upper-lower',
+  poolingPhase: 'group-stage',
+  gameFormat: 'team-4v4',
+} as const satisfies Partial<PersistedSetup>;
+
+const groupItems = (state: TournamentState) => itemsOf(settingsRecapGroups(state));
+
 function titles(groups: RecapGroup[]) {
   return groups.map((group) => group.title);
 }
@@ -219,6 +227,27 @@ describe('settingsRecapGroups', () => {
     const items = itemsOf(settingsRecapGroups(state));
     expect(items['Pooling phase']).toBe('Qualification Table');
     expect(items['Advance to bracket']).toBe('16');
+  });
+});
+
+describe('the recap of an upper and lower bracket after a group stage', () => {
+  it.each(['per-group', 'even-split', 'fair-cut'] as const)(
+    'lists one "Advance to bracket" row and no qualifiers row with the %s exit',
+    (groupExit) => {
+      const items = groupItems(stateOf({ ...UPPER_LOWER_GROUPS, groupExit }));
+      expect(items['Teams out of the groups']).toBeDefined();
+      expect(items['Advance to bracket']).toBe('Automatic');
+      expect(items['Qualifiers per group']).toBeUndefined();
+    },
+  );
+
+  it('lists no total-exit row either: that row is the Advance to bracket of the other schedules', () => {
+    const groups = settingsRecapGroups(
+      stateOf({ ...UPPER_LOWER_GROUPS, groupExit: 'even-split', qualAdv: '24' }),
+    );
+    const labels = groups.flatMap((group) => group.items.map((item) => item.label));
+    expect(labels.filter((label) => label === 'Advance to bracket')).toHaveLength(1);
+    expect(itemsOf(groups)['Advance to bracket']).toBe('Automatic');
   });
 });
 

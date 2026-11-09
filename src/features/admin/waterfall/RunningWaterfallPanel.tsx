@@ -8,8 +8,10 @@ import {
   serializeWaterfallDraft,
   waterfallDraftFromRounds,
 } from '../../../domain/tournament/waterfall-draft';
-import { applyHandGraphEdit } from '../../../domain/tournament/upper-lower';
-import type { WaterfallGraphEditResult } from '../../../domain/tournament/waterfall-live-edit';
+import {
+  applyHandGraphEdit,
+  type WaterfallGraphEditResult,
+} from '../../../domain/tournament/waterfall-live-edit';
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';

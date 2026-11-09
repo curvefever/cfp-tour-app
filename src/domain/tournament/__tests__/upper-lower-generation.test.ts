@@ -6,9 +6,10 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
 import { readTournamentSettings } from '../tournament-settings';
 import type { TournamentState } from '../types';
-import { applyHandGraphEdit, bracketLogicOf } from '../upper-lower';
+import { bracketLogicOf } from '../upper-lower';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
-import { indexOf } from './dependency-play-fixtures';
+import { applyHandGraphEdit } from '../waterfall-live-edit';
+import { indexOf, playToBracketEntry } from './dependency-play-fixtures';
 import { rosterFor, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
@@ -163,7 +164,7 @@ describe('what an upper and lower bracket refuses', () => {
 describe('the match formats of an upper and lower bracket', () => {
   const state = built(31, QUAL);
 
-  it('marks every round but the Final with its stage', () => {
+  it('marks every round with its stage, the Final with the Finals', () => {
     const stages = Object.fromEntries(
       bracketRounds(state).map((round) => [round.customLabel, round.graphMatchStage]),
     );
@@ -172,8 +173,8 @@ describe('the match formats of an upper and lower bracket', () => {
       'Round 5 - Ranking': 'bracket',
       'Semi-Final A': 'semis',
       'Semi-Final B': 'semis',
+      Final: 'finals',
     });
-    expect(stages.Final).toBeUndefined();
   });
 
   it('Semis Best of 3 reaches both Semi-Finals only', () => {
@@ -229,11 +230,21 @@ describe('the match formats of an upper and lower bracket', () => {
       expect.arrayContaining([
         ['bracket', 'Upper and lower rounds'],
         ['semis', 'Semis'],
+        ['finals', 'Final'],
       ]),
     );
     expect(scope.rounds.map((entry) => entry.name)).toEqual(
-      expect.arrayContaining(['Round 4 - Upper', 'Semi-Final A', 'Round 5 - Ranking']),
+      expect.arrayContaining(['Round 4 - Upper', 'Semi-Final A', 'Round 5 - Ranking', 'Final']),
     );
+  });
+
+  it('a live change of the Finals format reaches the Final, and no other round', () => {
+    const result = applyStageMatchEdit({ ...state, started: true }, { finals: { games: 3, bestOf: 5 } }, {});
+    expect(result.ok ? '' : result.error).toBe('');
+    if (!result.ok) return;
+    expect(formatOf(result.state, 'Final').bestOf).toBe(5);
+    expect(formatOf(result.state, 'Semi-Final B').bestOf).toBeUndefined();
+    expect(result.state.gamemodeConfig.upperLowerVersion).toBe(1);
   });
 
   it('a live change of the Semis and of one round formats them', () => {
@@ -262,6 +273,17 @@ describe('a hand edit makes it a Custom bracket for good', () => {
     expect(edited.state.rounds.some((round) => round.graphMatchStage !== undefined)).toBe(false);
     expect(formatOf(edited.state, 'Semi-Final A').bestOf).toBe(3);
     expect(edited.state.settings?.waterfallGraph).toContain('Semi-Final A');
+  });
+
+  it('clears the stages of rounds already drawn, whose marks a rebuild would not touch', () => {
+    const entered = playToBracketEntry({ ...built(31, QUAL), started: true });
+    expect(entered.rounds[indexOf(entered, 'Round 4 - Upper')].graphMatchStage).toBe('bracket');
+    const edited = applyHandGraphEdit(entered, editedText(entered));
+    expect(edited.ok ? '' : edited.error).toBe('');
+    if (!edited.ok) return;
+    expect(edited.state.rounds[indexOf(edited.state, 'Round 4 - Upper')].graphMatchStage).toBeUndefined();
+    expect(edited.state.rounds.some((round) => round.graphMatchStage !== undefined)).toBe(false);
+    expect(edited.state.gamemodeConfig.upperLowerVersion).toBeUndefined();
   });
 
   it('leaves a Custom bracket as applyWaterfallGraphEdit does', () => {

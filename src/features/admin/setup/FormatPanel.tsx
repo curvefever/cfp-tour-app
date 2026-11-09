@@ -231,8 +231,6 @@ export function FormatPanel({
     waterfallStandingsSource,
   } = setupDerived(setup, state, lbQualifiers);
   const setByGroupsLine = waterfallStandingsKind === 'groups';
-  // An upper and lower bracket works the number going on out itself: a group stage keeps its exit select only.
-  const setByUpperLower = setup.scheduleLogic === 'upper-lower';
   return (
     <SectionPanel title='FORMAT'>
       <div className='grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-4'>
@@ -347,7 +345,7 @@ export function FormatPanel({
                 ))}
               </Select>
             </PresenceField>
-            {setByUpperLower ? null : setByGroupsLine ? (
+            {!shown.has('qualifiersPerGroup') ? null : setByGroupsLine ? (
               <GroupsLineExitField
                 groupCount={waterfallGroupSizes?.length ?? null}
                 perGroup={!groupExitIsTotal(setup)}

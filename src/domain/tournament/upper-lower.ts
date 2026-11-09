@@ -3,7 +3,6 @@ import { groupSizesOf } from './group-exit';
 import { GROUP_SIZE_BOUNDS } from './pooling';
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup, RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
-import { applyWaterfallGraphEdit, type WaterfallGraphEditResult } from './waterfall-live-edit';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
 
 /**
@@ -281,36 +280,18 @@ export function upperLowerGraphText(
 
 /**
  * Marks the rounds of a freshly built upper and lower bracket with the match stage they play: a Semi-Final round the
- * Semis format, every other round but the Final the bracket rounds format. The Final is a graph round and plays the
- * Finals format. `applyMatchFormats` then formats the marked rounds as it formats any stage.
+ * Semis format, the Final the Finals format, every other round the bracket rounds format. `applyMatchFormats` then
+ * formats the marked rounds as it formats any stage, so each format can change live.
  */
 export function markUpperLowerStages(rounds: TournamentRound[]): TournamentRound[] {
-  return rounds.map((entry) =>
-    entry.isFinal
-      ? entry
-      : { ...entry, graphMatchStage: entry.customLabel?.startsWith('Semi-Final') ? 'semis' : 'bracket' },
-  );
-}
-
-/**
- * A graph save made by hand in the running Admin ("Edit graph"). On an upper and lower bracket it makes it a Custom
- * bracket for good: the version is dropped and the stages cleared (the rounds keep the formats they have; the graph
- * text carries them), and the settings snapshot reads Custom bracket, so the app stops working the rooms out and
- * Copy settings copies the edited graph.
- */
-export function applyHandGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
-  const result = applyWaterfallGraphEdit(state, text);
-  if (!result.ok || !result.state.gamemodeConfig.upperLowerVersion) return result;
-  const { upperLowerVersion: _version, ...gamemodeConfig } = result.state.gamemodeConfig;
-  return {
-    ...result,
-    state: {
-      ...result.state,
-      gamemodeConfig,
-      rounds: result.state.rounds.map(({ graphMatchStage: _stage, ...entry }) => entry),
-      settings: result.state.settings && { ...result.state.settings, scheduleLogic: 'waterfall-bracket' },
-    },
-  };
+  return rounds.map((entry) => ({
+    ...entry,
+    graphMatchStage: entry.isFinal
+      ? 'finals'
+      : entry.customLabel?.startsWith('Semi-Final')
+        ? 'semis'
+        : 'bracket',
+  }));
 }
 
 /** The Setup fields an upper and lower bracket reads to work out how many enter and what its rounds are called. */

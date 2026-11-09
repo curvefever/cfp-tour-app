@@ -478,3 +478,24 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     : null;
   return { ok: true, state: working, redrawnRound };
 }
+
+/**
+ * A graph save made by hand in the running Admin ("Edit graph"). On an upper and lower bracket it makes it a Custom
+ * bracket for good: the version is dropped and every round's stage cleared (the rounds keep the formats they have; the
+ * graph text carries them), and the settings snapshot reads Custom bracket, so the app stops working the rooms out and
+ * Copy settings copies the edited graph.
+ */
+export function applyHandGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
+  const result = applyWaterfallGraphEdit(state, text);
+  if (!result.ok || !result.state.gamemodeConfig.upperLowerVersion) return result;
+  const { upperLowerVersion: _version, ...gamemodeConfig } = result.state.gamemodeConfig;
+  return {
+    ...result,
+    state: {
+      ...result.state,
+      gamemodeConfig,
+      rounds: result.state.rounds.map(({ graphMatchStage: _stage, ...entry }) => entry),
+      settings: result.state.settings && { ...result.state.settings, scheduleLogic: 'waterfall-bracket' },
+    },
+  };
+}
