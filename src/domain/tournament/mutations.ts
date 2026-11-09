@@ -4,6 +4,7 @@ import { moveConfirmation } from './confirmations';
 import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
+import { replanUpperLower } from './upper-lower-replan';
 import { getGameFormat } from './formats';
 import { lateJoinersOf } from './late-joiners';
 import { roomMatch } from './match-format';
@@ -286,15 +287,17 @@ function refitFuturePoolingRounds(state: TournamentState): TournamentState {
 /**
  * Re-plans the not-yet-reached rounds for the new headcount after a removal,
  * the way a reserve join does. Skipped for fixed draws (their published rounds
- * were already patched) and waterfall brackets (an exact-headcount graph). A
+ * were already patched) and waterfall brackets (an exact-headcount graph), except that the built-in upper and
+ * lower bracket works its rooms out again while the bracket is not entered (`replanUpperLower`), fixed draw or not. A
  * rebuild that fails, or that would leave an elimination round meant to keep
  * more units than reach it (e.g. explicit targets above the new headcount),
  * is dropped: the rounds stay as planned and advancing fits each one when it
  * is reached. A removal is never blocked by it.
  */
 function replanFutureRounds(state: TournamentState): TournamentState {
-  if (state.gamemodeConfig.drawPublication === 'fixed') return state;
-  if (state.gamemodeConfig.bracketPhase === 'waterfall-bracket') return refitFuturePoolingRounds(state);
+  const replanned = replanUpperLower(state);
+  if (state.gamemodeConfig.drawPublication === 'fixed') return replanned;
+  if (state.gamemodeConfig.bracketPhase === 'waterfall-bracket') return refitFuturePoolingRounds(replanned);
   const rebuilt = rebuildFutureRounds(state);
   if (!rebuilt) return state;
   const coherent = rebuilt.rounds.every(
@@ -483,7 +486,7 @@ export function addReserveUnit(
   }
   const moved = moveReserveToPlayers(state, key);
   if (!moved) return { status: 'blocked', reason: 'room-cap' };
-  if (isWaterfall) return { status: 'added', state: refitFuturePoolingRounds(moved) };
+  if (isWaterfall) return { status: 'added', state: replanUpperLower(refitFuturePoolingRounds(moved)) };
   const rebuilt = rebuildFutureRounds(moved);
   if (!rebuilt) return { status: 'blocked', reason: 'room-cap' };
   return { status: 'added', state: rebuilt };
