@@ -7,6 +7,9 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { goBack } from '../waterfall-steps';
+import { swissRoutesItsStandings } from '../pooling';
+import { rosterKeys } from '../roster';
+import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import {
   STRATEGIES,
   drawsOf,
@@ -18,7 +21,15 @@ import {
   resolveEveryTie,
   scoreRound,
 } from './dependency-play-fixtures';
-import { scoredAlike, withDependencyPlay, withoutDependencyPlay } from './qual-waterfall';
+import { scoredAlike, withDependencyPlay } from './qual-waterfall';
+import {
+  SWISS_LINELESS_GRAPH as LINELESS,
+  SWISS_QUAL_GRAPH as GRAPH,
+  atEntry,
+  firstBracketIndex,
+  swiss,
+  toSwissExit,
+} from './swiss-source-fixtures';
 import { generated } from './test-fixtures';
 
 /**
@@ -26,57 +37,11 @@ import { generated } from './test-fixtures';
  * round and 5-8 to the Lower one, everyone else out. Head-to-head formats only, so the graph has rooms of two.
  */
 
-const GRAPH = `
-ROUNDS:
-U = 2x2
-L = 2x2
-S = 2x2
-T = 2
-Final = 2 FINAL
-
-ROUTES:
-Qual: 1-4->U, 5-8->L
-U.A: 1->Final, 2->S
-U.B: 1->S, 2->eliminated
-L.A: 1->S, 2->eliminated
-L.B: 1->S, 2->eliminated
-S.A: 1->T, 2->eliminated
-S.B: 1->T, 2->eliminated
-T: 1->Final, 2->eliminated
-`;
-
 const FORMATS = [
   { label: '1v1', setup: { gameFormat: 'individual-1v1' as const } },
   { label: '2v2', setup: { gameFormat: 'team-2v2' as const, teamScoringRule: ONE_SCORE_PER_TEAM } },
 ];
 const COUNTS = [9, 11, 16];
-
-function swiss(count: number, setup: Parameters<typeof generated>[1] = {}, graph = GRAPH): TournamentState {
-  const state = generated(count, {
-    gameFormat: 'individual-1v1',
-    scheduleLogic: 'waterfall-bracket',
-    poolingPhase: 'swiss',
-    oddCountStrategy: 'bye',
-    waterfallGraph: graph,
-    ...setup,
-  });
-  return withoutDependencyPlay({ ...state, started: true });
-}
-
-const firstBracketIndex = (state: TournamentState) => state.rounds.findIndex((round) => round.isWaterfall);
-
-/** Every Swiss round scored (distinct scores) and advanced, the last one scored but not advanced. */
-function toSwissExit(start: TournamentState, score = scoreRound): TournamentState {
-  let state = start;
-  const last = firstBracketIndex(state) - 1;
-  for (let guard = 0; guard < 20 && state.curRound < last; guard += 1) {
-    state = pressed(score(state, state.curRound));
-  }
-  return score(state, last);
-}
-
-/** The first bracket round drawn, nothing of it scored. */
-const atEntry = (start: TournamentState) => pressed(toSwissExit(start));
 
 const comparable = (state: TournamentState): TournamentState => ({
   ...state,
@@ -256,23 +221,8 @@ describe('changing the Qual line during the Swiss', () => {
 });
 
 describe('a Swiss with no Qual line stays a Custom bracket with one entry round', () => {
-  const lineless = `
-ROUNDS:
-R1 = 4x2
-R2 = 2x2
-Final = 2 FINAL
-
-ROUTES:
-R1.A: 1->R2, 2->eliminated
-R1.B: 1->R2, 2->eliminated
-R1.C: 1->R2, 2->eliminated
-R1.D: 1->R2, 2->eliminated
-R2.A: 1->Final, 2->eliminated
-R2.B: 1->Final, 2->eliminated
-`;
-
   it('has no routing on its Swiss rounds and reads "Advance to bracket" from the form', () => {
-    const state = swiss(11, { qualAdv: '8' }, lineless);
+    const state = swiss(11, { qualAdv: '8' }, LINELESS);
     expect(state.rounds.every((round) => round.standingsRoutes === undefined)).toBe(true);
     expect(state.cfg.qualAdv).toBe(8);
     expect(state.rounds[firstBracketIndex(state)].rooms).toEqual([2, 2, 2, 2]);
@@ -302,5 +252,76 @@ describe('wording that names the Swiss', () => {
     state = removeRosterUnit(removeRosterUnit(state, 'P1'), 'P2');
     const result = advanceTournamentRound(state);
     expect('message' in result ? result.message : '').toContain('the qualification table ranks 7 unit(s)');
+  });
+});
+
+/** The text "Edit graph" opens on: the graph read back off the rounds as they stand (`RunningWaterfallPanel`). */
+function editedText(state: TournamentState): string {
+  const { finalsGames, finalsBestOf } = state.gamemodeConfig;
+  return serializeWaterfallDraft(
+    waterfallDraftFromRounds(state.rounds, {
+      rankCount: rosterKeys(state.players).length,
+      finalsMatch: finalsMatchOf(finalsGames, finalsBestOf),
+    }),
+  );
+}
+
+describe('"Edit graph" on a Swiss with a Qual line', () => {
+  const start = swiss(11);
+  const states = [
+    ['during the Swiss', toSwissExit(start)],
+    ['after the exit', withDependencyPlay(atEntry(start))],
+  ] as const;
+
+  it.each(states)(
+    '%s: the graph is read back with its Qual routes, and saving it changes nothing',
+    (_when, state) => {
+      const draft = waterfallDraftFromRounds(state.rounds, { rankCount: 11 });
+      expect(draft.afterSwiss).toBe(true);
+      expect(draft.qualRoutes).toEqual(['U', 'U', 'U', 'U', 'L', 'L', 'L', 'L', null, null, null]);
+      const text = editedText(state);
+      expect(text).toContain('Qual: 1-4->U, 5-8->L');
+      const saved = applyWaterfallGraphEdit(state, text);
+      expect(saved.ok ? '' : saved.error).toBe('');
+      if (!saved.ok) return;
+      expect(saved.state.rounds).toEqual(state.rounds);
+      expect(saved.state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes).toEqual(
+        state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes,
+      );
+    },
+  );
+});
+
+describe('"Edit graph" on a Swiss with no Qual line', () => {
+  const start = swiss(11, { qualAdv: '8' }, LINELESS);
+  const states = [
+    ['during the Swiss', toSwissExit(start)],
+    ['after the exit', withDependencyPlay(atEntry(start))],
+  ] as const;
+
+  it.each(states)('%s: no Qual source is read or written, and a save changes nothing', (_when, state) => {
+    expect(waterfallDraftFromRounds(state.rounds, { rankCount: 11 }).qualRoutes).toBeNull();
+    const text = editedText(state);
+    expect(text).not.toContain('Qual');
+    const saved = applyWaterfallGraphEdit(state, text);
+    expect(saved.ok ? '' : saved.error).toBe('');
+    if (!saved.ok) return;
+    expect(saved.state.rounds).toEqual(state.rounds);
+    expect(saved.state.rounds.some((round) => round.standingsRoutes !== undefined)).toBe(false);
+  });
+});
+
+describe('swissRoutesItsStandings', () => {
+  it('is true for a Swiss with a Qual line, false for one without and for a qualification table', () => {
+    expect(swissRoutesItsStandings(swiss(11))).toBe(true);
+    expect(swissRoutesItsStandings(swiss(11, { qualAdv: '8' }, LINELESS))).toBe(false);
+    const table = generated(11, {
+      gameFormat: 'individual-1v1',
+      oddCountStrategy: 'bye',
+      scheduleLogic: 'waterfall-bracket',
+      poolingPhase: 'qual-table',
+      waterfallGraph: GRAPH,
+    });
+    expect(swissRoutesItsStandings(table)).toBe(false);
   });
 });

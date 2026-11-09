@@ -2,7 +2,7 @@ import { getAllColumnTies, isTieResolved, qualTieBoundaryText } from '../../doma
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/mutations';
 import { GROUP_EXIT_TIE_KEY } from '../../domain/tournament/group-exit';
-import { isPoolingRound } from '../../domain/tournament/pooling';
+import { isPoolingRound, swissRoutesItsStandings } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { roundsInPlay } from '../../domain/tournament/round-columns';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
@@ -30,9 +30,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
     several ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
   const poolingRound = round ? isPoolingRound(round) : false;
   // A Swiss whose graph has a Qual line routes its standings like a qualification table.
-  const afterSwiss =
-    state.cfg.poolingPhase === 'swiss' &&
-    state.rounds.some((entry) => entry.isSwiss && entry.standingsRoutes);
+  const afterSwiss = swissRoutesItsStandings(state);
   const tiedLabel = (name: string): string => {
     const group = state.groups.find((entry) => entry.members.includes(name))?.label;
     return `${unitDisplay(state, name).label}${group ? ` (Group ${group})` : ''}`;

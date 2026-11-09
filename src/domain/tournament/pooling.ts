@@ -11,6 +11,7 @@ import type {
   RoundRobinMode,
   TournamentGroup,
   TournamentRound,
+  TournamentState,
 } from './types';
 
 export const QUALIFICATION_ROUNDS = 3;
@@ -24,6 +25,10 @@ const IDEAL_GROUP_SIZE = 4;
 /** A pooling round (warm-up, qualification table, Swiss or group stage): never an elimination round, Semis or the Final. */
 export const isPoolingRound = (round: TournamentRound): boolean =>
   (round.isQual || !!round.isSwiss || round.isNoElim) && !round.isFinal && !round.isSemis;
+
+/** A Swiss whose last round carries the routing of a Qual line (`standingsRoutes`); one generated with no line stores none and has one entry round. */
+export const swissRoutesItsStandings = (state: Pick<TournamentState, 'cfg' | 'rounds'>): boolean =>
+  state.cfg.poolingPhase === 'swiss' && state.rounds.some((round) => round.isSwiss && round.standingsRoutes);
 
 /** A qualification or Swiss round whose result counts toward the standings (the rule of `computeQualificationStandings`). */
 export const isCountedPoolingRound = (round: TournamentRound): boolean =>
