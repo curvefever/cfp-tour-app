@@ -614,6 +614,23 @@ function nonEliminatedLabels(destinations: string[]): string[] {
   return destinations.map((label) => label.toLowerCase()).filter((label) => label !== ELIMINATED);
 }
 
+function countByLabel(labels: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const label of labels) counts.set(label, (counts.get(label) ?? 0) + 1);
+  return counts;
+}
+
+/**
+ * True when a round fed only by the standings line may declare more seats than the line routes: fewer
+ * seats than it has rooms, so every room stays seated, and no room left under the format's minimum.
+ * `removeSeatsFromLastRooms` is the shape such a round is drawn in.
+ */
+function arrivesShort(declared: number[], arriving: number, minimumRoom: number): boolean {
+  const missing = declared.reduce((total, size) => total + size, 0) - arriving;
+  if (missing <= 0 || missing >= declared.length) return false;
+  return removeSeatsFromLastRooms(declared, missing).every((size) => size >= minimumRoom);
+}
+
 export function validateAndOrderWaterfallGraph(
   graph: RawWaterfallGraph,
   options: {
@@ -942,11 +959,14 @@ export function validateAndOrderWaterfallGraph(
   for (const destKey of incomingLabels) {
     incomingCountByLabel.set(destKey, (incomingCountByLabel.get(destKey) ?? 0) + 1);
   }
+  const lineIncomingByLabel = countByLabel(nonEliminatedLabels(qualLabels ?? []));
   for (const round of roundLines) {
     const key = round.label.toLowerCase();
     if (key === entryLabel) continue;
     const total = totalByLabel.get(key) as number;
     const incoming = incomingCountByLabel.get(key) ?? 0;
+    const fedOnlyByLine = incoming > 0 && incoming === (lineIncomingByLabel.get(key) ?? 0);
+    if (fedOnlyByLine && arrivesShort(round.roomSizes, incoming, roomSize.min)) continue;
     if (incoming !== total) {
       return err(
         `Round "${round.label}" declares ${total} player(s) but its routing bands only send it ${incoming} -- a round's declared size must exactly match what routes into it.`,
@@ -1264,7 +1284,7 @@ export function waterfallBracketPhase(
     );
   }
 
-  return graph.rounds.map((roundSpec, index): TournamentRound => {
+  const declared = graph.rounds.map((roundSpec, index): TournamentRound => {
     const players = roundSpec.roomSizes.reduce((sum, size) => sum + size, 0);
     const routesForRound = graph.routes[index] ?? [];
     const eliminatedCount = routesForRound.reduce(
@@ -1296,5 +1316,41 @@ export function waterfallBracketPhase(
         ),
       ),
     };
+  });
+  return withShortEntryFitted(graph, declared);
+}
+
+/** True when a round fed only by the standings line is routed fewer units than it declares seats. */
+function hasShortEntryRound(graph: OrderedWaterfallGraph, lineArrivals: number[]): boolean {
+  const fedByRound = new Set(graph.routes.flatMap((rooms) => rooms.flat()));
+  return graph.rounds.some((roundSpec, index) => {
+    const seats = roundSpec.roomSizes.reduce((total, size) => total + size, 0);
+    return lineArrivals[index] > 0 && !fedByRound.has(index) && lineArrivals[index] < seats;
+  });
+}
+
+/**
+ * Draws a graph whose entry round arrives short (see `arrivesShort`) at the sizes that really arrive. The rounds are
+ * walked in play order: what a round receives is the line's ranks routed to it, then every earlier room's ranks by
+ * destination, only up to the size the room really has (a rank past a short room's last place doesn't exist).
+ * Every round goes through `fitWaterfallRound`, so `rooms`, `players`, `advTotal` and `declaredRooms` are right from
+ * the start. A graph with no short round returns `rounds` as they are. A round nothing reaches keeps its declared
+ * shape and sends nobody on.
+ */
+function withShortEntryFitted(graph: OrderedWaterfallGraph, rounds: TournamentRound[]): TournamentRound[] {
+  const arrivals = graph.rounds.map(() => 0);
+  for (const destination of graph.qualRoutes ?? []) {
+    if (destination !== 'eliminated') arrivals[destination] += 1;
+  }
+  if (!hasShortEntryRound(graph, arrivals)) return rounds;
+  return rounds.map((round, index) => {
+    const fitted = fitWaterfallRound(round, arrivals[index]);
+    if ('error' in fitted) return round;
+    fitted.rooms.forEach((size, room) => {
+      for (const destination of (graph.routes[index]?.[room] ?? []).slice(0, size)) {
+        if (destination !== 'eliminated') arrivals[destination] += 1;
+      }
+    });
+    return fitted;
   });
 }
