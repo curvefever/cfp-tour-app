@@ -13,6 +13,7 @@ import { rosterFor, testRuntime } from '../../../domain/tournament/__tests__/tes
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
 import { RunningWaterfallPanel } from '../waterfall/RunningWaterfallPanel';
+import { upperLowerByHand } from '../../../domain/tournament/upper-lower-form';
 import { finalsMatchOf } from '../../../domain/tournament/waterfall-draft';
 import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
 import { FormatPanel } from './FormatPanel';
@@ -153,6 +154,30 @@ describe('"Adjust rounds by hand"', () => {
     );
     expect(screen.getByText('Ready to generate.')).toBeTruthy();
     expect(screen.queryByText('Next thing to fix')).toBeNull();
+  });
+});
+
+describe('"Adjust rounds by hand" after a Swiss', () => {
+  it('1v1 Swiss at 9: the Setup editor shows the Qual line as "Swiss standings", ready to generate', () => {
+    atCount(9, { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' });
+    const text = upperLowerByHand(current.setup, 9);
+    if (!text.ok) throw new Error(text.message);
+    render(
+      <WaterfallGraphEditor
+        afterSwiss
+        entrantCount={9}
+        finalsMatch={finalsMatchOf(3, undefined)}
+        firstRoundNumber={4}
+        onChange={() => {}}
+        roomSize={{ min: 2, max: 2, ideal: 2 }}
+        standingsKind='qual'
+        standingsSource
+        text={text.text}
+      />,
+    );
+    expect(screen.getAllByText('Swiss standings').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Qualification table')).toBeNull();
+    expect(screen.getByText('Ready to generate.')).toBeTruthy();
   });
 });
 
