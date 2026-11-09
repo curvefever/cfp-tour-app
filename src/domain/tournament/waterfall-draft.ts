@@ -61,6 +61,8 @@ export interface WaterfallDraft {
   qualRoutes: WaterfallSlotDestination[] | null;
   /** Which line `qualRoutes` is: the Qual line (the default) or, after a group stage, the Groups line. */
   standingsKind?: StandingsSourceKind;
+  /** The Qual line follows a Swiss, not a qualification table: only its wording differs ("Swiss standings"). */
+  afterSwiss?: true;
 }
 
 export interface WaterfallDraftParseOptions {
@@ -68,6 +70,8 @@ export interface WaterfallDraftParseOptions {
   standingsSource?: boolean;
   /** Which line feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
   standingsKind?: StandingsSourceKind;
+  /** The Qual line follows a Swiss (`standingsSource` set, kind 'qual'): the draft says so, for the wording. */
+  afterSwiss?: boolean;
   /** How many standings ranks to show (the registered head count), when known. */
   rankCount?: number;
   /** Ranks to show beyond the highest routed one while `rankCount` isn't known. */
@@ -282,6 +286,7 @@ export function parseWaterfallDraft(
     routes,
     qualRoutes: qualRoutes.value,
     ...(kind === 'groups' ? { standingsKind: kind } : {}),
+    ...(kind === 'qual' && options.afterSwiss ? { afterSwiss: true as const } : {}),
   });
 }
 
@@ -442,7 +447,8 @@ export function waterfallDraftFromRounds(
   const draft: WaterfallDraft = { rounds: draftRounds, routes, qualRoutes: null };
   const standingsRound = rounds.find((round) => round.standingsRoutes);
   const afterGroups = Boolean(standingsRound?.isGroupStage);
-  if (!afterGroups && !rounds.some((round) => round.isQual)) return draft;
+  const afterSwiss = Boolean(standingsRound?.isSwiss);
+  if (!afterGroups && !afterSwiss && !rounds.some((round) => round.isQual)) return draft;
   const standingsRoutes = standingsRound?.standingsRoutes;
   const routed: WaterfallSlotDestination[] = standingsRoutes
     ? standingsRoutes.map((destination) =>
@@ -455,6 +461,7 @@ export function waterfallDraftFromRounds(
     ...draft,
     qualRoutes: Array.from({ length: shown }, (_, index) => routed[index] ?? null),
     ...(afterGroups ? { standingsKind: 'groups' as const } : {}),
+    ...(afterSwiss ? { afterSwiss: true as const } : {}),
   };
 }
 
@@ -563,7 +570,7 @@ export function hasDefaultRoundNames(draft: WaterfallDraft): boolean {
 export function blankWaterfallDraft(
   entrantCount: number | null,
   roomSize: RoomSize,
-  options: Pick<WaterfallDraftParseOptions, 'standingsSource' | 'standingsKind'> & {
+  options: Pick<WaterfallDraftParseOptions, 'standingsSource' | 'standingsKind' | 'afterSwiss'> & {
     firstRoundNumber: number;
   },
 ): WaterfallDraft {
@@ -587,6 +594,9 @@ export function blankWaterfallDraft(
     routes: reshapeRoutes(rounds, {}),
     qualRoutes,
     ...(qualRoutes && options.standingsKind === 'groups' ? { standingsKind: options.standingsKind } : {}),
+    ...(qualRoutes && options.standingsKind !== 'groups' && options.afterSwiss
+      ? { afterSwiss: true as const }
+      : {}),
   };
 }
 

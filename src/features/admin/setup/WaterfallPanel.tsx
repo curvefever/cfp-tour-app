@@ -36,6 +36,7 @@ export function WaterfallPanel({ lbQualifiers }: { lbQualifiers: string }) {
         firstRoundNumber={numbering.firstRoundNumber}
         onChange={numbering.changeGraph}
         roomSize={derivedRoomSize}
+        afterSwiss={setup.poolingPhase === 'swiss'}
         standingsKind={waterfallStandingsKind ?? undefined}
         standingsSource={waterfallStandingsSource}
         text={setup.waterfallGraph}

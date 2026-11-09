@@ -200,6 +200,16 @@ describe('settingsRecapGroups', () => {
     expect(items['Custom bracket graph']).toBeDefined();
   });
 
+  it('reads the advancing count of a Swiss with a Qual line off its graph, and a Swiss without one from the form', () => {
+    const setup = { scheduleLogic: 'waterfall-bracket', poolingPhase: 'swiss', qualAdv: '99' } as const;
+    const withLine = itemsOf(settingsRecapGroups(stateOf({ ...setup, waterfallGraph: QUAL_GRAPH })));
+    expect(withLine['Advance to bracket']).toBe('24, set by the custom bracket graph');
+    const withoutLine = itemsOf(
+      settingsRecapGroups(stateOf({ ...setup, waterfallGraph: QUAL_GRAPH.replace(/^Qual:.*$/m, '') })),
+    );
+    expect(withoutLine['Advance to bracket']).toBe('99');
+  });
+
   it('lists a tournament stored before the settings snapshot from what its state records', () => {
     const state = {
       ...stateOf({ poolingPhase: 'qual-table' }),

@@ -50,7 +50,7 @@ export function WaterfallSidePanel({
             style={{ background: destinationColor(draft, edge.to) }}
           />
           <span>
-            <b>{sourceName(edge.from, draft.standingsKind)}</b> → {destinationName(edge.to)}{' '}
+            <b>{sourceName(edge.from, draft.standingsKind, draft.afterSwiss)}</b> → {destinationName(edge.to)}{' '}
             <span className='text-muted'>
               {edge.players} player{edge.players > 1 ? 's' : ''} ·{' '}
               {describeFlowEdge(edge, roomCountOf(edge.from))}

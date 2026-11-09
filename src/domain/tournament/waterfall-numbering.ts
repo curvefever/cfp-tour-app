@@ -1,6 +1,6 @@
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup } from './types';
-import type { StandingsSourceKind } from './waterfall-bracket';
+import { graphTextHasQualLine, type StandingsSourceKind } from './waterfall-bracket';
 import {
   defaultNameShift,
   hasDefaultRoundNames,
@@ -22,12 +22,16 @@ type NumberingSetup = Pick<
   | 'waterfallNumberedFrom'
 >;
 
-/** Which pooling exit feeds a Custom bracket graph: a qualification table (Qual line), a group stage (Groups line), or neither (or not a Custom bracket). */
+/**
+ * Which pooling exit feeds a Custom bracket graph: a qualification table (Qual line), a Swiss whose graph has a Qual line
+ * (a Swiss with none has no source), a group stage (Groups line), or neither (or not a Custom bracket).
+ */
 export function standingsKindOfSetup(
-  setup: Pick<PersistedSetup, 'scheduleLogic' | 'poolingPhase'>,
+  setup: Pick<PersistedSetup, 'scheduleLogic' | 'poolingPhase' | 'waterfallGraph'>,
 ): StandingsSourceKind | null {
   if (setup.scheduleLogic !== 'waterfall-bracket') return null;
   if (setup.poolingPhase === 'qual-table') return 'qual';
+  if (setup.poolingPhase === 'swiss') return graphTextHasQualLine(setup.waterfallGraph) ? 'qual' : null;
   return setup.poolingPhase === 'group-stage' ? 'groups' : null;
 }
 

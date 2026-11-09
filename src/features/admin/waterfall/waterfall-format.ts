@@ -43,14 +43,18 @@ export const QUAL_DISPLAY_NAME = 'Qualification table';
 /** The name shown for the Groups source of a graph. */
 export const GROUPS_DISPLAY_NAME = 'Groups';
 
-/** The name of the pooling exit a graph is fed by: the qualification table, or the groups. */
-export function standingsSourceName(kind: StandingsSourceKind | undefined): string {
-  return kind === 'groups' ? GROUPS_DISPLAY_NAME : QUAL_DISPLAY_NAME;
+/** The name shown for the Qual source of a graph that follows a Swiss. */
+export const SWISS_DISPLAY_NAME = 'Swiss standings';
+
+/** The name of the pooling exit a graph is fed by: the qualification table, the Swiss standings, or the groups. */
+export function standingsSourceName(kind: StandingsSourceKind | undefined, afterSwiss?: boolean): string {
+  if (kind === 'groups') return GROUPS_DISPLAY_NAME;
+  return afterSwiss ? SWISS_DISPLAY_NAME : QUAL_DISPLAY_NAME;
 }
 
 /** A flow edge's source: a round label, or the pooling exit (the qualification table or the groups). */
-export function sourceName(source: string, kind?: StandingsSourceKind): string {
-  return source === QUAL_LABEL ? standingsSourceName(kind) : source;
+export function sourceName(source: string, kind?: StandingsSourceKind, afterSwiss?: boolean): string {
+  return source === QUAL_LABEL ? standingsSourceName(kind, afterSwiss) : source;
 }
 
 /** Consecutive ranks with the same label, as "1–3 Group winners · 4–6 Runners-up" (blank labels left out). */

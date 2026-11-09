@@ -29,6 +29,10 @@ export function TieBanners({ state }: { state: TournamentState }) {
   const roundLabelOf = (key: string): string =>
     several ? (labels[Number(/^r(\d+)-/.exec(key)?.[1])]?.label ?? '') : '';
   const poolingRound = round ? isPoolingRound(round) : false;
+  // A Swiss whose graph has a Qual line routes its standings like a qualification table.
+  const afterSwiss =
+    state.cfg.poolingPhase === 'swiss' &&
+    state.rounds.some((entry) => entry.isSwiss && entry.standingsRoutes);
   const tiedLabel = (name: string): string => {
     const group = state.groups.find((entry) => entry.members.includes(name))?.label;
     return `${unitDisplay(state, name).label}${group ? ` (Group ${group})` : ''}`;
@@ -45,7 +49,7 @@ export function TieBanners({ state }: { state: TournamentState }) {
       const isExitTie = key === GROUP_EXIT_TIE_KEY;
       const heading = !isCutoff
         ? `⚠ Tie-break required — ${roundLabelOf(key) ? `${roundLabelOf(key)} · ` : ''}Room ${roomLetter(tie.rm)} (score ${tie.score})`
-        : cutoffTieHeading(key, tie, boundaryText, cutoffValue);
+        : cutoffTieHeading(key, tie, boundaryText, cutoffValue, afterSwiss);
       return (
         <div
           className={cn(

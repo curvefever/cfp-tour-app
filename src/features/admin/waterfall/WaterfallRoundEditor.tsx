@@ -468,7 +468,7 @@ export function QualificationTableEditor({
 }) {
   const slots = draft.qualRoutes ?? [];
   const afterGroups = draft.standingsKind === 'groups';
-  const name = standingsSourceName(draft.standingsKind);
+  const name = standingsSourceName(draft.standingsKind, draft.afterSwiss);
   return (
     <div>
       <div className='flex flex-wrap items-center gap-3'>
@@ -476,7 +476,7 @@ export function QualificationTableEditor({
         <span className='text-sm text-muted'>
           {afterGroups
             ? 'Where each rank of the group exit goes: every group\'s winner first, then the runners-up, and so on. A rank left as "out" is eliminated when the groups end.'
-            : 'Where each final standing goes. Rank 1 is the top of the table; a rank left as "out" is eliminated when qualification ends.'}
+            : `Where each final standing goes. Rank 1 is the top of the table; a rank left as "out" is eliminated when ${draft.afterSwiss ? 'the Swiss' : 'qualification'} ends.`}
         </span>
       </div>
       {afterGroups ? (

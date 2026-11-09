@@ -496,6 +496,12 @@ export function parseWaterfallGraph(
   return ok({ roundLines, routeLines, qualBands, standingsKind });
 }
 
+/** Whether graph text carries a Qual line (read leniently: an unfinished graph that still has its line counts). A Groups line does not. */
+export function graphTextHasQualLine(text: string): boolean {
+  const parsed = parseWaterfallGraph(text, { allowIncomplete: true });
+  return parsed.ok && parsed.value.standingsKind === 'qual';
+}
+
 export function expandRankTokens(tokens: string[]): WaterfallParseResult<number[]> {
   const ranks: number[] = [];
   for (const token of tokens) {

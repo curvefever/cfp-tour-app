@@ -49,18 +49,22 @@ function sameNameSet(assignments: string[], seeds: PendingBracketSeed[]): boolea
 }
 
 /**
- * A qualification-table or group-stage tournament's graph has a Qual or Groups source: the last pooling round
+ * A qualification-table, Swiss or group-stage tournament's graph has a Qual or Groups source: the last pooling round
  * carries the standings routing (`standingsRoutes`) and the highest rank it sends on is the exit total. A group
- * stage generated without a Groups line stores no routing and keeps the one entry round.
+ * stage or Swiss generated without a Groups or Qual line stores no routing and keeps the one entry round.
  */
 function standingsRoundIndex(state: TournamentState, firstWaterfallIndex: number): number {
-  const groupStage = state.cfg.poolingPhase === 'group-stage';
-  if (!groupStage && state.cfg.poolingPhase !== 'qual-table') return -1;
+  const phase = state.cfg.poolingPhase;
+  if (phase !== 'group-stage' && phase !== 'qual-table' && phase !== 'swiss') return -1;
   const index = state.rounds
-    .map((round) => Boolean(groupStage ? round.isGroupStage : round.isQual))
+    .map((round) =>
+      Boolean(
+        phase === 'group-stage' ? round.isGroupStage : phase === 'swiss' ? round.isSwiss : round.isQual,
+      ),
+    )
     .lastIndexOf(true);
   if (index < 0 || index >= firstWaterfallIndex) return -1;
-  return groupStage && !state.rounds[index].standingsRoutes ? -1 : index;
+  return phase !== 'qual-table' && !state.rounds[index].standingsRoutes ? -1 : index;
 }
 
 /** Whether a tie resolution belongs to the Groups line's exit: a band boundary, or the cut-off the exit total sets. */

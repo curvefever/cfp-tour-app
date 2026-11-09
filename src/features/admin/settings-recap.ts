@@ -17,6 +17,7 @@ import { readTournamentSettings } from '../../domain/tournament/tournament-setti
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
 import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
+import { standingsKindOfSetup } from '../../domain/tournament/waterfall-numbering';
 import {
   DRAW_PUBLICATION_LABELS,
   GROUP_EXIT_LABELS,
@@ -144,7 +145,7 @@ const RECAP: Record<RecapField, RecapEntry> = {
     group: 'POOLING',
     label: 'Advance to bracket',
     value: (settings) => {
-      if (settings.scheduleLogic !== 'waterfall-bracket' || settings.poolingPhase !== 'qual-table') {
+      if (standingsKindOfSetup(settings) !== 'qual') {
         return orDefault(settings.qualAdv, '—');
       }
       const advancing = waterfallGraphQualAdvance(settings.waterfallGraph);

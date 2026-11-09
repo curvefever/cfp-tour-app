@@ -496,9 +496,21 @@ export function fitWaterfallRoundAt(
   return null;
 }
 
-function standingsShortfallMessage(ranked: number, highestRoutedRank: number, afterGroups: boolean): string {
-  if (afterGroups) {
+function standingsPhaseOf(round: TournamentRound): 'groups' | 'swiss' | 'qualification' {
+  if (round.isGroupStage) return 'groups';
+  return round.isSwiss ? 'swiss' : 'qualification';
+}
+
+function standingsShortfallMessage(
+  ranked: number,
+  highestRoutedRank: number,
+  phase: 'groups' | 'swiss' | 'qualification',
+): string {
+  if (phase === 'groups') {
     return `Can't advance -- the group stage sends ${ranked} unit(s) on, but the custom bracket graph routes group exit ranks up to ${highestRoutedRank}. A withdrawal during the groups has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
+  }
+  if (phase === 'swiss') {
+    return `Can't advance -- the Swiss standings rank ${ranked} unit(s), but the custom bracket graph routes Swiss ranks up to ${highestRoutedRank}. A withdrawal during the Swiss has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
   }
   return `Can't advance -- the qualification table ranks ${ranked} unit(s), but the custom bracket graph routes qualification ranks up to ${highestRoutedRank}. A withdrawal during qualification has likely caused this; use "Edit graph" in the Admin tab to route fewer ranks.`;
 }
@@ -627,7 +639,7 @@ function advanceFromStandings(
     return {
       status: 'blocked',
       reason: 'too-few-units',
-      message: standingsShortfallMessage(ordered.length, highestRoutedRank, Boolean(round.isGroupStage)),
+      message: standingsShortfallMessage(ordered.length, highestRoutedRank, standingsPhaseOf(round)),
       state: input,
     };
   }

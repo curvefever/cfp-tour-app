@@ -35,9 +35,17 @@ function reachedRounds(state: TournamentState): {
   return { lockedRounds, currentRoundLabels };
 }
 
-/** Which pooling exit feeds the graph: a qualification table (Qual line), a group stage that routes its exit (Groups line), or neither. */
+/** A Swiss whose last round carries the Qual line's routing; one generated with no line stores none. */
+function isSwissWithRouting(state: TournamentState): boolean {
+  return (
+    state.cfg.poolingPhase === 'swiss' && state.rounds.some((round) => round.isSwiss && round.standingsRoutes)
+  );
+}
+
+/** Which pooling exit feeds the graph: a qualification table or a Swiss (Qual line), a group stage that routes its exit (Groups line), or neither. */
 function standingsKindOf(state: TournamentState): StandingsSourceKind | null {
   if (state.cfg.poolingPhase === 'qual-table' && state.rounds.some((round) => round.isQual)) return 'qual';
+  if (isSwissWithRouting(state)) return 'qual';
   const routesExit = state.rounds.some((round) => round.isGroupStage && round.standingsRoutes);
   return state.cfg.poolingPhase === 'group-stage' && routesExit ? 'groups' : null;
 }
@@ -86,6 +94,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   // What the editor needs to name the source and label the ranks of a Groups line.
   const sourceProps = {
     standingsKind: standingsKind ?? undefined,
+    afterSwiss: isSwissWithRouting(state),
     groupSizes: standingsKind === 'groups' ? state.groups.map((group) => group.members.length) : null,
     groupExit: state.cfg.groupExit ?? ('per-group' as const),
   };

@@ -99,7 +99,7 @@ export function WaterfallRoundList({
           type='button'
         >
           <span className='flex items-center justify-between gap-2 font-semibold'>
-            <span>{standingsSourceName(draft.standingsKind)}</span>
+            <span>{standingsSourceName(draft.standingsKind, draft.afterSwiss)}</span>
           </span>
           <span className='text-xs text-muted'>
             {waterfallQualCounts(draft.qualRoutes, entrantCount).sentOn} sent on

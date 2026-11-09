@@ -1814,15 +1814,9 @@ SemiB: 1-2->Final, 3-8->eliminated
     );
   });
 
-  it.each([
-    ['no pooling phase', { poolingPhase: 'none' as const }],
-    ['a Swiss pooling phase', { poolingPhase: 'swiss' as const, gameFormat: 'individual-1v1' }],
-  ])('refuses a Qual line with %s', (_label, overrides) => {
-    const graph =
-      overrides.poolingPhase === 'swiss'
-        ? 'ROUNDS:\nR1 = 2\nFinal = 2 FINAL\n\nROUTES:\nQual: 1-2->R1\nR1: 1->Final, 2->eliminated'
-        : QUAL_GRAPH;
-    const result = generateQual(32, graph, overrides);
+  // A Swiss feeds a graph with a Qual line like a qualification table does (`waterfall-swiss-source.test.ts`).
+  it('refuses a Qual line with no pooling phase', () => {
+    const result = generateQual(32, QUAL_GRAPH, { poolingPhase: 'none' });
     expect(result).toEqual({
       status: 'invalid',
       message:

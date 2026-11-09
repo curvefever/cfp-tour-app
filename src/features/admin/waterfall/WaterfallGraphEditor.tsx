@@ -54,6 +54,8 @@ interface EditorProps {
   standingsSource?: boolean;
   /** Which of the two feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
   standingsKind?: StandingsSourceKind;
+  /** The Qual line follows a Swiss, not a qualification table: only the wording changes ("Swiss standings"). */
+  afterSwiss?: boolean;
   /** After a group stage: the sizes of the groups the roster splits into, null while no roster is loaded. */
   groupSizes?: readonly number[] | null;
   /** After a group stage: how many go through, per group, an even split or a fair cut (the labels of the ranks follow it). */
@@ -156,6 +158,7 @@ function DraftEditor({
   allowReplace = true,
   standingsSource = false,
   standingsKind,
+  afterSwiss = false,
   groupSizes,
   groupExit = 'per-group',
   finalsMatch,
@@ -298,7 +301,14 @@ function DraftEditor({
   const startBlank = () => {
     if (!confirmReplace()) return;
     setSelectedLabel('');
-    commit(blankWaterfallDraft(entrantCount, roomSize, { standingsSource, standingsKind, firstRoundNumber }));
+    commit(
+      blankWaterfallDraft(entrantCount, roomSize, {
+        standingsSource,
+        standingsKind,
+        afterSwiss,
+        firstRoundNumber,
+      }),
+    );
   };
   const loadExample = (exampleText: string) => {
     if (!confirmReplace()) return;
@@ -404,6 +414,7 @@ export function WaterfallGraphEditor({
   allowReplace = true,
   standingsSource = false,
   standingsKind,
+  afterSwiss = false,
   groupSizes,
   groupExit,
   finalsMatch,
@@ -416,10 +427,11 @@ export function WaterfallGraphEditor({
       parseWaterfallDraft(text, {
         standingsSource,
         standingsKind,
+        afterSwiss,
         rankCount: entrantCount ?? undefined,
         padRanks: max + extraRanks,
       }),
-    [text, standingsSource, standingsKind, entrantCount, max, extraRanks],
+    [text, standingsSource, standingsKind, afterSwiss, entrantCount, max, extraRanks],
   );
   const raw = useMemo(() => parseWaterfallGraph(text, { allowIncomplete: true }), [text]);
   const status = useMemo<GraphStatus>(() => {
@@ -502,7 +514,7 @@ export function WaterfallGraphEditor({
                     blankWaterfallDraft(
                       entrantCount,
                       { min, max, ideal },
-                      { standingsSource, standingsKind, firstRoundNumber },
+                      { standingsSource, standingsKind, afterSwiss, firstRoundNumber },
                     ),
                   ),
                 )
@@ -550,6 +562,7 @@ export function WaterfallGraphEditor({
         groupExit={groupExit}
         groupSizes={groupSizes}
         showColumns={showColumns}
+        afterSwiss={afterSwiss}
         standingsKind={standingsKind}
         standingsSource={standingsSource}
         startedColumns={startedColumns}
