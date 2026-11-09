@@ -572,6 +572,19 @@ function waterfallQual(): TournamentState {
   );
 }
 
+/**
+ * The built-in upper and lower bracket at 31 players, the last qualification round scored and not sent on: the Bracket
+ * shows the expected Upper and Lower rooms, 8 + 8 above and 8 + 7 below.
+ */
+function upperLower31(): TournamentState {
+  const start = generate(31, { scheduleLogic: 'upper-lower', poolingPhase: 'qual-table' });
+  const lastQual = start.rounds.map((round) => round.isQual).lastIndexOf(true);
+  return scoreCurrentRound(
+    playUntil(start, (_round, index) => index === lastQual, 1),
+    { seed: 8 },
+  );
+}
+
 /** The built-in "32 players, spreadsheet layout" with Round 5 fully scored and not sent on: its exit colours follow the destination, in every room. */
 function spreadsheet32Round5(): TournamentState {
   const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32');
@@ -871,6 +884,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     // A tournament stored before dependency play: its column is played together.
     entry('waterfall-column-19', withoutDependencyPlay(waterfallColumn()), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),
+    entry('upper-lower-31', upperLower31(), { infoBox: true }),
     entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
     entry('dependency-play-in-play', dependencyPlay37('in play'), { tabs: ['Bracket'] }),
     entry('dependency-play-nothing-finished', dependencyPlay37('nothing finished'), { tabs: ['Bracket'] }),

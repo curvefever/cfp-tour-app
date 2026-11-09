@@ -16,6 +16,7 @@ import { RosterPanel } from './setup/RosterPanel';
 import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
 import { useWaterfallNumbering, WaterfallNumberingContext } from './setup/useWaterfallNumbering';
+import { UpperLowerPanel } from './setup/UpperLowerPanel';
 import { WaterfallPanel } from './setup/WaterfallPanel';
 
 /** The two settings a renumbering rewrites. */
@@ -92,6 +93,7 @@ export function SetupView() {
             setLbQualifiers={setLbQualifiers}
           />
           <WaterfallPanel lbQualifiers={lbQualifiers} />
+          <UpperLowerPanel />
           <InfoContentPanel />
           <RosterPanel onLoaded={() => setError('')} />
         </div>

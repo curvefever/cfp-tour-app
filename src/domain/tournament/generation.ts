@@ -10,6 +10,7 @@ import {
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { groupExitRefusal, groupSizesOf, groupsLineExit } from './group-exit';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
+import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -148,6 +149,32 @@ function belowFloorReason(schedule: ScheduleLogicKey, roomSize: RoomSize): strin
   }
 }
 
+/** The graph text of an upper and lower bracket for these units, or why there is none (`planUpperLower`). */
+function upperLowerGraphFor(
+  form: GenerationForm,
+  unitCount: number,
+  roomSize: RoomSize,
+  unitPlural: string,
+): { ok: true; text: string } | { ok: false; message: string } {
+  const plan = planUpperLower(form, unitCount, roomSize, unitPlural);
+  if (!plan.ok) return plan;
+  return { ok: true, text: upperLowerGraphText(plan.entry, roomSize, plan.firstRound, plan.source) };
+}
+
+/** Why too few units are registered for a schedule logic (its floor, `getMinimumBracketUnits`), or null. */
+export function registeredBelowFloorMessage(
+  schedule: ScheduleLogicKey,
+  roomSize: RoomSize,
+  unitPlural: string,
+  unitCount: number,
+): string | null {
+  const floorMin = getMinimumBracketUnits(schedule, roomSize);
+  if (unitCount >= floorMin) return null;
+  const reason =
+    schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${roomSize.min})` : '';
+  return `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`;
+}
+
 export function generateTournament(
   current: TournamentState,
   form: GenerationForm,
@@ -168,26 +195,24 @@ export function generateTournament(
       'The roster was loaded for a different game format — click "Load roster & reserves" again before generating.',
     );
   }
-  const schedule = form.scheduleLogic;
+  // An upper and lower bracket is generated as a Custom bracket over a graph the app derives; the choice is kept in
+  // the form (and so in the settings snapshot) and on the config (`upperLowerVersion`), never in `state.scheduleLogic`.
+  const chosen = form.scheduleLogic;
+  const schedule = chosen === 'upper-lower' ? 'waterfall-bracket' : chosen;
   if (!format.defaultRoomSize && !format.idealRoomSize) {
     return generationError('This game format has no room size.');
   }
   const formatRoomSize = deriveRoomSize(format);
-  const floorMin = getMinimumBracketUnits(schedule, formatRoomSize);
+  const floorMin = getMinimumBracketUnits(chosen, formatRoomSize);
   const unitPlural = format.unitLabelPlural.toLowerCase();
-  if (unitCount < floorMin) {
-    const reason =
-      schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${formatRoomSize.min})` : '';
-    return generationError(
-      `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`,
-    );
-  }
+  const belowFloor = registeredBelowFloorMessage(chosen, formatRoomSize, unitPlural, unitCount);
+  if (belowFloor) return generationError(belowFloor);
 
   // A setting whose Setup field is hidden is ignored: the form keeps its stale
   // value (so switching back restores it) but generation uses the default.
   const scoringVisible = form.poolingPhase !== 'none';
   const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
-  const matchConfig = matchFormatConfig(form, schedule);
+  const matchConfig = matchFormatConfig(form, chosen);
   const config: GeneratedTournamentConfig = {
     n: unitCount,
     poolingPhase: form.poolingPhase,
@@ -242,6 +267,14 @@ export function generateTournament(
   const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
   const roomSize = deriveRoomSize(format, oddCountStrategy);
 
+  // An upper and lower bracket reads the graph the app derives from the head count, not the form's.
+  let graphText = form.waterfallGraph;
+  if (chosen === 'upper-lower') {
+    const derived = upperLowerGraphFor(form, unitCount, formatRoomSize, unitPlural);
+    if (!derived.ok) return generationError(derived.message);
+    graphText = derived.text;
+  }
+
   // After a qualification table or a group stage the waterfall graph's own Qual or Groups routing decides
   // who advances, so "Advance to bracket" is derived from it (the highest routed rank), not read from the form.
   let waterfallGraph: OrderedWaterfallGraph | undefined;
@@ -249,10 +282,10 @@ export function generateTournament(
   const graphHasQualSource =
     schedule === 'waterfall-bracket' &&
     (config.poolingPhase === 'qual-table' ||
-      (config.poolingPhase === 'swiss' && graphTextHasQualLine(form.waterfallGraph)));
+      (config.poolingPhase === 'swiss' && graphTextHasQualLine(graphText)));
   const graphHasGroupsSource = schedule === 'waterfall-bracket' && config.poolingPhase === 'group-stage';
   if (graphHasQualSource) {
-    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
+    const resolved = resolveWaterfallGraph(graphText, {
       roomSize,
       entrantCount: config.n,
       standingsSource: true,
@@ -261,7 +294,7 @@ export function generateTournament(
     waterfallGraph = resolved.graph;
     config.qualAdv = waterfallGraph.qualRoutes?.length ?? config.qualAdv;
   } else if (graphHasGroupsSource) {
-    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
+    const resolved = resolveWaterfallGraph(graphText, {
       roomSize,
       entrantCount: config.n,
       standingsSource: true,
@@ -357,7 +390,7 @@ export function generateTournament(
   // post-pooling entrant count computed just above -- not config.qualAdv, which is meaningless
   // for Group Stage.
   if (schedule === 'waterfall-bracket' && !graphHasQualSource && !graphHasGroupsSource) {
-    const resolved = resolveWaterfallGraph(form.waterfallGraph, {
+    const resolved = resolveWaterfallGraph(graphText, {
       roomSize,
       entrantCount: bracketEntryCount,
     });
@@ -655,6 +688,7 @@ export function generateTournament(
     groupAverageVersion: 2,
     absenceVersion: 3,
     dependencyPlayVersion: 1,
+    ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

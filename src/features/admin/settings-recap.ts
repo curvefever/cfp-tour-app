@@ -17,6 +17,7 @@ import { readTournamentSettings } from '../../domain/tournament/tournament-setti
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
 import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
+import { bracketLogicOf } from '../../domain/tournament/upper-lower';
 import { standingsKindOfSetup } from '../../domain/tournament/waterfall-numbering';
 import {
   DRAW_PUBLICATION_LABELS,
@@ -152,6 +153,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
       return advancing > 0 ? `${advancing}, set by the custom bracket graph` : '—';
     },
   },
+  upperLowerAdvance: {
+    group: 'POOLING',
+    label: 'Advance to bracket',
+    value: (settings) => orDefault(settings.upperLowerAdvance, 'Automatic'),
+  },
   nonCountingRounds: {
     group: 'POOLING',
     label: 'Non-counting rounds',
@@ -285,7 +291,7 @@ function settingsOf(state: TournamentState): TournamentSettings {
     ...defaults,
     lbQualifiers: '2',
     gameFormat: state.gameFormat,
-    scheduleLogic: state.scheduleLogic,
+    scheduleLogic: bracketLogicOf(state),
     poolingPhase: cfg.poolingPhase ?? config.poolingPhase ?? 'none',
     qualAdv: text(cfg.qualAdv, defaults.qualAdv),
     nonCountingRounds: text(config.nonCountingRounds, defaults.nonCountingRounds),

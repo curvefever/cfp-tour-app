@@ -15,6 +15,7 @@ import {
   type SharedFinalDoubleEliminationConfig,
 } from './double-elimination';
 import { kingsValleyBracketPhase, type KingsValleyConfig } from './kings-valley';
+import { markUpperLowerStages } from './upper-lower';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
 import {
   waterfallBracketPhase,
@@ -54,7 +55,7 @@ export type TournamentProgressionInput =
     })
   | (CommonGenerationInput & {
       bracketPhase: 'waterfall-bracket';
-      format: PoolingFormatConfig & WaterfallBracketConfig & MatchFormatConfig;
+      format: PoolingFormatConfig & WaterfallBracketConfig & MatchFormatConfig & { upperLowerVersion?: 1 };
     });
 
 export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize: RoomSize): number {
@@ -63,6 +64,8 @@ export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize:
   // -- this early, generic gate only needs to let any positive count through
   // so that later, more specific error reaches the organiser instead.
   if (bracketPhase === 'waterfall-bracket') return 1;
+  // Two rooms of the smallest size: the floor of an upper and lower bracket (upper-lower.ts).
+  if (bracketPhase === 'upper-lower') return 2 * roomSize.min;
   if (bracketPhase === 'double-elimination') return 4;
   // Single elimination's Semis shrinks to who advances, down to two rooms of the smallest size.
   return 2 * (bracketPhase === 'single-elimination' ? roomSize.min : roomSize.ideal);
@@ -131,6 +134,8 @@ export function buildTournamentProgression(input: TournamentProgressionInput): T
       break;
     case 'waterfall-bracket':
       bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
+      // The built-in upper and lower bracket's rounds play match stages, marked before the formats are applied.
+      if (input.format.upperLowerVersion) bracket = markUpperLowerStages(bracket);
       pooledRounds = withStandingsRoutes(
         pooledRounds,
         waterfallStandingsRoutes(input.format.graph, pooled.nextRoundNum),

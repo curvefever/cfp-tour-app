@@ -120,6 +120,7 @@ export const SCHEDULE_LOGIC_LABELS: Record<ScheduleLogicKey, string> = {
   'double-elimination-shared-final': 'Double elimination — FFA/Team',
   'kings-valley': 'Kings Valley',
   'waterfall-bracket': 'Custom bracket (organiser-authored)',
+  'upper-lower': 'Upper and lower bracket',
 };
 
 export const POOLING_PHASE_LABELS: Record<PoolingPhaseKey, string> = {

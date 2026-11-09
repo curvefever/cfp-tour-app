@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageHeading, cn } from '../../components/ui';
+import { bracketLogicOf } from '../../domain/tournament/upper-lower';
 import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
@@ -77,7 +78,7 @@ export function InfoView() {
   const format = summary ?? {
     gameFormat: state.gameFormat,
     poolingPhase: state.cfg.poolingPhase ?? 'none',
-    scheduleLogic: state.scheduleLogic,
+    scheduleLogic: bracketLogicOf(state),
   };
   const title = useTournamentTitle();
   const rulesText = state.info?.rulesText.trim() ?? '';

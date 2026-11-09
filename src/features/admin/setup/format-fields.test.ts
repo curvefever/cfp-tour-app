@@ -71,7 +71,26 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
   ],
   'kings-valley': ['bracketGames', 'bracketBestOf', 'finalsGames', 'finalsBestOf'],
   'waterfall-bracket': ['finalsGames', 'finalsBestOf', 'waterfallGraph', 'waterfallNumberedFrom'],
+  'upper-lower': [
+    'bracketGames',
+    'bracketBestOf',
+    'finalsGames',
+    'finalsBestOf',
+    'semisGames',
+    'semisBestOf',
+  ],
 };
+
+/** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's. */
+function poolingFieldsOf(
+  poolingPhase: string,
+  scheduleLogic: string,
+  byPooling: FormatField[],
+): FormatField[] {
+  if (scheduleLogic !== 'upper-lower') return byPooling;
+  const own = byPooling.filter((field) => field !== 'qualAdv');
+  return poolingPhase === 'none' ? own : [...own, 'upperLowerAdvance'];
+}
 
 function fieldsOf(choices: Partial<FormatChoices>): FormatField[] {
   return [
@@ -98,7 +117,7 @@ describe('visibleFormatFields', () => {
             poolingPhase: poolingPhase as FormatChoices['poolingPhase'],
             scheduleLogic: scheduleLogic as FormatChoices['scheduleLogic'],
           }),
-        ).toEqual(expected(ALWAYS, byPooling, byLogic));
+        ).toEqual(expected(ALWAYS, poolingFieldsOf(poolingPhase, scheduleLogic, byPooling), byLogic));
       });
     }
   }

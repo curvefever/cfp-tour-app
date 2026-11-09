@@ -8,15 +8,17 @@ import {
   serializeWaterfallDraft,
   waterfallDraftFromRounds,
 } from '../../../domain/tournament/waterfall-draft';
-import {
-  applyWaterfallGraphEdit,
-  type WaterfallGraphEditResult,
-} from '../../../domain/tournament/waterfall-live-edit';
+import { applyHandGraphEdit } from '../../../domain/tournament/upper-lower';
+import type { WaterfallGraphEditResult } from '../../../domain/tournament/waterfall-live-edit';
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
 import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
+
+/** Said while the tournament is an upper and lower bracket: a hand edit ends the automatic rooms (`applyHandGraphEdit`). */
+const HAND_EDIT_MESSAGE =
+  'Saving here makes this a Custom bracket: the app stops working the rooms out when the head count changes.';
 
 const CAUTION_MESSAGE =
   "The tournament is running. Rounds that have started keep their rooms; you can still change where their players go next. Saving re-sorts players using the results already entered. If the current round's line-up changes, its rooms are re-drawn, which is only possible before any score is entered there.";
@@ -122,7 +124,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
 
   function save() {
     setError('');
-    const result = applyWaterfallGraphEdit(app.state, draftText);
+    const result = applyHandGraphEdit(app.state, draftText);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -137,7 +139,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   function confirmRedraw() {
     // Re-run against the LATEST state, not the one Save computed against --
     // a score may have landed in the meantime.
-    const result = applyWaterfallGraphEdit(app.state, draftText);
+    const result = applyHandGraphEdit(app.state, draftText);
     if (!result.ok) {
       setRedrawPrompt(null);
       setError(result.error);
@@ -181,6 +183,11 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
       <Alert className='mb-3' tone='info'>
         {CAUTION_MESSAGE}
       </Alert>
+      {state.gamemodeConfig.upperLowerVersion ? (
+        <Alert className='mb-3' tone='info'>
+          {HAND_EDIT_MESSAGE}
+        </Alert>
+      ) : null}
       {error ? (
         <Alert className='mb-3' tone='danger'>
           {error}

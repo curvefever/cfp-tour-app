@@ -11,7 +11,9 @@ export type ScheduleLogicKey =
   | 'double-elimination'
   | 'double-elimination-shared-final'
   | 'kings-valley'
-  | 'waterfall-bracket';
+  | 'waterfall-bracket'
+  /** Only a Setup choice and a settings snapshot hold it: the tournament it generates is a Custom bracket (`state.scheduleLogic` is 'waterfall-bracket', `gamemodeConfig.upperLowerVersion` marks it). */
+  | 'upper-lower';
 
 export type PoolingPhaseKey = 'none' | 'qual-table' | 'swiss' | 'group-stage';
 
@@ -121,6 +123,8 @@ export interface TournamentRound {
   waterfallColumnSet?: true;
   /** RANKING in the waterfall graph: a placement match that sends nobody on. Only set on waterfall rounds. */
   waterfallRanking?: true;
+  /** Which match stage a round of the built-in upper and lower bracket plays (`gamemodeConfig.upperLowerVersion`): a Semi-Final round the Semis format, every other round but the Final the bracket rounds format. Absent on every other waterfall round, which plays the format of its own graph line. */
+  graphMatchStage?: 'bracket' | 'semis';
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
@@ -462,6 +466,8 @@ export interface PersistedSetup {
   waterfallGraph: string;
   /** The number the default round names ("Round 4") of `waterfallGraph` are numbered from: the first round after the pooling rounds. '' = not numbered (a graph saved before this was kept): its names are never renumbered. */
   waterfallNumberedFrom: string;
+  /** "Advance to bracket" of an upper and lower bracket: how many of the pooling phase's units enter it. '' = automatic (everyone who fits). A field of its own because `qualAdv` defaults to 24. */
+  upperLowerAdvance: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

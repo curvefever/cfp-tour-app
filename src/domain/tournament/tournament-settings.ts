@@ -43,6 +43,7 @@ export const SETTING_KEYS = [
   'eliminationSeedingOverrides',
   'waterfallGraph',
   'waterfallNumberedFrom',
+  'upperLowerAdvance',
   'oddCountStrategy',
   'teamScoringRule',
 ] as const satisfies readonly (keyof PersistedSetup)[];

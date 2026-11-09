@@ -15,6 +15,7 @@ const BRACKET_NAMES: Record<ScheduleLogicKey, string> = {
   'double-elimination-shared-final': 'Double elimination',
   'kings-valley': 'Kings Valley',
   'waterfall-bracket': 'Custom bracket',
+  'upper-lower': 'Upper and lower bracket',
 };
 
 /** One line describing how a tournament is played, without round counts: "1v1 · Swiss · Single elimination". */

@@ -9,6 +9,7 @@
 import { BEST_OF_VALUES, stageMatchFields } from './match-format';
 import { isPoolingRound } from './pooling';
 import { roundNoteNames, roundNoteRows } from './round-notes';
+import { bracketLogicOf } from './upper-lower';
 import type {
   MaterializedGamemodeConfig,
   PersistedSetup,
@@ -127,7 +128,10 @@ export function matchFormatConfig(
 ): MatchFormatConfig & { finalsGames: number; semisGames: number } {
   const isDouble = schedule === 'double-elimination' || schedule === 'double-elimination-shared-final';
   const finalsBestOf = bestOfSetting(form.finalsBestOf, schedule !== 'double-elimination');
-  const semisBestOf = bestOfSetting(form.semisBestOf, schedule === 'single-elimination');
+  const semisBestOf = bestOfSetting(
+    form.semisBestOf,
+    schedule === 'single-elimination' || schedule === 'upper-lower',
+  );
   const overrides = parseMatchOverrides(form.matchOverrides);
   return {
     finalsGames: wholeNumber(form.finalsGames, 3),
@@ -135,6 +139,7 @@ export function matchFormatConfig(
     ...(finalsBestOf !== undefined ? { finalsBestOf } : {}),
     ...(semisBestOf !== undefined ? { semisBestOf } : {}),
     ...otherStageConfig('pooling', form, true),
+    // A Custom bracket's rounds play the format of their own graph line; an upper and lower bracket's play the bracket rounds format.
     ...otherStageConfig('bracket', form, schedule !== 'waterfall-bracket'),
     ...otherStageConfig('losers', form, isDouble),
     ...(Object.keys(overrides).length > 0 ? { matchOverrides: overrides } : {}),
@@ -152,7 +157,7 @@ export function withFormMatchFormats(state: TournamentState, form: MatchSettings
       ([key]) => !(MATCH_SETTING_KEYS as readonly string[]).includes(key),
     ),
   ) as typeof state.gamemodeConfig;
-  const gamemodeConfig = { ...kept, ...matchFormatConfig(form, state.scheduleLogic) };
+  const gamemodeConfig = { ...kept, ...matchFormatConfig(form, bracketLogicOf(state)) };
   const formatted = applyMatchFormats(state.rounds, gamemodeConfig);
   const snapshot = Object.fromEntries(MATCH_SETTING_KEYS.map((key) => [key, form[key]]));
   return {
@@ -166,9 +171,11 @@ export function withFormMatchFormats(state: TournamentState, form: MatchSettings
 /**
  * A graph round of a Custom bracket has no stage: it plays the format of its own ROUNDS line, and the Final with none
  * of its own the Finals format. A drawn graph keeps the round's line in the config, so a Finals format change before
- * the start reaches that Final as generation would have given it.
+ * the start reaches that Final as generation would have given it. A round of the built-in upper and lower bracket has
+ * a stage (`graphMatchStage`) and was formatted by it: only its Final is a graph round here.
  */
 function withGraphFormat(round: TournamentRound, config: GamemodeConfig): TournamentRound {
+  if (round.graphMatchStage) return round;
   const spec = round.isWaterfall
     ? config.graph?.rounds.find((entry) => entry.label === round.customLabel)
     : null;
@@ -216,9 +223,13 @@ export function withMatchOverride(overridesText: string, name: string, token: st
   return matchOverridesText(token ? { ...rest, [name]: token } : rest);
 }
 
-/** The stage a round belongs to; null for a graph round of a Custom bracket and for the race Grand Final, which keep their own format. */
+/**
+ * The stage a round belongs to; null for a graph round of a Custom bracket and for the race Grand Final, which keep
+ * their own format. A round of the built-in upper and lower bracket carries its stage (`graphMatchStage`); its Final stays a graph round.
+ */
 export function matchStage(round: TournamentRound): RoundStage | null {
-  if (round.isWaterfall || round.bracket === 'grand-final') return null;
+  if (round.isWaterfall) return round.graphMatchStage ?? null;
+  if (round.bracket === 'grand-final') return null;
   if (round.isFinal) return 'finals';
   if (round.isSemis) return 'semis';
   if (isPoolingRound(round)) return 'pooling';
@@ -228,6 +239,8 @@ export function matchStage(round: TournamentRound): RoundStage | null {
 /** What the first stage of the bracket is called by the schedule, in a Setup select, the recap and the Admin. */
 export function bracketStageLabel(scheduleLogic: ScheduleLogicKey): string {
   switch (scheduleLogic) {
+    case 'upper-lower':
+      return 'Upper and lower rounds';
     case 'single-elimination':
       return 'Elimination rounds';
     case 'kings-valley':

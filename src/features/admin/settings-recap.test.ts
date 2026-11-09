@@ -230,6 +230,7 @@ describe('the recap against the Setup form', () => {
     'double-elimination-shared-final',
     'kings-valley',
     'waterfall-bracket',
+    'upper-lower',
   ];
   const poolings: PersistedSetup['poolingPhase'][] = ['none', 'qual-table', 'swiss', 'group-stage'];
   const scorings: PersistedSetup['scoring'][] = ['fairpoints', 'positional-points', 'match-results'];

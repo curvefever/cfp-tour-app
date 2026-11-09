@@ -231,6 +231,8 @@ export function FormatPanel({
     waterfallStandingsSource,
   } = setupDerived(setup, state, lbQualifiers);
   const setByGroupsLine = waterfallStandingsKind === 'groups';
+  // An upper and lower bracket works the number going on out itself: a group stage keeps its exit select only.
+  const setByUpperLower = setup.scheduleLogic === 'upper-lower';
   return (
     <SectionPanel title='FORMAT'>
       <div className='grid grid-cols-[repeat(auto-fit,minmax(min(300px,100%),1fr))] gap-x-4'>
@@ -248,6 +250,7 @@ export function FormatPanel({
               </option>
             ))}
             {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
+            <option value='upper-lower'>Upper and lower bracket</option>
             <option value='waterfall-bracket'>Custom bracket (organiser-authored)</option>
           </Select>
         </PresenceField>
@@ -344,7 +347,7 @@ export function FormatPanel({
                 ))}
               </Select>
             </PresenceField>
-            {setByGroupsLine ? (
+            {setByUpperLower ? null : setByGroupsLine ? (
               <GroupsLineExitField
                 groupCount={waterfallGroupSizes?.length ?? null}
                 perGroup={!groupExitIsTotal(setup)}
@@ -376,9 +379,9 @@ export function FormatPanel({
             )}
           </>
         ) : null}
-        {shown.has('qualAdv') ? (
+        {shown.has('qualAdv') || shown.has('nonCountingRounds') ? (
           <>
-            {waterfallStandingsSource ? (
+            {!shown.has('qualAdv') ? null : waterfallStandingsSource ? (
               <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
                 <p className='text-sm' id='cfg-qual-adv'>
                   {derivedAdvance > 0
@@ -414,6 +417,22 @@ export function FormatPanel({
               />
             </PresenceField>
           </>
+        ) : null}
+        {shown.has('upperLowerAdvance') ? (
+          <PresenceField htmlFor='cfg-upper-lower-advance' label='Advance to bracket (optional)'>
+            <Input
+              id='cfg-upper-lower-advance'
+              type='number'
+              min='1'
+              max={registered ?? undefined}
+              placeholder='automatic'
+              value={setup.upperLowerAdvance}
+              onChange={(e) => change('upperLowerAdvance', cappedAdvance(e.target.value, registered))}
+            />
+            <p className='text-xs text-muted'>
+              Automatic: everyone who fits. A number lowers it, and must make two or four rooms.
+            </p>
+          </PresenceField>
         ) : null}
         {format?.supportedOddCountStrategies && shown.has('oddCountStrategy') ? (
           <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
@@ -530,16 +549,18 @@ export function FormatPanel({
         {stageSelect('losers', 'Losers rounds')}
         {shown.has('semisGames') ? (
           <>
-            <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
-              <Input
-                id='cfg-semis-override'
-                type='number'
-                min='1'
-                placeholder='derived'
-                value={setup.semisOverride}
-                onChange={(e) => change('semisOverride', e.target.value)}
-              />
-            </PresenceField>
+            {shown.has('semisOverride') ? (
+              <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
+                <Input
+                  id='cfg-semis-override'
+                  type='number'
+                  min='1'
+                  placeholder='derived'
+                  value={setup.semisOverride}
+                  onChange={(e) => change('semisOverride', e.target.value)}
+                />
+              </PresenceField>
+            ) : null}
             <PresenceField htmlFor='cfg-semis-games' label='Semis format'>
               <MatchSelect
                 bestOf={setup.semisBestOf}

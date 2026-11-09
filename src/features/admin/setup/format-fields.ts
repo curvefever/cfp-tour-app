@@ -97,6 +97,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   const isShared = choices.scheduleLogic === 'double-elimination-shared-final';
   const isDouble = isRace || isShared;
   const isKings = choices.scheduleLogic === 'kings-valley';
+  const isUpperLower = choices.scheduleLogic === 'upper-lower';
   const fields = new Set<FormatField>([
     'gameFormat',
     'scheduleLogic',
@@ -112,7 +113,10 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(Boolean(format?.teamSize), 'teamScoringRule');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'drawPublication');
   add(poolingPhase === 'group-stage', 'groupSize', 'roundRobinMode', 'groupExit', 'qualifiersPerGroup');
-  add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'qualAdv', 'nonCountingRounds');
+  add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'nonCountingRounds');
+  // An upper and lower bracket works the number entering out itself: it has its own optional field, after any pooling phase.
+  add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isUpperLower, 'qualAdv');
+  add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(
@@ -123,9 +127,10 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   );
   add(isRace, 'grandFinalWbTarget', 'grandFinalLbTarget');
   add(!isRace, 'finalsGames', 'finalsBestOf');
-  add(isSingle || isDouble || isKings, 'bracketGames', 'bracketBestOf');
+  add(isSingle || isDouble || isKings || isUpperLower, 'bracketGames', 'bracketBestOf');
   add(isDouble, 'losersGames', 'losersBestOf');
-  add(isSingle, 'semisOverride', 'semisGames', 'semisBestOf');
+  add(isSingle, 'semisOverride');
+  add(isSingle || isUpperLower, 'semisGames', 'semisBestOf');
   add(isShared, 'lbQualifiers');
   add(isSingle || isShared, 'finalOverride', 'eliminationRoundTargets', 'eliminationSeedingOverrides');
   add(poolingPhase === 'qual-table', 'qualRoundsOverride');

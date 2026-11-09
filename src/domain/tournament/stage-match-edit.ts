@@ -19,6 +19,7 @@ import {
   type RoundStage,
 } from './round-match-formats';
 import { roundNoteRows } from './round-notes';
+import { bracketLogicOf } from './upper-lower';
 import type { TournamentState } from './types';
 
 type GamemodeConfig = TournamentState['gamemodeConfig'];
@@ -69,7 +70,7 @@ function stageLabel(stage: MatchStage, state: TournamentState): string {
     case 'pooling':
       return 'Pooling rounds';
     case 'bracket':
-      return bracketStageLabel(state.scheduleLogic);
+      return bracketStageLabel(bracketLogicOf(state));
     case 'losers':
       return 'Losers rounds';
     case 'semis':
