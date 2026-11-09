@@ -77,6 +77,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     waterfallGraph: '',
     waterfallNumberedFrom: '',
     upperLowerAdvance: '',
+    upperLowerUpper: '',
     oddCountStrategy: '',
     teamScoringRule: '',
     roster: '',

@@ -158,6 +158,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Advance to bracket',
     value: (settings) => orDefault(settings.upperLowerAdvance, 'Automatic'),
   },
+  upperLowerUpper: {
+    group: 'POOLING',
+    label: 'Upper rooms',
+    value: (settings) => orDefault(settings.upperLowerUpper, 'Evenly'),
+  },
   nonCountingRounds: {
     group: 'POOLING',
     label: 'Non-counting rounds',

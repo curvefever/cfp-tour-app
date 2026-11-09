@@ -54,6 +54,7 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   waterfallGraph: 'ROUNDS:\nFinal = 4 FINAL\nROUTES:',
   waterfallNumberedFrom: '4',
   upperLowerAdvance: '24',
+  upperLowerUpper: '15',
   oddCountStrategy: 'bye',
   teamScoringRule: 'sum-members',
   matchOverrides: 'Round 2: GAMES 2\nSemis: BO3',

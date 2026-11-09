@@ -90,6 +90,45 @@ export function upperLowerEntry(count: number, override: number | null, roomSize
   return { ok: true, entry: Math.max(...allowed.filter((entry) => entry <= ceiling)) };
 }
 
+/** The rooms of each side: two when the bracket has four rooms, one when it has two. */
+const roomsPerSide = (entry: number, roomSize: RoomSize): number => (entry > 2 * roomSize.max ? 2 : 1);
+
+/**
+ * The numbers of units that can start in the upper rooms: every room of both sides stays within the format's room
+ * sizes (the sides are each split evenly over their own rooms).
+ */
+export function upperLowerUpperRange(entry: number, roomSize: RoomSize): { min: number; max: number } {
+  const rooms = roomsPerSide(entry, roomSize);
+  return {
+    min: Math.max(rooms * roomSize.min, entry - rooms * roomSize.max),
+    max: Math.min(rooms * roomSize.max, entry - rooms * roomSize.min),
+  };
+}
+
+export type UpperLowerUpper = { ok: true; upper: number | null } | { ok: false; message: string };
+
+/**
+ * "Upper rooms" as typed: null when empty (the sides are split evenly, half each), the number when the rooms can be
+ * seated with it, otherwise why not, naming the numbers that work.
+ */
+export function upperLowerUpper(entry: number, typed: string, roomSize: RoomSize): UpperLowerUpper {
+  const text = typed.trim();
+  if (!text) return { ok: true, upper: null };
+  const requested = parseAdvanceToBracket(text);
+  if (requested === null) {
+    return { ok: false, message: `Upper rooms must be a positive whole number — got "${typed}".` };
+  }
+  const { min, max } = upperLowerUpperRange(entry, roomSize);
+  if (requested < min || requested > max) {
+    const use = min === max ? `${min}` : `${min} to ${max}`;
+    return {
+      ok: false,
+      message: `Upper rooms (${requested}) can't be seated: with ${entry} entering, use ${use}.`,
+    };
+  }
+  return { ok: true, upper: requested };
+}
+
 /** Ranks of a room (or of the pooling standings) sent to one round; `to` null is a rank that goes out. */
 export interface UpperLowerBand {
   first: number;
@@ -210,17 +249,22 @@ function fourRoomRounds(rooms: number[], roomSize: RoomSize, first: number): Upp
 
 /**
  * The rooms and rounds for `entry` units (a number `upperLowerEntry` gave). `firstRoundNumber` is the number of the
- * first bracket round ("Round 5" after four pooling rounds), which names the rounds after it.
+ * first bracket round ("Round 5" after four pooling rounds), which names the rounds after it. `upperTotal` is the
+ * number of units starting in the upper rooms (a number `upperLowerUpper` gave), null for half each; each side is split
+ * evenly over its own rooms.
  */
 export function upperLowerShape(
   entry: number,
   roomSize: RoomSize,
   firstRoundNumber: number,
+  upperTotal: number | null = null,
 ): UpperLowerShape {
-  const fourRooms = entry > 2 * roomSize.max;
-  const rooms = splitEvenly(entry, fourRooms ? 4 : 2);
-  const upper = rooms.slice(0, rooms.length / 2);
-  const lower = rooms.slice(rooms.length / 2);
+  const perSide = roomsPerSide(entry, roomSize);
+  const upperSum = upperTotal ?? sum(splitEvenly(entry, 2 * perSide).slice(0, perSide));
+  const upper = splitEvenly(upperSum, perSide);
+  const lower = splitEvenly(entry - upperSum, perSide);
+  const rooms = [...upper, ...lower];
+  const fourRooms = perSide === 2;
   const upperName = `Round ${firstRoundNumber} - Upper`;
   const lowerName = `Round ${firstRoundNumber} - Lower`;
   return {
@@ -242,10 +286,10 @@ function bandsText(bands: UpperLowerBand[]): string {
     .join(', ');
 }
 
-function roundLine(entry: UpperLowerRound): string {
+function roundLine(entry: UpperLowerRound, token: string): string {
   const seats =
     entry.declared.length > 1 ? `${entry.declared.length}x${entry.declared[0]}` : `${entry.declared[0]}`;
-  return `${entry.name} = ${seats}${entry.isRanking ? ' RANKING' : ''}${entry.isFinal ? ' FINAL' : ''}`;
+  return `${entry.name} = ${seats}${entry.isRanking ? ' RANKING' : ''}${entry.isFinal ? ' FINAL' : ''}${token ? ` ${token}` : ''}`;
 }
 
 function routeLines(entry: UpperLowerRound): string[] {
@@ -259,23 +303,33 @@ function routeLines(entry: UpperLowerRound): string[] {
 /**
  * The Custom bracket graph text (`ROUNDS:` / `ROUTES:`) that plays the shape. `source` is the pooling line that feeds
  * it: `Qual` after a qualification table or a Swiss, `Groups` after a group stage. The Custom bracket engine plays it.
+ * `formatOf` gives the match format token of a round's ROUNDS line ("BO3", "GAMES 2", or none): the derived text has
+ * none, the one "Adjust rounds by hand" writes carries the formats the Setup selects said.
  */
 export function upperLowerGraphText(
   entry: number,
   roomSize: RoomSize,
   firstRoundNumber: number,
   source: StandingsSourceKind = 'qual',
+  upperTotal: number | null = null,
+  formatOf: (round: UpperLowerRound) => string = () => '',
 ): string {
-  const shape = upperLowerShape(entry, roomSize, firstRoundNumber);
+  const shape = upperLowerShape(entry, roomSize, firstRoundNumber, upperTotal);
   return [
     'ROUNDS:',
-    ...shape.rounds.map(roundLine),
+    ...shape.rounds.map((entry) => roundLine(entry, formatOf(entry))),
     '',
     'ROUTES:',
     `${source === 'groups' ? GROUPS_LABEL : QUAL_LABEL}: ${bandsText(shape.pooling)}`,
     ...shape.rounds.flatMap(routeLines),
     '',
   ].join('\n');
+}
+
+/** The match stage a round of the built-in bracket plays: the Final the Finals format, a Semi-Final the Semis format, every other round the bracket rounds format. */
+export function upperLowerStageOf(name: string, isFinal: boolean): 'bracket' | 'semis' | 'finals' {
+  if (isFinal) return 'finals';
+  return name.startsWith('Semi-Final') ? 'semis' : 'bracket';
 }
 
 /**
@@ -286,11 +340,7 @@ export function upperLowerGraphText(
 export function markUpperLowerStages(rounds: TournamentRound[]): TournamentRound[] {
   return rounds.map((entry) => ({
     ...entry,
-    graphMatchStage: entry.isFinal
-      ? 'finals'
-      : entry.customLabel?.startsWith('Semi-Final')
-        ? 'semis'
-        : 'bracket',
+    graphMatchStage: upperLowerStageOf(entry.customLabel ?? '', entry.isFinal === true),
   }));
 }
 
@@ -304,10 +354,11 @@ export type UpperLowerForm = Pick<
   | 'roundRobinMode'
   | 'groupExit'
   | 'upperLowerAdvance'
+  | 'upperLowerUpper'
 >;
 
 export type UpperLowerPlan =
-  | { ok: true; entry: number; firstRound: number; source: StandingsSourceKind }
+  | { ok: true; entry: number; upper: number | null; firstRound: number; source: StandingsSourceKind }
   | { ok: false; message: string };
 
 /**
@@ -338,6 +389,8 @@ export function planUpperLower(
   }
   const entry = upperLowerEntry(unitCount, requested, roomSize);
   if (!entry.ok) return entry;
+  const upper = upperLowerUpper(entry.entry, form.upperLowerUpper, roomSize);
+  if (!upper.ok) return upper;
   const afterGroups = form.poolingPhase === 'group-stage';
   const groupCount = groupSizesOf(
     unitCount,
@@ -353,6 +406,7 @@ export function planUpperLower(
   return {
     ok: true,
     entry: entry.entry,
+    upper: upper.upper,
     firstRound: roundsBeforeBracket(form, unitCount) + 1,
     source: afterGroups ? 'groups' : 'qual',
   };

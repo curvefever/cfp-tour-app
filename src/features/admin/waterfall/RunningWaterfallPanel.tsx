@@ -15,6 +15,7 @@ import {
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
+import { UpperLowerLiveFields } from './UpperLowerLiveFields';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
 import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
 
@@ -153,6 +154,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   if (!editing) {
     return (
       <ProgressSubsection title='CUSTOM BRACKET GRAPH'>
+        <UpperLowerLiveFields state={state} />
         {success ? (
           <Alert className='mb-3' tone='success'>
             {success}

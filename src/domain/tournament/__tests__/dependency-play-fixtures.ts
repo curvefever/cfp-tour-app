@@ -1,6 +1,7 @@
 import { expect } from 'vitest';
 import { getAllTies } from '../advancement';
 import { computeRankings } from '../rankings';
+import { rosterKeys } from '../roster';
 import { resolveTournamentTie } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { roundsInPlay } from '../round-columns';
@@ -283,4 +284,21 @@ export function expectRankingRoomsFedByTheLowerBefore(state: TournamentState): n
     checked += 1;
   });
   return checked;
+}
+
+/** Played on to the Final in the five press orders, every unit ranked once after every press, and the ranking rooms below their column. */
+export function expectPlaysToTheFinal(state: TournamentState): void {
+  const count = rosterKeys(state.players).length;
+  const entered = playToBracketEntry(state);
+  for (const [name, strategy] of Object.entries(STRATEGIES)) {
+    const played = playDependency(entered, strategy, (current) => {
+      expectEveryUnitRankedOnce(current, count);
+      expectRankingRoomsBelowTheirColumn(current);
+      return current;
+    });
+    expectEveryUnitRankedOnce(played, count);
+    expect(expectRankingRoomsFedByTheLowerBefore(played), name).toBe(
+      played.rounds.filter((round) => round.waterfallRanking).length,
+    );
+  }
 }

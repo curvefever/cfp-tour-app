@@ -44,6 +44,7 @@ export const SETTING_KEYS = [
   'waterfallGraph',
   'waterfallNumberedFrom',
   'upperLowerAdvance',
+  'upperLowerUpper',
   'oddCountStrategy',
   'teamScoringRule',
 ] as const satisfies readonly (keyof PersistedSetup)[];

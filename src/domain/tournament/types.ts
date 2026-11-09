@@ -468,6 +468,8 @@ export interface PersistedSetup {
   waterfallNumberedFrom: string;
   /** "Advance to bracket" of an upper and lower bracket: how many of the pooling phase's units enter it. '' = automatic (everyone who fits). A field of its own because `qualAdv` defaults to 24. */
   upperLowerAdvance: string;
+  /** "Upper rooms" of an upper and lower bracket: how many of the units that enter start in the upper rooms. '' = evenly (half). */
+  upperLowerUpper: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

@@ -158,7 +158,10 @@ function upperLowerGraphFor(
 ): { ok: true; text: string } | { ok: false; message: string } {
   const plan = planUpperLower(form, unitCount, roomSize, unitPlural);
   if (!plan.ok) return plan;
-  return { ok: true, text: upperLowerGraphText(plan.entry, roomSize, plan.firstRound, plan.source) };
+  return {
+    ok: true,
+    text: upperLowerGraphText(plan.entry, roomSize, plan.firstRound, plan.source, plan.upper),
+  };
 }
 
 /** Why too few units are registered for a schedule logic (its floor, `getMinimumBracketUnits`), or null. */

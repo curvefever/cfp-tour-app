@@ -13,24 +13,29 @@ import { rosterFor, testRuntime } from '../../../domain/tournament/__tests__/tes
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
 import { RunningWaterfallPanel } from '../waterfall/RunningWaterfallPanel';
+import { finalsMatchOf } from '../../../domain/tournament/waterfall-draft';
+import { WaterfallGraphEditor } from '../waterfall/WaterfallGraphEditor';
 import { FormatPanel } from './FormatPanel';
 import { UpperLowerPanel } from './UpperLowerPanel';
 
 let current: { state: ReturnType<typeof createDefaultTournamentState>; setup: PersistedSetup };
 /** What the panel handed to `updateState`, in order. */
 const saved: TournamentState[] = [];
+/** What the panels handed to `updateSetup`: the form after each change. */
+const setups: PersistedSetup[] = [];
 
 vi.mock('../../tournament/TournamentProvider', () => ({
   useTournamentApp: () => ({
     ...current,
     updateState: (next: TournamentState) => saved.push(next),
-    updateSetup: () => {},
+    updateSetup: (change: (current: PersistedSetup) => PersistedSetup) => setups.push(change(current.setup)),
     setup: current.setup,
   }),
 }));
 
 beforeEach(() => {
   saved.length = 0;
+  setups.length = 0;
 });
 
 afterEach(cleanup);
@@ -85,12 +90,79 @@ describe('the Setup panel', () => {
   });
 });
 
+describe('"Adjust rounds by hand"', () => {
+  const asked = (answer: boolean) => vi.spyOn(window, 'confirm').mockReturnValue(answer);
+
+  it('after a confirm writes the worked-out text, with the formats of the selects, and makes it a Custom bracket', () => {
+    atCount(31, { semisBestOf: '3' });
+    const confirm = asked(true);
+    render(<UpperLowerPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust rounds by hand' }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(confirm.mock.calls[0][0]).toMatch(/no longer work the rooms out/);
+    expect(setups).toHaveLength(1);
+    expect(setups[0].scheduleLogic).toBe('waterfall-bracket');
+    expect(setups[0].waterfallGraph).toContain('Semi-Final A = 8 BO3');
+    expect(setups[0].waterfallGraph).toContain('Qual: 1-16->Round 4 - Upper, 17-31->Round 4 - Lower');
+    // Nothing else in the form changes.
+    expect({
+      ...setups[0],
+      scheduleLogic: current.setup.scheduleLogic,
+      waterfallGraph: current.setup.waterfallGraph,
+    }).toEqual(current.setup);
+    confirm.mockRestore();
+  });
+
+  it('changes nothing when the confirm is declined', () => {
+    atCount(31);
+    const confirm = asked(false);
+    render(<UpperLowerPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust rounds by hand' }));
+    expect(setups).toHaveLength(0);
+    confirm.mockRestore();
+  });
+
+  it('is not offered without a roster, or when the bracket is refused', () => {
+    atCount(null);
+    const { unmount } = render(<UpperLowerPanel />);
+    expect(screen.queryByRole('button', { name: 'Adjust rounds by hand' })).toBeNull();
+    unmount();
+    atCount(30, { upperLowerAdvance: '20' });
+    render(<UpperLowerPanel />);
+    expect(screen.queryByRole('button', { name: 'Adjust rounds by hand' })).toBeNull();
+  });
+
+  it('opens the Custom bracket editor on it at 31, a short entry round, with nothing in the way', () => {
+    atCount(31);
+    asked(true);
+    render(<UpperLowerPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Adjust rounds by hand' }));
+    cleanup();
+    const text = setups[0].waterfallGraph;
+    render(
+      <WaterfallGraphEditor
+        entrantCount={31}
+        finalsMatch={finalsMatchOf(3, undefined)}
+        firstRoundNumber={4}
+        onChange={() => {}}
+        roomSize={{ min: 6, max: 8, ideal: 8 }}
+        standingsKind='qual'
+        standingsSource
+        text={text}
+      />,
+    );
+    expect(screen.getByText('Ready to generate.')).toBeTruthy();
+    expect(screen.queryByText('Next thing to fix')).toBeNull();
+  });
+});
+
 describe('the Format panel', () => {
   it("offers the Bracket option and its own Advance to bracket, not the table's", () => {
     atCount(31);
     render(<FormatPanel error='' lbQualifiers='2' onGenerate={() => {}} setLbQualifiers={() => {}} />);
     expect(screen.getByRole('option', { name: 'Upper and lower bracket' })).toBeTruthy();
     expect(screen.getByLabelText('Advance to bracket (optional)')).toBeTruthy();
+    expect(screen.getByLabelText('Upper rooms (optional)')).toBeTruthy();
     expect(screen.queryByLabelText('Advance to bracket')).toBeNull();
     expect(screen.getByLabelText('Semis format')).toBeTruthy();
     expect(screen.getByLabelText('Finals format')).toBeTruthy();

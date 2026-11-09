@@ -432,6 +432,22 @@ export function FormatPanel({
             </p>
           </PresenceField>
         ) : null}
+        {shown.has('upperLowerUpper') ? (
+          <PresenceField htmlFor='cfg-upper-lower-upper' label='Upper rooms (optional)'>
+            <Input
+              id='cfg-upper-lower-upper'
+              type='number'
+              min='1'
+              max={registered ?? undefined}
+              placeholder='half'
+              value={setup.upperLowerUpper}
+              onChange={(e) => change('upperLowerUpper', cappedAdvance(e.target.value, registered))}
+            />
+            <p className='text-xs text-muted'>
+              How many of those entering start in the upper rooms. Automatic: half, the larger rooms first.
+            </p>
+          </PresenceField>
+        ) : null}
         {format?.supportedOddCountStrategies && shown.has('oddCountStrategy') ? (
           <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
             <Select

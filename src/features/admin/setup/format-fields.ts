@@ -118,7 +118,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'nonCountingRounds');
   // An upper and lower bracket works the number entering out itself: it has its own optional field, after any pooling phase.
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isUpperLower, 'qualAdv');
-  add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance');
+  add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(

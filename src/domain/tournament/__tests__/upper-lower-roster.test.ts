@@ -9,15 +9,11 @@ import { applyStageMatchEdit } from '../stage-match-edit';
 import { readTournamentSettings } from '../tournament-settings';
 import type { TournamentRound, TournamentState } from '../types';
 import { bracketLogicOf } from '../upper-lower';
-import { replanUpperLower } from '../upper-lower-replan';
+import { applyUpperLowerFields, replanUpperLower, upperLowerUpperFallback } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
 import {
-  STRATEGIES,
-  expectEveryUnitRankedOnce,
-  expectRankingRoomsBelowTheirColumn,
-  expectRankingRoomsFedByTheLowerBefore,
-  playDependency,
+  expectPlaysToTheFinal,
   playToBracketEntry,
   pressed,
   resolveEveryTie,
@@ -86,23 +82,6 @@ const withoutReplan = (state: TournamentState, position = 0): TournamentState =>
   const { upperLowerVersion: _version, ...gamemodeConfig } = state.gamemodeConfig;
   return without({ ...state, gamemodeConfig }, position);
 };
-
-/** Played on to the Final in the five press orders, every unit ranked once after every press, and the ranking rooms below their column. */
-function expectPlaysToTheFinal(state: TournamentState): void {
-  const count = rosterKeys(state.players).length;
-  const entered = playToBracketEntry(state);
-  for (const [name, strategy] of Object.entries(STRATEGIES)) {
-    const played = playDependency(entered, strategy, (current) => {
-      expectEveryUnitRankedOnce(current, count);
-      expectRankingRoomsBelowTheirColumn(current);
-      return current;
-    });
-    expectEveryUnitRankedOnce(played, count);
-    expect(expectRankingRoomsFedByTheLowerBefore(played), name).toBe(
-      played.rounds.filter((round) => round.waterfallRanking).length,
-    );
-  }
-}
 
 /** The ranking rooms come first in their column of `state.rounds`: the play order Rankings relies on. */
 function expectRankingRoomsFirstInPlayOrder(state: TournamentState): void {
@@ -363,6 +342,92 @@ describe('"Advance to bracket" below the count', () => {
     const removed = without(built(24, { ...QUAL, upperLowerAdvance: '24' }));
     expect(removed.cfg.qualAdv).toBe(16);
     expect(shapeOf(removed)).toEqual(shapeOf(built(23, QUAL)));
+  });
+});
+
+describe('"Upper rooms" when the head count changes', () => {
+  const typed = { ...QUAL, upperLowerUpper: '16' } as const;
+
+  it('29 with 16 upper: 28 seats it, 27 does not and falls back to evenly (the removal goes through), 29 seats it again', () => {
+    const state = built(29, typed);
+    expect(upperLowerUpperFallback(state)).toBeNull();
+    const twentyEight = without(state);
+    expect(roomsOf(twentyEight, 'Round 4 - Upper')).toEqual([8, 8]);
+    expect(roomsOf(twentyEight, 'Round 4 - Lower')).toEqual([6, 6]);
+    expect(upperLowerUpperFallback(twentyEight)).toBeNull();
+
+    const twentySeven = without(twentyEight);
+    expect(rosterKeys(twentySeven.players)).toHaveLength(27);
+    expect(shapeOf(twentySeven)).toEqual(shapeOf(built(27, QUAL)));
+    expect(twentySeven.settings?.upperLowerUpper).toBe('16');
+    expect(upperLowerUpperFallback(twentySeven)).toBe(
+      "Upper rooms (16) can't be seated: with 27 entering, use 12 to 15. The rooms are split evenly instead.",
+    );
+
+    const join = (current: TournamentState, name: string) => {
+      const result = addWalkUpIndividual(current, name, { allowLateJoin: true });
+      if (result.status !== 'added') throw new Error(`expected added, got ${result.status}`);
+      return result.state;
+    };
+    const twentyNine = join(join(twentySeven, 'Newcomer A'), 'Newcomer B');
+    expect(roomsOf(twentyNine, 'Round 4 - Lower')).toEqual([7, 6]);
+    expect(shapeOf(twentyNine)).toEqual(shapeOf(built(29, typed)));
+    expect(upperLowerUpperFallback(twentyNine)).toBeNull();
+  });
+});
+
+describe('the running Admin saves "Advance to bracket" and "Upper rooms"', () => {
+  it('writes both to the settings and works the rooms out with them, the version staying', () => {
+    const state = built(29, QUAL);
+    const saved = applyUpperLowerFields(state, { advance: '', upper: '16' });
+    if (!saved.ok) throw new Error(saved.message);
+    expect(roomsOf(saved.state, 'Round 4 - Lower')).toEqual([7, 6]);
+    expect(saved.state.settings?.upperLowerUpper).toBe('16');
+    expect(bracketLogicOf(saved.state)).toBe('upper-lower');
+    expect(shapeOf(saved.state)).toEqual(shapeOf(built(29, { ...QUAL, upperLowerUpper: '16' })));
+    expectPlaysToTheFinal(saved.state);
+    // And a lower "Advance to bracket", the next save.
+    const lowered = applyUpperLowerFields(saved.state, { advance: '24', upper: '' });
+    if (!lowered.ok) throw new Error(lowered.message);
+    expect(lowered.state.cfg.qualAdv).toBe(24);
+    expect(shapeOf(lowered.state)).toEqual(shapeOf(built(29, { ...QUAL, upperLowerAdvance: '24' })));
+  });
+
+  it('refuses in the words of generation, and leaves the state as it was', () => {
+    const state = built(29, QUAL);
+    expect(applyUpperLowerFields(state, { advance: '', upper: '20' })).toEqual({
+      ok: false,
+      message: "Upper rooms (20) can't be seated: with 29 entering, use 13 to 16.",
+    });
+    expect(applyUpperLowerFields(state, { advance: '20', upper: '' })).toEqual({
+      ok: false,
+      message: 'Advance to bracket (20) has no upper and lower bracket: use 16 or 24.',
+    });
+    expect(applyUpperLowerFields(state, { advance: 'x', upper: '' })).toMatchObject({ ok: false });
+  });
+
+  it('keeps the settings only change as a state with the same rounds when nothing re-works', () => {
+    const state = built(37, QUAL);
+    const saved = applyUpperLowerFields(state, { advance: '32', upper: '' });
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.state.settings?.upperLowerAdvance).toBe('32');
+    expect(saved.state.rounds).toEqual(state.rounds);
+  });
+
+  it('is refused once the bracket is entered: Edit graph is the way', () => {
+    const entered = playToBracketEntry(built(31, QUAL));
+    expect(applyUpperLowerFields(entered, { advance: '', upper: '16' })).toEqual({
+      ok: false,
+      message: 'The bracket has been entered: change its rounds with Edit graph.',
+    });
+  });
+
+  it('a tie pick that still applies is kept (the cut lines did not move)', () => {
+    const state = built(37, QUAL);
+    const tied = resolveEveryTie(scoreTied(state, state.curRound), state.curRound);
+    const saved = applyUpperLowerFields(tied, { advance: '', upper: '' });
+    if (!saved.ok) throw new Error(saved.message);
+    expect(saved.state.tieResolutions).toEqual(tied.tieResolutions);
   });
 });
 

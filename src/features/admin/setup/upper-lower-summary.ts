@@ -1,8 +1,7 @@
-import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from '../../../domain/tournament/formats';
-import { registeredBelowFloorMessage } from '../../../domain/tournament/generation';
+import { getGameFormat } from '../../../domain/tournament/formats';
 import type { PersistedSetup, PoolingPhaseKey } from '../../../domain/tournament/types';
+import { planUpperLowerFor } from '../../../domain/tournament/upper-lower-form';
 import {
-  planUpperLower,
   upperLowerShape,
   type UpperLowerBand,
   type UpperLowerRound,
@@ -56,13 +55,10 @@ function goesText(round: UpperLowerRound): string {
 export function upperLowerSummary(setup: PersistedSetup, registered: number | null): UpperLowerSummary {
   const format = getGameFormat(setup.gameFormat);
   if (!format || registered === null) return { kind: 'waiting', message: NO_ROSTER_TEXT };
-  const roomSize = deriveRoomSize(format);
-  const unitPlural = unitLabelPluralLower(setup.gameFormat);
-  const tooFew = registeredBelowFloorMessage('upper-lower', roomSize, unitPlural, registered);
-  if (tooFew) return { kind: 'refused', message: tooFew };
-  const plan = planUpperLower(setup, registered, roomSize, unitPlural);
-  if (!plan.ok) return { kind: 'refused', message: plan.message };
-  const shape = upperLowerShape(plan.entry, roomSize, plan.firstRound);
+  const planned = planUpperLowerFor(setup, registered);
+  if (!planned.ok) return { kind: 'refused', message: planned.message };
+  const { plan, roomSize } = planned;
+  const shape = upperLowerShape(plan.entry, roomSize, plan.firstRound, plan.upper);
   const out = registered - plan.entry;
   const outText = out > 0 ? ` (${out} out ${OUT_AT[setup.poolingPhase]})` : '';
   return {

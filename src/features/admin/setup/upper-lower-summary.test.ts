@@ -85,6 +85,16 @@ describe('the Setup panel of an upper and lower bracket', () => {
     });
   });
 
+  it('follows "Upper rooms", and refuses a number that cannot be seated in the words of generation', () => {
+    expect(readyOf(upperLowerSummary(form({ upperLowerUpper: '16' }), 29)).heading).toBe(
+      '29 of 29 enter: upper 8, 8 · lower 7, 6',
+    );
+    expect(upperLowerSummary(form({ upperLowerUpper: '20' }), 29)).toEqual({
+      kind: 'refused',
+      message: "Upper rooms (20) can't be seated: with 29 entering, use 13 to 16.",
+    });
+  });
+
   it('follows "Advance to bracket"', () => {
     expect(readyOf(upperLowerSummary(form({ upperLowerAdvance: '28' }), 31)).heading).toBe(
       '28 of 31 enter (3 out in the qualification table): upper 7, 7 · lower 7, 7',

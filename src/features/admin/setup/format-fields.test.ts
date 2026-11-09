@@ -89,7 +89,7 @@ function poolingFieldsOf(
 ): FormatField[] {
   if (scheduleLogic !== 'upper-lower') return byPooling;
   const own = byPooling.filter((field) => field !== 'qualAdv' && field !== 'qualifiersPerGroup');
-  return poolingPhase === 'none' ? own : [...own, 'upperLowerAdvance'];
+  return poolingPhase === 'none' ? own : [...own, 'upperLowerAdvance', 'upperLowerUpper'];
 }
 
 function fieldsOf(choices: Partial<FormatChoices>): FormatField[] {
