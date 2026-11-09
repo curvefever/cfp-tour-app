@@ -12,7 +12,13 @@ import {
 } from '../../domain/tournament/__tests__/dependency-play-fixtures';
 import { withDependencyPlay } from '../../domain/tournament/__tests__/qual-waterfall';
 import type { TournamentState } from '../../domain/tournament/types';
-import { defaultStripSelection, pickedItemKey, roundStrip, roundStripBoxLabels } from './round-strip';
+import {
+  boxHoldingRound,
+  defaultStripSelection,
+  pickedItemKey,
+  roundStrip,
+  roundStripBoxLabels,
+} from './round-strip';
 
 /** A fixture tournament as the app holds it, with the round in play moved to `curRound` when given. */
 function fixtureAt(id: string, curRound?: number): TournamentState {
@@ -182,13 +188,13 @@ describe('roundStrip, waterfall columns', () => {
 
 describe('roundStrip, dependency play', () => {
   it('puts NOW on every box that holds a round in play, and a tick on a box only once every round of it is done', () => {
-    // SemiA, R6R and R6L are in play: the boxes [R5R, SemiA, R5L] and [R6R, R6L] both hold one; R4U and R4L are done.
+    // SemiA, R6R and R6L are in play: the boxes [SemiA, R5L, R5R] and [R6L, R6R] both hold one (a ranking room is listed last); R4U and R4L are done.
     const state = fixtureAt('dependency-play-in-play');
     const items = roundStrip(state, describeStandings(state));
     const named = (label: string) => items.find((item) => item.label === label);
-    expect(named('R5R')?.now).toBe(true);
-    expect(named('R5R')?.done).toBe(false);
-    expect(named('R6R')?.now).toBe(true);
+    expect(named('SemiA')?.now).toBe(true);
+    expect(named('SemiA')?.done).toBe(false);
+    expect(named('R6L')?.now).toBe(true);
     expect(named('SemiB')?.now).toBe(false);
   });
 
@@ -230,7 +236,7 @@ describe('roundStrip, dependency play', () => {
   it('shows by default the box of the first round in play, the one curRound is in', () => {
     const state = fixtureAt('dependency-play-in-play');
     const labels = roundStripBoxLabels(state);
-    expect(labels[defaultStripSelection(state)]).toBe('R5R');
+    expect(labels[defaultStripSelection(state)]).toBe('SemiA');
   });
 });
 
@@ -308,5 +314,23 @@ describe('pickedItemKey and roundStripBoxLabels', () => {
       'Round 6',
       'Grand Final',
     ]);
+  });
+});
+
+describe('the phone strip of a column holding a ranking room', () => {
+  it('names the column for its first round that is not a ranking room', () => {
+    const state = fixtureAt('upper-lower-31');
+    const labels = roundStripBoxLabels(state);
+    expect(labels).toContain('Semi-Final A');
+    expect(labels).toContain('Round 6 - Lower');
+    expect(labels).not.toContain('Round 5 - Ranking');
+    expect(labels).not.toContain('Round 6 - Ranking');
+  });
+
+  it('still finds the box of a ranking room by its round', () => {
+    const state = fixtureAt('upper-lower-31');
+    const boxes = bracketBoxes(state);
+    const ranking = state.rounds.findIndex((round) => round.customLabel === 'Round 5 - Ranking');
+    expect(roundStripBoxLabels(state)[boxHoldingRound(boxes, ranking)]).toBe('Semi-Final A');
   });
 });

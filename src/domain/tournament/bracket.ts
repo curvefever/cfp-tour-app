@@ -184,6 +184,13 @@ export type BracketBox =
   | { kind: 'wave'; winnersRoundIndex: number; losersRoundIndices: number[] }
   | { kind: 'column'; roundIndices: number[] };
 
+/** The rounds `from` to `to` of a column in the order the Bracket shows them: the ranking rooms after the others, each group in play order (a column of ranking rooms only keeps its order). */
+function rankingRoomsLast(rounds: TournamentState['rounds'], from: number, to: number): number[] {
+  const indices = Array.from({ length: to - from + 1 }, (_, offset) => from + offset);
+  const isRanking = (index: number) => rounds[index].waterfallRanking === true;
+  return [...indices.filter((index) => !isRanking(index)), ...indices.filter(isRanking)];
+}
+
 /**
  * Splits a tournament's rounds into display boxes for Bracket view: a
  * winners-bracket (WB) round and every losers-bracket (LB) round
@@ -201,7 +208,10 @@ export type BracketBox =
  * This scan needs no format-specific branching to handle either shape.
  *
  * A waterfall column of two or more rounds (stored `waterfallColumn`) is one `column` box: its rounds
- * are played together and shown stacked in one box. A waterfall round alone in its column is a `single` box.
+ * are played together and shown stacked in one box, the ranking rooms (`waterfallRanking`) last. That is display
+ * only: `state.rounds` keeps the play order, which has the ranking rooms first so that Rankings places the units out
+ * of them below the ones eliminated in the column's other rounds. A waterfall round alone in its column is a
+ * `single` box.
  *
  * Everything not absorbed into a wave or a column -- pre-bracket pooling rounds, and
  * the terminal Final/Grand-Final (never tagged `winners`/`losers`, so it's
@@ -228,10 +238,7 @@ export function bracketBoxes(state: Pick<TournamentState, 'rounds'>): BracketBox
     } else {
       const { end } = roundColumn(rounds, i);
       if (end > i) {
-        boxes.push({
-          kind: 'column',
-          roundIndices: Array.from({ length: end - i + 1 }, (_, offset) => i + offset),
-        });
+        boxes.push({ kind: 'column', roundIndices: rankingRoomsLast(rounds, i, end) });
         i = end + 1;
       } else {
         boxes.push({ kind: 'single', roundIndex: i });

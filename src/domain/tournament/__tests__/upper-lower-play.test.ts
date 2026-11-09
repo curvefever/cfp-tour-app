@@ -120,6 +120,57 @@ function expectedOrder(first: number, fourRooms: boolean): Array<string | null> 
     : ['Semi-Final', `Round ${first + 1} - Ranking`, `Round ${first} - Lower`, null];
 }
 
+/**
+ * The organiser's rule for a ranking room: its units are out from the round before, so they rank below anyone
+ * eliminated in the other rounds of the room's own column. That rests on the validator playing the ranking rooms
+ * first in their column (Rankings orders the eliminated by round order), whatever order the Bracket lists them in.
+ */
+function expectRankingRoomsBelowTheirColumn(state: TournamentState): void {
+  const columns = new Map<number, { ranking: number[]; others: number[] }>();
+  for (const unit of computeRankings(state)?.eliminatedList ?? []) {
+    const { round } = unit;
+    if (!round.isWaterfall || round.waterfallColumn === undefined) continue;
+    const column = columns.get(round.waterfallColumn) ?? { ranking: [], others: [] };
+    (round.waterfallRanking ? column.ranking : column.others).push(unit.rank as number);
+    columns.set(round.waterfallColumn, column);
+  }
+  for (const [number, { ranking, others }] of columns) {
+    if (ranking.length > 0 && others.length > 0) {
+      expect(Math.min(...ranking), `column ${number}`).toBeGreaterThan(Math.max(...others));
+    }
+  }
+}
+
+const namesOf = (state: TournamentState, index: number): string[] =>
+  (state.assignments[index] ?? []).map((entry) => entry.name);
+
+/**
+ * At the end of the walk: a ranking room holds exactly the units of the Lower round before it that did not go on (the
+ * ones below the top half), and none of its units is in any later round.
+ */
+function expectRankingRoomsFedByTheLowerBefore(state: TournamentState): number {
+  let checked = 0;
+  state.rounds.forEach((round, index) => {
+    const number = /^Round ([0-9]+) - Ranking$/.exec(round.customLabel ?? '')?.[1];
+    if (!round.waterfallRanking || number === undefined) return;
+    const lower = state.rounds.findIndex(
+      (other) => other.customLabel === `Round ${Number(number) - 1} - Lower`,
+    );
+    expect(lower, `the Lower round before ${round.customLabel}`).toBeGreaterThanOrEqual(0);
+    const later = new Set(
+      state.rounds.flatMap((other, at) =>
+        at > lower && at !== index && other.isWaterfall ? namesOf(state, at) : [],
+      ),
+    );
+    const out = namesOf(state, lower).filter((name) => !later.has(name));
+    expect([...namesOf(state, index)].sort(), round.customLabel).toEqual([...out].sort());
+    const inLaterRounds = state.rounds.flatMap((_, at) => (at > index ? namesOf(state, at) : []));
+    for (const name of namesOf(state, index)) expect(inLaterRounds, name).not.toContain(name);
+    checked += 1;
+  });
+  return checked;
+}
+
 describe.each(CASES)('$label', (testCase) => {
   const { state: start, first, entry } = build(testCase);
   const roomSize = deriveRoomSize(getGameFormat(start.gameFormat) as never);
@@ -141,9 +192,16 @@ describe.each(CASES)('$label', (testCase) => {
   it.each(Object.entries(STRATEGIES))(
     "%s: column play's draws, every unit once after every press, the units out ranked by how far they got",
     (_name, strategy) => {
-      const played = playDependency(entered, strategy, expectRanked);
+      const played = playDependency(entered, strategy, (state) => {
+        expectRankingRoomsBelowTheirColumn(expectRanked(state));
+        return state;
+      });
       expect(drawsOf(played)).toEqual(reference);
       expectRanked(played);
+      // Every ranking room of the schedule was checked (none skipped for a name the check does not read).
+      expect(expectRankingRoomsFedByTheLowerBefore(played)).toBe(
+        played.rounds.filter((round) => round.waterfallRanking).length,
+      );
       // The units the pooling phase cut are out before the bracket starts.
       expect(ranksOutAt(played, null)).toHaveLength(testCase.count - entry);
       const finalIndex = played.rounds.length - 1;

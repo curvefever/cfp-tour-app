@@ -21,7 +21,7 @@ import { currentColumn } from '../round-columns';
 import { scoreByHash } from './spread-play';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
 import { buildState, scoreCurrentRound as scoreTeamRound } from './play-through';
-import { buildRound, fixedIdSource } from './test-fixtures';
+import { buildRound, fixedIdSource, generated } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 function project(rounds: TournamentRound[], curRound: number) {
@@ -1132,4 +1132,76 @@ describe('bracketFollowStatus — units in a column of several rounds and units 
       }
     },
   );
+});
+
+describe('bracketBoxes: the ranking rooms of a column', () => {
+  const built = (count: number, setup: Parameters<typeof generated>[1] = {}) =>
+    generated(count, { scheduleLogic: 'upper-lower', gameFormat: 'ffa-individual', ...setup });
+  const labelsOfColumns = (state: TournamentState) =>
+    bracketBoxes(state).flatMap((box) =>
+      box.kind === 'column' ? [box.roundIndices.map((index) => state.rounds[index].customLabel)] : [],
+    );
+  const bracketLabels = (state: TournamentState) =>
+    state.rounds.flatMap((round) => (round.isWaterfall ? [round.customLabel] : []));
+
+  it('FFA 31 lists the ranking room last in its column, the others as they were', () => {
+    expect(labelsOfColumns(built(31))).toEqual([
+      ['Round 4 - Upper', 'Round 4 - Lower'],
+      ['Semi-Final A', 'Round 5 - Lower', 'Round 5 - Ranking'],
+      ['Round 6 - Lower', 'Round 6 - Ranking'],
+    ]);
+  });
+
+  it('two rooms list the Semi-Final before the ranking room', () => {
+    const state = built(7, { gameFormat: 'team-2v2v2' });
+    expect(labelsOfColumns(state).at(-1)).toEqual(['Semi-Final', 'Round 5 - Ranking']);
+    expect(bracketLabels(state)).toEqual([
+      'Round 4 - Upper',
+      'Round 4 - Lower',
+      'Round 5 - Ranking',
+      'Semi-Final',
+      'Final',
+    ]);
+  });
+
+  it('only the display changes: state.rounds keeps the ranking room first in play order', () => {
+    const state = built(31);
+    expect(bracketLabels(state).slice(0, 5)).toEqual([
+      'Round 4 - Upper',
+      'Round 4 - Lower',
+      'Round 5 - Ranking',
+      'Semi-Final A',
+      'Round 5 - Lower',
+    ]);
+    const column = bracketBoxes(state).find(
+      (box) => box.kind === 'column' && box.roundIndices.some((i) => state.rounds[i].waterfallRanking),
+    );
+    if (column?.kind !== 'column') throw new Error('no column holds a ranking room');
+    expect(column.roundIndices).not.toEqual([...column.roundIndices].sort((a, b) => a - b));
+    expect(state.rounds.filter((round) => round.waterfallRanking).every((round) => round.isWaterfall)).toBe(
+      true,
+    );
+  });
+
+  it('a column of ranking rooms only keeps its order', () => {
+    const rounds = [
+      buildRound({
+        roundNum: 1,
+        rooms: [4],
+        players: 4,
+        isWaterfall: true,
+        waterfallRanking: true,
+        waterfallColumn: 1,
+      }),
+      buildRound({
+        roundNum: 2,
+        rooms: [4],
+        players: 4,
+        isWaterfall: true,
+        waterfallRanking: true,
+        waterfallColumn: 1,
+      }),
+    ];
+    expect(bracketBoxes({ rounds })).toEqual([{ kind: 'column', roundIndices: [0, 1] }]);
+  });
 });
