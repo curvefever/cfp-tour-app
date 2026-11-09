@@ -1,5 +1,6 @@
 import { expect } from 'vitest';
 import { getAllTies } from '../advancement';
+import { computeRankings } from '../rankings';
 import { resolveTournamentTie } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { roundsInPlay } from '../round-columns';
@@ -205,4 +206,30 @@ export function resolveEveryTie(state: TournamentState, roundIndex: number): Tou
     for (const player of cluster.players) next = resolveTournamentTie(next, key, player.name);
   }
   return next;
+}
+
+/** Every unit once across the Rankings lists (the ones still playing, the finalists, the eliminated and the withdrawn). */
+export function expectEveryUnitRankedOnce(state: TournamentState, count: number): void {
+  const rankings = computeRankings(state);
+  const names = [
+    ...(rankings?.stillActive ?? []),
+    ...(rankings?.finalists ?? []),
+    ...(rankings?.eliminatedList ?? []),
+    ...(rankings?.dnfList ?? []),
+  ].map((unit) => unit.name);
+  expect(new Set(names).size).toBe(names.length);
+  expect(names).toHaveLength(count);
+}
+
+/**
+ * A started tournament played through its pooling rounds (each scored with distinct scores, every tie resolved) and
+ * into the first round of the bracket, drawn and not scored: the state a bracket walk starts from.
+ */
+export function playToBracketEntry(start: TournamentState): TournamentState {
+  const last = start.rounds.findIndex((round) => round.isWaterfall) - 1;
+  let state = start;
+  for (let guard = 0; guard < 30 && state.curRound <= last; guard += 1) {
+    state = pressed(resolveEveryTie(scoreRound(state, state.curRound), state.curRound));
+  }
+  return state;
 }
