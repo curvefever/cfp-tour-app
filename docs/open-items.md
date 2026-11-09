@@ -13,7 +13,7 @@ Entries are grouped by topic (the same topics as `docs/roadmap.md`), each tagged
 The organiser's order for what is built next. Each line names an entry of this file or of `docs/roadmap.md` by its title. Every entry not listed here is unprioritised until the organiser places it.
 
 **Next, before the next FFA tournament (about 2026-11-19):** a Custom bracket that can stand in for an upper and lower bracket without issue (the expected draw per round and dependency play are built, `docs/rules.md`, "Dependency play"), then the built-in format, which is built too (`docs/rules.md`, "Upper and lower bracket"). Nothing unrelated is built before it.
-1. **Live check of the built-in upper and lower bracket**, on production because the test site is down: it needs the build on `main` (the organiser's go-ahead for that push) and covers the Setup panel screenshots; then the ideas below if the organiser asks.
+1. Nothing left for the built-in upper and lower bracket: it is on production and its live check passed. The ideas below only if the organiser asks.
 
 **After the tournament, in this order:**
 1. **Uneven win targets in one match** (`docs/roadmap.md`): head-to-head Best of N only, not needed for an FFA event.
