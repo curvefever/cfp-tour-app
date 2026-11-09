@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { bracketBoxes } from '../bracket';
 import { generateTournament } from '../generation';
+import { groupRoundMisses, groupSeats } from '../group-standings';
 import { addWalkUpIndividual, removeRosterUnit } from '../mutations';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { applyStageMatchEdit } from '../stage-match-edit';
+import { readTournamentSettings } from '../tournament-settings';
 import type { TournamentRound, TournamentState } from '../types';
 import { bracketLogicOf } from '../upper-lower';
+import { replanUpperLower } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
 import {
@@ -19,6 +22,7 @@ import {
   pressed,
   resolveEveryTie,
   scoreRound,
+  scoreTied,
 } from './dependency-play-fixtures';
 import { rosterFor, testRuntime } from './test-fixtures';
 
@@ -283,6 +287,41 @@ describe('a group stage', () => {
     expect(removed.cfg.qualAdv).toBe(8);
   });
 
+  it('9 to 8 to 7 teams: 8 enter and the 8-team count is refused, then 4 enter, in two rooms as generated fresh', () => {
+    const state = built(9, GROUPS);
+    expect(state.cfg.qualAdv).toBe(8);
+    // At 8 teams a fair cut needs one out: the save is refused and the bracket stands as it was.
+    const eight = without(state, 5);
+    expect(shapeOf(eight)).toEqual(shapeOf(state));
+    const seven = without(eight, 5);
+    const fresh = built(7, GROUPS);
+    const structure = (rounds: TournamentRound[]) =>
+      rounds.map((round) => ({
+        label: round.customLabel?.replace(/^Round [0-9]+/, 'Round N'),
+        rooms: round.rooms,
+        players: round.players,
+        stage: round.graphMatchStage,
+        ranking: round.waterfallRanking,
+      }));
+    expect(seven.cfg.qualAdv).toBe(4);
+    expect(structure(bracketOf(seven))).toEqual(structure(bracketOf(fresh)));
+    expect(bracketOf(seven)[0].roundNum).toBe(bracketOf(state)[0].roundNum);
+    expect(qualRound(seven)?.standingsRoutes).toHaveLength(4);
+    expectPlaysToTheFinal(seven);
+  });
+
+  it('a match voided by the removal stays void while the bracket is re-worked', () => {
+    const state = built(9, GROUPS);
+    const seven = without(without(state, 5), 5);
+    const misses = (current: TournamentState) =>
+      [...groupRoundMisses(current, groupSeats(current)).entries()].sort(([first], [second]) =>
+        first.localeCompare(second),
+      );
+    expect(seven.cfg.qualAdv).toBe(4);
+    expect(misses(seven).some(([, missed]) => missed.voided.length > 0)).toBe(true);
+    expect(misses(seven)).toEqual(misses(withoutReplan(withoutReplan(state, 5), 5)));
+  });
+
   it('below the floor of the bracket the rounds stand as they were, and the removal is not blocked', () => {
     let state = built(5, GROUPS);
     state = without(state);
@@ -304,6 +343,24 @@ describe('"Advance to bracket"', () => {
     const again = without(removed);
     expect(again.cfg.qualAdv).toBe(31);
     expect(shapeOf(again)).toEqual(shapeOf(built(31, QUAL)));
+  });
+});
+
+describe('"Advance to bracket" below the count', () => {
+  it("'24' at 31: 24 still enter after a removal, as generated fresh at 30 with '24'", () => {
+    const state = built(31, { ...QUAL, upperLowerAdvance: '24' });
+    expect(state.cfg.qualAdv).toBe(24);
+    const removed = without(state);
+    expect(removed.cfg.qualAdv).toBe(24);
+    expect(shapeOf(removed)).toEqual(shapeOf(built(30, { ...QUAL, upperLowerAdvance: '24' })));
+    expect(qualRound(removed)?.standingsRoutes).toHaveLength(24);
+    expectPlaysToTheFinal(removed);
+  });
+
+  it("'24' at 24: a removal puts the override above the count, so 16 enter", () => {
+    const removed = without(built(24, { ...QUAL, upperLowerAdvance: '24' }));
+    expect(removed.cfg.qualAdv).toBe(16);
+    expect(shapeOf(removed)).toEqual(shapeOf(built(23, QUAL)));
   });
 });
 
@@ -359,9 +416,51 @@ describe('the formats and the stages of a re-worked bracket', () => {
   });
 });
 
+describe('the settings snapshot', () => {
+  it('is what the form said after a re-work: the typed graph, the advance override and the formats are untouched', () => {
+    const state = built(33, { ...QUAL, upperLowerAdvance: '32', semisBestOf: '3', finalsBestOf: '5' });
+    const removed = without(without(state));
+    expect(removed.cfg.qualAdv).toBe(31);
+    expect(removed.settings).toEqual(state.settings);
+    expect(removed.settings?.waterfallGraph).not.toContain('Round 4 - Upper');
+    expect(removed.settings?.upperLowerAdvance).toBe('32');
+    expect(removed.settings?.semisBestOf).toBe('3');
+    expect(removed.settings?.finalsBestOf).toBe('5');
+  });
+
+  it('Copy settings from it still re-derives for another count', () => {
+    const removed = without(without(built(33, { ...QUAL, upperLowerAdvance: '32' })));
+    const copied = readTournamentSettings(removed.settings);
+    expect(copied?.scheduleLogic).toBe('upper-lower');
+    const again = built(37, { ...QUAL, ...(copied as Setup) });
+    expect(again.cfg.qualAdv).toBe(32);
+    expect(roomsOf(again, 'Round 4 - Lower')).toEqual([8, 8]);
+  });
+});
+
+describe('an unchanged re-work', () => {
+  it('returns the very same state, a tie pick that still applies included', () => {
+    const state = built(37, QUAL);
+    const tied = resolveEveryTie(scoreTied(state, state.curRound), state.curRound);
+    expect(Object.keys(tied.tieResolutions).length).toBeGreaterThan(0);
+    expect(replanUpperLower(tied)).toBe(tied);
+    const removed = without(tied);
+    expect(replanUpperLower(removed)).toBe(removed);
+    expect(removed.tieResolutions).toEqual(
+      Object.fromEntries(
+        Object.entries(tied.tieResolutions).map(([key, value]) => [
+          key,
+          Array.isArray(value) ? value.filter((name) => name !== rosterKeys(state.players)[0]) : value,
+        ]),
+      ),
+    );
+  });
+});
+
 describe('where the replan stops', () => {
-  it('once the bracket is entered the rooms stand and a withdrawal ripples', () => {
-    const entered = playToBracketEntry(built(31, QUAL));
+  // The count matters: at 32, 30 and 28 the new text would reshape the rooms already drawn, at 31 and 29 it would not.
+  it.each([28, 29, 30, 31, 32, 33])('entered at %i, the rooms stand and a withdrawal ripples', (count) => {
+    const entered = playToBracketEntry(built(count, QUAL));
     const removed = without(entered);
     expect(bracketLogicOf(removed)).toBe('upper-lower');
     expect(labelsOf(removed)).toEqual(labelsOf(entered));
