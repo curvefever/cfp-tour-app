@@ -1,42 +1,58 @@
 import { cn } from '../../components/ui';
-import { stickyLeadClass } from './game-columns';
+import { type GameColumn, gameColumnLabel } from '../../domain/tournament/game-columns';
+import { stickyEndClass, stickyLeadClass } from './game-columns';
 
-const cellClassName = 'w-9.5 shrink-0 text-right';
+const cellClassName = 'w-9.5 shrink-0 text-right whitespace-nowrap';
 
-/** A room row's game scores: `—` for a game not typed yet or not needed. */
+/** A room row's game scores: `—` for a game not typed yet. */
 function scoreText(score: number | null): string {
   return score === null ? '—' : String(score);
 }
 
-/** The header of a room that shows its game scores: one column per game, then the result, then the points. */
+/** The header of a room that shows its game scores: one column per game (the games not played in one), then the result, then the points. */
 export function GamesHeader({
   columns,
   label,
   points,
 }: {
-  columns: number;
+  columns: GameColumn[];
   label: 'WINS' | 'TOTAL' | 'SCORE';
   points: boolean;
 }) {
   return (
     <div className='flex h-6 items-center gap-2 bg-surface px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
-      <span className={cn('flex flex-1 self-stretch', stickyLeadClass)} />
-      {Array.from({ length: columns }, (_, game) => (
-        <span className={cellClassName} key={game}>
-          G{game + 1}
+      <span className={cn('flex self-stretch', stickyLeadClass)} />
+      {columns.map((column) => (
+        <span className={cellClassName} key={gameColumnLabel(column)}>
+          {gameColumnLabel(column)}
         </span>
       ))}
-      <span className={cn('shrink-0 text-right', points ? 'w-11.5' : 'w-12')}>{label}</span>
-      {points ? <span className='w-9 shrink-0 text-right'>PTS</span> : null}
+      <span className={cn('flex items-center justify-end gap-2', stickyEndClass)}>
+        <span className={cn('text-right', points ? 'w-11.5' : 'w-12')}>{label}</span>
+        {points ? <span className='w-9 text-right'>PTS</span> : null}
+      </span>
     </div>
   );
 }
 
-/** The game cells between a row's name and its result; an absentee (`scores` null) gets blank cells, so the columns keep their place. */
-export function GameColumns({ games, scores }: { games: number; scores: Array<number | null> | null }) {
-  return Array.from({ length: games }, (_, game) => (
-    <span className={cn(cellClassName, 'text-sm text-muted')} key={game}>
-      {scores ? scoreText(scores[game] ?? null) : null}
+/** The cell of the games not played: a dash once the match is decided (they never will be), empty while it is still being played. */
+export function GameCells({
+  columns,
+  scores,
+}: {
+  columns: GameColumn[];
+  /** The unit's score in each game, null for one not typed yet; null itself for an absentee, whose cells stay blank so the columns keep their place. */
+  scores: Array<number | null> | null;
+}) {
+  return columns.map((column) => (
+    <span className={cn(cellClassName, 'text-sm text-muted')} key={gameColumnLabel(column)}>
+      {scores === null
+        ? null
+        : column.kind === 'game'
+          ? scoreText(scores[column.game - 1] ?? null)
+          : column.decided
+            ? '–'
+            : null}
     </span>
   ));
 }

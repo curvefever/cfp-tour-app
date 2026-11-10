@@ -13,7 +13,8 @@ import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { GamesHeader } from './GameScores';
-import { scrollableCardClass, scrollableRowsClass } from './game-columns';
+import { roomGameColumns } from '../../domain/tournament/game-columns';
+import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
@@ -178,12 +179,13 @@ export function RoomCard({
   const voidMatch = gone.length > 0 && gone.length < units.length;
   const memberInputs = scoredTeamSize(state);
   // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
-  const gameColumns = !rowsEditable && !round.isFinal && (round.numGames ?? 1) > 1;
+  const gameColumns = roomShowsGameColumns(round, rowsEditable);
+  const columns = gameColumns ? roomGameColumns(state, roundIndex, room) : [];
   return (
     <RoomFrame lines={lines} scrolls={gameColumns} title={title}>
       {gameColumns ? (
         <GamesHeader
-          columns={round.numGames ?? 1}
+          columns={columns}
           label={points ? 'SCORE' : round.bestOf !== undefined ? 'WINS' : 'TOTAL'}
           points={Boolean(points)}
         />
@@ -211,6 +213,7 @@ export function RoomCard({
             absent={absent}
             followed={followKey === entry.name}
             gameColumns={gameColumns}
+            columns={columns}
             games={round.numGames ?? 1}
             index={index}
             inputsPerTeam={rowsEditable ? memberInputs : undefined}

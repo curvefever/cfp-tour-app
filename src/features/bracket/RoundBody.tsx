@@ -12,6 +12,7 @@ import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
+import { showsPoints } from './game-columns';
 import { roomPoints, roomResultCodes, withSwappedNames } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
 import { JoiningPanel, LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
@@ -85,10 +86,7 @@ export function RoundBody({
     );
   const exitRule = roundExitRule(state, roundIndex);
   // Pooling rooms of a round that counts toward the standings show the points each place earned.
-  const countsForPoints =
-    (exitRule.kind === 'standings' && exitRule.counted) ||
-    (exitRule.kind === 'standings-cutoff' && !round.excludeFromStandings);
-  const standings = countsForPoints ? describeStandings(state) : null;
+  const standings = showsPoints(state, roundIndex) ? describeStandings(state) : null;
   const swapped = round.isGroupStage && usesGroupAverages(state);
   const points = standings ? roomPoints(standings, roundIndex) : null;
   if (points && swapped) withSwappedNames(points, state);

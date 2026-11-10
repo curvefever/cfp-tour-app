@@ -6,7 +6,9 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
 import { TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
-import { stickyLeadClass } from './game-columns';
+import type { GameColumn } from '../../domain/tournament/game-columns';
+import { stickyEndClass, stickyLeadClass } from './game-columns';
+import { GameCells } from './GameScores';
 import { memberLabel } from './team-member-line';
 
 /** The Final's score input for one unit that takes a single score per game. */
@@ -72,21 +74,6 @@ function FinalScoreEntry({
   );
 }
 
-/** The Final's header row: one column per game, then the total (or the games won: the race Grand Final, a Best of). */
-export function FinalHeaderRow({ games, showsWins }: { games: number; showsWins: boolean }) {
-  return (
-    <div className='flex h-6 items-center gap-2 bg-surface px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
-      <span className={cn('flex flex-1 self-stretch', stickyLeadClass)} />
-      {Array.from({ length: games }, (_, game) => (
-        <span className='w-9.5 shrink-0 text-right' key={game}>
-          G{game + 1}
-        </span>
-      ))}
-      <span className='w-12 shrink-0 text-right'>{showsWins ? 'WINS' : 'TOTAL'}</span>
-    </div>
-  );
-}
-
 export interface FinalRowProps {
   state: TournamentState;
   roundIndex: number;
@@ -95,6 +82,8 @@ export interface FinalRowProps {
   /** Every game is scored: the places show. */
   complete: boolean;
   perGame: Array<number | null>;
+  /** The columns of the table: a game each, then the games not played in one. */
+  columns: GameColumn[];
   /** The cumulative score, or the games won in the race Grand Final or a Best of. */
   total: number;
   showsWins: boolean;
@@ -113,6 +102,7 @@ export interface FinalRowProps {
 /** One unit's row of the Final: place, name, the score of each game, the total and, for admins, the score inputs. */
 export function FinalRow(props: FinalRowProps) {
   const { state, roundIndex, name, index, complete, perGame, total, showsWins, followed, manual } = props;
+  const { columns } = props;
   const { teamSize, team, entryGame, entryAnonymous, entryNotNeeded, inputsPerTeam } = props;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
@@ -131,13 +121,9 @@ export function FinalRow(props: FinalRowProps) {
             ) : null}
           </span>
         </div>
-        {perGame.map((score, game) => (
-          <span className='w-9.5 shrink-0 text-right text-sm text-muted' key={game}>
-            {score === null ? '—' : score}
-          </span>
-        ))}
+        <GameCells columns={columns} scores={perGame} />
         <span
-          className='w-12 shrink-0 text-right text-[15px] font-extrabold'
+          className={cn('w-12 text-right text-[15px] font-extrabold', stickyEndClass)}
           title={showsWins ? 'Games won' : 'Cumulative Final score'}
         >
           {total}

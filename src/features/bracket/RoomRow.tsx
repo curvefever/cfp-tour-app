@@ -16,8 +16,9 @@ import {
   UnitScoreFields,
   compactScoreClass,
 } from './ScoreFields';
-import { GameColumns } from './GameScores';
-import { stickyLeadClass } from './game-columns';
+import { GameCells } from './GameScores';
+import { stickyEndClass, stickyLeadClass } from './game-columns';
+import type { GameColumn } from '../../domain/tournament/game-columns';
 import { roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
 import { memberLabel } from './team-member-line';
 
@@ -42,14 +43,17 @@ function RowLine({
   place,
   result,
   stripe = 'line',
-  trailing,
+  cells,
+  end,
 }: {
   children: ReactNode;
   place: string | null;
   result: RowResult;
   stripe?: StripeFit;
-  /** The score cells of a row with game columns: they follow the place, the stripe and the name, which stay put while a phone scrolls them. */
-  trailing?: ReactNode;
+  /** The game cells of a row with game columns, after the place, the stripe and the name, which stay put while the cells scroll. */
+  cells?: ReactNode;
+  /** The result and the points of a row with game columns: they stay put on the right. */
+  end?: ReactNode;
 }) {
   const lead = (
     <>
@@ -63,11 +67,12 @@ function RowLine({
       {children}
     </>
   );
-  if (trailing === undefined) return <div className='flex items-center gap-2'>{lead}</div>;
+  if (cells === undefined) return <div className='flex items-center gap-2'>{lead}</div>;
   return (
     <div className='flex items-center gap-2 bg-inherit'>
-      <div className={cn('flex min-w-0 flex-1 items-center gap-2', stickyLeadClass)}>{lead}</div>
-      {trailing}
+      <div className={cn('flex min-w-0 items-center gap-2', stickyLeadClass)}>{lead}</div>
+      {cells}
+      <span className={cn('flex items-center gap-2', stickyEndClass)}>{end}</span>
     </div>
   );
 }
@@ -174,6 +179,8 @@ export interface RoomRowProps {
   games: number;
   /** Whether the row shows each game's score in columns (not while its boxes show them, nor in a single-game room). */
   gameColumns: boolean;
+  /** The columns of the row's room when `gameColumns`: a game each, then the games not played in one. */
+  columns: GameColumn[];
 }
 
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
@@ -234,7 +241,7 @@ export function RoomRow(props: RoomRowProps) {
   const { absent } = props;
   const { place, sharedPlace } = props;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
-  const { memberInputs, games, gameColumns } = props;
+  const { memberInputs, games, gameColumns, columns } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
@@ -299,9 +306,8 @@ export function RoomRow(props: RoomRowProps) {
       ) : null}
     </span>
   );
-  const scoreCells = (
-    <span className='ml-auto flex shrink-0 items-center gap-2'>
-      {gameColumns ? <GameColumns games={games} scores={gameScores} /> : null}
+  const resultCells = (
+    <>
       {inlineInput ? (
         <UnitScoreFields games={1} position={position} room={room} roundIndex={roundIndex} state={state} />
       ) : (
@@ -326,7 +332,7 @@ export function RoomRow(props: RoomRowProps) {
           )}
         </span>
       ) : null}
-    </span>
+    </>
   );
   const rowProps = {
     place: showResults && place !== null ? placeLabel(place, sharedPlace) : null,
@@ -336,15 +342,15 @@ export function RoomRow(props: RoomRowProps) {
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       {gameColumns ? (
-        // Game columns beside the name: the name keeps its place on a phone while the games scroll under it.
-        <RowLine {...rowProps} trailing={scoreCells}>
+        // Game columns beside the name: the name and the result keep their place while the games scroll.
+        <RowLine {...rowProps} cells={<GameCells columns={columns} scores={gameScores} />} end={resultCells}>
           {nameBlock}
         </RowLine>
       ) : (
         <RowLine {...rowProps}>
           <span className='flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-0.5'>
             {nameBlock}
-            {scoreCells}
+            <span className='ml-auto flex shrink-0 items-center gap-2'>{resultCells}</span>
           </span>
         </RowLine>
       )}

@@ -108,7 +108,8 @@ describe('each game of a multi-game room in the Bracket', () => {
       true,
     ]);
     const row = Array.from(view.getAllByText('301')[0].parentElement?.children ?? []);
-    expect(row.map((cell) => cell.textContent).slice(-4)).toEqual(['301', '252', '—', '2']);
+    // The game not needed is the one game left: its own column "G3", a dash under it as the match is decided.
+    expect(row.map((cell) => cell.textContent).slice(-4)).toEqual(['301', '252', '–', '2']);
   });
 
   it('names the result column TOTAL in a summed 2-game room', () => {
@@ -120,16 +121,18 @@ describe('each game of a multi-game room in the Bracket', () => {
     expect(view.queryAllByText('301').length).toBeGreaterThan(0);
   });
 
-  it('shows a Best of 5 in columns too, G1 to G5, never as a line under the name', () => {
+  it('shows a Best of 5 in columns too: the games played, then the games left in one column, never as a line under the name', () => {
     const { fixture } = semisInPlay(37, { semisBestOf: '5' }, [
       [301, 101],
       [252, 52],
     ]);
     const view = bracketOf(fixture, 'viewer');
-    expect(view.queryAllByText('G5').length).toBeGreaterThan(0);
+    expect(view.queryAllByText('G3–5').length).toBeGreaterThan(0);
+    expect(view.queryAllByText('G4')).toHaveLength(0);
     expect(view.queryAllByText('301 · 252 · — · — · —')).toHaveLength(0);
     const row = Array.from(view.getAllByText('301')[0].parentElement?.children ?? []);
-    expect(row.map((cell) => cell.textContent).slice(-6)).toEqual(['301', '252', '—', '—', '—', '2']);
+    // Still being played: nothing under the games left.
+    expect(row.map((cell) => cell.textContent).slice(-4)).toEqual(['301', '252', '', '2']);
   });
 
   it('shows 4 summed games in columns under a TOTAL header', () => {

@@ -1,4 +1,5 @@
 import { finalsProgressState } from '../../domain/tournament/finals';
+import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { unneededGames } from '../../domain/tournament/match-format';
 import { flagFinalGameAnonymous, unflagFinalGameAnonymous } from '../../domain/tournament/mutations';
@@ -7,7 +8,8 @@ import { scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
-import { FinalHeaderRow, FinalRow } from './FinalRow';
+import { GamesHeader } from './GameScores';
+import { FinalRow } from './FinalRow';
 import { RoomFrame } from './RoomCard';
 import { scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { roomTitle } from './room-title';
@@ -103,6 +105,7 @@ export function FinalColumn({
   const teamSize = getGameFormat(state.gameFormat)?.teamSize ?? 0;
   const teamMap = buildTeamMap(state);
   const games = round.numGames ?? 1;
+  const columns = roomGameColumns(state, roundIndex, 1);
   const showsWins = progress.isGrandFinal || round.bestOf !== undefined;
   const notNeeded = unneededGames(state, roundIndex, 1);
   const activeTab = Math.min(tab, games);
@@ -161,12 +164,13 @@ export function FinalColumn({
       <RoomFrame title={roomTitle(round, 0)}>
         <div className={scrollableCardClass}>
           <div className={scrollableRowsClass}>
-            <FinalHeaderRow games={games} showsWins={showsWins} />
+            <GamesHeader columns={columns} label={showsWins ? 'WINS' : 'TOTAL'} points={false} />
             {names.map((name, index) => {
               const unit = progress.units.find((entry) => entry.name === name);
               if (!unit) return null;
               return (
                 <FinalRow
+                  columns={columns}
                   complete={progress.complete}
                   entryAnonymous={isActiveGameAnonymous}
                   entryGame={entering ? activeTab : 0}

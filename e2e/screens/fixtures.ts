@@ -393,32 +393,49 @@ function ffa37FinalComplete(): TournamentState {
 }
 
 /**
- * Scores every room of the round in play as a Best of N played to its last game: each unit wins one game (the
- * first units in seat order), then the first unit takes the deciding one.
+ * Scores the rooms of the round in play as Best-of matches: `winners[room]` lists the seat that wins each game, in
+ * order (a room not listed is left unscored); the winner of a game scores highest, the others by seat.
  */
-function scoreBestOfToTheLastGame(state: TournamentState): TournamentState {
-  const round = state.rounds[state.curRound];
-  const numGames = round.numGames ?? 1;
+function scoreBestOfGames(state: TournamentState, winners: Record<number, number[]>): TournamentState {
+  const numGames = state.rounds[state.curRound].numGames ?? 1;
   const scores = { ...state.scores };
-  const sizes = new Map<number, number>();
-  for (const entry of state.assignments[state.curRound] ?? []) {
-    if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
-  }
-  for (const [room, size] of sizes) {
+  for (const [roomText, wonBy] of Object.entries(winners)) {
+    const room = Number(roomText);
+    const size = (state.assignments[state.curRound] ?? []).filter((entry) => entry.room === room).length;
     for (let position = 0; position < size; position += 1) {
       const keys = scoreKeysForPosition({ roundIndex: state.curRound, room, position, numGames });
-      keys.forEach((key, game) => {
-        scores[key] = (game % size === position ? 300 : 100) + (size - position);
+      wonBy.forEach((winner, game) => {
+        scores[keys[game]] = (winner === position ? 300 : 100) + (size - position);
       });
     }
   }
   return { ...state, scores };
 }
 
-/** FFA 37 with a Best of 3 in the bracket rounds: a room of 8 can need 9 games, and its first bracket round is played to the 9th. */
-function bestOfFfaNineGames(): TournamentState {
+/**
+ * FFA 37 with a Best of 3 in the bracket rounds (a room of 8 can need 9 games): the first bracket round's room A is
+ * played to the 9th game, room B was decided at game 2, room C is after game 1.
+ */
+function bestOfFfaRooms(): TournamentState {
   const first = playUntil(ffa37Like(37, { bracketBestOf: '3' }), (round) => isFirstLuckyRound(round), 1);
-  return scoreBestOfToTheLastGame(first);
+  return scoreBestOfGames(first, {
+    1: [0, 1, 2, 3, 4, 5, 6, 7, 0],
+    2: [3, 3],
+    3: [2],
+  });
+}
+
+/** 16 players head to head with a Best of 5 in the bracket rounds: room A won 3-0, room B 3-2, room C is after game 2, room D is not scored. */
+function bestOfFiveHeadToHead(): TournamentState {
+  const start = generate(16, {
+    gameFormat: 'individual-1v1',
+    poolingPhase: 'none',
+    scheduleLogic: 'single-elimination',
+    oddCountStrategy: 'bye',
+    bracketBestOf: '5',
+  });
+  const first = playUntil(start, (round) => !round.isNoElim && !round.isFinal, 1);
+  return scoreBestOfGames(first, { 1: [0, 0, 0], 2: [0, 1, 0, 1, 1], 3: [1, 0] });
 }
 
 /** 13 teams of two with a Final over 4 games, all played: the Final's game columns beside the team names. */
@@ -922,7 +939,8 @@ export function fixtureTournaments(): FixtureTournament[] {
     // A tournament stored before dependency play: its column is played together.
     entry('waterfall-column-19', withoutDependencyPlay(waterfallColumn()), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),
-    entry('best-of-3-ffa-nine-games', bestOfFfaNineGames(), { tabs: ['Bracket'] }),
+    entry('best-of-3-ffa-rooms', bestOfFfaRooms(), { tabs: ['Bracket'] }),
+    entry('best-of-5-1v1-rooms', bestOfFiveHeadToHead(), { tabs: ['Bracket'] }),
     entry('teams-four-game-final', teamsFourGameFinal(), { tabs: ['Bracket'] }),
     entry('upper-lower-31', upperLower31(), { infoBox: true }),
     entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
