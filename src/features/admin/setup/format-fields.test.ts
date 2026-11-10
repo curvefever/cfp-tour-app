@@ -81,14 +81,14 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
   ],
 };
 
-/** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's. */
+/** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's; a group stage's exit stays (it is the automatic number). */
 function poolingFieldsOf(
   poolingPhase: string,
   scheduleLogic: string,
   byPooling: FormatField[],
 ): FormatField[] {
   if (scheduleLogic !== 'upper-lower') return byPooling;
-  const own = byPooling.filter((field) => field !== 'qualAdv' && field !== 'qualifiersPerGroup');
+  const own = byPooling.filter((field) => field !== 'qualAdv');
   return poolingPhase === 'none' ? own : [...own, 'upperLowerAdvance', 'upperLowerUpper'];
 }
 

@@ -15,7 +15,7 @@ import { advanceResult } from './room-row-result';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
-const QUAL: Setup = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' };
+const QUAL: Setup = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' };
 const TEAMS: Setup = { gameFormat: 'team-2v2v2v2', poolingPhase: 'qual-table' };
 const SWISS: Setup = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' };
 

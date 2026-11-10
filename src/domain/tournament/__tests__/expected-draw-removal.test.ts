@@ -22,6 +22,7 @@ function upperLower(count: number): TournamentState {
     gameFormat: 'ffa-individual',
     scheduleLogic: 'upper-lower',
     poolingPhase: 'qual-table',
+    qualAdv: '32',
   });
   const result = generateTournament(
     createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),

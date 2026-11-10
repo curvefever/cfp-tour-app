@@ -231,17 +231,20 @@ describe('settingsRecapGroups', () => {
 });
 
 describe('the recap of an upper and lower bracket after a group stage', () => {
-  it.each(['per-group', 'even-split', 'fair-cut'] as const)(
-    'lists one "Advance to bracket" row and no qualifiers row with the %s exit',
-    (groupExit) => {
-      const items = groupItems(stateOf({ ...UPPER_LOWER_GROUPS, groupExit }));
-      expect(items['Teams out of the groups']).toBeDefined();
-      expect(items['Advance to bracket']).toBe('Automatic');
-      expect(items['Qualifiers per group']).toBeUndefined();
-    },
-  );
+  it('lists the exit the bracket takes automatically: qualifiers per group, or the total, beside its own Advance to bracket', () => {
+    const perGroup = groupItems(stateOf({ ...UPPER_LOWER_GROUPS, groupExit: 'per-group' }));
+    expect(perGroup['Teams out of the groups']).toBeDefined();
+    expect(perGroup['Qualifiers per group']).toBe('2');
+    expect(perGroup['Advance to bracket']).toBe('Automatic');
+    for (const groupExit of ['even-split', 'fair-cut'] as const) {
+      const items = groupItems(stateOf({ ...UPPER_LOWER_GROUPS, groupExit, qualAdv: '8' }));
+      expect(items['Total out of the groups'], groupExit).toBe('8 in all');
+      expect(items['Advance to bracket'], groupExit).toBe('Automatic');
+      expect(items['Qualifiers per group'], groupExit).toBeUndefined();
+    }
+  });
 
-  it('lists no total-exit row either: that row is the Advance to bracket of the other schedules', () => {
+  it('lists one "Advance to bracket" row: the total of the groups is named apart', () => {
     const groups = settingsRecapGroups(
       stateOf({ ...UPPER_LOWER_GROUPS, groupExit: 'even-split', qualAdv: '24' }),
     );

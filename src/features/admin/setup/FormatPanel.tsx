@@ -30,6 +30,7 @@ import {
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
 import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
+import { upperLowerAutomaticPlaceholder } from './upper-lower-summary';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
@@ -423,12 +424,13 @@ export function FormatPanel({
               type='number'
               min='1'
               max={registered ?? undefined}
-              placeholder='automatic'
+              placeholder={upperLowerAutomaticPlaceholder(setup, registered)}
               value={setup.upperLowerAdvance}
               onChange={(e) => change('upperLowerAdvance', cappedAdvance(e.target.value, registered))}
             />
             <p className='text-xs text-muted'>
-              Automatic: everyone who fits. A number lowers it, and must make two or four rooms.
+              Empty, it follows the pooling setting: more than the units there are means everyone who fits. A
+              number overrides it, and must make two or four rooms.
             </p>
           </PresenceField>
         ) : null}

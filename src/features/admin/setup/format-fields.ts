@@ -113,10 +113,10 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(Boolean(format?.teamSize), 'teamScoringRule');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'drawPublication');
   add(poolingPhase === 'group-stage', 'groupSize', 'roundRobinMode', 'groupExit');
-  // An upper and lower bracket works the number going on out itself (its own optional "Advance to bracket"): no per-group or total exit field.
-  add(poolingPhase === 'group-stage' && !isUpperLower, 'qualifiersPerGroup');
+  // After a group stage the exit (qualifiers per group, or the total) is what an upper and lower bracket takes automatically.
+  add(poolingPhase === 'group-stage', 'qualifiersPerGroup');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'nonCountingRounds');
-  // An upper and lower bracket works the number entering out itself: it has its own optional field, after any pooling phase.
+  // An upper and lower bracket has its own optional "Advance to bracket" after any pooling phase; left empty it reads the pooling setting (qualAdv, 24 by default, behind its placeholder).
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isUpperLower, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');

@@ -30,6 +30,8 @@ function built(count: number, setup: Parameters<typeof createDefaultSetup>[0] = 
     scheduleLogic: 'upper-lower',
     gameFormat: 'ffa-individual',
     poolingPhase: 'qual-table',
+    // 32 asks for everyone who fits (the automatic entry reads the pooling setting, 24 by default).
+    qualAdv: '32',
     ...setup,
   });
   const result = generateTournament(
@@ -56,6 +58,13 @@ describe('the running Admin fields of an upper and lower bracket in its pooling 
     expect(screen.getByLabelText<HTMLInputElement>('Advance to bracket (optional)').value).toBe('28');
     expect(screen.getByLabelText<HTMLInputElement>('Upper rooms (optional)').value).toBe('16');
     expect(screen.getByRole('button', { name: 'Edit graph' })).toBeTruthy();
+  });
+
+  it('names the number behind the empty Advance to bracket: the pooling setting', () => {
+    show(built(31, { qualAdv: '24' }));
+    expect(screen.getByLabelText<HTMLInputElement>('Advance to bracket (optional)').placeholder).toBe(
+      'automatic: 24',
+    );
   });
 
   it('Save works the rooms out with the numbers: 16 upper at 29 is 8, 8 above and 7, 6 below', () => {

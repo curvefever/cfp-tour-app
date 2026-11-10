@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../../../domain/tournament/generation';
 import { rosterFor, testRuntime } from '../../../domain/tournament/__tests__/test-fixtures';
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
-import { NO_ROSTER_TEXT, upperLowerSummary } from './upper-lower-summary';
+import { NO_ROSTER_TEXT, upperLowerAutomaticPlaceholder, upperLowerSummary } from './upper-lower-summary';
 
+/** "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, 24 by default). */
 const form = (setup: Parameters<typeof createDefaultSetup>[0] = {}) =>
-  createDefaultSetup({ scheduleLogic: 'upper-lower', poolingPhase: 'qual-table', ...setup });
+  createDefaultSetup({ scheduleLogic: 'upper-lower', poolingPhase: 'qual-table', qualAdv: '32', ...setup });
 
 const readyOf = (summary: ReturnType<typeof upperLowerSummary>) => {
   if (summary.kind !== 'ready')
@@ -81,7 +82,7 @@ describe('the Setup panel of an upper and lower bracket', () => {
     ).toEqual({
       kind: 'refused',
       message:
-        "An upper and lower bracket takes 8 teams, and 3 groups can't each send the same number: choose Even split or Fair cut.",
+        '2 per group from 3 groups gives 6 teams: an upper and lower bracket takes 4 or 8. Choose Even split or Fair cut with 4 or 8, or type Advance to bracket.',
     });
   });
 
@@ -93,6 +94,25 @@ describe('the Setup panel of an upper and lower bracket', () => {
       kind: 'refused',
       message: "Upper rooms (20) can't be seated: with 29 entering, use 13 to 16.",
     });
+  });
+
+  it('the default Advance to bracket (24) takes 24 of 31, and the placeholder names the number behind it', () => {
+    const defaults = form({ qualAdv: '24' });
+    expect(readyOf(upperLowerSummary(defaults, 31)).heading).toBe(
+      '24 of 31 enter (7 out in the qualification table): upper 6, 6 · lower 6, 6',
+    );
+    expect(upperLowerAutomaticPlaceholder(defaults, 31)).toBe('automatic: 24');
+    expect(upperLowerAutomaticPlaceholder(form({ qualAdv: '32' }), 31)).toBe('automatic: 32');
+  });
+
+  it('the placeholder after a group stage: groups times qualifiers per group, or the total', () => {
+    const groups = form({ poolingPhase: 'group-stage', gameFormat: 'team-4v4', groupSize: '4' });
+    expect(upperLowerAutomaticPlaceholder({ ...groups, groupExit: 'per-group' }, 8)).toBe('automatic: 4');
+    expect(upperLowerAutomaticPlaceholder({ ...groups, groupExit: 'per-group' }, 12)).toBe('automatic: 6');
+    expect(upperLowerAutomaticPlaceholder({ ...groups, groupExit: 'fair-cut', qualAdv: '8' }, 12)).toBe(
+      'automatic: 8',
+    );
+    expect(upperLowerAutomaticPlaceholder({ ...groups, groupExit: 'per-group' }, null)).toBe('automatic');
   });
 
   it('follows "Advance to bracket"', () => {

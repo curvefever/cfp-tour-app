@@ -632,7 +632,7 @@ function waterfallQual(): TournamentState {
  * shows the expected Upper and Lower rooms, 8 + 8 above and 8 + 7 below.
  */
 function upperLower31(): TournamentState {
-  const start = generate(31, { scheduleLogic: 'upper-lower', poolingPhase: 'qual-table' });
+  const start = generate(31, { scheduleLogic: 'upper-lower', poolingPhase: 'qual-table', qualAdv: '32' });
   const lastQual = start.rounds.map((round) => round.isQual).lastIndexOf(true);
   return scoreCurrentRound(
     playUntil(start, (_round, index) => index === lastQual, 1),

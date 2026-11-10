@@ -126,7 +126,10 @@ describe('a group stage sends everyone on', () => {
         expectEveryoneGoesOn(
           count,
           { ...setup, qualifiersPerGroup: String(smallest) },
-          smallest > 1 ? { ...setup, qualifiersPerGroup: String(smallest - 1) } : null,
+          // An upper and lower bracket takes only the numbers it has rooms for: a smaller per-group exit can generate.
+          smallest > 1 && scheduleLogic !== 'upper-lower'
+            ? { ...setup, qualifiersPerGroup: String(smallest - 1) }
+            : null,
         );
       });
     }

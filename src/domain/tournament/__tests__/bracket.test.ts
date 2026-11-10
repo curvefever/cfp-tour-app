@@ -1136,7 +1136,7 @@ describe('bracketFollowStatus — units in a column of several rounds and units 
 
 describe('bracketBoxes: the ranking rooms of a column', () => {
   const built = (count: number, setup: Parameters<typeof generated>[1] = {}) =>
-    generated(count, { scheduleLogic: 'upper-lower', gameFormat: 'ffa-individual', ...setup });
+    generated(count, { scheduleLogic: 'upper-lower', gameFormat: 'ffa-individual', qualAdv: '32', ...setup });
   const labelsOfColumns = (state: TournamentState) =>
     bracketBoxes(state).flatMap((box) =>
       box.kind === 'column' ? [box.roundIndices.map((index) => state.rounds[index].customLabel)] : [],

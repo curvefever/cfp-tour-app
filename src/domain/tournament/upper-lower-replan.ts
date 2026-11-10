@@ -1,10 +1,17 @@
-import { parseAdvanceToBracket } from './bracket-entry';
-import { deriveRoomSize, getGameFormat } from './formats';
+import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from './formats';
+import { groupSizesOf } from './group-exit';
+import { GROUP_SIZE_BOUNDS } from './pooling';
 import { isRoundReached } from './round-columns';
 import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
 import type { RoomSize, TournamentState } from './types';
-import { markUpperLowerStages, upperLowerEntry, upperLowerGraphText, upperLowerUpper } from './upper-lower';
+import {
+  markUpperLowerStages,
+  resolveUpperLowerEntry,
+  upperLowerEntry,
+  upperLowerGraphText,
+  upperLowerUpper,
+} from './upper-lower';
 import { applyWaterfallGraphEdit } from './waterfall-live-edit';
 
 const sameOf = (before: TournamentState, after: TournamentState): boolean =>
@@ -22,17 +29,24 @@ function replannable(state: TournamentState): { first: number; roomSize: RoomSiz
   return { first, roomSize: deriveRoomSize(format) };
 }
 
-/** The number entering for the units still in the roster and the settings' "Advance to bracket", or why not. */
+/**
+ * The number entering for the units still in the roster, from the settings' "Advance to bracket" or, left empty, from
+ * the pooling setting (`resolveUpperLowerEntry`), or why not. A group stage's groups are the real ones.
+ */
 function entryOf(state: TournamentState, roomSize: RoomSize) {
-  const typed = state.settings?.upperLowerAdvance.trim() ?? '';
-  const requested = typed ? parseAdvanceToBracket(typed) : null;
-  if (typed && requested === null) {
-    return {
-      ok: false as const,
-      message: `Advance to bracket must be a positive whole number — got "${typed}".`,
-    };
-  }
-  return upperLowerEntry(rosterKeys(state.players).length, requested, roomSize);
+  const units = rosterKeys(state.players).length;
+  const settings = state.settings;
+  if (!settings) return upperLowerEntry(units, null, roomSize);
+  const groupCount =
+    state.groups.length ||
+    groupSizesOf(units, Number.parseInt(settings.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal).length;
+  return resolveUpperLowerEntry(
+    settings,
+    units,
+    groupCount,
+    roomSize,
+    unitLabelPluralLower(state.gameFormat),
+  );
 }
 
 /**

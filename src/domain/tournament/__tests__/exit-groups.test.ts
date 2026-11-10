@@ -352,6 +352,7 @@ describe('exit groups are read per column: a destination has one colour in every
       gameFormat: 'ffa-individual',
       scheduleLogic: 'upper-lower',
       poolingPhase: 'qual-table',
+      qualAdv: '32',
     });
     const result = generateTournament(
       createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),

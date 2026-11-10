@@ -1,11 +1,30 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
+import { groupSizesOf } from '../../../domain/tournament/group-exit';
+import { GROUP_SIZE_BOUNDS } from '../../../domain/tournament/pooling';
 import type { PersistedSetup, PoolingPhaseKey } from '../../../domain/tournament/types';
 import { planUpperLowerFor } from '../../../domain/tournament/upper-lower-form';
 import {
+  automaticRequest,
   upperLowerShape,
   type UpperLowerBand,
   type UpperLowerRound,
 } from '../../../domain/tournament/upper-lower';
+
+/**
+ * The placeholder of the upper and lower "Advance to bracket" field: the number the pooling setting asks for when the
+ * field is left empty (`automaticRequest`), so nothing comes from a hidden value. "automatic" while a group stage
+ * waits for a roster, or when the setting is no number.
+ */
+export function upperLowerAutomaticPlaceholder(
+  setup: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit' | 'groupSize'>,
+  registered: number | null,
+): string {
+  if (setup.poolingPhase === 'group-stage' && registered === null) return 'automatic';
+  const groupSize = Number.parseInt(setup.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal;
+  const groupCount = groupSizesOf(registered ?? 0, groupSize).length;
+  const { request } = automaticRequest(setup, groupCount);
+  return request === null ? 'automatic' : `automatic: ${request}`;
+}
 
 export const NO_ROSTER_TEXT = 'Works out the rooms from the head count once a roster is loaded.';
 

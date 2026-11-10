@@ -34,7 +34,8 @@ function built(count: number, setup: Setup): TournamentState {
   return { ...result.state, started: true };
 }
 
-const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
+/** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */
+const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
 const roomsOf = (state: TournamentState, label: string) =>
   state.rounds.find((round) => round.customLabel === label)?.rooms;
 

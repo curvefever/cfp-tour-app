@@ -186,7 +186,11 @@ const RECAP: Record<RecapField, RecapEntry> = {
   },
   qualifiersPerGroup: {
     group: 'POOLING',
-    label: (settings) => (groupExitIsTotal(settings) ? 'Advance to bracket' : 'Qualifiers per group'),
+    // An upper and lower bracket has an "Advance to bracket" row of its own: the groups' total is named apart.
+    label: (settings) => {
+      if (!groupExitIsTotal(settings)) return 'Qualifiers per group';
+      return settings.scheduleLogic === 'upper-lower' ? 'Total out of the groups' : 'Advance to bracket';
+    },
     value: (settings) =>
       groupExitIsTotal(settings)
         ? `${orDefault(settings.qualAdv, '—')} in all`

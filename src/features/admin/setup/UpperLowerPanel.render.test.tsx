@@ -41,7 +41,8 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
+/** "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, 24 by default). */
+const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
 
 function atCount(count: number | null, setup: Partial<PersistedSetup> = {}) {
   const form = createDefaultSetup({ scheduleLogic: 'upper-lower', ...QUAL, ...setup });
@@ -195,12 +196,21 @@ describe('the Format panel', () => {
     expect(screen.getByLabelText('Non-counting rounds (optional)')).toBeTruthy();
   });
 
-  it("hides the group stage's qualifiers per group, and keeps its exit select", () => {
+  it("shows the group stage's qualifiers per group (the automatic number) beside its exit select", () => {
     atCount(11, { poolingPhase: 'group-stage', gameFormat: 'team-4v4', oddCountStrategy: 'bye' });
     render(<FormatPanel error='' lbQualifiers='2' onGenerate={() => {}} setLbQualifiers={() => {}} />);
     expect(screen.getByLabelText('Teams out of the groups')).toBeTruthy();
-    expect(screen.queryByLabelText('Qualifiers per group')).toBeNull();
-    expect(screen.getByLabelText('Advance to bracket (optional)')).toBeTruthy();
+    expect(screen.getByLabelText('Qualifiers per group')).toBeTruthy();
+    // 11 teams are 3 groups of 4: 2 each is 6, which the bracket has no rooms for.
+    const advance = screen.getByLabelText<HTMLInputElement>('Advance to bracket (optional)');
+    expect(advance.placeholder).toBe('automatic: 6');
+  });
+
+  it('names the number behind the empty Advance to bracket: the pooling setting, 24 by default', () => {
+    atCount(31, { qualAdv: '24' });
+    render(<FormatPanel error='' lbQualifiers='2' onGenerate={() => {}} setLbQualifiers={() => {}} />);
+    const advance = screen.getByLabelText<HTMLInputElement>('Advance to bracket (optional)');
+    expect(advance.placeholder).toBe('automatic: 24');
   });
 });
 

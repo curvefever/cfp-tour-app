@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
+import { removeRosterUnit } from '../mutations';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { bracketLogicOf } from '../upper-lower';
-import { upperLowerByHand } from '../upper-lower-form';
+import { planUpperLowerFor, upperLowerByHand } from '../upper-lower-form';
 import { applyUpperLowerFields } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
@@ -18,8 +19,14 @@ import { rosterFor, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
-const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
-const SWISS = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' } as const;
+/** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */
+const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
+const SWISS = {
+  gameFormat: 'individual-1v1',
+  poolingPhase: 'swiss',
+  oddCountStrategy: 'bye',
+  qualAdv: '8',
+} as const;
 const GROUPS = {
   gameFormat: 'team-4v4',
   poolingPhase: 'group-stage',
@@ -206,7 +213,7 @@ describe('Upper rooms and Advance to bracket after a Swiss and after a group sta
     expect(generate(11, { ...GROUPS, groupExit: 'per-group' })).toEqual({
       status: 'invalid',
       message:
-        "An upper and lower bracket takes 8 teams, and 3 groups can't each send the same number: choose Even split or Fair cut.",
+        '2 per group from 3 groups gives 6 teams: an upper and lower bracket takes 4 or 8. Choose Even split or Fair cut with 4 or 8, or type Advance to bracket.',
     });
   });
 });
@@ -251,5 +258,110 @@ describe('"Adjust rounds by hand", then edited, and the option chosen again', ()
     expect(again.rounds.map((round) => [round.customLabel, round.rooms, round.waterfallRoutes])).toEqual(
       fresh.rounds.map((round) => [round.customLabel, round.rooms, round.waterfallRoutes]),
     );
+  });
+});
+
+describe('the automatic entry follows the pooling setting', () => {
+  /** FFA qualification table: the default "Advance to bracket" is 24 (no upper and lower field typed). */
+  const FFA = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
+  const entering = (count: number, setup: Setup) => {
+    const result = generate(count, setup);
+    // The units entering are the ranks the pooling line routes (a per-group exit leaves `cfg.qualAdv` at the head count).
+    return result.status === 'generated'
+      ? result.state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes?.length
+      : result.message;
+  };
+
+  it('FFA with the default Advance to bracket 24: 24 enter at 29, 31, 37, 43 and 53', () => {
+    expect([29, 31, 37, 43, 53].map((count) => entering(count, FFA))).toEqual([24, 24, 24, 24, 24]);
+  });
+
+  it('FFA with Advance to bracket 32: everyone who fits, up to 32', () => {
+    const setup = { ...FFA, qualAdv: '32' };
+    expect([29, 31, 37, 43, 53].map((count) => entering(count, setup))).toEqual([29, 31, 32, 32, 32]);
+  });
+
+  it('FFA with Advance to bracket 20: refused, naming 16 or 24', () => {
+    for (const count of [29, 37, 53]) {
+      expect(entering(count, { ...FFA, qualAdv: '20' }), `${count}`).toBe(
+        'Advance to bracket (20) has no upper and lower bracket: use 16 or 24.',
+      );
+    }
+  });
+
+  it('a typed upper and lower field still wins over the pooling setting', () => {
+    expect(entering(37, { ...FFA, qualAdv: '20', upperLowerAdvance: '28' })).toBe(28);
+    expect(entering(37, { ...FFA, upperLowerAdvance: '99' })).toBe(32);
+  });
+
+  it('1v1 Swiss at 9 and 16: 8 enter by default (24 asks for everyone), and Advance to bracket 4 gives 4', () => {
+    const swiss = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' } as const;
+    expect([9, 16].map((count) => entering(count, swiss))).toEqual([8, 8]);
+    expect([9, 16].map((count) => entering(count, { ...swiss, qualAdv: '4' }))).toEqual([4, 4]);
+    expect(entering(16, { ...swiss, qualAdv: '6' })).toBe(
+      'Advance to bracket (6) has no upper and lower bracket: use 4 or 8.',
+    );
+  });
+
+  describe('after a group stage', () => {
+    const perGroup = { ...GROUPS, groupExit: 'per-group' } as const;
+
+    it('so many per group: 8 teams in 2 groups of 4 send 2 each (4), 16 in 4 groups send 8', () => {
+      expect(entering(8, perGroup)).toBe(4);
+      expect(entering(16, perGroup)).toBe(8);
+    });
+
+    it('3 groups of 2 each is 6 teams: refused in the words of the groups, with the options', () => {
+      expect(entering(12, perGroup)).toBe(
+        '2 per group from 3 groups gives 6 teams: an upper and lower bracket takes 4 or 8. Choose Even split or Fair cut with 4 or 8, or type Advance to bracket.',
+      );
+    });
+
+    it('qualifiers per group is the automatic source: 1 per group from 4 groups gives 4', () => {
+      expect(entering(16, { ...perGroup, qualifiersPerGroup: '1' })).toBe(4);
+    });
+
+    it('a fair cut or an even split takes its total, the Advance to bracket total: 8 at 12', () => {
+      expect(entering(12, { ...GROUPS, groupExit: 'fair-cut', qualAdv: '8' })).toBe(8);
+      expect(entering(12, { ...GROUPS, groupExit: 'even-split', qualAdv: '8' })).toBe(8);
+      expect(entering(12, { ...GROUPS, groupExit: 'fair-cut', qualAdv: '6' })).toBe(
+        'Advance to bracket (6) has no upper and lower bracket: use 4 or 8.',
+      );
+    });
+  });
+
+  it('a withdrawal during pooling at 29 → 28 keeps 24 entering; a typed field of the running Admin is read first', () => {
+    const state = built(29, FFA);
+    expect(entryOf(state)).toBe(24);
+    const removed = removeRosterUnit(state, rosterKeys(state.players)[0]);
+    expect(entryOf(removed)).toBe(24);
+    expect(entryOf(removeRosterUnit(removed, rosterKeys(removed.players)[0]))).toBe(24);
+  });
+
+  it('the re-work reads the same rule: Advance to bracket 32 grows with a joiner, 24 does not', () => {
+    const wide = built(30, { ...FFA, qualAdv: '32' });
+    expect(entryOf(wide)).toBe(30);
+    expect(entryOf(removeRosterUnit(wide, rosterKeys(wide.players)[0]))).toBe(29);
+    const narrow = built(30, FFA);
+    expect(entryOf(removeRosterUnit(narrow, rosterKeys(narrow.players)[0]))).toBe(24);
+  });
+
+  it.each([
+    ['FFA 29, default', 29, FFA],
+    ['FFA 37, 20', 37, { ...FFA, qualAdv: '20' }],
+    [
+      'Swiss 16, 6',
+      16,
+      { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye', qualAdv: '6' },
+    ],
+    ['groups 12, per group', 12, { ...GROUPS, groupExit: 'per-group' }],
+    ['groups 16, per group', 16, { ...GROUPS, groupExit: 'per-group' }],
+    ['groups 12, fair cut 8', 12, { ...GROUPS, groupExit: 'fair-cut', qualAdv: '8' }],
+  ] as const)('the Setup panel is ready exactly when generation generates: %s', (_label, count, setup) => {
+    const form = createDefaultSetup({ scheduleLogic: 'upper-lower', ...setup });
+    const planned = planUpperLowerFor(form, count);
+    const generated = generate(count, setup);
+    expect(planned.ok).toBe(generated.status === 'generated');
+    if (!planned.ok && generated.status === 'invalid') expect(planned.message).toBe(generated.message);
   });
 });

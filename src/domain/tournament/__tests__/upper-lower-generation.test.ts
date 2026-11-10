@@ -29,8 +29,14 @@ function built(count: number, setup: Setup): TournamentState {
   return result.state;
 }
 
-const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
-const SWISS = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' } as const;
+/** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */
+const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
+const SWISS = {
+  gameFormat: 'individual-1v1',
+  poolingPhase: 'swiss',
+  oddCountStrategy: 'bye',
+  qualAdv: '8',
+} as const;
 const GROUPS = {
   gameFormat: 'team-4v4',
   poolingPhase: 'group-stage',
@@ -145,7 +151,7 @@ describe('what an upper and lower bracket refuses', () => {
     expect(generate(11, { ...GROUPS, groupExit: 'per-group' })).toEqual({
       status: 'invalid',
       message:
-        "An upper and lower bracket takes 8 teams, and 3 groups can't each send the same number: choose Even split or Fair cut.",
+        '2 per group from 3 groups gives 6 teams: an upper and lower bracket takes 4 or 8. Choose Even split or Fair cut with 4 or 8, or type Advance to bracket.',
     });
   });
 

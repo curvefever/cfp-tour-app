@@ -1,5 +1,5 @@
 import { parseAdvanceToBracket } from './bracket-entry';
-import { groupSizesOf } from './group-exit';
+import { groupExitIsTotal, groupSizesOf } from './group-exit';
 import { GROUP_SIZE_BOUNDS } from './pooling';
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup, RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
@@ -71,7 +71,8 @@ function nearestEntriesText(allowed: number[], requested: number): string {
 /**
  * How many enter. Everyone who fits by default: the largest allowed number at or below the units there are (and
  * below the override, when there is one). An override above the head count means everyone, as "Advance to bracket"
- * does elsewhere; one that is no allowed number is refused, naming the nearest numbers that work. A head count
+ * does elsewhere, and so does one equal to it; one below it that is no allowed number is refused, naming the nearest
+ * numbers that work. A head count
  * under the floor (2 × the smallest room) is refused.
  */
 export function upperLowerEntry(count: number, override: number | null, roomSize: RoomSize): UpperLowerEntry {
@@ -81,7 +82,7 @@ export function upperLowerEntry(count: number, override: number | null, roomSize
       `An upper and lower bracket needs at least ${allowed[0]} to enter, and only ${count} can.`,
     );
   }
-  if (override !== null && override <= count && !allowed.includes(override)) {
+  if (override !== null && override < count && !allowed.includes(override)) {
     return refusal(
       `Advance to bracket (${override}) has no upper and lower bracket: use ${nearestEntriesText(allowed, override)}.`,
     );
@@ -355,7 +356,66 @@ export type UpperLowerForm = Pick<
   | 'groupExit'
   | 'upperLowerAdvance'
   | 'upperLowerUpper'
+  | 'qualAdv'
+  | 'qualifiersPerGroup'
 >;
+
+/** What the pooling setting asks for when "Advance to bracket" of the upper and lower bracket is left empty. */
+export interface AutomaticRequest {
+  /** The number asked for; null when the setting is no number (everyone who fits enters). */
+  request: number | null;
+  /** Set when the number is the exit of a group stage that sends so many per group: the words say where it came from. */
+  perGroup?: { groups: number; qualifiers: number };
+}
+
+/**
+ * The automatic request of the upper and lower bracket: the pooling setting, as the other bracket styles read it.
+ * After a qualification table or a Swiss it is the form's "Advance to bracket" (`qualAdv`); after a group stage the
+ * exit of the group settings: groups times the qualifiers per group, or the total of an Even split or a Fair cut
+ * (which is `qualAdv`). One reader for generation, the Setup panel and the running Admin's re-work.
+ */
+export function automaticRequest(
+  form: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit'>,
+  groupCount: number,
+): AutomaticRequest {
+  const total = parseAdvanceToBracket(form.qualAdv);
+  if (form.poolingPhase !== 'group-stage' || groupExitIsTotal(form)) return { request: total };
+  const qualifiers = Number.parseInt(form.qualifiersPerGroup, 10) || 2;
+  return { request: groupCount * qualifiers, perGroup: { groups: groupCount, qualifiers } };
+}
+
+/**
+ * How many enter: the typed "Advance to bracket" when there is one, else the pooling setting (`automaticRequest`),
+ * then `upperLowerEntry`. A refusal says where the number came from when it is a group stage's per-group exit.
+ */
+export function resolveUpperLowerEntry(
+  form: Pick<
+    PersistedSetup,
+    'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit' | 'upperLowerAdvance'
+  >,
+  unitCount: number,
+  groupCount: number,
+  roomSize: RoomSize,
+  unitPlural: string,
+): UpperLowerEntry {
+  const typed = form.upperLowerAdvance.trim();
+  const requested = typed ? parseAdvanceToBracket(typed) : null;
+  if (typed && requested === null) {
+    return refusal(`Advance to bracket must be a positive whole number — got "${form.upperLowerAdvance}".`);
+  }
+  if (typed) return upperLowerEntry(unitCount, requested, roomSize);
+  const automatic = automaticRequest(form, groupCount);
+  const entry = upperLowerEntry(unitCount, automatic.request, roomSize);
+  const allowed = upperLowerEntries(roomSize);
+  const { request, perGroup } = automatic;
+  if (entry.ok || !perGroup || request === null || request >= unitCount || allowed.includes(request)) {
+    return entry;
+  }
+  const options = nearestEntriesText(allowed, request);
+  return refusal(
+    `${perGroup.qualifiers} per group from ${perGroup.groups} groups gives ${request} ${unitPlural}: an upper and lower bracket takes ${options}. Choose Even split or Fair cut with ${options}, or type Advance to bracket.`,
+  );
+}
 
 export type UpperLowerPlan =
   | { ok: true; entry: number; upper: number | null; firstRound: number; source: StandingsSourceKind }
@@ -379,23 +439,15 @@ export function planUpperLower(
         'An upper and lower bracket splits the qualifiers by their pooling place: choose a Qualification Table, a Swiss or a Group Stage.',
     };
   }
-  const typed = form.upperLowerAdvance.trim();
-  const requested = typed ? parseAdvanceToBracket(typed) : null;
-  if (typed && requested === null) {
-    return {
-      ok: false,
-      message: `Advance to bracket must be a positive whole number — got "${form.upperLowerAdvance}".`,
-    };
-  }
-  const entry = upperLowerEntry(unitCount, requested, roomSize);
-  if (!entry.ok) return entry;
-  const upper = upperLowerUpper(entry.entry, form.upperLowerUpper, roomSize);
-  if (!upper.ok) return upper;
   const afterGroups = form.poolingPhase === 'group-stage';
   const groupCount = groupSizesOf(
     unitCount,
     Number.parseInt(form.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal,
   ).length;
+  const entry = resolveUpperLowerEntry(form, unitCount, groupCount, roomSize, unitPlural);
+  if (!entry.ok) return entry;
+  const upper = upperLowerUpper(entry.entry, form.upperLowerUpper, roomSize);
+  if (!upper.ok) return upper;
   const perGroup = !form.groupExit || form.groupExit === 'per-group';
   if (afterGroups && perGroup && entry.entry % groupCount !== 0) {
     return {

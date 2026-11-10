@@ -30,8 +30,14 @@ import { rosterFor, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
-const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
-const SWISS = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' } as const;
+/** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */
+const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
+const SWISS = {
+  gameFormat: 'individual-1v1',
+  poolingPhase: 'swiss',
+  oddCountStrategy: 'bye',
+  qualAdv: '8',
+} as const;
 const GROUPS = {
   gameFormat: 'team-4v4',
   poolingPhase: 'group-stage',
