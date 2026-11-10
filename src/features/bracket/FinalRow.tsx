@@ -6,6 +6,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
 import { TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
+import { stickyLeadClass } from './game-columns';
 import { memberLabel } from './team-member-line';
 
 /** The Final's score input for one unit that takes a single score per game. */
@@ -74,9 +75,8 @@ function FinalScoreEntry({
 /** The Final's header row: one column per game, then the total (or the games won: the race Grand Final, a Best of). */
 export function FinalHeaderRow({ games, showsWins }: { games: number; showsWins: boolean }) {
   return (
-    <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
-      <span className='w-4.5 shrink-0' />
-      <span className='flex-1' />
+    <div className='flex h-6 items-center gap-2 bg-surface px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
+      <span className={cn('flex flex-1 self-stretch', stickyLeadClass)} />
       {Array.from({ length: games }, (_, game) => (
         <span className='w-9.5 shrink-0 text-right' key={game}>
           G{game + 1}
@@ -116,17 +116,21 @@ export function FinalRow(props: FinalRowProps) {
   const { teamSize, team, entryGame, entryAnonymous, entryNotNeeded, inputsPerTeam } = props;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
-      <div className='flex items-center gap-2'>
-        <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>{complete ? index + 1 : null}</span>
-        <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
-          <span className='wrap-break-word text-[15px] font-semibold'>
-            {unitDisplay(state, name).label}
-            {manual ? <ManualMarker /> : null}
+      <div className='flex items-center gap-2 bg-inherit'>
+        <div className={cn('flex min-w-0 flex-1 items-center gap-2', stickyLeadClass)}>
+          <span className='w-4.5 shrink-0 text-[13px] font-bold text-muted'>
+            {complete ? index + 1 : null}
           </span>
-          {teamSize && !inputsPerTeam ? (
-            <TeamMembers name={name} roundIndex={roundIndex} state={state} />
-          ) : null}
-        </span>
+          <span className='flex min-w-0 flex-1 flex-col gap-0.5'>
+            <span className='wrap-break-word text-[15px] font-semibold'>
+              {unitDisplay(state, name).label}
+              {manual ? <ManualMarker /> : null}
+            </span>
+            {teamSize && !inputsPerTeam ? (
+              <TeamMembers name={name} roundIndex={roundIndex} state={state} />
+            ) : null}
+          </span>
+        </div>
         {perGame.map((score, game) => (
           <span className='w-9.5 shrink-0 text-right text-sm text-muted' key={game}>
             {score === null ? '—' : score}

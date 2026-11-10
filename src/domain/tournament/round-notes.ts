@@ -103,7 +103,7 @@ export function gameKey(gameNumber: number): string {
 function mostGames(state: RoundSettingsState, roundIndex: number): number {
   const round = state.rounds[roundIndex];
   if (round?.bracket === 'grand-final') return roundGameCount(state, roundIndex)?.games ?? 0;
-  return round?.numGames ?? 0;
+  return round?.numGames ?? round?.bestOf ?? 0;
 }
 
 /**

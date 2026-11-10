@@ -224,7 +224,7 @@ describe('Bracket, the expected draw', () => {
       { role: 'viewer', tab: 'bracket' },
     );
 
-    const column = view.getByText('EXPECTED').closest('[class*="min-w-82.5"]') as HTMLElement;
+    const column = view.getByText('EXPECTED').closest('[data-round-column]') as HTMLElement;
     expect(within(column).queryAllByText(/^Room [A-Z]$/)).toHaveLength(planned.length);
   });
 
@@ -245,7 +245,7 @@ describe('Bracket, the expected draw', () => {
       const columnOf = (title: string) => {
         const column = view
           .getAllByRole('heading', { name: title })
-          .map((heading) => heading.closest<HTMLElement>('[class*="min-w-82.5"]'))
+          .map((heading) => heading.closest<HTMLElement>('[data-round-column]'))
           .find((found) => found !== null);
         if (!column) throw new Error(`no column ${title}`);
         return column;
@@ -278,7 +278,7 @@ describe('Bracket, dependency play', () => {
   const columnOf = (view: ReturnType<typeof renderApp>, title: string) => {
     const column = view
       .getAllByRole('heading', { name: title })
-      .map((heading) => heading.closest<HTMLElement>('[class*="min-w-82.5"], .flex-col'))
+      .map((heading) => heading.closest<HTMLElement>('[data-round-column], .flex-col'))
       .find((found) => found !== null);
     if (!column) throw new Error(`no column ${title}`);
     return column;

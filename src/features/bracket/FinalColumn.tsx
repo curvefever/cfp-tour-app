@@ -9,6 +9,7 @@ import { Button, ButtonRow } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { FinalHeaderRow, FinalRow } from './FinalRow';
 import { RoomFrame } from './RoomCard';
+import { scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { roomTitle } from './room-title';
 
 /** The Grand Final race: who is ahead of whom, and who has won. */
@@ -158,32 +159,36 @@ export function FinalColumn({
         </div>
       ) : null}
       <RoomFrame title={roomTitle(round, 0)}>
-        <FinalHeaderRow games={games} showsWins={showsWins} />
-        {names.map((name, index) => {
-          const unit = progress.units.find((entry) => entry.name === name);
-          if (!unit) return null;
-          return (
-            <FinalRow
-              complete={progress.complete}
-              entryAnonymous={isActiveGameAnonymous}
-              entryGame={entering ? activeTab : 0}
-              entryNotNeeded={notNeeded.includes(activeTab)}
-              followed={followed === name}
-              index={index}
-              inputsPerTeam={inputsPerTeam}
-              key={name}
-              manual={Boolean(assignments.find((entry) => entry.name === name)?.manual)}
-              name={name}
-              perGame={unit.perGame.map((score, game) => (notNeeded.includes(game + 1) ? null : score))}
-              roundIndex={roundIndex}
-              state={state}
-              team={teamMap[name]}
-              teamSize={teamSize}
-              showsWins={showsWins}
-              total={showsWins ? unit.wins : unit.total}
-            />
-          );
-        })}
+        <div className={scrollableCardClass}>
+          <div className={scrollableRowsClass}>
+            <FinalHeaderRow games={games} showsWins={showsWins} />
+            {names.map((name, index) => {
+              const unit = progress.units.find((entry) => entry.name === name);
+              if (!unit) return null;
+              return (
+                <FinalRow
+                  complete={progress.complete}
+                  entryAnonymous={isActiveGameAnonymous}
+                  entryGame={entering ? activeTab : 0}
+                  entryNotNeeded={notNeeded.includes(activeTab)}
+                  followed={followed === name}
+                  index={index}
+                  inputsPerTeam={inputsPerTeam}
+                  key={name}
+                  manual={Boolean(assignments.find((entry) => entry.name === name)?.manual)}
+                  name={name}
+                  perGame={unit.perGame.map((score, game) => (notNeeded.includes(game + 1) ? null : score))}
+                  roundIndex={roundIndex}
+                  state={state}
+                  team={teamMap[name]}
+                  teamSize={teamSize}
+                  showsWins={showsWins}
+                  total={showsWins ? unit.wins : unit.total}
+                />
+              );
+            })}
+          </div>
+        </div>
       </RoomFrame>
     </div>
   );

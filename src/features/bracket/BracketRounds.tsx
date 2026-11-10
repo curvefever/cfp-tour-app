@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, Fragment, type ReactNode, useMemo, useRef, useState } from 'react';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import {
   type BracketBox,
@@ -30,6 +30,7 @@ import { AnonymousFinalCard } from './AnonymousFinalCard';
 import { ColumnTitleBar } from './ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
 import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from './folded-round';
+import { ROUND_COLUMN_WIDTH, roundColumnWidth } from './game-columns';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';
 import type { RoomsScored } from './still-playing';
@@ -37,9 +38,9 @@ import { isNotCountedRound, roundProgress, showsNowPill } from './title-bar-mark
 import { RoundSettingsBand } from './RoundSettingsBand';
 import { isCurrentRound, isRoundDone, usesDependencyPlay } from '../../domain/tournament/round-columns';
 
-/** The width-affecting classes of an open round column: fixed on a desktop, the page's width on a phone. */
+/** The width-affecting classes of an open round column: its own width on a desktop (`--round-w`), the page's width on a phone. */
 export function roundColumnWidthClass() {
-  return cn('w-82.5 min-w-82.5 shrink-0', phoneFullWidthClass);
+  return cn('w-(--round-w) min-w-(--round-w) shrink-0', phoneFullWidthClass);
 }
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
@@ -59,6 +60,7 @@ export function RoundColumn({
   settings = null,
   titleDone,
   tournamentId = '',
+  width = ROUND_COLUMN_WIDTH,
 }: {
   children: ReactNode;
   collapsed?: boolean;
@@ -84,9 +86,13 @@ export function RoundColumn({
   titleDone?: boolean;
   /** Where the settings pictures are stored. */
   tournamentId?: string;
+  /** The column's width on a desktop, in px: wider than usual for rooms with game columns (`roundColumnWidth`). */
+  width?: number;
 }) {
   const open = (
     <div
+      data-round-column=''
+      style={{ '--round-w': `${width}px` } as CSSProperties}
       className={cn(
         roundColumnWidthClass(),
         'flex flex-col',
@@ -239,6 +245,7 @@ export function BracketRounds({
         popupSettings={popupSettingsOf(roundIndex)}
         settings={settingsOf(roundIndex)}
         tournamentId={tournamentId}
+        width={roundColumnWidth(state, [roundIndex], editable)}
       >
         <RoundBody
           state={state}
@@ -326,6 +333,7 @@ export function BracketRounds({
         settings={settingsOf(first)}
         titleDone={usesDependencyPlay(state) ? isRoundDone(state, first) : undefined}
         tournamentId={tournamentId}
+        width={roundColumnWidth(state, box.roundIndices, editable)}
       >
         {bodyOf(first)}
         {others.map((roundIndex) => renderStacked(roundIndex, labels[roundIndex]?.label ?? ''))}
@@ -359,6 +367,7 @@ export function BracketRounds({
         popupSettings={popupSettingsOf(box.winnersRoundIndex)}
         settings={settingsOf(box.winnersRoundIndex)}
         tournamentId={tournamentId}
+        width={roundColumnWidth(state, constituents, editable)}
       >
         {bodyOf(box.winnersRoundIndex)}
         {box.losersRoundIndices.map((roundIndex) =>

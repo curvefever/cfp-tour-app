@@ -392,6 +392,44 @@ function ffa37FinalComplete(): TournamentState {
   return scoreFinal(ffaFinal(37), 3);
 }
 
+/**
+ * Scores every room of the round in play as a Best of N played to its last game: each unit wins one game (the
+ * first units in seat order), then the first unit takes the deciding one.
+ */
+function scoreBestOfToTheLastGame(state: TournamentState): TournamentState {
+  const round = state.rounds[state.curRound];
+  const numGames = round.numGames ?? 1;
+  const scores = { ...state.scores };
+  const sizes = new Map<number, number>();
+  for (const entry of state.assignments[state.curRound] ?? []) {
+    if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
+  }
+  for (const [room, size] of sizes) {
+    for (let position = 0; position < size; position += 1) {
+      const keys = scoreKeysForPosition({ roundIndex: state.curRound, room, position, numGames });
+      keys.forEach((key, game) => {
+        scores[key] = (game % size === position ? 300 : 100) + (size - position);
+      });
+    }
+  }
+  return { ...state, scores };
+}
+
+/** FFA 37 with a Best of 3 in the bracket rounds: a room of 8 can need 9 games, and its first bracket round is played to the 9th. */
+function bestOfFfaNineGames(): TournamentState {
+  const first = playUntil(ffa37Like(37, { bracketBestOf: '3' }), (round) => isFirstLuckyRound(round), 1);
+  return scoreBestOfToTheLastGame(first);
+}
+
+/** 13 teams of two with a Final over 4 games, all played: the Final's game columns beside the team names. */
+function teamsFourGameFinal(): TournamentState {
+  const start = generate(13, { ...TEAMS_2V2_SETUP, finalsGames: '4' }, 2);
+  return scoreFinal(
+    playUntil(start, (round) => round.isFinal, 1),
+    3,
+  );
+}
+
 function teams2v2Start(): TournamentState {
   return generate(13, TEAMS_2V2_SETUP, 2);
 }
@@ -884,6 +922,8 @@ export function fixtureTournaments(): FixtureTournament[] {
     // A tournament stored before dependency play: its column is played together.
     entry('waterfall-column-19', withoutDependencyPlay(waterfallColumn()), { roundNotes: COLUMN_NOTES }),
     entry('upper-lower-37', upperLower37()),
+    entry('best-of-3-ffa-nine-games', bestOfFfaNineGames(), { tabs: ['Bracket'] }),
+    entry('teams-four-game-final', teamsFourGameFinal(), { tabs: ['Bracket'] }),
     entry('upper-lower-31', upperLower31(), { infoBox: true }),
     entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
     entry('dependency-play-in-play', dependencyPlay37('in play'), { tabs: ['Bracket'] }),

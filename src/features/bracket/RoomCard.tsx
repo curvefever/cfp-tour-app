@@ -13,6 +13,7 @@ import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { GamesHeader } from './GameScores';
+import { scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
@@ -58,10 +59,13 @@ export function RoomFrame({
   children,
   future = false,
   lines = [],
+  scrolls = false,
   title,
 }: {
   children: ReactNode;
   future?: boolean;
+  /** The rows have game columns: a phone scrolls them sideways inside the card, the names fixed on the left. */
+  scrolls?: boolean;
   /** Where the room's places go: shown by the arrow icon at the right of the header (no icon without lines). */
   lines?: ExitLine[];
   title: string;
@@ -78,7 +82,13 @@ export function RoomFrame({
         <span className='flex-1' />
         <ExitIcon label={`Where players go from ${title}`} lines={lines} />
       </div>
-      {children}
+      {scrolls ? (
+        <div className={scrollableCardClass}>
+          <div className={scrollableRowsClass}>{children}</div>
+        </div>
+      ) : (
+        children
+      )}
     </div>
   );
 }
@@ -170,7 +180,7 @@ export function RoomCard({
   // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
   const gameColumns = !rowsEditable && !round.isFinal && (round.numGames ?? 1) > 1;
   return (
-    <RoomFrame lines={lines} title={title}>
+    <RoomFrame lines={lines} scrolls={gameColumns} title={title}>
       {gameColumns ? (
         <GamesHeader
           columns={round.numGames ?? 1}

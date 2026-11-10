@@ -1,4 +1,5 @@
 import { cn } from '../../components/ui';
+import { stickyLeadClass } from './game-columns';
 
 const cellClassName = 'w-9.5 shrink-0 text-right';
 
@@ -18,9 +19,8 @@ export function GamesHeader({
   points: boolean;
 }) {
   return (
-    <div className='flex h-6 items-center gap-2 px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
-      <span className='w-4.5 shrink-0' />
-      <span className='flex-1' />
+    <div className='flex h-6 items-center gap-2 bg-surface px-3 text-[11px] font-extrabold tracking-[0.08em] text-cfp-text-dim'>
+      <span className={cn('flex flex-1 self-stretch', stickyLeadClass)} />
       {Array.from({ length: columns }, (_, game) => (
         <span className={cellClassName} key={game}>
           G{game + 1}
