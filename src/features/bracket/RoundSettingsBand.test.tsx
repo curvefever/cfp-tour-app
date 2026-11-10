@@ -18,7 +18,7 @@ const IMAGE = 'data:image/webp;base64,AAAA';
 
 beforeEach(() => {
   // Pictures are read from the browser's cache first: the test seeds it, so no database is asked.
-  for (const id of ['picRound01', 'picGame001', 'picGame002']) {
+  for (const id of ['picRound01', 'picGame001', 'picGame002', 'picGame009']) {
     cacheScreenshot(window.localStorage, id, IMAGE);
   }
 });
@@ -49,8 +49,8 @@ describe('RoundSettingsBand', () => {
     const view = band({
       note: 'Powers: Ghost',
       games: [
-        { label: 'G1', note: 'Zap only' },
-        { label: 'G3', note: 'No powers\nSmall map' },
+        { label: 'G1', name: 'Game 1', note: 'Zap only' },
+        { label: 'G3', name: 'Game 3', note: 'No powers\nSmall map' },
       ],
     });
     const lines = [...view.container.querySelectorAll('.border-t > div')].map((line) => line.textContent);
@@ -60,7 +60,7 @@ describe('RoundSettingsBand', () => {
   });
 
   it('shows the games with no divider when the round has no note of its own', () => {
-    const view = band({ note: '', games: [{ label: 'G2', note: 'Zap only' }] });
+    const view = band({ note: '', games: [{ label: 'G2', name: 'Game 2', note: 'Zap only' }] });
     expect(view.getByText('G2')).toBeTruthy();
     expect(view.container.querySelector('.border-t')).toBeNull();
   });
@@ -69,11 +69,20 @@ describe('RoundSettingsBand', () => {
     const view = band({
       note: '',
       picture: 'picRound01',
-      games: [{ label: 'G2', note: '', picture: 'picGame002' }],
+      games: [{ label: 'G2', name: 'Game 2', note: '', picture: 'picGame002' }],
     });
     expect(view.getByAltText('Picture of Final')).toBeTruthy();
     expect(view.getByAltText('Picture of Final · Game 2')).toBeTruthy();
     expect(view.getByText('G2')).toBeTruthy();
+  });
+
+  it('shows the box of the games beyond the last as "G9+", titled "Game 9 and after"', () => {
+    const view = band({
+      note: '',
+      games: [{ label: 'G9+', name: 'Game 9 and after', note: '', picture: 'picGame009' }],
+    });
+    expect(view.getByText('G9+')).toBeTruthy();
+    expect(view.getByAltText('Picture of Final · Game 9 and after')).toBeTruthy();
   });
 
   it('shows no thumbnail without a tournament to read it from', () => {
@@ -82,7 +91,10 @@ describe('RoundSettingsBand', () => {
   });
 
   it("opens a picture full size, titled with the round and game and captioned with the box's text", () => {
-    const view = band({ note: '', games: [{ label: 'G1', note: 'Zap **only**', picture: 'picGame001' }] });
+    const view = band({
+      note: '',
+      games: [{ label: 'G1', name: 'Game 1', note: 'Zap **only**', picture: 'picGame001' }],
+    });
     expect(view.queryByRole('dialog')).toBeNull();
     fireEvent.click(view.getByAltText('Picture of Final · Game 1'));
     const dialog = view.getByRole('dialog');
@@ -98,7 +110,7 @@ describe('RoundSettingsPopup', () => {
   it('shows the same lines in the pop-up of the title bar button', () => {
     const view = render(
       <RoundSettingsPopup
-        settings={{ note: 'Powers: Ghost', games: [{ label: 'G2', note: 'Zap only' }] }}
+        settings={{ note: 'Powers: Ghost', games: [{ label: 'G2', name: 'Game 2', note: 'Zap only' }] }}
         title='Final'
         tournamentId='t1'
       />,
@@ -112,7 +124,10 @@ describe('RoundSettingsPopup', () => {
   it('stays open while a picture is shown full size, in the page body, and Escape closes the view first', () => {
     const view = render(
       <RoundSettingsPopup
-        settings={{ note: 'Powers: Ghost', games: [{ label: 'G1', note: '', picture: 'picGame001' }] }}
+        settings={{
+          note: 'Powers: Ghost',
+          games: [{ label: 'G1', name: 'Game 1', note: '', picture: 'picGame001' }],
+        }}
         title='Final'
         tournamentId='t1'
       />,

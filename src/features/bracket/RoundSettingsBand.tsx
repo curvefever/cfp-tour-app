@@ -129,7 +129,7 @@ export function RoundSettingsContent({
               label={game.label}
               note={game.note}
               picture={game.picture}
-              title={`${title} · Game ${game.label.slice(1)}`}
+              title={`${title} · ${game.name}`}
               tournamentId={tournamentId}
             />
           ))}

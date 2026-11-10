@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { changeRoundMatchFormat } from '../match-format-change';
+import { bestOfGameCount } from '../match-format';
 import {
+  MAX_GAME_BOXES,
   gameNoteRowLabel,
   infoWithGameNote,
   infoWithRenamedRounds,
@@ -187,9 +190,9 @@ describe('roundNoteRows', () => {
   });
 });
 
-/** FFA at 37: qualification rounds of 2 games, the Final a Best of `finalBestOf`, the Semis one game. */
+/** Head-to-head at 37: qualification rounds of 2 games, the Final a Best of `finalBestOf` (3 games for a Best of 3), the Semis one game. */
 const twoGameQual = (finalBestOf = 3): TournamentState =>
-  generated(37, { qualAdv: '30', poolingGames: '2', finalsBestOf: String(finalBestOf) });
+  generated(37, { ...HEAD_TO_HEAD, qualAdv: '30', poolingGames: '2', finalsBestOf: String(finalBestOf) });
 
 const withInfo = (
   state: TournamentState,
@@ -199,7 +202,7 @@ const withInfo = (
 const indexOf = (state: TournamentState, name: string) => roundNoteNames(state).indexOf(name);
 
 describe('noteGameCount', () => {
-  it('gives a qualification round of 2 games g1-g2, a Best of 3 Final g1-g3, and a one-game round none (FFA 37)', () => {
+  it('gives a qualification round of 2 games g1-g2, a Best of 3 Final g1-g3, and a one-game round none (1v1 37)', () => {
     const state = twoGameQual(3);
     const counts = Object.fromEntries(
       roundNoteNames(state).map((name, index) => [name, noteGameCount(state, index)]),
@@ -225,6 +228,91 @@ describe('noteGameCount', () => {
 
   it('is 0 for a round that does not exist', () => {
     expect(noteGameCount(twoGameQual(), 99)).toBe(0);
+  });
+});
+
+describe('game boxes follow the most games a room can play', () => {
+  /** FFA at 37: the Final is a Best of `bestOf` in a room of 8. */
+  const ffaFinal = (bestOf: number) => generated(37, { qualAdv: '30', finalsBestOf: String(bestOf) });
+  const finalOf = (state: TournamentState) => roundNoteNames(state).indexOf('Final');
+
+  it.each([3, 5])('FFA, a Best of %i in a room of 8: one box per possible game, at most 9', (bestOf) => {
+    const state = ffaFinal(bestOf);
+    const most = bestOfGameCount(bestOf, 8);
+    expect(state.rounds[finalOf(state)].numGames).toBe(most);
+    expect(noteGameCount(state, finalOf(state))).toBe(Math.min(most, MAX_GAME_BOXES));
+    expect(noteGameCount(state, finalOf(state))).toBe(9);
+  });
+
+  it('a Best of 3 in a room of 7 has 8 boxes, none "and after"', () => {
+    const most = bestOfGameCount(3, 7);
+    const round = buildRound({ roundNum: 1, rooms: [7], players: 7, bestOf: 3, numGames: most });
+    const state = { ...generated(37), rounds: [round] };
+    expect(noteGameCount(state, 0)).toBe(8);
+    const labels = roundNoteRows(state, undefined)[0].games.map((game) => game.label);
+    expect(labels).toEqual(Array.from({ length: 8 }, (_, index) => `Game ${index + 1}`));
+  });
+
+  it('a Best of 3 in a room of 8 has 9 boxes and the 9th is plain "Game 9" (9 games at most)', () => {
+    const state = ffaFinal(3);
+    const games = roundNoteRows(state, undefined)[finalOf(state)].games;
+    expect(games).toHaveLength(9);
+    expect(games[8].label).toBe('Game 9');
+  });
+
+  it('a Best of 5 in a room of 8 (up to 17 games) names the 9th box "Game 9 and after"', () => {
+    const state = ffaFinal(5);
+    const games = roundNoteRows(state, undefined)[finalOf(state)].games;
+    expect(games).toHaveLength(9);
+    expect(games.map((game) => game.label).slice(7)).toEqual(['Game 8', 'Game 9 and after']);
+    expect(gameNoteRowLabel(games[8])).toBe('Game 9 and after');
+  });
+
+  it('the Bracket band shows the 9th box as G9+ ("Game 9 and after"), a plain G9 when 9 is the most', () => {
+    const info = { gameNotes: { Final: { g9: 'Powers: Zap' } } };
+    const best5 = ffaFinal(5);
+    expect(roundSettingsOf(withInfo(best5, info), finalOf(best5))?.games).toEqual([
+      { label: 'G9+', name: 'Game 9 and after', note: 'Powers: Zap' },
+    ]);
+    const best3 = ffaFinal(3);
+    expect(roundSettingsOf(withInfo(best3, info), finalOf(best3))?.games).toEqual([
+      { label: 'G9', name: 'Game 9', note: 'Powers: Zap' },
+    ]);
+  });
+
+  it('keeps notes already stored under g1…, whatever the number of boxes', () => {
+    const state = ffaFinal(3);
+    const info = { gameNotes: { Final: { g1: 'first', g3: 'third', g9: 'ninth' } } };
+    const games = roundNoteRows(state, info)[finalOf(state)].games;
+    expect(games.filter((game) => game.note).map((game) => [game.key, game.note])).toEqual([
+      ['g1', 'first'],
+      ['g3', 'third'],
+      ['g9', 'ninth'],
+    ]);
+  });
+
+  it('a summed round of 4 games has 4 boxes', () => {
+    const state = generated(37, { ...HEAD_TO_HEAD, qualAdv: '30', poolingGames: '4' });
+    expect(noteGameCount(state, indexOf(state, 'Round 1'))).toBe(4);
+  });
+
+  it('follows a live change of the round format: Best of 3 to Best of 5 (head-to-head: 3 to 5 boxes)', () => {
+    const state = twoGameQual(3);
+    const final = indexOf(state, 'Final');
+    expect(noteGameCount(state, final)).toBe(3);
+    const changed = changeRoundMatchFormat(state, final, { bestOf: 5, numGames: bestOfGameCount(5, 2) });
+    if ('error' in changed) throw new Error(changed.error);
+    expect(noteGameCount(changed.state, final)).toBe(5);
+    expect(roundNoteRows(changed.state, undefined)[final].games).toHaveLength(5);
+  });
+
+  it('follows a live change in a room of 8: Best of 3 (9 boxes) to Best of 5 (still 9, now "and after")', () => {
+    const state = ffaFinal(3);
+    const final = finalOf(state);
+    const changed = changeRoundMatchFormat(state, final, { bestOf: 5, numGames: bestOfGameCount(5, 8) });
+    if ('error' in changed) throw new Error(changed.error);
+    expect(noteGameCount(changed.state, final)).toBe(9);
+    expect(roundNoteRows(changed.state, undefined)[final].games[8].label).toBe('Game 9 and after');
   });
 });
 
@@ -287,7 +375,7 @@ describe('game rows', () => {
     expect(gameNoteRowLabel(games[0])).toBe('Game 1');
     expect(roundSettingsOf(withInfo(best3, info), indexOf(best3, 'Final'))).toEqual({
       note: '',
-      games: [{ label: 'G1', note: 'kept' }],
+      games: [{ label: 'G1', name: 'Game 1', note: 'kept' }],
     });
   });
 
@@ -335,8 +423,8 @@ describe('roundSettingsOf', () => {
     expect(settings({ gameNotes: { Final: { g3: 'last', g2: 'middle' } } }, 'Final')).toEqual({
       note: '',
       games: [
-        { label: 'G2', note: 'middle' },
-        { label: 'G3', note: 'last' },
+        { label: 'G2', name: 'Game 2', note: 'middle' },
+        { label: 'G3', name: 'Game 3', note: 'last' },
       ],
     });
   });
@@ -344,7 +432,7 @@ describe('roundSettingsOf', () => {
   it('shows a round with only a g2 note as one game line', () => {
     expect(settings({ gameNotes: { 'Round 3': { g2: 'Powers: Zap' } } }, 'Round 3')).toEqual({
       note: '',
-      games: [{ label: 'G2', note: 'Powers: Zap' }],
+      games: [{ label: 'G2', name: 'Game 2', note: 'Powers: Zap' }],
     });
   });
 
@@ -353,7 +441,7 @@ describe('roundSettingsOf', () => {
       {
         note: '',
         picture: 'picRound01',
-        games: [{ label: 'G1', note: '', picture: 'picGame001' }],
+        games: [{ label: 'G1', name: 'Game 1', note: '', picture: 'picGame001' }],
       },
     );
   });

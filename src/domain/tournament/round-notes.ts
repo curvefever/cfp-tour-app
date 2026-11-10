@@ -97,12 +97,32 @@ export function gameKey(gameNumber: number): string {
 }
 
 /**
- * How many game boxes a round has: one per game of a round that plays several (summed games, a Best of N, the race
- * Grand Final), at most `MAX_GAME_BOXES`; none for a one-game round, which is its own game.
+ * The most games a room of the round can play: its `numGames` (summed games, or a Best of N's maximum, which a
+ * room of several units can push beyond N), or the race Grand Final's maximum. 0 or 1 for a round of one game.
+ */
+function mostGames(state: RoundSettingsState, roundIndex: number): number {
+  const round = state.rounds[roundIndex];
+  if (round?.bracket === 'grand-final') return roundGameCount(state, roundIndex)?.games ?? 0;
+  return round?.numGames ?? 0;
+}
+
+/**
+ * How many game boxes a round has: one per game a room can play in a round that plays several (summed games, a
+ * Best of N, the race Grand Final), at most `MAX_GAME_BOXES`; none for a one-game round, which is its own game.
  */
 export function noteGameCount(state: RoundSettingsState, roundIndex: number): number {
-  const games = roundGameCount(state, roundIndex)?.games ?? 0;
+  const games = mostGames(state, roundIndex);
   return games > 1 ? Math.min(games, MAX_GAME_BOXES) : 0;
+}
+
+/** Whether a room of the round can play more games than it has boxes: the last box is then "Game 9 and after". */
+function hasGamesBeyondBoxes(state: RoundSettingsState, roundIndex: number): boolean {
+  return mostGames(state, roundIndex) > MAX_GAME_BOXES;
+}
+
+/** What a game box is called: 'Game 2', and 'Game 9 and after' for the last box of a round with more games than boxes. */
+function gameBoxLabel(number: number, beyondBoxes: boolean): string {
+  return beyondBoxes && number === MAX_GAME_BOXES ? `Game ${number} and after` : `Game ${number}`;
 }
 
 /** What the editor calls a row: the round's name, marked when no round of the schedule has it now. */
@@ -122,7 +142,12 @@ export function roundNote(notes: RoundNotes | undefined, name: string): string {
 }
 
 /** The game rows of a round: one per game box, then the boxes beyond `gameCount` that hold a note or a picture. */
-function gameRowsOf(name: string, gameCount: number, info: RoundSettingsInfo): GameNoteRow[] {
+function gameRowsOf(
+  name: string,
+  gameCount: number,
+  info: RoundSettingsInfo,
+  beyondBoxes = false,
+): GameNoteRow[] {
   const rows: GameNoteRow[] = [];
   for (let number = 1; number <= MAX_GAME_BOXES; number++) {
     const key = gameKey(number);
@@ -132,7 +157,7 @@ function gameRowsOf(name: string, gameCount: number, info: RoundSettingsInfo): G
     if (!scheduled && !note && !picture) continue;
     rows.push({
       key,
-      label: `Game ${number}`,
+      label: gameBoxLabel(number, beyondBoxes && scheduled),
       note,
       ...(picture && { picture }),
       ...(!scheduled && { orphan: true as const }),
@@ -165,17 +190,17 @@ export function roundNoteRows(
   if (names.length === 0) return [];
   const stored = info ?? {};
   const shown = uniqueNames(bracketRoundLabels(state).map(({ label }) => label));
-  const rowOf = (name: string, gameCount: number): RoundNoteRow => {
+  const rowOf = (name: string, gameCount: number, beyondBoxes = false): RoundNoteRow => {
     const picture = pictureAt(stored.notePictures, name, 'round');
     return {
       name,
       note: roundNote(stored.roundNotes, name),
       ...(picture && { picture }),
-      games: gameRowsOf(name, gameCount, stored),
+      games: gameRowsOf(name, gameCount, stored, beyondBoxes),
     };
   };
   const rows = names.map((name, index): RoundNoteRow => ({
-    ...rowOf(name, noteGameCount(state, index)),
+    ...rowOf(name, noteGameCount(state, index), hasGamesBeyondBoxes(state, index)),
     ...(shown[index] !== name && { shown: shown[index] }),
   }));
   for (const name of storedNames(stored)) {
@@ -190,7 +215,7 @@ export interface RoundSettings {
   note: string;
   picture?: string;
   /** Only the games with a note or a picture, in order; 'G1', 'G2'… */
-  games: Array<{ label: string; note: string; picture?: string }>;
+  games: Array<{ label: string; name: string; note: string; picture?: string }>;
 }
 
 function settingsFor(
@@ -200,10 +225,12 @@ function settingsFor(
 ): RoundSettings | null {
   const info: RoundSettingsInfo = state.info ?? {};
   const picture = pictureAt(info.notePictures, name, 'round');
-  const games = gameRowsOf(name, noteGameCount(state, roundIndex), info)
+  const beyondBoxes = hasGamesBeyondBoxes(state, roundIndex);
+  const games = gameRowsOf(name, noteGameCount(state, roundIndex), info, beyondBoxes)
     .filter((row) => !row.orphan && (row.note || row.picture))
-    .map(({ key, note, picture: gamePicture }) => ({
-      label: `G${key.slice(1)}`,
+    .map(({ key, label, note, picture: gamePicture }) => ({
+      label: beyondBoxes && key === gameKey(MAX_GAME_BOXES) ? `G${key.slice(1)}+` : `G${key.slice(1)}`,
+      name: label,
       note,
       ...(gamePicture && { picture: gamePicture }),
     }));
