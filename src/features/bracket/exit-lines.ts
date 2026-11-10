@@ -56,7 +56,9 @@ function roomBandLine(band: RoomExitBand, labels: Labels): ExitLine {
     case 'lucky-chance':
       return { tone: 'dashed', places: `${band.rank} ★`, where: `lucky loser? (${luckySpots(band)})` };
     case 'eliminate':
-      return { tone: 'red', places: rankRange(band.fromRank, band.toRank), where: 'out' };
+      return band.placement
+        ? { tone: 'neutral', places: rankRange(band.fromRank, band.toRank), where: 'plays for places' }
+        : { tone: 'red', places: rankRange(band.fromRank, band.toRank), where: 'out' };
     case 'promote':
       return {
         tone: 'green',

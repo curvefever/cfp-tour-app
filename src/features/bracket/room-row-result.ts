@@ -53,6 +53,7 @@ function bandResult(
   { lucky, roundDecided }: Pick<RoomRowInput, 'lucky' | 'roundDecided'>,
 ): RoomRowResult {
   if (!band) return { result: 'eliminate', star: null };
+  if (band.kind === 'eliminate' && band.placement) return { result: 'place', star: null };
   switch (band.kind) {
     case 'advance':
       return { result: advanceResult(band), star: null };
@@ -77,7 +78,11 @@ export function roomRowResult(input: RoomRowInput): RoomRowResult {
   if (rule.kind !== 'per-room') return { result: '', star: null };
   if (!roomComplete) return { result: 'undecided', star: null };
   if (input.absentee === 'drop') return { result: 'drop', star: null };
-  if (input.absentee === 'eliminate') return { result: 'eliminate', star: null };
+  if (input.absentee === 'eliminate') {
+    // An absentee of a ranking room is out like the others there: it plays for places.
+    const ranking = bands.some((band) => band.kind === 'eliminate' && band.placement);
+    return { result: ranking ? 'place' : 'eliminate', star: null };
+  }
   if (pendingTie) return { result: 'pending', star: null };
   return bandResult(exitBandAtRank(bands, rank), input);
 }

@@ -175,8 +175,15 @@ Ranking: 1-8->eliminated
     expect(rows).toContainEqual(expect.objectContaining({ tone: 'neutral', name: 'Plays for places' }));
     expect(rows.map((row) => row.tone)).not.toContain('yellow');
     expect(rows.map((row) => row.tone)).not.toContain('purple');
-    expect(rows.map((row) => row.name)).toEqual(['Through', 'Plays for places', 'Out', 'Undecided']);
+    expect(rows.map((row) => row.name)).toEqual([
+      'Through',
+      'Plays for places',
+      'Final place',
+      'Out',
+      'Undecided',
+    ]);
     expect(names(buildQualWaterfall(37, QUAL_GRAPH))).not.toContain('Plays for places');
+    expect(names(buildQualWaterfall(37, QUAL_GRAPH))).not.toContain('Final place');
   });
 
   it('a waterfall where every room and the Qual source have one destination has no yellow or purple row', () => {

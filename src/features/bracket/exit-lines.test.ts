@@ -40,6 +40,13 @@ describe('roomExitLines', () => {
     ]);
   });
 
+  it('describes a ranking room: the places it plays for, in the neutral tone', () => {
+    const bands: RoomExitBand[] = [{ kind: 'eliminate', fromRank: 1, toRank: 2, placement: true }];
+    expect(roomExitLines(bands, names)).toEqual([
+      { tone: 'neutral', places: '1–2', where: 'plays for places' },
+    ]);
+  });
+
   it('pluralises the spots of a lucky-loser chance', () => {
     const lines = roomExitLines([{ kind: 'lucky-chance', rank: 7, spots: 2, otherwise: 'eliminate' }], names);
     expect(lines[0].where).toBe('lucky loser? (2 spots)');

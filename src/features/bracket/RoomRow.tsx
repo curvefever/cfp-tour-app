@@ -20,6 +20,7 @@ import { GameCells } from './GameScores';
 import { stickyEndClass, stickyLeadClass } from './game-columns';
 import type { GameColumn } from '../../domain/tournament/game-columns';
 import { roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
+import { ordinal } from '../../lib/ordinal';
 import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
@@ -84,16 +85,20 @@ function NameWithMarks({
   pendingTie,
   resolvedTie,
   star,
+  placeMark,
 }: {
   children: ReactNode;
   manual: boolean;
   pendingTie: boolean;
   resolvedTie: boolean;
   star: 'lucky' | 'candidate' | null;
+  /** The final place a ranking room gives this unit ("17th"), as Rankings numbers it. */
+  placeMark?: string;
 }) {
   return (
     <span className='flex min-w-0 items-center gap-1.5'>
       <span className='min-w-0 wrap-break-word text-[15px] font-semibold'>{children}</span>
+      {placeMark ? <span className='shrink-0 text-xs font-bold text-muted'>{placeMark}</span> : null}
       {star ? <LuckyStar candidate={star === 'candidate'} /> : null}
       {manual ? <ManualMarker /> : null}
       {resolvedTie ? (
@@ -181,6 +186,8 @@ export interface RoomRowProps {
   gameColumns: boolean;
   /** The columns of the row's room when `gameColumns`: a game each, then the games not played in one. */
   columns: GameColumn[];
+  /** The final place of a unit of a ranking room, as Rankings numbers it; absent elsewhere and until Rankings has it. */
+  finalPlace?: number;
 }
 
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
@@ -289,6 +296,7 @@ export function RoomRow(props: RoomRowProps) {
         pendingTie={pendingTie}
         resolvedTie={showResults && resolvedTie}
         star={star}
+        placeMark={showResults && props.finalPlace !== undefined ? ordinal(props.finalPlace) : undefined}
       >
         {label}
       </NameWithMarks>

@@ -6,6 +6,7 @@ import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../doma
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
+import { stripeTone } from '../tournament/components/result-row';
 import { absenteeFate, roomRowResult, type RoomRowInput } from './room-row-result';
 
 const perRoom = (bands: RoomExitBand[]): RoundExitRule => ({ kind: 'per-room', rooms: [bands] });
@@ -111,6 +112,26 @@ describe('roomRowResult: where an advancing row goes', () => {
     ];
     expect(row({ bands, rank: 2 }).result).toBe('drop');
     expect(row({ bands, rank: 3 }).result).toBe('eliminate');
+  });
+});
+
+describe('roomRowResult: a ranking room', () => {
+  const bands: RoomExitBand[] = [{ kind: 'eliminate', fromRank: 1, toRank: 8, placement: true }];
+
+  it('reads place (a neutral stripe) for every row of a scored room, never eliminate', () => {
+    for (const rank of [1, 4, 8]) {
+      expect(row({ bands, rank })).toEqual({ result: 'place', star: null });
+    }
+    expect(stripeTone('place')).toBe('neutral');
+  });
+
+  it('is undecided while the room is scored, and an absentee of it plays for places like the others', () => {
+    expect(row({ bands, rank: 1, roomComplete: false }).result).toBe('undecided');
+    expect(row({ bands, rank: 8, absentee: 'eliminate' }).result).toBe('place');
+  });
+
+  it('keeps a plain elimination red', () => {
+    expect(row({ bands: [{ kind: 'eliminate', fromRank: 1, toRank: 8 }], rank: 3 }).result).toBe('eliminate');
   });
 });
 

@@ -79,7 +79,10 @@ export function bracketLegend(state: TournamentState): BracketLegend {
     rows.push({ tone: 'purple', name: 'Through to a third round', meaning: 'A third group of places' });
   }
   if (sendsToRankingRoom(state)) {
-    rows.push({ tone: 'neutral', name: 'Plays for places', meaning: 'Goes to a ranking room' });
+    rows.push(
+      { tone: 'neutral', name: 'Plays for places', meaning: 'Goes to a ranking room, or plays in one' },
+      { tone: 'neutral', name: 'Final place', meaning: 'What a ranking room gives, as in Rankings' },
+    );
   }
   rows.push({ tone: 'red', name: 'Out', meaning: 'Eliminated' });
   rows.push({ tone: 'dashed', name: 'Undecided', meaning: 'Not settled yet, or a tie-break pending' });

@@ -14,6 +14,7 @@ import { ExitIcon } from './ExitIcon';
 import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
 import { GamesHeader } from './GameScores';
 import { roomGameColumns } from '../../domain/tournament/game-columns';
+import { placesLine, type RankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
@@ -60,11 +61,14 @@ export function RoomFrame({
   children,
   future = false,
   lines = [],
+  note,
   scrolls = false,
   title,
 }: {
   children: ReactNode;
   future?: boolean;
+  /** A line under the title: the places a ranking room decides. */
+  note?: string;
   /** The rows have game columns: a phone scrolls them sideways inside the card, the names fixed on the left. */
   scrolls?: boolean;
   /** Where the room's places go: shown by the arrow icon at the right of the header (no icon without lines). */
@@ -83,6 +87,7 @@ export function RoomFrame({
         <span className='flex-1' />
         <ExitIcon label={`Where players go from ${title}`} lines={lines} />
       </div>
+      {note ? <div className='px-3 pt-1.5 pb-0.5 text-xs font-bold text-muted'>{note}</div> : null}
       {scrolls ? (
         <div className={scrollableCardClass}>
           <div className={scrollableRowsClass}>{children}</div>
@@ -108,6 +113,7 @@ export function RoomCard({
   teamMap,
   points,
   resultCodes,
+  rankingPlaces,
 }: {
   state: TournamentState;
   roundIndex: number;
@@ -124,6 +130,8 @@ export function RoomCard({
   points: Map<string, number> | null;
   /** Match-result scoring: each unit's result codes in this round, shown beside its points; null otherwise. */
   resultCodes: Map<string, string> | null;
+  /** The places a ranking round's rooms decide, as Rankings numbers them; null elsewhere and until Rankings has them. */
+  rankingPlaces: RankingRoomPlaces | null;
 }) {
   const round = state.rounds[roundIndex];
   const room = roomIndex + 1;
@@ -178,11 +186,13 @@ export function RoomCard({
   const gone = round.isGroupStage && usesGroupAverages(state) ? voidingUnits(state, units, absentNames) : [];
   const voidMatch = gone.length > 0 && gone.length < units.length;
   const memberInputs = scoredTeamSize(state);
+  const placesRange = rankingPlaces?.byRoom.get(room);
+  const placesNote = placesRange ? placesLine(placesRange) : undefined;
   // Where the boxes don't show each game's score, a multi-game room shows it in columns (the Final has its own view).
   const gameColumns = roomShowsGameColumns(round, rowsEditable);
   const columns = gameColumns ? roomGameColumns(state, roundIndex, room) : [];
   return (
-    <RoomFrame lines={lines} scrolls={gameColumns} title={title}>
+    <RoomFrame lines={lines} note={placesNote} scrolls={gameColumns} title={title}>
       {gameColumns ? (
         <GamesHeader
           columns={columns}
@@ -214,6 +224,7 @@ export function RoomCard({
             followed={followKey === entry.name}
             gameColumns={gameColumns}
             columns={columns}
+            finalPlace={rankingPlaces?.byName.get(entry.name)}
             games={round.numGames ?? 1}
             index={index}
             inputsPerTeam={rowsEditable ? memberInputs : undefined}

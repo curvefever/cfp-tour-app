@@ -42,7 +42,13 @@ export type RoomExitBand =
       size?: number;
       rooms?: number;
     }
-  | { kind: 'eliminate'; fromRank: number; toRank: number }
+  | {
+      kind: 'eliminate';
+      fromRank: number;
+      toRank: number;
+      /** True in a ranking round: its units are out but play for places, which the Bracket shows (a neutral stripe, the place Rankings gives). */
+      placement?: true;
+    }
   // Kings Valley -- three separate members (not one `'promote' | 'stay' | 'demote'` kind field)
   // so a consumer's `band.kind === 'promote'` check discriminates cleanly via Extract<>,
   // which a single merged member with a union `kind` can't do (Extract needs the whole
@@ -259,7 +265,12 @@ function waterfallRoomBands(
     }
     bands.push(
       destination === null
-        ? { kind: 'eliminate', fromRank: start + 1, toRank: end + 1 }
+        ? {
+            kind: 'eliminate',
+            fromRank: start + 1,
+            toRank: end + 1,
+            ...(round.waterfallRanking ? { placement: true as const } : {}),
+          }
         : {
             kind: 'advance',
             fromRank: start + 1,

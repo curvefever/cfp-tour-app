@@ -12,6 +12,7 @@ import { ByeCard } from './ByeCard';
 import { FinalColumn } from './FinalColumn';
 import { PlaceholderRound } from './PlaceholderRound';
 import { RoomCard } from './RoomCard';
+import { rankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { showsPoints } from './game-columns';
 import { roomPoints, roomResultCodes, withSwappedNames } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
@@ -94,6 +95,7 @@ export function RoundBody({
   const resultCodes = standings && matchResultSettings(state) ? roomResultCodes(standings, roundIndex) : null;
   if (resultCodes && swapped) withSwappedNames(resultCodes, state);
   const teamMap = buildTeamMap(state);
+  const rankingPlaces = rankingRoomPlaces(state, roundIndex);
   const rowsEditable = editable && isCurrentRound(state, roundIndex);
   const luckyNames = luckyLoserNames(state, roundIndex);
   const roomTies = detectTieBreaks(roundIndex, round, state);
@@ -120,6 +122,7 @@ export function RoundBody({
           state={state}
           points={points}
           resultCodes={resultCodes}
+          rankingPlaces={rankingPlaces}
           teamMap={teamMap}
         />
       ))}

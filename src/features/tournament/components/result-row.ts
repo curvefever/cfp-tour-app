@@ -17,6 +17,7 @@ export type RowResult =
   | 'advance-second'
   | 'advance-third'
   | 'advance-placement'
+  | 'place'
   | 'drop'
   | 'eliminate'
   | 'lucky'
@@ -49,8 +50,9 @@ export function stripeTone(result: RowResult): StripeTone | null {
       return 'purple';
     case 'eliminate':
       return 'red';
-    // Going to a ranking room: the units play for places, neither through nor out.
+    // Going to a ranking room, or playing in one: the units play for places, neither through nor out.
     case 'advance-placement':
+    case 'place':
       return 'neutral';
     case 'pending':
     case 'candidate':

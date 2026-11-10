@@ -8,6 +8,8 @@ import {
   resolveEveryTie,
   scoreRound,
 } from '../../domain/tournament/__tests__/dependency-play-fixtures';
+import { rankingRoomPlaces } from '../../domain/tournament/ranking-places';
+import { roundsInPlay } from '../../domain/tournament/round-columns';
 import { renderApp } from '../shell/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
@@ -83,5 +85,38 @@ describe('a column holding a ranking room, on the Bracket', () => {
     expect(bars.find((bar) => bar.title === 'Round 5 - Ranking')?.text).toContain('NOW');
     expect(bars.find((bar) => bar.title === 'Round 5 - Lower')?.text).toContain('NOW');
     for (const bar of bars) expect(bar.text, bar.title).not.toContain('EXPECTED');
+  });
+});
+
+/** Round 5 drawn, every round of it scored, then Next Round: the ranking room is sent on and Rankings numbers its units. */
+function roundFiveSentOn(): FixtureTournament {
+  const fixture = roundFourScored();
+  let state = pressed(fixture.state);
+  for (const index of roundsInPlay(state)) state = resolveEveryTie(scoreRound(state, index), index);
+  return { ...fixture, state: pressed(state) };
+}
+
+describe('a ranking room on the Bracket shows the places it decides', () => {
+  it('names its places under the title and gives each unit its place, as Rankings numbers it', () => {
+    const fixture = roundFiveSentOn();
+    const ranking = indexOf(fixture.state, 'Round 5 - Ranking');
+    const places = rankingRoomPlaces(fixture.state, ranking);
+    expect(places?.byName.size).toBeGreaterThan(0);
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+    const lines = view.getAllByText(/^Places? [0-9]/).map((element) => element.textContent);
+    const [room] = [...(places?.byRoom ?? [])].map(([, range]) => range);
+    expect(lines).toContain(
+      room.first === room.last ? `Place ${room.first}` : `Places ${room.first}–${room.last}`,
+    );
+    const [first] = [...(places?.byName ?? [])];
+    const ordinalOf = (n: number) => view.getAllByText(new RegExp(`^${n}(st|nd|rd|th)$`));
+    expect(ordinalOf(first[1]).length).toBeGreaterThan(0);
+  });
+
+  it('shows no place yet while the ranking room is still in play', () => {
+    const fixture = { ...roundFourScored() };
+    fixture.state = pressed(fixture.state);
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+    expect(view.queryAllByText(/^Places? [0-9]/)).toHaveLength(0);
   });
 });
