@@ -7,6 +7,7 @@ const TONE_CLASSES: Record<StripeTone, string> = {
   orange: 'bg-cfp-orange',
   purple: 'bg-cfp-purple',
   red: 'bg-cfp-red',
+  neutral: 'bg-cfp-text-dim',
   dashed: 'border border-dashed border-cfp-text-dim',
 };
 

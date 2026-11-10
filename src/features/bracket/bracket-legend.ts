@@ -39,11 +39,20 @@ function extraDestinations(state: TournamentState): { hasSecond: boolean; hasThi
   return { hasSecond: groups.some((group) => group === 1), hasThird: groups.some((group) => group >= 2) };
 }
 
+/** Whether some round sends units to a ranking round (they play for places there, in a stripe of their own). */
+function sendsToRankingRoom(state: TournamentState): boolean {
+  return state.rounds.some((round) =>
+    round.waterfallRoutes
+      ?.flat()
+      .some((route) => route !== 'eliminated' && state.rounds[route]?.waterfallRanking),
+  );
+}
+
 /**
  * What the colour key of a Bracket can show for this tournament, and only that: Through, Out and Undecided
  * always; the lucky-loser, losers-bracket and Kings Valley rows only where such rounds exist; and a generic row
  * for the second and for the third destination (yellow, purple) where a Custom bracket sends units to several
- * rounds (the room's arrow shows which round).
+ * rounds (the room's arrow shows which round), and a grey row where units go to a ranking room.
  * Purple means a drop to the losers bracket or a third destination, and a tournament has only one of the two:
  * drop bands come from double elimination, while a waterfall round has only advance and eliminate bands.
  */
@@ -68,6 +77,9 @@ export function bracketLegend(state: TournamentState): BracketLegend {
   }
   if (hasThird) {
     rows.push({ tone: 'purple', name: 'Through to a third round', meaning: 'A third group of places' });
+  }
+  if (sendsToRankingRoom(state)) {
+    rows.push({ tone: 'neutral', name: 'Plays for places', meaning: 'Goes to a ranking room' });
   }
   rows.push({ tone: 'red', name: 'Out', meaning: 'Eliminated' });
   rows.push({ tone: 'dashed', name: 'Undecided', meaning: 'Not settled yet, or a tie-break pending' });

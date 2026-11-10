@@ -27,6 +27,8 @@ export type RoomExitBand =
       destination: number; // absolute round index
       /** The destination's group in its round (`exit-groups.ts`): 0, the first, when absent. Only waterfall rounds stamp one. */
       group?: number;
+      /** True when the destination is a ranking round: the units play for places there (no colour group). */
+      placement?: true;
     }
   | { kind: 'drop'; fromRank: number; toRank: number; destination: number } // double-elim: to the losers bracket
   | {
@@ -241,6 +243,7 @@ function kingsValleyRoomBands(
  */
 function waterfallRoomBands(
   round: TournamentRound,
+  rounds: readonly TournamentRound[],
   roomIndex: number,
   actualSize: number,
   groups: ReadonlyMap<number, number>,
@@ -263,6 +266,7 @@ function waterfallRoomBands(
             toRank: end + 1,
             destination,
             ...stampedGroup(groups.get(destination)),
+            ...(rounds[destination]?.waterfallRanking ? { placement: true as const } : {}),
           },
     );
     start = end + 1;
@@ -363,7 +367,7 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
   if (round.isWaterfall) {
     const groups = roundExitGroups(state, roundIndex);
     return perRoomRule(round, assignments, (roomIndex, actualSize) =>
-      waterfallRoomBands(round, roomIndex, actualSize, groups),
+      waterfallRoomBands(round, state.rounds, roomIndex, actualSize, groups),
     );
   }
 

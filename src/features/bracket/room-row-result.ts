@@ -40,11 +40,12 @@ export interface RoomRowResult {
 }
 
 /**
- * An advance band reads green, yellow or purple by its destination's group in the round (`exit-groups.ts`): the
- * same colour in every room of the round, and the same as the standings column's destination groups.
+ * An advance band reads green, yellow or purple by its destination's group in the column (`exit-groups.ts`): the
+ * same colour in every room of the column, and the same as the standings column's destination groups. A band to a
+ * ranking round is neutral: the units play for places.
  */
 export function advanceResult(band: Extract<RoomExitBand, { kind: 'advance' }>): RowResult {
-  return destinationGroupResult(band.group);
+  return band.placement ? 'advance-placement' : destinationGroupResult(band.group);
 }
 
 function bandResult(

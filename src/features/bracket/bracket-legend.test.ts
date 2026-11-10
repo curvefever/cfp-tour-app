@@ -137,24 +137,46 @@ ROUNDS:
 R1 = 4x8
 Upper = 8
 Lower = 2x8
-Ranking = 8 RANKING
+Third = 8
 Final = 8 FINAL
 
 ROUTES:
 R1.A: 1-4->Upper, 5-8->Lower
 R1.B: 1-4->Upper, 5-8->Lower
-R1.C: 1-4->Lower, 5-8->Ranking
-R1.D: 1-4->Lower, 5-8->Ranking
-Upper: 1-4->Final, 5-8->eliminated
+R1.C: 1-4->Lower, 5-8->Third
+R1.D: 1-4->Lower, 5-8->Third
+Upper: 1-2->Final, 3-8->eliminated
 Lower.A: 1-2->Final, 3-8->eliminated
 Lower.B: 1-2->Final, 3-8->eliminated
-Ranking: 1-8->eliminated
+Third: 1-2->Final, 3-8->eliminated
 `;
     const rows = bracketLegend(buildQualWaterfall(32, graph, { poolingPhase: 'none' })).rows;
     expect(rows.map((row) => row.tone)).toEqual(
       expect.arrayContaining(['green', 'yellow', 'purple', 'red', 'dashed']),
     );
     expect(rows.map((row) => row.name)).toContain('Through to a third round');
+  });
+
+  it('a ranking room is no colour: units routed to it read grey ("Plays for places"), only where a round routes to one', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+Upper = 8
+Ranking = 8 RANKING
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->Upper, 5-8->Ranking
+R1.B: 1-4->Upper, 5-8->Ranking
+Upper: 1-8->Final
+Ranking: 1-8->eliminated
+`;
+    const rows = bracketLegend(buildQualWaterfall(16, graph, { poolingPhase: 'none' })).rows;
+    expect(rows).toContainEqual(expect.objectContaining({ tone: 'neutral', name: 'Plays for places' }));
+    expect(rows.map((row) => row.tone)).not.toContain('yellow');
+    expect(rows.map((row) => row.tone)).not.toContain('purple');
+    expect(rows.map((row) => row.name)).toEqual(['Through', 'Plays for places', 'Out', 'Undecided']);
+    expect(names(buildQualWaterfall(37, QUAL_GRAPH))).not.toContain('Plays for places');
   });
 
   it('a waterfall where every room and the Qual source have one destination has no yellow or purple row', () => {

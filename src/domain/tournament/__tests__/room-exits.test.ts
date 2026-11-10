@@ -482,6 +482,33 @@ describe('roundExitRule -- exit groups on waterfall bands', () => {
     expect(rooms[0][0]).not.toHaveProperty('group');
   });
 
+  it('marks the bands routed to a ranking round as placement, with no group', () => {
+    const graph = `
+ROUNDS:
+R1 = 2x8
+Upper = 8
+Ranking = 8 RANKING
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->Upper, 5-8->Ranking
+R1.B: 1-4->Upper, 5-8->Ranking
+Upper: 1-8->Final
+Ranking: 1-8->eliminated
+`;
+    const ranking = buildQualWaterfall(16, graph, { poolingPhase: 'none' });
+    const first = roundExitRule(
+      ranking,
+      ranking.rounds.findIndex((round) => round.customLabel === 'R1'),
+    );
+    const bands = first.kind === 'per-room' ? first.rooms[0] : [];
+    expect(bands).toEqual([
+      { kind: 'advance', fromRank: 1, toRank: 4, destination: expect.any(Number) },
+      { kind: 'advance', fromRank: 5, toRank: 8, destination: expect.any(Number), placement: true },
+    ]);
+    expect(bands.every((band) => !('group' in band))).toBe(true);
+  });
+
   it('gives a non-waterfall round no group', () => {
     const plain = roundExitRule(buildQualWaterfall(37), 0);
     const bands = plain.kind === 'per-room' ? plain.rooms.flat() : [];

@@ -16,6 +16,7 @@ export type RowResult =
   | 'advance'
   | 'advance-second'
   | 'advance-third'
+  | 'advance-placement'
   | 'drop'
   | 'eliminate'
   | 'lucky'
@@ -28,7 +29,7 @@ export type RowResult =
   | '';
 
 /** The colour of a result stripe; `dashed` is the empty, outlined stripe of an undecided row. */
-export type StripeTone = 'green' | 'yellow' | 'orange' | 'purple' | 'red' | 'dashed';
+export type StripeTone = 'green' | 'yellow' | 'orange' | 'purple' | 'red' | 'neutral' | 'dashed';
 
 /** The stripe a result gets: the stripe alone carries a row's status (names never change colour). `null`: no stripe at all. */
 export function stripeTone(result: RowResult): StripeTone | null {
@@ -48,6 +49,9 @@ export function stripeTone(result: RowResult): StripeTone | null {
       return 'purple';
     case 'eliminate':
       return 'red';
+    // Going to a ranking room: the units play for places, neither through nor out.
+    case 'advance-placement':
+      return 'neutral';
     case 'pending':
     case 'candidate':
     case 'undecided':

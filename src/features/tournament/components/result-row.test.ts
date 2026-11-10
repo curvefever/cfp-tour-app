@@ -183,6 +183,10 @@ describe('destinationGroupResult and the groups of a table’s bands', () => {
     expect(destinationGroupResult(group)).toBe(result);
   });
 
+  it('a placement result (going to a ranking room) is its own neutral stripe, never green, yellow or purple', () => {
+    expect(stripeTone('advance-placement')).toBe('neutral');
+  });
+
   it('reads a band by its own group, and an out band as eliminated', () => {
     const table = {
       cut: 6,

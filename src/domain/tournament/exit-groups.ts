@@ -5,6 +5,7 @@ import { declaredWaterfallRooms } from './waterfall-bracket';
 /**
  * Which destinations of a round are "the same": players going on in the same conditions share a group, in every
  * room of the round and of the rounds played in its column. Group 0 is the column's first destination, 1 the next one in other conditions, and so on.
+ * A ranking round (`waterfallRanking`) is no group: units routed there play for places and read as such, not as a colour.
  * Display only (the exit colours); nothing here decides an advancement. It reads the declared routes, never the
  * drawn bands, so a removal that shrinks a room cannot change the colours of the round.
  */
@@ -114,7 +115,7 @@ export function exitGroups(state: TournamentState, routes: ReadonlyArray<Route>)
   const groups = new Map<number, number>();
   let nextGroup = 0;
   for (const route of routes) {
-    if (route === 'eliminated' || groups.has(route)) continue;
+    if (route === 'eliminated' || groups.has(route) || state.rounds[route]?.waterfallRanking) continue;
     const alike = [...groups.keys()].find((read) => sameConditions(state, read, route));
     if (alike === undefined) {
       groups.set(route, nextGroup);

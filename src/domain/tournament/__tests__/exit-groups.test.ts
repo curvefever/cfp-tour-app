@@ -64,11 +64,12 @@ describe('exit groups of the built-in and fixture graphs', () => {
     expect(groupsOf(state, 'R5')).toEqual({ SemiA: 0, R6B: 1, R6C: 1 });
   });
 
-  it('upper and lower: every round reads green then yellow, the Final never joins', () => {
+  it('upper and lower: every round reads green then yellow, the Final never joins, ranking rooms are no group', () => {
     const state = buildQualWaterfall(37, UPPER_LOWER_GRAPH);
     expect(groupsOf(state, 'R4U')).toEqual({ SemiA: 0, R5L: 1 });
-    expect(groupsOf(state, 'R4L')).toEqual({ R5L: 0, R5R: 1 });
-    expect(groupsOf(state, 'R5L')).toEqual({ R6L: 0, R6R: 1 });
+    // A ranking round (R5R, R6R) is no colour group.
+    expect(groupsOf(state, 'R4L')).toEqual({ R5L: 0 });
+    expect(groupsOf(state, 'R5L')).toEqual({ R6L: 0 });
     expect(groupsOf(state, 'SemiA')).toEqual({ Final: 0, SemiB: 1 });
   });
 
@@ -141,6 +142,28 @@ ROUNDS:
 R1 = 4x8
 Upper = 8
 Lower = 2x8
+Third = 8
+Final = 8 FINAL
+
+ROUTES:
+R1.A: 1-4->Upper, 5-8->Lower
+R1.B: 1-4->Upper, 5-8->Lower
+R1.C: 1-4->Lower, 5-8->Third
+R1.D: 1-4->Lower, 5-8->Third
+Upper: 1-2->Final, 3-8->eliminated
+Lower.A: 1-2->Final, 3-8->eliminated
+Lower.B: 1-2->Final, 3-8->eliminated
+Third: 1-2->Final, 3-8->eliminated
+`;
+    expect(groupsOf(buildPlain(32, graph), 'R1')).toEqual({ Upper: 0, Lower: 1, Third: 2 });
+  });
+
+  it('a ranking round is no group: the next destination takes its number', () => {
+    const graph = `
+ROUNDS:
+R1 = 4x8
+Upper = 8
+Lower = 2x8
 Ranking = 8 RANKING
 Final = 8 FINAL
 
@@ -154,7 +177,7 @@ Lower.A: 1-2->Final, 3-8->eliminated
 Lower.B: 1-2->Final, 3-8->eliminated
 Ranking: 1-8->eliminated
 `;
-    expect(groupsOf(buildPlain(32, graph), 'R1')).toEqual({ Upper: 0, Lower: 1, Ranking: 2 });
+    expect(groupsOf(buildPlain(32, graph), 'R1')).toEqual({ Upper: 0, Lower: 1 });
   });
 
   it('only room A reaching the Final: the Final is 0, the semi 1', () => {
@@ -189,11 +212,15 @@ Semi: 1-8->eliminated
 `;
     const built = buildPlain(16, graph);
     const semi = built.rounds[indexOfLabel(built, 'Semi')];
+    // Semi is made a plain round (a ranking round is no group of its own), so only the Final's own rule keeps them apart.
     const state = {
       ...built,
-      rounds: built.rounds.map((round) =>
-        round.customLabel === 'Final' ? { ...round, waterfallRoutes: semi.waterfallRoutes } : round,
-      ),
+      rounds: built.rounds.map((round) => {
+        if (round.customLabel === 'Final') return { ...round, waterfallRoutes: semi.waterfallRoutes };
+        if (round.customLabel !== 'Semi') return round;
+        const { waterfallRanking: _ranking, ...plain } = round;
+        return plain;
+      }),
     };
     expect(groupsOf(state, 'R1')).toEqual({ Final: 0, Semi: 1 });
   });
@@ -342,15 +369,16 @@ describe('exit groups are read per column: a destination has one colour in every
     const state = builtUpperLower(29);
     const [upper, lower] = columnGroups(state, 'Round 4 - Upper');
     expect(upper).toEqual(lower);
-    expect(upper).toEqual({ 'Semi-Final A': 0, 'Round 5 - Lower': 1, 'Round 5 - Ranking': 2 });
+    // Round 4 Lower's second destination, the ranking round, is no colour group.
+    expect(upper).toEqual({ 'Semi-Final A': 0, 'Round 5 - Lower': 1 });
   });
 
-  it.each([29, 31, 37, 43, 53])(
+  it.each([13, 15, 29, 31, 37, 43, 53])(
     'upper and lower at %i: every round of every column reads the same groups',
     (count) => {
       const state = builtUpperLower(count);
       const columns = columnsOf(state);
-      expect(columns.length).toBeGreaterThan(1);
+      expect(columns.length).toBeGreaterThan(0);
       for (const indices of columns) {
         const [first, ...others] = indices.map((index) => [...roundExitGroups(state, index)]);
         for (const other of others) expect(other).toEqual(first);
@@ -358,12 +386,12 @@ describe('exit groups are read per column: a destination has one colour in every
     },
   );
 
-  it('the fixture graph with its columns kept: R4U and R4L together, R5L yellow from both, the ranking room last', () => {
+  it('the fixture graph with its columns kept: R4U and R4L together, R5L yellow from both, ranking rooms no group', () => {
     const state = withColumns(37, UPPER_LOWER_GRAPH);
     const [upper, lower] = columnGroups(state, 'R4U');
     expect(upper).toEqual(lower);
-    expect(upper).toEqual({ SemiA: 0, R5L: 1, R5R: 2 });
-    expect(groupsOf(state, 'R5L')).toEqual({ Final: 0, SemiB: 1, R6L: 2, R6R: 3 });
+    expect(upper).toEqual({ SemiA: 0, R5L: 1 });
+    expect(groupsOf(state, 'R5L')).toEqual({ Final: 0, SemiB: 1, R6L: 2 });
   });
 
   it('spreadsheet-32: R6B and R6C share their column with SemiA and read the same groups; R5, alone, is unchanged', () => {
