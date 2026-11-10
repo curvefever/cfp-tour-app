@@ -112,7 +112,7 @@ R1D: 1-2->Final, 3-8->eliminated
     expect(legend.rows.filter((row) => row.tone === 'purple')).toHaveLength(1);
   });
 
-  it('spreadsheet-32 has the yellow row and no purple row: R6B and R6C are one group', () => {
+  it('spreadsheet-32 has a yellow and a purple row: the column of SemiA, R6B and R6C has three destinations, R6B and R6C one group', () => {
     const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32');
     if (!example) throw new Error('no spreadsheet example');
     const legend = bracketLegend(
@@ -124,7 +124,10 @@ R1D: 1-2->Final, 3-8->eliminated
     );
     const yellow = legend.rows.find((row) => row.tone === 'yellow');
     expect(yellow?.name).toBe('Through to another round');
-    expect(legend.rows.some((row) => row.tone === 'purple')).toBe(false);
+    // Colours are read per column: SemiA sends to the Final (green) and SemiB (yellow), R6B and R6C to R7A (purple).
+    expect(legend.rows.filter((row) => row.tone === 'purple').map((row) => row.name)).toEqual([
+      'Through to a third round',
+    ]);
     expect(legend.rows.map((row) => row.name)).not.toContain('Losers bracket');
   });
 

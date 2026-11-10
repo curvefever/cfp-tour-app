@@ -1,9 +1,10 @@
+import { rankingRoomsLast, roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 import { declaredWaterfallRooms } from './waterfall-bracket';
 
 /**
  * Which destinations of a round are "the same": players going on in the same conditions share a group, in every
- * room of the round. Group 0 is the round's first destination, 1 the next one in other conditions, and so on.
+ * room of the round and of the rounds played in its column. Group 0 is the column's first destination, 1 the next one in other conditions, and so on.
  * Display only (the exit colours); nothing here decides an advancement. It reads the declared routes, never the
  * drawn bands, so a removal that shrinks a room cannot change the colours of the round.
  */
@@ -125,10 +126,21 @@ export function exitGroups(state: TournamentState, routes: ReadonlyArray<Route>)
   return groups;
 }
 
-/** The groups of a round's exits: its rooms' routes, or its standings routes. Empty for any other round. */
+/** The routes of every round played in the column of `roundIndex`, in the order the Bracket shows the column's rounds. */
+function columnRoutes(state: TournamentState, roundIndex: number): Route[] {
+  const { start, end } = roundColumn(state.rounds, roundIndex);
+  return rankingRoomsLast(state.rounds, start, end).flatMap(
+    (index) => state.rounds[index].waterfallRoutes?.flat() ?? [],
+  );
+}
+
+/**
+ * The groups of a round's exits: the routes of every round of its column (so a destination has one group in every
+ * room and round of the column), or its standings routes. Empty for any other round.
+ */
 export function roundExitGroups(state: TournamentState, roundIndex: number): Map<number, number> {
   const round = state.rounds[roundIndex];
-  if (round?.waterfallRoutes) return exitGroups(state, round.waterfallRoutes.flat());
+  if (round?.waterfallRoutes) return exitGroups(state, columnRoutes(state, roundIndex));
   if (round?.standingsRoutes) return exitGroups(state, round.standingsRoutes);
   return new Map();
 }

@@ -27,6 +27,13 @@ export function roundColumn(rounds: readonly TournamentRound[], index: number): 
   return { start, end };
 }
 
+/** The rounds `from` to `to` of a column in the order the Bracket shows them: the ranking rooms after the others, each group in play order (a column of ranking rooms only keeps its order). */
+export function rankingRoomsLast(rounds: readonly TournamentRound[], from: number, to: number): number[] {
+  const indices = Array.from({ length: to - from + 1 }, (_, offset) => from + offset);
+  const isRanking = (index: number) => rounds[index].waterfallRanking === true;
+  return [...indices.filter((index) => !isRanking(index)), ...indices.filter(isRanking)];
+}
+
 /** The column in play: `curRound` is its first round. Column play only: in dependency play use `roundsInPlay`. */
 export function currentColumn(state: ColumnState): RoundColumn {
   return roundColumn(state.rounds, state.curRound);

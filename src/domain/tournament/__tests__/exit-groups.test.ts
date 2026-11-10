@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { bracketBoxes } from '../bracket';
 import { exitGroups, roundExitGroups } from '../exit-groups';
+import { generateTournament } from '../generation';
+import { roundColumn } from '../round-columns';
+import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { THREE_CHAIN_GRAPH } from './dependency-play-fixtures';
 import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, TIE_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
+import { rosterFor, testRuntime } from './test-fixtures';
+
+type Setup = Parameters<typeof createDefaultSetup>[0];
 
 const example = (id: string) => WATERFALL_EXAMPLES.find((entry) => entry.id === id)?.text ?? '';
 const SPREADSHEET = example('spreadsheet-32');
@@ -297,5 +304,86 @@ X: 1-4->Final, 5-8->eliminated
 Y: 1-4->Final, 5-8->eliminated
 `;
     expect(groupsOf(buildQualWaterfall(24, graph), 'R1')).toEqual({ X: 0, Y: 1 });
+  });
+});
+
+describe('exit groups are read per column: a destination has one colour in every round of the column', () => {
+  const withColumns = (players: number, graph: string, setup: Setup = {}) =>
+    buildQualWaterfall(players, graph, setup, { columns: true });
+
+  /** The groups of every round of the column of `label`, by round label. */
+  function columnGroups(state: TournamentState, label: string): Array<Record<string, number>> {
+    const { start, end } = roundColumn(state.rounds, indexOfLabel(state, label));
+    return Array.from({ length: end - start + 1 }, (_, offset) =>
+      groupsOf(state, state.rounds[start + offset].customLabel ?? ''),
+    );
+  }
+
+  /** The built-in upper and lower bracket of an FFA qualification table, as the Setup generates it. */
+  function builtUpperLower(count: number): TournamentState {
+    const form = createDefaultSetup({
+      gameFormat: 'ffa-individual',
+      scheduleLogic: 'upper-lower',
+      poolingPhase: 'qual-table',
+    });
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
+      form,
+      testRuntime(),
+    );
+    if (result.status !== 'generated') throw new Error(result.message);
+    return result.state;
+  }
+
+  const columnsOf = (state: TournamentState): Array<Array<number>> =>
+    bracketBoxes(state).flatMap((box) => (box.kind === 'column' ? [box.roundIndices] : []));
+
+  it('FFA 29 (tournament 1794254969126): Round 4 Upper and Lower share the groups, Round 5 Lower is one colour from both', () => {
+    const state = builtUpperLower(29);
+    const [upper, lower] = columnGroups(state, 'Round 4 - Upper');
+    expect(upper).toEqual(lower);
+    expect(upper).toEqual({ 'Semi-Final A': 0, 'Round 5 - Lower': 1, 'Round 5 - Ranking': 2 });
+  });
+
+  it.each([29, 31, 37, 43, 53])(
+    'upper and lower at %i: every round of every column reads the same groups',
+    (count) => {
+      const state = builtUpperLower(count);
+      const columns = columnsOf(state);
+      expect(columns.length).toBeGreaterThan(1);
+      for (const indices of columns) {
+        const [first, ...others] = indices.map((index) => [...roundExitGroups(state, index)]);
+        for (const other of others) expect(other).toEqual(first);
+      }
+    },
+  );
+
+  it('the fixture graph with its columns kept: R4U and R4L together, R5L yellow from both, the ranking room last', () => {
+    const state = withColumns(37, UPPER_LOWER_GRAPH);
+    const [upper, lower] = columnGroups(state, 'R4U');
+    expect(upper).toEqual(lower);
+    expect(upper).toEqual({ SemiA: 0, R5L: 1, R5R: 2 });
+    expect(groupsOf(state, 'R5L')).toEqual({ Final: 0, SemiB: 1, R6L: 2, R6R: 3 });
+  });
+
+  it('spreadsheet-32: R6B and R6C share their column with SemiA and read the same groups; R5, alone, is unchanged', () => {
+    const state = withColumns(32, SPREADSHEET, { poolingPhase: 'none' });
+    const column = columnGroups(state, 'SemiA');
+    expect(column).toHaveLength(3);
+    expect(column[1]).toEqual(column[0]);
+    expect(column[2]).toEqual(column[0]);
+    expect(groupsOf(state, 'R5')).toEqual({ SemiA: 0, R6B: 1, R6C: 1 });
+  });
+
+  it('a round alone in its column reads its own routes only', () => {
+    const state = withColumns(31, THREE_CHAIN_GRAPH, { qualAdv: '24' });
+    const alone = state.rounds.findIndex(
+      (_, index) =>
+        roundColumn(state.rounds, index).start === roundColumn(state.rounds, index).end &&
+        state.rounds[index].waterfallRoutes,
+    );
+    const round = state.rounds[alone];
+    const own = exitGroups(state, round.waterfallRoutes?.flat() ?? []);
+    expect(roundExitGroups(state, alone)).toEqual(own);
   });
 });

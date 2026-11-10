@@ -7,6 +7,7 @@ import type { TournamentRound, TournamentState } from './types';
 import {
   isRoundDone,
   isRoundReached,
+  rankingRoomsLast,
   roundColumn,
   undrawnRounds,
   usesDependencyPlay,
@@ -183,13 +184,6 @@ export type BracketBox =
   | { kind: 'single'; roundIndex: number }
   | { kind: 'wave'; winnersRoundIndex: number; losersRoundIndices: number[] }
   | { kind: 'column'; roundIndices: number[] };
-
-/** The rounds `from` to `to` of a column in the order the Bracket shows them: the ranking rooms after the others, each group in play order (a column of ranking rooms only keeps its order). */
-function rankingRoomsLast(rounds: TournamentState['rounds'], from: number, to: number): number[] {
-  const indices = Array.from({ length: to - from + 1 }, (_, offset) => from + offset);
-  const isRanking = (index: number) => rounds[index].waterfallRanking === true;
-  return [...indices.filter((index) => !isRanking(index)), ...indices.filter(isRanking)];
-}
 
 /**
  * Splits a tournament's rounds into display boxes for Bracket view: a
