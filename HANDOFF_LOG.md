@@ -6,6 +6,28 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A best of a place route in a Custom bracket round (done locally on `test` — 2026-11-13, not pushed yet)
+
+**Context.** The organiser's FFA tournament of 2026-11-15: 3 rooms of 8 send 16 on, which the rooms can't share evenly. Until now the organiser routed one room's 6th by hand. Wanted: "the best n of the k-th places go to round X", the app deciding which room's unit goes. Plan `plans/2026-11-13-best-of-a-place.md`, approved by the organiser on 2026-11-13, five stages (planner/reviewer and implementer sessions), commits `944ec00` (stage 1), `cbbb2be` (2), `5bf1d5d` (3), `cdbc595` (4) and their follow-ups `918cf8b`, `522d1c7`, `bf45e29`, `194b955`, `6fb5a62`.
+
+**Organiser decisions.** "Best" is the score relative to the room's average (`relativeRoomShare`, as the lucky losers compare), not the fair cut by room size; the comparisons across rooms are to be reviewed together (`docs/roadmap.md`, "Same rules everywhere"). A route names one place, sends its best n to one round and the rest of that place to one other round or out. Everything ships for Sunday: graph, routing, ties, the Setup editor, Edit graph and every Bracket display.
+
+**Planner decisions (open to correction).** Graph text `R4.BEST: 1 OF 6->R5`, one per round, refused on the Final, a `RANKING` round, `Qual` and `Groups`, for an undeclared round or destination, a destination that is eliminated or not later, k outside the room sizes, n under 1 or not under the number of rooms with a k-th place, rooms that send place k to different rounds, and a rest to the same round as the best. The destination receives n, the rest's round m − n. Candidates are the present units at place k (never an absentee; a room with no such place offers none); fewer candidates than n: all go. Zero-point rooms rank last, lower room first. Equal relative shares straddling the cut are a tie card (key `r{ri}-best`), shown once every room with a k-th seat is complete and has no absence question open; picks per spot. Who is chosen is derived, never stored; `TournamentRound.waterfallBest` holds the line, no version flag. Where an absentee falls on place k it follows its room's own line.
+
+**The stages.**
+1. The line, its checks and the stored field (`waterfall-best.ts`: parsing, one small function per refusal, seat counting, `roundDestinations`; `waterfallBracketPhase`, `advancingSeats`, short entry rounds). 47 tests, the awkward counts (FFA 31, 37, 43, 53 with `Qual: 1-24->R4`: tails 7, 13, 19, 29) and a short entry round at 22 and 23 (BEST arrivals; the fit refuses a room under the format minimum, so "no candidate" can't occur in a fitted round).
+2. Who goes and the tie (`best-place.ts`: `bestPlaceChoice`, `bestPlaceTieKey`; `routeWaterfallRound` follows `chosen`, the only router; `getAllTies`, `isTieResolved` by spots, `invalidateStaleTieResolutions`). 46 tests in `waterfall-best-routing.test.ts` and `best-place-fixtures.ts`.
+3. The Setup editor and Edit graph (`WaterfallBestField.tsx`, `waterfall-draft.ts` + `waterfall-draft-best.ts`, `waterfall-live-edit.ts`'s `withBestOf` and `withoutChangedBestDecisions`). 39 tests. Follow-up: marking the destination as the Final or a ranking match keeps a line sent to it; an edit that changes or removes a reached round's line drops its old tie pick (a leftover pick counted toward the new line's tie); the destination select leaves out the round the rooms send that place to.
+4. The Bracket, Rankings and the tie banner: a separate `best-place` band kind (so the fair cut and double elimination are untouched), room rows (candidate ★, then the destination's colour with the decided ★), exit pop-up, follow banner, legend, "?" rows, tie banner, and a test that compares the Bracket's red rows with Rankings' out set (cleanup audit C7-1). Follow-up: an absentee that falls on the best place.
+
+**Testing performed.** Each stage: eslint, prettier and the filtered typecheck on the changed files, `vitest related` on them (the stage 4 run: 170 files, 5496 tests) and the reviewer's mutation checks, whose misses became tests (short-entry arrivals; the tie card waiting for a complete room and for open absence questions; zero-point rooms settled by room order with no card; an absentee on the best place in the Bracket and in Rankings; the live edit dropping a stale pick). `AppShell.render.test.tsx` passes. Awkward counts first: 31, 37, 43, 53 at the example, 22/23 for the short entry.
+
+**Full suite: not run (reviewer runs it at the final review).**
+
+**Live check on the test site:** pending a push to `test` (the check needs the deployed code).
+
+**Out of scope.** The fair cut by room size in a Custom bracket and any size-aware "best" (parked in `docs/open-items.md`, the gap "Kings Valley and waterfall rounds are not covered by the fair cut"). A route over several places, several BEST lines in a round, a BEST on `Qual`/`Groups`. The built-in upper and lower bracket writing BEST lines. Storing who was chosen. Lucky losers and the fair cut of other formats (unchanged).
+
 ## F4: a unit that left comes back when a round is sent on again (done locally on `test` — 2026-11-13, not pushed yet)
 
 **How it was found.** The live check of the F1–F3 build on the test site (throwaway tournament: FFA 13, qualification table, upper and lower bracket, dependency play), then reproduced in a scratch test. It was already there before the F1–F3 build. Plan `plans/2026-11-13-f4-returning-unit.md`, approved by the organiser on 2026-11-13, one stage.
