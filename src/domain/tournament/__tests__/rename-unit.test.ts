@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renameIndividual } from '../mutations';
+import { expectOthersUnchanged } from './consistency';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentStanding } from '../types';
 import { buildAssignments, buildRound } from './test-fixtures';
@@ -39,6 +40,7 @@ describe('renameIndividual reaches every stored name', () => {
 
   it('renames each place', () => {
     const result = renameIndividual(running(), 'Oscar', 'Ozzy');
+    expectOthersUnchanged(running(), result, { renamed: { Oscar: 'Ozzy' } });
     expect(result.rounds[1]?.fixedRoomAssignments?.map((entry) => entry.name)).toEqual(['Ozzy', 'Quinn']);
     expect(result.rounds[1]?.matches?.[0]?.pair).toEqual(['Ozzy', 'Pia']);
     expect(result.rounds[1]?.groupByes).toEqual(['Ozzy']);

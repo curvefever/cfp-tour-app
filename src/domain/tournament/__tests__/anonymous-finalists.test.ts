@@ -8,6 +8,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import type { AnonymousFinalist, TournamentState } from '../types';
 import { withFinalistAliasesForLineup } from '../anonymous-finalists';
 import { goBack } from '../waterfall-steps';
+import { expectConsistent } from './consistency';
 import { atEntry, STRATEGIES, pressed, playDependency } from './dependency-play-fixtures';
 import { generated, buildAssignments, buildRound } from './test-fixtures';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
@@ -42,6 +43,7 @@ describe('Back to draft and Generate', () => {
     expect(flagged.anonymousFinalists.map((entry) => entry.realKey)).toEqual(['P1', 'P2']);
 
     const reset = resetTournamentState(flagged);
+    expectConsistent(reset);
     expect(reset.anonymousFinalists).toEqual([]);
     expect(reset.rounds[0].anonymousGames).toEqual([2]);
 
@@ -130,13 +132,16 @@ describe('Previous and Next Round in the upper and lower bracket (FFA 37, qualif
     const final = atFinal();
     const flagged = flagFinalGameAnonymous(final, 1);
     expect(flagged.anonymousFinalists).toHaveLength(finalists(final).length);
+    expectConsistent(flagged);
 
     let back = goBack(flagged);
     expect(back.anonymousFinalists).toEqual([]);
+    expectConsistent(back);
     expect(back.rounds[finalIndex(back)].anonymousGames).toEqual([1]);
     expect(back.assignments[finalIndex(back)] ?? []).toHaveLength(0);
     for (const index of roundsInPlay(back)) back = swapExtremes(back, index);
     const next = pressed(back);
+    expectConsistent(next);
 
     expect(finalists(next)).not.toEqual(finalists(final));
     expect(next.anonymousFinalists.map((entry) => entry.realKey)).toEqual(finalists(next));
@@ -149,6 +154,7 @@ describe('Previous and Next Round in the upper and lower bracket (FFA 37, qualif
   it('gives the same list, aliases included, after Previous and Next Round with the same finalists', () => {
     const flagged = flagFinalGameAnonymous(atFinal(), 1);
     const again = pressed(goBack(flagged));
+    expectConsistent(again);
     expect(again.anonymousFinalists).toEqual(flagged.anonymousFinalists);
     expect(again.rounds[finalIndex(again)].anonymousGames).toEqual([1]);
   });

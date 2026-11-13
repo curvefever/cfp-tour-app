@@ -8,8 +8,6 @@ import {
   addWalkUpTeam,
   connectAnonymousFinalist,
   flagFinalGameAnonymous,
-  removeRosterUnit,
-  renameIndividual,
   renameTeamMember,
   resetRoster,
   resetTournamentState,
@@ -17,8 +15,6 @@ import {
   setFinalScore,
   setRoundScore,
   shareTiedPoints,
-  swapIndividual,
-  swapTeam,
   swapWindowOpen,
   unflagFinalGameAnonymous,
   updateTeam,
@@ -38,6 +34,12 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
+import {
+  removeChecked as removeRosterUnit,
+  renameChecked as renameIndividual,
+  swapChecked as swapIndividual,
+  swapTeamChecked as swapTeam,
+} from './consistency';
 import { buildAssignments, buildRound, oneRoomState } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 

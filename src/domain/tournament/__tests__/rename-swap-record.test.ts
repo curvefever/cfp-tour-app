@@ -3,7 +3,6 @@ import { computeGroupStandings } from '../advancement';
 import { answerAbsence } from '../absences';
 import { groupSeats } from '../group-standings';
 import { isLikelyAbsent } from '../likely-absentees';
-import { renameIndividual, swapIndividual } from '../mutations';
 import { deriveRoomSize, getGameFormat } from '../formats';
 import { roundsBeforeBracket } from '../pooling-rounds';
 import { roundsInPlay } from '../round-columns';
@@ -14,6 +13,7 @@ import type { TournamentState } from '../types';
 import { goBack } from '../waterfall-steps';
 import { pressed, resolveEveryTie, scoreRound } from './dependency-play-fixtures';
 import { buildState, scoreCurrentRound } from './play-through';
+import { renameChecked as renameIndividual, swapChecked as swapIndividual } from './consistency';
 import { generated, oneRoomState } from './test-fixtures';
 
 /**

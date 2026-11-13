@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { absentInRoom, answerAbsence, pendingAbsenceQuestions, withSeatsShiftedUp } from '../absences';
 import { ONE_SCORE_PER_TEAM } from '../formats';
-import { removeRosterUnit } from '../mutations';
 import type { TournamentState } from '../types';
+import { removeChecked as removeRosterUnit } from './consistency';
 import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
 
 /** Removing a unit from a room in play: the units seated after it move up a seat, and their absence answers move with them. */

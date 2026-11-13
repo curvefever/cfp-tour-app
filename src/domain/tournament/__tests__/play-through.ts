@@ -7,6 +7,7 @@ import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
+import { expectConsistent, expectCorrectionClean } from './consistency';
 
 /**
  * Shared helpers for the play-through tests (removal sweep, real-size runs):
@@ -104,6 +105,13 @@ export function scoreCurrentRound(state: TournamentState, teamSize: number): Tou
 export type Outcome =
   { kind: 'ok' } | { kind: 'blocked'; reason: string; message: string } | { kind: 'threw'; message: string };
 
+/** Removes a unit and checks the tournament still agrees with itself and that no other unit's record moved. */
+function removedWithChecks(state: TournamentState, victim: string): TournamentState {
+  const removed = removeRosterUnit(state, victim);
+  expectCorrectionClean(state, removed, { changed: [victim] });
+  return removed;
+}
+
 /** Advances to the Final (or the end of what can be advanced), removing one unit at `removeAt` if given. */
 export function playThrough(
   start: TournamentState,
@@ -119,7 +127,7 @@ export function playThrough(
       const removalDue = removeAt === 'first' ? state.curRound === 0 : isFirstElimination;
       if (!removed && removalDue) {
         const victim = (state.assignments[state.curRound] ?? []).find((entry) => entry.room !== null);
-        if (victim) state = removeRosterUnit(state, victim.name);
+        if (victim) state = removedWithChecks(state, victim.name);
         removed = true;
       }
       if (round.isFinal) return { kind: 'ok' };
@@ -128,6 +136,7 @@ export function playThrough(
         return { kind: 'blocked', reason: result.reason, message: result.message };
       if (result.status === 'noop') return { kind: 'ok' };
       state = result.state;
+      expectConsistent(state);
     }
     return { kind: 'threw', message: 'did not finish within 30 rounds' };
   } catch (error) {
@@ -160,7 +169,7 @@ export function playWithRemovals(
       while (pending.includes(state.curRound)) {
         pending.splice(pending.indexOf(state.curRound), 1);
         const victim = victimFor(state);
-        if (victim !== undefined) state = removeRosterUnit(state, victim);
+        if (victim !== undefined) state = removedWithChecks(state, victim);
       }
       if (state.rounds[state.curRound].isFinal) return { outcome: { kind: 'ok' }, state };
       const result = advanceTournamentRound(scoreCurrentRound(state, teamSize));
@@ -169,6 +178,7 @@ export function playWithRemovals(
       }
       if (result.status === 'noop') return { outcome: { kind: 'ok' }, state };
       state = result.state;
+      expectConsistent(state);
     }
     return { outcome: { kind: 'threw', message: 'did not finish within 40 rounds' }, state };
   } catch (error) {
