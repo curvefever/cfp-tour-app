@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { absentInRoom, absenteeLeavesCustomBracket, answerAbsence } from '../../domain/tournament/absences';
 import { bestPlaceChoice } from '../../domain/tournament/best-place';
 import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
+import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import {
@@ -21,7 +23,7 @@ import { roomExitLines } from './exit-lines';
 import { placeInRoom } from './folded-round';
 import { followBannerText } from './follow-text';
 import { luckyLoserNames } from './room-row-inputs';
-import { advanceResult, roomRowResult } from './room-row-result';
+import { absenteeFate, advanceResult, roomRowResult } from './room-row-result';
 
 /** What the Bracket draws for a best place: the row stripe and star, the exit pop-up, the follow banner and the legend. */
 
@@ -169,5 +171,96 @@ describe.each([
     const { redInBracket, outInRankings } = sets(pressed(scoredExample(graph)), true);
     expect(redInBracket.size).toBe(graph === EXAMPLE ? 8 : 6);
     expect(outInRankings).toEqual(redInBracket);
+  });
+});
+
+/**
+ * An absentee ranks after every present unit of its room, so in a room with absentees it can fall on the best
+ * place. It then follows its room's own line, never the best place's: the Bracket and Rankings must agree.
+ */
+describe('an absentee that falls on the best place', () => {
+  /** The graph with its BEST line and every room's line for R4 replaced. */
+  const graphOf = (base: string, best: string, roomLine: string) =>
+    base
+      .replace(/R4.BEST: .*/u, `R4.BEST: ${best}`)
+      .replace(/R4.([ABC]): .*/gu, (_line, room: string) => `R4.${room}: ${roomLine}`);
+
+  /** R4 scored with the given absentees (seats of room A scored 0 and answered absent) and the other rooms as B and C. */
+  const withAbsentees = (graph: string, roomA: number[], absentSeats: number[]) => {
+    const entry = withDependencyPlay(atEntry(37, graph));
+    const r4 = indexOf(entry, 'R4');
+    const scored = scoreRooms(entry, r4, [roomA, B, C]);
+    const keys = absentSeats.map(
+      (position) => scoreKeysForPosition({ roundIndex: r4, room: 1, position })[0],
+    );
+    return answerAbsence(scored, keys, 'absent');
+  };
+
+  /** The row of an absentee as the room card draws it (`RoomCard`): ranked after the present units of its room. */
+  function absenteeRow(state: TournamentState, name: string) {
+    const roundIndex = indexOf(state, 'R4');
+    const round = state.rounds[roundIndex];
+    const rule = roundExitRule(state, roundIndex);
+    const absent = absentInRoom(state, roundIndex, 1);
+    const rank = 8 - absent.length + absent.indexOf(name);
+    const leaves = absenteeLeavesCustomBracket(state, round, 1, 8, rank);
+    return roomRowResult({
+      rule,
+      bands: rule.kind === 'per-room' ? rule.rooms[0] : [],
+      rank: rank + 1,
+      absentee: absenteeFate(round, leaves),
+      lucky: false,
+      pendingTie: false,
+      roomComplete: true,
+      roundDecided: false,
+    });
+  }
+
+  const rankedOut = (state: TournamentState) =>
+    new Set(
+      (computeRankings(state)?.eliminatedList ?? [])
+        .filter((entry) => entry.ri === indexOf(state, 'R4'))
+        .map((entry) => entry.name),
+    );
+
+  it('is out in the Bracket and in Rankings, with no star, when the rest of the place go out', () => {
+    // Room A has two absentees: the first falls on rank 7, the best place of 1 OF 7; a present 7th (room B's) goes.
+    const state = withAbsentees(
+      graphOf(EXAMPLE, '1 OF 7->R5', '1-5->R5, 6-8->eliminated'),
+      [80, 70, 60, 50, 40, 30, 0, 0],
+      [6, 7],
+    );
+    const [onBest, last] = absentInRoom(state, indexOf(state, 'R4'), 1);
+    expect(bestPlaceChoice(state, indexOf(state, 'R4'))?.chosen).toEqual([seatOf(state, 2, 6)]);
+    expect(absenteeRow(state, onBest)).toEqual({ result: 'eliminate', star: null });
+    expect(absenteeRow(state, last)).toEqual({ result: 'eliminate', star: null });
+    expect(rankedOut(state).has(onBest)).toBe(true);
+    expect(rankedOut(state).has(last)).toBe(true);
+  });
+
+  it('is out in both when the tournament routes absentees by their own rank (absence version 1)', () => {
+    // Before version 2 an absentee is routed by its bare rank: on the best place it follows its room's line, out.
+    const v2 = withAbsentees(
+      graphOf(EXAMPLE, '1 OF 7->R5', '1-5->R5, 6-8->eliminated'),
+      [80, 70, 60, 50, 40, 30, 0, 0],
+      [6, 7],
+    );
+    const state = { ...v2, gamemodeConfig: { ...v2.gamemodeConfig, absenceVersion: 1 } };
+    const [onBest] = absentInRoom(state, indexOf(state, 'R4'), 1);
+    expect(absenteeRow(state, onBest)).toEqual({ result: 'eliminate', star: null });
+    expect(rankedOut(state).has(onBest)).toBe(true);
+  });
+
+  it('is in the colour of the round that takes the rest of the place, and not out, when it is the last place', () => {
+    // One absentee in room A falls on rank 8: the best place of 1 OF 8, and the room's last place, which goes to R5L.
+    const state = withAbsentees(
+      graphOf(WITH_LOWER, '1 OF 8->R5', '1-5->R5, 6-7->eliminated, 8->R5L'),
+      [80, 70, 60, 50, 40, 30, 20, 0],
+      [7],
+    );
+    const [absentee] = absentInRoom(state, indexOf(state, 'R4'), 1);
+    expect(bestPlaceChoice(state, indexOf(state, 'R4'))?.chosen).toEqual([seatOf(state, 2, 7)]);
+    expect(absenteeRow(state, absentee)).toEqual({ result: advanceResult({ group: 1 }), star: null });
+    expect(rankedOut(state).has(absentee)).toBe(false);
   });
 });
