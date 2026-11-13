@@ -22,7 +22,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing performed.** Each stage: eslint, prettier and the filtered typecheck on the changed files, `vitest related` on them (the stage 4 run: 170 files, 5496 tests) and the reviewer's mutation checks, whose misses became tests (short-entry arrivals; the tie card waiting for a complete room and for open absence questions; zero-point rooms settled by room order with no card; an absentee on the best place in the Bracket and in Rankings; the live edit dropping a stale pick). `AppShell.render.test.tsx` passes. Awkward counts first: 31, 37, 43, 53 at the example, 22/23 for the short entry.
 
-**Full suite: not run (reviewer runs it at the final review).**
+**Full suite: passed on `5f8e544`** (226 files, 6234 tests; reviewer, final review). Lint, prettier and types clean on the 36 changed source files.
 
 **Live check on the test site:** pending a push to `test` (the check needs the deployed code).
 
