@@ -1333,6 +1333,7 @@ SemiB: 1-2->Final, 3-5->eliminated
 
     const names16 = Array.from({ length: 16 }, (_, index) => `P${index + 1}`);
     let state = createDefaultTournamentState({
+      players: names16,
       rounds,
       assignments: [buildAssignments(names16, [4, 4, 4, 4])],
       scores: {
@@ -1455,6 +1456,7 @@ SemiB: 1-2->Final, 3-5->eliminated
     // Only 3 real occupants instead of the declared 4 -- simulates a
     // mid-tournament withdrawal: the empty seat is simply not there.
     const state = createDefaultTournamentState({
+      players: ['P1', 'P2', 'P3'],
       rounds,
       assignments: [buildAssignments(['P1', 'P2', 'P3'], [4])],
       scores: { 'r0-rm1-p0': 300, 'r0-rm1-p1': 200, 'r0-rm1-p2': 100 },
@@ -1471,6 +1473,7 @@ SemiB: 1-2->Final, 3-5->eliminated
   it('blocks with "malformed-waterfall-round" when more entrants arrive than the graph declares', () => {
     const rounds = buildWaterfallRounds('ROUNDS:\n5 = 4\nFinal = 4 FINAL\nROUTES:\n5: 1-4->Final', 4, 4);
     const state = createDefaultTournamentState({
+      players: ['P1', 'P2', 'P3', 'P4'],
       rounds: [rounds[0], { ...rounds[1], rooms: [3], players: 3 }],
       assignments: [buildAssignments(['P1', 'P2', 'P3', 'P4'], [4])],
       scores: { 'r0-rm1-p0': 400, 'r0-rm1-p1': 300, 'r0-rm1-p2': 200, 'r0-rm1-p3': 100 },

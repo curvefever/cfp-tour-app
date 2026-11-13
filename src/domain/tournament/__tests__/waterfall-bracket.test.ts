@@ -503,6 +503,7 @@ describe('waterfallDestination', () => {
       scores[`r0-rm2-p${position}`] = score;
     });
     const state = createDefaultTournamentState({
+      players: [...roomA, ...roomB],
       rounds,
       assignments: [buildAssignments([...roomA, ...roomB], [7, 6])],
       scores,

@@ -146,8 +146,21 @@ const anonymousFinalistsAreTheFinalLineup: Rule = (state) => {
       ];
 };
 
+/** A unit waiting in a pool for a later round is in the tournament: a withdrawn name there is a unit that came back. */
+const poolsHoldRosterUnits: Rule = (state) => {
+  const roster = new Set(rosterKeys(state.players));
+  return Object.entries(state.pendingBracketSeeds).flatMap(([round, seeds]) =>
+    seeds
+      .filter((seed) => !roster.has(seed.name))
+      .map(
+        (seed) => `pools-hold-roster-units: "${seed.name}" waits for round ${round} and is not on the roster`,
+      ),
+  );
+};
+
 const RULES: Rule[] = [
   everyNameIsAUnit,
+  poolsHoldRosterUnits,
   oneSeatPerRound,
   absenceAnswersHaveASeat,
   anonymousFinalistsAreTheFinalLineup,

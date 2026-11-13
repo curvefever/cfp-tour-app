@@ -115,7 +115,10 @@ function memberDestination(
  * inspect a round's outcome against a hypothetical routing without mutating
  * any pool. `round` is passed separately from `state.rounds[roundIndex]` so
  * a caller can rank against the live scores while routing through an edited
- * (not-yet-committed) round object. With `routesAbsenteesByLastPlace`, an absentee goes through
+ * (not-yet-committed) round object. The ranking and the destinations read the recorded line-up (scores and absences are
+ * stored by seat), but each addition carries the unit that holds the seat now (`currentUnit`): a unit removed since is
+ * dropped (nobody moves up into its slot), a swapped-out one is its replacement with the seat's `tierRank` and `pct`, so a
+ * round sent on again never brings a unit that left back. With `routesAbsenteesByLastPlace`, an absentee goes through
  * `absenteeDestination` (it keeps its rank's seat only where the room's last place goes), not its bare rank.
  */
 export function routeWaterfallRound(
@@ -126,14 +129,16 @@ export function routeWaterfallRound(
   const names = (state.assignments[roundIndex] ?? []).map((entry) => entry.name);
   const tiers = buildAdvancementTiers(state, roundIndex, names);
   const destinationOf = memberDestination(state, roundIndex, round);
+  const roster = new Set(rosterKeys(state.players));
 
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const tier of tiers) {
     for (const member of tier.members) {
       const destination = destinationOf(member.name, member.sourceRoom, tier.rank);
-      if (destination === null) continue;
+      const name = currentUnit(state, roster, member.name);
+      if (destination === null || name === null) continue;
       const additions = additionsByDestination.get(destination) ?? [];
-      additions.push({ name: member.name, isLucky: false, tierRank: tier.rank, pct: member.pct });
+      additions.push({ name, isLucky: false, tierRank: tier.rank, pct: member.pct });
       additionsByDestination.set(destination, additions);
     }
   }
