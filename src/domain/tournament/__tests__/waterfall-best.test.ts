@@ -231,16 +231,16 @@ describe('the refusals of a BEST line, each naming the round', () => {
     );
   });
 
-  it('refuses a destination that is not later in the graph', () => {
+  it('refuses a destination that is the round itself or comes before it in the graph', () => {
     const earlier = graphText(
       ['R3 = 3x8', 'R4 = 3x8', 'R5 = 2x8', 'Final = 8 FINAL'],
       ['R3.A: 1-8->R4', 'R3.B: 1-8->R4', 'R3.C: 1-8->R4', ...ROOMS, 'R4.BEST: 1 OF 6->R3', ...ROUTES_AFTER],
     );
     expect(refusal(earlier)).toBe(
-      'Round "R4" sends the best 6th to "R3", which is not later in the graph -- it must be a round that R4 can still reach.',
+      'Round "R4" sends the best 6th to "R3", which is R4 itself or comes before it in the graph -- it must be a round that doesn\'t lead back to R4.',
     );
     expect(refusal(example('R4.BEST: 1 OF 6->R4'))).toBe(
-      'Round "R4" sends the best 6th to "R4", which is not later in the graph -- it must be a round that R4 can still reach.',
+      'Round "R4" sends the best 6th to "R4", which is R4 itself or comes before it in the graph -- it must be a round that doesn\'t lead back to R4.',
     );
   });
 
@@ -412,5 +412,38 @@ describe('a qualification table into a round with a BEST line, at awkward head c
     const routes = state.rounds.find((round) => round.standingsRoutes)?.standingsRoutes;
     expect(routes).toHaveLength(24);
     expect(registered - (routes?.length ?? 0)).toBe(out);
+  });
+});
+
+describe('a short entry round with a BEST line', () => {
+  /** R4 declares 3x8 but the line routes only the `registered` ranks, so R4 is drawn at the sizes that arrive. */
+  function fittedRounds(registered: number) {
+    const graph = graphText(ROUNDS, [
+      `Qual: 1-${registered}->R4`,
+      ...ROOMS,
+      'R4.BEST: 1 OF 6->R5',
+      ...ROUTES_AFTER,
+    ]);
+    const state = buildQualWaterfall(registered, graph);
+    const round = (label: string) => state.rounds.find((candidate) => candidate.customLabel === label);
+    return { r4: round('R4'), r5: round('R5') };
+  }
+
+  it('draws R5 for 16 when R4 is fitted to 8, 8, 7 and the best 6th is one of 7 candidates', () => {
+    const { r4, r5 } = fittedRounds(23);
+    expect(r4?.rooms).toEqual([8, 8, 7]);
+    expect(r5?.players).toBe(16);
+    expect(r5?.rooms).toEqual([8, 8]);
+  });
+
+  it('draws R5 for 16 when R4 is fitted to 8, 7, 7: two rooms are short and still have a 6th place', () => {
+    const { r4, r5 } = fittedRounds(22);
+    expect(r4?.rooms).toEqual([8, 7, 7]);
+    expect(r5?.players).toBe(16);
+    expect(r5?.rooms).toEqual([8, 8]);
+  });
+
+  it('is not a short entry round when the line is a seat or more per room short', () => {
+    expect(() => fittedRounds(21)).toThrow(/declares 24 player\(s\) but its routing bands only send it 21/);
   });
 });

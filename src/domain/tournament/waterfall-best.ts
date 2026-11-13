@@ -137,7 +137,7 @@ function badDestination(line: RawBestLine, _lines: RawBestLine[], context: BestC
   if (!context.rounds.has(target)) return `${sends}, which isn't declared in ROUNDS.`;
   const source = line.label.toLowerCase();
   if (target !== source && !reaches(target, source, context.routedInto)) return null;
-  return `${sends}, which is not later in the graph -- it must be a round that ${round.label} can still reach.`;
+  return `${sends}, which is ${round.label} itself or comes before it in the graph -- it must be a round that doesn't lead back to ${round.label}.`;
 }
 
 function placeOutsideRooms(line: RawBestLine, _lines: RawBestLine[], context: BestContext): string | null {
