@@ -16,7 +16,13 @@ import { rankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { showsPoints } from './game-columns';
 import { roomPoints, roomResultCodes, withSwappedNames } from './room-points';
 import { luckyLoserNames } from './room-row-inputs';
-import { JoiningPanel, LuckyLoserStandingsPanel, showsLuckyRace } from './RoundNotes';
+import {
+  BestPlaceRacePanel,
+  JoiningPanel,
+  LuckyLoserStandingsPanel,
+  showsBestPlaceRace,
+  showsLuckyRace,
+} from './RoundNotes';
 import {
   isCurrentRound,
   isRoundReached,
@@ -126,6 +132,9 @@ export function RoundBody({
           teamMap={teamMap}
         />
       ))}
+      {showsBestPlaceRace(state, roundIndex) ? (
+        <BestPlaceRacePanel state={state} roundIndex={roundIndex} />
+      ) : null}
       {showsLuckyRace(state, roundIndex) ? (
         <LuckyLoserStandingsPanel state={state} roundIndex={roundIndex} />
       ) : null}

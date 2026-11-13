@@ -1,11 +1,13 @@
 import { computeLuckyLoserStandings } from '../../domain/tournament/advancement';
-import { roomLetter } from '../../domain/tournament/bracket';
+import { bestPlaceChoice } from '../../domain/tournament/best-place';
+import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { fairCutRace, usesFairCut } from '../../domain/tournament/fair-cut';
 import { lateJoinersOf } from '../../domain/tournament/late-joiners';
 import { cn } from '../../components/ui';
 import { isCurrentRound } from '../../domain/tournament/round-columns';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
+import { ordinal } from '../../lib/ordinal';
 import { formatTieBreak, formatTieBreakPrecise, sharesWholePercent } from '../standings/standings-text';
 import { spareCutText } from './spare-cut-text';
 import { roomsStillPlaying, stillPlayingText } from './still-playing';
@@ -62,6 +64,54 @@ export function LuckyLoserStandingsPanel({
             title={formatTieBreakPrecise(entry.share)}
           >
             {formatTieBreak(entry.share)}
+          </span>
+        </div>
+      ))}
+      {playing ? <div className='text-[13px] text-muted'>{playing}</div> : null}
+    </div>
+  );
+}
+
+/** Whether the round in play has a best of a place: its race is shown until the round is sent on. */
+export function showsBestPlaceRace(state: TournamentState, roundIndex: number): boolean {
+  return Boolean(state.rounds[roundIndex]?.waterfallBest) && isCurrentRound(state, roundIndex);
+}
+
+/**
+ * The race of a round's best of a place, under its rooms: how many units of the place go and where, then the
+ * candidates in the order the round will choose them (the organiser's pick first), each with its room and its score
+ * relative to the room's average. A room with no points has no share to show. The "?" box explains the rule.
+ */
+export function BestPlaceRacePanel({ state, roundIndex }: { state: TournamentState; roundIndex: number }) {
+  const best = state.rounds[roundIndex]?.waterfallBest;
+  const candidates = bestPlaceChoice(state, roundIndex)?.candidates ?? [];
+  if (!best || candidates.length === 0) return null;
+  const goesTo = bracketRoundLabels(state)[best.destination]?.label ?? `Round ${best.destination + 1}`;
+  const sharesPercent = sharesWholePercent(
+    candidates.map((entry) => ({ points: null, share: entry.hasPoints ? entry.share : null })),
+  );
+  const playing = stillPlayingText(roomsStillPlaying(state, roundIndex));
+  return (
+    <div className='flex flex-col gap-1.5 rounded-xs bg-cfp-game-deep px-3 py-2.5 outline-2 outline-dashed outline-cfp-green-dim'>
+      <div className='text-[13px] font-extrabold tracking-[0.05em] text-cfp-green'>
+        ★ BEST {ordinal(best.place).toUpperCase()} · {best.count} {best.count === 1 ? 'SPOT' : 'SPOTS'} →{' '}
+        {goesTo}
+      </div>
+      {candidates.map((entry, index) => (
+        <div className='flex items-center gap-2 text-[15px]' key={entry.name}>
+          <span className='w-4 shrink-0 font-bold text-muted'>{index + 1}</span>
+          <span className='min-w-0 flex-1 wrap-break-word font-bold'>
+            {unitDisplay(state, entry.name).label}
+          </span>
+          <span className='shrink-0 text-muted'>Room {roomLetter(entry.room)}</span>
+          <span
+            className={cn(
+              'w-11 shrink-0 text-right font-extrabold',
+              sharesPercent[index] && 'underline decoration-dotted',
+            )}
+            title={entry.hasPoints ? formatTieBreakPrecise(entry.share) : undefined}
+          >
+            {entry.hasPoints ? formatTieBreak(entry.share) : '—'}
           </span>
         </div>
       ))}
