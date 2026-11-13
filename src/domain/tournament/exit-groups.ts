@@ -1,5 +1,6 @@
 import { rankingRoomsLast, roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
+import { roundDestinations } from './waterfall-best';
 import { declaredWaterfallRooms } from './waterfall-bracket';
 
 /**
@@ -130,8 +131,8 @@ export function exitGroups(state: TournamentState, routes: ReadonlyArray<Route>)
 /** The routes of every round played in the column of `roundIndex`, in the order the Bracket shows the column's rounds. */
 function columnRoutes(state: TournamentState, roundIndex: number): Route[] {
   const { start, end } = roundColumn(state.rounds, roundIndex);
-  return rankingRoomsLast(state.rounds, start, end).flatMap(
-    (index) => state.rounds[index].waterfallRoutes?.flat() ?? [],
+  return rankingRoomsLast(state.rounds, start, end).flatMap((index) =>
+    roundDestinations(state.rounds[index]),
   );
 }
 

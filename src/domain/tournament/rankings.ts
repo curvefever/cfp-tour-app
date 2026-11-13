@@ -18,6 +18,7 @@ import { lateJoinersOf } from './late-joiners';
 import { isBestOfRound, roomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
+import { roundDestinations } from './waterfall-best';
 import type {
   RoundAssignment,
   TournamentRound,
@@ -276,7 +277,7 @@ function survivorNames(state: TournamentState, roundIndex: number, round: Tourna
       )
     : [
         ...new Set(
-          [...(round.waterfallRoutes ?? []).flat(), ...(round.standingsRoutes ?? [])].filter(
+          [...roundDestinations(round), ...(round.standingsRoutes ?? [])].filter(
             (destination): destination is number => destination !== 'eliminated',
           ),
         ),

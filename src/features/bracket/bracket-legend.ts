@@ -1,6 +1,7 @@
 import { roundExitGroups } from '../../domain/tournament/exit-groups';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { usesFairCut } from '../../domain/tournament/fair-cut';
+import { roundDestinations } from '../../domain/tournament/waterfall-best';
 import type { TournamentState } from '../../domain/tournament/types';
 import type { StripeTone } from '../tournament/components/result-row';
 
@@ -42,9 +43,7 @@ function extraDestinations(state: TournamentState): { hasSecond: boolean; hasThi
 /** Whether some round sends units to a ranking round (they play for places there, in a stripe of their own). */
 function sendsToRankingRoom(state: TournamentState): boolean {
   return state.rounds.some((round) =>
-    round.waterfallRoutes
-      ?.flat()
-      .some((route) => route !== 'eliminated' && state.rounds[route]?.waterfallRanking),
+    roundDestinations(round).some((destination) => state.rounds[destination]?.waterfallRanking),
   );
 }
 

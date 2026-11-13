@@ -73,6 +73,13 @@ export interface GroupStageMatch {
   pair: [string, string];
 }
 
+/** The best `count` of the rooms' `place`-th places (1-based) go to a later round. */
+export interface WaterfallBestRoute {
+  place: number;
+  count: number;
+  destination: number;
+}
+
 export interface TournamentRound {
   roundNum: number;
   players: number;
@@ -123,6 +130,8 @@ export interface TournamentRound {
   waterfallColumnSet?: true;
   /** RANKING in the waterfall graph: a placement match that sends nobody on. Only set on waterfall rounds. */
   waterfallRanking?: true;
+  /** A BEST line of the waterfall graph ("R4.BEST: 1 OF 6->R5"): the best `count` of the rooms' `place`-th places (1-based) go to the round `destination` (an absolute index into `state.rounds`); the rest of that place follow the rooms' own lines. Who goes is derived from the scores and the tie decision, never stored. Only set on a waterfall round of a graph with a BEST line. */
+  waterfallBest?: WaterfallBestRoute;
   /** Which match stage a round of the built-in upper and lower bracket plays (`gamemodeConfig.upperLowerVersion`): a Semi-Final round the Semis format, the Final the Finals format, every other round the bracket rounds format. Absent on every other waterfall round, which plays the format of its own graph line. */
   graphMatchStage?: 'bracket' | 'semis' | 'finals';
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */

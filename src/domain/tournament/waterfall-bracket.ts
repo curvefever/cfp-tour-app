@@ -1,5 +1,18 @@
 import { BEST_OF_VALUES, bestOfGameCount, stageMatchFields } from './match-format';
-import type { RoomSize, TournamentRound } from './types';
+import type { RoomSize, TournamentRound, WaterfallBestRoute } from './types';
+import {
+  absoluteBest,
+  addBestEdges,
+  applyBestSeats,
+  bestDestinations,
+  bestMoves,
+  bestUnitsFromOut,
+  orderedBest,
+  parseBestLine,
+  resolveBestLines,
+  type RawBestLine,
+  type ResolvedBest,
+} from './waterfall-best';
 
 /**
  * Waterfall / rank-band bracket phase (ROADMAP.md items 7+8, merged after
@@ -50,6 +63,9 @@ import type { RoomSize, TournamentRound } from './types';
  * group stage the reserved "Groups" line does the same for the group exit
  * order ("Groups: 1-4->R1, 5-8->R1C"); each line is refused under the other
  * pooling phase.
+ *
+ * One more line per round may pick the best of one place, "5.BEST: 1 OF 6->SemiA": the best n of the rooms' k-th
+ * places go to that later round and the rest of the place follow the rooms' own lines (`waterfall-best.ts`).
  */
 
 export interface WaterfallRoundSpec {
@@ -83,6 +99,8 @@ export interface OrderedWaterfallGraph {
   /** Index-aligned with `rounds`: the column each round is played in (from 1). Rounds of one column are next to each other. */
   columns: number[];
   routes: Array<Array<Array<number | 'eliminated'>>>;
+  /** Index-aligned with `rounds`: the round's BEST line, the destination an index into `rounds`. Absent when no round has one. */
+  best?: Array<WaterfallBestRoute | null>;
   /**
    * Where the qualification table's standings go, when the graph has a Qual
    * source: index = standings rank - 1, value = index into `rounds` or
@@ -123,6 +141,8 @@ interface RawRouteLine {
 export interface RawWaterfallGraph {
   roundLines: RawRoundLine[];
   routeLines: RawRouteLine[];
+  /** The BEST lines ("R4.BEST: 1 OF 6->R5"), in the order written. */
+  bestLines: RawBestLine[];
   /** The bands of the "Qual" or "Groups" route line (the pooling exit as a source), null when the text has none. */
   qualBands: RawRouteBand[] | null;
   /** Which of the two lines `qualBands` came from, null when the text has none. */
@@ -466,9 +486,16 @@ export function parseWaterfallGraph(
   }
 
   const routeLines: RawRouteLine[] = [];
+  const bestLines: RawBestLine[] = [];
   let qualBands: RawRouteBand[] | null = null;
   let standingsKind: StandingsSourceKind | null = null;
   for (const line of routesLines) {
+    const bestLine = parseBestLine(line);
+    if (bestLine) {
+      if (!bestLine.ok) return bestLine;
+      bestLines.push(bestLine.value);
+      continue;
+    }
     const result = parseRouteLine(line);
     if (!result.ok) return result;
     const kind = sourceKindOfLabel(result.value.label);
@@ -493,7 +520,7 @@ export function parseWaterfallGraph(
     standingsKind = kind;
   }
 
-  return ok({ roundLines, routeLines, qualBands, standingsKind });
+  return ok({ roundLines, routeLines, bestLines, qualBands, standingsKind });
 }
 
 /** Whether graph text carries a Qual line (read leniently: an unfinished graph that still has its line counts). A Groups line does not. */
@@ -812,6 +839,15 @@ export function validateAndOrderWaterfallGraph(
     }
     destinationsByLabel.set(key, set);
   }
+  // The BEST lines are checked here, against the rooms' lines read above, and their destinations become edges of
+  // the graph, so the order, the columns and "something feeds this round" see them.
+  const best = resolveBestLines(graph.bestLines, {
+    rounds: roundByLabel,
+    roomDestinations: roomBandsByLabel,
+    routedInto: destinationsByLabel,
+  });
+  if (!best.ok) return best;
+  addBestEdges(destinationsByLabel, best.value);
   const labels = roundLines.map((round) => round.label.toLowerCase());
   const totalByLabel = new Map(
     roundLines.map((round) => [
@@ -937,7 +973,9 @@ export function validateAndOrderWaterfallGraph(
   // feeding, entry and cycle checks, which name the earlier mistake.
   for (const round of roundLines) {
     const rooms = roomBandsByLabel.get(round.label.toLowerCase()) ?? [];
-    const sendsNobody = rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0);
+    const sendsNobody =
+      !best.value.has(round.label.toLowerCase()) &&
+      rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0);
     if (round.isRanking && !sendsNobody) {
       return err(
         `Round "${round.label}" is marked RANKING but routes ranks on -- a ranking match sends nobody on.`,
@@ -965,6 +1003,7 @@ export function validateAndOrderWaterfallGraph(
   for (const destKey of incomingLabels) {
     incomingCountByLabel.set(destKey, (incomingCountByLabel.get(destKey) ?? 0) + 1);
   }
+  applyBestSeats(incomingCountByLabel, best.value);
   const lineIncomingByLabel = countByLabel(nonEliminatedLabels(qualLabels ?? []));
   for (const round of roundLines) {
     const key = round.label.toLowerCase();
@@ -1032,6 +1071,7 @@ export function validateAndOrderWaterfallGraph(
       roundByLabel,
       roomBandsByLabel,
       qualLabels,
+      best.value,
     ),
   );
 }
@@ -1108,6 +1148,7 @@ function buildOrderedGraph(
   roundByLabel: Map<string, RawRoundLine>,
   roomBandsByLabel: Map<string, string[][]>,
   qualLabels: string[] | null,
+  best: Map<string, ResolvedBest>,
 ): OrderedWaterfallGraph {
   const indexByLabel = new Map(topoOrder.map((label, index) => [label, index]));
   const rounds: WaterfallRoundSpec[] = topoOrder.map((label) => {
@@ -1139,7 +1180,13 @@ function buildOrderedGraph(
       : (indexByLabel.get(destinationLabel.toLowerCase()) as number),
   );
 
-  return { rounds, columns, routes, ...(qualRoutes ? { qualRoutes } : {}) };
+  return {
+    rounds,
+    columns,
+    routes,
+    ...(best.size > 0 ? { best: orderedBest(topoOrder, indexByLabel, best) } : {}),
+    ...(qualRoutes ? { qualRoutes } : {}),
+  };
 }
 
 /**
@@ -1187,15 +1234,16 @@ function removeSeatsFromLastRooms(declared: number[], missing: number): number[]
   return rooms.filter((size) => size > 0);
 }
 
-/** The units a drawn room set sends on: every rank whose band isn't 'eliminated' (a Final keeps its single winner). */
+/** The units a drawn room set sends on: every rank whose band isn't 'eliminated', and the best of a place when the rest of it is out (a Final keeps its single winner). */
 export function advancingSeats(round: TournamentRound, rooms: number[]): number {
   if (round.isFinal || !round.waterfallRoutes) return round.advTotal;
-  return rooms.reduce(
+  const onByRoutes = rooms.reduce(
     (total, size, index) =>
       total +
       (round.waterfallRoutes?.[index] ?? []).slice(0, size).filter((route) => route !== 'eliminated').length,
     0,
   );
+  return onByRoutes + bestUnitsFromOut(round.waterfallBest, round.waterfallRoutes, rooms);
 }
 
 /**
@@ -1293,6 +1341,7 @@ export function waterfallBracketPhase(
   const declared = graph.rounds.map((roundSpec, index): TournamentRound => {
     const players = roundSpec.roomSizes.reduce((sum, size) => sum + size, 0);
     const routesForRound = graph.routes[index] ?? [];
+    const best = absoluteBest(graph.best?.[index], startRoundNum);
     const eliminatedCount = routesForRound.reduce(
       (sum, roomDestinations) =>
         sum + roomDestinations.filter((destination) => destination === 'eliminated').length,
@@ -1308,7 +1357,11 @@ export function waterfallBracketPhase(
       isSemis: false,
       isFinal: roundSpec.isFinal,
       advPerRoom: null,
-      advTotal: roundSpec.isFinal ? 1 : players - eliminatedCount,
+      advTotal: roundSpec.isFinal
+        ? 1
+        : players -
+          eliminatedCount +
+          bestUnitsFromOut(graph.best?.[index] ?? undefined, routesForRound, roundSpec.roomSizes),
       luckyCount: 0,
       ...matchFormatFields(roundSpec, config.finalsGames, config.finalsBestOf),
       isWaterfall: true,
@@ -1316,6 +1369,7 @@ export function waterfallBracketPhase(
       waterfallColumn: graph.columns[index],
       ...(roundSpec.columnSet ? { waterfallColumnSet: true as const } : {}),
       ...(roundSpec.isRanking ? { waterfallRanking: true as const } : {}),
+      ...(best ? { waterfallBest: best } : {}),
       waterfallRoutes: routesForRound.map((roomDestinations) =>
         roomDestinations.map((destination) =>
           destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,
@@ -1328,11 +1382,27 @@ export function waterfallBracketPhase(
 
 /** True when a round fed only by the standings line is routed fewer units than it declares seats. */
 function hasShortEntryRound(graph: OrderedWaterfallGraph, lineArrivals: number[]): boolean {
-  const fedByRound = new Set(graph.routes.flatMap((rooms) => rooms.flat()));
+  const fedByRound = new Set([
+    ...graph.routes.flatMap((rooms) => rooms.flat()),
+    ...bestDestinations(graph.best),
+  ]);
   return graph.rounds.some((roundSpec, index) => {
     const seats = roundSpec.roomSizes.reduce((total, size) => total + size, 0);
     return lineArrivals[index] > 0 && !fedByRound.has(index) && lineArrivals[index] < seats;
   });
+}
+
+/** The BEST route's units move from the round the rest go to into the chosen round, in the tally of arrivals. */
+function countBestArrivals(
+  arrivals: number[],
+  best: WaterfallBestRoute | null | undefined,
+  routes: OrderedWaterfallGraph['routes'][number],
+  rooms: number[],
+): void {
+  if (!best) return;
+  const { chosen, rest } = bestMoves(best, routes, rooms);
+  arrivals[best.destination] += chosen;
+  if (rest !== 'eliminated') arrivals[rest] -= chosen;
 }
 
 /**
@@ -1357,6 +1427,7 @@ function withShortEntryFitted(graph: OrderedWaterfallGraph, rounds: TournamentRo
         if (destination !== 'eliminated') arrivals[destination] += 1;
       }
     });
+    countBestArrivals(arrivals, graph.best?.[index], graph.routes[index] ?? [], fitted.rooms);
     return fitted;
   });
 }

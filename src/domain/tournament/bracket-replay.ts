@@ -9,6 +9,7 @@ import {
 } from './advancement';
 import { rosterKeys } from './roster';
 import type { PendingBracketSeed, TournamentRound, TournamentStanding, TournamentState } from './types';
+import { roundDestinations } from './waterfall-best';
 import { absenteeDestination, waterfallDestination } from './waterfall-bracket';
 
 /**
@@ -183,7 +184,7 @@ export function routeStandings(
  */
 export function isFedOnlyByStandings(rounds: readonly TournamentRound[], roundIndex: number): boolean {
   const fromStandings = rounds.some((round) => round.standingsRoutes?.includes(roundIndex));
-  const fromRounds = rounds.some((round) => round.waterfallRoutes?.some((room) => room.includes(roundIndex)));
+  const fromRounds = rounds.some((round) => roundDestinations(round).includes(roundIndex));
   return fromStandings && !fromRounds;
 }
 

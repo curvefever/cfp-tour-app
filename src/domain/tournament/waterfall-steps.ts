@@ -24,6 +24,7 @@ import {
   type RoundAdvanceResult,
 } from './transitions';
 import type { PendingBracketSeed, TournamentRound, TournamentState, WaterfallStep } from './types';
+import { roundDestinations } from './waterfall-best';
 
 /**
  * Dependency play of a Custom bracket (`dependencyPlayVersion`): Next Round sends on every round that is finished
@@ -49,7 +50,7 @@ export function isFeederFinished(state: TournamentState, roundIndex: number): bo
 
 /** Whether a unit of one of the round's rooms can go to the target round. An absentee's destination is always among its room's routes. */
 export function routesTo(round: TournamentRound, target: number): boolean {
-  return round.waterfallRoutes?.some((room) => room.includes(target)) ?? false;
+  return roundDestinations(round).includes(target);
 }
 
 /** The rounds in play a press can send on with routing: every round in play but those of a reopened step. */
