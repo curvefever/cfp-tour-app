@@ -132,6 +132,8 @@ describe('Previous and Next Round in the upper and lower bracket (FFA 37, qualif
     expect(flagged.anonymousFinalists).toHaveLength(finalists(final).length);
 
     let back = goBack(flagged);
+    expect(back.anonymousFinalists).toEqual([]);
+    expect(back.rounds[finalIndex(back)].anonymousGames).toEqual([1]);
     expect(back.assignments[finalIndex(back)] ?? []).toHaveLength(0);
     for (const index of roundsInPlay(back)) back = swapExtremes(back, index);
     const next = pressed(back);
