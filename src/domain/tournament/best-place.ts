@@ -23,6 +23,8 @@ export interface BestCandidate {
 /** Candidates with exactly the same share straddling the cut: the organiser picks `spots` of them. */
 export interface BestPlaceTie {
   key: string;
+  /** The round whose best place this is. */
+  roundIndex: number;
   players: BestCandidate[];
   rm: null;
   place: number;
@@ -121,6 +123,7 @@ export function bestPlaceChoice(
     run && roomsAreComplete(state, roundIndex, round, best.place)
       ? {
           key,
+          roundIndex,
           players: sorted.slice(run.start, run.end),
           rm: null,
           place: best.place,

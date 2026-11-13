@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../absences';
+import { answerAbsence, unitsAwaitingAnswer } from '../absences';
 import { getAllTies, hasPendingTies, invalidateStaleTieResolutions, isTieResolved } from '../advancement';
 import { bestPlaceChoice, bestPlaceTieKey } from '../best-place';
 import { routeWaterfallRound } from '../bracket-replay';
@@ -218,6 +218,53 @@ describe('the tie of a best place', () => {
     expect(
       invalidateStaleTieResolutions({ ...picked, scores }, 0, 3).tieResolutions[bestPlaceTieKey(0)],
     ).toBeUndefined();
+  });
+});
+
+/**
+ * Room B and room C have the same share at the 6th place (35 of a room total of 367) while C's last two seats are 0:
+ * unscored, then scored 0 with the bar's question open, then answered. Only completeness makes the difference.
+ */
+describe('the tie card waits for a room to be complete', () => {
+  const B_EQUAL = [80, 70, 60, 50, 40, 35, 17, 15];
+  const C_EQUAL = [100, 90, 66, 40, 36, 35, 0, 0];
+  const lastTwoOfC = ['r0-rm3-p6', 'r0-rm3-p7'];
+  const cardOf = (state: TournamentState) => getAllTies(state, 0)[bestPlaceTieKey(0)];
+  const withoutLastTwoOfC = (state: TournamentState): TournamentState => {
+    const scores = { ...state.scores };
+    for (const key of lastTwoOfC) delete scores[key];
+    return { ...state, scores };
+  };
+
+  it('shows the card once the room is scored and its 0s are answered', () => {
+    const answered = answerAbsence(threeRooms([A, B_EQUAL, C_EQUAL]), lastTwoOfC, 'played');
+    expect(cardOf(answered)?.players.map((player) => player.name)).toEqual([sixth(2), sixth(3)]);
+  });
+
+  it('holds the card back while a seat of the room with the 6th place has no score', () => {
+    const partly = withoutLastTwoOfC(threeRooms([A, B_EQUAL, C_EQUAL]));
+    expect(cardOf(partly)).toBeUndefined();
+    expect(hasPendingTies(partly, 0)).toBe(false);
+  });
+
+  it('holds the card back while the bar still asks about a 0 in a scored room', () => {
+    const asking = threeRooms([A, B_EQUAL, C_EQUAL]);
+    expect(unitsAwaitingAnswer(asking, 0, 3).size).toBe(2);
+    expect(cardOf(asking)).toBeUndefined();
+    expect(hasPendingTies(asking, 0)).toBe(false);
+  });
+
+  it('settles rooms with no points by room order, with no card, however many spots they hold', () => {
+    const zeroSeats = (room: number) =>
+      Array.from({ length: 8 }, (_, position) => `r0-rm${room}-p${position}`);
+    const asked = threeRooms([A, ZEROS, ZEROS], { count: 2 });
+    const state = answerAbsence(asked, [...zeroSeats(2), ...zeroSeats(3)], 'played');
+    expect(unitsAwaitingAnswer(state, 0, 2).size).toBe(0);
+    const choice = bestPlaceChoice(state, 0);
+    expect(choice?.chosen).toEqual([sixth(1), sixth(2)]);
+    expect(choice?.rest).toEqual([sixth(3)]);
+    expect(choice?.tie).toBeNull();
+    expect(cardOf(state)).toBeUndefined();
   });
 });
 

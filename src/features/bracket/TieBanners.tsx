@@ -8,8 +8,8 @@ import { roundsInPlay } from '../../domain/tournament/round-columns';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
-import { ordinal } from '../../lib/ordinal';
 import { useTournamentApp } from '../tournament/TournamentProvider';
+import { bestPlaceHeading } from './best-place-heading';
 import { cutoffTieHeading } from './cutoff-tie-heading';
 
 /** The tied value of a cut-off tie: "7 pts", or "1.3 pts per match" in a group stage with per-match standings. */
@@ -18,16 +18,6 @@ function cutoffPointsText(tie: { fp: number; players: ReadonlyArray<{ averagePoi
   return perMatch === undefined
     ? `${formatStandingValue(tie.fp)} pts`
     : `${formatStandingValue(perMatch)} pts per match`;
-}
-
-/** The card of a best-place tie: which round's place, how many spots, and the round they go to. */
-function bestPlaceHeading(
-  tie: { key: string; place: number; spots: number; destination: number },
-  labels: ReturnType<typeof bracketRoundLabels>,
-): string {
-  const from = labels[Number(/^r(d+)-/.exec(tie.key)?.[1])]?.label ?? '';
-  const spots = `${tie.spots} spot${tie.spots === 1 ? '' : 's'}`;
-  return `⚠ Tie-break required — ${from} · best ${ordinal(tie.place)}: ${spots} in ${labels[tie.destination]?.label ?? ''}`;
 }
 
 export function TieBanners({ state }: { state: TournamentState }) {
