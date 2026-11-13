@@ -444,6 +444,30 @@ export function withoutRoomAbsences(
   return withoutAbsences(absences, (key) => prefixes.some((prefix) => key.startsWith(prefix)));
 }
 
+/**
+ * The answers of a room after the unit at `removedPosition` left it: that seat's answers (every game and member, and the
+ * hand mark of a member of a team with one score) are dropped, and each later seat's move up one seat with its unit.
+ */
+export function withSeatsShiftedUp(
+  absences: TournamentState['absences'],
+  roundIndex: number,
+  room: number,
+  removedPosition: number,
+): TournamentState['absences'] {
+  const seatPattern = new RegExp(`^r${roundIndex}-rm${room}-p(\\d+)(-.*)?$`);
+  const shifted: TournamentState['absences'] = {};
+  for (const [key, answer] of Object.entries(absences ?? {})) {
+    const match = seatPattern.exec(key);
+    const position = match ? Number(match[1]) : -1;
+    if (!match || position < removedPosition) {
+      shifted[key] = answer;
+    } else if (position > removedPosition) {
+      shifted[seatBase(roundIndex, room, position - 1, null) + (match[2] ?? '')] = answer;
+    }
+  }
+  return shifted;
+}
+
 /** The answers without those of one seat (every game and member, and the hand mark of a member of a team with one score): for a swapped-out unit. */
 export function withoutSeatAbsences(
   absences: TournamentState['absences'],

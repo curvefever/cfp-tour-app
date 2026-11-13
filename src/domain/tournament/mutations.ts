@@ -1,5 +1,10 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
-import { isUnitAbsentFromRoom, withoutAbsenceAnswer, withoutSeatAbsences } from './absences';
+import {
+  isUnitAbsentFromRoom,
+  withoutAbsenceAnswer,
+  withoutSeatAbsences,
+  withSeatsShiftedUp,
+} from './absences';
 import { moveConfirmation } from './confirmations';
 import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
@@ -603,6 +608,7 @@ function removeUnitFromCurrentRoom(state: TournamentState, key: string): Tournam
     {
       ...state,
       scores,
+      absences: withSeatsShiftedUp(state.absences, roundIndex, room, position),
       assignments: state.assignments.map((entries, index) =>
         index === roundIndex ? entries.filter((entry) => entry.name !== key) : entries,
       ),
