@@ -365,7 +365,14 @@ function outOfCompleteRooms(
       // A custom bracket of absenceVersion 2 keeps an absentee only where the room's last place goes.
       const roomSize = scored.length + absent.length;
       const leaves = absenteeLeavesCustomBracket(state, round, room, roomSize, scored.length + index);
-      if (leaves || !(round.isWaterfall || round.isKingsValley) || !band || band.kind === 'eliminate')
+      const bestPlaceOut = band?.kind === 'best-place' && band.otherwise === 'eliminate';
+      if (
+        leaves ||
+        !(round.isWaterfall || round.isKingsValley) ||
+        !band ||
+        band.kind === 'eliminate' ||
+        bestPlaceOut
+      )
         out.add(name);
     }
   }

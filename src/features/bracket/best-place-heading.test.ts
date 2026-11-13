@@ -11,10 +11,10 @@ const labels = [{ label: 'R4' }, { label: 'R5' }, { label: 'Final' }];
 describe('the heading of a best-place tie card', () => {
   it('names the round, the place, the spots left and the round they go to', () => {
     expect(bestPlaceHeading({ roundIndex: 0, place: 6, spots: 1, destination: 1 }, labels)).toBe(
-      '⚠ Tie-break required — R4 · best 6th: 1 spot in R5',
+      '⚠ Tie-break required — R4 · best 6th (1 spot in R5)',
     );
     expect(bestPlaceHeading({ roundIndex: 1, place: 2, spots: 2, destination: 2 }, labels)).toBe(
-      '⚠ Tie-break required — R5 · best 2nd: 2 spots in Final',
+      '⚠ Tie-break required — R5 · best 2nd (2 spots in Final)',
     );
   });
 
@@ -36,7 +36,7 @@ describe('the heading of a best-place tie card', () => {
     const state = { ...entry, scores };
     const tie = getAllTies(state, r4)[bestPlaceTieKey(r4)];
     expect(tie && 'spots' in tie ? bestPlaceHeading(tie, bracketRoundLabels(state)) : '').toBe(
-      '⚠ Tie-break required — R4 · best 6th: 1 spot in R5',
+      '⚠ Tie-break required — R4 · best 6th (1 spot in R5)',
     );
   });
 });

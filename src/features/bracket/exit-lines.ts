@@ -39,6 +39,13 @@ function luckySpots(band: Extract<RoomExitBand, { kind: 'lucky-chance' }>): stri
   return `${range} spot${band.spots === 1 ? '' : 's'}, ${group}`;
 }
 
+/** "best 1 of 3 → R5, else out": the rule of a best place, and where the other units of the place go. */
+function bestPlaceWhere(band: Extract<RoomExitBand, { kind: 'best-place' }>, labels: Labels): string {
+  const rest =
+    band.otherwise === 'eliminate' ? 'out' : `→ ${destinationLabel(band.otherwise.advance, labels)}`;
+  return `best ${band.spots} of ${band.rooms} → ${destinationLabel(band.destination, labels)}, else ${rest}`;
+}
+
 function roomBandLine(band: RoomExitBand, labels: Labels): ExitLine {
   switch (band.kind) {
     case 'advance':
@@ -55,6 +62,8 @@ function roomBandLine(band: RoomExitBand, labels: Labels): ExitLine {
       };
     case 'lucky-chance':
       return { tone: 'dashed', places: `${band.rank} ★`, where: `lucky loser? (${luckySpots(band)})` };
+    case 'best-place':
+      return { tone: 'dashed', places: `${band.rank} ★`, where: bestPlaceWhere(band, labels) };
     case 'eliminate':
       return band.placement
         ? { tone: 'neutral', places: rankRange(band.fromRank, band.toRank), where: 'plays for places' }

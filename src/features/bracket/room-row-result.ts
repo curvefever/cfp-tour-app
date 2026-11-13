@@ -44,7 +44,7 @@ export interface RoomRowResult {
  * same colour in every room of the column, and the same as the standings column's destination groups. A band to a
  * ranking round is neutral: the units play for places.
  */
-export function advanceResult(band: Extract<RoomExitBand, { kind: 'advance' }>): RowResult {
+export function advanceResult(band: { group?: number; placement?: true }): RowResult {
   return band.placement ? 'advance-placement' : destinationGroupResult(band.group);
 }
 
@@ -57,6 +57,10 @@ function bandResult(
   switch (band.kind) {
     case 'advance':
       return { result: advanceResult(band), star: null };
+    case 'best-place':
+      if (!roundDecided) return { result: 'candidate', star: 'candidate' };
+      if (lucky) return { result: advanceResult(band), star: 'lucky' };
+      return restOfBestPlace(band);
     case 'lucky-chance':
       if (!roundDecided) return { result: 'candidate', star: 'candidate' };
       if (lucky) return { result: 'lucky', star: 'lucky' };
@@ -65,6 +69,12 @@ function bandResult(
       // drop, eliminate, promote, stay and demote read as their own kinds.
       return { result: band.kind, star: null };
   }
+}
+
+/** A unit of a best place that was not chosen: out, or in the colour of the round its room's line sends it to. */
+function restOfBestPlace(band: Extract<RoomExitBand, { kind: 'best-place' }>): RoomRowResult {
+  if (band.otherwise === 'eliminate') return { result: 'eliminate', star: null };
+  return { result: advanceResult(band.otherwise), star: null };
 }
 
 /**
@@ -84,5 +94,8 @@ export function roomRowResult(input: RoomRowInput): RoomRowResult {
     return { result: ranking ? 'place' : 'eliminate', star: null };
   }
   if (pendingTie) return { result: 'pending', star: null };
-  return bandResult(exitBandAtRank(bands, rank), input);
+  const band = exitBandAtRank(bands, rank);
+  // An absentee that falls on the best place follows its room's own line, as it does everywhere.
+  if (input.absentee && band?.kind === 'best-place') return restOfBestPlace(band);
+  return bandResult(band, input);
 }

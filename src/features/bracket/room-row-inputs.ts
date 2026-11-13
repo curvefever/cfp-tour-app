@@ -1,10 +1,12 @@
+import { bestPlaceChoice } from '../../domain/tournament/best-place';
 import { roomMatch, unneededGames } from '../../domain/tournament/match-format';
 import { getUnitScore, getUnitScoreForGame } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 
-/** The units named lucky losers of the round that follows `roundIndex` (known once that round is advanced). */
+/** The units named lucky losers of the round that follows `roundIndex` (known once that round is advanced); in a Custom bracket round with a best of a place, the units that place sends on. */
 export function luckyLoserNames(state: TournamentState, roundIndex: number): string[] {
   const round = state.rounds[roundIndex];
+  if (round.waterfallBest) return bestPlaceChoice(state, roundIndex)?.chosen ?? [];
   return state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
 }
 

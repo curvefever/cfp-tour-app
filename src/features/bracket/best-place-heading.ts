@@ -8,5 +8,5 @@ export function bestPlaceHeading(
   const spots = `${tie.spots} spot${tie.spots === 1 ? '' : 's'}`;
   const from = labels[tie.roundIndex]?.label ?? '';
   const to = labels[tie.destination]?.label ?? '';
-  return `⚠ Tie-break required — ${from} · best ${ordinal(tie.place)}: ${spots} in ${to}`;
+  return `⚠ Tie-break required — ${from} · best ${ordinal(tie.place)} (${spots} in ${to})`;
 }

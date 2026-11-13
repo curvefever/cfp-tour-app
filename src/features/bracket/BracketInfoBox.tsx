@@ -62,7 +62,7 @@ export function BracketInfoBox({ state, onClose }: { state: TournamentState; onC
       {legend.luckyLosers ? (
         <div className={sectionClassName}>
           <div className='text-[13px] font-extrabold tracking-[0.04em] text-cfp-green uppercase'>
-            ★ Lucky losers
+            {legend.bestOfPlace ? '★ Best of a place' : '★ Lucky losers'}
           </div>
           <p className='text-[13px] leading-normal text-cfp-text-soft'>{legend.luckyText}</p>
         </div>

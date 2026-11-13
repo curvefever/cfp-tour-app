@@ -56,6 +56,10 @@ export function TieBanners({ state }: { state: TournamentState }) {
         return cutoffTieHeading(key, entry, boundaryText, cutoffValue, afterSwiss);
       };
       const heading = tieHeading(tie);
+      // A best place's tied units are in different rooms: each is named with its own.
+      const playerLabel = (player: { name: string }): string =>
+        `${tiedLabel(player.name)}${isBest && 'room' in player ? ` (Room ${roomLetter(Number(player.room))})` : ''}`;
+      const goesThrough = isExitTie || isBest;
       return (
         <div
           className={cn(
@@ -77,8 +81,8 @@ export function TieBanners({ state }: { state: TournamentState }) {
               {resolved.length
                 ? `Ranked so far: ${resolved.map((name) => unitDisplay(state, name).label).join(' > ')} — `
                 : ''}
-              tied: {tie.players.map((player) => tiedLabel(player.name)).join(', ')} —{' '}
-              {isExitTie ? 'pick who goes through' : 'pick who ranks next'}
+              tied: {tie.players.map(playerLabel).join(', ')} —{' '}
+              {goesThrough ? 'pick who goes through' : 'pick who ranks next'}
               {canShare ? ', or share points' : ''}
             </div>
           </div>
@@ -90,7 +94,9 @@ export function TieBanners({ state }: { state: TournamentState }) {
                 key={player.name}
                 onClick={() => app.updateState((current) => resolveTournamentTie(current, key, player.name))}
               >
-                {unitDisplay(state, player.name).label} {isExitTie ? 'goes through' : 'ranks next'}
+                {unitDisplay(state, player.name).label}
+                {isBest && 'room' in player ? ` (Room ${roomLetter(Number(player.room))})` : ''}{' '}
+                {goesThrough ? 'goes through' : 'ranks next'}
               </Button>
             ))}
             {canShare ? (

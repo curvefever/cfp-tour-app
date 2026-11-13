@@ -18,12 +18,15 @@ export interface BracketLegend {
   rows: LegendRow[];
   /** The tournament has rounds with lucky-loser spots: the box adds a paragraph on how they work. */
   luckyLosers: boolean;
+  /** A round has a "best of a place" (a Custom bracket route): the lucky-loser row and paragraph speak of it. */
+  bestOfPlace: boolean;
   /** The paragraph on how lucky-loser spots are awarded: the fair cut's rule for a tournament with `cutVersion`, else the earlier sentence. */
   luckyText: string;
 }
 
 const FAIR_CUT_LUCKY_TEXT =
   "Each room size loses its fair share of the cut. Within a size, places count first, then score relative to the room's average. A spare cut falls on whichever next in line ranks lower against every room of their size so far.";
+const BEST_OF_PLACE_TEXT = "The best of a place is chosen by score relative to the room's average.";
 const EARLIER_LUCKY_TEXT = "Spare spots are awarded to players by score relative to their room's average.";
 
 /** A fair-cut round has a place where only some units of a room size advance. */
@@ -56,17 +59,28 @@ function sendsToRankingRoom(state: TournamentState): boolean {
  * drop bands come from double elimination, while a waterfall round has only advance and eliminate bands.
  */
 export function bracketLegend(state: TournamentState): BracketLegend {
-  const luckyLosers = state.rounds.some((round, index) =>
-    usesFairCut(state, index) ? hasLuckyChance(state, index) : round.luckyCount > 0 && !round.isNoElim,
-  );
+  const bestOfPlace = state.rounds.some((round) => round.waterfallBest);
+  const luckyLosers =
+    bestOfPlace ||
+    state.rounds.some((round, index) =>
+      usesFairCut(state, index) ? hasLuckyChance(state, index) : round.luckyCount > 0 && !round.isNoElim,
+    );
   const doubleElimination = state.rounds.some(
     (round) => round.bracket === 'winners' || round.bracket === 'losers',
   );
   const kingsValley = state.rounds.some((round) => round.isKingsValley);
   const { hasSecond, hasThird } = extraDestinations(state);
   const rows: LegendRow[] = [{ tone: 'green', name: 'Through', meaning: 'Advances or qualifies' }];
-  if (luckyLosers)
+  if (luckyLosers && !bestOfPlace)
     rows.push({ tone: 'green', name: 'Lucky loser', meaning: 'Qualified on a spare spot', star: true });
+  if (bestOfPlace) {
+    rows.push({
+      tone: 'green',
+      name: 'Best of a place',
+      meaning: 'Sent on as the best of its place',
+      star: true,
+    });
+  }
   if (hasSecond) {
     rows.push({
       tone: 'yellow',
@@ -95,6 +109,10 @@ export function bracketLegend(state: TournamentState): BracketLegend {
       { tone: 'orange', name: 'Demoted', meaning: 'Kings Valley: moves down a room' },
     );
   }
-  const luckyText = state.gamemodeConfig.cutVersion === 2 ? FAIR_CUT_LUCKY_TEXT : EARLIER_LUCKY_TEXT;
-  return { rows, luckyLosers, luckyText };
+  const luckyText = bestOfPlace
+    ? BEST_OF_PLACE_TEXT
+    : state.gamemodeConfig.cutVersion === 2
+      ? FAIR_CUT_LUCKY_TEXT
+      : EARLIER_LUCKY_TEXT;
+  return { rows, luckyLosers, bestOfPlace, luckyText };
 }

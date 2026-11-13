@@ -279,6 +279,8 @@ export type ProjectedSlotLabel =
       roomKnown: boolean;
     }
   | { kind: 'standings-rank'; rank: number }
+  /** A unit the source round's "best of a place" will send on: which of the place's units is not known yet. */
+  | { kind: 'best-place'; place: number; sourceRound: number; sourceLabel: string }
   | { kind: 'lucky' }
   | { kind: 'qualifier-cutoff' }
   | { kind: 'round-edge'; sourceRoundIndex: number; edge: 'advanced' | 'dropped'; label: string };
@@ -304,6 +306,8 @@ export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
     }
     case 'standings-rank':
       return `Qualification #${slot.rank}`;
+    case 'best-place':
+      return `★ Best ${ordinal(slot.place)}, ${slot.sourceLabel}`;
     case 'lucky':
       return '★ Lucky loser (any room)';
     case 'qualifier-cutoff':
@@ -311,6 +315,28 @@ export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
     case 'round-edge':
       return slot.label;
   }
+}
+
+/** The slots a source round's best of a place gives its destination: one per unit it sends. */
+function bestPlaceSlots(
+  source: TournamentRound,
+  sourceLabel: string,
+  sourceRound: number,
+): ProjectedSlotLabel[] {
+  const best = source.waterfallBest;
+  if (!best) return [];
+  return Array.from({ length: best.count }, (): ProjectedSlotLabel => ({
+    kind: 'best-place',
+    place: best.place,
+    sourceRound,
+    sourceLabel,
+  }));
+}
+
+/** How many units of `rank` the source's best of a place takes off the round its rooms' lines send that place to. */
+function bestUnitsLeaving(source: TournamentRound, rank: number, targetIndex: number): number {
+  const best = source.waterfallBest;
+  return best && best.place === rank && best.destination !== targetIndex ? best.count : 0;
 }
 
 function winnersSideCount(round: Pick<TournamentRound, 'advPerRoom' | 'rooms' | 'luckyCount'>): number {
@@ -337,7 +363,8 @@ function isLastGroupStageRound(rounds: TournamentRound[], index: number): boolea
 type PredecessorEdge =
   | { sourceIndex: number; edge: 'winners' | 'losers' }
   | { sourceIndex: number; edge: 'waterfall'; room: number; ranks: number[] }
-  | { sourceIndex: number; edge: 'standings'; ranks: number[] };
+  | { sourceIndex: number; edge: 'standings'; ranks: number[] }
+  | { sourceIndex: number; edge: 'best' };
 
 /**
  * A waterfall round can feed a target from more than one of its own rooms
@@ -363,6 +390,7 @@ function predecessorsOf(rounds: TournamentRound[], targetIndex: number): Predece
         .map(({ rank }) => rank);
       if (ranks.length > 0) predecessors.push({ sourceIndex, edge: 'standings', ranks });
     } else if (source.isWaterfall) {
+      if (source.waterfallBest?.destination === targetIndex) predecessors.push({ sourceIndex, edge: 'best' });
       (source.waterfallRoutes ?? []).forEach((roomRoutes, roomOffset) => {
         const ranks = roomRoutes
           .map((destination, rankOffset) => ({ destination, rank: rankOffset + 1 }))
@@ -386,6 +414,8 @@ function tierKeyOf(entry: ProjectedSlotLabel): string {
       return `waterfall:${entry.sourceRound}:${entry.rank}`;
     case 'standings-rank':
       return `standings:${entry.rank}`;
+    case 'best-place':
+      return `best:${entry.sourceRound}`;
     case 'round-edge':
       return `edge:${entry.sourceRoundIndex}:${entry.edge}`;
     case 'lucky':
@@ -585,6 +615,10 @@ export function projectFutureRoundSlots(
         }
         continue;
       }
+      if (edge === 'best') {
+        pool.push(...bestPlaceSlots(source, sourceLabel, sourceRound));
+        continue;
+      }
       if (edge === 'waterfall') {
         // Several of this source's own rooms can each contribute their own
         // (possibly non-contiguous) rank list to this same target -- handled
@@ -600,18 +634,18 @@ export function projectFutureRoundSlots(
         ) as Array<{ sourceIndex: number; edge: 'waterfall'; room: number; ranks: number[] }>;
         const maxRank = Math.max(0, ...edgesForSource.flatMap((candidate) => candidate.ranks));
         for (let rank = 1; rank <= maxRank; rank += 1) {
-          for (const candidate of edgesForSource) {
-            if (candidate.ranks.includes(rank)) {
-              pool.push({
-                kind: 'waterfall-rank',
-                room: candidate.room,
-                rank,
-                sourceRound,
-                sourceLabel,
-                sourceRoomCount: source.rooms.length,
-                roomKnown,
-              });
-            }
+          const sending = edgesForSource.filter((candidate) => candidate.ranks.includes(rank));
+          const left = sending.slice(0, sending.length - bestUnitsLeaving(source, rank, targetIndex));
+          for (const candidate of left) {
+            pool.push({
+              kind: 'waterfall-rank',
+              room: candidate.room,
+              rank,
+              sourceRound,
+              sourceLabel,
+              sourceRoomCount: source.rooms.length,
+              roomKnown,
+            });
           }
         }
         continue;

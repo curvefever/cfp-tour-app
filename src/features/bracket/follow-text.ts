@@ -1,5 +1,6 @@
 import { type BracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
-import { exitBandAtRank, roundExitRule } from '../../domain/tournament/room-exits';
+import { bestPlaceChoice } from '../../domain/tournament/best-place';
+import { exitBandAtRank, roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
 import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import {
   standingFor,
@@ -7,7 +8,7 @@ import {
   type StandingsDisplayTable,
 } from '../../domain/tournament/standings-display';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
-import { placeOrdinal } from '../../lib/ordinal';
+import { ordinal, placeOrdinal } from '../../lib/ordinal';
 import { standingsNames } from '../standings/standings-names';
 import { destinationLabel } from './exit-text';
 import { placeInRoom } from './folded-round';
@@ -58,6 +59,7 @@ function placeDestination(
   room: number,
   place: number,
   labels: Labels,
+  key: string,
 ): string | null {
   const rule = roundExitRule(state, roundIndex);
   const band = rule.kind === 'per-room' ? exitBandAtRank(rule.rooms[room - 1] ?? [], place) : null;
@@ -75,7 +77,26 @@ function placeDestination(
       return 'out';
     case 'lucky-chance':
       return isRoundDone(state, roundIndex) ? null : '· lucky loser?';
+    case 'best-place':
+      return bestPlaceDestination(state, roundIndex, band, labels, key);
   }
+}
+
+/** "· best 6th? → R5" while the round is not sent on; then where this unit went: the round the best of the place go to, or where its room sends the others. */
+function bestPlaceDestination(
+  state: TournamentState,
+  roundIndex: number,
+  band: Extract<RoomExitBand, { kind: 'best-place' }>,
+  labels: Labels,
+  key: string,
+): string {
+  if (!isRoundDone(state, roundIndex)) {
+    return `· best ${ordinal(band.rank)}? → ${destinationLabel(band.destination, labels)}`;
+  }
+  if (bestPlaceChoice(state, roundIndex)?.chosen.includes(key)) {
+    return `→ ${destinationLabel(band.destination, labels)}`;
+  }
+  return band.otherwise === 'eliminate' ? 'out' : `→ ${destinationLabel(band.otherwise.advance, labels)}`;
 }
 
 /**
@@ -122,7 +143,7 @@ export function followBannerText(
   const next =
     nextRoom !== null && nextRoom !== undefined
       ? `→ ${roomTitle(state.rounds[follow.lastRi], nextRoom - 1)}`
-      : placeDestination(state, roundIndex, entry.room, place, labels);
+      : placeDestination(state, roundIndex, entry.room, place, labels, key);
   return { name, detail: `${where}${placeText}${next ? ` ${next}` : ''}` };
 }
 

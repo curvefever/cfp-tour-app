@@ -32,6 +32,20 @@ export type RoomExitBand =
     }
   | { kind: 'drop'; fromRank: number; toRank: number; destination: number } // double-elim: to the losers bracket
   | {
+      /** A Custom bracket round's "best of a place": the best `spots` units of the place, over `rooms` rooms, go to `destination`. */
+      kind: 'best-place';
+      rank: number;
+      spots: number;
+      /** The rooms of the round that have this place. */
+      rooms: number;
+      destination: number;
+      /** `destination`'s exit group and ranking-round flag, as an advance band carries them. */
+      group?: number;
+      placement?: true;
+      /** Where the other units of the place go: out, or the round their own room's line names. */
+      otherwise: 'eliminate' | { advance: number; group?: number; placement?: true };
+    }
+  | {
       kind: 'lucky-chance';
       rank: number;
       /** The most units that can advance from this place, over all rooms of the group (today's `luckyCount` without the fair cut). */
@@ -253,14 +267,26 @@ function waterfallRoomBands(
   roomIndex: number,
   actualSize: number,
   groups: ReadonlyMap<number, number>,
+  bestRooms: number,
 ): RoomExitBand[] {
   const room = roomIndex + 1;
   const bands: RoomExitBand[] = [];
+  const bestAt =
+    round.waterfallBest && actualSize >= round.waterfallBest.place ? round.waterfallBest.place - 1 : -1;
   let start = 0; // 0-indexed rank, matching waterfallDestination's own convention
   while (start < actualSize) {
+    if (start === bestAt && round.waterfallBest) {
+      bands.push(bestPlaceBand(round, rounds, room, round.waterfallBest, groups, bestRooms));
+      start += 1;
+      continue;
+    }
     const destination = waterfallDestination(round, room, start);
     let end = start;
-    while (end + 1 < actualSize && waterfallDestination(round, room, end + 1) === destination) {
+    while (
+      end + 1 < actualSize &&
+      end + 1 !== bestAt &&
+      waterfallDestination(round, room, end + 1) === destination
+    ) {
       end += 1;
     }
     bands.push(
@@ -283,6 +309,33 @@ function waterfallRoomBands(
     start = end + 1;
   }
   return bands;
+}
+
+/** The band of a room's best place: the chosen units' round, and where this room's own line sends the others. */
+function bestPlaceBand(
+  round: TournamentRound,
+  rounds: readonly TournamentRound[],
+  room: number,
+  best: NonNullable<TournamentRound['waterfallBest']>,
+  groups: ReadonlyMap<number, number>,
+  bestRooms: number,
+): RoomExitBand {
+  const rest = waterfallDestination(round, room, best.place - 1);
+  const placementOf = (destination: number) =>
+    rounds[destination]?.waterfallRanking ? { placement: true as const } : {};
+  return {
+    kind: 'best-place',
+    rank: best.place,
+    spots: best.count,
+    rooms: bestRooms,
+    destination: best.destination,
+    ...stampedGroup(groups.get(best.destination)),
+    ...placementOf(best.destination),
+    otherwise:
+      rest === null
+        ? 'eliminate'
+        : { advance: rest, ...stampedGroup(groups.get(rest)), ...placementOf(rest) },
+  };
 }
 
 /** `{ group }` for a destination outside the first group, else nothing: an absent group means the first. */
@@ -377,8 +430,12 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
 
   if (round.isWaterfall) {
     const groups = roundExitGroups(state, roundIndex);
+    const place = round.waterfallBest?.place ?? Infinity;
+    const bestRooms = round.rooms.filter(
+      (size, index) => actualRoomSize(assignments, index, size) >= place,
+    ).length;
     return perRoomRule(round, assignments, (roomIndex, actualSize) =>
-      waterfallRoomBands(round, state.rounds, roomIndex, actualSize, groups),
+      waterfallRoomBands(round, state.rounds, roomIndex, actualSize, groups, bestRooms),
     );
   }
 
@@ -410,7 +467,7 @@ export function roundExitRule(state: TournamentState, roundIndex: number): Round
 /** The band covering `rank` (1-indexed) in one room's band list, or null if none does. */
 export function exitBandAtRank(bands: RoomExitBand[], rank: number): RoomExitBand | null {
   for (const band of bands) {
-    if (band.kind === 'lucky-chance') {
+    if (band.kind === 'lucky-chance' || band.kind === 'best-place') {
       if (band.rank === rank) return band;
       continue;
     }
