@@ -8,6 +8,7 @@ import { roundsInPlay } from '../../domain/tournament/round-columns';
 import { formatStandingValue, tieResolutionList } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
+import { ordinal } from '../../lib/ordinal';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { cutoffTieHeading } from './cutoff-tie-heading';
 
@@ -17,6 +18,16 @@ function cutoffPointsText(tie: { fp: number; players: ReadonlyArray<{ averagePoi
   return perMatch === undefined
     ? `${formatStandingValue(tie.fp)} pts`
     : `${formatStandingValue(perMatch)} pts per match`;
+}
+
+/** The card of a best-place tie: which round's place, how many spots, and the round they go to. */
+function bestPlaceHeading(
+  tie: { key: string; place: number; spots: number; destination: number },
+  labels: ReturnType<typeof bracketRoundLabels>,
+): string {
+  const from = labels[Number(/^r(d+)-/.exec(tie.key)?.[1])]?.label ?? '';
+  const spots = `${tie.spots} spot${tie.spots === 1 ? '' : 's'}`;
+  return `⚠ Tie-break required — ${from} · best ${ordinal(tie.place)}: ${spots} in ${labels[tie.destination]?.label ?? ''}`;
 }
 
 export function TieBanners({ state }: { state: TournamentState }) {
@@ -40,14 +51,21 @@ export function TieBanners({ state }: { state: TournamentState }) {
     .map(([key, tie]) => {
       const resolved = tieResolutionList(state, key);
       const remaining = tie.players.filter((player) => !resolved.includes(player.name));
-      const isCutoff = !('score' in tie);
-      const canShare = !isCutoff && poolingRound;
+      const isBest = 'spots' in tie;
+      const isCutoff = !isBest && !('score' in tie);
+      const canShare = !isBest && !isCutoff && poolingRound;
       const boundaryText = 'firstRank' in tie ? qualTieBoundaryText(state, tie) : null;
-      const cutoffValue = isCutoff ? cutoffPointsText(tie) : '';
+      const cutoffValue = 'fp' in tie ? cutoffPointsText(tie) : '';
       const isExitTie = key === GROUP_EXIT_TIE_KEY;
-      const heading = !isCutoff
-        ? `⚠ Tie-break required — ${roundLabelOf(key) ? `${roundLabelOf(key)} · ` : ''}Room ${roomLetter(tie.rm)} (score ${tie.score})`
-        : cutoffTieHeading(key, tie, boundaryText, cutoffValue, afterSwiss);
+      const tieHeading = (entry: typeof tie): string => {
+        if ('spots' in entry) return bestPlaceHeading(entry, labels);
+        if ('score' in entry) {
+          const round = roundLabelOf(key);
+          return `⚠ Tie-break required — ${round ? `${round} · ` : ''}Room ${roomLetter(entry.rm)} (score ${entry.score})`;
+        }
+        return cutoffTieHeading(key, entry, boundaryText, cutoffValue, afterSwiss);
+      };
+      const heading = tieHeading(tie);
       return (
         <div
           className={cn(

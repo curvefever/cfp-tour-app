@@ -1,4 +1,5 @@
 import { absentInRoom, routesAbsenteesByLastPlace } from './absences';
+import { bestPlaceChoice } from './best-place';
 import {
   buildAdvancementTiers,
   computeGroupStandings,
@@ -131,11 +132,14 @@ export function routeWaterfallRound(
   const tiers = buildAdvancementTiers(state, roundIndex, names);
   const destinationOf = memberDestination(state, roundIndex, round);
   const roster = new Set(rosterKeys(state.players));
+  const bestChosen = new Set(bestPlaceChoice(state, roundIndex, round)?.chosen);
 
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const tier of tiers) {
     for (const member of tier.members) {
-      const destination = destinationOf(member.name, member.sourceRoom, tier.rank);
+      const destination = bestChosen.has(member.name)
+        ? (round.waterfallBest?.destination ?? null)
+        : destinationOf(member.name, member.sourceRoom, tier.rank);
       const name = currentUnit(state, roster, member.name);
       if (destination === null || name === null) continue;
       const additions = additionsByDestination.get(destination) ?? [];

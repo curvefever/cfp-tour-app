@@ -1,4 +1,5 @@
 import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
+import { type BestPlaceTie, bestPlaceTie, bestPlaceTieKey } from './best-place';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import {
   GROUP_EXIT_TIE_KEY,
@@ -203,14 +204,24 @@ export function detectTieBreaks(
 
 export function isTieResolved(
   key: string,
-  cluster: Pick<RoomTieCluster, 'players'> | Pick<CutoffTieCluster, 'players'>,
+  cluster:
+    | Pick<RoomTieCluster, 'players'>
+    | Pick<CutoffTieCluster, 'players'>
+    | Pick<BestPlaceTie, 'players' | 'spots'>,
   state: Pick<TournamentState, 'tieResolutions'>,
 ): boolean {
   const { ranked, shared } = readTieResolution(state, key);
-  return ranked.length >= cluster.players.length - 1 || shared.length > 0;
+  // A best-place tie needs one pick per spot; every other tie ranks all its units but the last.
+  const needed = 'spots' in cluster ? cluster.spots : cluster.players.length - 1;
+  return ranked.length >= needed || shared.length > 0;
 }
 
-type TournamentTieCluster = RoomTieCluster | CutoffTieCluster;
+type TournamentTieCluster = RoomTieCluster | CutoffTieCluster | BestPlaceTie;
+
+/** What a stored tie decision is checked against: the units that are tied now. */
+interface TiedUnits {
+  players: ReadonlyArray<{ name: string }>;
+}
 
 /**
  * Recompute the live cumulative tables that legacy `getAllTies` refreshes
@@ -258,6 +269,8 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
       ties[bandTie.key] = bandTie;
     }
   }
+  const bestTie = bestPlaceTie(state, roundIndex);
+  if (bestTie) ties[bestTie.key] = bestTie;
   return ties;
 }
 
@@ -291,7 +304,7 @@ export function hasPendingColumnTies(state: TournamentState): boolean {
 }
 
 /** A shared place holds only while the recorded names are exactly the tied units. */
-function coversCluster(recorded: string[], cluster: Pick<RoomTieCluster, 'players'>): boolean {
+function coversCluster(recorded: string[], cluster: TiedUnits): boolean {
   const names = new Set(recorded);
   return names.size === cluster.players.length && cluster.players.every((player) => names.has(player.name));
 }
@@ -308,25 +321,30 @@ export function invalidateStaleTieResolutions(
 ): TournamentState {
   const round = state.rounds[roundIndex];
   if (!round) return state;
-  const currentTies = detectTieBreaks(roundIndex, round, state);
+  const currentTies: Record<string, TiedUnits> = detectTieBreaks(roundIndex, round, state);
+  const bestTie = bestPlaceTie(state, roundIndex);
+  if (bestTie) currentTies[bestTie.key] = bestTie;
   const prefix = `r${roundIndex}-rm${room}-`;
+  const bestKey = bestPlaceTieKey(roundIndex);
   const tieResolutions = { ...state.tieResolutions };
   let changed = false;
   for (const key of Object.keys(tieResolutions)) {
-    if (!key.startsWith(prefix)) continue;
-    const cluster = currentTies[key];
-    const { ranked, shared } = readTieResolution(state, key);
-    const stillValid = Boolean(
-      cluster &&
-      [...ranked, ...shared].every((name) => cluster.players.some((player) => player.name === name)) &&
-      (shared.length === 0 || coversCluster([...ranked, ...shared], cluster)),
-    );
-    if (!stillValid) {
+    if (!key.startsWith(prefix) && key !== bestKey) continue;
+    if (!decisionHolds(state, key, currentTies[key])) {
       delete tieResolutions[key];
       changed = true;
     }
   }
   return changed ? { ...state, tieResolutions } : state;
+}
+
+/** Whether a stored decision still names only units of the cluster, and a shared place still covers all of it. */
+function decisionHolds(state: TournamentState, key: string, cluster: TiedUnits | undefined): boolean {
+  if (!cluster) return false;
+  const { ranked, shared } = readTieResolution(state, key);
+  const named = [...ranked, ...shared];
+  const inCluster = named.every((name) => cluster.players.some((player) => player.name === name));
+  return inCluster && (shared.length === 0 || coversCluster(named, cluster));
 }
 
 /** Tie-resolution key of the cluster that holds the last routed qualification rank (the single cut-off without a Qual source). */
