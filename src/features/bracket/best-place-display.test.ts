@@ -245,7 +245,7 @@ describe('an absentee that falls on the best place', () => {
       [80, 70, 60, 50, 40, 30, 0, 0],
       [6, 7],
     );
-    const state = { ...v2, gamemodeConfig: { ...v2.gamemodeConfig, absenceVersion: 1 } };
+    const state = { ...v2, gamemodeConfig: { ...v2.gamemodeConfig, absenceVersion: 1 as const } };
     const [onBest] = absentInRoom(state, indexOf(state, 'R4'), 1);
     expect(absenteeRow(state, onBest)).toEqual({ result: 'eliminate', star: null });
     expect(rankedOut(state).has(onBest)).toBe(true);
