@@ -22,6 +22,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing performed.** eslint, prettier and the filtered typecheck on the changed files; `vitest related` on them plus `bracket-replay`, `redraw`, `waterfall-previous`, `waterfall-next-round-plan`, `expected-draw`, `upper-lower-play` (136 files, 4759 tests, all passing). No e2e. The live check is repeated by the reviewer on the test site after the push.
 
+**Full suite: passed on `d0e7df3`** (217 files, 6063 tests), run by the reviewer at the review (shared code, `src/domain/`). Review: the production diff read; eslint, prettier and the filtered typecheck over the F4 files, clean; mutation check: `routeWaterfallRound` without the `currentUnit` mapping fails 8 of the 9 new tests, with or without the new consistency rule. The fixture change (a roster given to four test states) is accepted: leaving an unknown name as it is would hide this kind of fault, and the replay already drops such names.
+
 **Out of scope.** Any change to what a removal or swap does at the moment it is made (both already correct the pools). Double elimination's own routing (the replay maps it; no test showed the same symptom there). The fair cut for Custom bracket rounds (an open item of the same day): a later build.
 
 ## Cleanup audit: faults F1 to F3 and the consistency check (done locally on `test` — 2026-11-13, not pushed yet)
