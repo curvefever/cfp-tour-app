@@ -95,6 +95,16 @@ describe('the Best of a place field', () => {
     expect(onSetBest).toHaveBeenLastCalledWith({ place: 6, count: 1, destination: 'Final' });
   });
 
+  it('does not offer, as the destination, the round the rooms send that place to', () => {
+    const toR5 = graphText(ROUNDS, [
+      ...['A', 'B', 'C'].map((room) => `R4.${room}: 1-6->R5, 7-8->eliminated`),
+      'R4.BEST: 1 OF 6->Final',
+      ...AFTER,
+    ]);
+    field(toR5, 'R4', () => {});
+    expect(optionsOf('Best of a place: goes to')).toEqual(['Final']);
+  });
+
   it('None takes the line away', () => {
     const onSetBest = vi.fn();
     field(WITH_BEST, 'R4', onSetBest);

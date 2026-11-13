@@ -76,3 +76,11 @@ export function bestsWithoutRound(
 ): WaterfallDraftBests | undefined {
   return mapBests(best, (label, line) => (label === removed || line.destination === removed ? null : line));
 }
+
+/** The lines after a round became the Final or a ranking match: its own line is gone; a line that sends units to it stays, for the engine to judge. */
+export function bestsWithoutOwnLine(
+  best: WaterfallDraftBests | undefined,
+  label: string,
+): WaterfallDraftBests | undefined {
+  return mapBests(best, (own, line) => (own === label ? null : line));
+}

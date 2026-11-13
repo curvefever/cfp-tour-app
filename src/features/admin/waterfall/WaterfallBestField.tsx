@@ -32,7 +32,7 @@ export function WaterfallBestField({
   const offered = !round.isFinal && !round.isRanking && round.roomCount >= 2;
   if (!offered || (!onSetBest && !best)) return null;
 
-  const later = bestDestinationChoices(draft, round.label);
+  const later = bestDestinationChoices(draft, round.label, best?.place);
   const destinations = best && !later.includes(best.destination) ? [...later, best.destination] : later;
   const pickPlace = (value: string) => {
     if (value === NONE) return onSetBest?.(null);

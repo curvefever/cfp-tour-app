@@ -16,6 +16,7 @@ import {
 } from './waterfall-bracket';
 import {
   bestLine,
+  bestsWithoutOwnLine,
   bestsWithoutRound,
   fittedBests,
   mapBests,
@@ -840,7 +841,7 @@ export function setWaterfallFinal(draft: WaterfallDraft, label: string, isFinal:
     const marked = { ...round, isFinal: round.label === label ? isFinal : isFinal ? false : round.isFinal };
     return round.label === label && isFinal ? withoutRanking(marked) : marked;
   });
-  const best = isFinal ? bestsWithoutRound(draft.best, label) : draft.best;
+  const best = isFinal ? bestsWithoutOwnLine(draft.best, label) : draft.best;
   return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
 }
 
@@ -867,7 +868,7 @@ export function setWaterfallRanking(
       rounds,
       routes: isRanking && marked ? { ...routes, [label]: emptyRoutes(marked) } : routes,
     },
-    isRanking ? bestsWithoutRound(draft.best, label) : draft.best,
+    isRanking ? bestsWithoutOwnLine(draft.best, label) : draft.best,
   );
 }
 
@@ -901,10 +902,17 @@ export function setWaterfallBest(
   return withBests(draft, best ? { ...others, [label]: best } : others);
 }
 
-/** The rounds a round's best of a place can go to: those after it in the play order. */
-export function bestDestinationChoices(draft: WaterfallDraft, label: string): string[] {
+/**
+ * The rounds a round's best of a place can go to: those after it in the play order. With `place`, not the round the
+ * rooms already send that place to: the rest of the place can't go where the chosen ones go.
+ */
+export function bestDestinationChoices(draft: WaterfallDraft, label: string, place?: number): string[] {
   const { order } = waterfallRoundIntake(draft);
-  return order.slice(order.indexOf(label) + 1);
+  const later = order.slice(order.indexOf(label) + 1);
+  const roomsSend = new Set(
+    place === undefined ? [] : (draft.routes[label] ?? []).map((room) => room[place - 1]),
+  );
+  return later.filter((candidate) => !roomsSend.has(candidate));
 }
 
 /**
@@ -918,8 +926,7 @@ export function suggestedBest(
 ): WaterfallDraftBest | null {
   const round = findWaterfallRound(draft, label);
   if (!round || round.roomCount < 2 || place < 1 || place > round.roomSize) return null;
-  const rest = draft.routes[label]?.[0]?.[place - 1];
-  const destination = bestDestinationChoices(draft, label).find((candidate) => candidate !== rest);
+  const destination = bestDestinationChoices(draft, label, place)[0];
   return destination ? { place, count: 1, destination } : null;
 }
 

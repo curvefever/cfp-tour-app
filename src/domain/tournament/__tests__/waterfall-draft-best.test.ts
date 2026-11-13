@@ -160,6 +160,12 @@ describe('the best of a place follows the edits of the draft', () => {
     expect(setWaterfallFinal(draftOf(EXAMPLE), 'R4', true).best).toBeUndefined();
     expect(setWaterfallRanking(draftOf(EXAMPLE), 'R4', true).best).toBeUndefined();
   });
+
+  it('is kept when its destination becomes the Final or a ranking match: the engine judges that graph', () => {
+    const line = { R4: { place: 6, count: 1, destination: 'R5' } };
+    expect(setWaterfallFinal(draftOf(EXAMPLE), 'R5', true).best).toEqual(line);
+    expect(setWaterfallRanking(draftOf(EXAMPLE), 'R5', true).best).toEqual(line);
+  });
 });
 
 describe('the flow of a draft with a best of a place', () => {
@@ -214,6 +220,16 @@ describe('what the field offers', () => {
     const draft = draftOf(EXAMPLE);
     expect(bestDestinationChoices(draft, 'R4')).toEqual(['R5', 'Final']);
     expect(bestDestinationChoices(draft, 'R5')).toEqual(['Final']);
+  });
+
+  it('does not offer the round the rooms already send that place to, which the engine refuses', () => {
+    const toR5 = graphText(ROUNDS, [
+      ...['A', 'B', 'C'].map((room) => `R4.${room}: 1-6->R5, 7-8->eliminated`),
+      ...AFTER,
+    ]);
+    expect(bestDestinationChoices(draftOf(toR5), 'R4', 6)).toEqual(['Final']);
+    expect(bestDestinationChoices(draftOf(toR5), 'R4', 7)).toEqual(['R5', 'Final']);
+    expect(bestDestinationChoices(draftOf(EXAMPLE), 'R4', 6)).toEqual(['R5', 'Final']);
   });
 
   it('suggests the first later round the rest of the place do not go to', () => {

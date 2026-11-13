@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { bestPlaceTieKey } from '../best-place';
+import { resolveTournamentTie } from '../mutations';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
+import { nextRoundPlan } from '../waterfall-steps';
 import { A, B, C, EXAMPLE, graphText, namesIn, scoreRooms, seatOf } from './best-place-fixtures';
 import { atEntry, indexOf, pressed, scoreRound } from './dependency-play-fixtures';
 import { withDependencyPlay } from './qual-waterfall';
@@ -72,5 +75,36 @@ describe('Edit graph, a best of a place on a round already drawn', () => {
     const result = applyWaterfallGraphEdit(playing, R7TH);
     expect(result.ok).toBe(false);
     expect(result.ok ? '' : result.error).toContain('a score has already been entered in "R5"');
+  });
+});
+
+/** A decision on the 6th-place tie is about those two units: a line that picks anything else starts without it. */
+describe('Edit graph and the decision on a best-place tie', () => {
+  const R7TH = EXAMPLE.replace('R4.BEST: 1 OF 6->R5', 'R4.BEST: 1 OF 7->R5');
+  const WITHOUT = EXAMPLE.replace('R4.BEST: 1 OF 6->R5', '').replace(
+    'R4.A: 1-5->R5, 6-8->eliminated',
+    'R4.A: 1-6->R5, 7-8->eliminated',
+  );
+  // Room A is behind at the 6th and the 7th place; rooms B and C tie at both.
+  const A_BEHIND = [80, 70, 60, 50, 40, 30, 15, 10];
+  const entry = withDependencyPlay(atEntry(37, EXAMPLE));
+  const r4 = indexOf(entry, 'R4');
+  const scored = scoreRooms(entry, r4, [A_BEHIND, B, B]);
+  const key = bestPlaceTieKey(r4);
+  const decided = resolveTournamentTie(scored, key, seatOf(scored, 3, 5));
+
+  it('keeps the pick while the line is saved unchanged', () => {
+    expect(nextRoundPlan(decided).blocked).toBeNull();
+    expect(edited(decided, EXAMPLE).tieResolutions[key]).toEqual(decided.tieResolutions[key]);
+  });
+
+  it('starts a changed line without the old pick: its own tie blocks Next Round', () => {
+    const state = edited(decided, R7TH);
+    expect(state.tieResolutions[key]).toBeUndefined();
+    expect(nextRoundPlan(state).blocked).toBe('pending-ties');
+  });
+
+  it('drops the pick when the line is removed', () => {
+    expect(edited(decided, WITHOUT).tieResolutions[key]).toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
 import { withoutRoundAbsences } from './absences';
 import { isGroupBandKey, isQualCutoffKey } from './advancement';
+import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
@@ -118,6 +119,25 @@ function groupsLineSettings(
 function withBestOf(round: TournamentRound, best: TournamentRound['waterfallBest']): TournamentRound {
   const { waterfallBest: _previous, ...rest } = round;
   return best ? { ...rest, waterfallBest: best } : rest;
+}
+
+/**
+ * The tie decisions without those on a best of a place that the edit changed or removed: the organiser picked among
+ * other units, and a leftover pick would count toward the new line's tie without deciding it.
+ */
+function withoutChangedBestDecisions(
+  tieResolutions: TournamentState['tieResolutions'],
+  before: TournamentRound[],
+  after: TournamentRound[],
+  keptLength: number,
+): TournamentState['tieResolutions'] {
+  const kept = { ...tieResolutions };
+  for (let index = 0; index < keptLength; index += 1) {
+    if (JSON.stringify(before[index]?.waterfallBest) !== JSON.stringify(after[index]?.waterfallBest)) {
+      delete kept[bestPlaceTieKey(index)];
+    }
+  }
+  return kept;
 }
 
 /** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
@@ -394,9 +414,14 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const dropStaleTies = standingsSource && routingChanged && reachedCount === 0;
   const isStale = (key: string) =>
     standingsKind === 'groups' ? isGroupExitTieKey(key, exitChanged) : isQualCutoffKey(key);
-  const tieResolutions = dropStaleTies
-    ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isStale(key)))
-    : state.tieResolutions;
+  const tieResolutions = withoutChangedBestDecisions(
+    dropStaleTies
+      ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isStale(key)))
+      : state.tieResolutions,
+    state.rounds,
+    rounds,
+    firstWaterfallIndex + reached.length,
+  );
   let working: TournamentState = {
     ...state,
     ...(reachedCount === 0 && state.waterfallSteps?.length ? { waterfallSteps: [] } : {}),
