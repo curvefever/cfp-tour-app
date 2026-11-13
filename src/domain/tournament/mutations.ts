@@ -16,6 +16,7 @@ import { roomMatch } from './match-format';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
+import { MAX_ANONYMOUS_FINALISTS, withFinalistAliasesForLineup } from './anonymous-finalists';
 import { renameInSchedule } from './rename-unit';
 import { validateRoomCap } from './room-distribution';
 import { roundInPlayOf } from './round-columns';
@@ -38,7 +39,6 @@ import {
   SHARED_TIE_MARK,
 } from './scoring';
 import type {
-  AnonymousFinalist,
   GameFormatKey,
   MaterializedGamemodeConfig,
   TournamentRoster,
@@ -47,8 +47,6 @@ import type {
   TournamentTeam,
   WithdrawnUnit,
 } from './types';
-
-const MAX_ANONYMOUS_FINALISTS = 10;
 
 // Scores must be non-negative integers. Rejects (rather than truncates)
 // decimals so "5.7" doesn't silently become "5", and rejects negatives --
@@ -120,22 +118,14 @@ export function flagFinalGameAnonymous(state: TournamentState, gameNumber: numbe
   );
   if (alreadyScored) return state;
 
-  let anonymousFinalists = state.anonymousFinalists;
-  if (anonymousFinalists.length === 0) {
-    if (assignments.length === 0 || assignments.length > MAX_ANONYMOUS_FINALISTS) return state;
-    anonymousFinalists = assignments.map((assignment, index): AnonymousFinalist => ({
-      alias: `Finalist-${index + 1}`,
-      realKey: assignment.name,
-      connected: false,
-    }));
-  }
+  if (assignments.length === 0 || assignments.length > MAX_ANONYMOUS_FINALISTS) return state;
 
   const rounds = state.rounds.map((entry, index) =>
     index === roundIndex
       ? { ...entry, anonymousGames: [...(entry.anonymousGames ?? []), gameNumber] }
       : entry,
   );
-  return { ...state, rounds, anonymousFinalists };
+  return withFinalistAliasesForLineup({ ...state, rounds });
 }
 
 export function unflagFinalGameAnonymous(state: TournamentState, gameNumber: number): TournamentState {
@@ -1146,7 +1136,7 @@ export function withoutDrawnSchedule(state: TournamentState): TournamentState {
 }
 
 export function resetTournamentState(state: TournamentState): TournamentState {
-  return {
+  return withFinalistAliasesForLineup({
     ...state,
     scores: {},
     finalScores: {},
@@ -1166,5 +1156,5 @@ export function resetTournamentState(state: TournamentState): TournamentState {
     curRound: 0,
     reserveOpen: true,
     started: false,
-  };
+  });
 }

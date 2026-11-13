@@ -1,4 +1,5 @@
 import { hasBlockingAbsenceQuestions, PENDING_ABSENCES_MESSAGE } from './absences';
+import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import {
   computeGroupStandings,
   doubleEliminationComputeAdvancement,
@@ -658,6 +659,13 @@ function advanceFromStandings(
  * persistence and sync) are represented by the returned result/state.
  */
 export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
+  const result = advanceRound(input);
+  return result.status === 'advanced'
+    ? { ...result, state: withFinalistAliasesForLineup(result.state) }
+    : result;
+}
+
+function advanceRound(input: TournamentState): RoundAdvanceResult {
   if (usesDependencyPlay(input)) return advanceDependencyPlay(input);
   const roundIndex = input.curRound;
   const round = input.rounds[roundIndex];

@@ -26,6 +26,7 @@ import {
   parseMatchResultPoints,
   resolveTieMargin,
 } from './match-results';
+import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { matchFormatConfig } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
@@ -819,5 +820,5 @@ export function generateTournament(
       }
     }
   }
-  return { status: 'generated', state };
+  return { status: 'generated', state: withFinalistAliasesForLineup(state) };
 }

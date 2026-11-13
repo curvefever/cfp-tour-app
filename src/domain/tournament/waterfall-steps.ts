@@ -1,5 +1,6 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
 import { hasPendingTies, isUncontestedRoom } from './advancement';
+import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { currentUnit, replayBracketPools, routeWaterfallRound } from './bracket-replay';
 import { discardRoundDraws, lastDrawnIndex } from './redraw';
 import {
@@ -300,6 +301,10 @@ function reopenStep(state: TournamentState, index: number): TournamentState {
  * Elsewhere it goes to the column before.
  */
 export function goBack(state: TournamentState): TournamentState {
+  return withFinalistAliasesForLineup(stepBack(state));
+}
+
+function stepBack(state: TournamentState): TournamentState {
   if (!usesDependencyPlay(state)) {
     return { ...state, curRound: previousColumnStart(state) ?? state.curRound };
   }
