@@ -1,3 +1,4 @@
+import { ordinal } from '../../../lib/ordinal';
 import {
   ELIMINATED,
   QUAL_LABEL,
@@ -71,6 +72,9 @@ export function describeRankLabels(labels: readonly string[]): string {
     .join(' · ');
 }
 
+/** The caption above a field of the round editor. */
+export const fieldLabelClass = 'block text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase';
+
 /** A destination as shown to the organiser: a round label, or "out" for a null or eliminated one. */
 export function destinationName(destination: string | null): string {
   return destination === null || destination === ELIMINATED ? 'out' : destination;
@@ -84,10 +88,12 @@ export function formatRanks(ranks: number[]): string {
 /** "ranks 1–3 of each room" when every room sends the same ranks along an edge, otherwise a generic note. */
 export function describeFlowEdge(edge: WaterfallFlowEdge, roomCount: number): string {
   const perRoom = Array.from({ length: roomCount }, (_, room) => formatRanks(edge.ranksByRoom[room] ?? []));
-  if (perRoom.every((ranks) => ranks === perRoom[0])) {
-    return `ranks ${perRoom[0]}${roomCount > 1 ? ' of each room' : ''}`;
-  }
-  return 'ranks differ by room';
+  const best = edge.best ? `best ${edge.best.count} of the ${ordinal(edge.best.place)}s` : '';
+  if (perRoom.every((ranks) => ranks === '')) return best;
+  const ranks = perRoom.every((rank) => rank === perRoom[0])
+    ? `ranks ${perRoom[0]}${roomCount > 1 ? ' of each room' : ''}`
+    : 'ranks differ by room';
+  return best ? `${ranks} + ${best}` : ranks;
 }
 
 export interface RoundIntakeBadge {

@@ -6,17 +6,21 @@ import {
   MAX_WATERFALL_ROOM_SIZE,
   type WaterfallColumnChoices,
   type WaterfallDraft,
+  type WaterfallDraftBest,
   type WaterfallDraftRound,
   type WaterfallMatch,
   type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { Button, Input, Select } from '../../../components/ui';
+import { ordinal } from '../../../lib/ordinal';
 import { cn } from '../../../components/ui/cn';
+import { WaterfallBestField } from './WaterfallBestField';
 import {
   destinationColor,
   destinationName,
   formatRanks,
   describeRankLabels,
+  fieldLabelClass,
   standingsSourceName,
   slotKey,
 } from './waterfall-format';
@@ -37,13 +41,14 @@ export interface RoundEditorActions {
   onSetColumn: (column: number | null) => void;
   /** The round's own match format, or null for the default. */
   onSetMatch: (match: WaterfallMatch | null) => void;
+  /** The round's "Best of a place", or null to take it away. */
+  onSetBest: (best: WaterfallDraftBest | null) => void;
   onDelete: () => void;
   /** Shows more ranks in the qualification table (only offered while the head count isn't known). */
   onAddRanks?: () => void;
 }
 
 const MAX_ROUND_NAME_LENGTH = 30;
-const fieldLabelClass = 'block text-[0.72rem] font-semibold tracking-[0.08em] text-muted uppercase';
 
 /** Where the Column select gets its numbers; absent when the columns aren't shown. */
 export interface RoundColumnInfo {
@@ -353,6 +358,7 @@ function SlotGrid({
   picked,
   onPickSlot,
   slotTitles,
+  star,
 }: {
   draft: WaterfallDraft;
   slots: WaterfallSlotDestination[];
@@ -360,6 +366,8 @@ function SlotGrid({
   name: string;
   /** What each rank is (a tooltip on its slot), rank 1 first. */
   slotTitles?: readonly string[];
+  /** The rank the round's best of a place picks from: its slot carries a ★ and the line as its tooltip. */
+  star?: { rank: number; title: string };
   /** The summary line also says where the ranks that are out go: a room does, the qualification table's open tail doesn't. */
   summarizeOut: boolean;
   picked: ReadonlySet<string>;
@@ -377,6 +385,7 @@ function SlotGrid({
       <div className='flex flex-wrap gap-1.5'>
         {slots.map((destination, index) => {
           const rank = index + 1;
+          const starTitle = star?.rank === rank ? star.title : undefined;
           const isPicked = picked.has(slotKey(room, rank));
           const color = destinationColor(draft, destination);
           const className = cn(
@@ -389,13 +398,16 @@ function SlotGrid({
           };
           const content = (
             <>
-              <span className='text-base font-semibold tabular-nums'>{rank}</span>
+              <span className='text-base font-semibold tabular-nums'>
+                {rank}
+                {starTitle ? <span aria-hidden> ★</span> : null}
+              </span>
               <span className='max-w-13 truncate text-[0.65rem]' style={{ color }}>
                 {destinationName(destination)}
               </span>
             </>
           );
-          const title = slotTitles?.[index];
+          const title = starTitle ?? slotTitles?.[index];
           const label = `${name}, rank ${rank}${title ? ` (${title})` : ''}, ${slotDescription(destination)}`;
           // No onPickSlot (a read-only editor): a plain div, not a button --
           // out of the tab order and with no click/hover affordance at all,
@@ -424,6 +436,15 @@ function SlotGrid({
   );
 }
 
+/** The ★ of a round's best of a place: its rank, and what the line does. */
+function bestStar(best: WaterfallDraftBest | undefined): { rank: number; title: string } | undefined {
+  if (!best) return undefined;
+  return {
+    rank: best.place,
+    title: `Best ${best.count} of the ${ordinal(best.place)}s → ${best.destination}; the others follow this slot`,
+  };
+}
+
 function RoomSlots({
   draft,
   round,
@@ -445,6 +466,7 @@ function RoomSlots({
       picked={picked}
       room={room}
       slots={draft.routes[round.label]?.[room] ?? []}
+      star={bestStar(draft.best?.[round.label])}
       summarizeOut
     />
   );
@@ -606,6 +628,7 @@ export function WaterfallRoundEditor({
               showMirror
             />
           ) : null}
+          <WaterfallBestField draft={draft} onSetBest={actions?.onSetBest} round={round} />
           <p className='mt-3 text-sm text-muted'>A rank left as "out" is eliminated.</p>
           {Array.from({ length: round.roomCount }, (_, room) => (
             <RoomSlots

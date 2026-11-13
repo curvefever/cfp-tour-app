@@ -18,6 +18,7 @@ import {
   resizeWaterfallRound,
   serializeWaterfallDraft,
   setWaterfallColumn,
+  setWaterfallBest,
   setWaterfallMatch,
   setWaterfallFinal,
   setWaterfallRanking,
@@ -268,6 +269,7 @@ function DraftEditor({
     },
     onSetColumn: (column) => commit(setWaterfallColumn(draft, round.label, column)),
     onSetMatch: (match) => commit(setWaterfallMatch(draft, round.label, match)),
+    onSetBest: (best) => commit(setWaterfallBest(draft, round.label, best)),
     onAddRanks,
     onDelete: () => {
       const isDestination = (intake.incoming[round.label] ?? 0) > 0;

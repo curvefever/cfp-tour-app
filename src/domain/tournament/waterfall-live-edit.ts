@@ -114,9 +114,18 @@ function groupsLineSettings(
   };
 }
 
+/** The round with the edited "best of a place", or without one: the field is left out, never stored as undefined. */
+function withBestOf(round: TournamentRound, best: TournamentRound['waterfallBest']): TournamentRound {
+  const { waterfallBest: _previous, ...rest } = round;
+  return best ? { ...rest, waterfallBest: best } : rest;
+}
+
 /** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
 function rerouted(reachedRound: TournamentRound, spec: TournamentRound): TournamentRound {
-  const next = { ...reachedRound, waterfallRoutes: spec.waterfallRoutes, advTotal: spec.advTotal };
+  const next = withBestOf(
+    { ...reachedRound, waterfallRoutes: spec.waterfallRoutes, advTotal: spec.advTotal },
+    spec.waterfallBest,
+  );
   if (!reachedRound.declaredRooms) return next;
   const fitted = fitWaterfallRound(next, reachedRound.players);
   return 'error' in fitted ? next : fitted;
