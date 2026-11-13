@@ -38,7 +38,7 @@ import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
-import { buildAssignments, buildRound } from './test-fixtures';
+import { buildAssignments, buildRound, oneRoomState } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
@@ -2023,5 +2023,51 @@ describe('addWalkUpTeam', () => {
   it('refuses an individual format', () => {
     const state = createDefaultTournamentState({ gameFormat: 'ffa-individual', players: ['P1', 'P2'] });
     expect(addWalkUpTeam(state, newTeam)).toEqual({ status: 'blocked', reason: 'room-cap' });
+  });
+});
+
+describe('the name of a unit that left the tournament is not given to a new one', () => {
+  /** Round 1 in play with Ann and Bob recorded as withdrawn (a swap closes the window, so the records are written by hand). */
+  function withLeavers() {
+    const left = (name: string) => ({
+      name,
+      label: name,
+      members: null,
+      playedAnyMatch: false,
+      reason: 'removed' as const,
+    });
+    return {
+      ...oneRoomState({ players: ['Cy', 'Di', 'Ed', 'Fay'] }),
+      reserves: ['Xi'],
+      withdrawnUnits: [left('Ann'), left('Bob')],
+    };
+  }
+
+  it('refuses a rename to the name of a withdrawn unit', () => {
+    const state = withLeavers();
+    expect(renameIndividual(state, 'Cy', 'Ann')).toBe(state);
+    expect(renameIndividual(state, 'Cy', ' Bob ')).toBe(state);
+  });
+
+  it('refuses a swap to the name of a withdrawn unit, even one waiting on the bench', () => {
+    const state = { ...withLeavers(), reserves: ['Ann', 'Xi'] };
+    expect(swapIndividual(state, 'Cy', 'Ann')).toBe(state);
+  });
+
+  it('refuses a walk-up with the name of a withdrawn unit', () => {
+    expect(addWalkUpIndividual(withLeavers(), 'Ann')).toEqual({
+      status: 'blocked',
+      reason: 'withdrawn-name',
+    });
+    expect(addWalkUpIndividual(withLeavers(), 'Bob')).toEqual({
+      status: 'blocked',
+      reason: 'withdrawn-name',
+    });
+  });
+
+  it('still takes a swap to the name of a reserve, and a rename to a free name', () => {
+    const state = withLeavers();
+    expect(swapIndividual(state, 'Cy', 'Xi').players).toContain('Xi');
+    expect(renameIndividual(state, 'Cy', 'Cy2').players).toContain('Cy2');
   });
 });

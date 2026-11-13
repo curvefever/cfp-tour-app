@@ -36,6 +36,18 @@ export function isDisplayNameTaken(
   });
 }
 
+/** True when `name` (trimmed) is the name of a unit that left the tournament (a removal or a swap): a new unit may not reuse it. */
+export function isWithdrawnName(state: Pick<TournamentState, 'withdrawnUnits'>, name: string): boolean {
+  const trimmed = name.trim();
+  return state.withdrawnUnits.some((unit) => unit.name === trimmed);
+}
+
+/** What the organiser reads when a new player is given the name of one who left. */
+export function withdrawnNameMessage(name: string): string {
+  const trimmed = name.trim();
+  return `"${trimmed}" left this tournament earlier — a new player needs a different name (for example "${trimmed} 2").`;
+}
+
 /**
  * Names that appear more than once across `entries` (players/reserves
  * combined) -- for validating a freshly-parsed roster/reserves list before

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { replayBracketPools } from '../bracket-replay';
-import { removeRosterUnit, swapIndividual } from '../mutations';
+import { removeRosterUnit, renameIndividual, swapIndividual } from '../mutations';
 import { currentColumn } from '../round-columns';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
@@ -201,5 +201,17 @@ describe('the replay follows a withdrawal and a swap of a unit waiting in a far 
     expect(replayed?.map((seed) => seed.name)).toContain('Sub');
     expect(replayed?.map((seed) => seed.name)).not.toContain(name);
     playAndCheck(swapped);
+  });
+
+  it.each(SWAPPABLE)('%s: a renamed replacement keeps its seat in the replay', (_name, start) => {
+    const { state, destination, name } = playToFarPool(start());
+    const swapped = swapIndividual(state, name, 'Sub');
+    expect(swapped).not.toBe(state);
+    const renamed = renameIndividual(swapped, 'Sub', 'Sub2');
+    expect(poolOf(renamed, destination)).toContain('Sub2');
+    expect(expectReplayMatches(renamed)).toBeGreaterThan(0);
+    const replayed = replayBracketPools(renamed, currentColumn(renamed).start).pools.get(destination);
+    expect(replayed?.map((seed) => seed.name)).toContain('Sub2');
+    playAndCheck(renamed);
   });
 });

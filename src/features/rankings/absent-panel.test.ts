@@ -4,7 +4,12 @@ import {
   markOneScoreTeamMemberAbsent,
   oneScoreTeamMemberKey,
 } from '../../domain/tournament/absences';
-import { removeRosterUnit, setRoundScore, swapIndividual } from '../../domain/tournament/mutations';
+import {
+  removeRosterUnit,
+  renameIndividual,
+  setRoundScore,
+  swapIndividual,
+} from '../../domain/tournament/mutations';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { absentMatchRows, streakText, oneScoreTeamMarkChoices, oneScoreTeamMarkRows } from './absent-panel';
 import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
@@ -118,6 +123,16 @@ describe('absentMatchRows after a swap or a removal', () => {
     const rows = absentMatchRows(later);
     expect(rows.map((row) => `${row.label} · ${row.where}`)).toEqual(['Di · Round 2 · Room A']);
     expect(rows.map((row) => streakText(row.streak))).toEqual(['']);
+  });
+
+  it('keeps the inherited absence out after the replacement is renamed', () => {
+    const marked = answerAbsence(
+      oneRoomState({ players: four, scores: { 'r0-rm1-p0': 0, 'r0-rm1-p1': 50 } }),
+      ['r0-rm1-p0'],
+      'absent',
+    );
+    const swapped = swapIndividual(withReserve(marked), 'Ann', 'Zed');
+    expect(absentMatchRows(renameIndividual(swapped, 'Zed', 'Zed2'))).toEqual([]);
   });
 
   it('keeps the inherited absence out through a second swap in the same round', () => {

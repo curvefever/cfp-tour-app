@@ -19,7 +19,14 @@ import { computeRankings } from './rankings';
 import { renameInSchedule } from './rename-unit';
 import { validateRoomCap } from './room-distribution';
 import { roundInPlayOf } from './round-columns';
-import { findUnstorableNames, isDisplayNameTaken, rosterKeys, teamNames, unitDisplay } from './roster';
+import {
+  findUnstorableNames,
+  isDisplayNameTaken,
+  isWithdrawnName,
+  rosterKeys,
+  teamNames,
+  unitDisplay,
+} from './roster';
 import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import {
@@ -210,6 +217,7 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
   const players = state.players as string[];
   const reserves = state.reserves as string[];
   if (players.includes(trimmed) || reserves.includes(trimmed)) return state;
+  if (isWithdrawnName(state, trimmed)) return state;
   if (findUnstorableNames([trimmed]).length) return state;
   const rename = (name: string) => (name === oldName ? trimmed : name);
   const finalScores: TournamentState['finalScores'] = {};
@@ -329,6 +337,7 @@ export type ReserveAddResult =
         | 'strict-room'
         | 'room-cap'
         | 'duplicate-name'
+        | 'withdrawn-name'
         | 'no-members'
         | 'unstorable-name';
     }
@@ -538,6 +547,7 @@ export function addWalkUpIndividual(
   if ((state.players as string[]).includes(trimmed) || (state.reserves as string[]).includes(trimmed)) {
     return { status: 'blocked', reason: 'duplicate-name' };
   }
+  if (isWithdrawnName(state, trimmed)) return { status: 'blocked', reason: 'withdrawn-name' };
   if (findUnstorableNames([trimmed]).length) return { status: 'blocked', reason: 'unstorable-name' };
   const withReserve = { ...state, reserves: [...(state.reserves as string[]), trimmed] };
   return benchIfSwappable(state, withReserve, addReserveUnit(withReserve, trimmed, options, runtime));
@@ -945,6 +955,7 @@ export function swapIndividual(state: TournamentState, oldName: string, newName:
   if (
     !trimmed ||
     players.includes(trimmed) ||
+    isWithdrawnName(state, trimmed) ||
     findUnstorableNames([trimmed]).length ||
     !swapWindowOpen(state)
   ) {

@@ -23,10 +23,12 @@ import {
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
   isDisplayNameTaken,
+  isWithdrawnName,
   rosterKeys,
   teamNames,
   unitDisplay,
   unstorableNamesMessage,
+  withdrawnNameMessage,
 } from '../../domain/tournament/roster';
 import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
@@ -112,6 +114,7 @@ function handleReserveResult(
     'duplicate-name': isTeamFormat(state)
       ? `A team called "${label}" is already registered — pick a different name.`
       : 'A player with that name is already registered — pick a different name.',
+    'withdrawn-name': withdrawnNameMessage(label),
     'no-members': noMembersMessage(label),
     'unstorable-name': unstorableNamesMessage(names),
   };
@@ -175,6 +178,10 @@ function renamePlayer(state: TournamentState, name: string, apply: UpdateState) 
     window.alert(`"${value.trim()}" is already registered — pick a different name.`);
     return;
   }
+  if (isWithdrawnName(state, value)) {
+    window.alert(withdrawnNameMessage(value));
+    return;
+  }
   apply((current) => renameIndividual(current, name, value));
 }
 
@@ -187,6 +194,10 @@ export function swapPlayer(state: TournamentState, name: string, apply: UpdateSt
   // effect, so that case is not blocked.
   if ((state.players as string[]).includes(value.trim())) {
     window.alert(`"${value.trim()}" is already registered — pick a different name.`);
+    return;
+  }
+  if (isWithdrawnName(state, value)) {
+    window.alert(withdrawnNameMessage(value));
     return;
   }
   applySwap(state, apply, (current) => swapIndividual(current, name, value), name);

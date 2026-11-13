@@ -40,7 +40,8 @@ function renameRound(round: TournamentRound, rename: Rename): TournamentRound {
 
 /**
  * Every place the schedule stores a unit's name, renamed: rounds, assignments, byes, bracket seats waiting for a
- * later round, groups, room history and anonymous finalists. A name left behind in any of them comes back as a
+ * later round, groups, room history, anonymous finalists and the unit a withdrawal record says took the seat
+ * (`withdrawnUnits[].replacedBy`; the withdrawn unit's own name stays, it is not on the roster). A name left behind in any of them comes back as a
  * player who is no longer on the roster, so a rename must reach all of them.
  */
 export function renameInSchedule(
@@ -59,6 +60,7 @@ export function renameInSchedule(
   | 'groupStandings'
   | 'luckyLosers'
   | 'anonymousFinalists'
+  | 'withdrawnUnits'
 > {
   return {
     rounds: state.rounds.map((round) => renameRound(round, rename)),
@@ -85,5 +87,8 @@ export function renameInSchedule(
       ...finalist,
       realKey: rename(finalist.realKey),
     })),
+    withdrawnUnits: state.withdrawnUnits.map((unit) =>
+      unit.replacedBy === undefined ? unit : { ...unit, replacedBy: rename(unit.replacedBy) },
+    ),
   };
 }

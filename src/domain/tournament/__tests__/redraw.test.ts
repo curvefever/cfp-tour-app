@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { removeRosterUnit, swapIndividual, swapWindowOpen } from '../mutations';
+import { removeRosterUnit, renameIndividual, swapIndividual, swapWindowOpen } from '../mutations';
 import { discardDrawsAfter, drawnAheadStatus } from '../redraw';
 import { currentColumn, nextColumnStart, previousColumnStart } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
@@ -570,6 +570,19 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       expect(swap(back(first))).not.toEqual(back(first));
       expectSameAsAdvancingFromChanged(atRound, swap, null);
     });
+
+    it.each(SWAPPABLE)(
+      '$name: a swapped unit is renamed, so Previous and Next Round re-draw alike',
+      ({ start }) => {
+        const atRound = playUntil(start(), 0, keepsSwapWindowOpen);
+        const first = advanceOk(scoreRound(atRound, 0, false));
+        const name = farPoolUnit(first)?.name as string;
+        const swapAndRename = (state: TournamentState) =>
+          renameIndividual(swapIndividual(state, name, 'Sub'), 'Sub', 'Sub2');
+        expect(swapAndRename(back(first))).not.toEqual(back(first));
+        expectSameAsAdvancingFromChanged(atRound, swapAndRename, null);
+      },
+    );
 
     it.each(REDRAW_STOPS.filter(({ first }) => first))(
       '$name: a unit drawn into the next round withdraws, so the re-advance fits it short',
