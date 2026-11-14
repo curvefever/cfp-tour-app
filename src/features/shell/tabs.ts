@@ -29,12 +29,20 @@ function hasStarted(phase: TournamentPhase | null): boolean {
 }
 
 /**
- * Whether the draw (Bracket and the standings tab) is shown: to everyone once the tournament has started, and to an
- * admin as soon as the schedule is generated, to check it before Confirm & Start. A viewer never sees a draw before
- * the start.
+ * Whether the draw (the standings tab, and the Bracket with names) is shown: to everyone once the tournament has
+ * started, and to an admin as soon as the schedule is generated, to check it before Confirm & Start. A viewer never
+ * sees a draw before the start.
  */
 function showsDraw({ canAdmin, phase, scheduleDrawn }: TabContext): boolean {
   return hasStarted(phase) || (canAdmin && phase !== null && scheduleDrawn);
+}
+
+/**
+ * Whether a viewer sees the Bracket's shape, without names, before the start: a published tournament (upcoming or
+ * starting soon, never a draft) whose schedule is generated.
+ */
+function showsBracketPreview({ phase, scheduleDrawn }: TabContext): boolean {
+  return (phase === 'upcoming' || phase === 'starting-soon') && scheduleDrawn;
 }
 
 function isAvailable(tab: ActiveTab, context: TabContext): boolean {
@@ -47,7 +55,7 @@ function isAvailable(tab: ActiveTab, context: TabContext): boolean {
     case 'rankings':
       return context.phase !== null;
     case 'bracket':
-      return showsDraw(context);
+      return showsDraw(context) || showsBracketPreview(context);
     case 'standings':
       return showsDraw(context) && context.standingsTitle !== null;
   }

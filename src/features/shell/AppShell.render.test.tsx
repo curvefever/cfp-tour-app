@@ -951,3 +951,50 @@ describe('Bracket tab, the round settings of a double elimination wave box', () 
     expect(within(view.getByRole('tooltip')).getByText('Zap')).toBeTruthy();
   });
 });
+
+describe('Bracket tab, the preview before the start', () => {
+  const published = () => {
+    const fixture = fixtureTournaments().find((candidate) => candidate.id === 'published-upper-lower-37');
+    if (!fixture) throw new Error('the published fixture is missing');
+    return fixture;
+  };
+  const NOTE = 'Bracket preview: players are placed in rooms when the tournament starts.';
+  const bracketSection = (view: ReturnType<typeof renderApp>) =>
+    view.container.querySelector('#br-content') as HTMLElement;
+
+  it('shows a viewer the shape of a published tournament: the note, no name, and Round 1 as empty seats', () => {
+    const fixture = published();
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+    const section = bracketSection(view);
+
+    expect(view.queryByText(FALLBACK)).toBeNull();
+    expect(within(section).getByText(NOTE)).toBeTruthy();
+    expect(section.textContent).not.toMatch(/Player \d\d/);
+    expect(within(section).queryByText('Nobody reached this round.')).toBeNull();
+    expect(view.queryByPlaceholderText('Follow a player or team…')).toBeNull();
+
+    const roundOne = view.getAllByRole('heading', { name: 'Round 1' })[0].closest('[data-round-column]');
+    const seats = within(roundOne as HTMLElement).getAllByText('—');
+    expect(seats).toHaveLength(fixture.state.rounds[0].rooms.reduce((total, size) => total + size, 0));
+    const roomSizes = fixture.state.rounds[0].rooms;
+    expect(roomSizes.length).toBeGreaterThan(1);
+  });
+
+  it('keeps the slot labels of the later rounds', () => {
+    const view = renderApp(published(), { role: 'viewer', tab: 'bracket' });
+    expect(within(bracketSection(view)).getAllByText(/^Round 1 · \d/).length).toBeGreaterThan(0);
+  });
+
+  it('shows an admin the same tournament with its names and no preview note', () => {
+    const view = renderApp(published(), { role: 'admin', tab: 'bracket' });
+    const section = bracketSection(view);
+
+    expect(within(section).queryByText(NOTE)).toBeNull();
+    expect(section.textContent).toMatch(/Player \d\d/);
+  });
+
+  it('shows a viewer no Standings tab before the start', () => {
+    const view = renderApp(published(), { role: 'viewer', tab: 'bracket' });
+    expect(view.queryByRole('button', { name: 'Qualification' })).toBeNull();
+  });
+});

@@ -121,7 +121,7 @@ export function PlaceholderRound({
       </>
     );
   }
-  if (round.isGroupStage) {
+  if (round.isGroupStage && round.matches) {
     return (
       <>
         {(round.matches ?? []).map((match, roomIndex) => (

@@ -188,6 +188,7 @@ export function BracketRounds({
   onToggleStandings,
   onOpenFullTable,
   showSettings = true,
+  preview = false,
 }: {
   state: TournamentState;
   labels: ReturnType<typeof bracketRoundLabels>;
@@ -203,9 +204,11 @@ export function BracketRounds({
   onOpenFullTable?: () => void;
   /** Whether the round settings bands show; off, a round with a note has a button on its title bar instead. */
   showSettings?: boolean;
+  /** The draw-free preview before the start: `state` names no unit in a round, and the standings column is left out. */
+  preview?: boolean;
 }) {
   const boxes = bracketBoxes(state);
-  const standings = useMemo(() => describeStandings(state), [state]);
+  const standings = useMemo(() => (preview ? null : describeStandings(state)), [preview, state]);
   const { pick, selectPick } = useStripPick(state, standings !== null);
   const stripItems = roundStrip(state, standings);
   const boxShown = (boxIndex: number) => pick.kind === 'box' && pick.index === boxIndex;
@@ -257,6 +260,7 @@ export function BracketRounds({
           expected={expectedDraw?.get(roundIndex) ?? null}
           finalTab={roundIndex === finalRoundIndex ? finalTab : undefined}
           onFinalTabChange={roundIndex === finalRoundIndex ? setFinalTabOverride : undefined}
+          preview={preview}
         />
       </RoundColumn>
     );
@@ -288,6 +292,7 @@ export function BracketRounds({
       projected={projectedSlots[roundIndex] ?? null}
       labels={labels}
       expected={expectedDraw?.get(roundIndex) ?? null}
+      preview={preview}
     />
   );
   /** A further round stacked in a column, under a title bar of its own (name and games, no NOW pill, no fold). */

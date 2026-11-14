@@ -46,6 +46,7 @@ export function RoundBody({
   expected = null,
   finalTab,
   onFinalTabChange,
+  preview = false,
 }: {
   state: TournamentState;
   roundIndex: number;
@@ -57,12 +58,14 @@ export function RoundBody({
   expected?: ExpectedRound | null;
   finalTab?: number;
   onFinalTabChange?: (tab: number) => void;
+  /** The draw-free preview before the start (`draw-preview.ts`): a round nobody sits in yet shows its empty seats. */
+  preview?: boolean;
 }) {
   const round = state.rounds[roundIndex];
   const assignments = state.assignments[roundIndex] ?? [];
   if (!assignments.length) {
     // A round already reached with nobody in it (a removal left it no units).
-    if (isRoundReached(state, roundIndex))
+    if (!preview && isRoundReached(state, roundIndex))
       return <div className='text-sm text-muted'>Nobody reached this round.</div>;
     return (
       <>
@@ -74,7 +77,7 @@ export function RoundBody({
           labels={labels}
           expected={expected}
         />
-        {roundIndex === nextColumnStart(state) && !usesDependencyPlay(state) ? (
+        {!preview && roundIndex === nextColumnStart(state) && !usesDependencyPlay(state) ? (
           <JoiningPanel state={state} />
         ) : null}
       </>

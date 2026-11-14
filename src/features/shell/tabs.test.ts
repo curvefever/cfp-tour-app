@@ -23,15 +23,30 @@ describe('visibleTabs', () => {
     expect(keys({ canAdmin: true })).toEqual(['tournaments', 'admin']);
   });
 
-  it('shows a viewer Info and Players, but no Bracket or Standings, before the start, even with a drawn schedule', () => {
-    for (const phase of ['draft', 'upcoming', 'starting-soon'] as TournamentPhase[]) {
-      for (const scheduleDrawn of [false, true]) {
-        expect(keys({ phase, standingsTitle: 'Qualification', scheduleDrawn })).toEqual([
-          'tournaments',
-          'info',
-          'rankings',
-        ]);
-      }
+  it('shows a viewer the Bracket, without Standings, before the start once the schedule is drawn', () => {
+    for (const phase of ['upcoming', 'starting-soon'] as TournamentPhase[]) {
+      expect(keys({ phase, standingsTitle: 'Qualification', scheduleDrawn: true })).toEqual([
+        'tournaments',
+        'info',
+        'bracket',
+        'rankings',
+      ]);
+    }
+  });
+
+  it('shows a viewer no Bracket or Standings in a draft, or before the schedule has rounds', () => {
+    const cases: Array<[TournamentPhase, boolean]> = [
+      ['draft', false],
+      ['draft', true],
+      ['upcoming', false],
+      ['starting-soon', false],
+    ];
+    for (const [phase, scheduleDrawn] of cases) {
+      expect(keys({ phase, standingsTitle: 'Qualification', scheduleDrawn })).toEqual([
+        'tournaments',
+        'info',
+        'rankings',
+      ]);
     }
   });
 
@@ -115,9 +130,10 @@ describe('effectiveTab', () => {
     expect(effectiveTab('admin', context({ phase: 'upcoming' }))).toBe('info');
   });
 
-  it('shows Info for a stored Bracket tab before the tournament starts', () => {
+  it('shows Info for a stored Bracket tab before the tournament starts, until a viewer can see its shape', () => {
     expect(effectiveTab('bracket', context({ phase: 'starting-soon' }))).toBe('info');
-    expect(effectiveTab('bracket', context({ phase: 'starting-soon', scheduleDrawn: true }))).toBe('info');
+    expect(effectiveTab('bracket', context({ phase: 'draft', scheduleDrawn: true }))).toBe('info');
+    expect(effectiveTab('bracket', context({ phase: 'starting-soon', scheduleDrawn: true }))).toBe('bracket');
   });
 
   it('keeps a stored Bracket or Standings tab for an admin once the schedule is drawn', () => {
@@ -130,6 +146,9 @@ describe('effectiveTab', () => {
   it('shows Bracket for a stored Standings tab without a standings phase', () => {
     expect(effectiveTab('standings', context({ phase: 'ongoing' }))).toBe('bracket');
     expect(effectiveTab('standings', context({ phase: 'upcoming' }))).toBe('info');
+    // A viewer before the start has the Bracket's shape but no Standings.
+    const preview = context({ phase: 'upcoming', standingsTitle: 'Swiss', scheduleDrawn: true });
+    expect(effectiveTab('standings', preview)).toBe('bracket');
   });
 
   it('passes every available tab through', () => {

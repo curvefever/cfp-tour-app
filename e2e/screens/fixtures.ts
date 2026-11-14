@@ -857,6 +857,17 @@ function upcomingTeams(): TournamentState {
   });
 }
 
+/** A published Custom bracket (qualification table, then the upper and lower graph) at 37 players, generated and not started: a viewer sees its shape without names. */
+function publishedUpperLower37(): TournamentState {
+  const state = generate(37, {
+    scheduleLogic: 'waterfall-bracket',
+    poolingPhase: 'qual-table',
+    qualAdv: '99',
+    waterfallGraph: UPPER_LOWER_GRAPH,
+  });
+  return { ...state, started: false };
+}
+
 /** A generated schedule that is not started yet: what an admin has between Generate and Confirm & Start. */
 function drawnFfa31(): TournamentState {
   return { ...ffa37Like(31), started: false };
@@ -955,6 +966,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     }),
     entry('upcoming-teams-13', upcomingTeams(), { setup: TEAMS_2V2_SETUP, tabs: ['Info', 'Players'] }),
     entry('drawn-ffa-31', drawnFfa31(), { tabs: ['Info', 'Players'] }),
+    entry('published-upper-lower-37', publishedUpperLower37(), { tabs: ['Bracket'] }),
   ];
 }
 

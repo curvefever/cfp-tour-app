@@ -371,15 +371,10 @@ test.describe('screenshots of the viewer tabs', () => {
           if (tab === 'Bracket' && width === WIDTHS[0]) {
             await captureFullBracket(page, fixture.id, 'bracket-full', width);
             // The "?" (and the notes icon before it) sit at the far right of the follow row.
-            const rightGap = await page.locator('#br-follow-input').evaluate((input) => {
-              // The row is the input's nearest ancestor holding the "?" (the input sits in a wrapper with its ✕).
-              const helpSelector = '[aria-label="How to read the bracket"]';
-              let row = input.parentElement;
-              while (row && !row.querySelector(helpSelector)) row = row.parentElement;
-              const help = row?.querySelector(helpSelector);
-              return row && help
-                ? row.getBoundingClientRect().right - help.getBoundingClientRect().right
-                : null;
+            const rightGap = await page.locator('[aria-label="How to read the bracket"]').evaluate((help) => {
+              // The row holds the follow box and the icons (the preview before the start has the icons alone): the toolbar's parent.
+              const row = help.parentElement?.parentElement;
+              return row ? row.getBoundingClientRect().right - help.getBoundingClientRect().right : null;
             });
             expect(rightGap, 'the "?" is at the right edge of the follow row').not.toBeNull();
             expect(rightGap ?? 99).toBeLessThanOrEqual(4);

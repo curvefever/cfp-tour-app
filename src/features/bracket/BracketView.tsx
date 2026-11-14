@@ -39,6 +39,7 @@ import { incompleteRoomsMessage, unscoredRoomsMessage } from './next-round-warni
 import { nextRoundLine, reopenedNote } from './next-round-line';
 import { hasRoundNotes } from './title-bar-marks';
 import { usePanelSpace } from './use-panel-space';
+import { isDrawPreview, withoutDraw } from './draw-preview';
 
 export function BracketView() {
   const app = useTournamentApp();
@@ -65,10 +66,14 @@ export function BracketView() {
     setCollapse({});
     setStandingsCollapsed(false);
   }, [app.state.tournamentId]);
-  const follow = useMemo(() => bracketFollowStatus(app.state, followKey), [app.state, followKey]);
-  const labels = bracketRoundLabels(app.state);
-  const projectedSlots = useMemo(() => projectFutureRoundSlots(app.state), [app.state]);
-  const expectedDraw = useMemo(() => expectedRounds(app.state), [app.state]);
+  // Before the start a viewer sees the shape without names: everything below is read from a draw-free copy.
+  const preview = isDrawPreview(app.state, app.isViewer);
+  const shown = useMemo(() => (preview ? withoutDraw(app.state) : app.state), [app.state, preview]);
+  const shownFollowKey = preview ? null : followKey;
+  const follow = useMemo(() => bracketFollowStatus(shown, shownFollowKey), [shown, shownFollowKey]);
+  const labels = bracketRoundLabels(shown);
+  const projectedSlots = useMemo(() => projectFutureRoundSlots(shown), [shown]);
+  const expectedDraw = useMemo(() => (preview ? null : expectedRounds(app.state)), [app.state, preview]);
   if (!app.state.rounds.length) {
     return (
       <>
@@ -127,37 +132,46 @@ export function BracketView() {
   return (
     <div id='br-content' style={panelSpace.style}>
       <PageHeading label='Bracket' title={title} />
+      {preview ? (
+        <div className='mb-4.5 rounded-xs bg-cfp-game-deep px-3.5 py-2.5 text-sm text-muted outline-2 outline-cfp-game-frame'>
+          Bracket preview: players are placed in rooms when the tournament starts.
+        </div>
+      ) : null}
       <div className='relative mb-4.5 flex flex-wrap items-center gap-2.5'>
-        <label className='sr-only' htmlFor='br-follow-input'>
-          Follow a player
-        </label>
-        <span className='relative w-60 max-[700px]:w-auto max-[700px]:min-w-0 max-[700px]:flex-1'>
-          <Input
-            className='h-11 w-full rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep pr-11 text-[15px] font-semibold'
-            id='br-follow-input'
-            placeholder='Follow a player or team…'
-            type='text'
-            value={query}
-            onChange={(event) => chooseFollow(event.target.value)}
-          />
-          {query ? (
-            <button
-              aria-label='Stop following'
-              className='absolute top-0 right-0 flex size-11 cursor-pointer items-center justify-center text-[18px] text-muted hover:text-foreground'
-              onClick={() => chooseFollow('')}
-              title='Stop following'
-              type='button'
-            >
-              ✕
-            </button>
-          ) : null}
-        </span>
-        <FollowBanner
-          className='max-[700px]:order-last max-[700px]:basis-full'
-          state={app.state}
-          followKey={followKey}
-          follow={follow}
-        />
+        {preview ? null : (
+          <>
+            <label className='sr-only' htmlFor='br-follow-input'>
+              Follow a player
+            </label>
+            <span className='relative w-60 max-[700px]:w-auto max-[700px]:min-w-0 max-[700px]:flex-1'>
+              <Input
+                className='h-11 w-full rounded-xs border-2 border-cfp-game-frame bg-cfp-game-deep pr-11 text-[15px] font-semibold'
+                id='br-follow-input'
+                placeholder='Follow a player or team…'
+                type='text'
+                value={query}
+                onChange={(event) => chooseFollow(event.target.value)}
+              />
+              {query ? (
+                <button
+                  aria-label='Stop following'
+                  className='absolute top-0 right-0 flex size-11 cursor-pointer items-center justify-center text-[18px] text-muted hover:text-foreground'
+                  onClick={() => chooseFollow('')}
+                  title='Stop following'
+                  type='button'
+                >
+                  ✕
+                </button>
+              ) : null}
+            </span>
+            <FollowBanner
+              className='max-[700px]:order-last max-[700px]:basis-full'
+              state={app.state}
+              followKey={followKey}
+              follow={follow}
+            />
+          </>
+        )}
         <div className='ml-auto flex'>
           {hasRoundNotes(app.state) ? (
             <RoundSettingsToggle shown={settingsShown} onToggle={toggleSettings} />
@@ -178,12 +192,13 @@ export function BracketView() {
         </div>
       ) : null}
       <BracketRounds
-        state={app.state}
+        state={shown}
         labels={labels}
         projectedSlots={projectedSlots}
         expectedDraw={expectedDraw}
         editable={editable}
-        followKey={followKey}
+        followKey={shownFollowKey}
+        preview={preview}
         collapse={collapse}
         onToggleCollapse={(roundIndex, collapsed) =>
           setCollapse((current) => ({ ...current, [roundIndex]: !collapsed }))
