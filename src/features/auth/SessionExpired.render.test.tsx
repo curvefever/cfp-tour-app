@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
-import { renderApp, type AppRole } from '../shell/test-app';
+import { renderApp, settle, type AppRole } from '../shell/test-app';
 import { Role, type SessionCheck } from './auth.shared';
 import { signalSessionExpired } from './session-expired-signal';
 
@@ -63,7 +63,7 @@ afterEach(cleanup);
 
 /**
  * Types credentials into the open dialog and submits them; CFP accepts them as a Tour Host. The sign-in
- * settles over several awaits and state updates, so each test waits for its own outcome with `waitFor`.
+ * settles over several awaits and state updates, so each test lets them settle (`settle`) before it looks.
  */
 function submitSignIn(view: ReturnType<typeof renderTab>) {
   api.postJSON.mockResolvedValueOnce({ username: 'Host', roles: [Role.TOUR_HOST], accessToken: 'new' });
@@ -109,10 +109,9 @@ describe('the expired-session banner and dialog', () => {
     expire();
     submitSignIn(view);
     // Closing the dialog and `unlockAdmin` (were it called) happen in the same handler.
-    await waitFor(() => {
-      expect(view.queryByText(DIALOG)).toBeNull();
-      expect(view.queryByText(BANNER)).toBeNull();
-    });
+    await settle();
+    expect(view.queryByText(DIALOG)).toBeNull();
+    expect(view.queryByText(BANNER)).toBeNull();
     expect(unlockAdmin).not.toHaveBeenCalled();
   });
 
@@ -125,7 +124,8 @@ describe('the expired-session banner and dialog', () => {
     });
     fireEvent.click(view.getByRole('button', { name: 'Log in as admin' }));
     submitSignIn(view);
-    await waitFor(() => expect(unlockAdmin).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(unlockAdmin).toHaveBeenCalledTimes(1);
     expect(view.queryByText(DIALOG)).toBeNull();
   });
 
@@ -135,7 +135,8 @@ describe('the expired-session banner and dialog', () => {
     act(() => {
       window.dispatchEvent(new Event('focus'));
     });
-    await waitFor(() => expect(view.queryByText(BANNER)).not.toBeNull());
+    await settle();
+    expect(view.queryByText(BANNER)).not.toBeNull();
   });
 
   it('ignores a proactive check that answers unknown', async () => {
@@ -144,8 +145,8 @@ describe('the expired-session banner and dialog', () => {
     act(() => {
       window.dispatchEvent(new Event('focus'));
     });
-    await waitFor(() => expect(sessionCheck.asks).toBe(1));
-    await act(() => Promise.resolve());
+    await settle();
+    expect(sessionCheck.asks).toBe(1);
     expect(view.queryByText(BANNER)).toBeNull();
   });
 

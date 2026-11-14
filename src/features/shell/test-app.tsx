@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab } from '../../domain/tournament/types';
@@ -18,6 +18,17 @@ import { tabContextFor, visibleTabs } from './tabs';
 /** Test helpers: render the real `AppShell` for a fixture tournament, without Firebase, sync or server functions. */
 
 export type AppRole = 'viewer' | 'admin';
+
+/**
+ * Lets every promise already in flight settle (a mock that resolves, and what its `.then` chains cause) and React
+ * apply the updates they make. It waits for one turn of the event loop, never for a time limit, so a slow machine
+ * cannot make it give up: use it instead of `waitFor` when the only thing awaited is mocked promises.
+ */
+export async function settle(): Promise<void> {
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
+}
 
 const ADMIN_AUTH: AuthSnapshot = {
   roles: [Role.TOUR_HOST],

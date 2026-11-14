@@ -184,7 +184,7 @@ async function expectPhoneInfo(page: Page, fixture: FixtureTournament): Promise<
   expect(exitBox?.height ?? 0, 'Exit is a 44 px target').toBeGreaterThanOrEqual(44);
   expect(exitBox?.width ?? 999, 'Exit keeps its own width').toBeLessThan(300);
   if (!fixture.screenshotIds?.length) return;
-  const thumbs = await page.getByRole('button', { name: 'Lobby screenshot' }).evaluateAll((elements) =>
+  const thumbs = await page.getByRole('button', { name: 'Screenshot', exact: true }).evaluateAll((elements) =>
     elements.map((element) => {
       const { top, width, height } = element.getBoundingClientRect();
       return { top, width, height };
@@ -667,7 +667,7 @@ test.describe('screenshots of the viewer tabs', () => {
         return name;
       };
       await openBracket(page, fixture.id, WIDTHS[1]);
-      await page.getByRole('tab', { name: /R6R/ }).click();
+      await page.getByRole('tab', { name: /R6L/ }).click();
       await expect(page.getByText('EXPECTED', { exact: true }).filter({ visible: true })).toHaveCount(2);
       for (const label of ['R6L', 'R6R']) {
         await expect(page.getByText(unitOf(label), { exact: true }).filter({ visible: true })).toHaveCount(1);

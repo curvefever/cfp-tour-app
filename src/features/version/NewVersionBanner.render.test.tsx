@@ -2,7 +2,7 @@
 import { act, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
-import { renderApp, type AppRole } from '../shell/test-app';
+import { renderApp, settle, type AppRole } from '../shell/test-app';
 import { TOUR_BUILD_ID } from './build-id';
 
 // A plain function, not `vi.fn`: its result tracking leaves a rejected promise unhandled.
@@ -37,11 +37,12 @@ globalThis.ResizeObserver ??= class {
 const BANNER = 'A new version is live — reload to keep editing.';
 
 /** Fires the window's focus event and lets the resulting ask settle. */
-const focusWindow = () =>
+const focusWindow = async () => {
   act(() => {
     window.dispatchEvent(new Event('focus'));
-    return Promise.resolve();
   });
+  await settle();
+};
 
 function renderTab(role: AppRole) {
   const view = renderApp(fixtureTournaments()[0], { role, tab: 'info' });
