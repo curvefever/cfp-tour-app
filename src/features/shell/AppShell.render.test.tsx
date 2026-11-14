@@ -993,6 +993,25 @@ describe('Bracket tab, the preview before the start', () => {
     expect(section.textContent).toMatch(/Player \d\d/);
   });
 
+  it('shows a viewer a group stage as empty seats, not its drawn pairings', () => {
+    const fixture = fixtureTournaments().find((candidate) => candidate.id === 'published-groups-1v1-13');
+    if (!fixture) throw new Error('the published group stage fixture is missing');
+    const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+    const section = bracketSection(view);
+
+    expect(view.queryByText(FALLBACK)).toBeNull();
+    expect(section.textContent).not.toMatch(/Player \d\d/);
+    const roundOne = view.getAllByRole('heading', { name: 'Round 1' })[0].closest('[data-round-column]');
+    const seats = within(roundOne as HTMLElement).getAllByText('—');
+    const [first] = fixture.state.rounds;
+    expect(first.matches?.length).toBeGreaterThan(1);
+    expect(seats).toHaveLength(first.rooms.reduce((total, size) => total + size, 0));
+    cleanup();
+    expect(renderApp(fixture, { role: 'admin', tab: 'bracket' }).container.textContent).toMatch(
+      /Player \d\d/,
+    );
+  });
+
   it('shows a viewer no Standings tab before the start', () => {
     const view = renderApp(published(), { role: 'viewer', tab: 'bracket' });
     expect(view.queryByRole('button', { name: 'Qualification' })).toBeNull();

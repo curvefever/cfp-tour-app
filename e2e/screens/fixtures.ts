@@ -868,6 +868,19 @@ function publishedUpperLower37(): TournamentState {
   return { ...state, started: false };
 }
 
+/** A published 1v1 group stage of 13 (odd, so groups have byes), generated and not started: its first round's pairings are drawn, and a viewer must not see them. */
+function publishedGroupStage13(): TournamentState {
+  const state = generate(13, {
+    gameFormat: 'individual-1v1',
+    poolingPhase: 'group-stage',
+    groupSize: '4',
+    qualifiersPerGroup: '2',
+    oddCountStrategy: 'bye',
+    scheduleLogic: 'single-elimination',
+  });
+  return { ...state, started: false };
+}
+
 /** A generated schedule that is not started yet: what an admin has between Generate and Confirm & Start. */
 function drawnFfa31(): TournamentState {
   return { ...ffa37Like(31), started: false };
@@ -967,6 +980,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('upcoming-teams-13', upcomingTeams(), { setup: TEAMS_2V2_SETUP, tabs: ['Info', 'Players'] }),
     entry('drawn-ffa-31', drawnFfa31(), { tabs: ['Info', 'Players'] }),
     entry('published-upper-lower-37', publishedUpperLower37(), { tabs: ['Bracket'] }),
+    entry('published-groups-1v1-13', publishedGroupStage13(), { tabs: ['Bracket'] }),
   ];
 }
 
