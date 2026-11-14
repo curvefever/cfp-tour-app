@@ -229,6 +229,24 @@ describe('the worked example: 2v2v2v2 31, round 1', () => {
     ]);
     expect(fairCutAdvancement(tied, index).luckyNames).toEqual(['R1P3']);
   });
+
+  it('lists two lucky losers with exactly the same relative score by room, the lower room first', () => {
+    // Three rooms of 4, 8 advance: places 1-2 through, two lucky spots at 3rd. Rooms 2 and 3 tie on 0.8, room 1 is behind.
+    const base = generate('2v2v2v2 17', 17, SE_2V2V2V2);
+    const index = firstEliminationIndex(base);
+    const shaped = withRoundShape(base, index, { rooms: [4, 4, 4], advTotal: 8 });
+    const tied = seatedAndScored(shaped, index, [
+      [40, 35, 10, 5],
+      [40, 30, 20, 10],
+      [40, 30, 20, 10],
+    ]);
+    const result = fairCutAdvancement(tied, index);
+    expect(result.luckyNames).toEqual(['R2P3', 'R3P3']);
+    expect(result.advancing.filter((entry) => entry.isLucky).map((entry) => entry.name)).toEqual([
+      'R2P3',
+      'R3P3',
+    ]);
+  });
 });
 
 describe('the spare-cut contest', () => {
