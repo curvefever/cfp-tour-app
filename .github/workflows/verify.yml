@@ -31,14 +31,14 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
 
-      # The same Node as the Docker image (node:22-alpine) and the pnpm that package.json asks for, through corepack.
-      - name: Enable pnpm
-        run: corepack enable
-
+      # As the Dockerfile does it: the same Node as the Docker image (node:22-alpine) first, then the pnpm that
+      # package.json asks for, through that Node's corepack. No dependency cache: an install is a few minutes.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
+
+      - name: Enable pnpm
+        run: corepack enable
 
       - name: Install
         run: pnpm install --frozen-lockfile
