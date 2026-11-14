@@ -2,8 +2,8 @@ import { ordinal } from '../../lib/ordinal';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { lastAssignedRound } from './rankings';
-import { snakeSeed } from './seeding';
-import type { TournamentRound, TournamentState } from './types';
+import { roomPairKey, snakeSeed, tieredBracketSeed } from './seeding';
+import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   isRoundDone,
   isRoundReached,
@@ -492,6 +492,69 @@ function standingsRankOf(entry: ProjectedSlotLabel): number {
 }
 
 /**
+ * The `tierRank` the real pending pool gives a unit arriving as `slot`, or null for a slot a Custom bracket round
+ * is never fed by. `routeWaterfallRound` tags an arrival with its room place counted from 0 (a best of a place
+ * carries the place it takes); `routeStandings` numbers the arrivals of a destination in standings order from 0.
+ */
+function realTierRank(slot: ProjectedSlotLabel, standingsPlaces: number[]): number | null {
+  switch (slot.kind) {
+    case 'waterfall-rank':
+      return slot.rank - 1;
+    case 'best-place':
+      return slot.place - 1;
+    case 'standings-rank':
+      return standingsPlaces.indexOf(slot.rank);
+    default:
+      return null;
+  }
+}
+
+/**
+ * Places a Custom bracket round's pool by the real draw: `tieredBracketSeed`, the function the round's transition
+ * calls, over stand-in units named in pool order. Each carries the `tierRank` it would arrive with, and the only
+ * history is the room it comes from (`roomHistory`: the source round, for every pair from one source room), so
+ * the preview matches the real draw whenever the real history adds nothing. Returns null when a slot has no real
+ * counterpart or the draw does not fill the declared rooms, and the caller falls back to the approximation.
+ */
+function drawPoolAsRealDraw(
+  pool: ProjectedSlotLabel[],
+  roomSizes: number[],
+  rounds: TournamentRound[],
+  targetRoundIndex: number,
+  sourceIndexOf: ReadonlyMap<ProjectedSlotLabel, number>,
+): ProjectedSlotLabel[][] | null {
+  const standingsPlaces = pool
+    .map(standingsRankOf)
+    .filter((rank) => rank > 0)
+    .sort((first, second) => first - second);
+  const standIns: PendingBracketSeed[] = [];
+  const roomHistory: Record<string, number> = {};
+  const seenFrom = new Map<string, string[]>();
+  for (const [index, slot] of pool.entries()) {
+    const tierRank = realTierRank(slot, standingsPlaces);
+    if (tierRank === null) return null;
+    const name = `s${String(index).padStart(4, '0')}`;
+    standIns.push({ name, isLucky: false, tierRank, pct: 1 });
+    const sourceIndex = sourceIndexOf.get(slot);
+    if (slot.kind !== 'waterfall-rank' || sourceIndex === undefined) continue;
+    const sourceRoom = `${sourceIndex}:${slot.room}`;
+    for (const other of seenFrom.get(sourceRoom) ?? []) roomHistory[roomPairKey(name, other)] = sourceIndex;
+    seenFrom.set(sourceRoom, [...(seenFrom.get(sourceRoom) ?? []), name]);
+  }
+
+  const { seeded } = tieredBracketSeed({ pool: standIns, roomSizes, roomHistory, rounds, targetRoundIndex });
+  // Each room lists its slots in pool order, as the other placements do.
+  const poolIndexesByRoom: number[][] = roomSizes.map(() => []);
+  for (const { name, room } of seeded) {
+    if (room !== null) poolIndexesByRoom[room - 1]?.push(Number(name.slice(1)));
+  }
+  const byRoom = poolIndexesByRoom.map((indexes) =>
+    indexes.sort((first, second) => first - second).map((index) => pool[index]),
+  );
+  return byRoom.every((slots, index) => slots.length === roomSizes[index]) ? byRoom : null;
+}
+
+/**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
  * predecessor (e.g. the "None" pooling phase's warmup rounds, or a mid-Qualification-
@@ -510,8 +573,8 @@ function standingsRankOf(entry: ProjectedSlotLabel): number {
  * what the real transition's tiered/diversity-aware seeding (tieredSeed, seeding.ts)
  * actually tends to do, instead of a room-major ordering's worst-case collapse into
  * "every room carries straight over unchanged," or a tier-major pool's own worst-case
- * collapse into "the first room is nothing but the top rank(s)" once naively chopped
- * (see the chunking comment below).
+ * collapse into "the first room is nothing but the top rank(s)" once naively chopped.
+ * A Custom bracket round is placed by the real draw instead (see the placement comment below).
  *
  * A round index maps to null when its origin genuinely can't be resolved ahead of
  * time (group-stage and fixed-draw rounds -- handled by real names elsewhere; Swiss --
@@ -601,6 +664,8 @@ export function projectFutureRoundSlots(
     // A target of several rooms is drawn from results, so a slot can't name the room it comes from, only the place.
     const roomKnown = round.rooms.length === 1;
     const pool: ProjectedSlotLabel[] = [];
+    // The round index each waterfall slot comes from: the stand-in draw's only history (drawPoolAsRealDraw).
+    const waterfallSourceIndex = new Map<ProjectedSlotLabel, number>();
     const resolvedWaterfallSources = new Set<number>();
     for (const { sourceIndex, edge } of predecessors) {
       const source = rounds[sourceIndex];
@@ -637,7 +702,7 @@ export function projectFutureRoundSlots(
           const sending = edgesForSource.filter((candidate) => candidate.ranks.includes(rank));
           const left = sending.slice(0, sending.length - bestUnitsLeaving(source, rank, targetIndex));
           for (const candidate of left) {
-            pool.push({
+            const slot: ProjectedSlotLabel = {
               kind: 'waterfall-rank',
               room: candidate.room,
               rank,
@@ -645,7 +710,9 @@ export function projectFutureRoundSlots(
               sourceLabel,
               sourceRoomCount: source.rooms.length,
               roomKnown,
-            });
+            };
+            pool.push(slot);
+            waterfallSourceIndex.set(slot, sourceIndex);
           }
         }
         continue;
@@ -737,27 +804,21 @@ export function projectFutureRoundSlots(
       continue;
     }
 
-    // Distribute the tier-major pool into round.rooms' declared sizes via
-    // distributeTierMajorPool rather than trying to mirror the real
-    // transition's own diversity/recency-aware wave-based seeding
-    // (tieredSeed/tieredBracketSeed, seeding.ts) exactly -- that seeding
-    // depends on live match history and per-round scores this display
-    // doesn't have and shouldn't need. distributeTierMajorPool's own
-    // round-robin-per-tier chunking keeps same-source-room candidates apart
-    // across target rooms AND keeps every target room's own contents spread
-    // across ranks instead of collapsing into a single leading tier, so
-    // together with the tier-major pool ordering this is a much closer
-    // approximation than a naive room-major or plain-sequential slice would
-    // be -- but the exact target-room assignment can still drift from what
-    // the real transition produces. That residual drift is accepted as the
-    // honest tradeoff: every projected slot always matches its own room's
-    // displayed size exactly (no more blank dashes or invisible overflow
-    // into another room), which is the property this display is for.
-    // A pool of standings places only is the exception: its order is known before any score, so it takes the
-    // real draw's snake (seedPoolByStanding), minus the separation passes, which depend on results.
-    result[targetIndex] = predecessors.every(({ edge }) => edge === 'standings')
+    // Every projected room shows exactly its declared size; where a slot lands can still drift from the real draw.
+    // - A pool of standings places only: its order is known before any score, so it takes the real draw's snake
+    //   (seedPoolByStanding), minus the separation passes, which depend on results.
+    // - A Custom bracket round fed by a waterfall room or a best of a place: the real draw itself
+    //   (tieredBracketSeed) over stand-ins whose only history is their source room (drawPoolAsRealDraw).
+    // - Any other pool (single and double elimination, Semis): distributeTierMajorPool, an approximation of the
+    //   real draw's wave fill that needs no history.
+    const standingsOnly = predecessors.every(({ edge }) => edge === 'standings');
+    const realDraw =
+      !standingsOnly && round.isWaterfall
+        ? drawPoolAsRealDraw(pool, round.rooms, rounds, targetIndex, waterfallSourceIndex)
+        : null;
+    result[targetIndex] = standingsOnly
       ? snakeStandingsPool(pool, round.rooms)
-      : distributeTierMajorPool(pool, round.rooms);
+      : (realDraw ?? distributeTierMajorPool(pool, round.rooms));
   }
   return result;
 }
