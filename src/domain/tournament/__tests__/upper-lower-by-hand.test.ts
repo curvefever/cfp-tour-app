@@ -4,7 +4,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import type { TournamentState } from '../types';
 import { upperLowerByHand } from '../upper-lower-form';
 import { expectPlaysToTheFinal } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 /**
  * "Adjust rounds by hand": the worked-out rounds as the graph text of a Custom bracket, with the match format each round
@@ -33,9 +33,7 @@ function generate(count: number, setup: Setup) {
 }
 
 function built(count: number, setup: Setup): TournamentState {
-  const result = generate(count, setup);
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
+  return startedState(generate(count, setup));
 }
 
 function textOf(count: number, setup: Setup): string {

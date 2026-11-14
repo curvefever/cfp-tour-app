@@ -17,9 +17,8 @@ import {
 import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState, WithdrawnUnit } from '../types';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound } from './play-through';
 import { buildRound } from './test-fixtures';
 
 /** One match of a hand-built group: the two units in room order, then their scores. */
@@ -481,9 +480,7 @@ describe('groups of different sizes', () => {
       }
       state = { ...state, scores };
       if (roundIndex < lastRound || intoBracket) {
-        const result = advanceTournamentRound(state);
-        if (result.status !== 'advanced') throw new Error(`stuck at round ${roundIndex}: ${result.status}`);
-        state = result.state;
+        state = pressNextRound(state);
       }
     }
     return state;

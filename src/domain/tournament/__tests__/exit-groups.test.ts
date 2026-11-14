@@ -9,7 +9,7 @@ import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { THREE_CHAIN_GRAPH } from './dependency-play-fixtures';
 import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, TIE_GRAPH, buildQualWaterfall } from './qual-waterfall';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { generatedState, rosterFor, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -354,13 +354,13 @@ describe('exit groups are read per column: a destination has one colour in every
       poolingPhase: 'qual-table',
       qualAdv: '32',
     });
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
-      form,
-      testRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
+        form,
+        testRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(result.message);
-    return result.state;
   }
 
   const columnsOf = (state: TournamentState): Array<Array<number>> =>

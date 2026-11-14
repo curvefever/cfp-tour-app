@@ -6,7 +6,7 @@ import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState } from '../types';
-import { answerZerosPlayed, buildState, scoreCurrentRound } from './play-through';
+import { answerZerosPlayed, buildState, pressNextRound, scoreCurrentRound } from './play-through';
 import {
   buildShapedQualWaterfall as buildQualWaterfall,
   describeInBothShapes,
@@ -429,17 +429,11 @@ describe('isFinalComplete', () => {
 });
 
 describe('computeRankings -- eliminated at a standings cut', () => {
-  function advance(state: TournamentState): TournamentState {
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
-    return result.state;
-  }
-
   /** Plays and scores rounds until the current one is the standings cut-off round. */
   function playToCutoffRound(start: TournamentState, teamSize: number): TournamentState {
     let state = start;
     for (let guard = 0; guard < 20 && !isStandingsCutoffRound(state, state.curRound); guard += 1) {
-      state = advance(scoreCurrentRound(state, teamSize));
+      state = pressNextRound(scoreCurrentRound(state, teamSize));
     }
     return state;
   }
@@ -458,7 +452,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
         nonCountingRounds: '1',
       },
     }) as TournamentState;
-    return advance(scoreCurrentRound(playToCutoffRound(start, 3), 3));
+    return pressNextRound(scoreCurrentRound(playToCutoffRound(start, 3), 3));
   }
 
   it('scenario B: the 7 teams the cut eliminated rank 17-23, in standings order', () => {
@@ -475,7 +469,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
   it("a later-round elimination ranks above the cut's eliminated, and both sets sit below the still-active", () => {
     let state = afterTeamQualCut();
     const cutRoundIndex = state.curRound - 1;
-    state = advance(scoreCurrentRound(state, 3));
+    state = pressNextRound(scoreCurrentRound(state, 3));
     const rankings = computeRankings(state);
     const eliminated = rankings?.eliminatedList ?? [];
     const later = eliminated.filter((entry) => entry.ri > cutRoundIndex);
@@ -503,7 +497,7 @@ describe('computeRankings -- eliminated at a standings cut', () => {
         oddCountStrategy: 'bye',
       },
     }) as TournamentState;
-    state = advance(scoreCurrentRound(playToCutoffRound(state, 0), 0));
+    state = pressNextRound(scoreCurrentRound(playToCutoffRound(state, 0), 0));
     const rankings = computeRankings(state);
     const placed = new Map<string, { place: number; standing: TournamentStanding }>();
     for (const table of describeStandings(state)?.tables ?? []) {
@@ -637,12 +631,6 @@ describe('computeRankings -- order within an elimination round', () => {
 
   const ranked = (state: TournamentState) =>
     computeRankings(state)?.eliminatedList.map(({ name, rank }) => [name, rank]);
-
-  function advance(state: TournamentState): TournamentState {
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
-    return result.state;
-  }
 
   it('ranks the 3rd places of a room of 4 above a room of 3 at equal points: share is relative to the room size', () => {
     // 20 of 100 in a room of 4 is 0.80 of the room average; 20 of 80 in a room of 3 is only 0.75.
@@ -786,8 +774,9 @@ describe('computeRankings -- order within an elimination round', () => {
           nonCountingRounds: '1',
         },
       }) as TournamentState;
-      while (!isStandingsCutoffRound(state, state.curRound)) state = advance(scoreCurrentRound(state, 3));
-      state = advance(scoreCurrentRound(state, 3));
+      while (!isStandingsCutoffRound(state, state.curRound))
+        state = pressNextRound(scoreCurrentRound(state, 3));
+      state = pressNextRound(scoreCurrentRound(state, 3));
       const roundIndex = state.curRound;
       const distinct = scoreCurrentRound(state, 3);
       const scores = { ...distinct.scores };
@@ -800,7 +789,7 @@ describe('computeRankings -- order within an elimination round', () => {
           .filter((entry) => entry.room === room)
           .map(({ name }) => name);
       }
-      state = advance(answerZerosPlayed({ ...state, scores, tieResolutions }));
+      state = pressNextRound(answerZerosPlayed({ ...state, scores, tieResolutions }));
 
       const eliminated =
         computeRankings(state)?.eliminatedList.filter((entry) => entry.ri === roundIndex) ?? [];
@@ -894,7 +883,7 @@ describe('computeRankings -- order within an elimination round', () => {
       teams: false,
       setup: { gameFormat: 'ffa-individual' },
     }) as TournamentState;
-    for (let round = 0; round < 3; round += 1) state = advance(scoreCurrentRound(state, 0));
+    for (let round = 0; round < 3; round += 1) state = pressNextRound(scoreCurrentRound(state, 0));
     const rankings = computeRankings(state);
     const eliminated = rankings?.eliminatedList ?? [];
     const roundIndex = eliminated[0].ri;
@@ -1047,9 +1036,7 @@ describeInBothShapes('computeRankings -- a late joiner waiting for the next pool
       teams: false,
     });
     if (!start) throw new Error('expected a generated tournament');
-    const next = advanceTournamentRound(scoreCurrentRound(start, 0));
-    if (next.status !== 'advanced') throw new Error('expected round 1 to advance');
-    return next.state;
+    return pressNextRound(scoreCurrentRound(start, 0));
   }
 
   it('is listed once as still in, with no room, waiting for the round after the one in play', () => {

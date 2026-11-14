@@ -26,7 +26,8 @@ import type {
   TournamentState,
   TournamentTeam,
 } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
+import { startedState } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -520,9 +521,7 @@ function generate(count: number, setup: Setup) {
 }
 
 function generated(count: number, setup: Setup): TournamentState {
-  const result = generate(count, setup);
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return { ...result.state, started: true };
+  return startedState(generate(count, setup));
 }
 
 const FAIR_8 = { groupExit: 'fair-cut', qualAdv: '8' } as const;
@@ -586,9 +585,7 @@ describe('group exit in a generated tournament', () => {
   it('plays through: 13 teams 4v4, fair cut, total 8, into a bracket of 8', () => {
     let state = generated(13, FAIR_8);
     for (let guard = 0; guard < 12 && state.rounds[state.curRound].isGroupStage; guard += 1) {
-      const result = advanceTournamentRound(scoreCurrentRound(state, 4));
-      if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
-      state = result.state;
+      state = pressNextRound(scoreCurrentRound(state, 4));
     }
     const seated = (state.assignments[state.curRound] ?? []).filter((entry) => entry.room !== null);
     expect(seated).toHaveLength(8);
@@ -627,9 +624,7 @@ describe('the cross-group tie in a played group stage', () => {
   function levelAtLastRound(): TournamentState {
     let state = generated(13, FAIR_8);
     for (let guard = 0; guard < 12 && state.rounds[state.curRound + 1]?.isGroupStage; guard += 1) {
-      const result = advanceTournamentRound(scoreLevel(state));
-      if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
-      state = result.state;
+      state = pressNextRound(scoreLevel(state));
     }
     return scoreLevel(state);
   }
@@ -673,9 +668,7 @@ describe('the tie marks of a cross-group tie', () => {
     let state = (() => {
       let current = generated(13, FAIR_8);
       for (let guard = 0; guard < 12 && current.rounds[current.curRound + 1]?.isGroupStage; guard += 1) {
-        const result = advanceTournamentRound(scoreLevel(current));
-        if (result.status !== 'advanced') throw new Error('blocked');
-        current = result.state;
+        current = pressNextRound(scoreLevel(current));
       }
       return scoreLevel(current);
     })();
@@ -860,9 +853,7 @@ describe('a played group stage with units removed: per group 3 of 12 teams, two 
     const start = generated(12, { qualifiersPerGroup: '3' });
     let state = [...start.groups[0].members.slice(0, 2)].reduce(removeRosterUnit, start);
     for (let guard = 0; guard < 12 && state.rounds[state.curRound + 1]?.isGroupStage; guard += 1) {
-      const result = advanceTournamentRound(scoreLevel(state));
-      if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
-      state = result.state;
+      state = pressNextRound(scoreLevel(state));
     }
     return scoreLevel(state);
   }
@@ -926,9 +917,7 @@ function leaveGroups(start: TournamentState, seed: number) {
   let lastGroupRound = 0;
   for (let guard = 0; guard < 12 && state.rounds[state.curRound].isGroupStage; guard += 1) {
     lastGroupRound = state.curRound;
-    const result = advanceTournamentRound(scoreFromSeed(state, seed + guard));
-    if (result.status !== 'advanced') throw new Error(`blocked: ${JSON.stringify(result)}`);
-    state = result.state;
+    state = pressNextRound(scoreFromSeed(state, seed + guard));
   }
   const exit = selectGroupExit(state, state.groupStandings);
   const rawDraw = tieredSeed({

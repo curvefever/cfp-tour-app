@@ -10,7 +10,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { scoreCurrentRound } from './play-through';
-import { fixedIdSource } from './test-fixtures';
+import { fixedIdSource, generatedState } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -24,27 +24,25 @@ const teamsOf = (count: number, size: number): TournamentTeam[] =>
 /** A group stage generated for `count` units, not started: individuals head to head unless the setup says otherwise. */
 function drawn(count: number, setup: Setup = {}): TournamentState {
   const teamSize = setup.gameFormat === 'team-2v2' ? 2 : 0;
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: count,
-      players: teamSize
-        ? teamsOf(count, teamSize)
-        : Array.from({ length: count }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({
-      gameFormat: 'individual-1v1',
-      poolingPhase: 'group-stage',
-      groupSize: '4',
-      qualifiersPerGroup: '2',
-      scheduleLogic: 'single-elimination',
-      ...setup,
-    }),
-    createTournamentRuntime({ ids: fixedIdSource() }),
+  return generatedState(
+    generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: teamSize
+          ? teamsOf(count, teamSize)
+          : Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({
+        gameFormat: 'individual-1v1',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        scheduleLogic: 'single-elimination',
+        ...setup,
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    ),
   );
-  if (result.status !== 'generated') {
-    throw new Error(`fixture failed: ${result.status === 'invalid' ? result.message : 'unknown'}`);
-  }
-  return result.state;
 }
 
 const started = (state: TournamentState): TournamentState => ({ ...state, started: true });

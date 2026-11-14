@@ -13,14 +13,13 @@ import {
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
-import { advanceTournamentRound } from '../transitions';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';
 import { SPREADSHEET_GRAPH, buildQualWaterfall, liveTournament, withoutColumns } from './qual-waterfall';
 import { currentColumn } from '../round-columns';
 import { scoreByHash } from './spread-play';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
-import { buildState, scoreCurrentRound as scoreTeamRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound as scoreTeamRound } from './play-through';
 import { buildRound, fixedIdSource, generated } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
@@ -794,9 +793,7 @@ describe('projectFutureRoundSlots -- a round fed by the qualification table (Qua
 function advanceWhile(start: TournamentState): TournamentState {
   let state = start;
   for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
-    const result = advanceTournamentRound(scoreTeamRound(state, 2));
-    if (result.status !== 'advanced') throw new Error('could not advance');
-    state = result.state;
+    state = pressNextRound(scoreTeamRound(state, 2));
   }
   return state;
 }
@@ -1075,9 +1072,7 @@ describe('bracketFollowStatus — units in a column of several rounds and units 
       for (let index = start; index <= end; index += 1) {
         scores = scoreByHash({ ...state, curRound: index, scores }).state.scores;
       }
-      const result = advanceTournamentRound({ ...state, scores });
-      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
-      state = result.state;
+      state = pressNextRound({ ...state, scores });
     }
     throw new Error(`never reached ${label}`);
   }
@@ -1114,9 +1109,7 @@ describe('bracketFollowStatus — units in a column of several rounds and units 
       for (let index = start; index <= end; index += 1) {
         scores = scoreByHash({ ...before, curRound: index, scores }).state.scores;
       }
-      const result = advanceTournamentRound({ ...before, scores });
-      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
-      const state = result.state;
+      const state = pressNextRound({ ...before, scores });
       const waiting = new Set(
         Object.values(state.pendingBracketSeeds).flatMap((seeds) => seeds.map(({ name }) => name)),
       );

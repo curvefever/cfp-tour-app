@@ -4,11 +4,11 @@ import { computeRankings } from '../rankings';
 import { currentColumn } from '../round-columns';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
+import { startedState } from './test-fixtures';
 
 /** The organiser's 12-team layout: placement matches for the teams out of Round 4 - Lower and Round 5 - Lower. */
 const RANKING_GRAPH = `
@@ -54,29 +54,23 @@ function teamsOf(count: number): TournamentTeam[] {
 }
 
 function generated(count: number, graph: string): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: teamsOf(count) }),
-    createDefaultSetup({
-      gameFormat: 'team-4v4',
-      poolingPhase: 'group-stage',
-      groupSize: '4',
-      qualifiersPerGroup: '2',
-      groupExit: 'fair-cut',
-      qualAdv: '8',
-      oddCountStrategy: 'bye',
-      scheduleLogic: 'waterfall-bracket',
-      waterfallGraph: graph,
-    }),
-    createTournamentRuntime(),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: teamsOf(count) }),
+      createDefaultSetup({
+        gameFormat: 'team-4v4',
+        poolingPhase: 'group-stage',
+        groupSize: '4',
+        qualifiersPerGroup: '2',
+        groupExit: 'fair-cut',
+        qualAdv: '8',
+        oddCountStrategy: 'bye',
+        scheduleLogic: 'waterfall-bracket',
+        waterfallGraph: graph,
+      }),
+      createTournamentRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return { ...result.state, started: true };
-}
-
-function advanced(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
 }
 
 /** Scores every round of the column in play (a group round is a column of its own). */
@@ -142,7 +136,7 @@ describe('RANKING rounds', () => {
     let state = generated(12, RANKING_GRAPH);
     const final = state.rounds.findIndex((round) => round.isFinal);
     for (let guard = 0; guard < 20 && state.curRound < final; guard += 1)
-      state = advanced(scoreColumn(state));
+      state = pressNextRound(scoreColumn(state));
     expect(state.curRound).toBe(final);
 
     const out = computeRankings(state)?.eliminatedList ?? [];

@@ -20,7 +20,7 @@ import {
   scoreRound,
   scoreTied,
 } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 /**
  * The head count changes during pooling: the built-in upper and lower bracket works its rooms out again from the units
@@ -48,13 +48,13 @@ const GROUPS = {
 
 function built(count: number, setup: Setup): TournamentState {
   const form = createDefaultSetup({ scheduleLogic: 'upper-lower', ...setup });
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
-    form,
-    testRuntime(),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
+      form,
+      testRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
 }
 
 const bracketOf = (state: TournamentState): TournamentRound[] =>

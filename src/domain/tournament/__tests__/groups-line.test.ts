@@ -21,8 +21,8 @@ import type { TournamentState, TournamentTeam } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
-import { scoreCurrentRound } from './play-through';
-import { buildRound } from './test-fixtures';
+import { pressNextRound, scoreCurrentRound } from './play-through';
+import { buildRound, startedState } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -77,9 +77,7 @@ function generate(count: number, graph: string, setup: Setup = {}) {
 }
 
 function generated(count: number, graph: string, setup: Setup = {}): TournamentState {
-  const result = generate(count, graph, setup);
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return { ...result.state, started: true };
+  return startedState(generate(count, graph, setup));
 }
 
 /** Scores every room of the round in play with the first-listed team winning 30 to 20: the records repeat across the groups. */
@@ -104,19 +102,13 @@ function scoreLevel(state: TournamentState): TournamentState {
   return { ...state, scores };
 }
 
-function advanced(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
-}
-
 /** Plays the group rounds, the last one scored but not advanced: the state a Next Round would leave the groups from. */
 function atTheExit(
   start: TournamentState,
   score: (state: TournamentState) => TournamentState,
 ): TournamentState {
   let state = start;
-  while (state.rounds[state.curRound + 1]?.isGroupStage) state = advanced(score(state));
+  while (state.rounds[state.curRound + 1]?.isGroupStage) state = pressNextRound(score(state));
   return score(state);
 }
 
@@ -285,7 +277,7 @@ describe('the organiser example: 3 groups of 4, fair cut 8, Groups: 1-4->R1, 5-8
       const exit = atTheExit(start(), (state) => seedScores(scoreCurrentRound(state, 4), seed));
       const order = selectGroupExit(exit, computedStandings(exit)).advancing;
       expect(order).toHaveLength(8);
-      const next = advanced(exit);
+      const next = pressNextRound(exit);
       const r1 = roomsOf(next, indexOfLabel(next, 'R1')).flat();
       const r1c = roomsOf(next, indexOfLabel(next, 'R1C')).flat();
       expect([...r1].sort()).toEqual(order.slice(0, 4).sort());
@@ -301,7 +293,7 @@ describe('the organiser example: 3 groups of 4, fair cut 8, Groups: 1-4->R1, 5-8
 
   it('stores the exit order on the last group round', () => {
     const exit = atTheExit(start(), (state) => scoreCurrentRound(state, 4));
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const last = next.rounds.find((round) => round.standingsRoutes);
     expect(last?.standingsExitOrder).toHaveLength(8);
   });
@@ -314,7 +306,7 @@ describe('the organiser example: 3 groups of 4, fair cut 8, Groups: 1-4->R1, 5-8
     const exit = atTheExit(generated(12, waiting, { groupExit: 'fair-cut' }), (state) =>
       scoreCurrentRound(state, 4),
     );
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const waitingIndex = indexOfLabel(next, 'R1C');
     expect(next.pendingBracketSeeds[waitingIndex]).toHaveLength(4);
     expect(next.assignments[waitingIndex]).toBeUndefined();
@@ -346,9 +338,9 @@ R3.B: 1->Final
   });
 
   it('plays through the groups and R1, then draws R2 from both sources', () => {
-    let state = advanced(atTheExit(generated(16, MIXED), (current) => scoreCurrentRound(current, 4)));
+    let state = pressNextRound(atTheExit(generated(16, MIXED), (current) => scoreCurrentRound(current, 4)));
     expect(state.rounds[state.curRound].customLabel).toBe('R1');
-    state = advanced(scoreCurrentRound(state, 4));
+    state = pressNextRound(scoreCurrentRound(state, 4));
     expect(state.rounds[state.curRound].customLabel).toBe('R2');
     expect(roomsOf(state, state.curRound).flat()).toHaveLength(6);
   });
@@ -388,7 +380,7 @@ R3.B: 1->Final
     const exit = atTheExit(start, (state) => scoreCurrentRound(state, 4));
     const order = selectGroupExit(exit, computedStandings(exit)).advancing;
     expect(order).toHaveLength(16);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const bands = ['R1', 'R1C', 'R1D'].map((label) => roomsOf(next, indexOfLabel(next, label)).flat());
     expect(bands.map((band) => band.length)).toEqual([8, 4, 4]);
     expect(bands[0].sort()).toEqual(order.slice(0, 8).sort());
@@ -436,7 +428,7 @@ describe('a tie at a band boundary is the admin pick', () => {
     let exit = resolveTournamentTie(settled, 'group-band-4', runners[2]);
     exit = resolveTournamentTie(exit, 'group-band-4', runners[1]);
     expect(hasPendingColumnTies(exit)).toBe(false);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const r1 = roomsOf(next, indexOfLabel(next, 'R1')).flat();
     expect(r1).toContain(runners[2]);
     expect(r1).not.toContain(runners[0]);
@@ -484,12 +476,12 @@ describe('a re-draw and the expected column give the first advance', () => {
       scoreCurrentRound(state, 4),
     );
     const expected = expectedRounds(exit);
-    const first = advanced(exit);
+    const first = pressNextRound(exit);
     expect(expected).not.toBeNull();
     for (const [roundIndex, round] of expected ?? []) {
       expect(round.assignments).toEqual(first.assignments[roundIndex]);
     }
-    const again = advanced({ ...first, curRound: exit.curRound });
+    const again = pressNextRound({ ...first, curRound: exit.curRound });
     expect(again.assignments).toEqual(first.assignments);
     expect(again.pendingBracketSeeds).toEqual(first.pendingBracketSeeds);
   });
@@ -519,7 +511,7 @@ R2.B: 1->Final
         return rest;
       }),
     };
-    const next = advanced(atTheExit(stored, (current) => scoreCurrentRound(current, 4)));
+    const next = pressNextRound(atTheExit(stored, (current) => scoreCurrentRound(current, 4)));
     expect(roomsOf(next, next.curRound).flat()).toHaveLength(8);
     expect(next.rounds[next.curRound].customLabel).toBe('R1');
   });
@@ -600,7 +592,7 @@ describe('the replay of a Groups line without a stored exit order', () => {
     const exit = atTheExit(generated(12, TWO_BANDS, { groupExit: 'fair-cut' }), (state) =>
       scoreCurrentRound(state, 4),
     );
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const stored = replayBracketPools(next, indexOfLabel(next, 'R2'));
     const last = next.rounds.findIndex((round) => round.standingsRoutes);
     const withoutOrder = {
@@ -655,7 +647,7 @@ describe('editing the Groups line of a running tournament', () => {
   const lastGroupRound = (state: TournamentState) => state.rounds.find((round) => round.standingsRoutes);
   const enterBracket = (
     score: (state: TournamentState) => TournamentState = (state) => scoreCurrentRound(state, 4),
-  ) => advanced(atTheExit(start(), score));
+  ) => pressNextRound(atTheExit(start(), score));
 
   it('during the groups, a band change is accepted and the total follows: 5 out, 6-9 to R1C', () => {
     const state = start();
@@ -673,7 +665,7 @@ describe('editing the Groups line of a running tournament', () => {
     const exit = atTheExit(edited, (current) => seedScores(scoreCurrentRound(current, 4), 5));
     const order = selectGroupExit(exit, computedStandings(exit)).advancing;
     expect(order).toHaveLength(9);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     expect(roomsOf(next, indexOfLabel(next, 'R1C')).flat().sort()).toEqual(order.slice(5).sort());
   });
 
@@ -742,9 +734,9 @@ describe('editing the Groups line of a running tournament', () => {
     const state = start(13);
     const edited = edit(state, GAP).state;
     let current = atTheExit(edited, (round) => scoreCurrentRound(round, 4));
-    current = advanced(current);
+    current = pressNextRound(current);
     for (let guard = 0; guard < 20 && !current.rounds[current.curRound].isFinal; guard += 1) {
-      current = advanced(scoreCurrentRound(current, 4));
+      current = pressNextRound(scoreCurrentRound(current, 4));
     }
     expect(current.rounds[current.curRound].isFinal).toBe(true);
   });
@@ -777,7 +769,7 @@ describe('the Groups line of 11 teams (groups of 4, 4, 3): the preview and the e
       const exit = exitFor(seed);
       const { order, snake } = exitOrderAndSnake(exit);
       if (snake.some((pair) => sharesAGroup(exit, pair))) continue;
-      const next = advanced(exit);
+      const next = pressNextRound(exit);
       for (const label of ['R1', 'R1C']) {
         const index = indexOfLabel(exit, label);
         const projected = projectFutureRoundSlots(exit)[index] ?? [];
@@ -800,7 +792,7 @@ describe('the Groups line of 11 teams (groups of 4, 4, 3): the preview and the e
       const exit = exitFor(seed);
       const { order, snake } = exitOrderAndSnake(exit);
       const expected = new Map(expectedRounds(exit) ?? []);
-      const next = advanced(exit);
+      const next = pressNextRound(exit);
       for (const label of ['R1', 'R1C']) {
         const index = indexOfLabel(exit, label);
         expect(expected.get(index)?.assignments, `seed ${seed} ${label}`).toEqual(next.assignments[index]);

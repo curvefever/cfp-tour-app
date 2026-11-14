@@ -9,7 +9,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const ROUNDS = (r1: string, final: string) =>
@@ -44,9 +44,7 @@ function inR1(
   if (result.status !== 'generated') throw new Error('generation failed');
   let state: TournamentState = { ...result.state, started: true };
   while (state.rounds[state.curRound].customLabel !== 'R1') {
-    const advanced = advanceTournamentRound(scoreCurrentRound(state, rule === ONE_SCORE_PER_TEAM ? 0 : 2));
-    if (advanced.status !== 'advanced') throw new Error(`could not reach R1: ${advanced.status}`);
-    state = advanced.state;
+    state = pressNextRound(scoreCurrentRound(state, rule === ONE_SCORE_PER_TEAM ? 0 : 2));
   }
   return state;
 }

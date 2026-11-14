@@ -2,9 +2,8 @@ import { answerAbsence } from '../absences';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 
 /** Two rooms of 8 into a top Semi A and a Lower round: 1-4 of each room go to Semi A, 5-8 to Lower. */
 export const ABSENTEE_GRAPH = `
@@ -39,9 +38,7 @@ export function r1WithFiveAbsent(): TournamentState {
   if (result.status !== 'generated') throw new Error('generation failed');
   let state: TournamentState = { ...result.state, started: true };
   while (state.rounds[state.curRound].customLabel !== 'R1') {
-    const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-    if (advanced.status !== 'advanced') throw new Error(`could not reach R1: ${advanced.status}`);
-    state = advanced.state;
+    state = pressNextRound(scoreCurrentRound(state, 0));
   }
   const keys = [3, 4, 5, 6, 7].map((seat) => `r${state.curRound}-rm1-p${seat}`);
   const scored = scoreCurrentRound(state, 0);
@@ -78,7 +75,5 @@ export function afterRound1(
     ...scored,
     scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
   };
-  const advanced = advanceTournamentRound(answerAbsence(zeroed, keys, 'absent'));
-  if (advanced.status !== 'advanced') throw new Error(`could not advance: ${advanced.status}`);
-  return advanced.state;
+  return pressNextRound(answerAbsence(zeroed, keys, 'absent'));
 }

@@ -106,13 +106,27 @@ export function testRuntime() {
 /** Generated but not started: the state the organiser sees on Setup before Confirm & Start. */
 export function generated(count: number, setup: Setup = {}): TournamentState {
   const gameFormat = setup.gameFormat ?? 'ffa-individual';
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
-    createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '16', ...setup }),
-    testRuntime(),
+  return generatedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
+      createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '16', ...setup }),
+      testRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
+}
+
+/** What `generateTournament` answered. */
+export type GenerationResult = ReturnType<typeof generateTournament>;
+
+/** The generated state, and the test fails on a refusal. */
+export function generatedState(result: GenerationResult): TournamentState {
+  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
   return result.state;
+}
+
+/** The generated state, started: what a test plays from. */
+export function startedState(result: GenerationResult): TournamentState {
+  return { ...generatedState(result), started: true };
 }
 
 export const TEAM_QUAL_GRAPH = `

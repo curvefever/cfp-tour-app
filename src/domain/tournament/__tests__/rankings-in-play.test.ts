@@ -2,18 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { computeRankings } from '../rankings';
 import { scoreKeysForPosition } from '../scoring';
 import { describeStandings } from '../standings-display';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound } from './play-through';
 import { buildQualWaterfall, playToQualificationExit, tiedQualExit } from './qual-waterfall';
 
 // Units leave Still in as soon as they are certainly out of the round in play, with no rank until it is advanced.
-
-function advance(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(result)}`);
-  return result.state;
-}
 
 function generated(count: number, setup: Parameters<typeof buildState>[0]['setup']): TournamentState {
   const state = buildState({ label: `${count}`, count, teams: false, setup });
@@ -29,7 +22,7 @@ function luckyRound37(): TournamentState {
     poolingPhase: 'none',
     eliminationRoundTargets: '32,24',
   });
-  while (state.rounds[state.curRound].isNoElim) state = advance(scoreCurrentRound(state, 0));
+  while (state.rounds[state.curRound].isNoElim) state = pressNextRound(scoreCurrentRound(state, 0));
   return state;
 }
 
@@ -100,7 +93,7 @@ describe('in play: a single-elimination round with lucky losers (37 players, roo
     const inPlay = eliminatedRanks(allScored);
     expect(inPlay.map(([name]) => name).sort()).toEqual([roomA[7], roomB[7]].sort());
     expect(inPlay.every(([, rank]) => rank === null)).toBe(true);
-    const advanced = rankings(advance(allScored));
+    const advanced = rankings(pressNextRound(allScored));
     // 32 go on, so the 5 out rank 33-37: the 3 lucky-loser candidates not picked (7th), then the two 8ths, level.
     expect(advanced.eliminatedList.map((entry) => entry.rank)).toEqual([33, 33, 33, 36, 36]);
     const byName = new Map(advanced.eliminatedList.map((entry) => [entry.name, entry.rank]));
@@ -127,7 +120,7 @@ describe('in play: a single-elimination round with lucky losers (37 players, roo
   });
 
   it('leaves the ranks of an advanced round as they were while the next round eliminates in play', () => {
-    const nextRound = advance(scoreRooms(state, [1, 2, 3, 4, 5]));
+    const nextRound = pressNextRound(scoreRooms(state, [1, 2, 3, 4, 5]));
     const before = eliminatedRanks(nextRound);
     const roomADone = scoreRooms(nextRound, [1]);
     const after = rankings(roomADone).eliminatedList;
@@ -152,7 +145,7 @@ describe('in play: the last round of a qualification table (43 players, cut at 2
       poolingPhase: 'qual-table',
       qualAdv: '24',
     });
-    while (state.rounds[state.curRound + 1]?.isQual) state = advance(scoreCurrentRound(state, 0));
+    while (state.rounds[state.curRound + 1]?.isQual) state = pressNextRound(scoreCurrentRound(state, 0));
     return state;
   })();
   const roomCount = new Set((lastQual.assignments[lastQual.curRound] ?? []).map(({ room }) => room)).size;
@@ -202,7 +195,7 @@ describe('in play: double elimination (31 units, head-to-head)', () => {
       poolingPhase: 'none',
       oddCountStrategy: 'bye',
     });
-    while (state.rounds[state.curRound].isNoElim) state = advance(scoreCurrentRound(state, 0));
+    while (state.rounds[state.curRound].isNoElim) state = pressNextRound(scoreCurrentRound(state, 0));
     return state;
   })();
 
@@ -215,7 +208,8 @@ describe('in play: double elimination (31 units, head-to-head)', () => {
 
   it('moves the loser of a complete losers-bracket room', () => {
     let state = winnersRound;
-    while (state.rounds[state.curRound].bracket !== 'losers') state = advance(scoreCurrentRound(state, 0));
+    while (state.rounds[state.curRound].bracket !== 'losers')
+      state = pressNextRound(scoreCurrentRound(state, 0));
     const loser = roomUnits(state, 1)[1];
     const scored = scoreRooms(state, [1]);
     const inPlay = rankings(scored).eliminatedList.filter((entry) => entry.rank === null);
@@ -225,7 +219,7 @@ describe('in play: double elimination (31 units, head-to-head)', () => {
 
 describe('in play: a waterfall round with an eliminated band (37 registered)', () => {
   it("moves a complete room's eliminated band and keeps the rest of the round", () => {
-    const entered = advance(playToQualificationExit(buildQualWaterfall(37)));
+    const entered = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const roomA = roomUnits(entered, 1);
     const scored = scoreRooms(entered, [1]);
     const inPlay = rankings(scored).eliminatedList.filter((entry) => entry.rank === null);

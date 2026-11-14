@@ -3,14 +3,13 @@ import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
-import type { RoomSize, TournamentState } from '../types';
+import type { RoomSize } from '../types';
 import {
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
 } from '../waterfall-bracket';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import {
   addWaterfallRound,
@@ -592,15 +591,10 @@ describe('waterfall draft edits', () => {
 describe('waterfallDraftFromRounds', () => {
   it('shows a round drawn short with the room sizes the graph declared for it', () => {
     const atR1 = playToQualificationExit(buildQualWaterfall(37));
-    const advanced = (state: TournamentState): TournamentState => {
-      const result = advanceTournamentRound(state);
-      if (result.status !== 'advanced') throw new Error('expected an advance');
-      return result.state;
-    };
-    const r1 = advanced(atR1);
+    const r1 = pressNextRound(atR1);
     const r1c = r1.rounds.findIndex((round) => round.customLabel === 'R1C');
     const removed = removeRosterUnit(r1, r1.pendingBracketSeeds[r1c][0].name);
-    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    const atR1c = pressNextRound(scoreCurrentRound(removed, 0));
     expect(atR1c.rounds[r1c]).toMatchObject({ rooms: [7], declaredRooms: [8] });
 
     const draft = waterfallDraftFromRounds(atR1c.rounds);

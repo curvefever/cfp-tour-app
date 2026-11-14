@@ -7,7 +7,7 @@ import { roundExitRule } from '../room-exits';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { playDependency, playToBracketEntry, STRATEGIES } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 /** The built-in upper and lower bracket of an FFA qualification table: Round 5 and Round 6 hold a ranking room each. */
 function upperLower(count: number): TournamentState {
@@ -17,13 +17,13 @@ function upperLower(count: number): TournamentState {
     poolingPhase: 'qual-table',
     qualAdv: '32',
   });
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
-    form,
-    testRuntime(),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
+      form,
+      testRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
 }
 
 const rankingRounds = (state: TournamentState) =>

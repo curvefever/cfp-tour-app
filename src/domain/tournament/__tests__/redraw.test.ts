@@ -6,7 +6,7 @@ import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
-import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall, withoutDependencyPlay } from './qual-waterfall';
 import { spreadConfig, startSpread } from './spread-play';
 
@@ -29,14 +29,6 @@ const VIEW_KEYS = [
 
 function view(state: TournamentState) {
   return Object.fromEntries(VIEW_KEYS.map((key) => [key, state[key]]));
-}
-
-function advanceOk(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') {
-    throw new Error(`expected an advance, got ${result.status}: ${JSON.stringify(result).slice(0, 300)}`);
-  }
-  return result.state;
 }
 
 /** Previous: back to the first round of the column before the one in play. */
@@ -99,7 +91,7 @@ function playUntil(
   let state = start;
   for (let guard = 0; guard < 40; guard += 1) {
     if (stop(state)) return state;
-    state = advanceOk(scoreRound(state, teamSize, false));
+    state = pressNextRound(scoreRound(state, teamSize, false));
   }
   throw new Error('stop condition never reached');
 }
@@ -117,13 +109,13 @@ function expectRedrawEquivalence(
 ): void {
   // No edit: the re-draw reproduces the first advance exactly.
   const next = nextColumnStart(atRound);
-  const first = advanceOk(scoreRound(atRound, teamSize, false));
+  const first = pressNextRound(scoreRound(atRound, teamSize, false));
   expect(first.assignments[next]?.length).toBeGreaterThan(0);
-  expect(view(advanceOk(back(first)))).toEqual(view(first));
+  expect(view(pressNextRound(back(first)))).toEqual(view(first));
 
   // A score edit in the round advanced from: the re-draw equals advancing the corrected state.
-  const expected = advanceOk(scoreRound(atRound, teamSize, true));
-  const redone = advanceOk(scoreRound(back(first), teamSize, true));
+  const expected = pressNextRound(scoreRound(atRound, teamSize, true));
+  const redone = pressNextRound(scoreRound(back(first), teamSize, true));
   expect(view(redone)).toEqual(view(expected));
   // The edit must really change the next draw, or the check proves nothing.
   if (editChangesDraw) {
@@ -203,7 +195,7 @@ describe('Next Round after Previous re-draws like a first advance', () => {
     const atRound = playUntil(build(config), 0, (state) =>
       Boolean(state.rounds[state.curRound + 1]?.isSwiss),
     );
-    const first = advanceOk(scoreRound(atRound, 0, false));
+    const first = pressNextRound(scoreRound(atRound, 0, false));
     expect(Object.keys(first.poolingByeCounts).length).toBeGreaterThan(0);
     expect(first.byes[atRound.curRound + 1]).toHaveLength(1);
     expectRedrawEquivalence(atRound, 0);
@@ -234,9 +226,9 @@ describe('Next Round after Previous re-draws like a first advance', () => {
       const atRound = playUntil(build(config), 0, (state) =>
         Boolean(state.rounds[state.curRound + 1]?.fixedRoomAssignments),
       );
-      const first = advanceOk(scoreRound(atRound, 0, false));
+      const first = pressNextRound(scoreRound(atRound, 0, false));
       expect(first.roomHistory).toEqual(atRound.roomHistory);
-      const redone = advanceOk(back(first));
+      const redone = pressNextRound(back(first));
       expect(redone.roomHistory).toEqual(atRound.roomHistory);
       expectRedrawEquivalence(atRound, 0, false);
     });
@@ -308,26 +300,26 @@ describe('Next Round steps forward unchanged when the drawn-ahead round is locke
     'two rounds back from round index %i: locked by scores in the middle round, then re-draws from the middle round',
     (index) => {
       const atRound = playUntil(build(config), 0, (state) => state.curRound === index);
-      const afterFirst = advanceOk(scoreRound(atRound, 0, false));
-      const afterSecond = advanceOk(scoreRound(afterFirst, 0, false));
+      const afterFirst = pressNextRound(scoreRound(atRound, 0, false));
+      const afterSecond = pressNextRound(scoreRound(afterFirst, 0, false));
       const twiceBack = { ...afterSecond, curRound: index };
 
       // Round index+1 has scores, so Next from index steps forward.
       expect(drawnAheadStatus(twiceBack, index)).toBe('locked');
-      const stepped = advanceOk(twiceBack);
+      const stepped = pressNextRound(twiceBack);
       expect(stepped.curRound).toBe(index + 1);
       expect(view(stepped)).toEqual(view({ ...twiceBack, curRound: index + 1 }));
       expect(stepped.scores).toEqual(twiceBack.scores);
 
       // Round index+2 is drawn but unscored, so Next from index+1 re-draws it identically.
       expect(drawnAheadStatus(stepped, index + 1)).toBe('redraw');
-      expect(view(advanceOk(stepped))).toEqual(view(afterSecond));
+      expect(view(pressNextRound(stepped))).toEqual(view(afterSecond));
     },
   );
 
   it('one score entered in the drawn-ahead round locks it: the state is otherwise identical, even after an edit in round 2', () => {
     const atRound = playUntil(build(config), 0, (state) => state.curRound === 2);
-    const first = advanceOk(scoreRound(atRound, 0, false));
+    const first = pressNextRound(scoreRound(atRound, 0, false));
     const [firstKey] = scoreKeysForPosition({
       roundIndex: 3,
       room: 1,
@@ -337,7 +329,7 @@ describe('Next Round steps forward unchanged when the drawn-ahead round is locke
     // The edit would change a re-draw; locked, the old draw must stay.
     const edited = scoreRound(back(first), 0, true);
     const withScore = { ...edited, scores: { ...edited.scores, [firstKey]: 5 } };
-    const stepped = advanceOk(withScore);
+    const stepped = pressNextRound(withScore);
     expect(stepped.curRound).toBe(3);
     expect(stepped.assignments).toEqual(first.assignments);
     expect(stepped).toEqual({ ...withScore, curRound: 3, reserveOpen: stepped.reserveOpen });
@@ -470,7 +462,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     '$name: no edit reproduces the advance, a correction re-routes',
     ({ start, stop }) => {
       const atRound = playUntil(start(), 0, stop);
-      expect(drawnAheadStatus(back(advanceOk(scoreRound(atRound, 0, false))), atRound.curRound)).toBe(
+      expect(drawnAheadStatus(back(pressNextRound(scoreRound(atRound, 0, false))), atRound.curRound)).toBe(
         'redraw',
       );
       expectRedrawEquivalence(atRound, 0, true, true);
@@ -484,9 +476,9 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       (state) => state.rounds[state.rounds[state.curRound].winnersTo ?? -1]?.bracket === 'grand-final',
     );
     const grandFinal = atRound.rounds[atRound.curRound].winnersTo as number;
-    const first = advanceOk(scoreRound(atRound, 0, false));
-    const redone = advanceOk(scoreRound(back(first), 0, true));
-    const expected = advanceOk(scoreRound(atRound, 0, true));
+    const first = pressNextRound(scoreRound(atRound, 0, false));
+    const redone = pressNextRound(scoreRound(back(first), 0, true));
+    const expected = pressNextRound(scoreRound(atRound, 0, true));
     expect(view(redone)).toEqual(view(expected));
     // The Grand Final is drawn once the losers final is played: play on from each version to it.
     const finalist = (state: TournamentState) =>
@@ -501,7 +493,9 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       Boolean(state.rounds[nextColumnStart(state)]?.isWaterfall),
     );
     expect(atRound.rounds[atRound.curRound].isQual).toBe(true);
-    expect(Object.values(advanceOk(scoreRound(atRound, 0, false)).pendingBracketSeeds).flat()).toEqual([]);
+    expect(Object.values(pressNextRound(scoreRound(atRound, 0, false)).pendingBracketSeeds).flat()).toEqual(
+      [],
+    );
     expectRedrawEquivalence(atRound, 0);
   });
 
@@ -523,11 +517,11 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       change: (state: TournamentState) => TournamentState,
       gone: string | null,
     ): void {
-      const first = advanceOk(scoreRound(atRound, 0, false));
+      const first = pressNextRound(scoreRound(atRound, 0, false));
       const changed = change(back(first));
       expect(drawnAheadStatus(changed, atRound.curRound)).toBe('redraw');
-      const redone = advanceOk(scoreRound(changed, 0, true));
-      const expected = advanceOk(scoreRound(change(atRound), 0, true));
+      const redone = pressNextRound(scoreRound(changed, 0, true));
+      const expected = pressNextRound(scoreRound(change(atRound), 0, true));
       expect(viewWithout(redone, gone)).toEqual(viewWithout(expected, gone));
     }
 
@@ -550,7 +544,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     // A swap needs the window still open after the advance, so the round advanced from eliminates nobody.
     const keepsSwapWindowOpen: Stop = (state) => {
       if (!isBracketRound(state)) return false;
-      const advanced = advanceOk(scoreRound(state, 0, false));
+      const advanced = pressNextRound(scoreRound(state, 0, false));
       return swapWindowOpen(advanced) && farPoolUnit(advanced) !== null;
     };
     const SWAPPABLE: Array<{ name: string; start: () => TournamentState }> = [
@@ -564,7 +558,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
 
     it.each(SWAPPABLE)('$name: a unit waiting in a pool is swapped', ({ start }) => {
       const atRound = playUntil(start(), 0, keepsSwapWindowOpen);
-      const first = advanceOk(scoreRound(atRound, 0, false));
+      const first = pressNextRound(scoreRound(atRound, 0, false));
       const name = farPoolUnit(first)?.name as string;
       const swap = (state: TournamentState) => swapIndividual(state, name, 'Sub');
       expect(swap(back(first))).not.toEqual(back(first));
@@ -575,7 +569,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       '$name: a swapped unit is renamed, so Previous and Next Round re-draw alike',
       ({ start }) => {
         const atRound = playUntil(start(), 0, keepsSwapWindowOpen);
-        const first = advanceOk(scoreRound(atRound, 0, false));
+        const first = pressNextRound(scoreRound(atRound, 0, false));
         const name = farPoolUnit(first)?.name as string;
         const swapAndRename = (state: TournamentState) =>
           renameIndividual(swapIndividual(state, name, 'Sub'), 'Sub', 'Sub2');
@@ -589,10 +583,10 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
       ({ start, stop }) => {
         const atRound = playUntil(start(), 0, stop);
         const next = nextColumnStart(atRound);
-        const first = advanceOk(scoreRound(atRound, 0, false));
+        const first = pressNextRound(scoreRound(atRound, 0, false));
         const name = first.assignments[next].find((entry) => entry.room !== null)?.name as string;
         expectSameAsAdvancingFromChanged(atRound, (state) => removeRosterUnit(state, name), name);
-        const redone = advanceOk(scoreRound(removeRosterUnit(back(first), name), 0, true));
+        const redone = pressNextRound(scoreRound(removeRosterUnit(back(first), name), 0, true));
         const seats = redone.rounds[next].rooms.reduce((total, size) => total + size, 0);
         expect(seats).toBe(redone.assignments[next].filter((entry) => entry.room !== null).length);
       },
@@ -607,7 +601,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
         ([index, seeds]) => Number(index) > nextColumnStart(state) && seeds.length > 0,
       );
     const atRound = playUntil(build(DE_RACE_37), 0, waitsPastNextRound);
-    const first = advanceOk(scoreRound(atRound, 0, false));
+    const first = pressNextRound(scoreRound(atRound, 0, false));
     const destination = Object.keys(atRound.pendingBracketSeeds)
       .map(Number)
       .find(
@@ -619,7 +613,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     function expectSteppedForwardUnchanged(pools: TournamentState['pendingBracketSeeds']): void {
       const backAgain = back({ ...first, pendingBracketSeeds: { ...first.pendingBracketSeeds, ...pools } });
       expect(drawnAheadStatus(backAgain, atRound.curRound)).toBe('locked');
-      const stepped = advanceOk(backAgain);
+      const stepped = pressNextRound(backAgain);
       expect(stepped.curRound).toBe(nextColumnStart(atRound));
       expect(stepped.pendingBracketSeeds).toEqual(backAgain.pendingBracketSeeds);
       expect(view(stepped)).toEqual(view({ ...backAgain, curRound: nextColumnStart(atRound) }));
@@ -645,7 +639,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
         name: string;
         destination: number;
       };
-      const advanced = advanceOk(scoreRound(shared, 0, false));
+      const advanced = pressNextRound(scoreRound(shared, 0, false));
       const luckyLosers = advanced.luckyLosers.map((names, index) =>
         index === target ? [...names, stray] : names,
       );
@@ -659,7 +653,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     ['waterfall', () => build(waterfallExample('second-chance-16', 16))],
   ])('%s: a score in the drawn-ahead round locks it', (_name, start) => {
     const atRound = playUntil(start(), 0, isBracketRound);
-    const first = advanceOk(scoreRound(atRound, 0, false));
+    const first = pressNextRound(scoreRound(atRound, 0, false));
     const next = nextColumnStart(atRound);
     const [key] = scoreKeysForPosition({
       roundIndex: next,
@@ -669,7 +663,7 @@ describe('Next Round re-draws a corrected double elimination or waterfall round'
     });
     const withScore = { ...first, scores: { ...first.scores, [key]: 5 } };
     expect(drawnAheadStatus(back(withScore), atRound.curRound)).toBe('locked');
-    const stepped = advanceOk(back(withScore));
+    const stepped = pressNextRound(back(withScore));
     expect(stepped.curRound).toBe(next);
     expect(stepped.assignments).toEqual(first.assignments);
   });
@@ -706,7 +700,7 @@ describe('Previous and Next Round after every advance reproduce the state', () =
       const advanced = result.state;
       const earlier = back(advanced);
       expect(drawnAheadStatus(earlier, earlier.curRound), `after advance ${advances}`).toBe('redraw');
-      expect(view(advanceOk(earlier)), `after advance ${advances}`).toEqual(view(advanced));
+      expect(view(pressNextRound(earlier)), `after advance ${advances}`).toEqual(view(advanced));
       state = advanced;
     }
     expect(advances).toBeGreaterThan(3);
@@ -727,13 +721,13 @@ describe('drawnAheadStatus', () => {
   });
 
   it('is "redraw" when the next round is drawn and nothing in it is scored', () => {
-    const first = advanceOk(scoreRound(build(config), 0, false));
+    const first = pressNextRound(scoreRound(build(config), 0, false));
     expect(drawnAheadStatus(back(first), 0)).toBe('redraw');
   });
 
   it('is "locked" when a drawn later round has a score', () => {
-    const first = advanceOk(scoreRound(build(config), 0, false));
-    const second = advanceOk(scoreRound(first, 0, false));
+    const first = pressNextRound(scoreRound(build(config), 0, false));
+    const second = pressNextRound(scoreRound(first, 0, false));
     expect(drawnAheadStatus({ ...second, curRound: 0 }, 0)).toBe('locked');
   });
 
@@ -789,8 +783,8 @@ describe('discardDrawsAfter', () => {
 
   it('leaves the draws up to the round advanced from and the input state alone', () => {
     const start = build(config);
-    const first = advanceOk(scoreRound(start, 0, false));
-    const second = advanceOk(scoreRound(first, 0, false));
+    const first = pressNextRound(scoreRound(start, 0, false));
+    const second = pressNextRound(scoreRound(first, 0, false));
     const snapshot = structuredClone(second);
     const discarded = discardDrawsAfter(second, 0);
     expect(second).toEqual(snapshot);
@@ -799,8 +793,8 @@ describe('discardDrawsAfter', () => {
   });
 
   it('clears the byes, lucky losers, pooling-bye counts and tie resolutions of every discarded round, and keeps the kept round entries', () => {
-    const first = advanceOk(scoreRound(build(config), 0, false));
-    const second = advanceOk(scoreRound(first, 0, false));
+    const first = pressNextRound(scoreRound(build(config), 0, false));
+    const second = pressNextRound(scoreRound(first, 0, false));
     // Round 1 is a warm-up (its bye was counted); round 2 is the first elimination round.
     const seeded: TournamentState = {
       ...second,

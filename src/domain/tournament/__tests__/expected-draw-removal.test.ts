@@ -6,7 +6,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import type { TournamentState } from '../types';
 import { pressed, resolveEveryTie, scoreRound } from './dependency-play-fixtures';
 import { spreadConfig, startSpread } from './spread-play';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 /**
  * The Expected draw shown after a removal is accurate: a unit leaves a room (scored or not) and the next rounds
@@ -24,13 +24,13 @@ function upperLower(count: number): TournamentState {
     poolingPhase: 'qual-table',
     qualAdv: '32',
   });
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
-    form,
-    testRuntime(),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
+      form,
+      testRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
 }
 
 const singleElimination = (count: number): TournamentState => startSpread(spreadConfig('ffa', count));

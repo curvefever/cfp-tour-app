@@ -13,7 +13,7 @@ import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { buildQualWaterfall, liveTournament, playToQualificationExit, QUAL_GRAPH } from './qual-waterfall';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
 import { scoreByHash, spreadConfig, startSpread } from './spread-play';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound } from './play-through';
 
 /** Scores every round of the column in play, so each room is complete. */
 function scoreColumn(state: TournamentState): TournamentState {
@@ -25,12 +25,6 @@ function scoreColumn(state: TournamentState): TournamentState {
   return { ...state, scores };
 }
 
-function advanced(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
-}
-
 /** At every step to the Final: the expected draw of the next column equals what Next Round then draws. */
 function expectEveryStepToMatch(start: TournamentState): number {
   let state = start;
@@ -38,7 +32,7 @@ function expectEveryStepToMatch(start: TournamentState): number {
   for (let guard = 0; guard < 30 && !state.rounds[state.curRound].isFinal; guard += 1) {
     const scored = scoreColumn(state);
     const expected = expectedRounds(scored);
-    const next = advanced(scored);
+    const next = pressNextRound(scored);
     expect(expected).not.toBeNull();
     for (const [roundIndex, round] of expected ?? []) {
       expect(round.assignments).toEqual(next.assignments[roundIndex]);
@@ -105,10 +99,10 @@ describe('expectedRounds equals what Next Round then draws', () => {
     const start = buildQualWaterfall(37, undefined, {}, { columns: true });
     let state = start;
     // Play to the last qualification round, then compare the waterfall entry column.
-    while (!state.rounds[state.curRound + 1]?.isWaterfall) state = advanced(scoreColumn(state));
+    while (!state.rounds[state.curRound + 1]?.isWaterfall) state = pressNextRound(scoreColumn(state));
     const scored = scoreColumn(state);
     const expected = expectedRounds(scored);
-    const next = advanced(scored);
+    const next = pressNextRound(scored);
     expect([...(expected?.keys() ?? [])]).toHaveLength(2);
     for (const [roundIndex, round] of expected ?? []) {
       expect(round.assignments).toEqual(next.assignments[roundIndex]);
@@ -144,13 +138,13 @@ describe('expectedRounds follows the shape the advance fits, not the planned one
   it('a withdrawal from R1 leaves R3 a seat short: the expected room is 7, the planned 8, and Next Round draws the same', () => {
     let state = buildQualWaterfall(37, BOTTOM_ROUTES_ON, {}, { columns: true });
     const r1 = state.rounds.findIndex((round) => round.customLabel === 'R1');
-    while (state.curRound < r1) state = advanced(scoreColumn(state));
+    while (state.curRound < r1) state = pressNextRound(scoreColumn(state));
     state = removeRosterUnit(state, fromFullestRoom(state));
 
     const scored = scoreColumn(state);
     const r3 = scored.rounds.findIndex((round) => round.customLabel === 'R3');
     const expected = expectedRounds(scored);
-    const next = advanced(scored);
+    const next = pressNextRound(scored);
 
     expect(scored.rounds[r3].rooms).toEqual([8]);
     expect(expected?.get(r3)?.rooms).toEqual([7]);
@@ -171,7 +165,7 @@ describe('expectedRounds follows the shape the advance fits, not the planned one
       ),
     };
     const expected = expectedRounds(stale);
-    const drawn = advanced(stale);
+    const drawn = pressNextRound(stale);
     expect(stale.rounds[next].rooms).toHaveLength(cut.rooms.length + 1);
     expect(expected?.get(next)?.rooms).toEqual(drawn.rounds[next].rooms);
     expect(expected?.get(next)?.rooms).toHaveLength(cut.rooms.length);
@@ -191,7 +185,7 @@ describe('expectedRounds is null until the draw is determined', () => {
 
   it('while a tie at the cut waits to be settled', () => {
     let state = started(SINGLE_ELIMINATION_43);
-    while (state.rounds[state.curRound].isNoElim) state = advanced(scoreColumn(state));
+    while (state.rounds[state.curRound].isNoElim) state = pressNextRound(scoreColumn(state));
     const scored = scoreColumn(state);
     const round = scored.rounds[scored.curRound];
     const cutPosition = round.advPerRoom ?? 0;
@@ -214,7 +208,7 @@ describe('expectedRounds is null until the draw is determined', () => {
 
   it('once the next round is drawn (after Previous)', () => {
     const scored = scoreColumn(startSpread(FFA_QUAL));
-    const drawn = advanced(scored);
+    const drawn = pressNextRound(scored);
     expect(expectedRounds({ ...drawn, curRound: drawn.curRound - 1 })).toBeNull();
   });
 
@@ -225,7 +219,7 @@ describe('expectedRounds is null until the draw is determined', () => {
 
   it('on the Final, where there is no next column', () => {
     let state = startSpread(FFA_QUAL);
-    while (!state.rounds[state.curRound].isFinal) state = advanced(scoreColumn(state));
+    while (!state.rounds[state.curRound].isFinal) state = pressNextRound(scoreColumn(state));
     expect(expectedRounds(scoreColumn(state))).toBeNull();
   });
 
@@ -303,10 +297,10 @@ describe('the expected draw after a qualification table includes the trade that 
           { columns: true },
         );
         while (!state.rounds[state.curRound + 1]?.isWaterfall) {
-          state = advanced(scoreWithSeed(state, seed));
+          state = pressNextRound(scoreWithSeed(state, seed));
         }
         const scored = scoreWithSeed(state, seed);
-        const next = advanced(scored);
+        const next = pressNextRound(scored);
         const entry = scored.curRound + 1;
         const exitOrder = (next.rounds.find((round) => round.standingsRoutes)?.standingsExitOrder ?? []).map(
           (unit) => unit.name,
@@ -366,7 +360,7 @@ function playToColumnOf(start: TournamentState, label: string): TournamentState 
   for (let guard = 0; guard < 40; guard += 1) {
     const { start: first, end } = currentColumn(state);
     if (target >= first && target <= end) return state;
-    state = advanced(scoreColumn(state));
+    state = pressNextRound(scoreColumn(state));
   }
   throw new Error(`never reached ${label}`);
 }
@@ -380,7 +374,7 @@ interface Walk {
 
 /** What Next Round draws equals what was shown, and a round shown for later is still shown, unchanged. */
 function expectNextRoundToMatch(scored: TournamentState, seen: Map<number, ExpectedRound>): TournamentState {
-  const next = advanced(scored);
+  const next = pressNextRound(scored);
   const { start, end } = roundColumn(scored.rounds, nextColumnStart(scored));
   for (let index = start; index <= end; index += 1)
     expect(seen.has(index), `round ${index} shown`).toBe(true);
@@ -481,7 +475,7 @@ describe('the upper and lower example', () => {
     const column = atTheMiddleColumn();
     const r5l = scoreRound(column, indexOfRound(column, 'R5L'));
     const before = shown(r5l);
-    const next = advanced(scoreColumn(r5l));
+    const next = pressNextRound(scoreColumn(r5l));
     for (const index of indexes(column, 'R6L', 'R6R')) {
       expect(next.assignments[index]).toEqual(before.get(index)?.assignments);
     }
@@ -568,7 +562,7 @@ describe('an absence question holds back only the rounds it feeds', () => {
     const draw = shown(answered);
     expect([...draw.keys()].sort()).toEqual([r6l, r6r].sort());
     expect(draw.get(r6r)?.assignments.map((entry) => entry.name)).toContain(zeroed.unit);
-    const next = advanced(answered);
+    const next = pressNextRound(answered);
     expect(draw.get(r6l)?.assignments).toEqual(next.assignments[r6l]);
     expect(draw.get(r6r)?.assignments).toEqual(next.assignments[r6r]);
   });
@@ -622,7 +616,7 @@ describe('after Previous on a Custom bracket', () => {
   it('nothing is shown, though later rounds are undrawn and their feeders are scored', () => {
     const column = atTheMiddleColumn();
     const scored = scoreColumn(column);
-    const next = advanced(scored);
+    const next = pressNextRound(scored);
     expect(next.assignments[indexOfRound(column, 'SemiB')] ?? []).toHaveLength(0);
     expect(expectedRounds(scored)).not.toBeNull();
     expect(expectedRounds({ ...next, curRound: column.curRound })).toBeNull();
@@ -647,7 +641,7 @@ describe('a withdrawal and the expected draw of a Custom bracket round', () => {
     const removed = scoreRound(removeRosterUnit(scored, leaver), r5l);
     const after = shown(removed);
     expect(after).not.toEqual(before);
-    const next = advanced(scoreColumn(removed));
+    const next = pressNextRound(scoreColumn(removed));
     for (const [index, round] of after) expect(round.assignments).toEqual(next.assignments[index]);
   });
 });
@@ -659,8 +653,8 @@ describe('a later round fed only by the qualification table', () => {
     const draw = shown(exit);
     expect(draw.has(r1c)).toBe(true);
     expect(draw.has(indexOfRound(exit, 'R2'))).toBe(false);
-    let state = advanced(exit);
-    while (state.curRound < r1c) state = advanced(scoreColumn(state));
+    let state = pressNextRound(exit);
+    while (state.curRound < r1c) state = pressNextRound(scoreColumn(state));
     expect(draw.get(r1c)?.assignments).toEqual(state.assignments[r1c]);
   });
 });

@@ -3,6 +3,7 @@ import { getGameFormat } from '../formats';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
+import { currentColumn } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
@@ -100,6 +101,30 @@ export function scoreCurrentRound(state: TournamentState, teamSize: number): Tou
     });
   }
   return { ...state, scores };
+}
+
+/** Next Round: the next state, and the test fails on a refusal. */
+export function pressNextRound(state: TournamentState): TournamentState {
+  const result = advanceTournamentRound(state);
+  if (result.status !== 'advanced') {
+    throw new Error(`could not advance round ${state.curRound}: ${JSON.stringify(result).slice(0, 300)}`);
+  }
+  return result.state;
+}
+
+/** Scores the round in play (`scoreCurrentRound`), then Next Round. */
+export function scoreThenPress(state: TournamentState, teamSize = 0): TournamentState {
+  return pressNextRound(scoreCurrentRound(state, teamSize));
+}
+
+/** Scores every round of the column in play, every score distinct; `curRound` stays where it was. */
+export function scoreColumn(state: TournamentState, teamSize = 0): TournamentState {
+  const { start, end } = currentColumn(state);
+  let scored = state;
+  for (let index = start; index <= end; index += 1) {
+    scored = { ...scoreCurrentRound({ ...scored, curRound: index }, teamSize), curRound: state.curRound };
+  }
+  return scored;
 }
 
 export type Outcome =

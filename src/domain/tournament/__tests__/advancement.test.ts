@@ -32,12 +32,13 @@ import type { RoundAssignment, TournamentRound, TournamentStanding, TournamentSt
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import {
   buildState,
+  pressNextRound,
   scoreCurrentRound,
   withEarlierCutRule,
   withEarlierGroupRule,
   withEarlierPointsRule,
 } from './play-through';
-import { buildAssignments, buildRound } from './test-fixtures';
+import { buildAssignments, buildRound, startedState } from './test-fixtures';
 
 describe('detectTieBreaks', () => {
   it('detects a tie on the multi-game total, not a single game score', () => {
@@ -897,9 +898,7 @@ describe('computeLuckyLoserStandings', () => {
       }) as TournamentState,
     );
     for (let round = 0; round < 2; round += 1) {
-      const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
-      state = result.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     const roundIndex = state.curRound;
     const round = state.rounds[roundIndex];
@@ -1470,13 +1469,13 @@ describe('uncontested rooms (a room with exactly one assigned unit is not a matc
           members: [{ name: `a${index}` }, { name: `b${index}` }, { name: `c${index}` }],
         }))
       : Array.from({ length: count }, (_, index) => `P${index + 1}`);
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count, players }),
-      createDefaultSetup(setup),
-      createTournamentRuntime(),
+    return startedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: count, players }),
+        createDefaultSetup(setup),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return { ...result.state, started: true };
   }
 
   /** Scores every occupied room of `roundIndex`: first listed unit highest. */
@@ -2211,10 +2210,7 @@ describe('a score entered in the last qualification round is seen by the tie che
       },
     })!;
     while (!isLastStandingsRound(state, state.curRound)) {
-      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (advanced.status !== 'advanced')
-        throw new Error('could not advance to the last qualification round');
-      state = advanced.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     // Only the last round counts, so equal scores in two equal rooms make equal standings.
     const kept = Object.fromEntries(
@@ -2280,9 +2276,7 @@ describe('a score entered in the last group-stage round is seen by the tie check
       },
     })!;
     while (state.rounds[state.curRound + 1]?.isGroupStage) {
-      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (advanced.status !== 'advanced') throw new Error('could not advance to the last group-stage round');
-      state = advanced.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     return { ...state, scores: {} };
   }

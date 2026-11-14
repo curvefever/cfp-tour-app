@@ -5,7 +5,7 @@ import { currentColumn } from '../round-columns';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
-import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildState, scoreColumn, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
 
 /**
@@ -66,16 +66,6 @@ function build(config: SweepConfig): TournamentState {
   const state = buildState(config);
   if (!state) throw new Error(`generation refused: ${config.label}`);
   return state;
-}
-
-/** Scores every round of the column in play, every score distinct. */
-function scoreColumn(state: TournamentState): TournamentState {
-  const { start, end } = currentColumn(state);
-  let scored = state;
-  for (let index = start; index <= end; index += 1) {
-    scored = { ...scoreCurrentRound({ ...scored, curRound: index }, 0), curRound: state.curRound };
-  }
-  return scored;
 }
 
 /**

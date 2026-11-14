@@ -8,27 +8,26 @@ import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { PersistedSetup, TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
+import { startedState } from './test-fixtures';
 
 function generated(count: number, setup: Partial<PersistedSetup>): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: count,
-      players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({ poolingPhase: 'none', gameFormat: 'individual-1v1', ...setup }),
-    createTournamentRuntime(),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({ poolingPhase: 'none', gameFormat: 'individual-1v1', ...setup }),
+      createTournamentRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-  return { ...result.state, started: true };
 }
 
 function playUntil(state: TournamentState, reached: (round: TournamentState['rounds'][number]) => boolean) {
   let current = state;
   while (!reached(current.rounds[current.curRound])) {
-    const advanced = advanceTournamentRound(scoreCurrentRound(current, 0));
-    if (advanced.status !== 'advanced') throw new Error(`stopped at round ${current.curRound}`);
-    current = advanced.state;
+    current = pressNextRound(scoreCurrentRound(current, 0));
   }
   return current;
 }
@@ -38,9 +37,7 @@ const inSemis = (setup: Partial<PersistedSetup> = {}) =>
 
 function inFinal(setup: Partial<PersistedSetup> = {}): TournamentState {
   const semis = inSemis(setup);
-  const advanced = advanceTournamentRound(scoreCurrentRound(semis, 0));
-  if (advanced.status !== 'advanced') throw new Error('could not reach the Final');
-  return advanced.state;
+  return pressNextRound(scoreCurrentRound(semis, 0));
 }
 
 function finalScores(state: TournamentState, games: Record<string, number>): TournamentState {

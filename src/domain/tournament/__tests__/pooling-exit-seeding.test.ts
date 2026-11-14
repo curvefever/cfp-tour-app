@@ -10,9 +10,8 @@ import {
   tieredSeed,
 } from '../seeding';
 import { createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';
-import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import { buildRound } from './test-fixtures';
 
@@ -249,10 +248,7 @@ function playToFirstBracketRound(start: TournamentState, seed = 0): TournamentSt
     if (!round.isQual && !round.isSwiss && !round.isGroupStage && !round.isNoElim) return state;
     const scored =
       seed === 0 ? scoreCurrentRound(state, 4) : scoreFromSeed(scoreCurrentRound(state, 4), seed + guard);
-    const result = advanceTournamentRound(scored);
-    if (result.status !== 'advanced')
-      throw new Error(`blocked: ${result.status} ${JSON.stringify(result).slice(0, 200)}`);
-    state = result.state;
+    state = pressNextRound(scored);
   }
   throw new Error('no bracket round reached');
 }
@@ -592,9 +588,7 @@ describe('a Custom bracket round fed only by the Qual source', () => {
   });
 
   it('played through: R1 (ranks 1-16, 2 rooms of 8) follows the snake, and no more met pairs than the snake has', () => {
-    const advanced = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(24)));
-    if (advanced.status !== 'advanced') throw new Error(`blocked: ${advanced.status}`);
-    const state = advanced.state;
+    const state = pressNextRound(playToQualificationExit(buildQualWaterfall(24)));
     const order = (state.rounds.find((round) => round.standingsRoutes)?.standingsExitOrder ?? []).map(
       (standing) => standing.name,
     );

@@ -4,11 +4,11 @@ import { bestOfGameCount, roomMatch, stageMatchFields } from '../match-format';
 import { fitRoundToPool } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { PersistedSetup, TournamentRound, TournamentState, TournamentTeam } from '../types';
 import { generate as generateStarted, SE_FFA as SE_FFA_SETUP } from './fair-cut-fixtures';
-import { playWithRemovals, scoreCurrentRound } from './play-through';
+import { playWithRemovals, pressNextRound, scoreCurrentRound } from './play-through';
 import { ONE_SCORE_PER_TEAM } from '../formats';
+import { startedState } from './test-fixtures';
 
 type Setup = Partial<PersistedSetup>;
 
@@ -30,9 +30,7 @@ function generate(count: number, teamSize: number, setup: Setup) {
 }
 
 function generated(count: number, teamSize: number, setup: Setup): TournamentState {
-  const result = generate(count, teamSize, setup);
-  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-  return { ...result.state, started: true };
+  return startedState(generate(count, teamSize, setup));
 }
 
 const semisOf = (state: TournamentState) => state.rounds.find((round) => round.isSemis) as TournamentRound;
@@ -81,9 +79,7 @@ describe('single elimination with a Best of 3 Semis and Final, head to head', ()
       teamScoringRule: ONE_SCORE_PER_TEAM,
     });
     while (!state.rounds[state.curRound].isSemis) {
-      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (advanced.status !== 'advanced') throw new Error(`stopped at round ${state.curRound}`);
-      state = advanced.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     const round = state.curRound;
     const seats = state.assignments[round].filter((entry) => entry.room === 1).map((entry) => entry.name);

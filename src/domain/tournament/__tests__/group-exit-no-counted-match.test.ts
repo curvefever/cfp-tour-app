@@ -3,9 +3,8 @@ import { computeGroupStandings, getAllTies, hasPendingTies, selectGroupExit } fr
 import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { describeStandings } from '../standings-display';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentStanding, TournamentState } from '../types';
-import { buildState } from './play-through';
+import { buildState, pressNextRound } from './play-through';
 
 /** A one-versus-one group stage of `count` players: a fair cut of `total` (or an even one) out of the groups. */
 function groupStage(
@@ -68,9 +67,7 @@ function playGroupRounds(start: TournamentState, through: number, play: Play = {
     }
     state = { ...state, scores, absences };
     if (roundIndex === through) break;
-    const advanced = advanceTournamentRound(state);
-    if (advanced.status !== 'advanced') throw new Error(`blocked at round ${roundIndex}: ${advanced.status}`);
-    state = advanced.state;
+    state = pressNextRound(state);
   }
   return state;
 }

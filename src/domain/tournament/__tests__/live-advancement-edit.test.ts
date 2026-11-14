@@ -3,38 +3,28 @@ import { generateTournament } from '../generation';
 import { applyAdvancementEdit, advancementEditScope } from '../live-advancement-edit';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
-import { fixedIdSource } from './test-fixtures';
+import { scoreCurrentRound, scoreThenPress } from './play-through';
+import { fixedIdSource, startedState } from './test-fixtures';
 
 function build(count: number, overrides: Parameters<typeof createDefaultSetup>[0]): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: count,
-      players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({ gameFormat: 'ffa-individual', ...overrides }),
-    createTournamentRuntime({ ids: fixedIdSource() }),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({ gameFormat: 'ffa-individual', ...overrides }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    ),
   );
-  if (result.status !== 'generated') {
-    throw new Error(`fixture failed: ${result.status === 'invalid' ? result.message : 'unknown'}`);
-  }
-  return { ...result.state, started: true };
-}
-
-function advance(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-  if (result.status !== 'advanced')
-    throw new Error(`could not advance round ${state.curRound}: ${result.status}`);
-  return result.state;
 }
 
 /** Plays until the current round is the first elimination round. */
 function playToFirstElimination(state: TournamentState): TournamentState {
   let current = state;
   while (current.rounds[current.curRound].isNoElim || current.rounds[current.curRound].isQual) {
-    current = advance(current);
+    current = scoreThenPress(current);
   }
   return current;
 }
@@ -148,7 +138,7 @@ describe('advancement edit: pooling', () => {
       qualAdv: '24',
       drawPublication: 'fixed',
     });
-    const advanced = advance(fixed);
+    const advanced = scoreThenPress(fixed);
     // A published (possibly patched) draw: reverse a future round's seating so a rebuild would visibly differ.
     const poolingCount = advanced.rounds.findIndex((round) => !round.isQual);
     const state = {
@@ -235,10 +225,10 @@ describe('advancement edit: single-elimination bracket', () => {
     const expectedPlayers = [31, ...values];
     for (let index = 0; index < values.length; index += 1) {
       expect(state.rounds[state.curRound].players).toBe(expectedPlayers[index]);
-      state = advance(state);
+      state = scoreThenPress(state);
     }
     expect(state.rounds[state.curRound].isSemis).toBe(true);
-    state = advance(state);
+    state = scoreThenPress(state);
     expect(state.rounds[state.curRound].isFinal).toBe(true);
   });
 
@@ -372,10 +362,10 @@ describe('advancement edit: out of scope', () => {
 
   it('is none on Semis and the Final of single elimination', () => {
     let state = playToFirstElimination(base());
-    while (!state.rounds[state.curRound].isSemis) state = advance(state);
+    while (!state.rounds[state.curRound].isSemis) state = scoreThenPress(state);
     expect(advancementEditScope(state).kind).toBe('none');
     expect(applyAdvancementEdit(state, { kind: 'bracket', targets: [8] }).ok).toBe(false);
-    state = advance(state);
+    state = scoreThenPress(state);
     expect(advancementEditScope(state).kind).toBe('none');
   });
 });

@@ -15,7 +15,7 @@ import {
   playDependency,
   playToBracketEntry,
 } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -45,9 +45,7 @@ function generate(count: number, setup: Setup) {
 }
 
 function built(count: number, setup: Setup): TournamentState {
-  const result = generate(count, setup);
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
+  return startedState(generate(count, setup));
 }
 
 /** The graph "Edit graph" opens on, as the running Admin reads it off the rounds. */

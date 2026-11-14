@@ -15,7 +15,7 @@ import { validateRoomCap } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { GameFormatKey, PersistedSetup, TournamentState } from '../types';
-import { fixedIdSource, requireGameFormat, rosterFor, sequenceRandom } from './test-fixtures';
+import { fixedIdSource, generatedState, requireGameFormat, rosterFor, sequenceRandom } from './test-fixtures';
 
 const RULE_KEYS = [
   'ffa-individual',
@@ -147,14 +147,9 @@ function generate(gameFormat: GameFormatKey, count: number, setup: Partial<Persi
   );
 }
 
-function generated(result: ReturnType<typeof generate>): TournamentState {
-  if (result.status !== 'generated') throw new Error(`Not generated: ${result.message}`);
-  return result.state;
-}
-
 describe('generation for the new team formats at awkward counts', () => {
   it('4v4, 31 teams, qualification table + single elimination: rooms of 2 plus one bye', () => {
-    const state = generated(
+    const state = generatedState(
       generate('team-4v4', 31, {
         poolingPhase: 'qual-table',
         scheduleLogic: 'single-elimination',
@@ -173,20 +168,20 @@ describe('generation for the new team formats at awkward counts', () => {
   });
 
   it('5v5, 13 teams, Swiss: 6 rooms of 2 and a bye', () => {
-    const state = generated(generate('team-5v5', 13, { poolingPhase: 'swiss', qualAdv: '4' }));
+    const state = generatedState(generate('team-5v5', 13, { poolingPhase: 'swiss', qualAdv: '4' }));
     expect(state.rounds[0].rooms).toEqual(Array(6).fill(2));
     expect(state.rounds[0].byeCount).toBe(1);
   });
 
   it('2v2, 13 teams, group stage generates', () => {
-    const state = generated(generate('team-2v2', 13, { poolingPhase: 'group-stage', qualAdv: '4' }));
+    const state = generatedState(generate('team-2v2', 13, { poolingPhase: 'group-stage', qualAdv: '4' }));
     expect(state.rounds.length).toBeGreaterThan(0);
   });
 
   it.each([23, 37])(
     '2v2v2v2v2, %i teams, qualification table: rooms of 4-5 teams, at most 10 players',
     (count) => {
-      const state = generated(
+      const state = generatedState(
         generate('team-2v2v2v2v2', count, { poolingPhase: 'qual-table', qualAdv: '8' }),
       );
       for (const round of state.rounds.filter((entry) => entry.isQual)) {
@@ -198,7 +193,7 @@ describe('generation for the new team formats at awkward counts', () => {
   );
 
   it('2v2v2, 31 teams, qualification table + Kings Valley: rooms of 2-3 teams', () => {
-    const state = generated(
+    const state = generatedState(
       generate('team-2v2v2', 31, {
         poolingPhase: 'qual-table',
         scheduleLogic: 'kings-valley',

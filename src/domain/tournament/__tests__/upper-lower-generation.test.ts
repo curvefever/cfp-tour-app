@@ -10,7 +10,7 @@ import { bracketLogicOf } from '../upper-lower';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
 import { indexOf, playToBracketEntry } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { generatedState, rosterFor, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -24,9 +24,7 @@ function generate(count: number, setup: Setup) {
 }
 
 function built(count: number, setup: Setup): TournamentState {
-  const result = generate(count, setup);
-  if (result.status !== 'generated') throw new Error(result.message);
-  return result.state;
+  return generatedState(generate(count, setup));
 }
 
 /** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */

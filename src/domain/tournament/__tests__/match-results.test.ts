@@ -15,9 +15,8 @@ import {
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildState } from './play-through';
+import { buildState, pressNextRound } from './play-through';
 import { buildRound } from './test-fixtures';
 
 const DEFAULT_POINTS: MatchResultPoints = [3, 2, 1, 0];
@@ -324,9 +323,7 @@ describe('37 teams of 4v4, group size 4, match results', () => {
       }
       state = { ...state, scores };
       if (roundIndex < lastRound) {
-        const result = advanceTournamentRound(state);
-        if (result.status !== 'advanced') throw new Error(`stuck at round ${roundIndex}`);
-        state = result.state;
+        state = pressNextRound(state);
       }
     }
     return state;

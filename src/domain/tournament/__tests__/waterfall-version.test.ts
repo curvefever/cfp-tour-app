@@ -3,29 +3,29 @@ import { generateTournament } from '../generation';
 import { nextColumnStart, roundsInPlay, usesDependencyPlay } from '../round-columns';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { atEntry, indexOf, onlyFinalInPlay, pressed, scoreRound } from './dependency-play-fixtures';
 import { buildQualWaterfall, playToQualificationExit, playerNames } from './qual-waterfall';
-import { fixedIdSource } from './test-fixtures';
+import { fixedIdSource, startedState } from './test-fixtures';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
+import { pressNextRound } from './play-through';
 
 /** A tournament is played by dependency play only when generation wrote its version: the older ones keep their columns. */
 
 function generated(scheduleLogic: 'waterfall-bracket' | 'single-elimination'): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: 37, players: playerNames(37) }),
-    createDefaultSetup({
-      gameFormat: 'ffa-individual',
-      scheduleLogic,
-      poolingPhase: 'qual-table',
-      qualAdv: scheduleLogic === 'waterfall-bracket' ? '99' : '24',
-      ...(scheduleLogic === 'waterfall-bracket' ? { waterfallGraph: UPPER_LOWER_GRAPH } : {}),
-    }),
-    createTournamentRuntime({ ids: fixedIdSource() }),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: 37, players: playerNames(37) }),
+      createDefaultSetup({
+        gameFormat: 'ffa-individual',
+        scheduleLogic,
+        poolingPhase: 'qual-table',
+        qualAdv: scheduleLogic === 'waterfall-bracket' ? '99' : '24',
+        ...(scheduleLogic === 'waterfall-bracket' ? { waterfallGraph: UPPER_LOWER_GRAPH } : {}),
+      }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-  return { ...result.state, started: true };
 }
 
 describe('a newly generated Custom bracket', () => {
@@ -33,9 +33,7 @@ describe('a newly generated Custom bracket', () => {
     const generatedState = generated('waterfall-bracket');
     expect(generatedState.gamemodeConfig.dependencyPlayVersion).toBe(1);
     expect(generatedState.waterfallSteps).toEqual([]);
-    const entered = advanceTournamentRound(playToQualificationExit(generatedState));
-    if (entered.status !== 'advanced') throw new Error('the pooling exit did not advance');
-    let current = entered.state;
+    let current = pressNextRound(playToQualificationExit(generatedState));
     expect(usesDependencyPlay(current)).toBe(true);
     // Sending R4U alone draws SemiA at once: a column would have waited for R4L.
     const r4u = indexOf(current, 'R4U');

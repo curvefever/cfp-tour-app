@@ -14,7 +14,7 @@ import {
 } from '../waterfall-bracket';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { buildAssignments, buildRound, sequenceRandom } from './test-fixtures';
+import { buildAssignments, buildRound, generatedState, sequenceRandom } from './test-fixtures';
 import type {
   MaterializedGamemodeConfig,
   RoundAssignment,
@@ -1492,18 +1492,18 @@ SemiB: 1-2->Final, 3-5->eliminated
 describe('advanceTournamentRound — fixed-draw Swiss after a roster change', () => {
   function fixedSwissState(): TournamentState {
     const players = Array.from({ length: 11 }, (_, index) => `P${index + 1}`);
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: 11, players }),
-      createDefaultSetup({
-        gameFormat: 'individual-1v1',
-        poolingPhase: 'swiss',
-        qualAdv: '4',
-        drawPublication: 'fixed',
-      }),
-      createTournamentRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: 11, players }),
+        createDefaultSetup({
+          gameFormat: 'individual-1v1',
+          poolingPhase: 'swiss',
+          qualAdv: '4',
+          drawPublication: 'fixed',
+        }),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error('generation failed');
-    return result.state;
   }
 
   /** Every occupied room of the current round gets distinct scores, first listed unit highest. */
@@ -1581,13 +1581,13 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
       gameFormat === 'ffa-individual'
         ? Array.from({ length: count }, (_, index) => `P${index + 1}`)
         : teams(count);
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count, players }),
-      createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley' }),
-      createTournamentRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: count, players }),
+        createDefaultSetup({ gameFormat, scheduleLogic: 'kings-valley' }),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return result.state;
   }
 
   /**

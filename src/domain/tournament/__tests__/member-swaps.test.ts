@@ -12,9 +12,8 @@ import {
 import { setTeamDefender, swapWindowOpen } from '../mutations';
 import { getDefenderIndex } from '../scoring';
 import { describeStandings } from '../standings-display';
-import { advanceTournamentRound } from '../transitions';
 import type { TeamMember, TournamentState, TournamentTeam } from '../types';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, scoreThenPress } from './play-through';
 import { oneRoomState, teamOf } from './test-fixtures';
 
 const teamsOf = (state: TournamentState) => state.players as TournamentTeam[];
@@ -53,12 +52,6 @@ function groups13(): TournamentState {
   });
   if (!state) throw new Error('generation failed');
   return state;
-}
-
-function advanceScored(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(scoreCurrentRound(state, 4));
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
 }
 
 /** A unit seated in a room of the round in play. */
@@ -154,7 +147,7 @@ describe('swapTeamMember', () => {
 
 describe('swapTeamMember in play (13 teams, 4v4 group stage)', () => {
   it('works in a group-stage round in play, and the past round score and the standings are unchanged', () => {
-    const played = advanceScored(groups13());
+    const played = scoreThenPress(groups13(), 4);
     const before = JSON.stringify(describeStandings(played));
     const teamId = seatedTeam(played);
     const swapped = swapTeamMember(played, teamId, 2, { name: 'Walk Up' });
@@ -167,8 +160,8 @@ describe('swapTeamMember in play (13 teams, 4v4 group stage)', () => {
 
   it('works in a bracket round once eliminations have closed the reserve window', () => {
     let state = groups13();
-    while (state.rounds[state.curRound].isGroupStage) state = advanceScored(state);
-    state = advanceScored(state);
+    while (state.rounds[state.curRound].isGroupStage) state = scoreThenPress(state, 4);
+    state = scoreThenPress(state, 4);
     expect(state.rounds[state.curRound].isGroupStage).toBeFalsy();
     expect(swapWindowOpen(state)).toBe(false);
     const before = JSON.stringify(describeStandings(state));

@@ -5,13 +5,13 @@ import { rosterKeys } from '../roster';
 import { resolveTournamentTie } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { roundsInPlay } from '../round-columns';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { isRoundScored } from '../waterfall-steps';
 import { buildQualWaterfall, playToQualificationExit, withDependencyPlay } from './qual-waterfall';
 import { scoreByHash } from './spread-play';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
+import { pressNextRound } from './play-through';
 
 /**
  * Shared by the dependency play tests: the graphs, scoring helpers, and walks to the Final in column play and in
@@ -50,11 +50,8 @@ export const indexOf = (state: TournamentState, label: string) =>
 export const indexes = (state: TournamentState, ...labels: string[]): number[] =>
   labels.map((label) => indexOf(state, label)).sort((first, second) => first - second);
 
-export function pressed(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
-}
+/** Next Round (the name the dependency-play tests know it by). */
+export const pressed = pressNextRound;
 
 /** Every unit of the round gets a distinct score ordered by a hash of round and name (`scoreByHash`). */
 export function scoreRound(state: TournamentState, roundIndex: number): TournamentState {

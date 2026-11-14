@@ -8,7 +8,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { playThrough, scoreCurrentRound } from './play-through';
+import { playThrough, pressNextRound, scoreCurrentRound, scoreThenPress } from './play-through';
 import {
   ALL_ROUTED_GRAPHS,
   QUAL_GRAPH,
@@ -70,20 +70,12 @@ function buildTournament(
 }
 
 /** Scores the current round with the real transition code and advances, distinctly and deterministically. */
-function playOneRound(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-  if (result.status !== 'advanced') {
-    throw new Error(`could not advance past round ${state.curRound}: ${result.status}`);
-  }
-  return result.state;
-}
-
 /** Plays rounds (scoring every one distinctly) until the current round has this customLabel. */
 function playToLabel(state: TournamentState, label: string): TournamentState {
   let current = state;
   for (let guard = 0; guard < 30; guard += 1) {
     if (current.rounds[current.curRound].customLabel === label) return current;
-    current = playOneRound(current);
+    current = scoreThenPress(current);
   }
   throw new Error(`did not reach round "${label}" within 30 rounds`);
 }
@@ -455,9 +447,7 @@ describe('applyWaterfallGraphEdit -- a graph with a Qual source', () => {
   const GAP_QUAL = 'Qual: 1-16->R1, 17-19->eliminated, 20-27->R1C';
 
   function enterBracket(registered: number): TournamentState {
-    const result = advanceTournamentRound(playToQualificationExit(buildQualWaterfall(registered)));
-    if (result.status !== 'advanced') throw new Error('the pooling exit did not advance');
-    return result.state;
+    return pressNextRound(playToQualificationExit(buildQualWaterfall(registered)));
   }
 
   it('during qualification, moves a gap into the routing: 17-19 out, 20-27 to R1C, qualAdv follows (43 registered)', () => {
@@ -558,11 +548,6 @@ describe('applyWaterfallGraphEdit -- a graph with a Qual source', () => {
 });
 
 describe('saving a graph after a withdrawal (Qual source)', () => {
-  const advanced = (state: TournamentState): TournamentState => {
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-    return result.state;
-  };
   const roundIndex = (state: TournamentState, label: string) =>
     state.rounds.findIndex((round) => round.customLabel === label);
   /** Everyone seated in a bracket-phase round or waiting in a pool (the qualification rounds are left out). */
@@ -581,8 +566,8 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
   it.each([37, 43])(
     '%i: after removing a unit that waits for R2 (R1 played), the unchanged graph saves and changes nothing',
     (registered) => {
-      const atR1c = advanced(
-        scoreCurrentRound(advanced(playToQualificationExit(buildQualWaterfall(registered))), 0),
+      const atR1c = pressNextRound(
+        scoreCurrentRound(pressNextRound(playToQualificationExit(buildQualWaterfall(registered))), 0),
       );
       const r2 = roundIndex(atR1c, 'R2');
       const removed = removeRosterUnit(atR1c, atR1c.pendingBracketSeeds[r2][0].name);
@@ -603,7 +588,7 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
   it.each([37, 43])(
     '%i: after removing a unit that waits for R1C, the unchanged graph saves, R1C stays at 7 and the next rank is not pulled in',
     (registered) => {
-      const atR1 = advanced(playToQualificationExit(buildQualWaterfall(registered)));
+      const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(registered)));
       const r1c = roundIndex(atR1, 'R1C');
       const order = orderedQualificationTable(atR1).ordered.map((entry) => entry.name);
       const waiting = atR1.pendingBracketSeeds[r1c][2].name;
@@ -621,10 +606,10 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
   );
 
   it('after R1C was drawn short, a save keeping its declared 8 passes the shape check and shrinking it to 7 is refused', () => {
-    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const r1c = roundIndex(atR1, 'R1C');
     const removed = removeRosterUnit(atR1, atR1.pendingBracketSeeds[r1c][0].name);
-    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    const atR1c = pressNextRound(scoreCurrentRound(removed, 0));
     expect(atR1c.rounds[r1c]).toMatchObject({ rooms: [7], players: 7, declaredRooms: [8] });
 
     const result = saved(atR1c);
@@ -646,17 +631,17 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
 
   it('a short reached round recounts the ranks it still sends on when its bands change (advTotal)', () => {
     const graph = QUAL_GRAPH.replace('R1C: 1-4->Final, 5-8->eliminated', 'R1C: 1-5->Final, 6-8->eliminated');
-    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH)));
     const r1c = roundIndex(atR1, 'R1C');
     const removed = removeRosterUnit(atR1, atR1.pendingBracketSeeds[r1c][0].name);
-    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    const atR1c = pressNextRound(scoreCurrentRound(removed, 0));
     const finalWithFive = graph.replace('R2: 1-4->Final, 5-8->eliminated', 'R2: 1-3->Final, 4-8->eliminated');
     const result = saved(atR1c, finalWithFive);
     expect(result.state.rounds[r1c]).toMatchObject({ rooms: [7], declaredRooms: [8], advTotal: 5 });
   });
 
   it('a unit swapped in while waiting keeps its place in the rebuilt pool', () => {
-    const atR1 = advanced(
+    const atR1 = pressNextRound(
       playToQualificationExit({ ...buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]), reserves: ['Sub'] }),
     );
     const r1c = roundIndex(atR1, 'R1C');
@@ -671,7 +656,7 @@ describe('saving a graph after a withdrawal (Qual source)', () => {
   });
 
   it('a tournament without a stored exit order still saves as before', () => {
-    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const qualIndex = atR1.rounds.findIndex((round) => round.standingsExitOrder);
     expect(qualIndex).toBeGreaterThanOrEqual(0);
     const stripped = {
@@ -706,9 +691,7 @@ describe('applyWaterfallGraphEdit -- columns', () => {
 
   function enterBracket(columns: boolean): TournamentState {
     const exit = playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns }));
-    const result = advanceTournamentRound(exit);
-    if (result.status !== 'advanced') throw new Error('the pooling exit did not advance');
-    return result.state;
+    return pressNextRound(exit);
   }
 
   /** The bracket entered with its columns stored: R1 and R1C are drawn together. */

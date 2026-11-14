@@ -10,11 +10,10 @@ import { routeWaterfallRound } from '../bracket-replay';
 import { fairCutAdvancement, roundLineUps, sizePools } from '../fair-cut';
 import { removeRosterUnit } from '../mutations';
 import { computeRankings } from '../rankings';
-import { advanceTournamentRound } from '../transitions';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { type Absent, firstEliminationIndex, generate, playedRound, SE_FFA } from './fair-cut-fixtures';
-import { scoreCurrentRound, withEarlierCutRule } from './play-through';
+import { pressNextRound, scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 const names = (room: number, positions: number[]) => positions.map((position) => `R${room}P${position + 1}`);
@@ -228,9 +227,7 @@ describe('Rankings while the round is in play', () => {
   ) {
     let state = generate('in play', 37, setup);
     while (!isTarget(state.rounds[state.curRound])) {
-      const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (result.status !== 'advanced') throw new Error(`could not advance: ${result.status}`);
-      state = result.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     const size = state.assignments[state.curRound].filter((entry) => entry.room === 1).length;
     const key = `r${state.curRound}-rm1-p${size - 1}`;

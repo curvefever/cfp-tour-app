@@ -3,10 +3,9 @@ import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
 import { fixedIdSource } from './test-fixtures';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 
 /**
  * Fixtures for a waterfall bracket fed by the qualification table (the Qual
@@ -141,9 +140,7 @@ export function playToQualificationExit(start: TournamentState): TournamentState
   for (let guard = 0; guard < 20; guard += 1) {
     state = scoreCurrentRound(state, 0);
     if (!state.rounds[state.curRound + 1]?.isQual) return state;
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(result)}`);
-    state = result.state;
+    state = pressNextRound(state);
   }
   throw new Error('qualification did not end');
 }

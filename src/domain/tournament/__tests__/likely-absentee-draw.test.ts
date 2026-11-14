@@ -12,9 +12,8 @@ import {
 } from '../seeding';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { PendingBracketSeed, TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 import { afterRound1 } from './absentee-bracket-fixture';
 import { buildRound, oneRoomState } from './test-fixtures';
 
@@ -280,9 +279,7 @@ function bracketAfterR1(version: 2 | 3): TournamentState {
     gamemodeConfig: { ...result.state.gamemodeConfig, absenceVersion: version },
   };
   while (state.rounds[state.curRound].customLabel !== 'R1') {
-    const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-    if (advanced.status !== 'advanced') throw new Error(`could not reach R1: ${advanced.status}`);
-    state = advanced.state;
+    state = pressNextRound(scoreCurrentRound(state, 0));
   }
   const keys = [4, 5, 6, 7].map((seat) => `r${state.curRound}-rm1-p${seat}`);
   const scored = scoreCurrentRound(state, 0);
@@ -290,9 +287,7 @@ function bracketAfterR1(version: 2 | 3): TournamentState {
     ...scored,
     scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
   };
-  const advanced = advanceTournamentRound(answerAbsence(zeroed, keys, 'absent'));
-  if (advanced.status !== 'advanced') throw new Error(`could not advance: ${advanced.status}`);
-  return advanced.state;
+  return pressNextRound(answerAbsence(zeroed, keys, 'absent'));
 }
 
 describe('a Custom bracket round drawn from the units that came from other rounds', () => {

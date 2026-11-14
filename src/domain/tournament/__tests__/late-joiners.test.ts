@@ -17,9 +17,9 @@ import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState, TournamentTeam } from '../types';
-import { buildState, scoreCurrentRound } from './play-through';
+import { buildState, scoreCurrentRound, scoreThenPress } from './play-through';
 import { buildQualWaterfall } from './qual-waterfall';
-import { fixedIdSource } from './test-fixtures';
+import { fixedIdSource, startedState } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 
@@ -31,24 +31,17 @@ function build(count: number, setup: Setup, teams = false): TournamentState {
         members: [{ name: `a${index}` }, { name: `b${index}` }],
       }))
     : Array.from({ length: count }, (_, index) => `P${index + 1}`);
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players }),
-    createDefaultSetup(setup),
-    createTournamentRuntime({ ids: fixedIdSource() }),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players }),
+      createDefaultSetup(setup),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-  return { ...result.state, started: true };
-}
-
-/** Scores the round in play and advances it. */
-function playRound(state: TournamentState, teamSize = 0): TournamentState {
-  const result = advanceTournamentRound(scoreCurrentRound(state, teamSize));
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-  return result.state;
 }
 
 function playRounds(state: TournamentState, count: number): TournamentState {
-  return Array.from({ length: count }).reduce<TournamentState>((current) => playRound(current), state);
+  return Array.from({ length: count }).reduce<TournamentState>((current) => scoreThenPress(current), state);
 }
 
 function added(result: ReserveAddResult): TournamentState {
@@ -82,7 +75,7 @@ describe('a late joiner in a pooling round: FFA qualification table at 37, advan
     expect(joined.players).toHaveLength(38);
     expectRoundInPlayUnchanged(start, joined);
 
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(next.curRound).toBe(1);
     expect(seated(next, 1, 'Late')).toBe(1);
     expect(seatedCount(next, 1)).toBe(38);
@@ -90,12 +83,12 @@ describe('a late joiner in a pooling round: FFA qualification table at 37, advan
   });
 
   it('asks at round 2: 2 missed rounds, and adds once the organiser accepts', () => {
-    const atRound2 = playRound(build(37, FFA_QUAL));
+    const atRound2 = scoreThenPress(build(37, FFA_QUAL));
     expect(addWalkUpIndividual(atRound2, 'Late')).toEqual({ status: 'confirm-late-join', missedRounds: 2 });
 
     const joined = join(atRound2);
     expectRoundInPlayUnchanged(atRound2, joined);
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(seated(next, 2, 'Late')).toBe(1);
     expect(seatedCount(next, 2)).toBe(38);
     expect(next.rounds[2].rooms).toEqual(distributeRooms(38, roomSizeOf(next)));
@@ -109,7 +102,7 @@ describe('a late joiner in a pooling round: FFA qualification table at 37, advan
     expectRoundInPlayUnchanged(atRound3, joined);
     expect(joined.rounds.slice(3)).toEqual(atRound3.rounds.slice(3));
 
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(next.curRound).toBe(3);
     expect(seated(next, 3, 'Late')).toBe(0);
     expect(seatedCount(next, 3)).toBe(16);
@@ -121,7 +114,7 @@ describe('a late joiner in a pooling round: FFA qualification table at 37, advan
   it('counts the rounds missed so far, the one in play included', () => {
     const start = build(37, FFA_QUAL);
     expect(missedCountedRounds(start)).toBe(1);
-    expect(missedCountedRounds(playRound(start))).toBe(2);
+    expect(missedCountedRounds(scoreThenPress(start))).toBe(2);
   });
 });
 
@@ -129,10 +122,10 @@ describe('a late joiner when the first qualifying round does not count (43, adva
   const setup = { ...FFA_QUAL, nonCountingRounds: '1' } as const;
 
   it('added at round 2 misses 1 counted round: no prompt', () => {
-    const atRound2 = playRound(build(43, setup));
+    const atRound2 = scoreThenPress(build(43, setup));
     expect(missedCountedRounds(atRound2)).toBe(1);
     const joined = added(addWalkUpIndividual(atRound2, 'Late'));
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(seated(next, 2, 'Late')).toBe(1);
     expect(seatedCount(next, 2)).toBe(44);
   });
@@ -152,10 +145,10 @@ describe('a late joiner in Swiss, 1v1 with byes', () => {
   } as const;
 
   it('31 registered: added at round 2, round 3 is 16 rooms with no bye', () => {
-    const atRound2 = playRound(build(31, setup));
+    const atRound2 = scoreThenPress(build(31, setup));
     const joined = join(atRound2);
     expectRoundInPlayUnchanged(atRound2, joined);
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(next.rounds[2].rooms).toHaveLength(16);
     expect(next.byes[2] ?? []).toEqual([]);
     expect(seated(next, 2, 'Late')).toBe(1);
@@ -163,14 +156,14 @@ describe('a late joiner in Swiss, 1v1 with byes', () => {
   });
 
   it('53 registered: added at round 2, round 3 is 27 rooms with no bye (54 pair evenly)', () => {
-    const next = playRound(join(playRound(build(53, setup))));
+    const next = scoreThenPress(join(scoreThenPress(build(53, setup))));
     expect(next.rounds[2].rooms).toHaveLength(27);
     expect(next.byes[2] ?? []).toEqual([]);
     expect(seated(next, 2, 'Late')).toBe(1);
   });
 
   it('52 registered: the joiner makes 53, so round 3 is 26 rooms and 1 bye, the joiner placed once', () => {
-    const next = playRound(join(playRound(build(52, setup))));
+    const next = scoreThenPress(join(scoreThenPress(build(52, setup))));
     expect(next.rounds[2].rooms).toHaveLength(26);
     expect(next.byes[2]).toHaveLength(1);
     expect(seated(next, 2, 'Late')).toBe(1);
@@ -182,7 +175,7 @@ describe('a late joiner in a waterfall with a Qual source', () => {
 
   function scoreToQualExit(state: TournamentState): TournamentState {
     let current = state;
-    while (current.rounds[current.curRound + 1]?.isQual) current = playRound(current);
+    while (current.rounds[current.curRound + 1]?.isQual) current = scoreThenPress(current);
     return scoreCurrentRound(current, 0);
   }
 
@@ -192,7 +185,7 @@ describe('a late joiner in a waterfall with a Qual source', () => {
   ])(
     '%i registered: a joiner at qualification round 2 leaves the rounds alone; %i are eliminated at the exit',
     (registered, eliminated) => {
-      const start = playRound(buildQualWaterfall(registered));
+      const start = scoreThenPress(buildQualWaterfall(registered));
       const joined = join(start);
       expectRoundInPlayUnchanged(start, joined);
       expect(joined.rounds.slice(firstWaterfall(start))).toEqual(start.rounds.slice(firstWaterfall(start)));
@@ -213,7 +206,7 @@ describe('a late joiner in a waterfall with a Qual source', () => {
   );
 
   it('keeps a graph edited after generation: the joiner does not re-plan the waterfall rounds', () => {
-    const start = playRound(buildQualWaterfall(37));
+    const start = scoreThenPress(buildQualWaterfall(37));
     const edited = {
       ...start,
       rounds: start.rounds.map((round) =>
@@ -258,7 +251,7 @@ describe('a late joiner in double elimination, 1v1', () => {
     expect(addWalkUpIndividual(atRound3, 'Late')).toEqual({ status: 'confirm-late-join', missedRounds: 3 });
     const joined = join(atRound3);
     expect(joined.rounds.slice(3)).toEqual(atRound3.rounds.slice(3));
-    const next = playRound(joined);
+    const next = scoreThenPress(joined);
     expect(seated(next, 3, 'Late')).toBe(0);
   });
 
@@ -272,12 +265,12 @@ describe('a late joiner in double elimination, 1v1', () => {
     } as const;
 
     it('a joiner in warm-up 2 is not seated there; the bracket is rebuilt for 32 and draws them in', () => {
-      const atWarmUp2 = playRound(build(31, setup));
+      const atWarmUp2 = scoreThenPress(build(31, setup));
       const joined = added(addWalkUpIndividual(atWarmUp2, 'Late'));
       expectRoundInPlayUnchanged(atWarmUp2, joined);
       expect(joined.rounds.slice(2)).toEqual(build(32, setup).rounds.slice(2));
 
-      const next = playRound(joined);
+      const next = scoreThenPress(joined);
       expect(seated(next, 2, 'Late')).toBe(1);
       expect(next.byes[2] ?? []).toEqual([]);
       expect(seatedCount(next, 2)).toBe(32);
@@ -300,15 +293,15 @@ describe('a late joiner in a tournament without a pooling phase', () => {
     const entry = joined.assignments[inBracket.curRound].find((seat) => seat.name === 'Late');
     expect(entry?.room).toBe(3);
 
-    const second = playRound(joined);
+    const second = scoreThenPress(joined);
     expect(second.reserveOpen).toBe(false);
     expect(addWalkUpIndividual(second, 'Other')).toEqual({ status: 'blocked', reason: 'closed' });
   });
 
   it('Kings Valley FFA at 53: a joiner in warm-up 2 makes the first Kings Valley round 54 strong', () => {
     const setup = { scheduleLogic: 'kings-valley', poolingPhase: 'none', nonCountingRounds: '2' } as const;
-    const joined = added(addWalkUpIndividual(playRound(build(53, setup)), 'Late'));
-    const next = playRound(joined);
+    const joined = added(addWalkUpIndividual(scoreThenPress(build(53, setup)), 'Late'));
+    const next = scoreThenPress(joined);
     expect(seated(next, 2, 'Late')).toBe(1);
     expect(seatedCount(next, 2)).toBe(54);
     expect(next.rounds[2].rooms.reduce((sum, size) => sum + size, 0)).toBe(54);
@@ -328,7 +321,7 @@ describe('a late joiner team in 2v2v2v2, qualification table at 31 teams', () =>
     expect(joined.reserves).toEqual([]);
     expectRoundInPlayUnchanged(start, joined);
 
-    const next = playRound(joined, 2);
+    const next = scoreThenPress(joined, 2);
     expect(seated(next, 1, 'late')).toBe(1);
     expect(seatedCount(next, 1)).toBe(32);
   });
@@ -348,7 +341,7 @@ describe('swapping a late joiner, who is in no room yet', () => {
     expect(withdrawnAsSwapped(swapped, 'Late', 'Typed')).toHaveLength(1);
     expectRoundInPlayUnchanged(joined, swapped);
 
-    const next = playRound(swapped);
+    const next = scoreThenPress(swapped);
     expect(seated(next, 1, 'Typed')).toBe(1);
     expect(seated(next, 1, 'Late')).toBe(0);
     expect(seatedCount(next, 1)).toBe(38);
@@ -373,7 +366,7 @@ describe('swapping a late joiner, who is in no room yet', () => {
     expect(swapped.reserves).toEqual([]);
     expect(withdrawnAsSwapped(swapped, 'late', 'spare')).toHaveLength(1);
 
-    const next = playRound(swapped, 2);
+    const next = scoreThenPress(swapped, 2);
     expect(seated(next, 1, 'spare')).toBe(1);
     expect(seated(next, 1, 'late')).toBe(0);
     expect(seatedCount(next, 1)).toBe(22);
@@ -437,8 +430,8 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     const start = build(37, FFA_QUAL);
     const joined = join(join(start, 'Late1'), 'Late2');
     expect(lateJoinersOf(joined, 0)).toEqual(['Late1', 'Late2']);
-    expect(lateJoinersOf(playRound(joined), 0)).toEqual(['Late1', 'Late2']);
-    expect(lateJoinersOf(playRound(joined), 1)).toEqual([]);
+    expect(lateJoinersOf(scoreThenPress(joined), 0)).toEqual(['Late1', 'Late2']);
+    expect(lateJoinersOf(scoreThenPress(joined), 1)).toEqual([]);
   });
 
   it('FFA qual table at 37 (rooms [8,8,7,7,7]): the joiner is in tier 4 with relative score 1 (an average unit), not tier 0', () => {
@@ -493,7 +486,7 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
       const joined = join(start);
       const everyoneElseHadOne = Object.fromEntries((start.players as string[]).map((name) => [name, 1]));
       const withCounts = { ...joined, poolingByeCounts: everyoneElseHadOne };
-      const next = playRound(withCounts);
+      const next = scoreThenPress(withCounts);
       expect(next.byes[1]).toHaveLength(1);
       expect(next.byes[1]).not.toContain('Late');
       expect(seated(next, 1, 'Late')).toBe(1);
@@ -518,34 +511,34 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
     };
 
     it('31 registered: the joiner goes last in the fold, so they meet the middle-ranked unit (fold index half - 1), and there is no bye', () => {
-      const joined = join(playRound(build(31, setup)));
+      const joined = join(scoreThenPress(build(31, setup)));
       const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late']);
-      const next = playRound(joined);
+      const next = scoreThenPress(joined);
       expect(next.byes[2] ?? []).toEqual([]);
       expect(opponentOf(next, 2, 'Late')).toBe(ranked[15]);
     });
 
     it('30 registered and two joiners: they meet the units at fold index half - 2 and half - 1, in add order', () => {
-      const joined = join(join(playRound(build(30, setup)), 'Late1'), 'Late2');
+      const joined = join(join(scoreThenPress(build(30, setup)), 'Late1'), 'Late2');
       const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late1', 'Late2']);
-      const next = playRound(joined);
+      const next = scoreThenPress(joined);
       expect(next.byes[2] ?? []).toEqual([]);
       expect(opponentOf(next, 2, 'Late1')).toBe(ranked[14]);
       expect(opponentOf(next, 2, 'Late2')).toBe(ranked[15]);
     });
 
     it('30 registered plus a joiner is 31: the bye goes to a regular unit', () => {
-      const next = playRound(join(playRound(build(30, setup))));
+      const next = scoreThenPress(join(scoreThenPress(build(30, setup))));
       expect(next.byes[2]).toHaveLength(1);
       expect(next.byes[2]).not.toContain('Late');
       expect(seated(next, 2, 'Late')).toBe(1);
     });
 
     it('30 registered, everyone else already had a bye: the old rule (fewest byes) would pick the joiner, the bye still goes to a regular unit', () => {
-      const atRound2 = playRound(build(30, setup));
+      const atRound2 = scoreThenPress(build(30, setup));
       const joined = join(atRound2);
       const everyoneElseHadOne = Object.fromEntries((atRound2.players as string[]).map((name) => [name, 1]));
-      const next = playRound({ ...joined, poolingByeCounts: everyoneElseHadOne });
+      const next = scoreThenPress({ ...joined, poolingByeCounts: everyoneElseHadOne });
       expect(next.byes[2]).toHaveLength(1);
       expect(next.byes[2]).not.toContain('Late');
       expect(next.poolingByeCounts.Late ?? 0).toBe(0);
@@ -554,17 +547,17 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
 
   it('warm-ups into the first bracket round (single elimination FFA, 31): a joiner in warm-up 2 is in the middle tier', () => {
     const setup = { poolingPhase: 'none', nonCountingRounds: '2' } as const;
-    const atWarmUp2 = playRound(build(31, setup));
+    const atWarmUp2 = scoreThenPress(build(31, setup));
     const state = joinAndScore(atWarmUp2, ['Late']);
     const largest = Math.max(...state.rounds[1].rooms);
     expect(tierOf(state, 1, 'Late').rank).toBe(Math.floor(largest / 2));
     expect(tierOf(state, 1, 'Late').sourceRoom).toBe(0);
-    const next = playRound(join(atWarmUp2));
+    const next = scoreThenPress(join(atWarmUp2));
     expect(seated(next, 2, 'Late')).toBe(1);
   });
 
   it("from the joiner's second round on, their own result seeds them: their real room place", () => {
-    const joined = playRound(join(build(37, FFA_QUAL)));
+    const joined = scoreThenPress(join(build(37, FFA_QUAL)));
     const scored = scoreCurrentRound(joined, 0);
     const entries = scored.assignments[1];
     const room = entries.find((entry) => entry.name === 'Late')?.room as number;
@@ -607,7 +600,7 @@ describe('a waterfall refits its pooling rounds to the roster at once, a join or
   );
 
   it('the refit rounds are the shape the next draw uses: Next Round seats the joiner in a room of the refit round', () => {
-    const next = playRound(join(buildQualWaterfall(37)));
+    const next = scoreThenPress(join(buildQualWaterfall(37)));
     expect(next.rounds[1].rooms).toEqual(distributeRooms(38, roomSize(next)));
     expect(seated(next, 1, 'Late')).toBe(1);
   });
@@ -648,7 +641,7 @@ describe('the reserve bench: a walk-up the draw refuses stays in the reserves fo
   };
 
   it('13 teams 4v4 in a group stage, round 2 in play: the walk-up team is benched, then ⇄ Swap brings it in', () => {
-    const round2 = playRound(groups4v4(), 4);
+    const round2 = scoreThenPress(groups4v4(), 4);
     expect(round2.curRound).toBe(1);
     const state = benched(addWalkUpTeam(round2, walkUpTeam));
     expect(state.reserves).toEqual([walkUpTeam]);
@@ -662,7 +655,7 @@ describe('the reserve bench: a walk-up the draw refuses stays in the reserves fo
   });
 
   it('13 players 1v1 in a group stage, round 2 in play: the walk-up is benched, then swapped in', () => {
-    const round2 = playRound(groups1v1());
+    const round2 = scoreThenPress(groups1v1());
     const state = benched(addWalkUpIndividual(round2, 'Late'));
     expect(state.reserves).toEqual(['Late']);
     expect(state.players).toEqual(round2.players);
@@ -678,18 +671,18 @@ describe('the reserve bench: a walk-up the draw refuses stays in the reserves fo
 
   it('after the first elimination the window is closed: still refused as closed', () => {
     let state = groups4v4();
-    for (let guard = 0; state.reserveOpen && guard < 40; guard += 1) state = playRound(state, 4);
+    for (let guard = 0; state.reserveOpen && guard < 40; guard += 1) state = scoreThenPress(state, 4);
     expect(state.reserveOpen).toBe(false);
     expect(addWalkUpTeam(state, walkUpTeam)).toEqual({ status: 'blocked', reason: 'closed' });
   });
 
   it('a duplicate name is still refused, not benched', () => {
-    const round2 = playRound(groups1v1());
+    const round2 = scoreThenPress(groups1v1());
     expect(addWalkUpIndividual(round2, 'P1')).toEqual({ status: 'blocked', reason: 'duplicate-name' });
   });
 
   it("a bench entry's own add button keeps the refusal", () => {
-    const state = benched(addWalkUpIndividual(playRound(groups1v1()), 'Late'));
+    const state = benched(addWalkUpIndividual(scoreThenPress(groups1v1()), 'Late'));
     expect(addReserveUnit(state, 'Late')).toEqual({ status: 'blocked', reason: 'group-stage' });
   });
 });

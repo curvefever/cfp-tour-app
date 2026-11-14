@@ -30,9 +30,8 @@ import { isConfirmed, setConfirmed } from '../confirmations';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { settingsFromForm } from '../tournament-settings';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';
-import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { ALL_ROUTED_GRAPHS, buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import {
   removeChecked as removeRosterUnit,
@@ -40,7 +39,7 @@ import {
   swapChecked as swapIndividual,
   swapTeamChecked as swapTeam,
 } from './consistency';
-import { buildAssignments, buildRound, oneRoomState } from './test-fixtures';
+import { buildAssignments, buildRound, generatedState, oneRoomState } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const ROOM_SIZE = { min: 6, max: 8, ideal: 8 };
@@ -1097,13 +1096,13 @@ describe('future fixed-draw rounds -- removeRosterUnit/swapIndividual/swapTeam',
   type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
 
   function fixedDrawState(setup: SetupOverrides, players: TournamentState['players']): TournamentState {
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: players.length, players }),
-      createDefaultSetup({ ...setup, drawPublication: 'fixed' }),
-      createTournamentRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: players.length, players }),
+        createDefaultSetup({ ...setup, drawPublication: 'fixed' }),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return result.state;
   }
 
   const individuals = (count: number) => Array.from({ length: count }, (_, index) => `P${index + 1}`);
@@ -1325,16 +1324,16 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
   type SetupOverrides = Parameters<typeof createDefaultSetup>[0];
 
   function generate(count: number, setup: SetupOverrides): TournamentState {
-    const result = generateTournament(
-      createDefaultTournamentState({
-        confirmedCount: count,
-        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
-      }),
-      createDefaultSetup(setup),
-      createTournamentRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({
+          confirmedCount: count,
+          players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+        }),
+        createDefaultSetup(setup),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return result.state;
   }
 
   const seats = (round: TournamentRound) => round.rooms.reduce((total, size) => total + size, 0);
@@ -1431,11 +1430,6 @@ describe('removeRosterUnit -- re-plans the future rounds for the new headcount',
   });
 });
 
-const advanced = (state: TournamentState): TournamentState => {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-  return result.state;
-};
 const seatedNames = (state: TournamentState, index: number) =>
   (state.assignments[index] ?? []).map((entry) => entry.name);
 const roundIndexOf = (state: TournamentState, label: string) =>
@@ -1447,7 +1441,7 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
   const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
 
   it('37 waterfall routing everyone: a unit waiting for R1C is replaced in its pool, keeping the slot it earned', () => {
-    const atR1 = advanced(
+    const atR1 = pressNextRound(
       playToQualificationExit(withReserve(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]))),
     );
     const r1c = roundIndexOf(atR1, 'R1C');
@@ -1463,7 +1457,7 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     expect(swapped.reserves).toEqual([]);
     expect(swapped.withdrawnUnits).toMatchObject([{ name: waiting.name, reason: 'swapped' }]);
 
-    const atR1c = advanced(scoreCurrentRound(swapped, 0));
+    const atR1c = pressNextRound(scoreCurrentRound(swapped, 0));
     expect(atR1c.curRound).toBe(r1c);
     expect(seatedNames(atR1c, r1c)).toContain('Sub');
     expect(seatedNames(atR1c, r1c)).not.toContain(waiting.name);
@@ -1471,7 +1465,7 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
   });
 
   it('43 waterfall routing everyone: a unit seated in R1 is still swapped in its seat (regression)', () => {
-    const atR1 = advanced(
+    const atR1 = pressNextRound(
       playToQualificationExit(withReserve(buildQualWaterfall(43, ALL_ROUTED_GRAPHS[43]))),
     );
     const r1 = roundIndexOf(atR1, 'R1');
@@ -1486,7 +1480,7 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
   });
 
   it('a unit that is neither seated nor waiting leaves the state unchanged', () => {
-    const atR1 = advanced(
+    const atR1 = pressNextRound(
       playToQualificationExit(withReserve(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37]))),
     );
     expect(swapIndividual(atR1, 'Nobody', 'Sub')).toBe(atR1);
@@ -1506,7 +1500,7 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     }) as TournamentState;
     // Round 3 (losers) leaves 16 winners-bracket units waiting in round 4's pool.
     let state: TournamentState = { ...start, reserves: ['Sub'] };
-    while (state.curRound < 3) state = advanced(scoreCurrentRound(state, 0));
+    while (state.curRound < 3) state = pressNextRound(scoreCurrentRound(state, 0));
     const [destination, pool] = Object.entries(state.pendingBracketSeeds)[0];
     expect(pool.length).toBeGreaterThan(0);
     const waiting = pool[0];
@@ -1514,18 +1508,13 @@ describe('swapIndividual -- where the outgoing unit is in play', () => {
     const swapped = swapIndividual(state, waiting.name, 'Sub');
 
     expect(swapped.pendingBracketSeeds[destination][0]).toEqual({ ...waiting, name: 'Sub' });
-    const drawn = advanced(scoreCurrentRound(swapped, 0));
+    const drawn = pressNextRound(scoreCurrentRound(swapped, 0));
     expect(seatedNames(drawn, Number(destination))).toContain('Sub');
     expect(seatedNames(drawn, Number(destination))).not.toContain(waiting.name);
   });
 });
 
 describe('swaps close once anyone is eliminated', () => {
-  const advance = (state: TournamentState): TournamentState => {
-    const result = advanceTournamentRound(state);
-    if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-    return result.state;
-  };
   const withReserve = (state: TournamentState): TournamentState => ({ ...state, reserves: ['Sub'] });
   const individual = (count: number, setup: SweepConfig['setup']) =>
     withReserve(buildState({ label: 'swap window', count, teams: false, setup }) as TournamentState);
@@ -1533,9 +1522,9 @@ describe('swaps close once anyone is eliminated', () => {
   /** Scores and advances until `target` is the current round; returns the state just before that last advance (scored) and just after. */
   function playUpTo(start: TournamentState, target: number, teamSize = 0) {
     let state = start;
-    while (state.curRound < target - 1) state = advance(scoreCurrentRound(state, teamSize));
+    while (state.curRound < target - 1) state = pressNextRound(scoreCurrentRound(state, teamSize));
     const before = scoreCurrentRound(state, teamSize);
-    return { before, after: advance(before) };
+    return { before, after: pressNextRound(before) };
   }
 
   /** Both sides of the boundary, and every swap attempt on the closed side leaves the state untouched. */
@@ -1633,7 +1622,7 @@ describe('swaps close once anyone is eliminated', () => {
       members: [{ name: 'x' }, { name: 'y' }, { name: 'z' }],
     };
     let state = start;
-    while (swapWindowOpen(state)) state = advance(scoreCurrentRound(state, 3));
+    while (swapWindowOpen(state)) state = pressNextRound(scoreCurrentRound(state, 3));
     const eliminated = computeRankings(state)?.eliminatedList[0].name as string;
     expect(swapTeam(state, state.assignments[state.curRound][0].name, reserve)).toBe(state);
     expect(swapTeam(state, eliminated, reserve)).toBe(state);
@@ -1643,7 +1632,7 @@ describe('swaps close once anyone is eliminated', () => {
 
 describe('removeRosterUnit -- a unit waiting in a pending pool', () => {
   it('37 waterfall: a unit waiting for R1C is in no pool, and R1C is drawn short without it', () => {
-    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const r1c = roundIndexOf(atR1, 'R1C');
     const waiting = atR1.pendingBracketSeeds[r1c][3].name;
 
@@ -1651,20 +1640,22 @@ describe('removeRosterUnit -- a unit waiting in a pending pool', () => {
 
     expect(poolNames(removed)).not.toContain(waiting);
     expect(removed.pendingBracketSeeds[r1c]).toHaveLength(7);
-    const atR1c = advanced(scoreCurrentRound(removed, 0));
+    const atR1c = pressNextRound(scoreCurrentRound(removed, 0));
     expect(seatedNames(atR1c, r1c)).not.toContain(waiting);
     expect(atR1c.rounds[r1c]).toMatchObject({ rooms: [7], players: 7 });
   });
 
   it('43 waterfall: a unit waiting for R2 after playing R1 is not seated in R2, which is drawn short', () => {
-    const atR1c = advanced(scoreCurrentRound(advanced(playToQualificationExit(buildQualWaterfall(43))), 0));
+    const atR1c = pressNextRound(
+      scoreCurrentRound(pressNextRound(playToQualificationExit(buildQualWaterfall(43))), 0),
+    );
     const r2 = roundIndexOf(atR1c, 'R2');
     const waiting = atR1c.pendingBracketSeeds[r2][0].name;
 
     const removed = removeRosterUnit(atR1c, waiting);
 
     expect(poolNames(removed)).not.toContain(waiting);
-    const atR2 = advanced(scoreCurrentRound(removed, 0));
+    const atR2 = pressNextRound(scoreCurrentRound(removed, 0));
     expect(atR2.curRound).toBe(r2);
     expect(seatedNames(atR2, r2)).not.toContain(waiting);
     expect(atR2.rounds[r2]).toMatchObject({ rooms: [7], players: 7 });
@@ -1682,20 +1673,20 @@ describe('removeRosterUnit -- a unit waiting in a pending pool', () => {
         oddCountStrategy: 'bye',
       },
     }) as TournamentState;
-    while (state.curRound < 3) state = advanced(scoreCurrentRound(state, 0));
+    while (state.curRound < 3) state = pressNextRound(scoreCurrentRound(state, 0));
     const waiting = state.pendingBracketSeeds[4][0].name;
 
     const removed = removeRosterUnit(state, waiting);
 
     expect(poolNames(removed)).not.toContain(waiting);
-    const drawn = advanced(scoreCurrentRound(removed, 0));
+    const drawn = pressNextRound(scoreCurrentRound(removed, 0));
     expect(drawn.curRound).toBe(4);
     expect(seatedNames(drawn, 4)).not.toContain(waiting);
     expect((drawn.assignments[4] ?? []).length).toBe(15);
   });
 
   it('removing a seated unit leaves every pool untouched (regression)', () => {
-    const atR1 = advanced(playToQualificationExit(buildQualWaterfall(37)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const seated = atR1.assignments[atR1.curRound][0].name;
     expect(removeRosterUnit(atR1, seated).pendingBracketSeeds).toEqual(atR1.pendingBracketSeeds);
   });

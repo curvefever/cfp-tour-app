@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { currentColumn } from '../round-columns';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildState, scoreCurrentRound as scoreRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound as scoreRound } from './play-through';
 import { liveTournament } from './qual-waterfall';
 import {
   formatStandingValue,
@@ -485,9 +484,7 @@ describe('unscoredRooms', () => {
   const entered = () => {
     let state = liveTournament(19);
     for (let guard = 0; guard < 20 && !state.rounds[state.curRound].isWaterfall; guard += 1) {
-      const result = advanceTournamentRound(scoreRound(state, 2));
-      if (result.status !== 'advanced') throw new Error('could not advance');
-      state = result.state;
+      state = pressNextRound(scoreRound(state, 2));
     }
     return state;
   };

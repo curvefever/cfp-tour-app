@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildState, playWithRemovals, scoreCurrentRound, type SweepConfig } from './play-through';
+import {
+  buildState,
+  playWithRemovals,
+  pressNextRound,
+  scoreCurrentRound,
+  type SweepConfig,
+} from './play-through';
 
 /**
  * A removal in a winners-bracket round leaves the losers bracket one drop
@@ -83,9 +89,7 @@ describe('shared Final: a Final that receives fewer units than planned still pla
     const finalIndex = lastIndex(start);
     let state = start;
     while (state.curRound < finalIndex - 1) {
-      const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (result.status !== 'advanced') throw new Error('did not advance');
-      state = result.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     const extra = [{ name: 'X1' }, { name: 'X2' }, { name: 'X3' }].map((unit) => ({
       ...unit,

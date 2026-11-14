@@ -21,16 +21,10 @@ import { previousColumnStart } from '../round-columns';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
-import { scoreCurrentRound, withoutAbsenceRule } from './play-through';
+import { pressNextRound, scoreCurrentRound, withoutAbsenceRule } from './play-through';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 const NAMES = ['Ann', 'Bob', 'Cy', 'Di'];
-
-function advanceOk(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
-  return result.state;
-}
 
 function keysOf(state: TournamentState): string[] {
   return pendingAbsenceQuestions(state).flatMap((room) => room.questions.map((question) => question.key));
@@ -359,12 +353,12 @@ describe('cleanup', () => {
     const seat = scored.assignments[0].filter((entry) => entry.room === 1)[0];
     const key = 'r0-rm1-p0';
     const marked = answerAbsence({ ...scored, scores: { ...scored.scores, [key]: 0 } }, [key], 'absent');
-    const advanced = advanceOk(marked);
+    const advanced = pressNextRound(marked);
     const back = { ...advanced, curRound: previousColumnStart(advanced) ?? 0, reserves: ['Zed'] };
     const swapped = swapIndividual(back, seat.name, 'Zed');
     expect(swapped.players).toContain('Zed');
     expect(isRoomFullyScored(swapped, 0, 1)).toBe(true);
-    const again = advanceOk(swapped);
+    const again = pressNextRound(swapped);
     const room = again.assignments[0].filter((entry) => entry.room === 1).map((entry) => entry.name);
     const tiers = buildAdvancementTiers(again, 0, room);
     const lastTier = tiers.reduce((worst, tier) => (tier.rank > worst.rank ? tier : worst));

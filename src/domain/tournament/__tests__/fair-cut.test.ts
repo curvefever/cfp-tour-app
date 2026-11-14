@@ -24,7 +24,7 @@ import {
   withRoundShape,
   type Setup,
 } from './fair-cut-fixtures';
-import { scoreCurrentRound, withEarlierCutRule } from './play-through';
+import { pressNextRound, scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 /**
@@ -447,9 +447,7 @@ describe("equal rooms: the fair cut advances exactly today's set", () => {
     const through = (version: 'fair' | 'earlier'): string[] => {
       let current = version === 'fair' ? state : withEarlierCutRule(state);
       for (let round = 0; round < index; round += 1) {
-        const result = advanceTournamentRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
-        if (result.status !== 'advanced') throw new Error(result.status);
-        current = result.state;
+        current = pressNextRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
       }
       const lineUp = current.assignments[index];
       const rooms = current.rounds[index].rooms;
@@ -783,14 +781,10 @@ describe('a score correction after Previous', () => {
     const index = firstEliminationIndex(state);
     let current = state;
     for (let round = 0; round < index; round += 1) {
-      const result = advanceTournamentRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
-      if (result.status !== 'advanced') throw new Error(result.status);
-      current = result.state;
+      current = pressNextRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
     }
     const advanceTo = (from: TournamentState): TournamentState => {
-      const result = advanceTournamentRound(from);
-      if (result.status !== 'advanced') throw new Error(result.status);
-      return result.state;
+      return pressNextRound(from);
     };
     const advanced = advanceTo(scoreRooms(current, index, WORKED_SCORES));
 
@@ -822,15 +816,11 @@ describe('a score correction after Previous in a double-elimination round', () =
     const index = firstEliminationIndex(state);
     let current = state;
     for (let round = 0; round < index; round += 1) {
-      const result = advanceTournamentRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
-      if (result.status !== 'advanced') throw new Error(result.status);
-      current = result.state;
+      current = pressNextRound(scoreCurrentRound(current, scoredTeamSize(current) ?? 0));
     }
     const round = current.rounds[index];
     const advanceTo = (from: TournamentState): TournamentState => {
-      const result = advanceTournamentRound(from);
-      if (result.status !== 'advanced') throw new Error(result.status);
-      return result.state;
+      return pressNextRound(from);
     };
     const distinct = randomScores(round.rooms, 4).map((room) =>
       room.map((score, slot) => score * 100 + slot),

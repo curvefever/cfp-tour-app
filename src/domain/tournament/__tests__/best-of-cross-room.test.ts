@@ -12,7 +12,6 @@ import { stageMatchFields } from '../match-format';
 import { computeRankings } from '../rankings';
 import { rosterKeys } from '../roster';
 import { fitRoundToPool } from '../room-distribution';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import {
   SE_2V2V2V2,
@@ -22,7 +21,7 @@ import {
   seatRound,
   withRoundShape,
 } from './fair-cut-fixtures';
-import { scoreCurrentRound, withEarlierCutRule } from './play-through';
+import { pressNextRound, scoreCurrentRound, withEarlierCutRule } from './play-through';
 
 /** Per room, per seat, the score of each game. */
 type GameScores = number[][][];
@@ -301,9 +300,7 @@ describe('1v1 at 31, a Best of 3 elimination round: units out of different rooms
   function afterRound(first: GameScores): TournamentState {
     let state = generate('1v1-31', 31, setup);
     while (state.rounds[state.curRound].isNoElim) {
-      const advanced = advanceTournamentRound(scoreCurrentRound(state, 0));
-      if (advanced.status !== 'advanced') throw new Error('could not advance a warm-up');
-      state = advanced.state;
+      state = pressNextRound(scoreCurrentRound(state, 0));
     }
     const index = state.curRound;
     state = asBestOf(state, index, 3);
@@ -314,9 +311,7 @@ describe('1v1 at 31, a Best of 3 elimination round: units out of different rooms
           [10, 10],
         ],
     );
-    const advanced = advanceTournamentRound(scoreGames(state, index, rooms));
-    if (advanced.status !== 'advanced') throw new Error(`could not advance: ${JSON.stringify(advanced)}`);
-    return advanced.state;
+    return pressNextRound(scoreGames(state, index, rooms));
   }
 
   it('orders them by the relative total: a 0-2 loser with a close total ranks above a 1-2 loser with a poor one', () => {

@@ -2,9 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { computeStandingsCutoffAdvancing, isStandingsCutoffRound } from '../advancement';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { buildState, scoreCurrentRound, type SweepConfig } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { buildAssignments, buildRound } from './test-fixtures';
 
 /**
@@ -16,17 +15,11 @@ import { buildAssignments, buildRound } from './test-fixtures';
 
 const H2H = { gameFormat: 'individual-1v1' as const, oddCountStrategy: 'bye' as const };
 
-function advance(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`did not advance: ${JSON.stringify(result)}`);
-  return result.state;
-}
-
 /** Plays every round up to (not including the scoring of) the first standings cut-off round. */
 function playToCutoffRound(start: TournamentState): TournamentState {
   let state = start;
   for (let guard = 0; guard < 20 && !isStandingsCutoffRound(state, state.curRound); guard += 1) {
-    state = advance(scoreCurrentRound(state, 0));
+    state = pressNextRound(scoreCurrentRound(state, 0));
   }
   expect(isStandingsCutoffRound(state, state.curRound)).toBe(true);
   return state;
@@ -86,7 +79,7 @@ describe.each([
     const qualifiers = computeStandingsCutoffAdvancing(rescored, cutoffRound) as Set<string>;
     expect(qualifiers.size).toBe(16);
     expect(qualifiers.has(byeUnit)).toBe(false);
-    const next = advance(rescored);
+    const next = pressNextRound(rescored);
     const entered = enteredNames(next, cutoffRound + 1);
     expect(entered).toHaveLength(16);
     expect(entered).not.toContain(byeUnit);
@@ -95,7 +88,7 @@ describe.each([
 
   it('a bye unit ranked inside the qualifiers enters exactly once: still 16 enter', () => {
     const { rescored, byeUnit, cutoffRound } = setUp('inside');
-    const next = advance(rescored);
+    const next = pressNextRound(rescored);
     const entered = enteredNames(next, cutoffRound + 1);
     expect(entered).toHaveLength(16);
     expect(entered.filter((name) => name === byeUnit)).toHaveLength(1);
@@ -136,7 +129,7 @@ describe('Group Stage, 1v1: bye units do not skip the group cut-off', () => {
       const { rescored, byeUnits } = playGroupStage(count, size, qualifiers);
       const cutoffRound = rescored.curRound;
       const displayed = computeStandingsCutoffAdvancing(rescored, cutoffRound) as Set<string>;
-      const next = advance(rescored);
+      const next = pressNextRound(rescored);
       const entered = enteredNames(next, cutoffRound + 1);
       expect(entered).toHaveLength(expected);
       for (const name of byeUnits) expect(entered).not.toContain(name);
@@ -166,7 +159,7 @@ describe('an ordinary round still advances its bye unit automatically', () => {
       byes: [['E'], []],
       scores,
     });
-    expect(enteredNames(advance(state), 1)).toContain('E');
+    expect(enteredNames(pressNextRound(state), 1)).toContain('E');
   });
 
   it('an elimination round with a bye unit', () => {
@@ -183,6 +176,6 @@ describe('an ordinary round still advances its bye unit automatically', () => {
       byes: [['E'], []],
       scores,
     });
-    expect(enteredNames(advance(state), 1).sort()).toEqual(['A', 'C', 'E']);
+    expect(enteredNames(pressNextRound(state), 1).sort()).toEqual(['A', 'C', 'E']);
   });
 });

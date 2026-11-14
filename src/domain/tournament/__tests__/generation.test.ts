@@ -9,7 +9,7 @@ import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
 import { applyTournamentSettings } from '../tournament-settings';
-import { fixedIdSource, rosterFor, sequenceRandom } from './test-fixtures';
+import { fixedIdSource, generatedState, rosterFor, sequenceRandom } from './test-fixtures';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 
 function names(count: number): string[] {
@@ -1507,13 +1507,13 @@ describe('generateTournament -- Swiss round shape for an odd field', () => {
     overrides: Parameters<typeof createDefaultSetup>[0] = {},
   ) {
     const players = gameFormat === 'individual-1v1' ? names(count) : teams(count);
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count, players }),
-      createDefaultSetup({ gameFormat, poolingPhase: 'swiss', qualAdv: '4', ...overrides }),
-      createTournamentRuntime(),
+    return generatedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: count, players }),
+        createDefaultSetup({ gameFormat, poolingPhase: 'swiss', qualAdv: '4', ...overrides }),
+        createTournamentRuntime(),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-    return result.state;
   }
 
   function roomSizesOf(entries: Array<{ room: number | null }>): number[] {

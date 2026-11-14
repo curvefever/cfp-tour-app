@@ -13,7 +13,7 @@ import { scoreKeysForPosition } from '../scoring';
 import { routeStandings } from '../bracket-replay';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState, TournamentStanding } from '../types';
-import { playThrough, playWithRemovals, scoreCurrentRound } from './play-through';
+import { playThrough, playWithRemovals, pressNextRound, scoreCurrentRound } from './play-through';
 import {
   QUAL_GRAPH,
   buildShapedQualWaterfall as buildQualWaterfall,
@@ -22,12 +22,6 @@ import {
   playerNames,
   tiedQualExit,
 } from './qual-waterfall';
-
-function advanced(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-  return result.state;
-}
 
 function roundIndex(state: TournamentState, label: string): number {
   return state.rounds.findIndex((round) => round.customLabel === label);
@@ -68,7 +62,7 @@ describeInBothShapes('the pooling exit of a waterfall graph with a Qual source',
       const order = standingsOrder(exit);
       expect(order).toHaveLength(registered);
 
-      const next = advanced(exit);
+      const next = pressNextRound(exit);
       const r1 = roundIndex(next, 'R1');
       const r1c = roundIndex(next, 'R1C');
       expect(next.curRound).toBe(r1);
@@ -90,7 +84,7 @@ describeInBothShapes('the pooling exit of a waterfall graph with a Qual source',
   it('seeds R1 with the same balanced draw as any waterfall arrival: ranks 3-4 split across the two rooms too', () => {
     const exit = playToQualificationExit(buildQualWaterfall(37));
     const order = standingsOrder(exit);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const r1 = roundIndex(next, 'R1');
     const roomOf = (name: string) => next.assignments[r1].find((entry) => entry.name === name)?.room;
     expect(roomOf(order[2])).not.toBe(roomOf(order[3]));
@@ -99,8 +93,8 @@ describeInBothShapes('the pooling exit of a waterfall graph with a Qual source',
   it('draws R1C with exactly qualification ranks 17-24 once R1 has been played', () => {
     const exit = playToQualificationExit(buildQualWaterfall(37));
     const order = standingsOrder(exit);
-    const atR1 = advanced(exit);
-    const atR1C = advanced(scoreCurrentRound(atR1, 0));
+    const atR1 = pressNextRound(exit);
+    const atR1C = pressNextRound(scoreCurrentRound(atR1, 0));
     const r1c = roundIndex(atR1C, 'R1C');
     expect(atR1C.curRound).toBe(r1c);
     expect(new Set(names(atR1C, r1c))).toEqual(new Set(order.slice(16, 24)));
@@ -114,7 +108,7 @@ describeInBothShapes('the pooling exit of a waterfall graph with a Qual source',
     );
     const exit = playToQualificationExit(buildQualWaterfall(31, gapGraph));
     const order = standingsOrder(exit);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     const r1 = roundIndex(next, 'R1');
     const r1c = roundIndex(next, 'R1C');
     expect(new Set(names(next, r1))).toEqual(new Set(order.slice(0, 16)));
@@ -258,7 +252,7 @@ describeInBothShapes('a real tie at the band boundaries blocks the exit until it
       picks.set(key, order);
       for (const name of order.slice(0, members.length - 1)) state = resolveTournamentTie(state, key, name);
     }
-    const next = advanced(state);
+    const next = pressNextRound(state);
     const r1 = roundIndex(next, 'R1');
     const r1c = roundIndex(next, 'R1C');
     const band = picks.get('qual-band-13') as string[];
@@ -287,7 +281,7 @@ describeInBothShapes('a withdrawal during qualification', () => {
     const exit = playToQualificationExit(removed);
     const order = standingsOrder(exit);
     expect(order).toHaveLength(30);
-    const next = advanced(exit);
+    const next = pressNextRound(exit);
     expect(pendingNames(next, roundIndex(next, 'R1C'))).toEqual(order.slice(16, 24));
     expect(order.slice(24)).toHaveLength(6);
   });
@@ -366,7 +360,7 @@ describeInBothShapes('going back to the last qualification round after the pooli
   it('re-draws R1 and rebuilds the R1C pool instead of adding the qualifiers a second time', () => {
     const exit = playToQualificationExit(buildQualWaterfall(37));
     const order = standingsOrder(exit);
-    const redrawn = advanced(goBack(advanced(exit)));
+    const redrawn = pressNextRound(goBack(pressNextRound(exit)));
     const r1c = roundIndex(redrawn, 'R1C');
     expect(pendingNames(redrawn, r1c)).toEqual(order.slice(16, 24));
     expect(new Set(names(redrawn, roundIndex(redrawn, 'R1')))).toEqual(new Set(order.slice(0, 16)));
@@ -380,7 +374,7 @@ describeInBothShapes('going back to the last qualification round after the pooli
     const after = standingsOrder(corrected);
     expect(after.indexOf(climber)).toBeLessThan(16);
 
-    const redrawn = advanced(boostScore(goBack(advanced(exit)), climber));
+    const redrawn = pressNextRound(boostScore(goBack(pressNextRound(exit)), climber));
     const r1 = roundIndex(redrawn, 'R1');
     const r1c = roundIndex(redrawn, 'R1C');
     expect(new Set(names(redrawn, r1))).toEqual(new Set(after.slice(0, 16)));
@@ -391,7 +385,7 @@ describeInBothShapes('going back to the last qualification round after the pooli
 
   it('plays on to the Final after the re-draw', () => {
     const exit = playToQualificationExit(buildQualWaterfall(37));
-    const redrawn = advanced(goBack(advanced(exit)));
+    const redrawn = pressNextRound(goBack(pressNextRound(exit)));
     expect(playThrough(redrawn, 0, null)).toEqual({ kind: 'ok' });
   });
 });

@@ -6,31 +6,21 @@ import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../seeding';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentState } from '../types';
-import { scoreCurrentRound } from './play-through';
-import { fixedIdSource } from './test-fixtures';
+import { scoreCurrentRound, scoreThenPress } from './play-through';
+import { fixedIdSource, startedState } from './test-fixtures';
 
 function build(count: number, overrides: Parameters<typeof createDefaultSetup>[0]): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({
-      confirmedCount: count,
-      players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
-    }),
-    createDefaultSetup({ scheduleLogic: 'single-elimination', ...overrides }),
-    createTournamentRuntime({ ids: fixedIdSource() }),
+  return startedState(
+    generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: Array.from({ length: count }, (_, index) => `P${index + 1}`),
+      }),
+      createDefaultSetup({ scheduleLogic: 'single-elimination', ...overrides }),
+      createTournamentRuntime({ ids: fixedIdSource() }),
+    ),
   );
-  if (result.status !== 'generated') {
-    throw new Error(`fixture failed: ${result.status === 'invalid' ? result.message : 'unknown'}`);
-  }
-  return { ...result.state, started: true };
-}
-
-function advance(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(scoreCurrentRound(state, 0));
-  if (result.status !== 'advanced')
-    throw new Error(`could not advance round ${state.curRound}: ${result.status}`);
-  return result.state;
 }
 
 const isPooling = (state: TournamentState) => {
@@ -40,7 +30,7 @@ const isPooling = (state: TournamentState) => {
 
 function playToFirstElimination(state: TournamentState): TournamentState {
   let current = state;
-  while (isPooling(current)) current = advance(current);
+  while (isPooling(current)) current = scoreThenPress(current);
   return current;
 }
 
@@ -58,7 +48,7 @@ function inRoom(draft: RoundAssignment[], room: number) {
 
 describe('line-up edit: moves', () => {
   it('moves a unit between rooms in a qual round, marking only that unit and re-recording roomHistory', () => {
-    const state = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const state = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const draft = draftOf(state);
     const big =
       state.rounds[state.curRound].rooms.findIndex(
@@ -85,7 +75,7 @@ describe('line-up edit: moves', () => {
   });
 
   it('refuses elimination in a pooling round', () => {
-    const state = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const state = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const draft = draftOf(state).slice(1);
     expect(applyLineupEdit(state, draft)).toEqual({
       ok: false,
@@ -95,7 +85,7 @@ describe('line-up edit: moves', () => {
   });
 
   it('refuses a draft that empties a room, adds a stranger, or duplicates a unit', () => {
-    const state = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const state = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const draft = draftOf(state);
     const first = draft.filter((entry) => entry.room === 1);
     const moved = draft.map((entry) => (entry.room === 1 ? { ...entry, room: 2 } : entry));
@@ -108,7 +98,10 @@ describe('line-up edit: moves', () => {
 
 describe('line-up edit: refusals', () => {
   it('is refused once any score exists', () => {
-    const state = scoreCurrentRound(advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' })), 0);
+    const state = scoreCurrentRound(
+      scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' })),
+      0,
+    );
     expect(lineupEditScope(state)).toEqual({ ok: false, reason: expect.stringContaining('scores') });
     expect(applyLineupEdit(state, draftOf(state)).ok).toBe(false);
   });
@@ -119,7 +112,7 @@ describe('line-up edit: refusals', () => {
   });
 
   it('is refused outside single elimination, in group stage and before the start', () => {
-    const state = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const state = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const bracket = playToFirstElimination(state);
     for (const scheduleLogic of [
       'kings-valley',
@@ -166,7 +159,7 @@ describe('line-up edit: elimination rounds', () => {
       .map((entry) => entry.name)
       .find((name) => !first.assignments[first.curRound].some((entry) => entry.name === name));
     expect(cutAtQualification).toBeDefined();
-    const second = advance(first);
+    const second = scoreThenPress(first);
     const scope = lineupEditScope(second);
     if (!scope.ok) throw new Error(scope.reason);
     expect(scope.reinstatable).not.toContain(cutAtQualification);
@@ -186,7 +179,7 @@ describe('line-up edit: elimination rounds', () => {
     const edited = unwrap(
       applyLineupEdit(state, [{ name: scope.reinstatable[0], room: draft[0].room }, ...draft.slice(1)]),
     );
-    const next = advance(edited);
+    const next = scoreThenPress(edited);
     expect(next.assignments[next.curRound]).toHaveLength(edited.rounds[edited.curRound].advTotal);
     expect(next.assignments[next.curRound].map((entry) => entry.name)).not.toContain(draft[0].name);
   });
@@ -231,7 +224,7 @@ describe('line-up edit: head-to-head with byes (53 individual-1v1)', () => {
   });
 
   it('replaces a unit in a room of 2 atomically; a room of 1 or 3 is refused', () => {
-    const state = advance(firstElimination());
+    const state = scoreThenPress(firstElimination());
     const scope = lineupEditScope(state);
     if (!scope.ok) throw new Error(scope.reason);
     const draft = draftOf(state);
@@ -261,7 +254,7 @@ describe('line-up edit: head-to-head with byes (53 individual-1v1)', () => {
 describe('line-up edit: Semis and Final', () => {
   it('keeps at least two in the Final and allows a move-free no-op', () => {
     let state = playToFirstElimination(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
-    while (!state.rounds[state.curRound].isFinal) state = advance(state);
+    while (!state.rounds[state.curRound].isFinal) state = scoreThenPress(state);
     const draft = draftOf(state);
     expect(applyLineupEdit(state, draft).ok).toBe(true);
     expect(applyLineupEdit(state, draft.slice(0, 1)).ok).toBe(false);
@@ -286,7 +279,7 @@ describe('line-up edit: pooling rounds of other bracket formats', () => {
 
 describe('line-up edit: small rooms and existing limits', () => {
   it('accepts edits elsewhere while a room of 1 exists after a removal, and a reinstate into it', () => {
-    const first = advance(
+    const first = scoreThenPress(
       playToFirstElimination(build(53, { gameFormat: 'individual-1v1', poolingPhase: 'none' })),
     );
     const victim = first.assignments[first.curRound].find((entry) => entry.room !== null)!;
@@ -335,7 +328,7 @@ describe('line-up edit: small rooms and existing limits', () => {
   });
 
   it('tolerates a room already over the limit, but refuses adding to it', () => {
-    const played = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const played = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const sizes = played.rounds[played.curRound].rooms;
     const rooms = sizes.map((_, index) => index + 1);
     const target = rooms[sizes.indexOf(Math.max(...sizes))];
@@ -384,7 +377,9 @@ describe('line-up edit: reinstating after a pooling bye, lucky losers, repeated 
   });
 
   it('removes a hand-eliminated lucky loser from luckyLosers', () => {
-    const state = advance(playToFirstElimination(build(37, { poolingPhase: 'qual-table', qualAdv: '24' })));
+    const state = scoreThenPress(
+      playToFirstElimination(build(37, { poolingPhase: 'qual-table', qualAdv: '24' })),
+    );
     const lucky = state.luckyLosers[state.curRound][0];
     expect(lucky).toBeDefined();
     const draft = draftOf(state);
@@ -406,7 +401,7 @@ describe('line-up edit: reinstating after a pooling bye, lucky losers, repeated 
   });
 
   it('keeps the marker from an earlier edit when a later edit does not move that unit', () => {
-    const state = advance(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
+    const state = scoreThenPress(build(37, { poolingPhase: 'qual-table', qualAdv: '24' }));
     const sizes = state.rounds[state.curRound].rooms;
     const big = sizes.indexOf(Math.max(...sizes)) + 1;
     const small = sizes.indexOf(Math.min(...sizes)) + 1;

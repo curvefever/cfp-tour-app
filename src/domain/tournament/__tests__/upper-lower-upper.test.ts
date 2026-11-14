@@ -11,7 +11,7 @@ import {
   playDependency,
   playToBracketEntry,
 } from './dependency-play-fixtures';
-import { rosterFor, testRuntime } from './test-fixtures';
+import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 /** "Upper rooms": how many of the units that enter start in the upper rooms, each side split evenly over its own rooms. */
 
@@ -29,9 +29,7 @@ function generate(count: number, setup: Setup) {
 }
 
 function built(count: number, setup: Setup): TournamentState {
-  const result = generate(count, setup);
-  if (result.status !== 'generated') throw new Error(result.message);
-  return { ...result.state, started: true };
+  return startedState(generate(count, setup));
 }
 
 /** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */

@@ -5,14 +5,14 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentRound, TournamentState } from '../types';
 import { fitWaterfallRound } from '../waterfall-bracket';
-import { playWithRemovals, scoreCurrentRound } from './play-through';
+import { playWithRemovals, pressNextRound, scoreCurrentRound } from './play-through';
 import {
   buildShapedQualWaterfall as buildQualWaterfall,
   describeInBothShapes,
   playToQualificationExit,
   playerNames,
 } from './qual-waterfall';
-import { fixedIdSource } from './test-fixtures';
+import { fixedIdSource, startedState } from './test-fixtures';
 
 /** The graph's bottom bands route on: R1's ranks 5-8 go to R3 instead of out. */
 const BOTTOM_ROUTES_ON = `
@@ -67,12 +67,6 @@ R3.B: 1-2->Final, 3-7->eliminated
 
 function indexOfRound(state: TournamentState, label: string): number {
   return state.rounds.findIndex((round) => round.customLabel === label);
-}
-
-function advance(state: TournamentState): TournamentState {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') throw new Error(`expected an advance, got ${JSON.stringify(result)}`);
-  return result.state;
 }
 
 /** The unit in the room that currently holds the most units, so repeated picks land in different rooms. */
@@ -177,7 +171,7 @@ describeInBothShapes('withdrawals in a running waterfall', () => {
 
 describeInBothShapes('a waterfall round never accepts more than it declares', () => {
   it('blocks with "malformed-waterfall-round" when an extra unit is waiting for R1C', () => {
-    const atR1 = advance(playToQualificationExit(buildQualWaterfall(37)));
+    const atR1 = pressNextRound(playToQualificationExit(buildQualWaterfall(37)));
     const r1c = indexOfRound(atR1, 'R1C');
     const extra = { name: 'Extra', tierRank: 0, pct: 1 };
     const pools = atR1.pendingBracketSeeds;
@@ -257,20 +251,20 @@ describe('Swiss into a waterfall without a Qual source', () => {
   }
 
   function swissStart(registered: number): TournamentState {
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: registered, players: playerNames(registered) }),
-      createDefaultSetup({
-        gameFormat: 'individual-1v1',
-        scheduleLogic: 'waterfall-bracket',
-        poolingPhase: 'swiss',
-        qualAdv: '16',
-        oddCountStrategy: 'bye',
-        waterfallGraph: entry16Graph(),
-      }),
-      createTournamentRuntime({ ids: fixedIdSource() }),
+    return startedState(
+      generateTournament(
+        createDefaultTournamentState({ confirmedCount: registered, players: playerNames(registered) }),
+        createDefaultSetup({
+          gameFormat: 'individual-1v1',
+          scheduleLogic: 'waterfall-bracket',
+          poolingPhase: 'swiss',
+          qualAdv: '16',
+          oddCountStrategy: 'bye',
+          waterfallGraph: entry16Graph(),
+        }),
+        createTournamentRuntime({ ids: fixedIdSource() }),
+      ),
     );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-    return { ...result.state, started: true };
   }
 
   it('draws the 16-seat entry round with 15 after withdrawals leave the Swiss field below the cut, instead of blocking', () => {

@@ -7,7 +7,7 @@ import { currentColumn, roundInPlayOf } from '../round-columns';
 import { getDefenderIndex, scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { answerZerosPlayed, scoreCurrentRound } from './play-through';
+import { answerZerosPlayed, pressNextRound, scoreColumn, scoreCurrentRound } from './play-through';
 import {
   ALL_ROUTED_GRAPHS,
   QUAL_GRAPH,
@@ -46,35 +46,17 @@ const indexOf = (state: TournamentState, label: string) =>
   state.rounds.findIndex((round) => round.customLabel === label);
 const seated = (state: TournamentState, label: string) =>
   (state.assignments[indexOf(state, label)] ?? []).map((entry) => entry.name);
-const advance = (state: TournamentState): TournamentState => {
-  const result = advanceTournamentRound(state);
-  if (result.status !== 'advanced') {
-    throw new Error(`could not advance past round ${state.curRound}: ${JSON.stringify(result)}`);
-  }
-  return result.state;
-};
-
 /** Scores one round (not necessarily the current one), every score distinct. */
 function scoreRound(state: TournamentState, label: string, teamSize: number): TournamentState {
   const scored = scoreCurrentRound({ ...state, curRound: indexOf(state, label) }, teamSize);
   return { ...scored, curRound: state.curRound };
 }
 
-/** Scores every round of the column in play. */
-function scoreColumn(state: TournamentState, teamSize: number): TournamentState {
-  const { start, end } = currentColumn(state);
-  let current = state;
-  for (let index = start; index <= end; index += 1) {
-    current = scoreRound(current, state.rounds[index].customLabel as string, teamSize);
-  }
-  return current;
-}
-
 /** Plays every qualification round and advances into the bracket. */
 function enterBracket(state: TournamentState, teamSize: number): TournamentState {
   let current = state;
   for (let guard = 0; guard < 20 && !current.rounds[current.curRound].isWaterfall; guard += 1) {
-    current = advance(scoreCurrentRound(current, teamSize));
+    current = pressNextRound(scoreCurrentRound(current, teamSize));
   }
   return current;
 }
@@ -103,7 +85,7 @@ describe.each([
     const lowerFirst = scoreRound(start, 'Round 5 Lower', 2);
     expect(lowerFirst.curRound).toBe(start.curRound);
     const bothScored = scoreRound(lowerFirst, 'Round 5 Upper', 2);
-    const next = advance(bothScored);
+    const next = pressNextRound(bothScored);
     expect(next.curRound).toBe(indexOf(next, 'Semi A'));
     expect(seated(next, 'Semi A')).toHaveLength(4);
     expect(seated(next, 'Round 6')).toHaveLength(8);
@@ -116,7 +98,7 @@ describe.each([
     const seenColumns: number[] = [];
     for (let guard = 0; guard < 10 && !state.rounds[state.curRound].isFinal; guard += 1) {
       seenColumns.push(state.rounds[state.curRound].waterfallColumn as number);
-      state = advance(scoreColumn(state, 2));
+      state = pressNextRound(scoreColumn(state, 2));
     }
     expect(seenColumns).toEqual([1, 2, 3, 4]);
     expect(state.rounds[state.curRound].customLabel).toBe('Final');
@@ -140,7 +122,7 @@ describe.each([
       const { start, end } = currentColumn(state);
       const labels = state.rounds.slice(start, end + 1).map((round) => round.customLabel as string);
       columns.push(labels);
-      state = advance(scoreColumn(state, 0));
+      state = pressNextRound(scoreColumn(state, 0));
     }
     expect(columns).toEqual([['5'], ['SemiA', '6B', '6C'], ['7A'], ['SemiB']]);
     expect(seated(state, 'Final')).toHaveLength(8);
@@ -149,7 +131,7 @@ describe.each([
   it('sends each of 6B and 6C exactly 2 from each room of 5', () => {
     const scored = scoreColumn(start, 0);
     const roomOf = new Map(scored.assignments[indexOf(scored, '5')].map((entry) => [entry.name, entry.room]));
-    const next = advance(scored);
+    const next = pressNextRound(scored);
     for (const label of ['6B', '6C']) {
       const fromRoom = [1, 2, 3, 4].map(
         (room) => seated(next, label).filter((name) => roomOf.get(name) === room).length,
@@ -202,7 +184,7 @@ describe('ties in a column', () => {
       for (const player of cluster.players) resolved = resolveTournamentTie(resolved, key, player.name);
     }
     expect(hasPendingColumnTies(resolved)).toBe(false);
-    const next = advance(answerZerosPlayed(resolved));
+    const next = pressNextRound(answerZerosPlayed(resolved));
     expect(next.curRound).toBe(indexOf(next, 'Semi A'));
     expect(seated(next, 'Round 6')).toHaveLength(8);
   });
@@ -210,12 +192,12 @@ describe('ties in a column', () => {
 
 describe('going back and forward over a column', () => {
   const start = enterBracket(liveTournament(19), 2);
-  const inSecondColumn = advance(scoreColumn(start, 2));
+  const inSecondColumn = pressNextRound(scoreColumn(start, 2));
 
   it('re-draws column 2 after Previous from column 2 to column 1, the same when nothing was corrected', () => {
     const back = { ...inSecondColumn, curRound: start.curRound };
     expect(drawnAheadStatus(back, back.curRound)).toBe('redraw');
-    const forward = advance(back);
+    const forward = pressNextRound(back);
     expect(forward.curRound).toBe(inSecondColumn.curRound);
     expect(forward.assignments).toEqual(inSecondColumn.assignments);
     expect(forward.pendingBracketSeeds).toEqual(inSecondColumn.pendingBracketSeeds);
@@ -225,7 +207,7 @@ describe('going back and forward over a column', () => {
     const lastQual = start.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
     const back = { ...start, curRound: lastQual };
     expect(drawnAheadStatus(back, lastQual)).toBe('redraw');
-    const again = advance(back);
+    const again = pressNextRound(back);
     expect(again.curRound).toBe(start.curRound);
     expect(seated(again, 'Round 5 Upper')).toHaveLength(8);
     expect(seated(again, 'Round 5 Lower')).toHaveLength(8);
@@ -236,7 +218,7 @@ describe('going back and forward over a column', () => {
     const lastQual = start.rounds.map((round) => Boolean(round.isQual)).lastIndexOf(true);
     const scored = { ...scoreRound(start, 'Round 5 Lower', 2), curRound: lastQual };
     expect(drawnAheadStatus(scored, lastQual)).toBe('locked');
-    const forward = advance(scored);
+    const forward = pressNextRound(scored);
     expect(forward.curRound).toBe(start.curRound);
     expect(forward.assignments[start.curRound]).toEqual(scored.assignments[start.curRound]);
   });
@@ -248,7 +230,7 @@ describe('a tournament with no stored columns', () => {
     expect(legacy.curRound).toBe(indexOf(legacy, 'Round 5 Upper'));
     expect(seated(legacy, 'Round 5 Upper')).toHaveLength(8);
     expect(seated(legacy, 'Round 5 Lower')).toEqual([]);
-    const next = advance(scoreCurrentRound(legacy, 2));
+    const next = pressNextRound(scoreCurrentRound(legacy, 2));
     expect(next.curRound).toBe(indexOf(next, 'Round 5 Lower'));
     expect(seated(next, 'Round 5 Lower')).toHaveLength(8);
   });
@@ -256,7 +238,7 @@ describe('a tournament with no stored columns', () => {
 
 describe('the Qual graph with its default columns: R1 and R1C are drawn together', () => {
   const exit = playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns: true }));
-  const entered = advance(exit);
+  const entered = pressNextRound(exit);
 
   it('draws R1C (qualification ranks 17-24) with R1 (ranks 1-16): nobody waits in a pool', () => {
     expect(entered.curRound).toBe(indexOf(entered, 'R1'));
@@ -290,7 +272,7 @@ describe('roster changes for a unit seated in the second round of a column', () 
     const removed = removeRosterUnit(live, inRoomA(live, lower));
     expect(removed.assignments[lower].filter((entry) => entry.room === 1)).toHaveLength(3);
     expect(removed.assignments[upper]).toEqual(live.assignments[upper]);
-    const next = advance(scoreColumn(removed, 2));
+    const next = pressNextRound(scoreColumn(removed, 2));
     expect(next.rounds[indexOf(next, 'Round 6')].rooms).toEqual([4, 4]);
     expect(seated(next, 'Round 6')).toHaveLength(8);
     expect(seated(next, 'Semi A')).toHaveLength(4);
@@ -298,7 +280,7 @@ describe('roster changes for a unit seated in the second round of a column', () 
 
   it('a withdrawal from Round 5 Upper room A: Round 6 arrives with 7 as [4, 3]', () => {
     const removed = removeRosterUnit(live, inRoomA(live, upper));
-    const next = advance(scoreColumn(removed, 2));
+    const next = pressNextRound(scoreColumn(removed, 2));
     expect(next.rounds[indexOf(next, 'Round 6')].rooms).toEqual([4, 3]);
     expect(seated(next, 'Round 6')).toHaveLength(7);
     expect(seated(next, 'Semi A')).toHaveLength(4);
@@ -325,7 +307,7 @@ describe('roster changes for a unit seated in the second round of a column', () 
 
 describe('a swap for a unit seated in the second round of a column', () => {
   // This graph routes every registered unit, so nobody is eliminated and the swap window stays open.
-  const entered = advance(
+  const entered = pressNextRound(
     playToQualificationExit(buildQualWaterfall(37, ALL_ROUTED_GRAPHS[37], {}, { columns: true })),
   );
 
@@ -341,7 +323,7 @@ describe('a swap for a unit seated in the second round of a column', () => {
 
 describe('rankings in the middle of a column (R1 and R1C drawn together, 37 registered)', () => {
   it("moves R1's places 5-8 to the eliminated, with no rank, once R1 is fully scored but not advanced", () => {
-    const entered = advance(
+    const entered = pressNextRound(
       playToQualificationExit(buildQualWaterfall(37, QUAL_GRAPH, {}, { columns: true })),
     );
     const before = computeRankings(entered);
@@ -385,7 +367,7 @@ describe('a qualification tie across the R1/R1C boundary, entering a column', ()
       picks.set(key, order);
       for (const name of order.slice(0, members.length - 1)) state = resolveTournamentTie(state, key, name);
     }
-    const next = advance(state);
+    const next = pressNextRound(state);
     expect(next.curRound).toBe(indexOf(next, 'R1'));
     const band = picks.get('qual-band-13') as string[];
     const cut = picks.get('qual-cutoff') as string[];

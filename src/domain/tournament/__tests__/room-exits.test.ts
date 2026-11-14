@@ -9,22 +9,22 @@ import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { waterfallBracketPhase, type OrderedWaterfallGraph } from '../waterfall-bracket';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
-import { scoreCurrentRound, withEarlierCutRule } from './play-through';
+import { pressNextRound, scoreCurrentRound, withEarlierCutRule } from './play-through';
 import { QUAL_GRAPH, buildQualWaterfall } from './qual-waterfall';
-import { buildAssignments, buildRound } from './test-fixtures';
+import { buildAssignments, buildRound, generatedState } from './test-fixtures';
 
 function names(count: number, prefix = 'P'): string[] {
   return Array.from({ length: count }, (_, index) => `${prefix}${index + 1}`);
 }
 
 function generate(count: number, setup: Partial<Parameters<typeof createDefaultSetup>[0]>): TournamentState {
-  const result = generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
-    createDefaultSetup(setup),
-    createTournamentRuntime(),
+  return generatedState(
+    generateTournament(
+      createDefaultTournamentState({ confirmedCount: count, players: names(count) }),
+      createDefaultSetup(setup),
+      createTournamentRuntime(),
+    ),
   );
-  if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
-  return result.state;
 }
 
 /**
@@ -633,9 +633,7 @@ describe('roundExitRule -- Kings Valley chips agree with the real advance', () =
     if (result.status !== 'generated') throw new Error(`generation failed: ${JSON.stringify(result)}`);
     let state = result.state;
     while (!state.rounds[state.curRound].isKingsValley) {
-      const next = advanceTournamentRound(scoreCurrentRound(state, 2));
-      if (next.status !== 'advanced') throw new Error(`stuck before Kings Valley: ${next.status}`);
-      state = next.state;
+      state = pressNextRound(scoreCurrentRound(state, 2));
     }
     return state;
   }
