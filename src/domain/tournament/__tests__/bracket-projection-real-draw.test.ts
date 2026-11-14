@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bracketRoundLabels, projectFutureRoundSlots, type ProjectedSlotLabel } from '../bracket';
 import type { TournamentState } from '../types';
+import { graphText } from './best-place-fixtures';
 import { generated } from './test-fixtures';
 
 /** A Custom bracket round's projected rooms, or an error naming the round when it has none. */
@@ -161,4 +162,68 @@ describe('the built-in upper and lower bracket keeps its slots and room sizes', 
       }
     },
   );
+});
+
+/** A projected room as short tags: `W2` the second place of the waterfall source, `Q3` the third of the Qual units, `BEST3`. */
+function tags(rooms: ProjectedSlotLabel[][], firstQualRank = 1): string[][] {
+  return rooms.map((room) =>
+    room.map((slot) => {
+      if (slot.kind === 'standings-rank') return `Q${slot.rank - firstQualRank + 1}`;
+      if (slot.kind === 'best-place') return `BEST${slot.place}`;
+      if (slot.kind === 'waterfall-rank') return `${slot.sourceLabel}.${letter(slot.room)}${slot.rank}`;
+      throw new Error(`unexpected slot ${slot.kind}`);
+    }),
+  );
+}
+
+describe('a round fed by several kinds of source is seated by their real tiers', () => {
+  it('mixes the Qual line (tiers counted from 0) with a waterfall room (places counted from 0): 7 Qual units and places 1-5 of one room', () => {
+    const graph = graphText(
+      ['Src = 6', 'Mid = 2x6', 'Final = 6 FINAL'],
+      [
+        'Qual: 1-6->Src, 7-13->Mid',
+        'Src: 1-5->Mid, 6->eliminated',
+        'Mid.A: 1-3->Final, 4-6->eliminated',
+        'Mid.B: 1-3->Final, 4-6->eliminated',
+      ],
+    );
+    const state = generated(17, {
+      scheduleLogic: 'waterfall-bracket',
+      gameFormat: 'ffa-individual',
+      poolingPhase: 'qual-table',
+      qualAdv: '13',
+      waterfallGraph: graph,
+    });
+    expect(tags(projectedRooms(state, 'Mid'), 7)).toEqual([
+      ['Q1', 'Q3', 'Q5', 'Q6', 'Src.A2', 'Src.A4'],
+      ['Q2', 'Q4', 'Q7', 'Src.A1', 'Src.A3', 'Src.A5'],
+    ]);
+  });
+
+  it('puts a best of a place among the places it sits between: the best 3rd goes in with places 1-2 and 4-6 of three rooms', () => {
+    const rooms = ['A', 'B', 'C'].map(
+      (room) => `R4.${room}: 1-2->R5, 3->eliminated, 4-6->R5, 7-8->eliminated`,
+    );
+    const graph = graphText(
+      ['R4 = 3x8', 'R5 = 2x8', 'Final = 8 FINAL'],
+      [
+        'Qual: 1-24->R4',
+        ...rooms,
+        'R4.BEST: 1 OF 3->R5',
+        'R5.A: 1-4->Final, 5-8->eliminated',
+        'R5.B: 1-4->Final, 5-8->eliminated',
+      ],
+    );
+    const state = generated(28, {
+      scheduleLogic: 'waterfall-bracket',
+      gameFormat: 'ffa-individual',
+      poolingPhase: 'qual-table',
+      qualAdv: '24',
+      waterfallGraph: graph,
+    });
+    expect(tags(projectedRooms(state, 'R5'))).toEqual([
+      ['R4.A1', 'R4.C1', 'R4.B2', 'R4.A4', 'R4.B4', 'R4.A5', 'R4.C5', 'R4.B6'],
+      ['BEST3', 'R4.B1', 'R4.A2', 'R4.C2', 'R4.C4', 'R4.B5', 'R4.A6', 'R4.C6'],
+    ]);
+  });
 });

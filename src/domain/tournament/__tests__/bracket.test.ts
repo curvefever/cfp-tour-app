@@ -1043,7 +1043,7 @@ describe("projectFutureRoundSlots -- a round fed only by the Qual or Groups line
     ]);
   });
 
-  it('keeps the round-robin for a round fed by the standings line and by a waterfall room', () => {
+  it('seats a round fed by the standings line and by a waterfall room through the real draw: one of each in a room', () => {
     // Round 2 takes ranks 3-4 of the standings and both places of round 1's room (ranks 1-2 go to round 1).
     const rounds = [
       buildRound({ roundNum: 1, isGroupStage: true, rooms: [4], players: 4, standingsRoutes: [1, 1, 2, 2] }),
