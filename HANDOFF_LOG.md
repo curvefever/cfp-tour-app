@@ -30,7 +30,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing performed.** Each stage: eslint, Prettier and the filtered type check on the changed files, `vitest related`; the checks in each stage above. No e2e, no live check (test code and a CI file).
 
-**Full suite:** not run yet. The reviewer runs it at the end of 1A (A1 changed shared test helpers) and corrects this line then.
+**Full suite: passed on `ff408c1`** (236 files, 6466 tests, no "Timeout calling onTaskUpdate"), by the reviewer at the final review of 1A (A1 changed shared test helpers). Final review: eslint, prettier and the filtered typecheck clean over the 70 code, test and workflow files 1A changed; every stage's diff read, with the reviewer's own mutation checks (A2: two generation pairs and the BEST step; A3: dependency play and absences forced on).
 
 **Out of scope.** The tournament of 15 Nov pinned (its own small stage once finished); any change to `src/` outside test files; the Bracket's rows of the old tournaments (stage C13 pins them before moving anything).
 
