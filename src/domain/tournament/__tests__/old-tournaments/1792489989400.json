@@ -1,0 +1,1287 @@
+{
+  "annotations": [
+    {
+      "text": "",
+      "timestamp": "2026-10-20T10:15:11.654Z"
+    }
+  ],
+  "anonymousFinalists": {
+    "__ffaEmptyArray": true
+  },
+  "assignments": [
+    [
+      {
+        "isLucky": false,
+        "name": "P03",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P07",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P09",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P02",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P13",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P14",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P04",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P15",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P01",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P12",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P05",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P11",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P08",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P06",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P16",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "P15",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P10",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P05",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P06",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P08",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P14",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P02",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "manual": true,
+        "name": "P04",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P07",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P13",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P16",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P11",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P09",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P03",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P12",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P01",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "P10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P15",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P14",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P06",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P08",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P02",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P05",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P13",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P04",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P16",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P07",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P11",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P12",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P09",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "P15",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P06",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P02",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P08",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P05",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P14",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P16",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P07",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P11",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P13",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "P04",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "P06",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P15",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P16",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P08",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P05",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P14",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "P02",
+        "room": 1
+      }
+    ]
+  ],
+  "byes": [
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    }
+  ],
+  "cfg": {
+    "drawPublication": "adaptive",
+    "finalsGames": 2,
+    "groupSize": 4,
+    "n": 16,
+    "poolingPhase": "qual-table",
+    "qualAdv": 14,
+    "qualifiersPerGroup": 2,
+    "roundRobinMode": "single",
+    "scoring": "fairpoints",
+    "semisGames": 1
+  },
+  "confirmations": {
+    "__ffaEmptyObject": true
+  },
+  "confirmedCount": 16,
+  "curRound": 4,
+  "defenderChanges": {
+    "__ffaEmptyObject": true
+  },
+  "finalScores": {
+    "game1-P02": 303,
+    "game1-P06": 297,
+    "game1-P08": 316,
+    "game1-P10": 436,
+    "game1-P15": 355,
+    "game1-P16": 303,
+    "game1-P05": 326,
+    "game1-P14": 339,
+    "game2-P02": 272,
+    "game2-P06": 202,
+    "game2-P08": 185,
+    "game2-P10": 314,
+    "game2-P15": 405,
+    "game2-P16": 223,
+    "game2-P05": 371,
+    "game2-P14": 386
+  },
+  "gameFormat": "ffa-individual",
+  "gamemodeConfig": {
+    "bracketPhase": "waterfall-bracket",
+    "drawPublication": "adaptive",
+    "finalSize": 8,
+    "finalsGames": 2,
+    "grandFinalLbTarget": 3,
+    "grandFinalWbTarget": 2,
+    "graph": {
+      "columns": [1, 2, 3],
+      "qualRoutes": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      "rounds": [
+        {
+          "isFinal": false,
+          "label": "R1",
+          "roomSizes": [7, 7]
+        },
+        {
+          "isFinal": false,
+          "label": "R2",
+          "roomSizes": [6, 6]
+        },
+        {
+          "isFinal": true,
+          "label": "Final",
+          "roomSizes": [8]
+        }
+      ],
+      "routes": [
+        [
+          [1, 1, 1, 1, 1, 1, "eliminated"],
+          [1, 1, 1, 1, 1, 1, "eliminated"]
+        ],
+        [
+          [2, 2, 2, 2, "eliminated", "eliminated"],
+          [2, 2, 2, 2, "eliminated", "eliminated"]
+        ],
+        {
+          "__ffaEmptyArray": true
+        }
+      ]
+    },
+    "groupSize": 4,
+    "nonCountingRounds": 0,
+    "poolingPhase": "qual-table",
+    "qualRounds": 2,
+    "qualifiersPerGroup": 2,
+    "roomSize": {
+      "ideal": 8,
+      "max": 8,
+      "min": 6
+    },
+    "roundRobinMode": "single",
+    "scoring": "fairpoints",
+    "semisGames": 1,
+    "semisSize": 16,
+    "swissRounds": 4,
+    "teamScoringRule": "sum-members"
+  },
+  "groupStandings": {
+    "__ffaEmptyObject": true
+  },
+  "groups": {
+    "__ffaEmptyArray": true
+  },
+  "info": {
+    "rulesText": "",
+    "scheduledAt": 1792087200000,
+    "screenshots": {
+      "__ffaEmptyArray": true
+    }
+  },
+  "lifecycle": {
+    "createdAt": 1792489989811,
+    "finishedAt": 1792494042405,
+    "status": "finished",
+    "testRun": true
+  },
+  "luckyLosers": [
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    }
+  ],
+  "pendingBracketSeeds": {
+    "__ffaEmptyObject": true
+  },
+  "players": [
+    "P15",
+    "P10",
+    "P14",
+    "P05",
+    "P02",
+    "P16",
+    "P08",
+    "P06",
+    "P07",
+    "P04",
+    "P13",
+    "P11",
+    "P12",
+    "P09",
+    "P03",
+    "P01"
+  ],
+  "poolingByeCounts": {
+    "__ffaEmptyObject": true
+  },
+  "qualTable": [
+    {
+      "name": "P10",
+      "played": 2,
+      "roomShare": 1.8839418924224578,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 8,
+          "rank": 1,
+          "roundIndex": 0,
+          "score": 328
+        },
+        {
+          "bye": false,
+          "points": 8,
+          "rank": 1,
+          "roundIndex": 1,
+          "score": 352
+        }
+      ],
+      "totalFP": 16,
+      "totalScore": 680
+    },
+    {
+      "name": "P15",
+      "played": 2,
+      "roomShare": 1.761449545253614,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 8,
+          "rank": 1,
+          "roundIndex": 0,
+          "score": 338
+        },
+        {
+          "bye": false,
+          "points": 6,
+          "rank": 3,
+          "roundIndex": 1,
+          "score": 293
+        }
+      ],
+      "totalFP": 14,
+      "totalScore": 631
+    },
+    {
+      "name": "P14",
+      "played": 2,
+      "roomShare": 1.5287034316126293,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 6,
+          "rank": 3,
+          "roundIndex": 0,
+          "score": 260
+        },
+        {
+          "bye": false,
+          "points": 8,
+          "rank": 1,
+          "roundIndex": 1,
+          "score": 342
+        }
+      ],
+      "totalFP": 14,
+      "totalScore": 602
+    },
+    {
+      "name": "P06",
+      "played": 2,
+      "roomShare": 1.6011497201556866,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 7,
+          "rank": 2,
+          "roundIndex": 0,
+          "score": 262
+        },
+        {
+          "bye": false,
+          "points": 6,
+          "rank": 3,
+          "roundIndex": 1,
+          "score": 277
+        }
+      ],
+      "totalFP": 13,
+      "totalScore": 539
+    },
+    {
+      "name": "P08",
+      "played": 2,
+      "roomShare": 1.520424359282032,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 6,
+          "rank": 3,
+          "roundIndex": 0,
+          "score": 228
+        },
+        {
+          "bye": false,
+          "points": 7,
+          "rank": 2,
+          "roundIndex": 1,
+          "score": 286
+        }
+      ],
+      "totalFP": 13,
+      "totalScore": 514
+    },
+    {
+      "name": "P02",
+      "played": 2,
+      "roomShare": 1.3291103524166925,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 5,
+          "rank": 4,
+          "roundIndex": 0,
+          "score": 198
+        },
+        {
+          "bye": false,
+          "points": 7,
+          "rank": 2,
+          "roundIndex": 1,
+          "score": 295
+        }
+      ],
+      "totalFP": 12,
+      "totalScore": 493
+    },
+    {
+      "name": "P05",
+      "played": 2,
+      "roomShare": 1.3542560485845823,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 7,
+          "rank": 2,
+          "roundIndex": 0,
+          "score": 321
+        },
+        {
+          "bye": false,
+          "points": 3,
+          "rank": 6,
+          "roundIndex": 1,
+          "score": 201
+        }
+      ],
+      "totalFP": 10,
+      "totalScore": 522
+    },
+    {
+      "name": "P13",
+      "played": 2,
+      "roomShare": 1.0646001513018664,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 4,
+          "rank": 5,
+          "roundIndex": 0,
+          "score": 179
+        },
+        {
+          "bye": false,
+          "points": 5,
+          "rank": 4,
+          "roundIndex": 1,
+          "score": 205
+        }
+      ],
+      "totalFP": 9,
+      "totalScore": 384
+    },
+    {
+      "name": "P04",
+      "played": 2,
+      "roomShare": 1.0201174025874535,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 5,
+          "rank": 4,
+          "roundIndex": 0,
+          "score": 221
+        },
+        {
+          "bye": false,
+          "points": 4,
+          "rank": 5,
+          "roundIndex": 1,
+          "score": 149
+        }
+      ],
+      "totalFP": 9,
+      "totalScore": 370
+    },
+    {
+      "name": "P16",
+      "played": 2,
+      "roomShare": 1.1167336010709503,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 3,
+          "rank": 6,
+          "roundIndex": 0,
+          "score": 164
+        },
+        {
+          "bye": false,
+          "points": 5,
+          "rank": 4,
+          "roundIndex": 1,
+          "score": 279
+        }
+      ],
+      "totalFP": 8,
+      "totalScore": 443
+    },
+    {
+      "name": "P07",
+      "played": 2,
+      "roomShare": 1.116648326326383,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 4,
+          "rank": 5,
+          "roundIndex": 0,
+          "score": 167
+        },
+        {
+          "bye": false,
+          "points": 4,
+          "rank": 5,
+          "roundIndex": 1,
+          "score": 247
+        }
+      ],
+      "totalFP": 8,
+      "totalScore": 414
+    },
+    {
+      "name": "P11",
+      "played": 2,
+      "roomShare": 0.6696579251523351,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 3,
+          "rank": 6,
+          "roundIndex": 0,
+          "score": 85
+        },
+        {
+          "bye": false,
+          "points": 3,
+          "rank": 6,
+          "roundIndex": 1,
+          "score": 143
+        }
+      ],
+      "totalFP": 6,
+      "totalScore": 228
+    },
+    {
+      "name": "P12",
+      "played": 2,
+      "roomShare": 0.008776270746959504,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 1,
+          "rank": 8,
+          "roundIndex": 0,
+          "score": 1
+        },
+        {
+          "bye": false,
+          "points": 2,
+          "rank": 7,
+          "roundIndex": 1,
+          "score": 2
+        }
+      ],
+      "totalFP": 3,
+      "totalScore": 3
+    },
+    {
+      "name": "P09",
+      "played": 2,
+      "roomShare": 0.008654759553436227,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 2,
+          "rank": 7,
+          "roundIndex": 0,
+          "score": 2
+        },
+        {
+          "bye": false,
+          "points": 1,
+          "rank": 8,
+          "roundIndex": 1,
+          "score": 1
+        }
+      ],
+      "totalFP": 3,
+      "totalScore": 3
+    },
+    {
+      "name": "P03",
+      "played": 2,
+      "roomShare": 0.008246909324216917,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 2,
+          "rank": 7,
+          "roundIndex": 0,
+          "score": 2
+        },
+        {
+          "bye": false,
+          "points": 1,
+          "rank": 8,
+          "roundIndex": 1,
+          "score": 1
+        }
+      ],
+      "totalFP": 3,
+      "totalScore": 3
+    },
+    {
+      "name": "P01",
+      "played": 2,
+      "roomShare": 0.007529304208704738,
+      "rounds": [
+        {
+          "bye": false,
+          "points": 1,
+          "rank": 8,
+          "roundIndex": 0,
+          "score": 1
+        },
+        {
+          "bye": false,
+          "points": 2,
+          "rank": 7,
+          "roundIndex": 1,
+          "score": 2
+        }
+      ],
+      "totalFP": 3,
+      "totalScore": 3
+    }
+  ],
+  "reserveIndividuals": {
+    "__ffaEmptyArray": true
+  },
+  "reserveOpen": false,
+  "reserves": {
+    "__ffaEmptyArray": true
+  },
+  "roomHistory": {
+    "P01|P02": 1,
+    "P01|P03": 0,
+    "P01|P04": 0,
+    "P01|P09": 1,
+    "P01|P10": 0,
+    "P01|P13": 0,
+    "P01|P15": 1,
+    "P01|P16": 1,
+    "P01|P05": 1,
+    "P01|P07": 1,
+    "P01|P14": 1,
+    "P02|P04": 3,
+    "P02|P06": 4,
+    "P02|P08": 4,
+    "P02|P09": 2,
+    "P02|P10": 4,
+    "P02|P11": 2,
+    "P02|P12": 0,
+    "P02|P15": 4,
+    "P02|P16": 4,
+    "P02|P05": 4,
+    "P02|P07": 3,
+    "P02|P14": 4,
+    "P03|P04": 1,
+    "P03|P06": 1,
+    "P03|P08": 1,
+    "P03|P10": 1,
+    "P03|P11": 1,
+    "P03|P12": 1,
+    "P03|P13": 1,
+    "P03|P16": 0,
+    "P03|P05": 0,
+    "P03|P14": 0,
+    "P04|P06": 2,
+    "P04|P08": 1,
+    "P04|P09": 2,
+    "P04|P10": 3,
+    "P04|P11": 2,
+    "P04|P12": 1,
+    "P04|P13": 1,
+    "P04|P15": 3,
+    "P04|P16": 0,
+    "P04|P05": 3,
+    "P04|P07": 3,
+    "P04|P14": 0,
+    "P06|P08": 4,
+    "P06|P09": 2,
+    "P06|P10": 4,
+    "P06|P11": 3,
+    "P06|P12": 1,
+    "P06|P13": 3,
+    "P06|P15": 4,
+    "P06|P16": 4,
+    "P05|P06": 4,
+    "P06|P07": 0,
+    "P06|P14": 4,
+    "P08|P09": 0,
+    "P08|P10": 4,
+    "P08|P11": 3,
+    "P08|P12": 2,
+    "P08|P13": 3,
+    "P08|P15": 4,
+    "P08|P16": 4,
+    "P05|P08": 4,
+    "P07|P08": 2,
+    "P08|P14": 4,
+    "P09|P10": 2,
+    "P09|P11": 2,
+    "P09|P12": 0,
+    "P09|P15": 1,
+    "P09|P16": 1,
+    "P05|P09": 2,
+    "P07|P09": 1,
+    "P09|P14": 1,
+    "P10|P11": 2,
+    "P10|P12": 1,
+    "P10|P13": 1,
+    "P10|P15": 4,
+    "P10|P16": 4,
+    "P05|P10": 4,
+    "P07|P10": 3,
+    "P10|P14": 4,
+    "P11|P12": 1,
+    "P11|P13": 3,
+    "P11|P15": 0,
+    "P11|P16": 3,
+    "P05|P11": 2,
+    "P07|P11": 0,
+    "P11|P14": 3,
+    "P12|P13": 2,
+    "P12|P15": 2,
+    "P12|P16": 2,
+    "P07|P12": 2,
+    "P12|P14": 2,
+    "P13|P15": 2,
+    "P13|P16": 3,
+    "P05|P13": 0,
+    "P07|P13": 2,
+    "P13|P14": 3,
+    "P15|P16": 4,
+    "P05|P15": 4,
+    "P07|P15": 3,
+    "P14|P15": 4,
+    "P05|P16": 4,
+    "P07|P16": 2,
+    "P14|P16": 4,
+    "P05|P07": 3,
+    "P05|P14": 4,
+    "P07|P14": 2
+  },
+  "rounds": [
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 16,
+      "byeCount": 0,
+      "isFinal": false,
+      "isNoElim": true,
+      "isQual": true,
+      "isSemis": false,
+      "luckyCount": 0,
+      "players": 16,
+      "rooms": [8, 8],
+      "roundNum": 1
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 16,
+      "byeCount": 0,
+      "isFinal": false,
+      "isNoElim": true,
+      "isQual": true,
+      "isSemis": false,
+      "luckyCount": 0,
+      "players": 16,
+      "rooms": [8, 8],
+      "roundNum": 2,
+      "standingsExitOrder": [
+        {
+          "name": "P10",
+          "roomShare": 1.8839418924224578
+        },
+        {
+          "name": "P15",
+          "roomShare": 1.761449545253614
+        },
+        {
+          "name": "P14",
+          "roomShare": 1.5287034316126293
+        },
+        {
+          "name": "P06",
+          "roomShare": 1.6011497201556866
+        },
+        {
+          "name": "P08",
+          "roomShare": 1.520424359282032
+        },
+        {
+          "name": "P02",
+          "roomShare": 1.3291103524166925
+        },
+        {
+          "name": "P05",
+          "roomShare": 1.3542560485845823
+        },
+        {
+          "name": "P13",
+          "roomShare": 1.0646001513018664
+        },
+        {
+          "name": "P04",
+          "roomShare": 1.0201174025874535
+        },
+        {
+          "name": "P16",
+          "roomShare": 1.1167336010709503
+        },
+        {
+          "name": "P07",
+          "roomShare": 1.116648326326383
+        },
+        {
+          "name": "P11",
+          "roomShare": 0.6696579251523351
+        },
+        {
+          "name": "P12",
+          "roomShare": 0.008776270746959504
+        },
+        {
+          "name": "P09",
+          "roomShare": 0.008654759553436227
+        },
+        {
+          "name": "P03",
+          "roomShare": 0.008246909324216917
+        },
+        {
+          "name": "P01",
+          "roomShare": 0.007529304208704738
+        }
+      ],
+      "standingsRoutes": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 12,
+      "byeCount": 0,
+      "customLabel": "R1",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 14,
+      "rooms": [7, 7],
+      "roundNum": 3,
+      "waterfallColumn": 1,
+      "waterfallRoutes": [
+        [3, 3, 3, 3, 3, 3, "eliminated"],
+        [3, 3, 3, 3, 3, 3, "eliminated"]
+      ]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 8,
+      "byeCount": 0,
+      "customLabel": "R2",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 12,
+      "rooms": [6, 6],
+      "roundNum": 4,
+      "waterfallColumn": 2,
+      "waterfallRoutes": [
+        [4, 4, 4, 4, "eliminated", "eliminated"],
+        [4, 4, 4, 4, "eliminated", "eliminated"]
+      ]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 1,
+      "byeCount": 0,
+      "customLabel": "Final",
+      "isFinal": true,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "numGames": 2,
+      "players": 8,
+      "rooms": [8],
+      "roundNum": 5,
+      "waterfallColumn": 3,
+      "waterfallRoutes": {
+        "__ffaEmptyArray": true
+      }
+    }
+  ],
+  "scheduleLogic": "waterfall-bracket",
+  "scores": {
+    "r0-rm1-p0": 2,
+    "r0-rm1-p1": 179,
+    "r0-rm1-p2": 260,
+    "r0-rm1-p3": 221,
+    "r0-rm1-p4": 328,
+    "r0-rm1-p5": 1,
+    "r0-rm1-p6": 321,
+    "r0-rm1-p7": 164,
+    "r0-rm2-p0": 167,
+    "r0-rm2-p1": 2,
+    "r0-rm2-p2": 198,
+    "r0-rm2-p3": 338,
+    "r0-rm2-p4": 1,
+    "r0-rm2-p5": 85,
+    "r0-rm2-p6": 228,
+    "r0-rm2-p7": 262,
+    "r1-rm1-p0": 293,
+    "r1-rm1-p1": 201,
+    "r1-rm1-p2": 342,
+    "r1-rm1-p3": 295,
+    "r1-rm1-p4": 247,
+    "r1-rm1-p5": 279,
+    "r1-rm1-p6": 1,
+    "r1-rm1-p7": 2,
+    "r1-rm2-p0": 352,
+    "r1-rm2-p1": 277,
+    "r1-rm2-p2": 286,
+    "r1-rm2-p3": 149,
+    "r1-rm2-p4": 205,
+    "r1-rm2-p5": 143,
+    "r1-rm2-p6": 1,
+    "r1-rm2-p7": 2,
+    "r2-rm1-p0": 367,
+    "r2-rm1-p1": 404,
+    "r2-rm1-p2": 401,
+    "r2-rm1-p3": 395,
+    "r2-rm1-p4": 134,
+    "r2-rm1-p5": 158,
+    "r2-rm1-p6": 88,
+    "r2-rm2-p0": 367,
+    "r2-rm2-p1": 219,
+    "r2-rm2-p2": 313,
+    "r2-rm2-p3": 154,
+    "r2-rm2-p4": 193,
+    "r2-rm2-p5": 184,
+    "r2-rm2-p6": 97,
+    "r3-rm1-p0": 325,
+    "r3-rm1-p1": 247,
+    "r3-rm1-p2": 250,
+    "r3-rm1-p3": 295,
+    "r3-rm1-p4": 180,
+    "r3-rm1-p5": 155,
+    "r3-rm2-p0": 309,
+    "r3-rm2-p1": 257,
+    "r3-rm2-p2": 217,
+    "r3-rm2-p3": 269,
+    "r3-rm2-p4": 101,
+    "r3-rm2-p5": 113
+  },
+  "settings": {
+    "drawPublication": "adaptive",
+    "eliminationRoundTargets": "",
+    "eliminationSeedingOverrides": "",
+    "finalOverride": "",
+    "finalsGames": "2",
+    "gameFormat": "ffa-individual",
+    "grandFinalLbTarget": "3",
+    "grandFinalWbTarget": "2",
+    "groupSize": "4",
+    "lbQualifiers": "2",
+    "nonCountingRounds": "0",
+    "oddCountStrategy": "",
+    "poolingPhase": "qual-table",
+    "positionalPointsTable": "",
+    "qualAdv": "24",
+    "qualRoundsOverride": "2",
+    "qualifiersPerGroup": "2",
+    "roundRobinMode": "single",
+    "scheduleLogic": "waterfall-bracket",
+    "scoring": "fairpoints",
+    "semisGames": "1",
+    "semisOverride": "",
+    "swissRoundsOverride": "",
+    "teamScoringRule": "",
+    "waterfallGraph": "ROUNDS:\nR1 = 2x7\nR2 = 2x6\nFinal = 8 FINAL\n\nROUTES:\nQual: 1-14->R1\nR1.A: 1-6->R2\nR1.B: 1-6->R2\nR2.A: 1-4->Final\nR2.B: 1-4->Final"
+  },
+  "started": true,
+  "tieResolutions": {
+    "__ffaEmptyObject": true
+  },
+  "title": "",
+  "tournamentId": "1792489989400",
+  "withdrawnUnits": {
+    "__ffaEmptyArray": true
+  }
+}

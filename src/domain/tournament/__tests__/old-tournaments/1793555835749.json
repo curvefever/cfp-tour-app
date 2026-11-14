@@ -1,0 +1,1762 @@
+{
+  "absences": {
+    "__ffaEmptyObject": true
+  },
+  "annotations": {
+    "__ffaEmptyArray": true
+  },
+  "anonymousFinalists": {
+    "__ffaEmptyArray": true
+  },
+  "assignments": [
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_0",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_5",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_1",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_4",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_8",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": {
+          "__ffaNull": true
+        }
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_0",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_5",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_1",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_4",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_8",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": {
+          "__ffaNull": true
+        }
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_0",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_5",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_1",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_4",
+        "room": 3
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 4
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": 5
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_8",
+        "room": {
+          "__ffaNull": true
+        }
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_5",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_4",
+        "room": 2
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_4",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_5",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": 2
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 2
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_9",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_2",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_6",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_3",
+        "room": 1
+      }
+    ],
+    [
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_10",
+        "room": 1
+      },
+      {
+        "isLucky": false,
+        "name": "team_1793558922805_7",
+        "room": 1
+      }
+    ]
+  ],
+  "byes": [
+    ["team_1793558922805_2"],
+    ["team_1793558922805_3"],
+    ["team_1793558922805_8"],
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    }
+  ],
+  "cfg": {
+    "drawPublication": "adaptive",
+    "finalsGames": 3,
+    "groupExit": "fair-cut",
+    "groupSize": 4,
+    "n": 11,
+    "poolingPhase": "group-stage",
+    "qualAdv": 8,
+    "qualifiersPerGroup": 2,
+    "roundRobinMode": "single",
+    "scoring": "match-results",
+    "semisGames": 1
+  },
+  "confirmations": {
+    "P01": true,
+    "P02": true,
+    "P03": true,
+    "P04": true,
+    "P05": true,
+    "P07": true,
+    "P08": true,
+    "P09": true,
+    "P10": true,
+    "P11": true,
+    "P12": true,
+    "P13": true,
+    "P14": true,
+    "P15": true,
+    "P17": true,
+    "P18": true,
+    "P19": true,
+    "P20": true,
+    "P21": true,
+    "P23": true,
+    "P24": true,
+    "P25": true,
+    "P28": true,
+    "P30": true,
+    "P31": true,
+    "P32": true,
+    "P33": true,
+    "P38": true,
+    "P34": true,
+    "P35": true,
+    "P37": true,
+    "P39": true,
+    "P40": true,
+    "P41": true,
+    "P42": true,
+    "P43": true,
+    "P44": true,
+    "P06": true,
+    "P16": true,
+    "P22": true,
+    "P26": true,
+    "P27": true,
+    "P29": true,
+    "P36": true
+  },
+  "confirmedCount": 11,
+  "curRound": 11,
+  "defenderChanges": {
+    "__ffaEmptyObject": true
+  },
+  "finalScores": {
+    "game1-team_1793558922805_10": 1545,
+    "game1-team_1793558922805_7": 1339,
+    "game2-team_1793558922805_10": 1477,
+    "game2-team_1793558922805_7": 1411
+  },
+  "gameFormat": "team-4v4",
+  "gamemodeConfig": {
+    "absenceVersion": 1,
+    "bracketPhase": "waterfall-bracket",
+    "cutVersion": 2,
+    "drawPublication": "adaptive",
+    "finalSize": 2,
+    "finalsGames": 3,
+    "grandFinalLbTarget": 3,
+    "grandFinalWbTarget": 2,
+    "graph": {
+      "columns": [1, 1, 2, 2, 2, 3, 3, 4, 5],
+      "qualRoutes": [0, 0, 0, 0, 1, 1, 1, 1],
+      "rounds": [
+        {
+          "isFinal": false,
+          "label": "Round 4 - Upper",
+          "roomSizes": [2, 2]
+        },
+        {
+          "isFinal": false,
+          "label": "Round 4 - Lower",
+          "roomSizes": [2, 2]
+        },
+        {
+          "isFinal": false,
+          "isRanking": true,
+          "label": "Round 5 - Ranking",
+          "roomSizes": [2]
+        },
+        {
+          "bestOf": 3,
+          "isFinal": false,
+          "label": "Semi-Final A",
+          "roomSizes": [2]
+        },
+        {
+          "isFinal": false,
+          "label": "Round 5 - Lower",
+          "roomSizes": [2, 2]
+        },
+        {
+          "isFinal": false,
+          "isRanking": true,
+          "label": "Round 6 - Ranking",
+          "roomSizes": [2]
+        },
+        {
+          "isFinal": false,
+          "label": "Round 6 - Lower",
+          "roomSizes": [2]
+        },
+        {
+          "bestOf": 3,
+          "isFinal": false,
+          "label": "Semi-Final B",
+          "roomSizes": [2]
+        },
+        {
+          "bestOf": 3,
+          "isFinal": true,
+          "label": "Final",
+          "roomSizes": [2]
+        }
+      ],
+      "routes": [
+        [
+          [3, 4],
+          [3, 4]
+        ],
+        [
+          [4, 2],
+          [4, 2]
+        ],
+        [["eliminated", "eliminated"]],
+        [[8, 7]],
+        [
+          [6, 5],
+          [6, 5]
+        ],
+        [["eliminated", "eliminated"]],
+        [[7, "eliminated"]],
+        [[8, "eliminated"]],
+        {
+          "__ffaEmptyArray": true
+        }
+      ]
+    },
+    "groupAverageVersion": 2,
+    "groupExit": "fair-cut",
+    "groupSize": 4,
+    "matchResultPoints": [3, 2, 1, 0],
+    "nonCountingRounds": 0,
+    "oddCountStrategy": "bye",
+    "pointsVersion": 2,
+    "poolingPhase": "group-stage",
+    "qualRounds": 3,
+    "qualifiersPerGroup": 2,
+    "roomSize": {
+      "ideal": 2,
+      "max": 2,
+      "min": 2
+    },
+    "roundRobinMode": "single",
+    "scoring": "match-results",
+    "semisGames": 1,
+    "semisSize": 4,
+    "swissRounds": 4,
+    "teamScoringRule": "survival-teams",
+    "tieMargin": 100
+  },
+  "groupStandings": {
+    "A": [
+      {
+        "averagePoints": 3,
+        "matches": 3,
+        "name": "team_1793558922805_10",
+        "played": 3,
+        "roomShare": 1.22660385030866,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 0,
+            "score": 1477
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 1,
+            "score": 1455
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 2,
+            "score": 1490
+          }
+        ],
+        "totalFP": 9,
+        "totalScore": 4422
+      },
+      {
+        "averagePoints": 2,
+        "matches": 3,
+        "name": "team_1793558922805_6",
+        "played": 3,
+        "roomShare": 1.1098044122963409,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 0,
+            "score": 1617
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 1,
+            "score": 1670
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 2,
+            "score": 1119
+          }
+        ],
+        "totalFP": 6,
+        "totalScore": 4406
+      },
+      {
+        "averagePoints": 1,
+        "matches": 3,
+        "name": "team_1793558922805_5",
+        "played": 3,
+        "roomShare": 0.8801604405360735,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 0,
+            "score": 1053
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 1,
+            "score": 888
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 2,
+            "score": 1453
+          }
+        ],
+        "totalFP": 3,
+        "totalScore": 3394
+      },
+      {
+        "averagePoints": 0,
+        "matches": 3,
+        "name": "team_1793558922805_0",
+        "played": 3,
+        "roomShare": 0.7834312968589255,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 0,
+            "score": 803
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 1,
+            "score": 980
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 2,
+            "score": 1204
+          }
+        ],
+        "totalFP": 0,
+        "totalScore": 2987
+      }
+    ],
+    "B": [
+      {
+        "averagePoints": 3,
+        "matches": 3,
+        "name": "team_1793558922805_7",
+        "played": 3,
+        "roomShare": 1.3171042044263774,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 0,
+            "score": 1454
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 1,
+            "score": 1579
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 2,
+            "score": 1525
+          }
+        ],
+        "totalFP": 9,
+        "totalScore": 4558
+      },
+      {
+        "averagePoints": 2,
+        "matches": 3,
+        "name": "team_1793558922805_9",
+        "played": 3,
+        "roomShare": 0.9985045316620947,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 0,
+            "score": 1501
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 1,
+            "score": 1461
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 2,
+            "score": 1137
+          }
+        ],
+        "totalFP": 6,
+        "totalScore": 4099
+      },
+      {
+        "averagePoints": 0.6666666666666666,
+        "matches": 3,
+        "name": "team_1793558922805_4",
+        "played": 3,
+        "roomShare": 0.8286575601293021,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 0,
+            "score": 561
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 1,
+            "score": 1185
+          },
+          {
+            "bye": false,
+            "points": 2,
+            "rank": 1,
+            "results": ["TW"],
+            "roundIndex": 2,
+            "score": 1529
+          }
+        ],
+        "totalFP": 2,
+        "totalScore": 3275
+      },
+      {
+        "averagePoints": 0.3333333333333333,
+        "matches": 3,
+        "name": "team_1793558922805_1",
+        "played": 3,
+        "roomShare": 0.8557337037822258,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 0,
+            "score": 1394
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 1,
+            "score": 739
+          },
+          {
+            "bye": false,
+            "points": 1,
+            "rank": 2,
+            "results": ["TL"],
+            "roundIndex": 2,
+            "score": 1430
+          }
+        ],
+        "totalFP": 1,
+        "totalScore": 3563
+      }
+    ],
+    "C": [
+      {
+        "averagePoints": 3,
+        "matches": 2,
+        "name": "team_1793558922805_3",
+        "played": 2,
+        "roomShare": 1.3681070438150447,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 0,
+            "score": 1714
+          },
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 2,
+            "score": 1471
+          }
+        ],
+        "totalFP": 6,
+        "totalScore": 3185
+      },
+      {
+        "averagePoints": 1.5,
+        "matches": 2,
+        "name": "team_1793558922805_2",
+        "played": 2,
+        "roomShare": 1.0120832676036404,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 3,
+            "rank": 1,
+            "results": ["W"],
+            "roundIndex": 1,
+            "score": 1477
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 2,
+            "score": 876
+          }
+        ],
+        "totalFP": 3,
+        "totalScore": 2353
+      },
+      {
+        "averagePoints": 0,
+        "matches": 2,
+        "name": "team_1793558922805_8",
+        "played": 2,
+        "roomShare": 0.6198096885813149,
+        "rounds": [
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 0,
+            "score": 598
+          },
+          {
+            "bye": false,
+            "points": 0,
+            "rank": 2,
+            "results": ["L"],
+            "roundIndex": 1,
+            "score": 835
+          }
+        ],
+        "totalFP": 0,
+        "totalScore": 1433
+      }
+    ]
+  },
+  "groups": [
+    {
+      "label": "A",
+      "members": [
+        "team_1793558922805_0",
+        "team_1793558922805_5",
+        "team_1793558922805_6",
+        "team_1793558922805_10"
+      ]
+    },
+    {
+      "label": "B",
+      "members": [
+        "team_1793558922805_1",
+        "team_1793558922805_4",
+        "team_1793558922805_7",
+        "team_1793558922805_9"
+      ]
+    },
+    {
+      "label": "C",
+      "members": ["team_1793558922805_2", "team_1793558922805_3", "team_1793558922805_8"]
+    }
+  ],
+  "info": {
+    "rulesText": "",
+    "scheduledAt": 1793559600000,
+    "screenshots": {
+      "__ffaEmptyArray": true
+    }
+  },
+  "lifecycle": {
+    "createdAt": 1793555834758,
+    "finishedAt": 1793650024559,
+    "status": "finished",
+    "testRun": false
+  },
+  "luckyLosers": [
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    },
+    {
+      "__ffaEmptyArray": true
+    }
+  ],
+  "pendingBracketSeeds": {
+    "__ffaEmptyObject": true
+  },
+  "players": [
+    {
+      "members": [
+        {
+          "name": "P21"
+        },
+        {
+          "name": "P26"
+        },
+        {
+          "name": "P35"
+        },
+        {
+          "name": "P28"
+        }
+      ],
+      "teamId": "team_1793558922805_0",
+      "teamName": "T10"
+    },
+    {
+      "members": [
+        {
+          "name": "P44"
+        },
+        {
+          "name": "P07"
+        },
+        {
+          "name": "P06"
+        },
+        {
+          "name": "P42"
+        }
+      ],
+      "teamId": "team_1793558922805_1",
+      "teamName": "T09"
+    },
+    {
+      "members": [
+        {
+          "name": "P14"
+        },
+        {
+          "name": "P37"
+        },
+        {
+          "name": "P23"
+        },
+        {
+          "name": "P02"
+        }
+      ],
+      "teamId": "team_1793558922805_2",
+      "teamName": "T03"
+    },
+    {
+      "members": [
+        {
+          "name": "P41"
+        },
+        {
+          "name": "P04"
+        },
+        {
+          "name": "P20"
+        },
+        {
+          "name": "P01"
+        }
+      ],
+      "teamId": "team_1793558922805_3",
+      "teamName": "T08"
+    },
+    {
+      "members": [
+        {
+          "name": "P10"
+        },
+        {
+          "name": "P38"
+        },
+        {
+          "name": "P25"
+        },
+        {
+          "name": "P32"
+        }
+      ],
+      "teamId": "team_1793558922805_4",
+      "teamName": "T06"
+    },
+    {
+      "members": [
+        {
+          "name": "P27"
+        },
+        {
+          "name": "P30"
+        },
+        {
+          "name": "P15"
+        },
+        {
+          "name": "P39"
+        }
+      ],
+      "teamId": "team_1793558922805_5",
+      "teamName": "T02"
+    },
+    {
+      "members": [
+        {
+          "name": "P11"
+        },
+        {
+          "name": "P05"
+        },
+        {
+          "name": "P43"
+        },
+        {
+          "name": "P22"
+        }
+      ],
+      "teamId": "team_1793558922805_6",
+      "teamName": "T11"
+    },
+    {
+      "members": [
+        {
+          "name": "P34"
+        },
+        {
+          "name": "P29"
+        },
+        {
+          "name": "P24"
+        },
+        {
+          "name": "P31"
+        }
+      ],
+      "teamId": "team_1793558922805_7",
+      "teamName": "T07"
+    },
+    {
+      "members": [
+        {
+          "name": "P12"
+        },
+        {
+          "name": "P17"
+        },
+        {
+          "name": "P18"
+        },
+        {
+          "name": "P13"
+        }
+      ],
+      "teamId": "team_1793558922805_8",
+      "teamName": "T04"
+    },
+    {
+      "members": [
+        {
+          "name": "P33"
+        },
+        {
+          "name": "P19"
+        },
+        {
+          "name": "P40"
+        },
+        {
+          "name": "P08"
+        }
+      ],
+      "teamId": "team_1793558922805_9",
+      "teamName": "T01"
+    },
+    {
+      "members": [
+        {
+          "name": "P09"
+        },
+        {
+          "name": "P16"
+        },
+        {
+          "name": "P03"
+        },
+        {
+          "name": "P36"
+        }
+      ],
+      "teamId": "team_1793558922805_10",
+      "teamName": "T05"
+    }
+  ],
+  "poolingByeCounts": {
+    "__ffaEmptyObject": true
+  },
+  "qualTable": [
+    {
+      "name": "team_1793558922805_0",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_1",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_2",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_3",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_4",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_5",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_6",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_7",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_8",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_9",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    },
+    {
+      "name": "team_1793558922805_10",
+      "played": 0,
+      "totalFP": {
+        "__ffaNull": true
+      },
+      "totalScore": 0
+    }
+  ],
+  "reserveIndividuals": {
+    "__ffaEmptyArray": true
+  },
+  "reserveOpen": false,
+  "reserves": {
+    "__ffaEmptyArray": true
+  },
+  "roomHistory": {
+    "team_1793558922805_0|team_1793558922805_10": 0,
+    "team_1793558922805_10|team_1793558922805_3": 6,
+    "team_1793558922805_10|team_1793558922805_7": 11,
+    "team_1793558922805_1|team_1793558922805_9": 0,
+    "team_1793558922805_2|team_1793558922805_4": 4,
+    "team_1793558922805_2|team_1793558922805_6": 7,
+    "team_1793558922805_2|team_1793558922805_9": 8,
+    "team_1793558922805_3|team_1793558922805_6": 3,
+    "team_1793558922805_3|team_1793558922805_7": 10,
+    "team_1793558922805_3|team_1793558922805_8": 0,
+    "team_1793558922805_4|team_1793558922805_5": 5,
+    "team_1793558922805_4|team_1793558922805_7": 0,
+    "team_1793558922805_5|team_1793558922805_6": 0,
+    "team_1793558922805_5|team_1793558922805_9": 4,
+    "team_1793558922805_6|team_1793558922805_7": 9,
+    "team_1793558922805_7|team_1793558922805_9": 7
+  },
+  "rounds": [
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 11,
+      "byeCount": 1,
+      "groupByes": ["team_1793558922805_2"],
+      "isFinal": false,
+      "isGroupStage": true,
+      "isNoElim": true,
+      "isQual": false,
+      "isSemis": false,
+      "luckyCount": 0,
+      "matches": [
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_0", "team_1793558922805_10"]
+        },
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_5", "team_1793558922805_6"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_1", "team_1793558922805_9"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_4", "team_1793558922805_7"]
+        },
+        {
+          "group": "C",
+          "pair": ["team_1793558922805_3", "team_1793558922805_8"]
+        }
+      ],
+      "players": 11,
+      "roomGroups": ["A", "A", "B", "B", "C"],
+      "rooms": [2, 2, 2, 2, 2],
+      "roundNum": 1
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 11,
+      "byeCount": 1,
+      "groupByes": ["team_1793558922805_3"],
+      "isFinal": false,
+      "isGroupStage": true,
+      "isNoElim": true,
+      "isQual": false,
+      "isSemis": false,
+      "luckyCount": 0,
+      "matches": [
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_0", "team_1793558922805_6"]
+        },
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_10", "team_1793558922805_5"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_1", "team_1793558922805_7"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_9", "team_1793558922805_4"]
+        },
+        {
+          "group": "C",
+          "pair": ["team_1793558922805_2", "team_1793558922805_8"]
+        }
+      ],
+      "players": 11,
+      "roomGroups": ["A", "A", "B", "B", "C"],
+      "rooms": [2, 2, 2, 2, 2],
+      "roundNum": 2
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 11,
+      "byeCount": 1,
+      "groupByes": ["team_1793558922805_8"],
+      "isFinal": false,
+      "isGroupStage": true,
+      "isNoElim": true,
+      "isQual": false,
+      "isSemis": false,
+      "luckyCount": 0,
+      "matches": [
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_0", "team_1793558922805_5"]
+        },
+        {
+          "group": "A",
+          "pair": ["team_1793558922805_6", "team_1793558922805_10"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_1", "team_1793558922805_4"]
+        },
+        {
+          "group": "B",
+          "pair": ["team_1793558922805_7", "team_1793558922805_9"]
+        },
+        {
+          "group": "C",
+          "pair": ["team_1793558922805_2", "team_1793558922805_3"]
+        }
+      ],
+      "players": 11,
+      "roomGroups": ["A", "A", "B", "B", "C"],
+      "rooms": [2, 2, 2, 2, 2],
+      "roundNum": 3,
+      "standingsExitOrder": [
+        {
+          "name": "team_1793558922805_3",
+          "roomShare": 1.3681070438150447
+        },
+        {
+          "name": "team_1793558922805_7",
+          "roomShare": 1.3171042044263774
+        },
+        {
+          "name": "team_1793558922805_10",
+          "roomShare": 1.22660385030866
+        },
+        {
+          "name": "team_1793558922805_6",
+          "roomShare": 1.1098044122963409
+        },
+        {
+          "name": "team_1793558922805_9",
+          "roomShare": 0.9985045316620947
+        },
+        {
+          "name": "team_1793558922805_2",
+          "roomShare": 1.0120832676036404
+        },
+        {
+          "name": "team_1793558922805_5",
+          "roomShare": 0.8801604405360735
+        },
+        {
+          "name": "team_1793558922805_4",
+          "roomShare": 0.8286575601293021
+        }
+      ],
+      "standingsRoutes": [3, 3, 3, 3, 4, 4, 4, 4]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 4,
+      "byeCount": 0,
+      "customLabel": "Round 4 - Upper",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 4,
+      "rooms": [2, 2],
+      "roundNum": 4,
+      "waterfallColumn": 1,
+      "waterfallRoutes": [
+        [6, 7],
+        [6, 7]
+      ]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 4,
+      "byeCount": 0,
+      "customLabel": "Round 4 - Lower",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 4,
+      "rooms": [2, 2],
+      "roundNum": 5,
+      "waterfallColumn": 1,
+      "waterfallRoutes": [
+        [7, 5],
+        [7, 5]
+      ]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 0,
+      "byeCount": 0,
+      "customLabel": "Round 5 - Ranking",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 6,
+      "waterfallColumn": 2,
+      "waterfallRanking": true,
+      "waterfallRoutes": [["eliminated", "eliminated"]]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 2,
+      "bestOf": 3,
+      "byeCount": 0,
+      "customLabel": "Semi-Final A",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "numGames": 3,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 7,
+      "waterfallColumn": 2,
+      "waterfallRoutes": [[11, 10]]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 4,
+      "byeCount": 0,
+      "customLabel": "Round 5 - Lower",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 4,
+      "rooms": [2, 2],
+      "roundNum": 8,
+      "waterfallColumn": 2,
+      "waterfallRoutes": [
+        [9, 8],
+        [9, 8]
+      ]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 0,
+      "byeCount": 0,
+      "customLabel": "Round 6 - Ranking",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 9,
+      "waterfallColumn": 3,
+      "waterfallRanking": true,
+      "waterfallRoutes": [["eliminated", "eliminated"]]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 1,
+      "byeCount": 0,
+      "customLabel": "Round 6 - Lower",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 10,
+      "waterfallColumn": 3,
+      "waterfallRoutes": [[10, "eliminated"]]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 1,
+      "bestOf": 3,
+      "byeCount": 0,
+      "customLabel": "Semi-Final B",
+      "isFinal": false,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "numGames": 3,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 11,
+      "waterfallColumn": 4,
+      "waterfallRoutes": [[11, "eliminated"]]
+    },
+    {
+      "advPerRoom": {
+        "__ffaNull": true
+      },
+      "advTotal": 1,
+      "bestOf": 3,
+      "byeCount": 0,
+      "customLabel": "Final",
+      "isFinal": true,
+      "isNoElim": false,
+      "isQual": false,
+      "isSemis": false,
+      "isWaterfall": true,
+      "luckyCount": 0,
+      "numGames": 3,
+      "players": 2,
+      "rooms": [2],
+      "roundNum": 12,
+      "waterfallColumn": 5,
+      "waterfallRoutes": {
+        "__ffaEmptyArray": true
+      }
+    }
+  ],
+  "scheduleLogic": "waterfall-bracket",
+  "scores": {
+    "r0-rm1-p0": 803,
+    "r0-rm1-p1": 1477,
+    "r0-rm2-p0": 1053,
+    "r0-rm2-p1": 1617,
+    "r0-rm3-p0": 1394,
+    "r0-rm3-p1": 1501,
+    "r0-rm4-p0": 561,
+    "r0-rm4-p1": 1454,
+    "r0-rm5-p0": 1714,
+    "r0-rm5-p1": 598,
+    "r1-rm1-p0": 980,
+    "r1-rm1-p1": 1670,
+    "r1-rm2-p0": 1455,
+    "r1-rm2-p1": 888,
+    "r1-rm3-p0": 739,
+    "r1-rm3-p1": 1579,
+    "r1-rm4-p0": 1461,
+    "r1-rm4-p1": 1185,
+    "r1-rm5-p0": 1477,
+    "r1-rm5-p1": 835,
+    "r10-rm1-p0-g1": 1421,
+    "r10-rm1-p0-g2": 1453,
+    "r10-rm1-p0-g3": 1505,
+    "r10-rm1-p1-g1": 1557,
+    "r10-rm1-p1-g2": 1186,
+    "r10-rm1-p1-g3": 1438,
+    "r2-rm1-p0": 1204,
+    "r2-rm1-p1": 1453,
+    "r2-rm2-p0": 1119,
+    "r2-rm2-p1": 1490,
+    "r2-rm3-p0": 1430,
+    "r2-rm3-p1": 1529,
+    "r2-rm4-p0": 1525,
+    "r2-rm4-p1": 1137,
+    "r2-rm5-p0": 876,
+    "r2-rm5-p1": 1471,
+    "r3-rm1-p0": 1516,
+    "r3-rm1-p1": 848,
+    "r3-rm2-p0": 1440,
+    "r3-rm2-p1": 1478,
+    "r4-rm1-p0": 1455,
+    "r4-rm1-p1": 1188,
+    "r4-rm2-p0": 1508,
+    "r4-rm2-p1": 1477,
+    "r5-rm1-p0": 1522,
+    "r5-rm1-p1": 1460,
+    "r6-rm1-p0-g1": 1474,
+    "r6-rm1-p0-g2": 1381,
+    "r6-rm1-p1-g1": 1484,
+    "r6-rm1-p1-g2": 1544,
+    "r7-rm1-p0": 882,
+    "r7-rm1-p1": 1429,
+    "r7-rm2-p0": 824,
+    "r7-rm2-p1": 1552,
+    "r8-rm1-p0": 1548,
+    "r8-rm1-p1": 1083,
+    "r9-rm1-p0": 1201,
+    "r9-rm1-p1": 1430
+  },
+  "settings": {
+    "bracketBestOf": "",
+    "bracketGames": "1",
+    "drawPublication": "adaptive",
+    "eliminationRoundTargets": "",
+    "eliminationSeedingOverrides": "",
+    "finalOverride": "",
+    "finalsBestOf": "",
+    "finalsGames": "3",
+    "gameFormat": "team-4v4",
+    "grandFinalLbTarget": "3",
+    "grandFinalWbTarget": "2",
+    "groupExit": "fair-cut",
+    "groupSize": "4",
+    "lbQualifiers": "2",
+    "losersBestOf": "",
+    "losersGames": "1",
+    "matchOverrides": "",
+    "matchResultPoints": "3, 2, 1, 0",
+    "nonCountingRounds": "0",
+    "oddCountStrategy": "bye",
+    "poolingBestOf": "",
+    "poolingGames": "1",
+    "poolingPhase": "group-stage",
+    "positionalPointsTable": "",
+    "qualAdv": "24",
+    "qualRoundsOverride": "",
+    "qualifiersPerGroup": "2",
+    "roundRobinMode": "single",
+    "scheduleLogic": "waterfall-bracket",
+    "scoring": "match-results",
+    "semisBestOf": "",
+    "semisGames": "1",
+    "semisOverride": "",
+    "swissRoundsOverride": "",
+    "teamScoringRule": "survival-teams",
+    "tieMargin": "100",
+    "waterfallGraph": "ROUNDS:\nRound 4 - Upper = 2x2\nRound 4 - Lower = 2x2\nSemi-Final A = 2 BO3\nRound 5 - Lower = 2x2\nRound 5 - Ranking = 2 RANKING\nRound 6 - Lower = 2\nRound 6 - Ranking = 2 RANKING\nSemi-Final B = 2 BO3\nFinal = 2 FINAL BO3\n\nROUTES:\nGroups: 1-4->Round 4 - Upper, 5-8->Round 4 - Lower\nRound 4 - Upper.A: 1->Semi-Final A, 2->Round 5 - Lower\nRound 4 - Upper.B: 1->Semi-Final A, 2->Round 5 - Lower\nRound 4 - Lower.A: 1->Round 5 - Lower, 2->Round 5 - Ranking\nRound 4 - Lower.B: 1->Round 5 - Lower, 2->Round 5 - Ranking\nSemi-Final A: 1->Final, 2->Semi-Final B\nRound 5 - Lower.A: 1->Round 6 - Lower, 2->Round 6 - Ranking\nRound 5 - Lower.B: 1->Round 6 - Lower, 2->Round 6 - Ranking\nRound 6 - Lower: 1->Semi-Final B\nSemi-Final B: 1->Final"
+  },
+  "started": true,
+  "tieResolutions": {
+    "__ffaEmptyObject": true
+  },
+  "title": "",
+  "tournamentId": "1793555835749",
+  "withdrawnUnits": {
+    "__ffaEmptyArray": true
+  }
+}
