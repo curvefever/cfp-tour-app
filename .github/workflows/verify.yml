@@ -1,0 +1,50 @@
+name: Verify
+
+# The type check and the whole test suite, on any commit. Run by hand (Actions > Verify > Run workflow) on any
+# branch to see them pass on the CI machine without deploying; `release-tour.yml` calls it before a production build.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git branch, tag, or commit to check; empty means the commit this run was started on
+        required: false
+        type: string
+        default: ''
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git branch, tag, or commit to check; empty means the branch this run is started on
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: blacksmith-2vcpu-ubuntu-2404
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      # The same Node as the Docker image (node:22-alpine) and the pnpm that package.json asks for, through corepack.
+      - name: Enable pnpm
+        run: corepack enable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Tests
+        run: pnpm test
