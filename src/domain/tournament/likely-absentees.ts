@@ -104,19 +104,22 @@ export function likelyAbsentees(state: TournamentState, targetRoundIndex: number
 /**
  * The units seated in a room of the round that are still expected missing from it, which the Bracket marks "ABS?": the
  * unit is likely absent for the round (`isLikelyAbsent`), has not played in it yet (an unanswered 0 is not a play) and is
- * not answered absent in it. Empty before `absenceVersion` 3.
+ * not answered absent in it. With `room`, only that room's seats are looked at. Empty before `absenceVersion` 3.
  */
-export function likelyAbsentInRound(state: TournamentState, roundIndex: number): Set<string> {
+export function likelyAbsentInRound(state: TournamentState, roundIndex: number, room?: number): Set<string> {
   const marked = new Set<string>();
   if (!tracksLikelyAbsentees(state)) return marked;
   const seated: Record<number, number> = {};
+  const absentByRoom: Record<number, string[]> = {};
   for (const entry of state.assignments[roundIndex] ?? []) {
     if (entry.room === null) continue;
     const position = (seated[entry.room] = (seated[entry.room] ?? -1) + 1);
-    if (!isLikelyAbsent(state, entry.name, roundIndex)) continue;
+    if (room !== undefined && entry.room !== room) continue;
+    // The seat checks are cheap; `isLikelyAbsent` scans the earlier rounds, so it comes last.
     if (seatHasPlayed(state, roundIndex, entry.room, position)) continue;
-    if (absentInRoom(state, roundIndex, entry.room).includes(entry.name)) continue;
-    marked.add(entry.name);
+    const absent = (absentByRoom[entry.room] ??= absentInRoom(state, roundIndex, entry.room));
+    if (absent.includes(entry.name)) continue;
+    if (isLikelyAbsent(state, entry.name, roundIndex)) marked.add(entry.name);
   }
   return marked;
 }

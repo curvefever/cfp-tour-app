@@ -183,7 +183,7 @@ export function RoomCard({
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
   // The units that were present are placed by score; an absentee has no place and comes after them.
   const absentNames = absentInRoom(state, roundIndex, room);
-  const likelyAbsent = likelyAbsentInRound(state, roundIndex);
+  const likelyAbsent = likelyAbsentInRound(state, roundIndex, room);
   const presentScored = scored.filter((entry) => !absentNames.includes(entry.name));
   const display = showResults
     ? [

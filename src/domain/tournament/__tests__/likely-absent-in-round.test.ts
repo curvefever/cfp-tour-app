@@ -30,6 +30,14 @@ describe('likelyAbsentInRound', () => {
     expect([...likelyAbsentInRound(state, 1)]).toEqual([absent]);
   });
 
+  it('looks at one room only when given its number', () => {
+    const { state, absent } = afterOneAbsent();
+    const room = state.assignments[1].find((entry) => entry.name === absent)?.room ?? 0;
+    expect([...likelyAbsentInRound(state, 1, room)]).toEqual([absent]);
+    const others = state.rounds[1].rooms.map((_, index) => index + 1).filter((number) => number !== room);
+    for (const other of others) expect(likelyAbsentInRound(state, 1, other).size).toBe(0);
+  });
+
   it('marks nothing in round 1 itself: there is no earlier absence', () => {
     const { state } = afterOneAbsent();
     expect(likelyAbsentInRound(state, 0).size).toBe(0);
