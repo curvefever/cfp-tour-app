@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Cleanup part 1B: removals and moves (done — 2026-11-17, reviewed; push pending)
+## Cleanup part 1B: removals and moves (done — 2026-11-17, pushed to `test`)
 
 **Context.** The second of three sub-parts of cleanup part 1 (`plans/2026-11-14-cleanup-part-1.md`, from the cleanup audit of 2026-11-10). 1A (the tests) is on production; 1B was paused on 2026-11-14 for the rigidity audit and resumed on 2026-11-17 from `4c7be98` (`test` and `origin/main` both there), in a fresh implementer session with a planner-reviewer gating every stage. 1B changes no behaviour except the removal of code for data that cannot exist on production (B2); the existing tests pass untouched, and the only test edits were an import path that followed a moved file, a test of code the stage deleted (named below), and one stale screens test (end of this entry). 1C (one place for each repeated idea) follows.
 
@@ -39,7 +39,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing performed.** Each stage: eslint, Prettier and the filtered type check on the changed files, `vitest related` (B1 192 files, B2 47, B4 211, B5 179, B6 186, B3 none: comment-only); `old-tournaments.test.ts` untouched and passing in B2, B5, B6; B5's `generation.test.ts`, `kings-valley.test.ts` (31 to 80 units, so 31, 37, 43 and 53 in all three formats) and `tournament-settings.test.ts` passed (226 tests); B6's screens run as above. No live check (no behaviour changed).
 
-**Full suite:** not run by the implementer; the reviewer runs it at the final review and the result is added here.
+**Full suite: passed on `532b0b6`** (240 files, 6487 tests, no "Timeout calling onTaskUpdate"), by the reviewer at the final review of 1B (B2 touched the provider and sync, B4 and B6 moved shared code). Smoke e2e (`pnpm run test:e2e`): 7 passed. Final review: the full type check has 0 errors; eslint clean and prettier clean over the 147 code, test and workflow files 1B changed, except `src/components/ui/Surface.tsx` and `src/lib/browser-download.ts`, which were not formatted at `4c7be98` either (left as they were); every stage's diff read, B3 and B6 checked by comparing the code with comments stripped and by `git diff -M`.
 
 **Out of scope.** Splitting any long function or many-job file (part 2, after the rigidity audit); anything that changes what the app does, except B2's removal for data that can't exist (part 3 holds the rest); `database.rules.json` (its own deploy); pushing to `main`, only with the organiser's go-ahead for that push, as always. Parked from this build: the kept B2 guards above and the `NO_LIFECYCLE` wording (part 3); the Kings Valley counts (written, never read); the unexplained variation of 58 screens between two runs; the load flakes; the unused exports of nine test helpers and four e2e fixtures.
 
