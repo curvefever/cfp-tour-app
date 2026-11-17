@@ -12,6 +12,8 @@ export interface HeaderAccount {
   name: string;
   role: string;
   onSignOut: () => void;
+  /** Switches on the spectator view; absent while it is on (the band has the way back). */
+  onViewAsSpectator?: () => void;
 }
 
 const tabClassName =
@@ -132,7 +134,12 @@ export function AppHeader({
         </nav>
         <div className='flex items-center gap-3 max-[700px]:ml-auto'>
           {account ? (
-            <AccountMenu name={account.name} onSignOut={account.onSignOut} role={account.role} />
+            <AccountMenu
+              name={account.name}
+              onSignOut={account.onSignOut}
+              onViewAsSpectator={account.onViewAsSpectator}
+              role={account.role}
+            />
           ) : null}
         </div>
       </div>

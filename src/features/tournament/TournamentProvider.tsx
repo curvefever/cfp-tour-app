@@ -25,6 +25,7 @@ import {
   type LastView,
 } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
+import { displayAccess } from './display-access';
 import { useFlushAfterSignInAgain } from '../auth/useFlushAfterSignInAgain';
 import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
 import { getTourEnvironment } from '../sync/firebase-paths';
@@ -58,8 +59,13 @@ export interface TournamentAppContext {
   setup: PersistedSetup;
   activeTab: ActiveTab;
   hydrated: boolean;
+  /** What the screens read as an admin: false while an admin looks at the spectator view. */
   unlocked: boolean;
+  /** What the screens read as a viewer: true while an admin looks at the spectator view. */
   isViewer: boolean;
+  /** An admin is looking at the pages as a viewer sees them (display only: sync and saving stay the admin's). */
+  spectating: boolean;
+  setSpectating(on: boolean): void;
   /** The tournaments of this site, as the index lists them. */
   tournaments: TournamentIndexState;
   /** False until the first visit has been resolved: until then nothing is loaded yet. */
@@ -125,14 +131,17 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const tournaments = useTournamentIndex();
   const tournamentsRef = useRef(tournaments);
   tournamentsRef.current = tournaments;
-  const isViewer = !auth.canAdmin;
+  // The sign-in decides saving and sync; the display reads `access`, which the spectator view can turn into a viewer's.
+  const signedInViewer = !auth.canAdmin;
+  const [spectatorView, setSpectatorView] = useState(false);
+  const access = displayAccess(auth.canAdmin, spectatorView);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
   const sync = useRef<SyncCoordinator | null>(null);
   const setupSync = useRef<SetupSync | null>(null);
   const stateRef = useRef(state);
   const setupRef = useRef(setup);
   const activeTabRef = useRef(activeTab);
-  const isViewerRef = useRef(isViewer);
+  const isViewerRef = useRef(signedInViewer);
   const initialUrlId = useRef<string | null>(null);
   const memory = useRef<{ lastView: LastView | null; exited: ExitedMemory | null }>({
     lastView: null,
@@ -141,7 +150,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
   setupRef.current = setup;
   activeTabRef.current = activeTab;
-  isViewerRef.current = isViewer;
+  isViewerRef.current = signedInViewer;
 
   useEffect(() => {
     window.localStorage.removeItem('curveFFA_admin_unlocked');
@@ -155,7 +164,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback(
-    (nextState: TournamentState, nextSetup: PersistedSetup, nextTab: ActiveTab, viewer = isViewer) => {
+    (nextState: TournamentState, nextSetup: PersistedSetup, nextTab: ActiveTab, viewer = signedInViewer) => {
       if (typeof window === 'undefined') return;
       const result = saveLiveEnvelope(
         window.localStorage,
@@ -166,7 +175,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
         console.warn('Could not save tournament state', result.error);
       }
     },
-    [isViewer],
+    [signedInViewer],
   );
 
   useEffect(() => {
@@ -437,6 +446,12 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     [flushPending, unloadTournament],
   );
 
+  // Only a signed-in admin can look at the spectator view, and signing out ends it.
+  const setSpectating = useCallback((on: boolean) => setSpectatorView(auth.canAdmin && on), [auth.canAdmin]);
+  useEffect(() => {
+    if (!auth.canAdmin) setSpectatorView(false);
+  }, [auth.canAdmin]);
+
   const unlockAdmin = useCallback(() => {
     setActiveTabState('admin');
   }, []);
@@ -452,8 +467,10 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       setup,
       activeTab,
       hydrated,
-      unlocked: auth.canAdmin,
-      isViewer,
+      unlocked: access.unlocked,
+      isViewer: access.isViewer,
+      spectating: access.spectating,
+      setSpectating,
       tournaments,
       visitResolved,
       visitNotice,
@@ -482,7 +499,9 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       createTournamentRecord,
       exitTournament,
       hydrated,
-      isViewer,
+      access.isViewer,
+      access.spectating,
+      access.unlocked,
       loadTournament,
       lockAdmin,
       openTournament,
@@ -497,7 +516,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
       setup,
       state,
       unlockAdmin,
-      auth.canAdmin,
+      setSpectating,
       updateSetup,
       updateState,
     ],

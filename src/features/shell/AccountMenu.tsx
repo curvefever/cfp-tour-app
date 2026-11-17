@@ -1,17 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 
+const menuItemClassName =
+  'w-full cursor-pointer rounded px-3 py-2 text-left text-sm font-semibold text-foreground hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary';
+
 /**
- * "Signed in · <role>" in the header: a button that opens a one-item menu to sign out. On a phone the button is a
+ * "Signed in · <role>" in the header: a button that opens a menu to view the pages as a spectator and to sign out. On a phone the button is a
  * circle with the name's initial instead (CSS only).
  */
 export function AccountMenu({
   name,
   role,
   onSignOut,
+  onViewAsSpectator,
 }: {
   name: string;
   role: string;
   onSignOut: () => void;
+  onViewAsSpectator?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const container = useRef<HTMLDivElement>(null);
@@ -54,9 +59,22 @@ export function AccountMenu({
           className='absolute top-full right-0 z-10 mt-1 min-w-44 rounded-md border border-surface-hover bg-surface p-1 shadow-[0_10px_30px_var(--shadow-floating)]'
           role='menu'
         >
+          {onViewAsSpectator ? (
+            <button
+              autoFocus
+              className={menuItemClassName}
+              onClick={() => {
+                setOpen(false);
+                onViewAsSpectator();
+              }}
+              role='menuitem'
+            >
+              View as spectator
+            </button>
+          ) : null}
           <button
-            autoFocus
-            className='w-full cursor-pointer rounded px-3 py-2 text-left text-sm font-semibold text-foreground hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary'
+            autoFocus={!onViewAsSpectator}
+            className={menuItemClassName}
             onClick={() => {
               setOpen(false);
               onSignOut();

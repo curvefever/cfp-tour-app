@@ -12,6 +12,7 @@ import {
   setupOf,
   type FixtureTournament,
 } from '../../../e2e/screens/fixtures';
+import { displayAccess } from '../tournament/display-access';
 import { AppShell } from './AppShell';
 import { tabContextFor, visibleTabs } from './tabs';
 
@@ -62,6 +63,7 @@ export function testAppContext(
   fixture: FixtureTournament,
   role: AppRole,
   tab: ActiveTab,
+  spectating = false,
 ): TournamentAppContext {
   const state = loadedState(fixture);
   const nothing = () => {};
@@ -71,8 +73,8 @@ export function testAppContext(
     setup: createDefaultSetup(setupOf(fixture)),
     activeTab: tab,
     hydrated: true,
-    unlocked: role === 'admin',
-    isViewer: role === 'viewer',
+    ...displayAccess(role === 'admin', spectating),
+    setSpectating: nothing,
     tournaments: { status: 'ready', summaries: [summaryOf(fixture)] },
     visitResolved: true,
     visitNotice: null,
@@ -99,12 +101,21 @@ export function testAppContext(
 /** Renders the app shell on one tab of a fixture, as a signed-out viewer or as a Tour Host. */
 export function renderApp(
   fixture: FixtureTournament,
-  options: { role: AppRole; tab: ActiveTab; context?: Partial<TournamentAppContext> },
+  options: {
+    role: AppRole;
+    tab: ActiveTab;
+    /** An admin looking at the pages as a viewer sees them (the context a real provider builds for it). */
+    spectating?: boolean;
+    context?: Partial<TournamentAppContext>;
+  },
 ) {
   return render(
     <AuthProvider initialAuth={authOf(options.role)}>
       <TournamentContext.Provider
-        value={{ ...testAppContext(fixture, options.role, options.tab), ...options.context }}
+        value={{
+          ...testAppContext(fixture, options.role, options.tab, options.spectating),
+          ...options.context,
+        }}
       >
         <AppShell />
       </TournamentContext.Provider>

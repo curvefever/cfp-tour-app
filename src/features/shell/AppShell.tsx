@@ -17,6 +17,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { NewVersionBanner } from '../version/NewVersionBanner';
 import { useLiveBuildCheck } from '../version/useLiveBuildCheck';
 import { AppHeader } from './AppHeader';
+import { SpectatorBand } from './SpectatorBand';
 import { TabErrorBoundary } from './TabErrorBoundary';
 import { effectiveTab, tabContextFor, visibleTabs } from './tabs';
 import { Alert, Modal } from '../../components/ui';
@@ -40,8 +41,11 @@ export function AppShell() {
   const app = useTournamentApp();
   const auth = useAuth();
   const [loginOpen, setLoginOpen] = useState(false);
-  const buildOutdated = useLiveBuildCheck(app.unlocked);
-  useSessionCheck(app.unlocked && !auth.sessionExpired);
+  // The spectator view changes what is shown, not who is signed in: the checks, banners and account follow the sign-in.
+  const signedInAdmin = app.unlocked || app.spectating;
+  const signedInViewer = app.isViewer && !app.spectating;
+  const buildOutdated = useLiveBuildCheck(signedInAdmin);
+  useSessionCheck(signedInAdmin && !auth.sessionExpired);
   const expiryPrompted = useRef(false);
 
   // The dialog opens by itself once per expiry; Cancel leaves the banner to open it again.
@@ -68,11 +72,12 @@ export function AppShell() {
     <div className='min-h-screen bg-background text-foreground' data-look={lookOf(activeTab)}>
       <AppHeader
         account={
-          app.unlocked
+          signedInAdmin
             ? {
                 name: auth.username,
                 role: auth.roles.map(formatAccountRole).join(', '),
                 onSignOut: app.lockAdmin,
+                onViewAsSpectator: app.spectating ? undefined : () => app.setSpectating(true),
               }
             : null
         }
@@ -82,13 +87,14 @@ export function AppShell() {
         tabs={tabs}
         tournamentLoaded={tabContext.phase !== null}
       />
-      {app.isViewer && app.syncStatus.kind === 'stale' ? (
+      {signedInViewer && app.syncStatus.kind === 'stale' ? (
         <Alert className='mx-auto mt-2.5 w-[min(1100px,calc(100%-24px))]' tone='danger'>
           ⚠ Live connection lost — what you&apos;re seeing may be out of date. Reload to try reconnecting.
         </Alert>
       ) : null}
-      {app.unlocked && buildOutdated ? <NewVersionBanner /> : null}
-      {app.unlocked && auth.sessionExpired ? (
+      {app.spectating ? <SpectatorBand onBack={() => app.setSpectating(false)} /> : null}
+      {signedInAdmin && buildOutdated ? <NewVersionBanner /> : null}
+      {signedInAdmin && auth.sessionExpired ? (
         <SessionExpiredBanner onSignIn={() => setLoginOpen(true)} />
       ) : null}
       <main
@@ -151,7 +157,7 @@ export function AppShell() {
           </section>
         ) : null}
       </main>
-      {app.isViewer && ['connecting', 'waiting', 'unavailable'].includes(app.syncStatus.kind) ? (
+      {signedInViewer && ['connecting', 'waiting', 'unavailable'].includes(app.syncStatus.kind) ? (
         <div role='status'>
           <Modal
             className='text-center'
