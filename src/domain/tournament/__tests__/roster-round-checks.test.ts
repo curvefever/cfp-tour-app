@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lineupEditScope, moveUnitToRoom } from '../lineup-edit';
+import { inheritedAbsences } from '../likely-absentees';
 import { addReserveUnit, benchReasonOf, setTeamDefender } from '../mutations';
 import type { TournamentState } from '../types';
 import { generated } from './test-fixtures';
@@ -84,5 +85,26 @@ describe('the line-up checks: the order of the three kind refusals and the missi
     expect(lineupEditScope(bare)).toEqual({ ok: false, reason: 'This round has no line-up yet.' });
     const unit = fixed.assignments[fixed.curRound][0].name;
     expect(moveUnitToRoom(fixed, fixed.curRound, unit, 2)).toEqual({ ok: false, error: published });
+  });
+});
+
+describe('inheritedAbsences: the units that took over an absent seat at a swap', () => {
+  const left = (name: string, replacedBy?: string, absentRound?: number) => ({
+    name,
+    label: name,
+    members: null,
+    playedAnyMatch: false,
+    reason: 'swapped' as const,
+    ...(replacedBy === undefined ? {} : { replacedBy }),
+    ...(absentRound === undefined ? {} : { absentRound }),
+  });
+
+  it('is the replacements of the units that left from an absent seat of that round', () => {
+    const state = {
+      withdrawnUnits: [left('A', 'B', 1), left('C', 'D', 2), left('E', undefined, 1), left('F', 'G')],
+    };
+    expect([...inheritedAbsences(state, 1)]).toEqual(['B']);
+    expect([...inheritedAbsences(state, 2)]).toEqual(['D']);
+    expect(inheritedAbsences(state, 0).size).toBe(0);
   });
 });

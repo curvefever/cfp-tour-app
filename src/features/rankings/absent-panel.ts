@@ -6,6 +6,7 @@ import {
 } from '../../domain/tournament/absences';
 import { usesAbsences } from '../../domain/tournament/rule-versions';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { inheritedAbsences } from '../../domain/tournament/likely-absentees';
 import { isOneScorePerTeam } from '../../domain/tournament/formats';
 import { buildTeamMap, rosterKeys, unitDisplay } from '../../domain/tournament/roster';
 import { isCurrentRound, isRoundReached, roundsInPlay } from '../../domain/tournament/round-columns';
@@ -43,15 +44,6 @@ function runEndingAt(rounds: ReadonlySet<number>, last: number): number {
   let run = 0;
   while (rounds.has(last - run)) run += 1;
   return run;
-}
-
-/** The units that took over an absent seat of the round at a swap: the absence is the swapped-out unit's. */
-function inheritedAbsences(state: TournamentState, roundIndex: number): Set<string> {
-  return new Set(
-    state.withdrawnUnits.flatMap((unit) =>
-      unit.absentRound === roundIndex && unit.replacedBy !== undefined ? [unit.replacedBy] : [],
-    ),
-  );
 }
 
 /**

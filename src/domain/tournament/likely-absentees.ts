@@ -23,7 +23,10 @@ function playersOfUnit(teams: TeamMap, unit: string): string[] {
 }
 
 /** The units that took over an absent seat of the round at a swap: the absence is the swapped-out unit's, not theirs. */
-function inheritedAbsences(state: TournamentState, roundIndex: number): Set<string> {
+export function inheritedAbsences(
+  state: Pick<TournamentState, 'withdrawnUnits'>,
+  roundIndex: number,
+): Set<string> {
   return new Set(
     state.withdrawnUnits.flatMap((unit) =>
       unit.absentRound === roundIndex && unit.replacedBy !== undefined ? [unit.replacedBy] : [],
