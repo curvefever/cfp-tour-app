@@ -1,3 +1,4 @@
+import { newRound } from './new-round';
 import { distributeRooms, isSeatable } from './room-distribution';
 import type { RoomSize, TournamentRound } from './types';
 
@@ -144,19 +145,7 @@ export function kingsValleyMaxEntrants(roomSize: RoomSize): number {
 }
 
 function finalRound(roundNum: number, players: number): TournamentRound {
-  return {
-    roundNum,
-    players,
-    rooms: [players],
-    byeCount: 0,
-    isQual: false,
-    isNoElim: false,
-    isSemis: false,
-    isFinal: true,
-    advPerRoom: 1,
-    advTotal: 1,
-    luckyCount: 0,
-  };
+  return newRound({ roundNum, players, rooms: [players], isFinal: true, advPerRoom: 1, advTotal: 1 });
 }
 
 /**
@@ -202,23 +191,18 @@ export function kingsValleyBracketPhase(
     const kvDemoteCounts = moves.bands.map((band) => (band.eliminates ? 0 : band.cut));
     const kvEliminateCount = moves.bands.find((band) => band.eliminates)?.cut ?? 0;
 
-    rounds.push({
-      roundNum,
-      players: total,
-      rooms: roomSizes,
-      byeCount: 0,
-      isQual: false,
-      isNoElim: false,
-      isSemis: false,
-      isFinal: false,
-      advPerRoom: null,
-      advTotal: total - kvEliminateCount,
-      luckyCount: 0,
-      isKingsValley: true,
-      kvPromoteCounts,
-      kvDemoteCounts,
-      kvEliminateCount,
-    });
+    rounds.push(
+      newRound({
+        roundNum,
+        players: total,
+        rooms: roomSizes,
+        advTotal: total - kvEliminateCount,
+        isKingsValley: true,
+        kvPromoteCounts,
+        kvDemoteCounts,
+        kvEliminateCount,
+      }),
+    );
 
     total -= kvEliminateCount;
     roomSizes = moves.nextRooms;

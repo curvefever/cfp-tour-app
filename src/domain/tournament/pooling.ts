@@ -1,5 +1,6 @@
 import { groupExitEntryCount, groupExitShape } from './group-exit';
 import { groupSizesOf } from './group-settings';
+import { newRound } from './new-round';
 import { stageMatchFields } from './match-format';
 import { distributeRoomsWithBye } from './room-distribution';
 import type {
@@ -83,19 +84,7 @@ function createPoolingRound(
   rooms: number[],
   byeCount: number,
 ): TournamentRound {
-  return {
-    roundNum,
-    players: total,
-    rooms,
-    byeCount,
-    isQual: false,
-    isNoElim: true,
-    isSemis: false,
-    isFinal: false,
-    advPerRoom: null,
-    advTotal: total,
-    luckyCount: 0,
-  };
+  return newRound({ roundNum, players: total, rooms, byeCount, isNoElim: true, advTotal: total });
 }
 
 /** Both Swiss seeders pair units two by two and always give an odd unit a real bye, whatever the odd-count strategy. */

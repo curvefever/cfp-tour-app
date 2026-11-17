@@ -1,3 +1,4 @@
+import { newRound } from './new-round';
 import { distributeRooms, distributeRoomsWithBye, isSeatable, splitAdvancement } from './room-distribution';
 import { computeCleanTargets, computeEliminationRoundCount, computeTargets } from './single-elimination';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
@@ -166,23 +167,18 @@ export function raceDoubleEliminationBracketPhase(
 
   return sequence.map((entry, position): TournamentRound => {
     if (entry.type === 'gf') {
-      return {
+      return newRound({
         roundNum: startRoundNum + position,
         players: 2,
         rooms: [2],
-        byeCount: 0,
-        isQual: false,
-        isNoElim: false,
-        isSemis: false,
         isFinal: true,
         advPerRoom: 1,
         advTotal: 1,
-        luckyCount: 0,
         bracket: 'grand-final',
         winnersTo: null,
         losersTo: null,
         numGames: 1,
-      };
+      });
     }
 
     const isWinners = entry.type === 'wb';
@@ -200,23 +196,18 @@ export function raceDoubleEliminationBracketPhase(
         : findNextPosition(sequence, position, (candidate) => candidate.type === 'wb')
       : findNextPosition(sequence, position, (candidate) => candidate.type !== 'wb');
     const losersToPosition = isWinners ? position + 1 : null;
-    return {
+    return newRound({
       roundNum: startRoundNum + position,
       players: source.players,
       rooms: source.rooms,
       byeCount: source.byeCount,
-      isQual: false,
-      isNoElim: false,
-      isSemis: false,
-      isFinal: false,
       advPerRoom: 1,
       advTotal: source.rooms.length + source.byeCount,
-      luckyCount: 0,
       bracket: isWinners ? 'winners' : 'losers',
       winnersTo: toRoundIndex(startRoundNum, winnersToPosition),
       losersTo: toRoundIndex(startRoundNum, losersToPosition),
       ...(isWinners && entry.wbIndex === 0 ? { bracketPhaseFirstRound: true } : {}),
-    };
+    });
   });
 }
 
@@ -439,21 +430,16 @@ export function sharedFinalDoubleEliminationBracketPhase(
   };
   return sequence.map((entry, position): TournamentRound => {
     if (entry.type === 'final') {
-      return {
+      return newRound({
         roundNum: startRoundNum + position,
         players: config.finalSize,
         rooms: [config.finalSize],
-        byeCount: 0,
-        isQual: false,
-        isNoElim: false,
-        isSemis: false,
         isFinal: true,
         advPerRoom: 1,
         advTotal: 1,
-        luckyCount: 0,
         winnersTo: null,
         losersTo: null,
-      };
+      });
     }
 
     const isWinners = entry.type === 'wb';
@@ -469,15 +455,11 @@ export function sharedFinalDoubleEliminationBracketPhase(
         ? finalPosition
         : nextLosersOrFinal;
     const losersTo = isWinners ? losersSequencePosition(entry.wbIndex) : null;
-    return {
+    return newRound({
       roundNum: startRoundNum + position,
       players: source.players,
       rooms: source.rooms,
       byeCount: source.byeCount,
-      isQual: false,
-      isNoElim: false,
-      isSemis: false,
-      isFinal: false,
       advPerRoom: source.advPerRoom,
       advTotal: source.advTotal,
       luckyCount: source.luckyCount,
@@ -487,6 +469,6 @@ export function sharedFinalDoubleEliminationBracketPhase(
       ...(isWinners && config.explicitSeedingOverrides?.[entry.wbIndex]
         ? { seedingOverride: config.explicitSeedingOverrides[entry.wbIndex] }
         : {}),
-    };
+    });
   });
 }

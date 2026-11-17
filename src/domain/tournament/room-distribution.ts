@@ -1,6 +1,6 @@
 import { HARD_ROOM_PLAYER_CAP } from './formats';
 import { stageMatchFields } from './match-format';
-import type { GameFormatDefinition, RoomSize, TournamentRound } from './types';
+import type { GameFormatDefinition, OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
 export function distributeRooms(count: number, roomSize: RoomSize): number[] {
   if (count <= 0) return [];
@@ -29,7 +29,7 @@ export function isSeatable(count: number, roomSize: RoomSize): boolean {
 export function distributeRoomsWithBye(
   count: number,
   roomSize: RoomSize,
-  oddCountStrategy?: string,
+  oddCountStrategy?: OddCountStrategyKey,
 ): { rooms: number[]; byeCount: number } {
   const remainder = oddCountStrategy === 'bye' && roomSize.min === roomSize.max ? count % roomSize.ideal : 0;
   return {

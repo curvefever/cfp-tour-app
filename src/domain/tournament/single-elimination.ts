@@ -1,3 +1,4 @@
+import { newRound } from './new-round';
 import { distributeRooms, distributeRoomsWithBye, splitAdvancement } from './room-distribution';
 import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 
@@ -97,20 +98,16 @@ export function eliminationRound(
 ): TournamentRound {
   const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
   const split = splitAdvancement(target, distribution.byeCount, distribution.rooms.length);
-  return {
+  return newRound({
     roundNum,
     players,
     rooms: distribution.rooms,
     byeCount: distribution.byeCount,
-    isQual: false,
-    isNoElim: false,
-    isSemis: false,
-    isFinal: false,
     advPerRoom: split.advPerRoom,
     advTotal: target,
     luckyCount: split.luckyCount,
     ...(seedingOverride ? { seedingOverride } : {}),
-  };
+  });
 }
 
 /** Two rooms of the ideal size, or everyone who enters the bracket when that is fewer. */
@@ -146,32 +143,25 @@ export function singleEliminationBracketPhase(
 
   const semisRoundNum = startRoundNum + targets.length;
   const semisRooms = distributeRooms(config.semisSize, config.roomSize);
-  rounds.push({
-    roundNum: semisRoundNum,
-    players: config.semisSize,
-    rooms: semisRooms,
-    byeCount: 0,
-    isQual: false,
-    isNoElim: false,
-    isSemis: true,
-    isFinal: false,
-    advPerRoom: Math.floor(config.finalSize / semisRooms.length),
-    advTotal: config.finalSize,
-    luckyCount: config.finalSize % semisRooms.length,
-  });
-  rounds.push({
-    roundNum: semisRoundNum + 1,
-    players: config.finalSize,
-    rooms: [config.finalSize],
-    byeCount: 0,
-    isQual: false,
-    isNoElim: false,
-    isSemis: false,
-    isFinal: true,
-    advPerRoom: 1,
-    advTotal: 1,
-    luckyCount: 0,
-  });
+  rounds.push(
+    newRound({
+      roundNum: semisRoundNum,
+      players: config.semisSize,
+      rooms: semisRooms,
+      isSemis: true,
+      advPerRoom: Math.floor(config.finalSize / semisRooms.length),
+      advTotal: config.finalSize,
+      luckyCount: config.finalSize % semisRooms.length,
+    }),
+    newRound({
+      roundNum: semisRoundNum + 1,
+      players: config.finalSize,
+      rooms: [config.finalSize],
+      isFinal: true,
+      advPerRoom: 1,
+      advTotal: 1,
+    }),
+  );
 
   return rounds;
 }

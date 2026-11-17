@@ -1,3 +1,4 @@
+import { newRound } from './new-round';
 import { BEST_OF_VALUES, bestOfGameCount, stageMatchFields } from './match-format';
 import type { RoomSize, TournamentRound, WaterfallBestRoute } from './types';
 import {
@@ -1348,22 +1349,16 @@ export function waterfallBracketPhase(
         sum + roomDestinations.filter((destination) => destination === 'eliminated').length,
       0,
     );
-    return {
+    return newRound({
       roundNum: startRoundNum + index,
       players,
       rooms: roundSpec.roomSizes,
-      byeCount: 0,
-      isQual: false,
-      isNoElim: false,
-      isSemis: false,
       isFinal: roundSpec.isFinal,
-      advPerRoom: null,
       advTotal: roundSpec.isFinal
         ? 1
         : players -
           eliminatedCount +
           bestUnitsFromOut(graph.best?.[index] ?? undefined, routesForRound, roundSpec.roomSizes),
-      luckyCount: 0,
       ...matchFormatFields(roundSpec, config.finalsGames, config.finalsBestOf),
       isWaterfall: true,
       customLabel: roundSpec.label,
@@ -1376,7 +1371,7 @@ export function waterfallBracketPhase(
           destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,
         ),
       ),
-    };
+    });
   });
   return withShortEntryFitted(graph, declared);
 }
