@@ -75,7 +75,7 @@ export function withdrawnNameMessage(name: string): string {
  * combined) -- for validating a freshly-parsed roster/reserves list before
  * it's ever written to state.
  */
-export function findDuplicateDisplayNames(entries: TournamentRoster): string[] {
+export function findDuplicateDisplayNames(entries: ReadonlyArray<string | TournamentTeam>): string[] {
   const seen = new Set<string>();
   const duplicates = new Set<string>();
   for (const entry of entries) {
@@ -112,8 +112,34 @@ export function teamNames(team: TournamentTeam): string[] {
 }
 
 /** Every name typed for a roster: an individual's name, or a team's name and its members'. */
-export function rosterNames(entries: TournamentRoster): string[] {
+export function rosterNames(entries: ReadonlyArray<string | TournamentTeam>): string[] {
   return entries.flatMap((entry) => (isTournamentTeam(entry) ? teamNames(entry) : [entry]));
+}
+
+/**
+ * The first problem with a typed roster and its reserves, as the text to tell the organiser, or null when it can be
+ * loaded: a name the database can't store, a team with no player listed, a name used twice. Checked in that order, for
+ * teams and for players alike. `units` is the roster followed by the reserves.
+ */
+export function typedRosterProblem(
+  units: ReadonlyArray<string | TournamentTeam>,
+  individualReserves: readonly TeamMember[],
+): string | null {
+  const unstorable = findUnstorableNames([
+    ...rosterNames(units),
+    ...individualReserves.map((member) => member.name),
+  ]);
+  if (unstorable.length) return unstorableNamesMessage(unstorable);
+  const teams = units.filter(isTournamentTeam);
+  const empty = teams.filter((team) => team.members.every((member) => !member));
+  if (empty.length) {
+    return `These team(s) have no players listed at all — add at least one "TeamName, Player1, ..." member, or remove the line:\n\n${empty.map((team) => team.teamName).join('\n')}`;
+  }
+  const duplicates = findDuplicateDisplayNames(units);
+  if (!duplicates.length) return null;
+  return teams.length
+    ? `These team name(s) are used more than once across the roster and reserves — every team needs a unique name:\n\n${duplicates.join('\n')}`
+    : `These name(s) are used more than once across the roster and reserves — every player needs a unique name:\n\n${duplicates.join('\n')}`;
 }
 
 export function buildTeamMap(

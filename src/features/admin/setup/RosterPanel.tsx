@@ -3,19 +3,17 @@ import { getGameFormat } from '../../../domain/tournament/formats';
 import { resetRoster } from '../../../domain/tournament/mutations';
 import { reloadRosterBeforeStart } from '../../../domain/tournament/pre-start-edits';
 import {
-  findDuplicateDisplayNames,
   parseIndividualLines,
   parseMemberLine,
   parseTeamLines,
   rosterFitsFormat,
   rosterKeys,
-  rosterNames,
+  typedRosterProblem,
 } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { Button, ButtonRow, SectionPanel, Textarea } from '../../../components/ui';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
-import { refuseUnstorableNames } from '../../tournament/unstorable-names';
 import { plural } from './plural';
 import { rosterLoadStatus, scheduleReloadStatus } from './roster-status';
 import { useSetupChange } from './useSetupChange';
@@ -63,22 +61,9 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
         ids: runtime.ids,
       });
       const reserveIndividuals = parseIndividualLines(setup.reserveIndividuals).map(parseMemberLine);
-      const typedNames = [
-        ...rosterNames([...players, ...reserves]),
-        ...reserveIndividuals.map((member) => member.name),
-      ];
-      if (refuseUnstorableNames(typedNames)) return;
-      const empty = [...players, ...reserves].filter((team) => team.members.every((member) => !member));
-      if (empty.length) {
-        const message = `These team(s) have no players listed at all — add at least one "TeamName, Player1, ..." member, or remove the line:\n\n${empty.map((team) => team.teamName).join('\n')}`;
-        window.alert(message);
-        return;
-      }
-      const duplicateTeams = findDuplicateDisplayNames([...players, ...reserves]);
-      if (duplicateTeams.length) {
-        window.alert(
-          `These team name(s) are used more than once across the roster and reserves — every team needs a unique name:\n\n${duplicateTeams.join('\n')}`,
-        );
+      const problem = typedRosterProblem([...players, ...reserves], reserveIndividuals);
+      if (problem) {
+        window.alert(problem);
         return;
       }
       const scheduleStatus = applyRoster({ players, reserves, reserveIndividuals });
@@ -88,12 +73,9 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
     } else {
       const players = parseIndividualLines(setup.roster.trim());
       const reserves = parseIndividualLines(setup.reserves.trim());
-      if (refuseUnstorableNames([...players, ...reserves])) return;
-      const duplicates = findDuplicateDisplayNames([...players, ...reserves]);
-      if (duplicates.length) {
-        window.alert(
-          `These name(s) are used more than once across the roster and reserves — every player needs a unique name:\n\n${duplicates.join('\n')}`,
-        );
+      const problem = typedRosterProblem([...players, ...reserves], []);
+      if (problem) {
+        window.alert(problem);
         return;
       }
       const scheduleStatus = applyRoster({ players, reserves, reserveIndividuals: [] });

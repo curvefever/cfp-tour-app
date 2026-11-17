@@ -5,6 +5,7 @@ import {
   rosterFitsFormat,
   rosterNames,
   teamNames,
+  typedRosterProblem,
   unitDisplay,
   unstorableNamesMessage,
   withUnit,
@@ -173,5 +174,44 @@ describe('findUnit, withoutUnit and withUnit: a roster of names or of teams', ()
     expect(withoutUnit(empty, 'Ann')).not.toBe(empty);
     expect(withUnit(empty, 'Ann')).toEqual(['Ann']);
     expect(withUnit([], team('t1'))).toEqual([team('t1')]);
+  });
+});
+
+describe('typedRosterProblem: the first problem of a typed roster, as text', () => {
+  const team = (name: string, members: Array<string | null>): TournamentTeam => ({
+    teamId: name,
+    teamName: name,
+    members: members.map((member) => (member ? { name: member } : null)),
+  });
+  const TWICE = 'are used more than once across the roster and reserves';
+
+  it('is null for a roster that can be loaded, in either shape', () => {
+    expect(typedRosterProblem(['Ann', 'Bob'], [])).toBeNull();
+    expect(
+      typedRosterProblem([team('Red', ['Ann', null]), team('Blue', ['Bob', 'Cy'])], [{ name: 'Gus' }]),
+    ).toBeNull();
+    expect(typedRosterProblem([], [])).toBeNull();
+  });
+
+  it('says a name the database cannot store first, whatever else is wrong', () => {
+    expect(typedRosterProblem(['A.nn', 'A.nn'], [])).toBe(unstorableNamesMessage(['A.nn']));
+    expect(typedRosterProblem([team('Re.d', [null])], [{ name: 'G#us' }])).toBe(
+      unstorableNamesMessage(['Re.d', 'G#us']),
+    );
+  });
+
+  it('says a team with no player before a name used twice, and names each such team', () => {
+    expect(typedRosterProblem([team('Red', [null]), team('Red', []), team('Blue', ['Ann'])], [])).toBe(
+      'These team(s) have no players listed at all — add at least one "TeamName, Player1, ..." member, or remove the line:\n\nRed\nRed',
+    );
+  });
+
+  it('says a name used twice last, in the words of its shape', () => {
+    expect(typedRosterProblem(['Ann', 'Bob', 'Ann'], [])).toBe(
+      `These name(s) ${TWICE} — every player needs a unique name:\n\nAnn`,
+    );
+    expect(typedRosterProblem([team('Red', ['Ann']), team('Red', ['Bob'])], [])).toBe(
+      `These team name(s) ${TWICE} — every team needs a unique name:\n\nRed`,
+    );
   });
 });
