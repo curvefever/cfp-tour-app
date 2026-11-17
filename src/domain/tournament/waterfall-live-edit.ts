@@ -3,7 +3,7 @@ import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
-import { sameRoundFormat } from './match-format';
+import { matchFormatFields, sameRoundFormat } from './match-format';
 import { changeRoundMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
 import {
@@ -23,7 +23,6 @@ import type { PendingBracketSeed, TournamentRound, TournamentState } from './typ
 import {
   declaredWaterfallRooms,
   fitWaterfallRound,
-  matchFormatFields,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,

@@ -1,9 +1,9 @@
 import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from './formats';
 import { registeredBelowFloorMessage } from './generation';
+import { matchFormatToken, parseMatchFormatToken } from './match-format';
 import { matchFormatConfig, parseMatchOverrides, stageFormat } from './round-match-formats';
 import type { PersistedSetup, RoomSize } from './types';
 import { planUpperLower, upperLowerGraphText, upperLowerStageOf, type UpperLowerRound } from './upper-lower';
-import { matchFormatToken, parseMatchFormatToken } from './waterfall-bracket';
 
 /**
  * What the Setup form and a head count make of an upper and lower bracket, read by the Setup panel and by "Adjust

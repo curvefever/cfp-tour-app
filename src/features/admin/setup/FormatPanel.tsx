@@ -141,11 +141,12 @@ export function FormatPanel({
   // the same way changeFormat() does, so a stale 'double-elimination'
   // selection can never survive its own option disappearing from the list.
   function changeOddCountStrategy(value: string) {
+    const strategy = value as PersistedSetup['oddCountStrategy'];
     const compatible = format?.idealRoomSize === 2 && value !== 'flex';
     updateSetup((current) => ({
       ...current,
-      oddCountStrategy: value as PersistedSetup['oddCountStrategy'],
-      scoring: scoringForPooling(current.scoring, current.poolingPhase, current.gameFormat, value),
+      oddCountStrategy: strategy,
+      scoring: scoringForPooling(current.scoring, current.poolingPhase, current.gameFormat, strategy),
       scheduleLogic: reconcileScheduleLogicForFormat(
         current.scheduleLogic,
         compatible,
@@ -281,18 +282,19 @@ export function FormatPanel({
           <Select
             id='cfg-pooling-phase'
             value={setup.poolingPhase}
-            onChange={(e) =>
+            onChange={(e) => {
+              const poolingPhase = e.target.value as PersistedSetup['poolingPhase'];
               updateSetup((current) => ({
                 ...current,
-                poolingPhase: e.target.value as PersistedSetup['poolingPhase'],
+                poolingPhase,
                 scoring: scoringForPooling(
                   current.scoring,
-                  e.target.value,
+                  poolingPhase,
                   current.gameFormat,
                   current.oddCountStrategy,
                 ),
-              }))
-            }
+              }));
+            }}
           >
             {poolingPhaseOptions.map((option) => (
               <option key={option.value} value={option.value}>

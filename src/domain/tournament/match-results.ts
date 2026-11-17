@@ -1,7 +1,13 @@
 import { getGameFormat, resolveOddCountStrategy } from './formats';
 import { roomMatch } from './match-format';
 import { getUnitScoreForGame } from './scoring';
-import type { GameFormatKey, MatchResultCode, TournamentState } from './types';
+import type {
+  GameFormatKey,
+  MatchResultCode,
+  OddCountStrategyKey,
+  PoolingPhaseKey,
+  TournamentState,
+} from './types';
 
 /**
  * Match-result scoring: a head-to-head match of a group stage gives points by how it was won. Per game, a win by more
@@ -187,26 +193,23 @@ export function tieMarginAfterFormatChange(typed: string, from: GameFormatKey, t
  * are always two units (a head-to-head format without Flex, whose third unit would make a room of 3).
  */
 export function matchResultsAllowed(
-  poolingPhase: string,
+  poolingPhase: PoolingPhaseKey,
   gameFormat?: GameFormatKey,
-  oddCountStrategy?: string,
+  oddCountStrategy?: OddCountStrategyKey | '',
 ): boolean {
   if (poolingPhase === 'group-stage') return true;
   if (poolingPhase !== 'swiss' && poolingPhase !== 'qual-table') return false;
   const format = gameFormat ? getGameFormat(gameFormat) : undefined;
   if (!format || format.idealRoomSize !== 2) return false;
-  return (
-    resolveOddCountStrategy(format, oddCountStrategy as Parameters<typeof resolveOddCountStrategy>[1]) !==
-    'flex'
-  );
+  return resolveOddCountStrategy(format, oddCountStrategy) !== 'flex';
 }
 
 /** Any other pooling phase, or a format whose rooms are not two units, falls back to Standard points. */
 export function scoringForPooling<T extends string>(
   scoring: T,
-  poolingPhase: string,
+  poolingPhase: PoolingPhaseKey,
   gameFormat?: GameFormatKey,
-  oddCountStrategy?: string,
+  oddCountStrategy?: OddCountStrategyKey | '',
 ): T | 'fairpoints' {
   return scoring === 'match-results' && !matchResultsAllowed(poolingPhase, gameFormat, oddCountStrategy)
     ? 'fairpoints'

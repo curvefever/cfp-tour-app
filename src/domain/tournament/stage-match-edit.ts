@@ -7,7 +7,13 @@
  * (a re-fitted Kings Valley tail, a live advancement edit) keeps them. A round already finished never changes, and a
  * graph round of a Custom bracket changes through Edit graph.
  */
-import { sameMatchFormat, sameRoundFormat, type MatchFormat } from './match-format';
+import {
+  matchFormatToken,
+  parseMatchFormatToken,
+  sameMatchFormat,
+  sameRoundFormat,
+  type MatchFormat,
+} from './match-format';
 import { changeRoundMatchFormat } from './match-format-change';
 import { isRoundDone } from './round-columns';
 import {
@@ -25,7 +31,6 @@ import { bracketLogicOf } from './upper-lower';
 import type { TournamentState } from './types';
 
 type GamemodeConfig = TournamentState['gamemodeConfig'];
-import { matchFormatToken, parseMatchFormatToken } from './waterfall-bracket';
 
 export interface StageMatchEntry extends MatchFormat {
   stage: RoundStage;

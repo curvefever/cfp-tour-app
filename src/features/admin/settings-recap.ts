@@ -15,7 +15,7 @@ import { parseMatchOverrides } from '../../domain/tournament/round-match-formats
 import { roundNoteNames } from '../../domain/tournament/round-notes';
 import { readTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
-import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket';
+import { parseMatchFormatToken } from '../../domain/tournament/match-format';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import { standingsKindOfSetup } from '../../domain/tournament/waterfall-numbering';
 import {

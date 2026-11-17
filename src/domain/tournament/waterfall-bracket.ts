@@ -1,11 +1,5 @@
 import { newRound } from './new-round';
-import {
-  BEST_OF_VALUES,
-  bestOfGameCount,
-  stageMatchFields,
-  type MatchFormat,
-  type RoundMatchFields,
-} from './match-format';
+import { BEST_OF_VALUES, MAX_SUMMED_GAMES, matchFormatFields, matchFormatToken } from './match-format';
 import { plainRoundName } from './round-name';
 import type { RoomSize, TournamentRound, WaterfallBestRoute } from './types';
 import {
@@ -320,9 +314,6 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
   return ok({ label, roomSizes, ...trailer.value });
 }
 
-/** The most games a GAMES token can ask for. */
-const MAX_SUMMED_GAMES = 4;
-
 type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games' | 'isRanking'> & {
   isFinal: boolean;
   column: number | null;
@@ -330,22 +321,7 @@ type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games' | 'isRanking'> & {
 
 /** The match format already written on the line, as the organiser wrote it, for the "choose one" error. */
 function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>): string {
-  return trailer.bestOf === undefined ? `GAMES ${trailer.games}` : `BO${trailer.bestOf}`;
-}
-
-/** A match format in the words of a ROUNDS line: "BO3" for a Best of 3, "GAMES 2" for two summed games. */
-export function matchFormatToken(match: MatchFormat): string {
-  return writtenMatchFormat(match);
-}
-
-/** The match format a ROUNDS-line token text spells ("BO3", "GAMES 2"), or null when the text is anything else. */
-export function parseMatchFormatToken(text: string): MatchFormat | null {
-  const parsedTrailer = parseRoundLineTrailer('', text.trim().split(/\s+/));
-  if (!parsedTrailer.ok) return null;
-  const { bestOf, games, isFinal, isRanking, column } = parsedTrailer.value;
-  if (isFinal || isRanking || column !== null) return null;
-  if (bestOf !== undefined) return { games: 1, bestOf };
-  return games === undefined ? null : { games };
+  return matchFormatToken({ games: trailer.games ?? 1, bestOf: trailer.bestOf });
 }
 
 /**
@@ -1288,23 +1264,6 @@ export function fitWaterfallRound(
   const rooms = removeSeatsFromLastRooms(declared, seats - poolSize);
   const fitted = { ...rest, rooms, players: poolSize, advTotal: advancingSeats(round, rooms) };
   return poolSize === seats ? fitted : { ...fitted, declaredRooms: declared };
-}
-
-/** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format (a Best of N included) for a Final with no format of its own. */
-export function matchFormatFields(
-  roundSpec: WaterfallRoundSpec,
-  finalsGames: number,
-  finalsBestOf?: number,
-): RoundMatchFields {
-  if (roundSpec.bestOf !== undefined) {
-    const largestRoom = Math.max(...roundSpec.roomSizes);
-    return { bestOf: roundSpec.bestOf, numGames: bestOfGameCount(roundSpec.bestOf, largestRoom) };
-  }
-  if (roundSpec.games !== undefined)
-    return roundSpec.games > 1 || roundSpec.isFinal ? { numGames: roundSpec.games } : {};
-  return roundSpec.isFinal
-    ? stageMatchFields(finalsGames, finalsBestOf, Math.max(...roundSpec.roomSizes))
-    : {};
 }
 
 export interface WaterfallBracketConfig {

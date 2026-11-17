@@ -10,9 +10,13 @@
 import { getFinalUnitScore, getUnitScore, getUnitScoreForGame } from './scoring';
 import type { RankScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
+import type { WaterfallRoundSpec } from './waterfall-bracket';
 
 /** The N a Best of N can have. */
 export const BEST_OF_VALUES = [3, 5, 7, 9];
+
+/** The most games a GAMES token can ask for. */
+export const MAX_SUMMED_GAMES = 4;
 
 /** Whether the round is played as a Best of N. */
 export function isBestOfRound(
@@ -50,6 +54,28 @@ export function sameRoundFormat(first: RoundMatchFields, second: RoundMatchField
   return first.bestOf === second.bestOf && (first.numGames ?? 1) === (second.numGames ?? 1);
 }
 
+/** A match format in the words of a ROUNDS line: "BO3" for a Best of 3, "GAMES 2" for two summed games. */
+export function matchFormatToken(match: MatchFormat): string {
+  return match.bestOf === undefined ? `GAMES ${match.games}` : `BO${match.bestOf}`;
+}
+
+/**
+ * The match format a ROUNDS-line token text spells ("BO3", "GAMES 2": either word in any case), or null when the text
+ * is anything else, including a count out of range and a second word.
+ */
+export function parseMatchFormatToken(text: string): MatchFormat | null {
+  const words = text.trim().split(/\s+/);
+  const keyword = words[0].toUpperCase();
+  const bestOf = /^BO(\d*)$/.exec(keyword);
+  if (bestOf) {
+    const count = Number.parseInt(bestOf[1], 10);
+    return words.length === 1 && BEST_OF_VALUES.includes(count) ? { games: 1, bestOf: count } : null;
+  }
+  if (keyword !== 'GAMES' || words.length !== 2 || !/^\d+$/.test(words[1])) return null;
+  const games = Number.parseInt(words[1], 10);
+  return games >= 1 && games <= MAX_SUMMED_GAMES ? { games } : null;
+}
+
 /** The `numGames` / `bestOf` of a Semis or Final: a Best of N when `bestOf` is set, otherwise `games` summed. */
 export function stageMatchFields(
   games: number,
@@ -58,6 +84,23 @@ export function stageMatchFields(
 ): RoundMatchFields {
   if (bestOf === undefined) return { numGames: games };
   return { bestOf, numGames: bestOfGameCount(bestOf, largestRoomUnits) };
+}
+
+/** The `numGames` / `bestOf` a round's match format gives it: nothing for the default of one game, the Finals format (a Best of N included) for a Final with no format of its own. */
+export function matchFormatFields(
+  roundSpec: WaterfallRoundSpec,
+  finalsGames: number,
+  finalsBestOf?: number,
+): RoundMatchFields {
+  if (roundSpec.bestOf !== undefined) {
+    const largestRoom = Math.max(...roundSpec.roomSizes);
+    return { bestOf: roundSpec.bestOf, numGames: bestOfGameCount(roundSpec.bestOf, largestRoom) };
+  }
+  if (roundSpec.games !== undefined)
+    return roundSpec.games > 1 || roundSpec.isFinal ? { numGames: roundSpec.games } : {};
+  return roundSpec.isFinal
+    ? stageMatchFields(finalsGames, finalsBestOf, Math.max(...roundSpec.roomSizes))
+    : {};
 }
 
 /** One unit of a Best-of room, in seat order. */

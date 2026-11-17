@@ -6,7 +6,13 @@
  * A round's format = its override (stored by `roundNoteNames`, written as a ROUNDS-line token: "BO3", "GAMES 2"),
  * else its stage's format, else one game. A graph round of a Custom bracket and the race Grand Final have no stage.
  */
-import { BEST_OF_VALUES, stageMatchFields, type MatchFormat } from './match-format';
+import {
+  BEST_OF_VALUES,
+  matchFormatFields,
+  parseMatchFormatToken,
+  stageMatchFields,
+  type MatchFormat,
+} from './match-format';
 import { isPoolingRound } from './pooling';
 import { roundNoteNames, roundNoteRows } from './round-notes';
 import { bracketLogicOf } from './upper-lower';
@@ -17,7 +23,6 @@ import type {
   TournamentRound,
   TournamentState,
 } from './types';
-import { matchFormatFields, parseMatchFormatToken } from './waterfall-bracket';
 
 type GamemodeConfig = TournamentState['gamemodeConfig'];
 

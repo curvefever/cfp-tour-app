@@ -2,7 +2,7 @@ import { getGameFormat } from '../../../domain/tournament/formats';
 import { matchResultsAllowed } from '../../../domain/tournament/match-results';
 import type { MatchSettings, RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
-import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournament/waterfall-bracket';
+import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournament/match-format';
 
 /** A setting of the Setup form; `lbQualifiers` lives outside `PersistedSetup` but is one as well. */
 export type FormatField = keyof TournamentSettings;

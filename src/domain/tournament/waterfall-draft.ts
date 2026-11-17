@@ -1,4 +1,4 @@
-import type { MatchFormat } from './match-format';
+import { matchFormatToken, type MatchFormat } from './match-format';
 import type { RoomSize, TournamentRound } from './types';
 import {
   ELIMINATED,
@@ -10,7 +10,6 @@ import {
   assignWaterfallColumns,
   err,
   expandRankTokens,
-  matchFormatToken,
   normalizeRoundLabel,
   ok,
   parseWaterfallGraph,
