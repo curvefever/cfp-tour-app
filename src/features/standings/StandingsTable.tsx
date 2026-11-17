@@ -1,22 +1,13 @@
-import {
-  tableRoundIndexes,
-  type CutTieMarks,
-  type StandingsDisplay,
-  type StandingsDisplayTable,
-} from '../../domain/tournament/standings-display';
+import type { StandingsDisplay, StandingsDisplayTable } from '../../domain/tournament/standings-display';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
 import { TableCell, TableHeadCell, TableRow, cn } from '../../components/ui';
 import { ResultStripe } from '../tournament/components/ResultStripe';
 import type { GroupSwapPicking } from './GroupSwap';
+import { rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
+import { standingsTableParts, tieMarksOf, type StandingsTableProps } from './standings-table-parts';
 import {
-  rowSurfaceClasses,
-  standingsGroupStarts,
-  standingsRowResult,
-} from '../tournament/components/result-row';
-import {
-  entriesSharingPercent,
   formatTieBreak,
   formatTieBreakPrecise,
   missedRoundOf,
@@ -233,19 +224,8 @@ export function StandingsTable({
   swap = null,
   table,
   unitLabel,
-}: {
-  className?: string;
-  display: StandingsDisplay;
-  followKey: string | null;
-  marks: CutTieMarks | undefined;
-  state: TournamentState;
-  swap?: GroupSwapPicking | null;
-  table: StandingsDisplayTable;
-  unitLabel: string;
-}) {
-  const roundIndexes = tableRoundIndexes(state, table);
-  const groupStarts = standingsGroupStarts(table);
-  const sharesPercent = entriesSharingPercent(table.entries);
+}: StandingsTableProps) {
+  const { roundIndexes, groupStarts, sharesPercent } = standingsTableParts(state, table);
   return (
     <div
       className={cn(
@@ -266,8 +246,7 @@ export function StandingsTable({
               followed={followKey === entry.name}
               index={index}
               key={entry.name}
-              pending={marks?.pending.includes(entry.name) ?? false}
-              placed={marks?.placed.includes(entry.name) ?? false}
+              {...tieMarksOf(marks, entry.name)}
               roundIndexes={roundIndexes}
               sharesPercent={sharesPercent[index]}
               state={state}

@@ -1,24 +1,10 @@
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../domain/tournament/types';
-import {
-  changedDescription,
-  setupDescription,
-  type TournamentDescription,
-} from '../tournaments/tournament-summary';
+import { changedDescription, setupDescription } from '../tournaments/tournament-summary';
 import { unmarshalFromFirebase } from './firebase-marshal';
+import type { PatchTransport } from './sync-transport';
 
-export interface SetupTransport {
-  update(
-    tournamentId: string,
-    patch: Record<string, string>,
-    summary?: Partial<TournamentDescription>,
-  ): Promise<void>;
-  subscribe(
-    tournamentId: string,
-    onValue: (payload: unknown) => void,
-    onError: (error: unknown) => void,
-  ): () => void;
-}
+export type SetupTransport = PatchTransport<Record<string, string>>;
 
 export interface SetupSyncOptions {
   transport: SetupTransport | null;

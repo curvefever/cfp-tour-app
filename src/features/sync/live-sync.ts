@@ -1,5 +1,6 @@
 import type { TournamentState } from '../../domain/tournament/types';
 import { changedDescription, type TournamentDescription } from '../tournaments/tournament-summary';
+import type { PatchTransport } from './sync-transport';
 import { unmarshalFromFirebase } from './firebase-marshal';
 import { buildTournamentPatch } from './tournament-patch';
 
@@ -11,19 +12,8 @@ export {
   unmarshalFromFirebase,
 } from './firebase-marshal';
 
-export interface SyncTransport {
-  /** Applies a multi-path update (see `buildTournamentPatch`) to the stored tournament. */
-  update(
-    tournamentId: string,
-    patch: Record<string, unknown>,
-    summary?: Partial<TournamentDescription>,
-  ): Promise<void>;
-  subscribe(
-    tournamentId: string,
-    onValue: (payload: unknown) => void,
-    onError: (error: unknown) => void,
-  ): () => void;
-}
+/** Applies a multi-path update (see `buildTournamentPatch`) to the stored tournament. */
+export type SyncTransport = PatchTransport<Record<string, unknown>>;
 
 export type SyncMode = 'writer' | 'viewer';
 export type SyncStatus =

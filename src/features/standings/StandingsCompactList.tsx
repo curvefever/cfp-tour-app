@@ -1,27 +1,12 @@
 import { useId, useState } from 'react';
-import {
-  tableRoundIndexes,
-  type CutTieMarks,
-  type StandingsDisplay,
-  type StandingsDisplayTable,
-} from '../../domain/tournament/standings-display';
+import type { StandingsDisplayTable } from '../../domain/tournament/standings-display';
 import { unitDisplay } from '../../domain/tournament/roster';
-import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
 import { ResultStripe } from '../tournament/components/ResultStripe';
-import {
-  rowSurfaceClasses,
-  standingsGroupStarts,
-  standingsRowResult,
-} from '../tournament/components/result-row';
+import { rowSurfaceClasses, standingsRowResult } from '../tournament/components/result-row';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
-import {
-  entriesSharingPercent,
-  pointsCell,
-  standingsHeads,
-  standingsRoundLabel,
-} from '../tournament/components/standings-text';
-import type { GroupSwapPicking } from './GroupSwap';
+import { pointsCell, standingsHeads, standingsRoundLabel } from '../tournament/components/standings-text';
+import { standingsTableParts, tieMarksOf, type StandingsTableProps } from './standings-table-parts';
 import { TieMark } from './StandingsTable';
 
 type Entry = StandingsDisplayTable['entries'][number];
@@ -53,23 +38,12 @@ export function StandingsCompactList({
   swap = null,
   table,
   unitLabel,
-}: {
-  className?: string;
-  display: StandingsDisplay;
-  followKey: string | null;
-  marks: CutTieMarks | undefined;
-  state: TournamentState;
-  swap?: GroupSwapPicking | null;
-  table: StandingsDisplayTable;
-  unitLabel: string;
-}) {
+}: StandingsTableProps) {
   const listId = useId();
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const roundIndexes = tableRoundIndexes(state, table);
+  const { roundIndexes, groupStarts, sharesPercent } = standingsTableParts(state, table);
   const labels = roundIndexes.map((roundIndex) => standingsRoundLabel(state, roundIndex));
-  const sharesPercent = entriesSharingPercent(table.entries);
   const heads = standingsHeads(state, display);
-  const groupStarts = standingsGroupStarts(table);
   const toggle = (name: string) =>
     setOpen((current) => {
       const next = new Set(current);
@@ -108,10 +82,7 @@ export function StandingsCompactList({
           <span className='flex min-w-0 flex-1 flex-col'>
             <span className='wrap-break-word text-[15px] font-bold'>
               {info.label}
-              <TieMark
-                pending={marks?.pending.includes(entry.name) ?? false}
-                placed={marks?.placed.includes(entry.name) ?? false}
-              />
+              <TieMark {...tieMarksOf(marks, entry.name)} />
             </span>
             {info.members?.length ? (
               <span className='wrap-break-word text-[13px] leading-4.5 text-muted'>

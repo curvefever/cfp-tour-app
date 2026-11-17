@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { BUILD_CHECK_INTERVAL_MS, isBuildCheckDue, TOUR_BUILD_ID } from './build-id';
+import { TOUR_BUILD_ID } from './build-id';
+import { whenTabActive } from './tab-checks';
 import { getLiveBuild } from './build-id.server-fns';
 
 /**
@@ -12,28 +13,14 @@ export function useLiveBuildCheck(enabled: boolean): boolean {
   const [outdated, setOutdated] = useState(false);
   useEffect(() => {
     if (!enabled || outdated) return;
-    let lastCheckedAt: number | null = null;
-    const check = () => {
-      if (!isBuildCheckDue(lastCheckedAt, Date.now())) return;
-      lastCheckedAt = Date.now();
+    return whenTabActive(() => {
       getLiveBuild().then(
         (live) => {
           if (live !== TOUR_BUILD_ID) setOutdated(true);
         },
         () => {},
       );
-    };
-    const checkIfVisible = () => {
-      if (document.visibilityState === 'visible') check();
-    };
-    window.addEventListener('focus', check);
-    document.addEventListener('visibilitychange', checkIfVisible);
-    const timer = setInterval(checkIfVisible, BUILD_CHECK_INTERVAL_MS);
-    return () => {
-      window.removeEventListener('focus', check);
-      document.removeEventListener('visibilitychange', checkIfVisible);
-      clearInterval(timer);
-    };
+    });
   }, [enabled, outdated]);
   return outdated;
 }

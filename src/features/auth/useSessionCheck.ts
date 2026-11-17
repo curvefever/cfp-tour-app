@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BUILD_CHECK_INTERVAL_MS, isBuildCheckDue } from '../version/build-id';
+import { whenTabActive } from '../version/tab-checks';
 import { checkSession } from './server/session-check.server-fns';
 import { signalSessionExpired } from './session-expired-signal';
 
@@ -12,28 +12,13 @@ import { signalSessionExpired } from './session-expired-signal';
 export function useSessionCheck(enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
-    let lastCheckedAt: number | null = null;
-    const check = () => {
-      if (!isBuildCheckDue(lastCheckedAt, Date.now())) return;
-      const startedAt = Date.now();
-      lastCheckedAt = startedAt;
+    return whenTabActive((startedAt) => {
       checkSession().then(
         (answer) => {
           if (answer === 'expired') signalSessionExpired(startedAt);
         },
         () => {},
       );
-    };
-    const checkIfVisible = () => {
-      if (document.visibilityState === 'visible') check();
-    };
-    window.addEventListener('focus', check);
-    document.addEventListener('visibilitychange', checkIfVisible);
-    const timer = setInterval(checkIfVisible, BUILD_CHECK_INTERVAL_MS);
-    return () => {
-      window.removeEventListener('focus', check);
-      document.removeEventListener('visibilitychange', checkIfVisible);
-      clearInterval(timer);
-    };
+    });
   }, [enabled]);
 }
