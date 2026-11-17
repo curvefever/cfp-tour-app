@@ -6,7 +6,7 @@ import { tieResolutionList } from './scoring';
 import type { GroupExitMode, TournamentState, TournamentStanding } from './types';
 
 /**
- * How a group stage sends units to the bracket. `per-group` sends the same number from every group (today's rule,
+ * How a group stage sends units to the bracket. `per-group` sends the same number from every group (the default,
  * and what a tournament stored without `cfg.groupExit` does). With a total (`even-split` or `fair-cut`) `cfg.qualAdv`
  * is the number of units that go through in all, shared between groups of different sizes: an even split gives every
  * group `floor(total / groups)` and the leftover spots go to the best of the next in line; a fair cut gives each group

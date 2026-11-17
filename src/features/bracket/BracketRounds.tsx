@@ -165,12 +165,11 @@ function useStripPick(state: TournamentState, hasStandings: boolean) {
  * Renders a tournament's rounds as one flowing row of boxes, one per
  * `bracketBoxes()` entry. A double-elimination winners-bracket (WB) round
  * and every losers-bracket (LB) round immediately following it share one
- * box (`WaveBoxBody` above) -- LB is a section *inside* WB's own box, not
- * a separate row or column, per the organiser's explicit request after
- * reviewing the previous two-row layout live. Every other round (pre-
+ * box (`renderWave` below) -- LB is a section *inside* WB's own box, not
+ * a separate row or column. Every other round (pre-
  * bracket rounds, the terminal Final) is its own ordinary box, labeled via
- * `bracketRoundLabels()` exactly as before. Degenerates to the exact
- * original single-row rendering for every non-double-elimination format
+ * `bracketRoundLabels()`. Degenerates to a plain
+ * single-row rendering for every non-double-elimination format
  * (single-elimination, Kings Valley, pooling-only), by construction --
  * `bracketBoxes()` never produces a `wave` box when no round is tagged
  * `bracket === 'winners'`.

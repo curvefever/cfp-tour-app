@@ -717,7 +717,7 @@ export function roomChoiceCost(
  * O(k^3) by lexicographicMinAssignment instead of trying every permutation
  * (which froze for waves of ~10+ rooms). Deterministic: exact ties go to the
  * lexicographically smallest room sequence (member 0's earliest room, then
- * member 1's, ...), the same assignment the old exhaustive search kept.
+ * member 1's, ...).
  */
 export function assignWaveToRooms(
   members: WaveMember[],
@@ -887,7 +887,7 @@ function randomRoomAssignmentAround(
 }
 
 /**
- * Replaces snakeSeed for every ordinary room-based reseed (no-elim/pooling
+ * Seeds every ordinary room-based reseed (no-elim/pooling
  * warmup, Qualification Table, and real single-elimination/team-format
  * cuts) -- NOT Kings Valley, double-elimination's WB/LB pooled pipeline,
  * Swiss, or group-stage, all of which use their own mechanisms already.
@@ -1013,9 +1013,9 @@ export function tieredSeed(options: {
  * 'grand-final'-tagged round, or a Final round with no .bracket tag at all
  * (the shared-final variant's terminal round), always gets progress 1 --
  * reaching the actual Final is the single highest-stakes reseed, same
- * reasoning semisApproachProgress uses for the round feeding Semis. New,
- * not organiser-validated the way semisApproachProgress was -- see the
- * "Open judgment calls" note in the plan this was built from.
+ * reasoning semisApproachProgress uses for the round feeding Semis. The
+ * progress blends the same warm-up and Semis weights as the generic path
+ * (`docs/open-items.md`, "Double elimination draw weights").
  */
 export function doubleEliminationApproachProgress(
   rounds: TournamentRound[],
@@ -1034,7 +1034,7 @@ export function doubleEliminationApproachProgress(
 }
 
 /**
- * Replaces snakeSeed for double-elimination's WB/LB routing
+ * Seeds double-elimination's WB/LB routing
  * (finalizeDoubleEliminationRound, transitions.ts) -- structurally a thin
  * sibling of tieredSeed, not a variant that re-derives tiers: `pool` already
  * carries each entry's tierRank/pct, tagged at push time by

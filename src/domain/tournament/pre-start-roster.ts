@@ -13,8 +13,8 @@ export type RegenerateResult =
 /**
  * Before Confirm & Start nobody but admins has seen the draw, so a roster change redoes it: the schedule
  * is rebuilt for the current roster from the settings it was generated with (`state.settings`, not the
- * Setup form's current values). Generation is the only judge here. `no-settings` is a tournament
- * generated before settings were stored.
+ * Setup form's current values). Generation is the only judge here. `no-settings` is a state with no stored
+ * settings: no Generate has run, so there is nothing to redo.
  */
 export function regenerateForRoster(state: TournamentState, runtime: TournamentRuntime): RegenerateResult {
   const settings = readTournamentSettings(state.settings);

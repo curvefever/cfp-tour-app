@@ -20,7 +20,7 @@ export interface GroupSeats {
   isRemoved: (name: string) => boolean;
 }
 
-/** The switch for the group stage's per-match standings: asked by `computeGroupStandings`, nowhere else. */
+/** The switch for the group stage's per-match standings: read by `computeGroupStandings`, `advancement.ts` and `standings-display.ts`, and by the screens that word or lay out a group stage (`standings-text.ts`, `RoomCard.tsx`, `RoundBody.tsx`). */
 export function usesGroupAverages(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
   return state.gamemodeConfig.groupAverageVersion === 2;
 }

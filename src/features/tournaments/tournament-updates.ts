@@ -245,7 +245,7 @@ export function planPatchWrite(
   }
   const updates: Record<string, unknown> = {};
   putPatch(updates, paths, patch);
-  // A tournament stored before statuses existed has no list entry to keep up to date.
+  // A tournament with no stored status (deleted, or never created) has no list entry to keep up to date.
   if (status)
     for (const [key, value] of Object.entries(summary ?? {})) put(updates, `${paths.index}/${key}`, value);
   return { ok: true, updates };

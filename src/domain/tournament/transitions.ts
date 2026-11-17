@@ -81,6 +81,8 @@ export type RoundAdvanceResult =
       state: TournamentState;
     };
 
+// A part of the state that an advance writes to must be listed here: an advance
+// works on this copy, and a part left out would be changed on the state it was given.
 export function cloneForTransition(state: TournamentState): TournamentState {
   return {
     ...state,
@@ -143,7 +145,7 @@ function byeCandidates(advancing: SeedCandidate[], joiners: ReadonlySet<string>)
   return regular.length ? regular : advancing;
 }
 
-/** The state mutation performed indirectly by legacy renderAdminRound(). */
+/** Whether reserves can still join: the round that makes the first cut (the last pooling round, or the first elimination round with no pooling) is not done yet. */
 export function reserveWindowAtCurrentRound(
   state: Pick<TournamentState, 'cfg' | 'rounds' | 'curRound'>,
 ): boolean {
@@ -206,8 +208,8 @@ function malformedKingsValleyFinalMessage(actual: number): string {
  * added in the first Kings Valley round's still-open window, can otherwise
  * leave `sequentialSeed` seating too few (a new lone room, or an empty room)
  * or silently dropping the extra as if eliminated. Also self-heals an
- * already-generated stuck head-to-head field (planned 0 cuts per round,
- * pre-2026-09-27): its real per-round cut now differs from the stale plan,
+ * already-generated stuck head-to-head field (planned 0 cuts per round):
+ * its real per-round cut differs from the stale plan,
  * so the next advance re-plans the tail through the fixed formula instead.
  * A no-op (returns null, leaves `state` untouched) when the pool already
  * matches the plan.
@@ -655,8 +657,9 @@ function advanceFromStandings(
 }
 
 /**
- * Pure counterpart of legacy advanceRound(). UI effects (alert, render,
- * persistence and sync) are represented by the returned result/state.
+ * Advances the tournament to its next round: the result carries the new state,
+ * or why nothing happened. UI effects (alert, render, persistence and sync)
+ * belong to the caller.
  */
 export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
   const result = advanceRound(input);
@@ -770,26 +773,15 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
     state.poolingByeCounts = paired.poolingByeCounts;
     state.byes[roundIndex + 1] = paired.byeName ? [paired.byeName] : [];
   } else if (nextRound.isKingsValley) {
-    // Kings Valley's own room sizes are already fixed exactly at generation
-    // time (distributeRooms() over the shrinking survivor count -- no bye
-    // concept at all) -- seed into them precisely rather than via
-    // snakeSeed's count-only boustrophedon walk, which can leave a room's
-    // actual occupancy off by one from the structural size its own
-    // promote/demote/eliminate band counts were computed against. (Every
-    // later Kings-Valley-to-Kings-Valley transition already goes through
-    // advanceKingsValley()'s sequentialSeed() call above and doesn't have
-    // this gap -- this is only reached for the one hop into the very first
-    // Kings Valley round, from whatever pooling/no-elim round precedes it.)
-    // A removal during a preceding pooling phase (or a reserve added while
-    // this round's window is still open) can leave a real survivor count
-    // that differs from what this round was planned for. mutations.ts's own
-    // rebuildFutureRounds does fire on a qual-table/Swiss removal (those
-    // rounds are isNoElim too) and does re-plan this round's shape -- but it
-    // re-plans using the still-stale state.cfg.qualAdv, not the real number
-    // of survivors reaching the cutoff, so the two can still disagree.
-    // fitKingsValleyTail re-plans the whole ladder (Final included) to the
-    // real count first, same as advanceKingsValley does for every later
-    // KV-to-KV hop.
+    // Kings Valley's room sizes are fixed at generation time (distributeRooms()
+    // over the shrinking survivor count, no byes), so the units are seated into
+    // them exactly with sequentialSeed, as advanceKingsValley does for every
+    // later hop; this is the hop into the first Kings Valley round. A removal
+    // during pooling (or a reserve added while this round's window is open) can
+    // leave a survivor count that differs from the plan, and mutations.ts's
+    // rebuildFutureRounds re-plans with state.cfg.qualAdv, not the real number
+    // reaching the cutoff. So fitKingsValleyTail re-plans the whole ladder
+    // (Final included) to the real count first.
     const fitFailure = fitKingsValleyTail(state, roundIndex + 1, advancing.length);
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
     const fittedNextRound = state.rounds[roundIndex + 1];

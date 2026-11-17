@@ -66,7 +66,7 @@ export function settingsFromForm(form: PersistedSetup & { lbQualifiers?: string 
   return settings as unknown as TournamentSettings;
 }
 
-/** `null` unless `raw` is a plain object -- e.g. a tournament generated before `settings` existed, or a non-object value. */
+/** `null` unless `raw` is a plain object -- e.g. a state with no `settings` (no Generate has run), or a non-object value. */
 export function readTournamentSettings(raw: unknown): TournamentSettings | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
   const record = raw as Record<string, unknown>;
@@ -82,7 +82,7 @@ export function readTournamentSettings(raw: unknown): TournamentSettings | null 
   return settings as unknown as TournamentSettings;
 }
 
-/** Every setting key from `settings`, the roster fields from `setup`, and no `qual` (legacy key -- poolingPhase decides now). */
+/** Every setting key from `settings`, the roster fields from `setup`, and no `qual` key (`poolingPhase` decides). */
 export function applyTournamentSettings(setup: PersistedSetup, settings: TournamentSettings): PersistedSetup {
   const next: PersistedSetup = { ...setup };
   for (const key of SETTING_KEYS) {

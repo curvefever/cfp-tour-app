@@ -94,7 +94,7 @@ export function statusExplanation(
   return explain('On the Tournaments page. "Starting soon" from 1 hour before the scheduled time.');
 }
 
-/** The fields of the loaded tournament that decide what it may do next; null for one stored before statuses existed. */
+/** The fields of the loaded tournament that decide what it may do next; null when the state has no list entry (not loaded, or deleted). */
 export function stateSubject(state: TournamentState): LifecycleSubject | null {
   if (!state.lifecycle) return null;
   return {

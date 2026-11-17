@@ -27,7 +27,7 @@ export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | typeof ONE_SCORE_PER_TEAM;
 export type RoundRobinMode = 'single' | 'double';
 
-/** How a group stage sends units to the bracket: so many per group (today's rule, and what a stored tournament without the field does), or a total shared between the groups by an even split or a fair cut (`group-exit.ts`). */
+/** How a group stage sends units to the bracket: so many per group (the default, and what a stored tournament without the field does), or a total shared between the groups by an even split or a fair cut (`group-exit.ts`). */
 export type GroupExitMode = 'per-group' | 'even-split' | 'fair-cut';
 export type BracketKey = 'winners' | 'losers' | 'grand-final';
 export type AbsenceAnswer = 'absent' | 'played';
@@ -376,9 +376,9 @@ export interface TournamentState {
   scheduleLogic: ScheduleLogicKey;
   gameFormat: GameFormatKey;
   gamemodeConfig: Partial<MaterializedGamemodeConfig>;
-  /** The Setup form as typed when this schedule was generated (roster excluded), for copying onto a later tournament -- see tournament-settings.ts. Absent on tournaments generated before this field existed. */
+  /** The Setup form as typed when this schedule was generated (roster excluded), for copying onto a later tournament -- see tournament-settings.ts. Absent before Generate has run. */
   settings?: TournamentSettings;
-  /** Where the tournament stands (draft, published, finished). Written only by the lifecycle server functions; absent on tournaments stored before statuses existed. */
+  /** Where the tournament stands (draft, published, finished). Written only by the lifecycle server functions; absent when the state has no list entry (not loaded, or deleted). */
   lifecycle?: TournamentLifecycle;
   /** What viewers are told about the tournament: its date, its specific rules and its lobby screenshots. */
   info?: TournamentInfo;
@@ -490,10 +490,9 @@ export interface PersistedSetup {
 
 /**
  * The Setup form's settings, snapshotted onto a generated TournamentState --
- * everything in PersistedSetup except the roster fields and the legacy
- * `qual` key, plus `lbQualifiers` (a setting too, but kept out of
- * PersistedSetup for legacy-compatibility reasons -- see generation.ts's
- * GenerationForm). See tournament-settings.ts.
+ * everything in PersistedSetup except the roster fields and the `qual` key,
+ * plus `lbQualifiers` (a setting too, but kept out of PersistedSetup -- see
+ * generation.ts's GenerationForm). See tournament-settings.ts.
  */
 export type TournamentSettings = Omit<
   PersistedSetup,

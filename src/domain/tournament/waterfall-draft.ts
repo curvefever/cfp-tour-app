@@ -36,10 +36,13 @@ export type { WaterfallDraftBest } from './waterfall-draft-best';
  * the rank is out, the same for a room and for the Qual source. The draft may
  * still be unfinished in other ways (a round nothing routes into, say).
  *
- * Nothing here re-implements the validation rules. Whether a draft is a
- * complete, consistent graph is still decided by
+ * Whether a draft is a complete, consistent graph is decided by
  * `validateAndOrderWaterfallGraph` on the serialized text, the same call
- * generation makes.
+ * generation makes. The reader here (`parseWaterfallDraft`) repeats eight of
+ * that validator's checks with its own messages: a route from a round that is
+ * not declared, a route out of the Final, a missing room letter, a room out of
+ * range, a destination that is not declared, a rank out of range, a rank
+ * routed twice, and a wrong Qual or Groups line.
  *
  * A graph fed by a qualification table also has a Qual source (`qualRoutes`),
  * edited like a room whose slots are the standings ranks.

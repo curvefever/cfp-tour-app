@@ -428,7 +428,7 @@ function seatInRoundInPlay(
 /**
  * Before Confirm & Start a joiner is part of the draw: with no rounds yet it just joins the roster, with
  * rounds the schedule is redone for the new head count and generation is the only judge. Null when the
- * tournament has started, or was generated before its settings were stored (today's rules apply).
+ * tournament has started, or has no stored settings to redo the schedule from (no Generate has run).
  */
 function addBeforeStart(
   state: TournamentState,

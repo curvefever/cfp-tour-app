@@ -67,7 +67,7 @@ function entriesOf(map: unknown): Array<[string, unknown]> {
   return isRecord(map) ? Object.entries(map) : [];
 }
 
-/** The stored notes that are text: a value of another shape (the stage notes of an earlier build) is no note. */
+/** The stored notes that are text: a value of another shape is no note. */
 function storedNotes(notes: RoundNotes | undefined): Array<[string, string]> {
   return entriesOf(notes).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
 }

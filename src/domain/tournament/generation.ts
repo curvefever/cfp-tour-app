@@ -46,7 +46,7 @@ import type {
 } from './types';
 
 interface GenerationForm extends PersistedSetup {
-  /** Intentionally omitted from PersistedSetup for legacy compatibility. */
+  /** A setting kept out of PersistedSetup, the stored shape of the Setup form. */
   lbQualifiers?: string;
 }
 
@@ -335,7 +335,7 @@ export function generateTournament(
 
   // Total pooling-phase round count for Qualification Table / Swiss --
   // normally derived (a fixed constant / a function of entrant count), but
-  // each is independently overridable pre-start (ROADMAP.md item 4).
+  // each is independently overridable pre-start.
   let qualRounds = QUALIFICATION_ROUNDS;
   if (config.poolingPhase === 'qual-table') {
     const resolved = resolvePoolingRoundsOverride(form.qualRoundsOverride, qualRounds, 'Qualification Table');
@@ -560,10 +560,8 @@ export function generateTournament(
       `Semis size override (${semisOverride}) can't exceed the ${config.poolingPhase !== 'none' ? 'number advancing to the bracket (' : 'registered count ('}${overrideEntryCount}) — there'd be nothing left to eliminate down to it.`,
     );
   }
-  // finalOverride was previously only checked AGAINST semisOverride when the
-  // latter was also set -- an oversized finalOverride alone (no semisOverride)
-  // slipped through unchecked. Compare against the derived default Semis size
-  // instead in that case.
+  // An oversized finalOverride is checked against semisOverride when that is set;
+  // with no semisOverride it is checked against the derived default Semis size.
   if (schedule === 'single-elimination' && finalOverride && !semisOverride) {
     if (finalOverride > semisDefault) {
       return generationError(
@@ -575,9 +573,9 @@ export function generateTournament(
   // Defense-in-depth: bracketEntryCount already reflects the real post-pooling
   // entrant count (including Group Stage's independent groups×qualifiers
   // formula), so this catches e.g. Group Stage + Double Elimination with too
-  // few qualifiers reaching the bracket -- previously only caught two calls
-  // deep inside raceDoubleEliminationBracketPhase's own "at least 2
-  // winners-bracket rounds" throw, via the generic catch-all below.
+  // few qualifiers reaching the bracket. It is checked here so the organiser
+  // gets a clear message, not the "at least 2 winners-bracket rounds" throw of
+  // raceDoubleEliminationBracketPhase through the generic catch-all below.
   if (schedule === 'double-elimination') {
     const doubleElimFloor = getMinimumBracketUnits(schedule, roomSize);
     if (bracketEntryCount < doubleElimFloor) {
@@ -616,9 +614,9 @@ export function generateTournament(
     }
     // The winners-bracket side of the Final also needs to be reachable --
     // it can't ask for more WB qualifiers than actually entered the bracket
-    // phase. Previously only caught two calls deep inside
-    // sharedFinalDoubleEliminationBracketPhase's own "requestedRounds < 1"
-    // throw, via the generic catch-all below.
+    // phase. It is checked here so the organiser gets a clear message, not the
+    // "requestedRounds < 1" throw of sharedFinalDoubleEliminationBracketPhase
+    // through the generic catch-all below.
     winnersQualifiers = prospectiveFinalSize - lbQualifiers;
     if (winnersQualifiers >= bracketEntryCount) {
       return generationError(

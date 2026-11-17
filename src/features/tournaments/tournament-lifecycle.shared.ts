@@ -47,6 +47,7 @@ export function validateCreateInput(input: CreateTournamentInput): CreateTournam
   if (!isRecord(input.state) || !Array.isArray(input.state.players))
     throw new Error('Invalid tournament data.');
   const state = { ...input.state } as Record<string, unknown>;
+  // A client's `adminProof` (the old admin password) is not stored.
   delete state.adminProof;
   return {
     tournamentId,

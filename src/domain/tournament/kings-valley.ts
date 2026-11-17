@@ -33,7 +33,7 @@ export interface KingsValleyRoundMoves {
  * cut 0), and the elimination cut comes from the *effective bottom* -- the
  * last room that still has a real match, not necessarily the literal last
  * room -- so a lone room can sit anywhere in the ladder (the organiser's
- * 2026-09-27 decision).
+ * rule).
  */
 function holdingRoundMoves(roomSizes: number[], roomSize: RoomSize | undefined): KingsValleyRoundMoves {
   let eliminateIndex = -1;

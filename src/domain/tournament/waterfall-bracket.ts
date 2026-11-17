@@ -15,18 +15,19 @@ import {
 } from './waterfall-best';
 
 /**
- * Waterfall / rank-band bracket phase (ROADMAP.md items 7+8, merged after
- * re-reading the real organiser spreadsheet that inspired both -- see
- * HANDOFF_LOG.md). Entirely organiser-authored and decided once at
- * generation time: a plain-text mini-language describes a round graph where
- * a room's finishers split BY RANK into bands, each band routing to its own
- * destination round (not necessarily the very next one -- a band can point
- * several rounds ahead), with multiple source rooms' bands able to converge
- * on the same destination. This file is the parser/validator only -- it has
- * no TournamentState/TournamentRound dependency, so it's testable in
- * isolation before anything about how the graph gets materialized into a
- * real schedule is decided (see the bracket-phase builder, added
- * separately).
+ * Waterfall / rank-band bracket phase (the Custom bracket). Entirely
+ * organiser-authored and decided once at generation time: a plain-text
+ * mini-language describes a round graph where a room's finishers split BY
+ * RANK into bands, each band routing to its own destination round (not
+ * necessarily the very next one -- a band can point several rounds ahead),
+ * with multiple source rooms' bands able to converge on the same destination.
+ *
+ * The file holds the text grammar and its parser (`parseWaterfallGraph`), the
+ * validator that orders the graph (`validateAndOrderWaterfallGraph`), the
+ * column rules (`assignWaterfallColumns`), the match-format tokens, the
+ * helpers a running tournament reads (where a rank goes, the fit of a short
+ * round) and the builder that turns a graph into rounds
+ * (`waterfallBracketPhase`).
  *
  * Grammar (one textarea, two sections):
  *

@@ -85,12 +85,12 @@ export function computeGrandFinalRaceState(
 
 interface GrandFinalRaceTransition {
   state: TournamentState;
-  /** Matches legacy checkGrandFinalRace(): skip auto-archive while true. */
+  /** True while the Grand Final race is still going: nobody has won it yet. */
   inProgress: boolean;
   openedNextGame: boolean;
 }
 
-/** Pure state transition counterpart of legacy checkGrandFinalRace(). */
+/** Opens the next game of the Grand Final race when every game so far is played and nobody has won it yet. */
 export function progressGrandFinalRace(state: TournamentState): GrandFinalRaceTransition {
   const roundIndex = state.curRound;
   const round = state.rounds[roundIndex];

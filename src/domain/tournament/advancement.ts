@@ -46,7 +46,7 @@ import { isCurrentRound, isRoundDone, roundsInPlay } from './round-columns';
 /** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
 const EQUALITY_TOLERANCE = 1e-9;
 
-/** Room shares are equal within the tolerance; a missing share (legacy snapshot) is null and equals only another null. */
+/** Room shares are equal within the tolerance; a missing share (a snapshot that did not record it) is null and equals only another null. */
 export function sameRoomShare(first: number | null, second: number | null): boolean {
   if (first === null || second === null) return first === second;
   return Math.abs(first - second) < EQUALITY_TOLERANCE;
@@ -63,7 +63,7 @@ export function rankingPoints(standing: TournamentStanding): number | null {
   return standing.averagePoints ?? standing.totalFP;
 }
 
-/** Equal standing points and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (legacy snapshot) counts as null. */
+/** Equal standing points and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (a snapshot that did not record it) counts as null. */
 export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
   if (!samePoints(rankingPoints(first), rankingPoints(second))) return false;
   return sameRoomShare(first.roomShare ?? null, second.roomShare ?? null);
@@ -224,9 +224,9 @@ interface TiedUnits {
 }
 
 /**
- * Recompute the live cumulative tables that legacy `getAllTies` refreshes
- * before checking a last-pooling-round cutoff. Archive callers should pass
- * their frozen snapshot directly to `getAllTies` instead of calling this.
+ * Recomputes the live cumulative tables before a last-pooling-round cutoff is
+ * checked for ties. A caller that holds a frozen snapshot passes it to
+ * `getAllTies` directly instead of calling this.
  */
 export function refreshRoundStandings(state: TournamentState, roundIndex: number): TournamentState {
   const round = state.rounds[roundIndex];
@@ -311,8 +311,7 @@ function coversCluster(recorded: string[], cluster: TiedUnits): boolean {
 
 /**
  * Drop room tie decisions whose recorded names no longer belong to the same
- * score cluster. This is the immutable domain equivalent of the legacy
- * score-edit cleanup.
+ * score cluster.
  */
 export function invalidateStaleTieResolutions(
   state: TournamentState,

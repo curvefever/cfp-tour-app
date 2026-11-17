@@ -35,7 +35,7 @@ export function TournamentStatusPanel() {
   const { working, error, run: runStatusAction } = useStatusAction();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const subject = stateSubject(state);
-  // A tournament stored before statuses existed has no status to show.
+  // A state with no list entry (not loaded, or deleted) has no status to show.
   if (!subject) return null;
   const finalComplete = computeRankings(state)?.finalComplete ?? false;
   const { actions } = adminActions(subject, finalComplete);

@@ -191,7 +191,7 @@ export type BracketBox =
  * immediately following it in `state.rounds`' own array order (before the
  * next WB round) share one box -- LB is a section *inside* the same box as
  * its WB round, not a structurally separate row or column. See
- * `WaveBoxBody` (BracketView.tsx) for how a `wave` box actually renders.
+ * `renderWave` (BracketRounds.tsx) for how a `wave` box actually renders.
  *
  * A WB round can have 1-2 trailing LB rounds for the head-to-head/race
  * double-elimination variant (1 for the first/last WB round, 2 for any
@@ -555,6 +555,35 @@ function drawPoolAsRealDraw(
 }
 
 /**
+ * The room sizes a round's units actually sit in, for a round already reached
+ * (its planned sizes can be a unit or two more than it seated after a
+ * removal); the planned sizes otherwise.
+ */
+function seatedRoomSizes(
+  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
+  roundIndex: number,
+): number[] {
+  const planned = state.rounds[roundIndex].rooms;
+  const seated = isRoundReached(state, roundIndex) ? (state.assignments?.[roundIndex] ?? []) : [];
+  if (seated.length === 0) return planned;
+  return planned.map((_, index) => seated.filter((entry) => entry.room === index + 1).length);
+}
+
+/** The room-rank slots a source room sends on under the fair cut, per room (tier-major order is kept by the caller), and the lucky slots left of the round's target. */
+function fairCutSlotPlan(
+  source: TournamentRound,
+  roomSizes: number[],
+): { directPerRoom: number[]; lucky: number } {
+  const { groups } = fairCutShape(roomSizes, fairCutSurvivors(source, roomSizes));
+  const directPerRoom = roomSizes.map((size, index) => {
+    const group = groups.find((candidate) => candidate.rooms.includes(index + 1));
+    return group ? group.direct : Math.min(size, 1);
+  });
+  const lucky = source.advTotal - source.byeCount - directPerRoom.reduce((sum, direct) => sum + direct, 0);
+  return { directPerRoom, lucky: Math.max(0, lucky) };
+}
+
+/**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
  * predecessor (e.g. the "None" pooling phase's warmup rounds, or a mid-Qualification-
@@ -588,35 +617,6 @@ function drawPoolAsRealDraw(
  * bare "Room A, Rank 2" -- once rooms are lettered, "Room A" alone no
  * longer identifies which round it's from.
  */
-/**
- * The room sizes a round's units actually sit in, for a round already reached
- * (its planned sizes can be a unit or two more than it seated after a
- * removal); the planned sizes otherwise.
- */
-function seatedRoomSizes(
-  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
-  roundIndex: number,
-): number[] {
-  const planned = state.rounds[roundIndex].rooms;
-  const seated = isRoundReached(state, roundIndex) ? (state.assignments?.[roundIndex] ?? []) : [];
-  if (seated.length === 0) return planned;
-  return planned.map((_, index) => seated.filter((entry) => entry.room === index + 1).length);
-}
-
-/** The room-rank slots a source room sends on under the fair cut, per room (tier-major order is kept by the caller), and the lucky slots left of the round's target. */
-function fairCutSlotPlan(
-  source: TournamentRound,
-  roomSizes: number[],
-): { directPerRoom: number[]; lucky: number } {
-  const { groups } = fairCutShape(roomSizes, fairCutSurvivors(source, roomSizes));
-  const directPerRoom = roomSizes.map((size, index) => {
-    const group = groups.find((candidate) => candidate.rooms.includes(index + 1));
-    return group ? group.direct : Math.min(size, 1);
-  });
-  const lucky = source.advTotal - source.byeCount - directPerRoom.reduce((sum, direct) => sum + direct, 0);
-  return { directPerRoom, lucky: Math.max(0, lucky) };
-}
-
 export function projectFutureRoundSlots(
   state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
 ): Record<number, ProjectedSlotLabel[][] | null> {
