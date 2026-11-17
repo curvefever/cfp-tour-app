@@ -199,14 +199,41 @@ export function shareTiedPoints(state: TournamentState, key: string, names: stri
   };
 }
 
+/** Why a rename or a swap of a roster unit is refused, the first of its checks that failed. */
+export type RosterEditRefusal =
+  | 'empty-name'
+  | 'same-name'
+  | 'duplicate-name'
+  | 'withdrawn-name'
+  | 'unstorable-name'
+  | 'swap-closed'
+  | 'not-in-play'
+  | 'not-a-team-format';
+
+/** "Done, with the new state", or the reason it was refused (the state is then not changed). */
+export type RosterEditResult =
+  { status: 'done'; state: TournamentState } | { status: 'refused'; reason: RosterEditRefusal };
+
+const refused = (reason: RosterEditRefusal): RosterEditResult => ({ status: 'refused', reason });
+
 export function renameIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
+  const result = renameIndividualResult(state, oldName, newName);
+  return result.status === 'done' ? result.state : state;
+}
+
+export function renameIndividualResult(
+  state: TournamentState,
+  oldName: string,
+  newName: string,
+): RosterEditResult {
   const trimmed = newName.trim();
-  if (!trimmed || trimmed === oldName) return state;
+  if (!trimmed) return refused('empty-name');
+  if (trimmed === oldName) return refused('same-name');
   if (findUnit(state.players, trimmed) !== undefined || findUnit(state.reserves, trimmed) !== undefined) {
-    return state;
+    return refused('duplicate-name');
   }
-  if (isWithdrawnName(state, trimmed)) return state;
-  if (findUnstorableNames([trimmed]).length) return state;
+  if (isWithdrawnName(state, trimmed)) return refused('withdrawn-name');
+  if (findUnstorableNames([trimmed]).length) return refused('unstorable-name');
   const rename = (name: string) => (name === oldName ? trimmed : name);
   const finalScores: TournamentState['finalScores'] = {};
   for (const [key, score] of Object.entries(state.finalScores)) {
@@ -226,7 +253,10 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
     ),
     finalScores,
   };
-  return moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed);
+  return {
+    status: 'done',
+    state: moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed),
+  };
 }
 
 function rebuildFutureRounds(state: TournamentState): TournamentState | null {
@@ -898,39 +928,47 @@ function swapUnit(
   state: TournamentState,
   outgoingKey: string,
   incoming: string | TournamentTeam,
-): TournamentState {
+): RosterEditResult {
   const incomingKey = rosterKey(incoming);
   const replaced = replaceUnitInPlay(state, outgoingKey, incomingKey);
-  if (!replaced) return state;
+  if (!replaced) return refused('not-in-play');
   const withdrawn = recordWithdrawal(state, outgoingKey, 'swapped', incomingKey);
 
-  return patchPublishedFutureRounds(
-    {
-      ...replaced,
-      withdrawnUnits: withdrawn.withdrawnUnits,
-      players: withUnit(withoutUnit(state.players, outgoingKey), incoming),
-      reserves: withoutUnit(state.reserves, incomingKey),
-      groups: state.groups.map((group) => ({
-        ...group,
-        members: group.members.map((name) => (name === outgoingKey ? incomingKey : name)),
-      })),
-    },
-    outgoingKey,
-    incomingKey,
-  );
+  return {
+    status: 'done',
+    state: patchPublishedFutureRounds(
+      {
+        ...replaced,
+        withdrawnUnits: withdrawn.withdrawnUnits,
+        players: withUnit(withoutUnit(state.players, outgoingKey), incoming),
+        reserves: withoutUnit(state.reserves, incomingKey),
+        groups: state.groups.map((group) => ({
+          ...group,
+          members: group.members.map((name) => (name === outgoingKey ? incomingKey : name)),
+        })),
+      },
+      outgoingKey,
+      incomingKey,
+    ),
+  };
 }
 
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
+  const result = swapIndividualResult(state, oldName, newName);
+  return result.status === 'done' ? result.state : state;
+}
+
+export function swapIndividualResult(
+  state: TournamentState,
+  oldName: string,
+  newName: string,
+): RosterEditResult {
   const trimmed = newName.trim();
-  if (
-    !trimmed ||
-    findUnit(state.players, trimmed) !== undefined ||
-    isWithdrawnName(state, trimmed) ||
-    findUnstorableNames([trimmed]).length ||
-    !swapWindowOpen(state)
-  ) {
-    return state;
-  }
+  if (!trimmed) return refused('empty-name');
+  if (findUnit(state.players, trimmed) !== undefined) return refused('duplicate-name');
+  if (isWithdrawnName(state, trimmed)) return refused('withdrawn-name');
+  if (findUnstorableNames([trimmed]).length) return refused('unstorable-name');
+  if (!swapWindowOpen(state)) return refused('swap-closed');
   return swapUnit(state, oldName, trimmed);
 }
 
@@ -939,15 +977,26 @@ export function swapTeam(
   oldTeamId: string,
   replacement: TournamentTeam,
 ): TournamentState {
+  const result = swapTeamResult(state, oldTeamId, replacement);
+  return result.status === 'done' ? result.state : state;
+}
+
+export function swapTeamResult(
+  state: TournamentState,
+  oldTeamId: string,
+  replacement: TournamentTeam,
+): RosterEditResult {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize;
-  if (!teamSize || !swapWindowOpen(state) || findUnit(state.players, replacement.teamId) !== undefined) {
-    return state;
-  }
+  if (!teamSize) return refused('not-a-team-format');
+  if (!swapWindowOpen(state)) return refused('swap-closed');
+  if (findUnit(state.players, replacement.teamId) !== undefined) return refused('duplicate-name');
   // The outgoing team is being removed by this same swap and the replacement may be
   // taken from the reserves, so neither counts as a name collision.
-  if (isDisplayNameTaken(state, replacement.teamName, [oldTeamId, replacement.teamId])) return state;
-  if (findUnstorableNames(teamNames(replacement)).length) return state;
+  if (isDisplayNameTaken(state, replacement.teamName, [oldTeamId, replacement.teamId])) {
+    return refused('duplicate-name');
+  }
+  if (findUnstorableNames(teamNames(replacement)).length) return refused('unstorable-name');
   return swapUnit(state, oldTeamId, replacement);
 }
 
