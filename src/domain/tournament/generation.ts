@@ -1,14 +1,10 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat, deriveRoomSize, resolveOddCountStrategy } from './formats';
-import {
-  GROUP_SIZE_BOUNDS,
-  QUALIFICATION_ROUNDS,
-  computeSwissRoundCount,
-  seedFromGroupStageRound,
-} from './pooling';
+import { QUALIFICATION_ROUNDS, computeSwissRoundCount, seedFromGroupStageRound } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { groupExitRefusal, groupSizesOf, groupsLineExit } from './group-exit';
+import { groupExitRefusal, groupsLineExit } from './group-exit';
+import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { validateRoomCap } from './room-distribution';
@@ -221,13 +217,14 @@ export function generateTournament(
   const scoringVisible = form.poolingPhase !== 'none';
   const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
   const matchConfig = matchFormatConfig(form, chosen);
+  const settings = groupSettingsOf(form);
   const config: GenerationConfig = {
     n: unitCount,
     poolingPhase: form.poolingPhase,
     qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
-    groupSize: parsed(form.groupSize, GROUP_SIZE_BOUNDS.ideal),
+    groupSize: settings.groupSize,
     roundRobinMode: form.roundRobinMode,
-    qualifiersPerGroup: parsed(form.qualifiersPerGroup, 2),
+    qualifiersPerGroup: settings.qualifiersPerGroup,
     ...(form.poolingPhase === 'group-stage' && form.groupExit && form.groupExit !== 'per-group'
       ? { groupExit: form.groupExit }
       : {}),

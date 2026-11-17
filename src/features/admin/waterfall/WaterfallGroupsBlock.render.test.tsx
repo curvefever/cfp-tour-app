@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { groupSizesOf } from '../../../domain/tournament/group-exit';
+import { groupSizesOf } from '../../../domain/tournament/group-settings';
 import { GROUPS_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cutoffTieHeading } from '../../bracket/cutoff-tie-heading';
 import { setupDerived } from '../setup/setup-derived';

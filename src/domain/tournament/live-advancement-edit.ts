@@ -3,6 +3,7 @@ import { parseAdvanceToBracket } from './bracket-entry';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';
+import { groupSettingsOfCfg } from './group-settings';
 import { isPoolingRound } from './pooling';
 import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
@@ -199,9 +200,7 @@ function applyPoolingEdit(
       config: {
         n: roster.length,
         qualAdv,
-        groupSize: cfg.groupSize ?? 4,
-        roundRobinMode: cfg.roundRobinMode ?? 'single',
-        qualifiersPerGroup: cfg.qualifiersPerGroup ?? 2,
+        ...groupSettingsOfCfg(cfg),
         ...(cfg.groupExit ? { groupExit: cfg.groupExit } : {}),
       },
       format: gamemodeConfig,

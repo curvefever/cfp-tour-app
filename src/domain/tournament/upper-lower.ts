@@ -1,6 +1,6 @@
 import { parseAdvanceToBracket } from './bracket-entry';
-import { groupExitIsTotal, groupSizesOf } from './group-exit';
-import { GROUP_SIZE_BOUNDS } from './pooling';
+import { groupExitIsTotal } from './group-exit';
+import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup, RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
@@ -380,7 +380,7 @@ export function automaticRequest(
 ): AutomaticRequest {
   const total = parseAdvanceToBracket(form.qualAdv);
   if (form.poolingPhase !== 'group-stage' || groupExitIsTotal(form)) return { request: total };
-  const qualifiers = Number.parseInt(form.qualifiersPerGroup, 10) || 2;
+  const { qualifiersPerGroup: qualifiers } = groupSettingsOf(form);
   return { request: groupCount * qualifiers, perGroup: { groups: groupCount, qualifiers } };
 }
 
@@ -440,10 +440,7 @@ export function planUpperLower(
     };
   }
   const afterGroups = form.poolingPhase === 'group-stage';
-  const groupCount = groupSizesOf(
-    unitCount,
-    Number.parseInt(form.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal,
-  ).length;
+  const groupCount = groupSizesOf(unitCount, groupSettingsOf(form).groupSize).length;
   const entry = resolveUpperLowerEntry(form, unitCount, groupCount, roomSize, unitPlural);
   if (!entry.ok) return entry;
   const upper = upperLowerUpper(entry.entry, form.upperLowerUpper, roomSize);

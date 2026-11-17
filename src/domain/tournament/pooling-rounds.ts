@@ -1,11 +1,5 @@
-import { groupSizesOf } from './group-exit';
-import {
-  GROUP_SIZE_BOUNDS,
-  QUALIFICATION_ROUNDS,
-  computeSwissRoundCount,
-  groupStageRoundCount,
-  WARMUP_ROUNDS,
-} from './pooling';
+import { groupSettingsOf, groupSizesOf } from './group-settings';
+import { QUALIFICATION_ROUNDS, computeSwissRoundCount, groupStageRoundCount, WARMUP_ROUNDS } from './pooling';
 import type { PersistedSetup } from './types';
 
 /** Sanity ceiling for a manually-overridden pooling-phase round count, matching single-elimination.ts's own MAX_ELIMINATION_ROUNDS-style cap. */
@@ -39,7 +33,7 @@ export function roundsBeforeBracket(setup: PoolingRoundsSetup, entrantCount: num
       return parsePoolingRoundsOverride(setup.swissRoundsOverride) ?? computeSwissRoundCount(entrantCount);
     case 'group-stage':
       return groupStageRoundCount(
-        groupSizesOf(entrantCount, Number.parseInt(setup.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal),
+        groupSizesOf(entrantCount, groupSettingsOf(setup).groupSize),
         setup.roundRobinMode,
       );
     case 'none':

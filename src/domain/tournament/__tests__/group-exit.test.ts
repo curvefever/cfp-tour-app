@@ -7,9 +7,9 @@ import {
   groupExitRefusal,
   groupExitSelection,
   groupExitShape,
-  groupSizesOf,
   type GroupExitShape,
 } from '../group-exit';
+import { groupSizesOf } from '../group-settings';
 import { removeRosterUnit, resolveTournamentTie } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';

@@ -13,6 +13,7 @@ import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-dra
 import { replanUpperLower } from './upper-lower-replan';
 import { getGameFormat } from './formats';
 import { lateJoinersOf } from './late-joiners';
+import { groupSettingsOfCfg } from './group-settings';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
@@ -243,9 +244,7 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
     config: {
       n: rosterKeys(state.players).length,
       qualAdv: state.cfg.qualAdv ?? rosterKeys(state.players).length,
-      groupSize: state.cfg.groupSize ?? 4,
-      roundRobinMode: state.cfg.roundRobinMode ?? 'single',
-      qualifiersPerGroup: state.cfg.qualifiersPerGroup ?? 2,
+      ...groupSettingsOfCfg(state.cfg),
       ...(state.cfg.groupExit ? { groupExit: state.cfg.groupExit } : {}),
     },
     format: config,

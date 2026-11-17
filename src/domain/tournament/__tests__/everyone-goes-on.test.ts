@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupSizesOf } from '../group-exit';
+import { groupSizesOf } from '../group-settings';
 import { advanceTournamentRound } from '../transitions';
 import type { ScheduleLogicKey, TournamentState } from '../types';
 import { expectEveryUnitRankedOnce } from './dependency-play-fixtures';

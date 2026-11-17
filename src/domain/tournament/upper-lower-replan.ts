@@ -1,6 +1,5 @@
 import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from './formats';
-import { groupSizesOf } from './group-exit';
-import { GROUP_SIZE_BOUNDS } from './pooling';
+import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { isRoundReached } from './round-columns';
 import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
@@ -37,9 +36,7 @@ function entryOf(state: TournamentState, roomSize: RoomSize) {
   const units = rosterKeys(state.players).length;
   const settings = state.settings;
   if (!settings) return upperLowerEntry(units, null, roomSize);
-  const groupCount =
-    state.groups.length ||
-    groupSizesOf(units, Number.parseInt(settings.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal).length;
+  const groupCount = state.groups.length || groupSizesOf(units, groupSettingsOf(settings).groupSize).length;
   return resolveUpperLowerEntry(
     settings,
     units,

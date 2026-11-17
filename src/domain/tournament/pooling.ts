@@ -1,6 +1,7 @@
 import { groupExitEntryCount, groupExitShape } from './group-exit';
+import { groupSizesOf } from './group-settings';
 import { stageMatchFields } from './match-format';
-import { distributeRooms, distributeRoomsWithBye } from './room-distribution';
+import { distributeRoomsWithBye } from './room-distribution';
 import type {
   DrawPublicationKey,
   GroupExitMode,
@@ -20,7 +21,6 @@ export const QUALIFICATION_ROUNDS = 3;
 export const WARMUP_ROUNDS = 2;
 const MIN_SWISS_ROUNDS = 3;
 const MAX_SWISS_ROUNDS = 7;
-const IDEAL_GROUP_SIZE = 4;
 
 /** A pooling round (warm-up, qualification table, Swiss or group stage): never an elimination round, Semis or the Final. */
 export const isPoolingRound = (round: TournamentRound): boolean =>
@@ -33,12 +33,6 @@ export const swissRoutesItsStandings = (state: Pick<TournamentState, 'cfg' | 'ro
 /** A qualification or Swiss round whose result counts toward the standings (the rule of `computeQualificationStandings`). */
 export const isCountedPoolingRound = (round: TournamentRound): boolean =>
   (round.isQual || !!round.isSwiss) && !round.excludeFromStandings;
-
-export const GROUP_SIZE_BOUNDS = {
-  min: 3,
-  max: 5,
-  ideal: IDEAL_GROUP_SIZE,
-} as const;
 
 export interface PoolingConfig {
   n: number;
@@ -282,11 +276,7 @@ export function groupStagePoolingPhase(
     Partial<Pick<PoolingConfig, 'qualAdv' | 'groupExit'>>,
   roster: string[],
 ): PoolingPhaseResult {
-  const groupSizes = distributeRooms(config.n, {
-    min: GROUP_SIZE_BOUNDS.min,
-    max: GROUP_SIZE_BOUNDS.max,
-    ideal: config.groupSize,
-  });
+  const groupSizes = groupSizesOf(config.n, config.groupSize);
   const groups = assignGroupMembers(roster, groupSizes);
   const roundRobinRounds = buildRoundRobinRounds(groups, config.roundRobinMode);
   const rounds = roundRobinRounds.map((round, index): TournamentRound => ({

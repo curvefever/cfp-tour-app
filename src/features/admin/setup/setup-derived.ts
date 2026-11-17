@@ -2,7 +2,7 @@ import { bracketEntryCountFromSetup } from '../../../domain/tournament/bracket-e
 import { deriveRoomSize, getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
 import { computeSwissRoundCount, QUALIFICATION_ROUNDS } from '../../../domain/tournament/pooling';
 import { getMinimumBracketUnits } from '../../../domain/tournament/schedule-generation';
-import { groupSizesOf } from '../../../domain/tournament/group-exit';
+import { groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import { standingsKindOfSetup } from '../../../domain/tournament/waterfall-numbering';
 import { waterfallGraphQualAdvance } from '../../../domain/tournament/waterfall-draft';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
@@ -45,7 +45,7 @@ export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQu
   // The groups the roster splits into, when the Groups line decides the exit (null while no roster is loaded).
   const waterfallGroupSizes =
     waterfallStandingsKind === 'groups' && state.confirmedCount
-      ? groupSizesOf(state.confirmedCount, Number.parseInt(setup.groupSize, 10) || 4)
+      ? groupSizesOf(state.confirmedCount, groupSettingsOf(setup).groupSize)
       : null;
   return {
     derivedAdvance,

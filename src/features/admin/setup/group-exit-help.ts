@@ -1,11 +1,6 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
-import {
-  groupExitIsTotal,
-  groupExitRefusal,
-  groupExitShape,
-  groupSizesOf,
-} from '../../../domain/tournament/group-exit';
-import { GROUP_SIZE_BOUNDS } from '../../../domain/tournament/pooling';
+import { groupExitIsTotal, groupExitRefusal, groupExitShape } from '../../../domain/tournament/group-exit';
+import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { groupExitHelp } from '../../tournament/components/group-exit-text';
 
@@ -41,7 +36,7 @@ function perGroupHelpLine(
   groupSize: number,
   unitPlural: string,
 ): { text: string; refused: true } | null {
-  const qualifiers = Number.parseInt(setup.qualifiersPerGroup, 10) || 2;
+  const { qualifiersPerGroup: qualifiers } = groupSettingsOf(setup);
   const refusal = groupExitRefusal(registered, groupSize, 'per-group', qualifiers, unitPlural);
   return refusal ? { text: refusal, refused: true } : null;
 }

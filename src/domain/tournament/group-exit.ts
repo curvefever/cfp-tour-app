@@ -1,7 +1,6 @@
 import { compareStandings, rankingPoints, sameStanding } from './advancement';
 import { fairCutShape, type FairCutChancePlace } from './fair-cut';
-import { GROUP_SIZE_BOUNDS } from './pooling';
-import { distributeRooms } from './room-distribution';
+import { groupSizesOf } from './group-settings';
 import { tieResolutionList } from './scoring';
 import type { GroupExitMode, TournamentState, TournamentStanding } from './types';
 
@@ -293,15 +292,6 @@ function chanceTies(
 /** The points per match (or points) the tied units are level on, for the tie cluster. */
 export function groupExitTiePoints(tie: GroupExitTie): number {
   return rankingPoints(tie.players[0].entry) ?? 0;
-}
-
-/** The sizes of the groups `unitCount` units are split into, for the Setup's group size. */
-export function groupSizesOf(unitCount: number, groupSize: number): number[] {
-  return distributeRooms(unitCount, {
-    min: GROUP_SIZE_BOUNDS.min,
-    max: GROUP_SIZE_BOUNDS.max,
-    ideal: groupSize,
-  });
 }
 
 /** "3 groups (5, 4, 4)": the groups a roster is split into. */

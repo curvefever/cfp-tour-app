@@ -1,6 +1,5 @@
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { groupSizesOf } from '../../../domain/tournament/group-exit';
-import { GROUP_SIZE_BOUNDS } from '../../../domain/tournament/pooling';
+import { groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup, PoolingPhaseKey } from '../../../domain/tournament/types';
 import { planUpperLowerFor } from '../../../domain/tournament/upper-lower-form';
 import {
@@ -20,8 +19,7 @@ export function upperLowerAutomaticPlaceholder(
   registered: number | null,
 ): string {
   if (setup.poolingPhase === 'group-stage' && registered === null) return 'automatic';
-  const groupSize = Number.parseInt(setup.groupSize, 10) || GROUP_SIZE_BOUNDS.ideal;
-  const groupCount = groupSizesOf(registered ?? 0, groupSize).length;
+  const groupCount = groupSizesOf(registered ?? 0, groupSettingsOf(setup).groupSize).length;
   const { request } = automaticRequest(setup, groupCount);
   return request === null ? 'automatic' : `automatic: ${request}`;
 }
