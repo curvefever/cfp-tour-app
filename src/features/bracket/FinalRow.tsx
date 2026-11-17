@@ -1,5 +1,6 @@
 import { unitDisplay } from '../../domain/tournament/roster';
 import { setFinalScore } from '../../domain/tournament/mutations';
+import { finalScoreKey } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { CommitScoreInput, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -52,7 +53,7 @@ function FinalScoreEntry({
             if (!member) {
               return <ScoreInput className={compactScoreClass} disabled key={memberIndex} placeholder='—' />;
             }
-            const key = `game${activeTab}-${name}-m${memberIndex}`;
+            const key = finalScoreKey(activeTab, name, memberIndex);
             return (
               <label key={key}>
                 <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>
@@ -68,7 +69,7 @@ function FinalScoreEntry({
           })}
         </TeamScoreFields>
       ) : (
-        <FinalUnitScoreInput scoreKey={`game${activeTab}-${name}`} state={state} />
+        <FinalUnitScoreInput scoreKey={finalScoreKey(activeTab, name)} state={state} />
       )}
     </div>
   );
