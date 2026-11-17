@@ -114,21 +114,75 @@ export const ODD_COUNT_STRATEGY_LABELS = {
   flex: 'Flex — a room can occasionally hold one extra team',
 } as const;
 
-export const SCHEDULE_LOGIC_LABELS: Record<ScheduleLogicKey, string> = {
-  'single-elimination': 'Single elimination',
-  'double-elimination': 'Double elimination',
-  'double-elimination-shared-final': 'Double elimination — FFA/Team',
-  'kings-valley': 'Kings Valley',
-  'waterfall-bracket': 'Custom bracket (organiser-authored)',
-  'upper-lower': 'Upper and lower bracket',
+/**
+ * How a choice is worded where it is shown: `setup` in the Setup form's option, `recap` in the settings recap, `list` in
+ * the format line of the Tournaments list and Info. The three wordings are today's and differ on purpose-less history;
+ * making them one is a wording decision.
+ */
+interface ChoiceWords<List extends string | null = string> {
+  setup: string;
+  recap: string;
+  list: List;
+}
+
+export const SCHEDULE_LOGIC_WORDS: Record<ScheduleLogicKey, ChoiceWords> = {
+  'single-elimination': {
+    setup: 'Single elimination',
+    recap: 'Single elimination',
+    list: 'Single elimination',
+  },
+  'double-elimination': {
+    setup: 'Double elimination',
+    recap: 'Double elimination',
+    list: 'Double elimination',
+  },
+  'double-elimination-shared-final': {
+    setup: 'Double elimination — FFA/Team',
+    recap: 'Double elimination — FFA/Team',
+    list: 'Double elimination',
+  },
+  'kings-valley': { setup: 'Kings Valley', recap: 'Kings Valley', list: 'Kings Valley' },
+  'waterfall-bracket': {
+    setup: 'Custom bracket (organiser-authored)',
+    recap: 'Custom bracket (organiser-authored)',
+    list: 'Custom bracket',
+  },
+  'upper-lower': {
+    setup: 'Upper and lower bracket',
+    recap: 'Upper and lower bracket',
+    list: 'Upper and lower bracket',
+  },
 };
 
-export const POOLING_PHASE_LABELS: Record<PoolingPhaseKey, string> = {
-  none: 'None — standard elimination from R1',
-  'qual-table': 'Qualification Table',
-  swiss: 'Swiss',
-  'group-stage': 'Group Stage',
+/** `list` is null for "None": the format line names no pooling phase. */
+export const POOLING_PHASE_WORDS: Record<PoolingPhaseKey, ChoiceWords<string | null>> = {
+  none: {
+    setup: 'None — standard elimination from R1',
+    recap: 'None — standard elimination from R1',
+    list: null,
+  },
+  'qual-table': {
+    setup: 'Qualification Table — R1/R2/R3 feed cumulative table',
+    recap: 'Qualification Table',
+    list: 'Qualification table',
+  },
+  swiss: { setup: 'Swiss — fold-paired rounds feed cumulative standings', recap: 'Swiss', list: 'Swiss' },
+  'group-stage': {
+    setup: 'Group Stage — round-robin groups, top finishers advance',
+    recap: 'Group Stage',
+    list: 'Group stage',
+  },
 };
+
+/** The recap's wording of each schedule logic. */
+export const SCHEDULE_LOGIC_LABELS = Object.fromEntries(
+  Object.entries(SCHEDULE_LOGIC_WORDS).map(([key, words]) => [key, words.recap]),
+) as Record<ScheduleLogicKey, string>;
+
+/** The recap's wording of each pooling phase. */
+export const POOLING_PHASE_LABELS = Object.fromEntries(
+  Object.entries(POOLING_PHASE_WORDS).map(([key, words]) => [key, words.recap]),
+) as Record<PoolingPhaseKey, string>;
 
 export function getGameFormat(key: GameFormatKey): Readonly<GameFormatDefinition> | undefined {
   return GAME_FORMATS[key];

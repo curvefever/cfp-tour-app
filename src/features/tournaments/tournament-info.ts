@@ -1,22 +1,6 @@
-import { getGameFormat } from '../../domain/tournament/formats';
+import { getGameFormat, POOLING_PHASE_WORDS, SCHEDULE_LOGIC_WORDS } from '../../domain/tournament/formats';
 import { timeZoneLabel } from './scheduled-time';
 import type { GameFormatKey, PoolingPhaseKey, ScheduleLogicKey } from '../../domain/tournament/types';
-
-const POOLING_NAMES: Record<PoolingPhaseKey, string | null> = {
-  none: null,
-  'qual-table': 'Qualification table',
-  swiss: 'Swiss',
-  'group-stage': 'Group stage',
-};
-
-const BRACKET_NAMES: Record<ScheduleLogicKey, string> = {
-  'single-elimination': 'Single elimination',
-  'double-elimination': 'Double elimination',
-  'double-elimination-shared-final': 'Double elimination',
-  'kings-valley': 'Kings Valley',
-  'waterfall-bracket': 'Custom bracket',
-  'upper-lower': 'Upper and lower bracket',
-};
 
 /** One line describing how a tournament is played, without round counts: "1v1 · Swiss · Single elimination". */
 export function tournamentFormatLine(format: {
@@ -26,8 +10,8 @@ export function tournamentFormatLine(format: {
 }): string {
   return [
     getGameFormat(format.gameFormat)?.shortLabel ?? format.gameFormat,
-    POOLING_NAMES[format.poolingPhase],
-    BRACKET_NAMES[format.scheduleLogic],
+    POOLING_PHASE_WORDS[format.poolingPhase]?.list,
+    SCHEDULE_LOGIC_WORDS[format.scheduleLogic]?.list,
   ]
     .filter((part): part is string => part !== null)
     .join(' · ');

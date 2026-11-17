@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import {
   ODD_COUNT_STRATEGY_LABELS,
+  POOLING_PHASE_WORDS,
+  SCHEDULE_LOGIC_WORDS,
   TEAM_SCORING_RULE_LABELS,
   getGameFormat,
   resolveOddCountStrategy,
@@ -107,8 +109,13 @@ export function FormatPanel({
   const scheduleOptions = useMemo(
     () =>
       raceCompatible
-        ? [{ value: 'double-elimination', label: 'Double elimination' }]
-        : [{ value: 'double-elimination-shared-final', label: 'Double elimination — FFA/Team' }],
+        ? [{ value: 'double-elimination', label: SCHEDULE_LOGIC_WORDS['double-elimination'].setup }]
+        : [
+            {
+              value: 'double-elimination-shared-final',
+              label: SCHEDULE_LOGIC_WORDS['double-elimination-shared-final'].setup,
+            },
+          ],
     [raceCompatible],
   );
   // Swiss fold-pairing and Group Stage round-robin scheduling both only make
@@ -117,12 +124,12 @@ export function FormatPanel({
   const headToHeadOnly = format?.idealRoomSize === 2;
   const poolingPhaseOptions = useMemo(
     () => [
-      { value: 'none', label: 'None — standard elimination from R1' },
-      { value: 'qual-table', label: 'Qualification Table — R1/R2/R3 feed cumulative table' },
+      { value: 'none', label: POOLING_PHASE_WORDS.none.setup },
+      { value: 'qual-table', label: POOLING_PHASE_WORDS['qual-table'].setup },
       ...(headToHeadOnly
         ? [
-            { value: 'swiss', label: 'Swiss — fold-paired rounds feed cumulative standings' },
-            { value: 'group-stage', label: 'Group Stage — round-robin groups, top finishers advance' },
+            { value: 'swiss', label: POOLING_PHASE_WORDS.swiss.setup },
+            { value: 'group-stage', label: POOLING_PHASE_WORDS['group-stage'].setup },
           ]
         : []),
     ],
@@ -242,15 +249,17 @@ export function FormatPanel({
             value={setup.scheduleLogic}
             onChange={(e) => change('scheduleLogic', e.target.value)}
           >
-            <option value='single-elimination'>Single elimination</option>
+            <option value='single-elimination'>{SCHEDULE_LOGIC_WORDS['single-elimination'].setup}</option>
             {scheduleOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-            {headToHeadOnly ? null : <option value='kings-valley'>Kings Valley</option>}
-            <option value='upper-lower'>Upper and lower bracket</option>
-            <option value='waterfall-bracket'>Custom bracket (organiser-authored)</option>
+            {headToHeadOnly ? null : (
+              <option value='kings-valley'>{SCHEDULE_LOGIC_WORDS['kings-valley'].setup}</option>
+            )}
+            <option value='upper-lower'>{SCHEDULE_LOGIC_WORDS['upper-lower'].setup}</option>
+            <option value='waterfall-bracket'>{SCHEDULE_LOGIC_WORDS['waterfall-bracket'].setup}</option>
           </Select>
         </PresenceField>
         {shown.has('teamScoringRule') ? (
