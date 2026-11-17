@@ -1,7 +1,7 @@
 import { withoutRoundAbsences } from './absences';
 import { currentUnit, replayBracketPools } from './bracket-replay';
 import { rosterKeys } from './roster';
-import { roundHasAnyScore } from './scoring';
+import { roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { rewindRoomHistory } from './seeding';
 import { roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
@@ -139,7 +139,7 @@ function discardRoundDraw(book: DrawBookkeeping, state: TournamentState, index: 
   if (advanceCountedPoolingBye(round)) undoPoolingByeCounts(book.poolingByeCounts, book.byes[index] ?? []);
   if (book.byes[index]) book.byes[index] = [];
   for (const key of Object.keys(book.tieResolutions)) {
-    if (key.startsWith(`r${index}-`)) delete book.tieResolutions[key];
+    if (key.startsWith(roundKeyPrefix(index))) delete book.tieResolutions[key];
   }
   book.absences = withoutRoundAbsences(book.absences, index);
 }

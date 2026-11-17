@@ -1,5 +1,5 @@
 import { withoutRoundAbsences } from './absences';
-import { isGroupBandKey, isQualCutoffKey } from './advancement';
+import { isGroupBandKey, isGroupCutoffKey, isQualCutoffKey } from './advancement';
 import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
@@ -15,7 +15,7 @@ import {
   usesDependencyPlay,
 } from './round-columns';
 import { rewindRoomHistory } from './seeding';
-import { roundHasAnyScore } from './scoring';
+import { roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
@@ -70,9 +70,7 @@ function standingsRoundIndex(state: TournamentState, firstWaterfallIndex: number
 
 /** Whether a tie resolution belongs to the Groups line's exit: a band boundary, or the cut-off the exit total sets. */
 function isGroupExitTieKey(key: string, includeCutoffs: boolean): boolean {
-  return (
-    isGroupBandKey(key) || (includeCutoffs && (key === GROUP_EXIT_TIE_KEY || key.startsWith('group-cutoff-')))
-  );
+  return isGroupBandKey(key) || (includeCutoffs && (key === GROUP_EXIT_TIE_KEY || isGroupCutoffKey(key)));
 }
 
 type GroupsLineSettings = { ok: true; cfg: TournamentState['cfg'] } | { ok: false; error: string };
@@ -167,7 +165,7 @@ function redrawRounds(
       assignments: working.assignments.map((entry, position) => (position === index ? [] : entry)),
       byes: working.byes.map((entry, position) => (position === index ? [] : entry)),
       tieResolutions: Object.fromEntries(
-        Object.entries(working.tieResolutions).filter(([key]) => !key.startsWith(`r${index}-`)),
+        Object.entries(working.tieResolutions).filter(([key]) => !key.startsWith(roundKeyPrefix(index))),
       ),
       absences: withoutRoundAbsences(working.absences, index),
       pendingBracketSeeds: { ...working.pendingBracketSeeds, [index]: replayPools.get(index) ?? [] },

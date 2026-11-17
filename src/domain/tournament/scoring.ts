@@ -42,6 +42,63 @@ export function scoredTeamSize(
   return getGameFormat(state.gameFormat)?.teamSize;
 }
 
+/**
+ * The key a score is stored under: `r{round}-rm{room}-p{position}`, then `-g{game}` in a round of several games
+ * (`game` null: no game part), then `-m{member}` for one member of a team. Absence answers are keyed the same way.
+ */
+export function scoreKey(
+  roundIndex: number,
+  room: number,
+  position: number,
+  game: number | null = null,
+  memberIndex: number | null = null,
+): string {
+  return (
+    `${roomKeyPrefix(roundIndex, room)}p${position}` +
+    (game === null ? '' : `-g${game}`) +
+    (memberIndex === null ? '' : `-m${memberIndex}`)
+  );
+}
+
+/** What every key of a round starts with: its scores, tie decisions and absence answers. */
+export function roundKeyPrefix(roundIndex: number): string {
+  return `r${roundIndex}-`;
+}
+
+/** What every key of one room of a round starts with. */
+export function roomKeyPrefix(roundIndex: number, room: number): string {
+  return `${roundKeyPrefix(roundIndex)}rm${room}-`;
+}
+
+/** What every key of one seat starts with (its games and members); the seat's own key is `scoreKey` without them. */
+export function seatKeyPrefix(roundIndex: number, room: number, position: number): string {
+  return `${scoreKey(roundIndex, room, position)}-`;
+}
+
+/** The parts of a score key; `game` and `memberIndex` are null when the key has no such part. */
+export interface ParsedScoreKey {
+  roundIndex: number;
+  room: number;
+  position: number;
+  game: number | null;
+  memberIndex: number | null;
+}
+
+const SCORE_KEY_PATTERN = /^r(\d+)-rm(\d+)-p(\d+)(?:-g(\d+))?(?:-m(\d+))?$/;
+
+/** Reads a score key back into its parts; null for any other key (a tie key, a Final's key). */
+export function parseScoreKey(key: string): ParsedScoreKey | null {
+  const match = SCORE_KEY_PATTERN.exec(key);
+  if (!match) return null;
+  return {
+    roundIndex: Number(match[1]),
+    room: Number(match[2]),
+    position: Number(match[3]),
+    game: match[4] === undefined ? null : Number(match[4]),
+    memberIndex: match[5] === undefined ? null : Number(match[5]),
+  };
+}
+
 /** One game of one unit, read from the room's score keys (the members' scores combined by the team scoring rule). */
 export function getUnitScoreForGame(
   state: TournamentState,
@@ -52,9 +109,8 @@ export function getUnitScoreForGame(
   fallback: number | null,
 ): number | null {
   const teamSize = scoredTeamSize(state);
-  const gamePart = game === null ? '' : `-g${game}`;
   if (!teamSize) {
-    return scoreOrDefault(state.scores[`r${roundIndex}-rm${room}-p${position}${gamePart}`], fallback);
+    return scoreOrDefault(state.scores[scoreKey(roundIndex, room, position, game)], fallback);
   }
 
   const roomAssignments = (state.assignments[roundIndex] ?? []).filter(
@@ -70,10 +126,7 @@ export function getUnitScoreForGame(
   for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
     if (withdrawn) {
       values.push(
-        scoreOrDefault(
-          state.scores[`r${roundIndex}-rm${room}-p${position}${gamePart}-m${memberIndex}`],
-          null,
-        ) ?? 0,
+        scoreOrDefault(state.scores[scoreKey(roundIndex, room, position, game, memberIndex)], null) ?? 0,
       );
       continue;
     }
@@ -81,10 +134,7 @@ export function getUnitScoreForGame(
       values.push(0);
       continue;
     }
-    let value = scoreOrDefault(
-      state.scores[`r${roundIndex}-rm${room}-p${position}${gamePart}-m${memberIndex}`],
-      null,
-    );
+    let value = scoreOrDefault(state.scores[scoreKey(roundIndex, room, position, game, memberIndex)], null);
     if (value === null) {
       anyMissing = true;
       value = 0;
@@ -186,13 +236,13 @@ export function scoreKeysForPosition(options: {
   const { roundIndex, room, position, numGames = 1, teamSize } = options;
   const keys: string[] = [];
   for (let game = 1; game <= numGames; game += 1) {
-    const base = `r${roundIndex}-rm${room}-p${position}` + (numGames > 1 ? `-g${game}` : '');
+    const gamePart = numGames > 1 ? game : null;
     if (teamSize) {
       for (let member = 0; member < teamSize; member += 1) {
-        keys.push(`${base}-m${member}`);
+        keys.push(scoreKey(roundIndex, room, position, gamePart, member));
       }
     } else {
-      keys.push(base);
+      keys.push(scoreKey(roundIndex, room, position, gamePart));
     }
   }
   return keys;
@@ -295,7 +345,7 @@ export function compareRankScores(first: RankScore, second: RankScore): number {
 /** The tie-resolution key of the units of a room that share a result; `-t{total}` is there only when a tiebreak is. */
 export function roomTieKey(roundIndex: number, room: number, result: RankScore): string {
   return (
-    `r${roundIndex}-rm${room}-s${result.score}` +
+    `${roomKeyPrefix(roundIndex, room)}s${result.score}` +
     (result.tiebreak === undefined ? '' : `-t${result.tiebreak}`)
   );
 }
@@ -399,7 +449,7 @@ export function roundHasAnyScore(
   if (round.isFinal) {
     return Object.values(state.finalScores).some((value) => value !== null && value !== '');
   }
-  const prefix = `r${roundIndex}-`;
+  const prefix = roundKeyPrefix(roundIndex);
   return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
 }
 
@@ -423,7 +473,7 @@ export function unscoredRooms(state: TournamentState): UnscoredRoom[] {
       if (entry.room !== null) sizes.set(entry.room, (sizes.get(entry.room) ?? 0) + 1);
     }
     for (const [room, size] of [...sizes].sort((first, second) => first[0] - second[0])) {
-      const prefix = `r${roundIndex}-rm${room}-`;
+      const prefix = roomKeyPrefix(roundIndex, room);
       const scored = Object.entries(state.scores).some(
         ([key, value]) => key.startsWith(prefix) && value !== null,
       );

@@ -2,7 +2,7 @@ import { withoutRoomAbsences, withoutRoundAbsences } from './absences';
 import { getGameFormat } from './formats';
 import { splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
-import { roundHasAnyScore } from './scoring';
+import { roomKeyPrefix, roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { isPoolingRound } from './pooling';
 import { recordRoomHistory, rewindRoomHistory } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
@@ -180,7 +180,7 @@ function commitLineup(
   const kept = new Set(entries.map((entry) => entry.name));
   const at = <T>(list: T[], value: T) => list.map((entry, index) => (index === roundIndex ? value : entry));
   const prefixes = (changedRooms ?? [null]).map((room) =>
-    room === null ? `r${roundIndex}-` : `r${roundIndex}-rm${room}-`,
+    room === null ? roundKeyPrefix(roundIndex) : roomKeyPrefix(roundIndex, room),
   );
   const assignments = at(state.assignments, entries);
   return {
@@ -234,7 +234,7 @@ export function applyLineupEdit(state: TournamentState, draft: RoundAssignment[]
 
 /** Whether any score is entered in a room (any game of any unit): its seats are keyed by position, so they cannot be re-seated. */
 export function roomHasScore(state: TournamentState, roundIndex: number, room: number): boolean {
-  const prefix = `r${roundIndex}-rm${room}-`;
+  const prefix = roomKeyPrefix(roundIndex, room);
   return Object.entries(state.scores).some(([key, value]) => key.startsWith(prefix) && value !== null);
 }
 

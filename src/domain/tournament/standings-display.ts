@@ -6,6 +6,7 @@ import {
   computeGroupStandings,
   computeQualificationStandings,
   getAllTies,
+  groupCutoffKey,
   isGroupBandKey,
   isQualCutoffKey,
   isTieResolved,
@@ -214,7 +215,7 @@ function groupTables(state: TournamentState): StandingsDisplayTable[] {
       ...state,
       groupStandings: computed,
     });
-    const key = `group-cutoff-${group.label}` as const;
+    const key = groupCutoffKey(group.label);
     return {
       key,
       label: `Group ${group.label}`,

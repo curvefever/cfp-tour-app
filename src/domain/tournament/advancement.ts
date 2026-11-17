@@ -33,6 +33,7 @@ import {
   orderRoomWithPlaces,
   type RankScore,
   readTieResolution,
+  roomKeyPrefix,
   roomTieKey,
   scaledRoomPoints,
   standardPoints,
@@ -323,7 +324,7 @@ export function invalidateStaleTieResolutions(
   const currentTies: Record<string, TiedUnits> = detectTieBreaks(roundIndex, round, state);
   const bestTie = bestPlaceTie(state, roundIndex);
   if (bestTie) currentTies[bestTie.key] = bestTie;
-  const prefix = `r${roundIndex}-rm${room}-`;
+  const prefix = roomKeyPrefix(roundIndex, room);
   const bestKey = bestPlaceTieKey(roundIndex);
   const tieResolutions = { ...state.tieResolutions };
   let changed = false;
@@ -474,7 +475,7 @@ function detectGroupCutoffTie(
   const players = table.filter((entry) => sameGroupStanding(entry, boundary));
   if (players.length < 2) return null;
   return {
-    key: `group-cutoff-${label}`,
+    key: groupCutoffKey(label),
     players,
     fp: boundary.totalFP ?? 0,
     roomShare: boundary.roomShare ?? null,
@@ -558,6 +559,19 @@ function detectGroupExitTie(
     roomShare: tie.players[0].entry.roomShare ?? null,
     rm: null,
   };
+}
+
+/** Key prefix of the tie at the cut-off inside one group (a group's last direct place). */
+const GROUP_CUTOFF_KEY_PREFIX = 'group-cutoff-';
+
+/** The tie-resolution key of the cut-off tie inside the group with this label. */
+export function groupCutoffKey(label: string): `group-cutoff-${string}` {
+  return `${GROUP_CUTOFF_KEY_PREFIX}${label}`;
+}
+
+/** True for the tie-resolution keys of the cut-off ties inside a group. */
+export function isGroupCutoffKey(key: string): boolean {
+  return key.startsWith(GROUP_CUTOFF_KEY_PREFIX);
 }
 
 /** Key prefix of the ties between groups at a band boundary of a Groups line's routing. */

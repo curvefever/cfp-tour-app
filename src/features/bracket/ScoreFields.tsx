@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { setRoundScore } from '../../domain/tournament/mutations';
 import { unneededGames } from '../../domain/tournament/match-format';
+import { scoreKey } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -96,7 +97,7 @@ export function UnitScoreFields({
   position: number;
   games: number;
 }) {
-  const key = `r${roundIndex}-rm${room}-p${position}`;
+  const key = scoreKey(roundIndex, room, position);
   const notNeeded = unneededGames(state, roundIndex, room);
   const summary = unitScoreSummary(state, roundIndex, room, position);
   if (games <= 1)
@@ -104,7 +105,7 @@ export function UnitScoreFields({
   return (
     <TeamScoreFields>
       {Array.from({ length: games }, (_, gameIndex) => {
-        const gameKey = `${key}-g${gameIndex + 1}`;
+        const gameKey = scoreKey(roundIndex, room, position, gameIndex + 1);
         return (
           <label key={gameKey}>
             <span>G{gameIndex + 1}</span>

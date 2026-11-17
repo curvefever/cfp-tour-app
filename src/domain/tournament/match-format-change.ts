@@ -5,7 +5,7 @@
  */
 import { invalidateStaleTieResolutions } from './advancement';
 import { isOneScorePerTeam } from './formats';
-import { occupiedRooms } from './scoring';
+import { occupiedRooms, parseScoreKey, roundKeyPrefix, scoreKey } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
 type MatchFormat = Pick<TournamentRound, 'bestOf' | 'numGames'>;
@@ -23,25 +23,23 @@ function hasScore(value: unknown): boolean {
 function highestScoredGame(state: TournamentState, roundIndex: number): number {
   const isFinal = Boolean(state.rounds[roundIndex]?.isFinal);
   const scores = isFinal ? state.finalScores : state.scores;
-  const prefix = isFinal ? 'game' : `r${roundIndex}-`;
+  const prefix = isFinal ? 'game' : roundKeyPrefix(roundIndex);
   let highest = 0;
   for (const [key, value] of Object.entries(scores)) {
     if (!key.startsWith(prefix) || !hasScore(value)) continue;
-    const game = isFinal ? /^game(\d+)-/.exec(key) : /-g(\d+)(?:-m\d+)?$/.exec(key);
-    highest = Math.max(highest, game ? Number(game[1]) : 1);
+    const game = isFinal ? Number(/^game(\d+)-/.exec(key)?.[1]) : parseScoreKey(key)?.game;
+    highest = Math.max(highest, game || 1);
   }
   return highest;
 }
 
 /** The key a seat's score moves to when a round grows from one game to several, or comes back; null for any other key. */
 function movedKey(key: string, roundIndex: number, toSeveral: boolean): string | null {
-  const escaped = `r${roundIndex}-rm(\\d+)-p(\\d+)`;
-  if (toSeveral) {
-    const match = new RegExp(`^${escaped}(-m\\d+)?$`).exec(key);
-    return match ? `r${roundIndex}-rm${match[1]}-p${match[2]}-g1${match[3] ?? ''}` : null;
-  }
-  const match = new RegExp(`^${escaped}-g1(-m\\d+)?$`).exec(key);
-  return match ? `r${roundIndex}-rm${match[1]}-p${match[2]}${match[3] ?? ''}` : null;
+  const parsed = parseScoreKey(key);
+  if (!parsed || parsed.roundIndex !== roundIndex) return null;
+  const { room, position, game, memberIndex } = parsed;
+  if (toSeveral) return game === null ? scoreKey(roundIndex, room, position, 1, memberIndex) : null;
+  return game === 1 ? scoreKey(roundIndex, room, position, null, memberIndex) : null;
 }
 
 /** Re-keys the entries of a record that `movedKey` moves; `keepMemberKeys` leaves the "-m" keys where they are. */
@@ -53,7 +51,8 @@ function moveKeys<T>(
 ): Record<string, T> {
   const next: Record<string, T> = {};
   for (const [key, value] of Object.entries(record)) {
-    const moved = keepMemberKeys && /-m\d+$/.test(key) ? null : movedKey(key, roundIndex, toSeveral);
+    const isMemberKey = (parseScoreKey(key)?.memberIndex ?? null) !== null;
+    const moved = keepMemberKeys && isMemberKey ? null : movedKey(key, roundIndex, toSeveral);
     next[moved ?? key] = value;
   }
   return next;

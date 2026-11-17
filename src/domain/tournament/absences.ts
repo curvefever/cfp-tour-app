@@ -14,7 +14,18 @@ import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { isCurrentRound, roundsInPlay } from './round-columns';
-import { getFinalUnitScore, getUnitScore, occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
+import {
+  getFinalUnitScore,
+  getUnitScore,
+  occupiedRooms,
+  parseScoreKey,
+  roomKeyPrefix,
+  roundKeyPrefix,
+  scoredTeamSize,
+  scoreKey,
+  scoreOrDefault,
+  seatKeyPrefix,
+} from './scoring';
 import type { AbsenceAnswer, TournamentRound, TournamentState } from './types';
 import { absenteeDestination } from './waterfall-bracket';
 
@@ -114,10 +125,6 @@ function teamsOf(state: TournamentState): ReturnType<typeof buildTeamMap> {
   return map;
 }
 
-function seatBase(roundIndex: number, room: number, position: number, game: number | null): string {
-  return `r${roundIndex}-rm${room}-p${position}` + (game === null ? '' : `-g${game}`);
-}
-
 /** The key under which a member of a team with one score is marked absent by hand: round-wide, whatever the number of games. */
 export function oneScoreTeamMemberKey(
   roundIndex: number,
@@ -125,7 +132,7 @@ export function oneScoreTeamMemberKey(
   position: number,
   memberIndex: number,
 ): string {
-  return `${seatBase(roundIndex, room, position, null)}-m${memberIndex}`;
+  return scoreKey(roundIndex, room, position, null, memberIndex);
 }
 
 function unitsOfRoom(state: TournamentState, roundIndex: number, room: number): string[] {
@@ -158,14 +165,14 @@ function seatQuestions(
   const team = teamSize ? teamsOf(state)[unit] : undefined;
   const questions: AbsenceQuestion[] = [];
   for (let game = 1; game <= games; game += 1) {
-    const base = seatBase(roundIndex, room, position, games > 1 ? game : null);
+    const gamePart = games > 1 ? game : null;
     const seat = { roundIndex, room, position, unit, ...(games > 1 ? { game } : {}) };
     if (!teamSize) {
-      questions.push({ ...seat, key: base });
+      questions.push({ ...seat, key: scoreKey(roundIndex, room, position, gamePart) });
       continue;
     }
     for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
-      const key = `${base}-m${memberIndex}`;
+      const key = scoreKey(roundIndex, room, position, gamePart, memberIndex);
       // A team that has left the roster has no member list: its slots are the ones that hold a stored score.
       const exists = team ? Boolean(team.members?.[memberIndex]) : state.scores[key] !== undefined;
       if (exists) questions.push({ ...seat, key, memberIndex });
@@ -410,8 +417,8 @@ export function hasBlockingAbsenceQuestionsInRound(state: TournamentState, round
 function invalidateTiesOfKeys(state: TournamentState, keys: string[]): TournamentState {
   const rooms = new Map<string, [number, number]>();
   for (const key of keys) {
-    const match = /^r(\d+)-rm(\d+)-/.exec(key);
-    if (match) rooms.set(`${match[1]}:${match[2]}`, [Number(match[1]), Number(match[2])]);
+    const parsed = parseScoreKey(key);
+    if (parsed) rooms.set(`${parsed.roundIndex}:${parsed.room}`, [parsed.roundIndex, parsed.room]);
   }
   let next = state;
   for (const [roundIndex, room] of rooms.values()) {
@@ -438,11 +445,6 @@ export function answerAbsence(
   return invalidateTiesOfKeys(next, answered);
 }
 
-function roundOfKey(key: string): number | null {
-  const match = /^r(\d+)-/.exec(key);
-  return match ? Number(match[1]) : null;
-}
-
 /** The answers without one key's: a changed score drops the answer given to the earlier one. */
 export function withoutAbsenceAnswer(
   absences: TournamentState['absences'] | undefined,
@@ -453,7 +455,7 @@ export function withoutAbsenceAnswer(
 
 /** Takes an answer back (the panel's undo), so the question is asked again. Only in the rounds in play. */
 export function clearAbsenceAnswer(state: TournamentState, key: string): TournamentState {
-  const roundIndex = roundOfKey(key);
+  const roundIndex = parseScoreKey(key)?.roundIndex ?? null;
   if (answerOf(state, key) === undefined || roundIndex === null || !isCurrentRound(state, roundIndex)) {
     return state;
   }
@@ -506,7 +508,7 @@ export function withoutRoundAbsences(
   absences: TournamentState['absences'],
   roundIndex: number,
 ): TournamentState['absences'] {
-  const prefix = `r${roundIndex}-`;
+  const prefix = roundKeyPrefix(roundIndex);
   return withoutAbsences(absences, (key) => key.startsWith(prefix));
 }
 
@@ -516,7 +518,7 @@ export function withoutRoomAbsences(
   roundIndex: number,
   rooms: number[],
 ): TournamentState['absences'] {
-  const prefixes = rooms.map((room) => `r${roundIndex}-rm${room}-`);
+  const prefixes = rooms.map((room) => roomKeyPrefix(roundIndex, room));
   return withoutAbsences(absences, (key) => prefixes.some((prefix) => key.startsWith(prefix)));
 }
 
@@ -530,7 +532,8 @@ export function withSeatsShiftedUp(
   room: number,
   removedPosition: number,
 ): TournamentState['absences'] {
-  const seatPattern = new RegExp(`^r${roundIndex}-rm${room}-p(\\d+)(-.*)?$`);
+  // Matches the seat exactly (`p1` is never the start of `p10`), and keeps whatever follows it: games, members, hand marks.
+  const seatPattern = new RegExp(`^${roomKeyPrefix(roundIndex, room)}p(\\d+)(-.*)?$`);
   const shifted: TournamentState['absences'] = {};
   for (const [key, answer] of Object.entries(absences ?? {})) {
     const match = seatPattern.exec(key);
@@ -538,7 +541,7 @@ export function withSeatsShiftedUp(
     if (!match || position < removedPosition) {
       shifted[key] = answer;
     } else if (position > removedPosition) {
-      shifted[seatBase(roundIndex, room, position - 1, null) + (match[2] ?? '')] = answer;
+      shifted[scoreKey(roundIndex, room, position - 1) + (match[2] ?? '')] = answer;
     }
   }
   return shifted;
@@ -551,6 +554,7 @@ export function withoutSeatAbsences(
   room: number,
   position: number,
 ): TournamentState['absences'] {
-  const base = seatBase(roundIndex, room, position, null);
-  return withoutAbsences(absences, (key) => key === base || key.startsWith(`${base}-`));
+  const own = scoreKey(roundIndex, room, position);
+  const prefix = seatKeyPrefix(roundIndex, room, position);
+  return withoutAbsences(absences, (key) => key === own || key.startsWith(prefix));
 }

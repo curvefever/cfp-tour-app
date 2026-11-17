@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { unneededGames } from '../../domain/tournament/match-format';
-import { formatStandingValue } from '../../domain/tournament/scoring';
+import { formatStandingValue, scoreKey } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
@@ -215,7 +215,7 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
         }
         const label = <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>;
         if (games <= 1) {
-          const key = `r${roundIndex}-rm${room}-p${position}-m${memberIndex}`;
+          const key = scoreKey(roundIndex, room, position, null, memberIndex);
           return (
             <label key={key}>
               {label}
@@ -227,7 +227,7 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
           <label key={memberIndex}>
             {label}
             {Array.from({ length: games }, (_, gameIndex) => {
-              const key = `r${roundIndex}-rm${room}-p${position}-g${gameIndex + 1}-m${memberIndex}`;
+              const key = scoreKey(roundIndex, room, position, gameIndex + 1, memberIndex);
               return (
                 <BracketScoreInput
                   className={compactScoreClass}

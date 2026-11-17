@@ -1,4 +1,5 @@
 import { refreshRoundStandings } from './advancement';
+import { roomKeyPrefix } from './scoring';
 import { recordRoomHistory, rewindRoomHistory } from './seeding';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
@@ -77,7 +78,7 @@ function roomsOfUnits(state: TournamentState, first: string, second: string): Cl
 }
 
 function hasResultsIn(state: TournamentState, room: ClearedRoom): boolean {
-  const prefix = `r${state.curRound}-rm${room.room}-`;
+  const prefix = roomKeyPrefix(state.curRound, room.room);
   const keyed = (record: Record<string, unknown>, isSet: (value: unknown) => boolean) =>
     Object.entries(record).some(([key, value]) => key.startsWith(prefix) && isSet(value));
   return (
@@ -99,7 +100,7 @@ export function groupSwapClears(state: TournamentState, first: string, second: s
 
 function withoutRoomsResults(state: TournamentState, rooms: ClearedRoom[]): Partial<TournamentState> {
   if (!rooms.length) return {};
-  const prefixes = rooms.map((room) => `r${state.curRound}-rm${room.room}-`);
+  const prefixes = rooms.map((room) => roomKeyPrefix(state.curRound, room.room));
   const inRoom = (key: string) => prefixes.some((prefix) => key.startsWith(prefix));
   const without = <T>(record: Record<string, T>) =>
     Object.fromEntries(Object.entries(record).filter(([key]) => !inRoom(key)));

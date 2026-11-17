@@ -1,7 +1,12 @@
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
 import { roomMatch, scoredUnitCount } from '../../domain/tournament/match-format';
 import { computeRankings } from '../../domain/tournament/rankings';
-import { getFinalUnitScore, getUnitScore, roundHasAnyScore } from '../../domain/tournament/scoring';
+import {
+  getFinalUnitScore,
+  getUnitScore,
+  roomKeyPrefix,
+  roundHasAnyScore,
+} from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { plural } from './setup/plural';
 import { isRoundDone, isRoundReached, roundsInPlay } from '../../domain/tournament/round-columns';
@@ -67,7 +72,7 @@ function roomsOf(state: TournamentState, roundIndex: number): RoomProgress[] {
         players: members.length,
         scored: match ? scoredUnitCount(match) : scores.filter((value) => value !== null).length,
         hasScores: Object.entries(state.scores).some(
-          ([key, value]) => key.startsWith(`r${roundIndex}-rm${room}-`) && value !== null,
+          ([key, value]) => key.startsWith(roomKeyPrefix(roundIndex, room)) && value !== null,
         ),
       };
     });
