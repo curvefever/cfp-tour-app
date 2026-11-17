@@ -1,4 +1,4 @@
-import { groupExitIsTotal } from './group-exit';
+import { groupExitIsTotal, groupExitRefusal } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
 import type { GroupExitMode, PersistedSetup, PoolingPhaseKey } from './types';
 
@@ -56,9 +56,9 @@ export function bracketEntryCountFromSetup(
     const validGroups =
       groupSize >= GROUP_SIZE_BOUNDS.min &&
       groupSize <= GROUP_SIZE_BOUNDS.max &&
+      // The refusal's wording isn't shown here, only whether generation would refuse the qualifiers per group.
       (totalExit ||
-        (qualifiersPerGroup >= 1 &&
-          qualifiersPerGroup < Math.min(...groupSizesOf(confirmedCount, groupSize))));
+        groupExitRefusal(confirmedCount, groupSize, 'per-group', qualifiersPerGroup, '') === null);
     if (!validGroups) return null;
   }
   let qualAdv = confirmedCount;

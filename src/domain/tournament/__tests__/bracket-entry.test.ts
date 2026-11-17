@@ -98,19 +98,20 @@ describe('bracketEntryCountFromSetup', () => {
     expect(
       bracketEntryCountFromSetup(setup({ ...groups, groupSize: '6', qualifiersPerGroup: '1' }), 16, 1),
     ).toBeNull();
+    // Every unit of the smallest group may go on (generation accepts it): the groups then only decide who starts where.
     expect(
       bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '4' }), 16, 1),
-    ).toBeNull();
+    ).toBe(16);
   });
 
-  it('is unknown when qualifiers per group would take a whole real group, which is smaller than the group size', () => {
+  it('accepts qualifiers per group up to the smallest real group, which may be smaller than the group size, and no more', () => {
     const groups = {
       poolingPhase: 'group-stage' as const,
       qualAdv: '8',
       groupSize: '4',
       qualifiersPerGroup: '3',
     };
-    expect(bracketEntryCountFromSetup(setup(groups), 15, 1)).toBeNull();
+    expect(bracketEntryCountFromSetup(setup(groups), 15, 1)).toBe(12);
     expect(bracketEntryCountFromSetup(setup(groups), 16, 1)).toBe(12);
     expect(bracketEntryCountFromSetup(setup(groups), 13, 1)).toBe(9);
     expect(
