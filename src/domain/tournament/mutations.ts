@@ -30,7 +30,7 @@ import {
   unitDisplay,
 } from './roster';
 import { createTournamentRuntime, type TournamentRuntime } from './runtime';
-import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
+import { buildScheduleRounds } from './schedule-generation';
 import {
   getFinalUnitScore,
   readTieResolution,
@@ -238,7 +238,7 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
   if (!format) return null;
   const config = state.gamemodeConfig as MaterializedGamemodeConfig;
   if (!config.roomSize || !config.bracketPhase) return null;
-  const progression = buildTournamentProgression({
+  const progression = buildScheduleRounds({
     bracketPhase: config.bracketPhase,
     poolingPhase: state.cfg.poolingPhase ?? 'none',
     config: {
@@ -249,7 +249,9 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
     },
     format: config,
     roster: rosterKeys(state.players),
-  } as TournamentProgressionInput);
+  });
+  // A builder that refuses is not caught here, as before: the message is the builder's own.
+  if (!progression.ok) throw new Error(progression.error);
   const rounds = [
     ...state.rounds.slice(0, state.curRound + 1),
     ...progression.rounds.slice(state.curRound + 1),

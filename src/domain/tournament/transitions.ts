@@ -782,6 +782,9 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
     // rebuildFutureRounds re-plans with state.cfg.qualAdv, not the real number
     // reaching the cutoff. So fitKingsValleyTail re-plans the whole ladder
     // (Final included) to the real count first.
+    // The reshape at a roster change (rebuildFutureRounds) is a preview, so the Bracket shows the room sizes ahead:
+    // it may fail or be skipped, and a removal is never blocked by it. Next Round fits each round to the units that
+    // really arrive, and that is the rule.
     const fitFailure = fitKingsValleyTail(state, roundIndex + 1, advancing.length);
     if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
     const fittedNextRound = state.rounds[roundIndex + 1];

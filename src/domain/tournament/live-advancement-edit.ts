@@ -7,10 +7,9 @@ import { groupSettingsOfCfg } from './group-settings';
 import { isPoolingRound } from './pooling';
 import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
-import { buildTournamentProgression, getMinimumBracketUnits } from './schedule-generation';
+import { buildScheduleRounds, getMinimumBracketUnits } from './schedule-generation';
 import { defaultSemisSize, eliminationRound } from './single-elimination';
 import type { MaterializedGamemodeConfig, TournamentRound, TournamentState } from './types';
-import type { TournamentProgressionInput } from './schedule-generation';
 
 /**
  * Live corrections to how many units survive each elimination round (and the
@@ -192,23 +191,19 @@ function applyPoolingEdit(
   );
   const gamemodeConfig = synced.gamemodeConfig as MaterializedGamemodeConfig;
   const roster = rosterKeys(state.players);
-  let progression;
-  try {
-    progression = buildTournamentProgression({
-      bracketPhase: config.bracketPhase,
-      poolingPhase,
-      config: {
-        n: roster.length,
-        qualAdv,
-        ...groupSettingsOfCfg(cfg),
-        ...(cfg.groupExit ? { groupExit: cfg.groupExit } : {}),
-      },
-      format: gamemodeConfig,
-      roster,
-    } as TournamentProgressionInput);
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : String(error) };
-  }
+  const progression = buildScheduleRounds({
+    bracketPhase: config.bracketPhase,
+    poolingPhase,
+    config: {
+      n: roster.length,
+      qualAdv,
+      ...groupSettingsOfCfg(cfg),
+      ...(cfg.groupExit ? { groupExit: cfg.groupExit } : {}),
+    },
+    format: gamemodeConfig,
+    roster,
+  });
+  if (!progression.ok) return { ok: false, error: progression.error };
 
   const bracketStart = firstBracketIndex(state.rounds);
   const rounds = [...state.rounds.slice(0, bracketStart), ...progression.rounds.slice(bracketStart)];

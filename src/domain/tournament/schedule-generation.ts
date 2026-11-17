@@ -11,10 +11,9 @@ import {
 import {
   raceDoubleEliminationBracketPhase,
   sharedFinalDoubleEliminationBracketPhase,
-  type RaceDoubleEliminationConfig,
   type SharedFinalDoubleEliminationConfig,
 } from './double-elimination';
-import { kingsValleyBracketPhase, type KingsValleyConfig } from './kings-valley';
+import { kingsValleyBracketPhase } from './kings-valley';
 import { markUpperLowerStages } from './upper-lower';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
 import {
@@ -30,33 +29,40 @@ interface TournamentProgression {
   groups: TournamentGroup[];
 }
 
+/**
+ * The numbers the builders need, as a tournament's stored settings hold them: every phase's builder reads its own part,
+ * and the settings of a bracket phase only exist for that phase (`lbQualifiers` for a shared Final, `graph` for a Custom
+ * bracket), so those two are optional here and checked by the builder of the phase.
+ */
+export type ScheduleFormat = PoolingFormatConfig &
+  SingleEliminationConfig &
+  MatchFormatConfig &
+  Pick<WaterfallBracketConfig, 'finalsGames' | 'finalsBestOf'> &
+  Partial<Pick<SharedFinalDoubleEliminationConfig, 'lbQualifiers'>> &
+  Partial<Pick<WaterfallBracketConfig, 'graph'>> & { upperLowerVersion?: 1 };
+
+/** What `buildScheduleRounds` builds the rounds from: not the Setup form, but the numbers worked out from it. */
+export interface ScheduleInput {
+  bracketPhase: ScheduleLogicKey;
+  poolingPhase: PoolingPhaseKey;
+  config: PoolingConfig;
+  format: ScheduleFormat;
+  roster: string[];
+}
+
+/** The rounds and groups of a schedule, or the message of the builder that refused it. */
+export type ScheduleRounds = ({ ok: true } & TournamentProgression) | { ok: false; error: string };
+
+/** A setting the stored config holds only for its own bracket phase: that phase's builder refuses it when it is missing. */
+function heldForPhase<T>(value: T | undefined): T {
+  return value as T;
+}
+
 interface CommonGenerationInput {
   poolingPhase: PoolingPhaseKey;
   config: PoolingConfig;
   roster: string[];
 }
-
-export type TournamentProgressionInput =
-  | (CommonGenerationInput & {
-      bracketPhase: 'single-elimination';
-      format: PoolingFormatConfig & SingleEliminationConfig & MatchFormatConfig;
-    })
-  | (CommonGenerationInput & {
-      bracketPhase: 'double-elimination';
-      format: PoolingFormatConfig & RaceDoubleEliminationConfig & MatchFormatConfig;
-    })
-  | (CommonGenerationInput & {
-      bracketPhase: 'double-elimination-shared-final';
-      format: PoolingFormatConfig & SharedFinalDoubleEliminationConfig & MatchFormatConfig;
-    })
-  | (CommonGenerationInput & {
-      bracketPhase: 'kings-valley';
-      format: PoolingFormatConfig & KingsValleyConfig & MatchFormatConfig;
-    })
-  | (CommonGenerationInput & {
-      bracketPhase: 'waterfall-bracket';
-      format: PoolingFormatConfig & WaterfallBracketConfig & MatchFormatConfig & { upperLowerVersion?: 1 };
-    });
 
 export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize: RoomSize): number {
   // Waterfall's real floor is enforced precisely against the organiser's own
@@ -115,7 +121,19 @@ function withStandingsRoutes(
   return pooledRounds.map((round, index) => (index === last ? { ...round, standingsRoutes: routes } : round));
 }
 
-export function buildTournamentProgression(input: TournamentProgressionInput): TournamentProgression {
+/**
+ * Builds the rounds of a schedule: the pooling phase's, then the bracket phase's, with the match formats applied. A
+ * builder that refuses its numbers gives its own message as `error`, which each caller words or shows as it did before.
+ */
+export function buildScheduleRounds(input: ScheduleInput): ScheduleRounds {
+  try {
+    return { ok: true, ...buildProgression(input) };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function buildProgression(input: ScheduleInput): TournamentProgression {
   const pooled = buildPoolingPhase(input);
   let pooledRounds = pooled.rounds;
   let bracket: TournamentRound[];
@@ -127,20 +145,30 @@ export function buildTournamentProgression(input: TournamentProgressionInput): T
       bracket = raceDoubleEliminationBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
       break;
     case 'double-elimination-shared-final':
-      bracket = sharedFinalDoubleEliminationBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
+      bracket = sharedFinalDoubleEliminationBracketPhase(pooled.seedTotal, pooled.nextRoundNum, {
+        ...input.format,
+        lbQualifiers: heldForPhase(input.format.lbQualifiers),
+      });
       break;
     case 'kings-valley':
       bracket = kingsValleyBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
       break;
-    case 'waterfall-bracket':
-      bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, input.format);
+    case 'waterfall-bracket': {
+      const format = { ...input.format, graph: heldForPhase(input.format.graph) };
+      bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, format);
       // The built-in upper and lower bracket's rounds play match stages, marked before the formats are applied.
-      if (input.format.upperLowerVersion) bracket = markUpperLowerStages(bracket);
+      if (format.upperLowerVersion) bracket = markUpperLowerStages(bracket);
       pooledRounds = withStandingsRoutes(
         pooledRounds,
-        waterfallStandingsRoutes(input.format.graph, pooled.nextRoundNum),
+        waterfallStandingsRoutes(format.graph, pooled.nextRoundNum),
       );
       break;
+    }
+    case 'upper-lower':
+      // Only a Setup choice: the tournament it makes is a Custom bracket, whose bracket phase is 'waterfall-bracket'.
+      throw new Error(
+        'An upper and lower bracket is built as a Custom bracket, not as a bracket phase of its own.',
+      );
   }
   return {
     rounds: applyMatchFormats([...pooledRounds, ...bracket], input.format),

@@ -11,11 +11,7 @@ import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
 import { defaultSemisSize } from './single-elimination';
-import {
-  buildTournamentProgression,
-  getMinimumBracketUnits,
-  type TournamentProgressionInput,
-} from './schedule-generation';
+import { buildScheduleRounds, getMinimumBracketUnits } from './schedule-generation';
 import {
   type MatchResultPoints,
   matchResultsAllowed,
@@ -703,18 +699,14 @@ export function generateTournament(
     grandFinalLbTarget,
   };
   const roster = rosterKeys(current.players);
-  let progression;
-  try {
-    progression = buildTournamentProgression({
-      bracketPhase: schedule,
-      poolingPhase: config.poolingPhase,
-      config,
-      format: gamemodeConfig,
-      roster,
-    } as TournamentProgressionInput);
-  } catch (error) {
-    return generationError(error instanceof Error ? error.message : String(error));
-  }
+  const progression = buildScheduleRounds({
+    bracketPhase: schedule,
+    poolingPhase: config.poolingPhase,
+    config,
+    format: gamemodeConfig,
+    roster,
+  });
+  if (!progression.ok) return generationError(progression.error);
   const roomCapError = validateRoomCap(progression.rounds, format);
   if (roomCapError) return generationError(roomCapError);
   if (matchResults) {
