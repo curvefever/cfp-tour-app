@@ -6,7 +6,7 @@ export function isTournamentTeam(entry: string | TournamentTeam): entry is Tourn
   return typeof entry === 'object' && entry !== null;
 }
 
-function rosterKey(entry: string | TournamentTeam): string {
+export function rosterKey(entry: string | TournamentTeam): string {
   return isTournamentTeam(entry) ? entry.teamId : entry;
 }
 

@@ -28,6 +28,7 @@ import {
   isDisplayNameTaken,
   findUnit,
   isWithdrawnName,
+  rosterKey,
   rosterKeys,
   teamNames,
   unitDisplay,
@@ -893,37 +894,48 @@ export function swapWindowOpen(state: TournamentState): boolean {
   return !computeRankings(state)?.eliminatedList.some((entry) => entry.rank !== null);
 }
 
+/**
+ * The swap itself, once the incoming unit passed its checks: the outgoing unit leaves the roster (recorded as swapped
+ * out), the incoming one takes its seat everywhere, and the bench gives it up if it sat there.
+ */
+function swapUnit(
+  state: TournamentState,
+  outgoingKey: string,
+  incoming: string | TournamentTeam,
+): TournamentState {
+  const incomingKey = rosterKey(incoming);
+  const replaced = replaceUnitInPlay(state, outgoingKey, incomingKey);
+  if (!replaced) return state;
+  const withdrawn = recordWithdrawal(state, outgoingKey, 'swapped', incomingKey);
+
+  return patchPublishedFutureRounds(
+    {
+      ...replaced,
+      withdrawnUnits: withdrawn.withdrawnUnits,
+      players: withUnit(withoutUnit(state.players, outgoingKey), incoming),
+      reserves: withoutUnit(state.reserves, incomingKey),
+      groups: state.groups.map((group) => ({
+        ...group,
+        members: group.members.map((name) => (name === outgoingKey ? incomingKey : name)),
+      })),
+    },
+    outgoingKey,
+    incomingKey,
+  );
+}
+
 export function swapIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
   const trimmed = newName.trim();
-  const players = state.players as string[];
   if (
     !trimmed ||
-    players.includes(trimmed) ||
+    findUnit(state.players, trimmed) !== undefined ||
     isWithdrawnName(state, trimmed) ||
     findUnstorableNames([trimmed]).length ||
     !swapWindowOpen(state)
   ) {
     return state;
   }
-
-  const replaced = replaceUnitInPlay(state, oldName, trimmed);
-  if (!replaced) return state;
-  const withdrawn = recordWithdrawal(state, oldName, 'swapped', trimmed);
-
-  return patchPublishedFutureRounds(
-    {
-      ...replaced,
-      withdrawnUnits: withdrawn.withdrawnUnits,
-      players: players.filter((name) => name !== oldName).concat(trimmed),
-      reserves: (state.reserves as string[]).filter((name) => name !== trimmed),
-      groups: state.groups.map((group) => ({
-        ...group,
-        members: group.members.map((name) => (name === oldName ? trimmed : name)),
-      })),
-    },
-    oldName,
-    trimmed,
-  );
+  return swapUnit(state, oldName, trimmed);
 }
 
 export function swapTeam(
@@ -933,37 +945,14 @@ export function swapTeam(
 ): TournamentState {
   const format = getGameFormat(state.gameFormat);
   const teamSize = format?.teamSize;
-  if (
-    !teamSize ||
-    !swapWindowOpen(state) ||
-    (state.players as TournamentTeam[]).some((team) => team.teamId === replacement.teamId)
-  ) {
+  if (!teamSize || !swapWindowOpen(state) || findUnit(state.players, replacement.teamId) !== undefined) {
     return state;
   }
   // The outgoing team is being removed by this same swap and the replacement may be
   // taken from the reserves, so neither counts as a name collision.
   if (isDisplayNameTaken(state, replacement.teamName, [oldTeamId, replacement.teamId])) return state;
   if (findUnstorableNames(teamNames(replacement)).length) return state;
-  const replaced = replaceUnitInPlay(state, oldTeamId, replacement.teamId);
-  if (!replaced) return state;
-  const withdrawn = recordWithdrawal(state, oldTeamId, 'swapped', replacement.teamId);
-
-  return patchPublishedFutureRounds(
-    {
-      ...replaced,
-      withdrawnUnits: withdrawn.withdrawnUnits,
-      players: (state.players as TournamentTeam[])
-        .filter((team) => team.teamId !== oldTeamId)
-        .concat(replacement),
-      reserves: (state.reserves as TournamentTeam[]).filter((team) => team.teamId !== replacement.teamId),
-      groups: state.groups.map((group) => ({
-        ...group,
-        members: group.members.map((name) => (name === oldTeamId ? replacement.teamId : name)),
-      })),
-    },
-    oldTeamId,
-    replacement.teamId,
-  );
+  return swapUnit(state, oldTeamId, replacement);
 }
 
 export function updateTeam(
