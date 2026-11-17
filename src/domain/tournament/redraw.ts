@@ -3,7 +3,7 @@ import { currentUnit, replayBracketPools } from './bracket-replay';
 import { rosterKeys } from './roster';
 import { roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { rewindRoomHistory } from './seeding';
-import { roundColumn } from './round-columns';
+import { lastAssignedRound, roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 
 /**
@@ -23,7 +23,7 @@ export type DrawnAheadStatus = 'none' | 'redraw' | 'locked';
 export function drawnAheadStatus(state: TournamentState, roundIndex: number): DrawnAheadStatus {
   const next = roundColumn(state.rounds, roundIndex).end + 1;
   if (!state.assignments[next]?.length) return 'none';
-  const lastDrawn = lastDrawnIndex(state);
+  const lastDrawn = lastAssignedRound(state);
   for (let index = next; index <= lastDrawn; index += 1) {
     if (!state.assignments[index]?.length) continue;
     if (roundHasAnyScore(state, index, state.rounds[index])) return 'locked';
@@ -36,14 +36,6 @@ export function drawnAheadStatus(state: TournamentState, roundIndex: number): Dr
     }
   }
   return 'redraw';
-}
-
-/** The last round with a line-up, or -1. */
-export function lastDrawnIndex(state: TournamentState): number {
-  for (let index = state.assignments.length - 1; index >= 0; index -= 1) {
-    if (state.assignments[index]?.length) return index;
-  }
-  return -1;
 }
 
 /**
@@ -76,7 +68,7 @@ const sortedNames = (names: string[]): string[] => [...names].sort();
  */
 function replayExplainsPools(state: TournamentState, roundIndex: number): boolean {
   const { start, end: keep } = roundColumn(state.rounds, roundIndex);
-  const lastAdvanced = roundColumn(state.rounds, lastDrawnIndex(state)).start;
+  const lastAdvanced = roundColumn(state.rounds, lastAssignedRound(state)).start;
   const roster = new Set(rosterKeys(state.players));
   const current = (names: string[]) => names.flatMap((name) => currentUnit(state, roster, name) ?? []);
   const lineUp = (index: number) => (state.assignments[index] ?? []).map((entry) => entry.name);

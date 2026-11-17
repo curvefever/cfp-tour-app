@@ -17,7 +17,7 @@ import type { RoundAssignment, TournamentRound } from './types';
  * own matches/groupByes precedent) rather than pre-populated into
  * state.assignments, since a non-empty state.assignments[roundIndex] is
  * used elsewhere in the app as the "this round has been reached" signal
- * (see rankings.ts's lastAssignedRound, BracketView.tsx's PlaceholderRound
+ * (see round-columns.ts's lastAssignedRound, BracketView.tsx's PlaceholderRound
  * gate) -- populating it ahead of time would silently break both.
  */
 

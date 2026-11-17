@@ -2,9 +2,10 @@ import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './
 import { hasPendingTies, isUncontestedRoom } from './advancement';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { currentUnit, replayBracketPools, routeWaterfallRound } from './bracket-replay';
-import { discardRoundDraws, lastDrawnIndex } from './redraw';
+import { discardRoundDraws } from './redraw';
 import {
   isRoundDone,
+  lastAssignedRound,
   previousColumnStart,
   reopenedRounds,
   roundColumn,
@@ -250,7 +251,7 @@ function undoLastStep(state: TournamentState): TournamentState | null {
     return pool ? [[index, pool] as const] : [];
   });
   if (!replayExplainsUndo(state, undrawn, dropped, pools)) return null;
-  const assignments = undrawn.assignments.slice(0, lastDrawnIndex(undrawn) + 1);
+  const assignments = undrawn.assignments.slice(0, lastAssignedRound(undrawn) + 1);
   return withRoundInPlay({ ...undrawn, assignments, pendingBracketSeeds: Object.fromEntries(waiting) });
 }
 

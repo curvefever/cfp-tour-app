@@ -1,12 +1,12 @@
 import { ordinal } from '../../lib/ordinal';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
-import { lastAssignedRound } from './rankings';
 import { roomPairKey, snakeSeed, tieredBracketSeed } from './seeding';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   isRoundDone,
   isRoundReached,
+  lastAssignedRound,
   rankingRoomsLast,
   roundColumn,
   undrawnRounds,

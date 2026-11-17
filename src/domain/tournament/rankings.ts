@@ -30,6 +30,7 @@ import {
   isCurrentRound,
   isRoundDone,
   isRoundReached,
+  lastAssignedRound,
   reopenedRounds,
   roundColumn,
   roundsInPlay,
@@ -87,14 +88,6 @@ interface TournamentRankings {
   absentFromStart: WithdrawnUnit[];
   lastRound: TournamentRound;
   lastRi: number;
-}
-
-export function lastAssignedRound(state: Pick<TournamentState, 'assignments'>): number {
-  let last = -1;
-  for (const [index, assignments] of state.assignments.entries()) {
-    if (assignments?.length) last = index;
-  }
-  return last;
 }
 
 /**

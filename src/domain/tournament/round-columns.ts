@@ -7,6 +7,14 @@ import type { TournamentRound, TournamentState } from './types';
 export type ColumnState = Pick<TournamentState, 'rounds' | 'curRound'> &
   Partial<Pick<TournamentState, 'gamemodeConfig' | 'waterfallSteps'>>;
 
+/** The last round with a line-up, or -1 (a round whose list of assignments is empty has none). */
+export function lastAssignedRound(state: Pick<TournamentState, 'assignments'>): number {
+  for (let index = state.assignments.length - 1; index >= 0; index -= 1) {
+    if (state.assignments[index]?.length) return index;
+  }
+  return -1;
+}
+
 /** A run of rounds played together: `state.rounds[start]` to `state.rounds[end]`, both included. */
 export interface RoundColumn {
   start: number;
