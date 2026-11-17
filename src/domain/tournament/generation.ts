@@ -1,4 +1,5 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
+import { emptySchedule } from './empty-schedule';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat, deriveRoomSize, resolveOddCountStrategy } from './formats';
 import { QUALIFICATION_ROUNDS, computeSwissRoundCount, seedFromGroupStageRound } from './pooling';
@@ -741,16 +742,10 @@ export function generateTournament(
   } = config;
   const state: TournamentState = {
     ...current,
+    ...emptySchedule(),
     rounds: progression.rounds,
-    curRound: 0,
-    scores: {},
-    finalScores: {},
-    assignments: [],
     luckyLosers: progression.rounds.map(() => []),
     byes: progression.rounds.map(() => []),
-    poolingByeCounts: {},
-    roomHistory: {},
-    pendingBracketSeeds: {},
     qualTable: roster.map((name) => ({
       name,
       totalFP: null,
@@ -759,17 +754,15 @@ export function generateTournament(
     })),
     groups,
     groupStandings,
-    tieResolutions: {},
-    absences: {},
-    waterfallSteps: [],
-    defenderChanges: {},
+    gamemodeConfig,
+    // Not cleared by a generation (`withoutDrawnSchedule` clears both): the back marks and the Final's aliases stay.
+    backFromAbsence: current.backFromAbsence,
+    anonymousFinalists: current.anonymousFinalists,
     reserveOpen: true,
-    started: false,
     tournamentId: current.tournamentId ?? runtime.ids.tournamentId(),
     cfg: storedConfig,
     scheduleLogic: schedule,
     gameFormat: form.gameFormat,
-    gamemodeConfig,
     settings: settingsFromForm(form),
   };
   const initialPool = rosterKeys(state.players);

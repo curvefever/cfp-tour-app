@@ -7,6 +7,7 @@ import {
   withSeatsShiftedUp,
 } from './absences';
 import { moveConfirmation } from './confirmations';
+import { emptySchedule } from './empty-schedule';
 import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
@@ -1063,8 +1064,6 @@ export function resetRoster(state: TournamentState): TournamentState {
     reserves: [],
     reserveIndividuals: [],
     confirmations: {},
-    backFromAbsence: {},
-    waterfallSteps: [],
     confirmedCount: null,
     withdrawnUnits: [],
     reserveOpen: true,
@@ -1072,57 +1071,26 @@ export function resetRoster(state: TournamentState): TournamentState {
 }
 
 /**
- * Clears everything a generated schedule put in the state (the rounds, who is seated where, standings,
- * scores, the room history), keeping the roster, the settings snapshot, the withdrawals and the
- * confirmations. A state with nothing generated yet.
+ * Clears everything a generated schedule put in the state (`emptySchedule`: the rounds, who is seated where,
+ * standings, scores, the room history), keeping the roster, the Setup (`cfg`, the settings snapshot), the
+ * withdrawals and the confirmations. A state with nothing generated yet.
  */
 export function withoutDrawnSchedule(state: TournamentState): TournamentState {
-  return {
-    ...state,
-    rounds: [],
-    groups: [],
-    groupStandings: {},
-    qualTable: [],
-    gamemodeConfig: {},
-    scores: {},
-    finalScores: {},
-    assignments: [],
-    luckyLosers: [],
-    byes: [],
-    poolingByeCounts: {},
-    pendingBracketSeeds: {},
-    tieResolutions: {},
-    absences: {},
-    backFromAbsence: {},
-    waterfallSteps: [],
-    defenderChanges: {},
-    roomHistory: {},
-    anonymousFinalists: [],
-    curRound: 0,
-    started: false,
-  };
+  return { ...state, ...emptySchedule() };
 }
 
+/**
+ * Back to a draft: the schedule as generated, with no play in it. Keeps the generated rounds, the groups and the
+ * `gamemodeConfig` (the schedule itself) and the room history, and the roster as `withoutDrawnSchedule` does; it also
+ * clears the withdrawals and opens the reserve again. The draw of round 1 goes (`assignments` is empty).
+ */
 export function resetTournamentState(state: TournamentState): TournamentState {
-  return withFinalistAliasesForLineup({
-    ...state,
-    scores: {},
-    finalScores: {},
-    assignments: [],
-    qualTable: [],
-    groupStandings: {},
-    poolingByeCounts: {},
-    pendingBracketSeeds: {},
-    tieResolutions: {},
-    absences: {},
-    backFromAbsence: {},
-    waterfallSteps: [],
-    luckyLosers: [],
-    byes: [],
-    defenderChanges: {},
-    withdrawnUnits: [],
-    curRound: 0,
-    reserveOpen: true,
-    started: false,
-  });
+  const {
+    rounds: _rounds,
+    groups: _groups,
+    roomHistory: _roomHistory,
+    gamemodeConfig: _gamemodeConfig,
+    ...play
+  } = emptySchedule();
+  return withFinalistAliasesForLineup({ ...state, ...play, withdrawnUnits: [], reserveOpen: true });
 }
