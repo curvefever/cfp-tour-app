@@ -449,6 +449,22 @@ function addBeforeStart(
   return null;
 }
 
+/**
+ * Why the draw can't take a newcomer, or null when it can: a group stage; a fixed draw (its whole schedule was
+ * published at generation time, with no mechanism to fold a joiner into an already-decided round: blocking is far lower
+ * risk than silently rewriting a draw players may have seen); a Custom bracket with no pooling phase (its routing is an
+ * exact-headcount graph with nothing to absorb a late arrival; with a pooling phase the pooling exit refits the first
+ * round to whoever arrives).
+ */
+function drawCannotTakeNewcomer(state: TournamentState): BenchReason | null {
+  if (state.cfg.poolingPhase === 'group-stage') return 'group-stage';
+  if (state.gamemodeConfig.drawPublication === 'fixed') return 'fixed-draw';
+  if (state.scheduleLogic === 'waterfall-bracket' && state.cfg.poolingPhase === 'none') {
+    return 'waterfall-bracket';
+  }
+  return null;
+}
+
 export function addReserveUnit(
   state: TournamentState,
   key: string,
@@ -458,25 +474,9 @@ export function addReserveUnit(
   if (!state.reserveOpen) return { status: 'blocked', reason: 'closed' };
   const beforeStart = addBeforeStart(state, key, runtime);
   if (beforeStart) return beforeStart;
-  if (state.cfg.poolingPhase === 'group-stage') {
-    return { status: 'blocked', reason: 'group-stage' };
-  }
-  // A fixed-draw tournament's whole schedule (this round and every round
-  // after it) was already published at generation time -- there's no
-  // mechanism to fold a newly-joined reserve into an already-decided future
-  // round (unlike adaptive reseeding, which naturally picks up anyone in the
-  // live "advancing" pool each round). Blocking here is far lower risk than
-  // silently rewriting a draw players may have already seen.
-  if (state.gamemodeConfig.drawPublication === 'fixed') {
-    return { status: 'blocked', reason: 'fixed-draw' };
-  }
+  const undrawable = drawCannotTakeNewcomer(state);
+  if (undrawable) return { status: 'blocked', reason: undrawable };
   const isWaterfall = state.scheduleLogic === 'waterfall-bracket';
-  // Without a pooling phase a waterfall's routing is an exact-headcount graph
-  // with nothing to absorb a late arrival. With one, the pooling exit refits
-  // the first waterfall round to whoever arrives.
-  if (isWaterfall && state.cfg.poolingPhase === 'none') {
-    return { status: 'blocked', reason: 'waterfall-bracket' };
-  }
   const round = state.rounds[state.curRound];
   if (!round?.isNoElim || round.isGroupStage) return seatInRoundInPlay(state, key, options);
 
@@ -501,11 +501,7 @@ export function addReserveUnit(
  */
 export function benchReasonOf(state: TournamentState): BenchReason | null {
   if (!state.started || !state.reserveOpen || !swapWindowOpen(state)) return null;
-  if (state.cfg.poolingPhase === 'group-stage') return 'group-stage';
-  if (state.gamemodeConfig.drawPublication === 'fixed') return 'fixed-draw';
-  if (state.scheduleLogic === 'waterfall-bracket' && state.cfg.poolingPhase === 'none')
-    return 'waterfall-bracket';
-  return null;
+  return drawCannotTakeNewcomer(state);
 }
 
 /**
@@ -995,7 +991,7 @@ export function renameTeamMember(
 }
 
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
-  const changes = [...(state.defenderChanges[teamId] ?? [])];
+  const changes = (state.defenderChanges[teamId] ?? []).map((entry) => ({ ...entry }));
   const round = roundInPlayOf(state, teamId);
   const existing = changes.find((entry) => entry.round === round);
   if (existing) existing.memberIdx = memberIdx;

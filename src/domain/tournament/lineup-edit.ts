@@ -33,12 +33,12 @@ export type LineupScope =
 
 export type LineupEditResult = { ok: true; state: TournamentState } | { ok: false; error: string };
 
-function scopeRefusal(state: TournamentState): string | null {
-  if (!state.started) return 'The tournament has not started.';
-  if (state.cfg.poolingPhase === 'group-stage')
-    return "Line-up corrections aren't available for group stage.";
-  const round = state.rounds[state.curRound];
-  if (!round || !(state.assignments[state.curRound] ?? []).length) return 'This round has no line-up yet.';
+const GROUP_STAGE_REFUSAL = "Line-up corrections aren't available for group stage.";
+
+/** Why a round's line-up can't be changed whatever its scores, or null: a group stage, a bracket format that has no such correction, a draw published in advance. */
+function lineupKindRefusal(state: TournamentState, round: TournamentRound | undefined): string | null {
+  if (state.cfg.poolingPhase === 'group-stage') return GROUP_STAGE_REFUSAL;
+  if (!round) return null;
   // Pooling rounds feed any bracket the same way; bracket rounds only exist in this form for single elimination.
   if (!isPoolingRound(round) && state.scheduleLogic !== 'single-elimination') {
     return "Line-up corrections aren't available for this bracket format.";
@@ -49,6 +49,17 @@ function scopeRefusal(state: TournamentState): string | null {
   ) {
     return "This round's draw was published in advance and can't be changed.";
   }
+  return null;
+}
+
+function scopeRefusal(state: TournamentState): string | null {
+  if (!state.started) return 'The tournament has not started.';
+  const round = state.rounds[state.curRound];
+  const kindRefusal = lineupKindRefusal(state, round);
+  // A group stage is told so even before its round has a line-up; any other kind refusal comes after that.
+  if (kindRefusal === GROUP_STAGE_REFUSAL) return kindRefusal;
+  if (!round || !(state.assignments[state.curRound] ?? []).length) return 'This round has no line-up yet.';
+  if (kindRefusal) return kindRefusal;
   if (roundHasAnyScore(state, state.curRound, round)) {
     return `Round ${round.roundNum} has scores — line-up locked.`;
   }
@@ -245,18 +256,7 @@ function moveRoundRefusal(state: TournamentState, round: TournamentRound): strin
     return "A unit can't be moved in this kind of round.";
   }
   if (round.isWaterfall) return null;
-  if (state.cfg.poolingPhase === 'group-stage')
-    return "Line-up corrections aren't available for group stage.";
-  if (!isPoolingRound(round) && state.scheduleLogic !== 'single-elimination') {
-    return "Line-up corrections aren't available for this bracket format.";
-  }
-  if (
-    isPoolingRound(round) &&
-    (round.fixedRoomAssignments || state.gamemodeConfig.drawPublication === 'fixed')
-  ) {
-    return "This round's draw was published in advance and can't be changed.";
-  }
-  return null;
+  return lineupKindRefusal(state, round);
 }
 
 /** The room sizes a move may not break: nobody above the round's largest room (a Custom bracket room, its declared size), none below its smallest. */
