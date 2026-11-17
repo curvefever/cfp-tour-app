@@ -886,6 +886,73 @@ function randomRoomAssignmentAround(
   return [...drawn, ...absentees].sort((first, second) => (first.room ?? 0) - (second.room ?? 0));
 }
 
+/** The weights a draw's room choices are costed with: the tournament's room history, and how much repeats and tiers count. */
+interface DrawWeights {
+  roomHistory: Record<string, number>;
+  targetRoundIndex: number;
+  diversityWeight: number;
+  balanceWeight: number;
+}
+
+/** What the two main draws (`tieredSeed`, `tieredBracketSeed`) differ in; `drawRooms` does the rest. */
+interface RoomDraw {
+  /** The candidates by name, in the order they came. */
+  names: string[];
+  /** The planned size of each room. */
+  roomSizes: number[];
+  targetRoundIndex: number;
+  roomHistory: Record<string, number>;
+  seedingOverride?: SeedingOverride;
+  /** The units likely to be absent: placed first, one to a room. */
+  likelyAbsent: ReadonlySet<string>;
+  isLuckyByName: Map<string, boolean>;
+  /** How far toward the terminal round the draw is, for the weights of an automatic draw. */
+  progress: () => number;
+  /** The candidates in pool order, each with its tier; asked for only when the draw is not a shuffle. */
+  members: () => WaveMember[];
+  /** Seats the members the likely absentees left, into the seats left; `pool` is every member in pool order. */
+  fillRest: (
+    rest: WaveMember[],
+    seatsLeft: number[],
+    weights: DrawWeights,
+    pool: WaveMember[],
+  ) => Array<{ name: string; room: number }>;
+}
+
+/**
+ * The middle of both main draws: a 'random' override shuffles; otherwise the weights come from the override or the
+ * progress toward the end, the likely absentees go first (one to a room), the rest is filled in by the draw's own
+ * `fillRest`, and the result comes back in pool order with the lucky losers marked.
+ */
+function drawRooms(draw: RoomDraw): RoundAssignment[] {
+  const { names, roomSizes, targetRoundIndex, roomHistory, seedingOverride, likelyAbsent, isLuckyByName } =
+    draw;
+  if (seedingOverride === 'random') {
+    return randomRoomAssignmentAround(names, roomSizes, `${targetRoundIndex}`, isLuckyByName, likelyAbsent);
+  }
+
+  let diversityWeight: number;
+  let balanceWeight: number;
+  if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
+    ({ diversityWeight, balanceWeight } = SEEDING_OVERRIDE_WEIGHTS[seedingOverride]);
+  } else {
+    const progress = draw.progress();
+    diversityWeight = lerp(DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP, DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS, progress);
+    balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
+  }
+
+  const members = draw.members();
+  const weights = { roomHistory, targetRoundIndex, diversityWeight, balanceWeight };
+  // The likely absentees go first, one to a room; everyone else is drawn into the seats that are left.
+  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, roomSizes, likelyAbsent, weights);
+  const drawn = draw.fillRest(rest, seatsLeft, weights, members);
+  return inPoolOrder(placed, drawn, members).map(({ name, room }) => ({
+    name,
+    room,
+    isLucky: isLuckyByName.get(name) ?? false,
+  }));
+}
+
 /**
  * Seeds every ordinary room-based reseed (no-elim/pooling
  * warmup, Qualification Table, and real single-elimination/team-format
@@ -910,96 +977,54 @@ export function tieredSeed(options: {
   const targetRoundIndex = roundIndex + 1;
   if (!nextRound || nextRound.rooms.length === 0) return { seeded: [] };
 
-  const isLuckyByName = new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)]));
-
-  const likelyAbsent = likelyAbsentees(state, targetRoundIndex);
-  if (seedingOverride === 'random') {
-    return {
-      seeded: randomRoomAssignmentAround(
-        advancing.map((entry) => candidateName(entry)),
-        nextRound.rooms,
-        `${targetRoundIndex}`,
-        isLuckyByName,
-        likelyAbsent,
-      ),
-    };
-  }
-
   const names = advancing.map((entry) => candidateName(entry));
-  // At a pooling exit the standings decide the draw: every unit its own tier, in the exit order.
-  const tiers = isStandingsCutoffRound(state, roundIndex)
-    ? exitOrderTiers(names)
-    : buildAdvancementTiers(state, roundIndex, names);
-  const flat: WaveMember[] = tiers.flatMap((tier) =>
-    tier.members.map((member) => ({ name: member.name, tierRank: tier.rank })),
-  );
-
-  let diversityWeight: number;
-  let balanceWeight: number;
-  if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
-    ({ diversityWeight, balanceWeight } = SEEDING_OVERRIDE_WEIGHTS[seedingOverride]);
-  } else {
-    const progress = semisApproachProgress(state.rounds, roundIndex);
-    diversityWeight = lerp(DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP, DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS, progress);
-    balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
-  }
-
   const allRoomNumbers = nextRound.rooms.map((_, index) => index + 1);
-  // The likely absentees go first, one to a room; everyone else is drawn into the seats that are left.
-  const {
-    placed: absentees,
-    seatsLeft,
-    rest,
-  } = placeLikelyAbsentees(flat, nextRound.rooms, likelyAbsent, {
-    roomHistory: state.roomHistory,
-    targetRoundIndex,
-    diversityWeight,
-    balanceWeight,
-  });
-  const fill = (members: WaveMember[], roomNumbers: number[]) =>
-    fillRoomsByWaves({
-      members,
-      roomNumbers,
-      roomSizes: seatsLeft,
-      roomHistory: state.roomHistory,
+  return {
+    seeded: drawRooms({
+      names,
+      roomSizes: nextRound.rooms,
       targetRoundIndex,
-      diversityWeight,
-      balanceWeight,
-    });
-
-  // Rounds with mixed room sizes: the smaller rooms are filled apart so their seats are spread evenly
-  // (smaller-room-seats.ts): by the units that have held the fewest while the whole field is still in,
-  // shared between the finishing places once units have been eliminated.
-  const splitRound = isFullFieldRound(state.rounds, targetRoundIndex)
-    ? splitForSmallerRooms
-    : splitByFinishingPlace;
-  const split = spreadsSmallerRoomSeats(nextRound)
-    ? splitRound(
-        rest,
-        seatsLeft,
-        smallerRoomSeatsBefore(state, targetRoundIndex),
-        new Set(lateJoinersOf(state, roundIndex)),
-      )
-    : null;
-  let result: Array<{ name: string; room: number }>;
-  if (split) {
-    const largeRooms = allRoomNumbers.filter((room) => !split.smallRooms.includes(room));
-    const drawn = [...fill(split.small, split.smallRooms), ...fill(split.large, largeRooms)];
-    const position = new Map(flat.map((member, index) => [member.name, index]));
-    result = drawn.sort(
-      (first, second) => (position.get(first.name) ?? 0) - (position.get(second.name) ?? 0),
-    );
-  } else {
-    result = fill(rest, allRoomNumbers);
-  }
-  result = inPoolOrder(absentees, result, flat);
-
-  const seeded: RoundAssignment[] = result.map(({ name, room }) => ({
-    name,
-    room,
-    isLucky: isLuckyByName.get(name) ?? false,
-  }));
-  return { seeded };
+      roomHistory: state.roomHistory,
+      seedingOverride,
+      likelyAbsent: likelyAbsentees(state, targetRoundIndex),
+      isLuckyByName: new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)])),
+      progress: () => semisApproachProgress(state.rounds, roundIndex),
+      members: () => {
+        // At a pooling exit the standings decide the draw: every unit its own tier, in the exit order.
+        const tiers = isStandingsCutoffRound(state, roundIndex)
+          ? exitOrderTiers(names)
+          : buildAdvancementTiers(state, roundIndex, names);
+        return tiers.flatMap((tier) =>
+          tier.members.map((member) => ({ name: member.name, tierRank: tier.rank })),
+        );
+      },
+      fillRest: (rest, seatsLeft, weights, pool) => {
+        const fill = (members: WaveMember[], roomNumbers: number[]) =>
+          fillRoomsByWaves({ ...weights, members, roomNumbers, roomSizes: seatsLeft });
+        // Rounds with mixed room sizes: the smaller rooms are filled apart so their seats are spread evenly
+        // (smaller-room-seats.ts): by the units that have held the fewest while the whole field is still in,
+        // shared between the finishing places once units have been eliminated.
+        const splitRound = isFullFieldRound(state.rounds, targetRoundIndex)
+          ? splitForSmallerRooms
+          : splitByFinishingPlace;
+        const split = spreadsSmallerRoomSeats(nextRound)
+          ? splitRound(
+              rest,
+              seatsLeft,
+              smallerRoomSeatsBefore(state, targetRoundIndex),
+              new Set(lateJoinersOf(state, roundIndex)),
+            )
+          : null;
+        if (!split) return fill(rest, allRoomNumbers);
+        const largeRooms = allRoomNumbers.filter((room) => !split.smallRooms.includes(room));
+        const drawn = [...fill(split.small, split.smallRooms), ...fill(split.large, largeRooms)];
+        const position = new Map(pool.map((member, index) => [member.name, index]));
+        return drawn.sort(
+          (first, second) => (position.get(first.name) ?? 0) - (position.get(second.name) ?? 0),
+        );
+      },
+    }),
+  };
 }
 
 /**
@@ -1058,53 +1083,34 @@ export function tieredBracketSeed(options: {
   likelyAbsent?: ReadonlySet<string>;
 }): { seeded: RoundAssignment[] } {
   const { pool, roomSizes, roomHistory, rounds, targetRoundIndex, seedingOverride } = options;
-  const likelyAbsent = options.likelyAbsent ?? new Set<string>();
   if (roomSizes.length === 0) return { seeded: [] };
 
-  const isLuckyByName = new Map(pool.map((entry) => [entry.name, Boolean(entry.isLucky)]));
-
-  if (seedingOverride === 'random') {
-    return {
-      seeded: randomRoomAssignmentAround(
-        pool.map((entry) => entry.name),
-        roomSizes,
-        `${targetRoundIndex}`,
-        isLuckyByName,
-        likelyAbsent,
-      ),
-    };
-  }
-
-  let diversityWeight: number;
-  let balanceWeight: number;
-  if (seedingOverride === 'diversity' || seedingOverride === 'balance') {
-    ({ diversityWeight, balanceWeight } = SEEDING_OVERRIDE_WEIGHTS[seedingOverride]);
-  } else {
-    const progress = doubleEliminationApproachProgress(rounds, targetRoundIndex);
-    diversityWeight = lerp(DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP, DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS, progress);
-    balanceWeight = lerp(BALANCE_PRIORITY_WEIGHT_AT_WARMUP, BALANCE_PRIORITY_WEIGHT_AT_SEMIS, progress);
-  }
-
-  const sorted = [...pool].sort(
-    (first, second) =>
-      first.tierRank - second.tierRank || second.pct - first.pct || first.name.localeCompare(second.name),
-  );
-
-  const members: WaveMember[] = sorted.map((entry) => ({ name: entry.name, tierRank: entry.tierRank }));
-  const weights = { roomHistory, targetRoundIndex, diversityWeight, balanceWeight };
-  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, roomSizes, likelyAbsent, weights);
-  const drawn = fillRoomsByWaves({
-    ...weights,
-    members: rest,
-    roomNumbers: roomSizes.map((_, index) => index + 1),
-    roomSizes: seatsLeft,
-  });
-  const result = inPoolOrder(placed, drawn, members);
-
-  const seeded: RoundAssignment[] = result.map(({ name, room }) => ({
-    name,
-    room,
-    isLucky: isLuckyByName.get(name) ?? false,
-  }));
-  return { seeded };
+  return {
+    seeded: drawRooms({
+      names: pool.map((entry) => entry.name),
+      roomSizes,
+      targetRoundIndex,
+      roomHistory,
+      seedingOverride,
+      likelyAbsent: options.likelyAbsent ?? new Set<string>(),
+      isLuckyByName: new Map(pool.map((entry) => [entry.name, Boolean(entry.isLucky)])),
+      progress: () => doubleEliminationApproachProgress(rounds, targetRoundIndex),
+      members: () => {
+        const sorted = [...pool].sort(
+          (first, second) =>
+            first.tierRank - second.tierRank ||
+            second.pct - first.pct ||
+            first.name.localeCompare(second.name),
+        );
+        return sorted.map((entry) => ({ name: entry.name, tierRank: entry.tierRank }));
+      },
+      fillRest: (rest, seatsLeft, weights) =>
+        fillRoomsByWaves({
+          ...weights,
+          members: rest,
+          roomNumbers: roomSizes.map((_, index) => index + 1),
+          roomSizes: seatsLeft,
+        }),
+    }),
+  };
 }
