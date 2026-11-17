@@ -196,6 +196,7 @@ export function kingsValleyBracketPhase(
       break;
     }
 
+    // Stored on the round for the tests; the advance works the moves out again from the rooms as they are.
     const moves = kingsValleyRoundMoves(roomSizes, config.roomSize);
     const kvPromoteCounts = moves.bands.map((band) => band.promote);
     const kvDemoteCounts = moves.bands.map((band) => (band.eliminates ? 0 : band.cut));

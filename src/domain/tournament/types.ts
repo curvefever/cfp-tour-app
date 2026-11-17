@@ -109,6 +109,7 @@ export interface TournamentRound {
   bracketPhaseFirstRound?: boolean;
   wbFinalistName?: string;
   isKingsValley?: boolean;
+  /** A Kings Valley round's moves per room: units promoted, demoted, and cut from the bottom room. Written at generation; no production code reads them (`kingsValleyRoundMoves` computes the moves), the tests pin them. */
   kvPromoteCounts?: number[];
   kvDemoteCounts?: number[];
   kvEliminateCount?: number;
