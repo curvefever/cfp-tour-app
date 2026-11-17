@@ -108,6 +108,8 @@ jobs:
 
   deploy:
     needs: [resolve, build]
+    # Without this, the skipped `verify` of a test deploy would skip the deploy too (`success()` looks through `build`).
+    if: ${{ !cancelled() && needs.resolve.result == 'success' && needs.build.result == 'success' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     environment: ${{ needs.resolve.outputs.deployment_environment }}
     timeout-minutes: 3
