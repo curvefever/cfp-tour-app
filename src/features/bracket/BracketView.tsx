@@ -73,7 +73,11 @@ export function BracketView() {
   const follow = useMemo(() => bracketFollowStatus(shown, shownFollowKey), [shown, shownFollowKey]);
   const labels = bracketRoundLabels(shown);
   const projectedSlots = useMemo(() => projectFutureRoundSlots(shown), [shown]);
-  const expectedDraw = useMemo(() => (preview ? null : expectedRounds(app.state)), [app.state, preview]);
+  // The expected draw is for the organiser: a viewer sees the slot labels until Next Round draws the round.
+  const expectedDraw = useMemo(
+    () => (preview || app.isViewer ? null : expectedRounds(app.state)),
+    [app.state, app.isViewer, preview],
+  );
   if (!app.state.rounds.length) {
     return (
       <>

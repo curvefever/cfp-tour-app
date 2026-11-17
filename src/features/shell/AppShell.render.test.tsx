@@ -158,17 +158,22 @@ describe('Bracket, the expected draw', () => {
     return { ...fixture, state: complete ? scored : { ...scored, scores } };
   };
 
-  it.each(ROLES)(
-    'shows %s the next round with its units and an EXPECTED tag once the round in play is scored',
-    (role) => {
-      const view = renderApp(lastQualification(true), { role, tab: 'bracket' });
+  it('shows an admin the next round with its units and an EXPECTED tag once the round in play is scored', () => {
+    const view = renderApp(lastQualification(true), { role: 'admin', tab: 'bracket' });
 
-      expect(view.queryAllByText('EXPECTED')).toHaveLength(1);
-      expect(view.queryAllByText(CUTOFF_PLACEHOLDER)).toHaveLength(0);
-      // The rounds after it keep their placeholders, with no tag of their own.
-      expect(view.queryAllByText(/ · \d+(st|nd|rd|th)$/).length).toBeGreaterThan(0);
-    },
-  );
+    expect(view.queryAllByText('EXPECTED')).toHaveLength(1);
+    expect(view.queryAllByText(CUTOFF_PLACEHOLDER)).toHaveLength(0);
+    // The rounds after it keep their placeholders, with no tag of their own.
+    expect(view.queryAllByText(/ · \d+(st|nd|rd|th)$/).length).toBeGreaterThan(0);
+  });
+
+  it('shows a viewer no EXPECTED tag: the next round keeps its slot placeholders until it is drawn', () => {
+    const view = renderApp(lastQualification(true), { role: 'viewer', tab: 'bracket' });
+
+    expect(view.queryAllByText('EXPECTED')).toHaveLength(0);
+    expect(view.queryAllByText(CUTOFF_PLACEHOLDER).length).toBeGreaterThan(0);
+    expect(view.queryAllByText(/ · \d+(st|nd|rd|th)$/).length).toBeGreaterThan(0);
+  });
 
   it('shows the rooms the next round will really have, not a stale plan with one room more', () => {
     const fixture = lastQualification(true);
@@ -180,7 +185,7 @@ describe('Bracket, the expected draw', () => {
 
     const view = renderApp(
       { ...fixture, state: { ...fixture.state, rounds } },
-      { role: 'viewer', tab: 'bracket' },
+      { role: 'admin', tab: 'bracket' },
     );
 
     const column = view.getByText('EXPECTED').closest('[data-round-column]') as HTMLElement;
@@ -194,21 +199,25 @@ describe('Bracket, the expected draw', () => {
     expect(view.queryAllByText(CUTOFF_PLACEHOLDER).length).toBeGreaterThan(0);
   });
 
-  it.each(ROLES)(
-    'shows %s the draw of R6L and R6R once R5L alone is scored, while SemiB and the Final keep their place labels',
-    (role) => {
+  describe('upper-lower-37, R5L alone scored', () => {
+    const upperLower = () => {
       const fixture = fixtureTournaments().find((entry) => entry.id === 'upper-lower-37');
       if (!fixture) throw new Error('the upper-lower-37 fixture is missing');
-      const view = renderApp(fixture, { role, tab: 'bracket' });
-      const placeholder = /, Rank \d+$/;
-      const columnOf = (title: string) => {
-        const column = view
-          .getAllByRole('heading', { name: title })
-          .map((heading) => heading.closest<HTMLElement>('[data-round-column]'))
-          .find((found) => found !== null);
-        if (!column) throw new Error(`no column ${title}`);
-        return column;
-      };
+      return fixture;
+    };
+    const placeholder = /, Rank \d+$/;
+    const columnIn = (view: ReturnType<typeof renderApp>, title: string) => {
+      const column = view
+        .getAllByRole('heading', { name: title })
+        .map((heading) => heading.closest<HTMLElement>('[data-round-column]'))
+        .find((found) => found !== null);
+      if (!column) throw new Error(`no column ${title}`);
+      return column;
+    };
+
+    it('shows an admin the draw of R6L and R6R, while SemiB and the Final keep their place labels', () => {
+      const fixture = upperLower();
+      const view = renderApp(fixture, { role: 'admin', tab: 'bracket' });
       const labelOf = (title: string) =>
         fixture.state.rounds.findIndex((round) => round.customLabel === title);
       const draw = expectedRounds(fixture.state);
@@ -217,15 +226,25 @@ describe('Bracket, the expected draw', () => {
       for (const title of ['R6L', 'R6R']) {
         const names = draw?.get(labelOf(title))?.assignments.map((entry) => entry.name) ?? [];
         expect(names.length).toBeGreaterThan(0);
-        for (const name of names) expect(within(columnOf(title)).queryAllByText(name)).not.toHaveLength(0);
-        expect(within(columnOf(title)).queryAllByText(placeholder)).toHaveLength(0);
+        for (const name of names)
+          expect(within(columnIn(view, title)).queryAllByText(name)).not.toHaveLength(0);
+        expect(within(columnIn(view, title)).queryAllByText(placeholder)).toHaveLength(0);
       }
       for (const title of ['SemiB', 'Final']) {
-        expect(within(columnOf(title)).queryAllByText('EXPECTED')).toHaveLength(0);
-        expect(within(columnOf(title)).queryAllByText(placeholder).length).toBeGreaterThan(0);
+        expect(within(columnIn(view, title)).queryAllByText('EXPECTED')).toHaveLength(0);
+        expect(within(columnIn(view, title)).queryAllByText(placeholder).length).toBeGreaterThan(0);
       }
-    },
-  );
+    });
+
+    it('shows a viewer no EXPECTED tag and the place labels in every undrawn round', () => {
+      const view = renderApp(upperLower(), { role: 'viewer', tab: 'bracket' });
+
+      expect(view.queryAllByText('EXPECTED')).toHaveLength(0);
+      for (const title of ['R6L', 'R6R', 'SemiB', 'Final']) {
+        expect(within(columnIn(view, title)).queryAllByText(placeholder).length).toBeGreaterThan(0);
+      }
+    });
+  });
 });
 
 describe('Bracket, dependency play', () => {

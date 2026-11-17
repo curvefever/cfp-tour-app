@@ -61,8 +61,8 @@ function roundFourScored(): FixtureTournament {
 const COLUMN = ['Semi-Final A', 'Round 5 - Lower', 'Round 5 - Ranking'];
 
 /** The title bars of the column, in the order the page lists them. */
-function barsOf(fixture: FixtureTournament) {
-  const view = renderApp(fixture, { role: 'viewer', tab: 'bracket' });
+function barsOf(fixture: FixtureTournament, role: 'admin' | 'viewer' = 'admin') {
+  const view = renderApp(fixture, { role, tab: 'bracket' });
   expect(consoleError).not.toHaveBeenCalled();
   return view
     .getAllByRole('heading', { level: 2 })
@@ -75,6 +75,11 @@ describe('a column holding a ranking room, on the Bracket', () => {
     const bars = barsOf(roundFourScored());
     expect(bars.map((bar) => bar.title)).toEqual(COLUMN);
     for (const bar of bars) expect(bar.text, bar.title).toContain('EXPECTED');
+  });
+
+  it('gives a viewer no EXPECTED tag on that column', () => {
+    for (const bar of barsOf(roundFourScored(), 'viewer'))
+      expect(bar.text, bar.title).not.toContain('EXPECTED');
   });
 
   it('lists it last once drawn too, with NOW on every round of the column', () => {
