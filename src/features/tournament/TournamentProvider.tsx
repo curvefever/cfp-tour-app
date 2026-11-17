@@ -153,8 +153,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   isViewerRef.current = signedInViewer;
 
   useEffect(() => {
-    window.localStorage.removeItem('curveFFA_admin_unlocked');
-    window.localStorage.removeItem('curveFFA_admin_proof_hash');
     initialUrlId.current = new URLSearchParams(window.location.search).get('t');
     memory.current = {
       lastView: readLastView(window.localStorage),

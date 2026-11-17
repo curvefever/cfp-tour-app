@@ -124,11 +124,6 @@ describe('normalizePersistedSetup', () => {
     expect(setup.poolingPhase).toBe('group-stage');
   });
 
-  it('migrates the legacy qual === "yes" flag to qual-table when poolingPhase is absent', () => {
-    const setup = normalizePersistedSetup({ qual: 'yes' });
-    expect(setup.poolingPhase).toBe('qual-table');
-  });
-
   it('falls back to none when neither poolingPhase nor the legacy qual flag is present', () => {
     const setup = normalizePersistedSetup({});
     expect(setup.poolingPhase).toBe('none');
@@ -144,12 +139,6 @@ describe('normalizeActiveTab', () => {
     for (const tab of ['tournaments', 'info', 'admin', 'bracket', 'standings', 'rankings']) {
       expect(normalizeActiveTab(tab)).toBe(tab);
     }
-  });
-
-  it('maps the legacy scoreboard tab to standings', () => {
-    expect(normalizeActiveTab('scoreboard')).toBe('standings');
-    expect(normalizeActiveTab('home')).toBe('tournaments');
-    expect(normalizeActiveTab('archive')).toBe('tournaments');
   });
 
   it('falls back to bracket for an unknown or non-string value', () => {

@@ -46,7 +46,7 @@ function carriesServerListedInfo(path: string, value: unknown): boolean {
   );
 }
 
-/** Checks every path of a patch (the value can be anything, `null` deleting) and drops legacy `adminProof` paths. */
+/** Checks every path of a patch (the value can be anything, `null` deleting). */
 export function cleanPatchPaths(patch: unknown): Record<string, unknown> {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch))
     throw new Error('Invalid tournament patch.');
@@ -55,7 +55,7 @@ export function cleanPatchPaths(patch: unknown): Record<string, unknown> {
     if (!isValidPatchPath(path) || carriesServerListedInfo(path, value)) {
       throw new Error(`Invalid tournament patch path: ${path}`);
     }
-    if (path.split('/')[0] !== 'adminProof') cleaned[path] = value;
+    cleaned[path] = value;
   }
   return cleaned;
 }

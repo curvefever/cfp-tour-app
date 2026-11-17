@@ -54,11 +54,9 @@ function changedKeys(previous: Record<string, unknown>, next: Record<string, unk
   return [...keys].filter((key) => previous[key] !== next[key]);
 }
 
-/** The stored tournament as the app reads it (markers decoded, the legacy `adminProof` dropped). */
+/** The stored tournament as the app reads it (markers decoded). */
 function decodeStoredState(remoteValue: unknown): TournamentState {
-  const decoded = { ...(unmarshalFromFirebase(remoteValue) as TournamentState & { adminProof?: unknown }) };
-  delete decoded.adminProof;
-  return decoded;
+  return { ...(unmarshalFromFirebase(remoteValue) as TournamentState) };
 }
 
 /**
@@ -86,8 +84,7 @@ export function mergeRemoteWriterState(
 ): TournamentState | null {
   const decoded = unmarshalFromFirebase(remoteValue);
   if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) return null;
-  const remote = { ...(decoded as Partial<TournamentState> & { adminProof?: unknown }) };
-  delete remote.adminProof;
+  const remote = { ...(decoded as Partial<TournamentState>) };
   const scores = overlayDirtyKeys(remote.scores ?? {}, current.scores, dirtyScoreKeys);
   const finalScores = overlayDirtyKeys(remote.finalScores ?? {}, current.finalScores, dirtyFinalScoreKeys);
   delete remote.scores;

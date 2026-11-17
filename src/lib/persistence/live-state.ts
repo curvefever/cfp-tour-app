@@ -32,8 +32,8 @@ function normalizeTeamCollection(value: unknown, teamSize: number): unknown {
 }
 
 /**
- * Apply only the compatibility repairs made by legacy loadState(). Unknown
- * root fields remain attached and will survive a subsequent JSON save.
+ * Fills what a stored state lacks from the defaults and pads the team collections to the team size.
+ * Unknown root fields remain attached and will survive a subsequent JSON save.
  */
 export function normalizeLiveTournamentState(
   value: unknown,
@@ -62,23 +62,13 @@ export function normalizePersistedSetup(value: unknown): PersistedSetup {
   const raw = isRecord(value) ? value : {};
   const setup = createDefaultSetup();
   for (const key of Object.keys(setup) as (keyof PersistedSetup)[]) {
-    if (key !== 'poolingPhase' && raw[key] !== undefined) {
-      // Each known control is restored independently by legacy loadState().
-      (setup as unknown as Record<string, unknown>)[key] = raw[key];
-    }
+    // Each known control is restored independently; a missing one keeps its default.
+    if (raw[key] !== undefined) (setup as unknown as Record<string, unknown>)[key] = raw[key];
   }
-  const fallbackPoolingPhase =
-    raw.poolingPhase !== undefined ? raw.poolingPhase : raw.qual === 'yes' ? 'qual-table' : 'none';
-  // setup is reconstructed from controls on every legacy save. Deliberately
-  // omit cfg-lb-qualifiers until a future protocol version is chosen.
-  setup.poolingPhase = fallbackPoolingPhase as PersistedSetup['poolingPhase'];
   return setup;
 }
 
 export function normalizeActiveTab(value: unknown): ActiveTab {
-  if (value === 'scoreboard') return 'standings';
-  // The Home and Archive tabs were replaced by the Tournaments tab.
-  if (value === 'home' || value === 'archive') return 'tournaments';
   return typeof value === 'string' && (ACTIVE_TABS as readonly string[]).includes(value)
     ? (value as ActiveTab)
     : 'bracket';

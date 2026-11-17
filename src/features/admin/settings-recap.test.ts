@@ -217,17 +217,6 @@ describe('settingsRecapGroups', () => {
     );
     expect(withoutLine['Advance to bracket']).toBe('99');
   });
-
-  it('lists a tournament stored before the settings snapshot from what its state records', () => {
-    const state = {
-      ...stateOf({ poolingPhase: 'qual-table' }),
-      settings: undefined,
-      cfg: { poolingPhase: 'qual-table', qualAdv: 16 },
-    } as TournamentState;
-    const items = itemsOf(settingsRecapGroups(state));
-    expect(items['Pooling phase']).toBe('Qualification Table');
-    expect(items['Advance to bracket']).toBe('16');
-  });
 });
 
 describe('the recap of an upper and lower bracket after a group stage', () => {
@@ -368,13 +357,5 @@ describe('the match format of every stage in the recap', () => {
     );
     expect(custom['Elimination rounds']).toBeUndefined();
     expect(custom['Winners rounds']).toBeUndefined();
-  });
-
-  it('reads the formats of a tournament generated before they existed as one game', () => {
-    const state = generated(37, { scheduleLogic: 'single-elimination' });
-    const { settings: _settings, ...legacy } = state;
-    const items = itemsOf(settingsRecapGroups(legacy));
-    expect(items['Pooling rounds']).toBe('Single game');
-    expect(items['Elimination rounds']).toBe('Single game');
   });
 });

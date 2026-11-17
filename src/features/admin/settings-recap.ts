@@ -11,13 +11,12 @@ import { matchResultSettings } from '../../domain/tournament/match-results';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { groupExitIsTotal } from '../../domain/tournament/group-exit';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
-import { matchOverridesText, parseMatchOverrides } from '../../domain/tournament/round-match-formats';
+import { parseMatchOverrides } from '../../domain/tournament/round-match-formats';
 import { roundNoteNames } from '../../domain/tournament/round-notes';
 import { readTournamentSettings } from '../../domain/tournament/tournament-settings';
 import type { TournamentSettings, TournamentState } from '../../domain/tournament/types';
 import { parseMatchFormatToken } from '../../domain/tournament/waterfall-bracket';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
-import { bracketLogicOf } from '../../domain/tournament/upper-lower';
 import { standingsKindOfSetup } from '../../domain/tournament/waterfall-numbering';
 import {
   DRAW_PUBLICATION_LABELS,
@@ -285,53 +284,9 @@ const RECAP: Record<RecapField, RecapEntry> = {
 
 const TITLES: RecapTitle[] = ['FORMAT', 'POOLING', 'SCORING', 'BRACKET'];
 
-/**
- * The Setup form of a tournament: as typed when it was generated, or, for one generated before that was
- * kept, rebuilt from what its state records.
- */
+/** The Setup form of a tournament, as typed when it was generated; the defaults for a state that has none. */
 function settingsOf(state: TournamentState): TournamentSettings {
-  const stored = readTournamentSettings(state.settings);
-  if (stored) return stored;
-  const { cfg, gamemodeConfig: config } = state;
-  const text = (value: string | number | undefined, fallback: string) =>
-    value === undefined ? fallback : String(value);
-  const defaults = createDefaultSetup();
-  return {
-    ...defaults,
-    lbQualifiers: '2',
-    gameFormat: state.gameFormat,
-    scheduleLogic: bracketLogicOf(state),
-    poolingPhase: cfg.poolingPhase ?? config.poolingPhase ?? 'none',
-    qualAdv: text(cfg.qualAdv, defaults.qualAdv),
-    nonCountingRounds: text(config.nonCountingRounds, defaults.nonCountingRounds),
-    groupSize: text(config.groupSize ?? cfg.groupSize, defaults.groupSize),
-    roundRobinMode: config.roundRobinMode ?? cfg.roundRobinMode ?? defaults.roundRobinMode,
-    qualifiersPerGroup: text(
-      config.qualifiersPerGroup ?? cfg.qualifiersPerGroup,
-      defaults.qualifiersPerGroup,
-    ),
-    groupExit: cfg.groupExit ?? config.groupExit ?? defaults.groupExit,
-    scoring: config.scoring ?? cfg.scoring ?? defaults.scoring,
-    positionalPointsTable: config.positionalPointsTable?.join(',') ?? defaults.positionalPointsTable,
-    matchResultPoints: config.matchResultPoints?.join(', ') ?? defaults.matchResultPoints,
-    tieMargin: text(config.tieMargin, defaults.tieMargin),
-    drawPublication: cfg.drawPublication ?? defaults.drawPublication,
-    finalsGames: text(config.finalsGames ?? cfg.finalsGames, defaults.finalsGames),
-    semisGames: text(config.semisGames ?? cfg.semisGames, defaults.semisGames),
-    finalsBestOf: text(config.finalsBestOf, defaults.finalsBestOf),
-    semisBestOf: text(config.semisBestOf, defaults.semisBestOf),
-    poolingGames: text(config.poolingGames, defaults.poolingGames),
-    poolingBestOf: text(config.poolingBestOf, defaults.poolingBestOf),
-    bracketGames: text(config.bracketGames, defaults.bracketGames),
-    bracketBestOf: text(config.bracketBestOf, defaults.bracketBestOf),
-    losersGames: text(config.losersGames, defaults.losersGames),
-    losersBestOf: text(config.losersBestOf, defaults.losersBestOf),
-    matchOverrides: matchOverridesText(config.matchOverrides ?? {}),
-    grandFinalWbTarget: text(config.grandFinalWbTarget, defaults.grandFinalWbTarget),
-    grandFinalLbTarget: text(config.grandFinalLbTarget, defaults.grandFinalLbTarget),
-    oddCountStrategy: config.oddCountStrategy ?? '',
-    teamScoringRule: config.teamScoringRule ?? '',
-  };
+  return readTournamentSettings(state.settings) ?? { ...createDefaultSetup(), lbQualifiers: '2' };
 }
 
 function rosterItem(state: TournamentState): RecapItem {

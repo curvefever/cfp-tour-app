@@ -32,15 +32,6 @@ describe('validatePatchInput', () => {
     ).not.toThrow();
   });
 
-  it('drops adminProof paths and rejects a patch left with nothing', () => {
-    expect(validatePatchInput({ tournamentId: 't1', patch: { adminProof: 'x', curRound: 1 } }).patch).toEqual(
-      { curRound: 1 },
-    );
-    expect(() => validatePatchInput({ tournamentId: 't1', patch: { adminProof: 'x' } })).toThrow(
-      'Invalid tournament patch.',
-    );
-  });
-
   it('rejects a bad tournament id or a missing, array or empty patch', () => {
     expect(() => validatePatchInput({ tournamentId: 't1/../t2', patch: { a: 1 } })).toThrow(
       'Invalid tournament ID.',

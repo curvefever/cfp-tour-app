@@ -64,18 +64,6 @@ describe('mergeRemoteWriterState', () => {
     expect(mergeRemoteWriterState(current, [1, 2], new Set(), new Set())).toBeNull();
   });
 
-  it('strips adminProof from the remote payload before merging', () => {
-    const merged = mergeRemoteWriterState(
-      current,
-      { adminProof: 'secret', curRound: 4 },
-      new Set(),
-      new Set(),
-    );
-    expect(merged).not.toBeNull();
-    expect(merged).not.toHaveProperty('adminProof');
-    expect(merged?.curRound).toBe(4);
-  });
-
   it('keeps a dirty score key at its current value and takes remote for a non-dirty one', () => {
     const merged = mergeRemoteWriterState(current, { scores: { a: 99, b: 100 } }, new Set(['a']), new Set());
     expect(merged?.scores).toEqual({ a: 1, b: 100 });
