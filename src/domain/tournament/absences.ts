@@ -10,11 +10,11 @@
  * The Final and the grand final are left out: their 0s are never asked.
  */
 import { invalidateStaleTieResolutions } from './advancement';
-import { isOneScorePerTeam } from './formats';
+import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { isCurrentRound, roundsInPlay } from './round-columns';
-import { occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
+import { getFinalUnitScore, getUnitScore, occupiedRooms, scoredTeamSize, scoreOrDefault } from './scoring';
 import type { AbsenceAnswer, TournamentRound, TournamentState } from './types';
 import { absenteeDestination } from './waterfall-bracket';
 
@@ -219,6 +219,82 @@ export function seatHasPlayed(
     if (score === null || isMarkedAbsent(state, key)) return false;
     return score > 0 || answerOf(state, key) === 'played' || isOneScorePerTeam(state);
   });
+}
+
+/** The seat of a unit in a room of a round: its place among the room's units, or null for a bye or a unit not drawn. */
+function seatOf(
+  state: TournamentState,
+  roundIndex: number,
+  unit: string,
+): { room: number; position: number } | null {
+  const found = (state.assignments[roundIndex] ?? []).find((entry) => entry.name === unit);
+  if (!found || found.room === null) return null;
+  return { room: found.room, position: unitsOfRoom(state, roundIndex, found.room).indexOf(unit) };
+}
+
+/**
+ * Whether the unit at `position` of the room scored and was not absent from it. A unit that was absent from the room
+ * never played it. In a Best-of room a decided match leaves games unplayed, so a score in any game is enough.
+ */
+function playedRoomSeat(state: TournamentState, roundIndex: number, room: number, position: number): boolean {
+  const match = roomMatch(state, roundIndex, room);
+  const scored = match
+    ? match.units[position].perGame.some((score) => score !== null)
+    : getUnitScore(state, roundIndex, room, position, null) !== null;
+  return scored && !isUnitAbsentFromRoom(state, roundIndex, room, position);
+}
+
+/**
+ * Whether the unit scored in a game of the Final. Final-round assignment entries always carry room: null (scores live
+ * in `state.finalScores`, read via `getFinalUnitScore`), so the Final is read apart from the rooms of every other round.
+ */
+export function playedTheFinal(state: TournamentState, key: string): boolean {
+  return state.assignments.some((roundAssignments, roundIndex) => {
+    const round = state.rounds[roundIndex];
+    if (!round?.isFinal || !roundAssignments.some((entry) => entry.name === key)) return false;
+    return Array.from({ length: round.numGames ?? 1 }, (_, i) => i + 1).some(
+      (game) => getFinalUnitScore(state, key, game, null) !== null,
+    );
+  });
+}
+
+/**
+ * True if `key` was ever assigned to a real room (not a bye) with a score it was not absent for, or scored in the Final:
+ * a unit removed right after competing in the Final must still count as having played.
+ */
+export function hasPlayedAnyMatch(state: TournamentState, key: string): boolean {
+  if (playedTheFinal(state, key)) return true;
+  return state.assignments.some((_, roundIndex) => {
+    if (state.rounds[roundIndex]?.isFinal) return false;
+    const seat = seatOf(state, roundIndex, key);
+    return seat !== null && playedRoomSeat(state, roundIndex, seat.room, seat.position);
+  });
+}
+
+/**
+ * The slots of a team's members who showed up at its seat of a room, empty when the team did not play it. Scored one
+ * by one (sum of members, Save your Buddy), a member showed up when one of its own scores is not an absence; with one
+ * score per team, when the seat played and the member was not marked absent by hand.
+ */
+export function membersPresentAtSeat(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  position: number,
+): number[] {
+  const unit = unitsOfRoom(state, roundIndex, room)[position];
+  if (unit === undefined) return [];
+  if (scoredTeamSize(state)) {
+    const present = seatQuestions(state, roundIndex, room, position, unit).filter(
+      ({ key }) => scoreOrDefault(state.scores[key], null) !== null && !isMarkedAbsent(state, key),
+    );
+    return [...new Set(present.map((question) => question.memberIndex ?? -1))].filter((slot) => slot >= 0);
+  }
+  if (!playedRoomSeat(state, roundIndex, room, position)) return [];
+  const size = getGameFormat(state.gameFormat)?.teamSize ?? 0;
+  return Array.from({ length: size }, (_, slot) => slot).filter(
+    (slot) => !isMemberMarkedAbsent(state, oneScoreTeamMemberKey(roundIndex, room, position, slot)),
+  );
 }
 
 /** The units absent from a room, in seat order. */

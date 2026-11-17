@@ -1,5 +1,6 @@
 import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
 import {
+  hasPlayedAnyMatch,
   isUnitAbsentFromRoom,
   withoutAbsenceAnswer,
   withoutSeatAbsences,
@@ -12,7 +13,6 @@ import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-dra
 import { replanUpperLower } from './upper-lower-replan';
 import { getGameFormat } from './formats';
 import { lateJoinersOf } from './late-joiners';
-import { roomMatch } from './match-format';
 import { isPoolingRound, refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
@@ -32,7 +32,6 @@ import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildTournamentProgression, type TournamentProgressionInput } from './schedule-generation';
 import {
   getFinalUnitScore,
-  getUnitScore,
   readTieResolution,
   scoredTeamSize,
   scoreKeysForPosition,
@@ -757,38 +756,6 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
     tieResolutions,
   };
   return replanFutureRounds(patchPublishedFutureRounds(next, key, null));
-}
-
-/**
- * True if `key` was ever assigned to a real room (not a bye) or a Final slot
- * with at least one non-null score recorded. Final-round assignment entries
- * always carry room: null (scores live in state.finalScores, read via
- * getFinalUnitScore) -- a unit removed right after competing in the Final
- * must still count as having played, so that path is handled separately from
- * the room-based getUnitScore check every other round uses.
- */
-function hasPlayedAnyMatch(state: TournamentState, key: string): boolean {
-  return state.assignments.some((roundAssignments, roundIndex) => {
-    const found = roundAssignments.find((entry) => entry.name === key);
-    if (!found) return false;
-    const round = state.rounds[roundIndex];
-    if (round?.isFinal) {
-      const games = round.numGames ?? 1;
-      return Array.from({ length: games }, (_, i) => i + 1).some(
-        (game) => getFinalUnitScore(state, key, game, null) !== null,
-      );
-    }
-    if (found.room === null) return false;
-    const roomAssignments = roundAssignments.filter((entry) => entry.room === found.room);
-    const position = roomAssignments.findIndex((entry) => entry.name === key);
-    // A unit that was absent from the room never played it. In a Best-of room a decided match leaves games
-    // unplayed, so a score in any game is enough.
-    const match = roomMatch(state, roundIndex, found.room);
-    const scored = match
-      ? match.units[position].perGame.some((score) => score !== null)
-      : getUnitScore(state, roundIndex, found.room, position, null) !== null;
-    return scored && !isUnitAbsentFromRoom(state, roundIndex, found.room, position);
-  });
 }
 
 /**

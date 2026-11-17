@@ -6,6 +6,7 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { downloadRankingsImage } from './rankings-image';
 import { AbsentPanel } from './AbsentPanel';
+import { CopyPlayersButton } from './CopyPlayersButton';
 import { PlayersList } from './PlayersList';
 import { RankingsLists } from './RankingsLists';
 import { ManageRoster, ReservePanel } from './RankingsRoster';
@@ -83,6 +84,16 @@ function DownloadImageButton({ state }: { state: TournamentState }) {
   );
 }
 
+/** The heading's buttons: Download image for everyone, and the admin's Copy players once the tournament has started. */
+function RankingsActions({ state, copyPlayers }: { state: TournamentState; copyPlayers: boolean }) {
+  return (
+    <div className='flex flex-wrap items-center justify-end gap-2'>
+      {copyPlayers ? <CopyPlayersButton state={state} /> : null}
+      <DownloadImageButton state={state} />
+    </div>
+  );
+}
+
 export function RankingsView() {
   const app = useTournamentApp();
   const title = useTournamentTitle();
@@ -92,7 +103,9 @@ export function RankingsView() {
   return (
     <>
       <PageHeading
-        actions={data ? <DownloadImageButton state={app.state} /> : null}
+        actions={
+          data ? <RankingsActions copyPlayers={app.state.started && !app.isViewer} state={app.state} /> : null
+        }
         label={app.state.started ? 'Rankings' : 'Players'}
         title={title}
       />
