@@ -17,7 +17,6 @@ export default tseslint.config(
       'build/**',
       'coverage/**',
       'dist/**',
-      'legacy/**',
       'node_modules/**',
       'src/routeTree.gen.ts',
       '**/*.min.js',
