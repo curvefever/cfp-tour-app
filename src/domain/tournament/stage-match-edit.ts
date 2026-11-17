@@ -17,6 +17,7 @@ import {
   matchStage,
   parseMatchOverrides,
   stageFormat,
+  storesGames,
   type RoundStage,
 } from './round-match-formats';
 import { roundNoteRows } from './round-notes';
@@ -119,8 +120,7 @@ function withStageConfig(config: GamemodeConfig, stage: RoundStage, match: Match
   const next: Record<string, unknown> = { ...config };
   const gamesKey: StageConfigKey = `${stage}Games`;
   const bestOfKey: StageConfigKey = `${stage}BestOf`;
-  const alwaysGames = stage === 'semis' || stage === 'finals';
-  if (alwaysGames || match.games !== 1) next[gamesKey] = match.games;
+  if (storesGames(stage, match.games)) next[gamesKey] = match.games;
   else delete next[gamesKey];
   if (match.bestOf === undefined) delete next[bestOfKey];
   else next[bestOfKey] = match.bestOf;

@@ -23,23 +23,33 @@ type GamemodeConfig = TournamentState['gamemodeConfig'];
 
 export type RoundStage = 'pooling' | 'bracket' | 'losers' | 'semis' | 'finals';
 
+/** The eleven settings of a match format: each stage's games and Best of N, and the round overrides. Setup form, config and snapshot all hold them under these names. */
+const MATCH_SETTING_KEYS = [
+  'poolingGames',
+  'poolingBestOf',
+  'bracketGames',
+  'bracketBestOf',
+  'losersGames',
+  'losersBestOf',
+  'semisGames',
+  'semisBestOf',
+  'finalsGames',
+  'finalsBestOf',
+  'matchOverrides',
+] as const;
+
+type MatchSettingKey = (typeof MATCH_SETTING_KEYS)[number];
+
 /** The stage formats and round overrides of a config, each absent for its default. */
-export type MatchFormatConfig = Partial<
-  Pick<
-    MaterializedGamemodeConfig,
-    | 'poolingGames'
-    | 'poolingBestOf'
-    | 'bracketGames'
-    | 'bracketBestOf'
-    | 'losersGames'
-    | 'losersBestOf'
-    | 'semisGames'
-    | 'semisBestOf'
-    | 'finalsGames'
-    | 'finalsBestOf'
-    | 'matchOverrides'
-  >
->;
+export type MatchFormatConfig = Partial<Pick<MaterializedGamemodeConfig, MatchSettingKey>>;
+
+/**
+ * Whether a stage's games are written into the config and onto its rounds: always for the Semis and the Final, which
+ * carry their games even when it is one; for any other stage only when it is not the default one game.
+ */
+export function storesGames(stage: RoundStage | null, games: number): boolean {
+  return stage === 'semis' || stage === 'finals' || games !== 1;
+}
 
 /**
  * The overrides a Setup text holds, one "Round 2: BO3" line each: the round name, a colon, a ROUNDS-line token. A
@@ -64,34 +74,7 @@ export function matchOverridesText(overrides: Record<string, string>): string {
 }
 
 /** The Setup fields that set a match format: the stages' games and Best of N, and the round overrides. */
-export type MatchSettings = Pick<
-  PersistedSetup,
-  | 'poolingGames'
-  | 'poolingBestOf'
-  | 'bracketGames'
-  | 'bracketBestOf'
-  | 'losersGames'
-  | 'losersBestOf'
-  | 'semisGames'
-  | 'semisBestOf'
-  | 'finalsGames'
-  | 'finalsBestOf'
-  | 'matchOverrides'
->;
-
-const MATCH_SETTING_KEYS = [
-  'poolingGames',
-  'poolingBestOf',
-  'bracketGames',
-  'bracketBestOf',
-  'losersGames',
-  'losersBestOf',
-  'semisGames',
-  'semisBestOf',
-  'finalsGames',
-  'finalsBestOf',
-  'matchOverrides',
-] as const satisfies readonly (keyof MatchSettings)[];
+export type MatchSettings = Pick<PersistedSetup, MatchSettingKey>;
 
 /** The whole number a form field starts with, or `fallback` when it has none or reads 0 ("12abc" is 12, "-5" stays -5). */
 export function wholeNumber(text: string | undefined, fallback: number): number {
@@ -113,7 +96,7 @@ function otherStageConfig(
   const games = wholeNumber(form[`${stage}Games`], 1);
   const bestOf = bestOfSetting(form[`${stage}BestOf`], visible);
   return {
-    ...(visible && games !== 1 ? { [`${stage}Games`]: games } : {}),
+    ...(visible && storesGames(stage, games) ? { [`${stage}Games`]: games } : {}),
     ...(bestOf !== undefined ? { [`${stage}BestOf`]: bestOf } : {}),
   };
 }
@@ -293,7 +276,7 @@ export function applyMatchFormats(
     const { bestOf, games } = format;
     const stage = matchStage(round);
     const { bestOf: _bestOf, numGames: _numGames, ...unformatted } = round;
-    if (bestOf === undefined && games === 1 && stage !== 'semis' && stage !== 'finals') return unformatted;
+    if (bestOf === undefined && !storesGames(stage, games)) return unformatted;
     return { ...unformatted, ...stageMatchFields(games, bestOf, Math.max(1, ...round.rooms)) };
   });
 }
