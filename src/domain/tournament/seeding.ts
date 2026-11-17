@@ -823,7 +823,7 @@ function inPoolOrder<T extends { name: string }>(
  * assignWaveToRooms. The balance mean is taken over `roomNumbers` only. `roomSizes` is indexed by
  * room number - 1.
  */
-function fillRoomsByWaves(options: {
+export function fillRoomsByWaves(options: {
   members: WaveMember[];
   roomNumbers: number[];
   roomSizes: number[];

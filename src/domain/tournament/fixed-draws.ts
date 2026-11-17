@@ -1,5 +1,5 @@
 import { circleMethodSchedule } from './pooling';
-import { assignWaveToRooms, recordRoomHistory, selectPoolingBye, type WaveMember } from './seeding';
+import { fillRoomsByWaves, recordRoomHistory, selectPoolingBye, type WaveMember } from './seeding';
 import {
   countSmallerRoomSeats,
   smallerRoomSeatWeight,
@@ -71,29 +71,15 @@ function fillFixedRooms(
   roomHistory: Record<string, number>,
   roundIndex: number,
 ): RoundAssignment[] {
-  const maxWave = Math.max(0, ...roomNumbers.map((room) => roomSizes[room - 1]));
-  const roomMembersSoFar = new Map<number, string[]>(roomNumbers.map((room) => [room, []]));
-  const roomBalanceSoFar = new Map<number, number>(roomNumbers.map((room) => [room, 0]));
-  const assignments: RoundAssignment[] = [];
-  let cursor = 0;
-  for (let wave = 0; wave < maxWave; wave += 1) {
-    const waveRooms = roomNumbers.filter((room) => roomSizes[room - 1] > wave);
-    const waveMembers = members.slice(cursor, cursor + waveRooms.length);
-    cursor += waveRooms.length;
-    if (waveMembers.length === 0) continue;
-    const assigned = assignWaveToRooms(waveMembers, waveRooms, roomMembersSoFar, roomBalanceSoFar, {
-      roomHistory,
-      targetRoundIndex: roundIndex,
-      allRoomNumbers: roomNumbers,
-      diversityWeight: 1,
-      balanceWeight: 0,
-    });
-    for (const { name, room } of assigned) {
-      roomMembersSoFar.set(room, [...(roomMembersSoFar.get(room) ?? []), name]);
-      assignments.push({ name, room, isLucky: false });
-    }
-  }
-  return assignments;
+  return fillRoomsByWaves({
+    members,
+    roomNumbers,
+    roomSizes,
+    roomHistory,
+    targetRoundIndex: roundIndex,
+    diversityWeight: 1,
+    balanceWeight: 0,
+  }).map(({ name, room }) => ({ name, room, isLucky: false }));
 }
 
 /**
