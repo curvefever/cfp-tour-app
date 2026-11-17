@@ -1,4 +1,3 @@
-import { withoutRoundAbsences } from './absences';
 import { isGroupBandKey, isGroupCutoffKey, isQualCutoffKey } from './advancement';
 import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
@@ -14,8 +13,8 @@ import {
   roundColumn,
   usesDependencyPlay,
 } from './round-columns';
-import { rewindRoomHistory } from './seeding';
-import { roundHasAnyScore, roundKeyPrefix } from './scoring';
+import { discardRoundDraws } from './redraw';
+import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
@@ -145,32 +144,24 @@ function rerouted(reachedRound: TournamentRound, spec: TournamentRound): Tournam
 
 /**
  * Re-draws the rounds of the current column whose line-up the edit changed, from the replayed pools.
- * Each one is cleared first (draw, byes, tie resolutions, room history), then drawn again in order.
+ * Each one is cleared first (`discardRoundDraws`: draw, byes, tie resolutions, absences, room history), then drawn
+ * again in order. Every index has a line-up when it is given: a round is listed only when its recorded line-up
+ * differs from the replayed pool, and a round drawn with nobody has nothing to undo.
  */
 function redrawRounds(
   state: TournamentState,
   indices: number[],
   replayPools: Map<number, PendingBracketSeed[]>,
 ): { state: TournamentState } | { error: string } {
-  let working = state;
-  for (const index of indices) {
-    working = {
-      ...working,
-      assignments: working.assignments.map((entry, position) => (position === index ? [] : entry)),
-      byes: working.byes.map((entry, position) => (position === index ? [] : entry)),
-      tieResolutions: Object.fromEntries(
-        Object.entries(working.tieResolutions).filter(([key]) => !key.startsWith(roundKeyPrefix(index))),
-      ),
-      absences: withoutRoundAbsences(working.absences, index),
-      pendingBracketSeeds: { ...working.pendingBracketSeeds, [index]: replayPools.get(index) ?? [] },
-    };
-  }
-  for (const index of indices) {
-    working = {
-      ...working,
-      roomHistory: rewindRoomHistory(working.roomHistory, working.assignments, index),
-    };
-  }
+  // The pool is this caller's step (`discardRoundDraws` leaves it): the replayed one. A Custom bracket round never
+  // counts a pooling bye, so the pooling-bye counts `discardRoundDraws` can undo are not touched here.
+  let working: TournamentState = {
+    ...discardRoundDraws(state, indices),
+    pendingBracketSeeds: {
+      ...state.pendingBracketSeeds,
+      ...Object.fromEntries(indices.map((index) => [index, replayPools.get(index) ?? []])),
+    },
+  };
   for (const index of indices) {
     // The pool may be short of the round's declared seats (a withdrawal): draw it short, as an advance would.
     const fitted = fitWaterfallRound(working.rounds[index], (replayPools.get(index) ?? []).length);
