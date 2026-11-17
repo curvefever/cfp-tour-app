@@ -93,7 +93,8 @@ const MATCH_SETTING_KEYS = [
   'matchOverrides',
 ] as const satisfies readonly (keyof MatchSettings)[];
 
-function wholeNumber(text: string | undefined, fallback: number): number {
+/** The whole number a form field starts with, or `fallback` when it has none or reads 0 ("12abc" is 12, "-5" stays -5). */
+export function wholeNumber(text: string | undefined, fallback: number): number {
   return Number.parseInt(text ?? '', 10) || fallback;
 }
 

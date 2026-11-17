@@ -20,7 +20,7 @@ import {
   resolveTieMargin,
 } from './match-results';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
-import { matchFormatConfig } from './round-match-formats';
+import { matchFormatConfig, wholeNumber } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import {
   graphTextHasQualLine,
@@ -49,10 +49,6 @@ interface GenerationForm extends PersistedSetup {
 
 type GenerateTournamentResult =
   { status: 'generated'; state: TournamentState } | { status: 'invalid'; message: string };
-
-function parsed(value: string, fallback: number): number {
-  return Number.parseInt(value, 10) || fallback;
-}
 
 function generationError(message: string): GenerateTournamentResult {
   return { status: 'invalid', message };
@@ -520,12 +516,12 @@ export function generateTournament(
     }
   }
 
-  const semisOverride = schedule === 'single-elimination' ? parsed(form.semisOverride, 0) || null : null;
+  const semisOverride = schedule === 'single-elimination' ? wholeNumber(form.semisOverride, 0) || null : null;
   const finalOverride =
     schedule === 'single-elimination' || schedule === 'double-elimination-shared-final'
-      ? parsed(form.finalOverride, 0) || null
+      ? wholeNumber(form.finalOverride, 0) || null
       : null;
-  // parsed()'s `|| fallback` only replaces a falsy (zero/NaN) parse result --
+  // wholeNumber()'s `|| fallback` only replaces a falsy (zero/NaN) parse result --
   // a negative value like "-5" parses successfully and stays truthy, so it
   // slips straight through. Reject explicitly rather than let a negative
   // override reach distributeRooms() (which returns [] for a non-positive
@@ -593,8 +589,8 @@ export function generateTournament(
   // raceDoubleEliminationBracketPhase ever produces) -- scoped to schedule
   // here to match, so a stale value left over from a different schedule
   // logic never blocks an otherwise-unrelated generation.
-  const grandFinalWbTarget = parsed(form.grandFinalWbTarget, 2);
-  const grandFinalLbTarget = parsed(form.grandFinalLbTarget, 3);
+  const grandFinalWbTarget = wholeNumber(form.grandFinalWbTarget, 2);
+  const grandFinalLbTarget = wholeNumber(form.grandFinalLbTarget, 3);
   if (schedule === 'double-elimination' && (grandFinalWbTarget < 1 || grandFinalLbTarget < 1)) {
     return generationError(
       `Grand Final win targets must be positive — got WB ${grandFinalWbTarget}, LB ${grandFinalLbTarget}.`,
@@ -604,7 +600,7 @@ export function generateTournament(
   let lbQualifiers: number | undefined;
   let winnersQualifiers: number | undefined;
   if (schedule === 'double-elimination-shared-final') {
-    lbQualifiers = parsed(form.lbQualifiers ?? '2', 0);
+    lbQualifiers = wholeNumber(form.lbQualifiers ?? '2', 0);
     if (!(lbQualifiers >= 1) || !(lbQualifiers < prospectiveFinalSize)) {
       return generationError(
         `LB qualifiers into the Final (${lbQualifiers}) must be at least 1 and less than the Final size (${prospectiveFinalSize}).`,

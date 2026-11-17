@@ -2,14 +2,16 @@ import { absentInRoom } from './absences';
 import {
   activeGroupByes,
   type RoundOutcome,
+  type WalkoverKind,
+  walkoverOutcome,
   rankingPoints,
   playedOutcomes,
-  roomPointsByPlace,
   roundHasBegun,
   sameRoomShare,
   samePoints,
 } from './advancement';
-import { matchResultSettings, matchResultsWin } from './match-results';
+import { levelRuns } from './level-runs';
+import { swapChain } from './swap-chain';
 import type { TournamentStanding, TournamentState } from './types';
 
 type NamedOutcome = RoundOutcome & { name: string };
@@ -44,9 +46,7 @@ export function groupSeats(state: Pick<TournamentState, 'withdrawnUnits' | 'roun
   }
   const holderOf = (name: string) => {
     let holder = name;
-    for (let step = 0; step <= successors.size && successors.has(holder); step += 1) {
-      holder = successors.get(holder) ?? holder;
-    }
+    for (const unit of swapChain((seat) => successors.get(seat), name, successors.size + 1)) holder = unit;
     return holder;
   };
   return { holderOf, isRemoved: (name) => removed.has(holderOf(name)) };
@@ -145,18 +145,11 @@ export function withHeadToHead(
   matches: readonly GroupMatchPoints[],
 ): TournamentStanding[] {
   const output: TournamentStanding[] = [];
-  let first = 0;
-  while (first < table.length) {
-    let last = first;
-    while (
-      last + 1 < table.length &&
-      samePoints(rankingPoints(table[last + 1]), rankingPoints(table[first]))
-    ) {
-      last += 1;
-    }
+  for (const { first, last } of levelRuns(table, (entry, start) =>
+    samePoints(rankingPoints(entry), rankingPoints(start)),
+  )) {
     const run = table.slice(first, last + 1);
     output.push(...(run.length < 2 || table[first].totalFP === null ? run : orderByHeadToHead(run, matches)));
-    first = last + 1;
   }
   return output;
 }
@@ -200,23 +193,9 @@ export function groupRoundMisses(state: TournamentState, seats: GroupSeats): Map
 
 /**
  * The win a unit takes from a group match whose opponent did not turn up, when it has no other counted match: what a
- * played clean win gives it. Standard points / Custom table: the winner's points of a room of 2. Match results: a Win
- * for each game of the round, a Best of N as one match. No score and no room share: nothing to compare.
+ * played clean win gives it, the winner's points of a room of 2 (`walkoverOutcome`).
  */
-function absentOpponentWin(state: TournamentState, roundIndex: number): RoundOutcome {
-  const settings = matchResultSettings(state);
-  const win = settings ? matchResultsWin(state, roundIndex, settings) : null;
-  return {
-    roundIndex,
-    score: null,
-    rank: null,
-    points: win ? win.points : (roomPointsByPlace(state, 2)[0] ?? 0),
-    bye: false,
-    share: null,
-    walkover: true,
-    ...(win ? { results: win.results } : {}),
-  };
-}
+const OPPONENT_ABSENT_WIN: WalkoverKind = { roomSize: 2, bye: false, walkover: true };
 
 /** Per unit (the seat's holder today), the group rounds it won because its opponent was absent, to count if it has no other counted match. */
 export function absentOpponentWins(state: TournamentState, seats: GroupSeats): Map<string, RoundOutcome[]> {
@@ -225,7 +204,7 @@ export function absentOpponentWins(state: TournamentState, seats: GroupSeats): M
     if (missed.opponentAbsent.length > 0) {
       wins.set(
         name,
-        missed.opponentAbsent.map((roundIndex) => absentOpponentWin(state, roundIndex)),
+        missed.opponentAbsent.map((roundIndex) => walkoverOutcome(state, roundIndex, OPPONENT_ABSENT_WIN)),
       );
     }
   }

@@ -11,7 +11,6 @@ import {
   isQualCutoffKey,
   isTieResolved,
   qualStandingsRoutes,
-  isRoomFullyScored,
   isUncontestedRoom,
   rankStandings,
 } from './advancement';
@@ -25,7 +24,7 @@ import {
 } from './group-standings';
 import { exitGroups } from './exit-groups';
 import { GROUP_EXIT_TIE_KEY, groupExitShapeOf, type GroupExitShape } from './group-exit';
-import { tieResolutionList } from './scoring';
+import { isRoomScored, tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
 
 /**
@@ -114,7 +113,7 @@ function isRoundFullyScored(state: TournamentState, roundIndex: number): boolean
   const occupied = contested.filter((room) =>
     (state.assignments[roundIndex] ?? []).some((entry) => entry.room === room),
   );
-  return occupied.length > 0 && occupied.every((room) => isRoomFullyScored(state, roundIndex, room));
+  return occupied.length > 0 && occupied.every((room) => isRoomScored(state, roundIndex, room));
 }
 
 function countRoundsDone(state: TournamentState, countedIndexes: number[]): number {

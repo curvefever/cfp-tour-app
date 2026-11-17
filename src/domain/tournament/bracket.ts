@@ -1,4 +1,5 @@
 import { ordinal } from '../../lib/ordinal';
+import { isLastGroupStageRound } from './advancement';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { roomPairKey, snakeSeed, tieredBracketSeed } from './seeding';
@@ -352,12 +353,6 @@ function isLastPoolingRound(rounds: TournamentRound[], index: number): boolean {
   const round = rounds[index];
   const next = rounds[index + 1];
   return Boolean(round && (round.isQual || round.isSwiss) && !(next?.isQual || next?.isSwiss));
-}
-
-function isLastGroupStageRound(rounds: TournamentRound[], index: number): boolean {
-  const round = rounds[index];
-  const next = rounds[index + 1];
-  return Boolean(round?.isGroupStage && !next?.isGroupStage);
 }
 
 type PredecessorEdge =

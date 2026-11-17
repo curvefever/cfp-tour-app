@@ -7,10 +7,14 @@ import {
   QUAL_LABEL,
   declaredWaterfallRooms,
   assignWaterfallColumns,
+  err,
   expandRankTokens,
   normalizeRoundLabel,
+  ok,
   parseWaterfallGraph,
   roomIndexToLetter,
+  undeclaredDestinationMessage,
+  undeclaredRoundMessage,
   type StandingsSourceKind,
   type WaterfallParseResult,
 } from './waterfall-bracket';
@@ -105,13 +109,6 @@ export interface WaterfallSlot {
 
 export const MAX_WATERFALL_ROOM_SIZE = 64;
 
-function ok<T>(value: T): WaterfallParseResult<T> {
-  return { ok: true, value };
-}
-function err<T>(error: string): WaterfallParseResult<T> {
-  return { ok: false, error };
-}
-
 function unsetRoom(roomSize: number): WaterfallSlotDestination[] {
   return Array.from({ length: roomSize }, () => null);
 }
@@ -191,7 +188,7 @@ function qualRoutesFromBands(
   for (const band of bands) {
     const destination = resolveDestination(band.destinationLabel, byLower);
     if (destination === null) {
-      return err(`${name} routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
+      return err(undeclaredDestinationMessage(name, band.destinationLabel));
     }
     const ranks = expandRankTokens(band.rankTokens);
     if (!ranks.ok) return ranks;
@@ -250,7 +247,7 @@ export function parseWaterfallDraft(
 
   for (const line of raw.value.routeLines) {
     const round = byLower.get(line.label.toLowerCase());
-    if (!round) return err(`ROUTES references round "${line.label}", which isn't declared in ROUNDS.`);
+    if (!round) return err(undeclaredRoundMessage(line.label));
     if (round.isFinal) {
       return err(`Round "${round.label}" is marked FINAL but has an outgoing ROUTES line.`);
     }
@@ -269,9 +266,7 @@ export function parseWaterfallDraft(
     for (const band of line.bands) {
       const destination = resolveDestination(band.destinationLabel, byLower);
       if (destination === null) {
-        return err(
-          `Round "${round.label}" routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`,
-        );
+        return err(undeclaredDestinationMessage(`Round "${round.label}"`, band.destinationLabel));
       }
       const ranks = expandRankTokens(band.rankTokens);
       if (!ranks.ok) return ranks;
@@ -323,12 +318,10 @@ function bestOfLines(
   const best: WaterfallDraftBests = {};
   for (const line of lines) {
     const round = byLower.get(line.label.toLowerCase());
-    if (!round) return err(`ROUTES references round "${line.label}", which isn't declared in ROUNDS.`);
+    if (!round) return err(undeclaredRoundMessage(line.label));
     const destination = resolveDestination(line.destinationLabel, byLower);
     if (destination === null) {
-      return err(
-        `Round "${round.label}" routes to "${line.destinationLabel}", which isn't declared in ROUNDS.`,
-      );
+      return err(undeclaredDestinationMessage(`Round "${round.label}"`, line.destinationLabel));
     }
     best[round.label] ??= { place: line.place, count: line.count, destination };
   }

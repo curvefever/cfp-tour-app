@@ -1,7 +1,6 @@
 import { absenteeLeavesCustomBracket, absentInRoom } from './absences';
 import {
   compareStandings,
-  isRoomFullyScored,
   isStandingsCutoffRound,
   isUncontestedRoom,
   isWalkoverRoom,
@@ -16,7 +15,13 @@ import { exitBandAtRank, type RoomExitBand, roundExitRule } from './room-exits';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
 import { isBestOfRound, roomMatch } from './match-format';
-import { compareRankScores, getFinalUnitScore, orderRoomWithPlaces, tieResolutionList } from './scoring';
+import {
+  compareRankScores,
+  getFinalUnitScore,
+  isRoomScored,
+  orderRoomWithPlaces,
+  tieResolutionList,
+} from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import { roundDestinations } from './waterfall-best';
 import type {
@@ -338,7 +343,7 @@ function outOfCompleteRooms(
   for (const [roomKey] of assignmentsByRoom(state.assignments[roundIndex] ?? [])) {
     const room = Number(roomKey);
     if (!Number.isInteger(room) || isUncontestedRoom(state, roundIndex, room)) continue;
-    if (!isRoomFullyScored(state, roundIndex, room)) continue;
+    if (!isRoomScored(state, roundIndex, room)) continue;
     const scored = scoreRoom(state, roundIndex, room, null);
     // A room with one present unit is a walkover: nobody there is placed.
     const placed = isWalkoverRoom(state, roundIndex, room)
@@ -378,7 +383,7 @@ function outAtCompleteCut(state: TournamentState, roundIndex: number): Set<strin
     (state.assignments[roundIndex] ?? []).flatMap(({ room }) => (room === null ? [] : [room])),
   );
   const complete = [...rooms].every(
-    (room) => isWalkoverRoom(state, roundIndex, room) || isRoomFullyScored(state, roundIndex, room),
+    (room) => isWalkoverRoom(state, roundIndex, room) || isRoomScored(state, roundIndex, room),
   );
   if (!complete) return new Set();
   const pending = pendingTieNames(state, roundIndex);

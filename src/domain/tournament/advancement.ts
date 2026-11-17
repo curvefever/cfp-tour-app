@@ -1,3 +1,4 @@
+import { joinWithAnd } from '../../lib/join-with-and';
 import { absentInRoom, playersInPlay, unitsAwaitingAnswer } from './absences';
 import { type BestPlaceTie, bestPlaceTie, bestPlaceTieKey } from './best-place';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
@@ -20,6 +21,7 @@ import {
   withHeadToHead,
 } from './group-standings';
 import { kingsValleyRoundMoves } from './kings-valley';
+import { levelRuns } from './level-runs';
 import { matchResultSettings, matchResultsOfRoom, matchResultsWin } from './match-results';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
@@ -47,17 +49,17 @@ import { isCurrentRound, isRoundDone, roundsInPlay } from './round-columns';
 /** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
 const EQUALITY_TOLERANCE = 1e-9;
 
-/** Room shares are equal within the tolerance; a missing share (a snapshot that did not record it) is null and equals only another null. */
-export function sameRoomShare(first: number | null, second: number | null): boolean {
+/** Equal within the tolerance; a missing value is null and equals only another null. */
+function sameWithinTolerance(first: number | null, second: number | null): boolean {
   if (first === null || second === null) return first === second;
   return Math.abs(first - second) < EQUALITY_TOLERANCE;
 }
 
-/** Points totals are equal within the tolerance (a shared place can make a total fractional); a missing total (nothing played) is null and equals only another null. */
-export function samePoints(first: number | null, second: number | null): boolean {
-  if (first === null || second === null) return first === second;
-  return Math.abs(first - second) < EQUALITY_TOLERANCE;
-}
+/** Room shares are equal; a missing share (a snapshot that did not record it) is null and equals only another null. */
+export const sameRoomShare = sameWithinTolerance;
+
+/** Points totals are equal (a shared place can make a total fractional); a missing total (nothing played) is null and equals only another null. */
+export const samePoints = sameWithinTolerance;
 
 /** The one value standings are ranked by: points per match in a group stage with per-match standings, the points total everywhere else. Null until the unit has a result. */
 export function rankingPoints(standing: TournamentStanding): number | null {
@@ -152,6 +154,11 @@ export function isLastStandingsRound(state: TournamentState, roundIndex: number)
   );
 }
 
+/** The last Group Stage round: a group round that no group round follows. */
+export function isLastGroupStageRound(rounds: readonly TournamentRound[], roundIndex: number): boolean {
+  return Boolean(rounds[roundIndex]?.isGroupStage && !rounds[roundIndex + 1]?.isGroupStage);
+}
+
 /**
  * True for a round whose advancement is decided by cumulative standings, not
  * per room: the last Qualification Table/Swiss round or the last Group Stage
@@ -159,9 +166,7 @@ export function isLastStandingsRound(state: TournamentState, roundIndex: number)
  * transition, so the two can never disagree about which round is a cut-off.
  */
 export function isStandingsCutoffRound(state: TournamentState, roundIndex: number): boolean {
-  const round = state.rounds[roundIndex];
-  const nextRound = state.rounds[roundIndex + 1];
-  return isLastStandingsRound(state, roundIndex) || Boolean(round?.isGroupStage && !nextRound?.isGroupStage);
+  return isLastStandingsRound(state, roundIndex) || isLastGroupStageRound(state.rounds, roundIndex);
 }
 
 /** A room's best non-advancing unit and its share relative to the room average; an all-zero room offers none. */
@@ -230,14 +235,12 @@ interface TiedUnits {
  * `getAllTies` directly instead of calling this.
  */
 export function refreshRoundStandings(state: TournamentState, roundIndex: number): TournamentState {
-  const round = state.rounds[roundIndex];
-  if (!round) return state;
-  const nextRound = state.rounds[roundIndex + 1];
+  if (!state.rounds[roundIndex]) return state;
   let nextState = state;
   if (isLastStandingsRound(state, roundIndex)) {
     nextState = { ...nextState, qualTable: computeQualificationStandings(state) };
   }
-  if (round.isGroupStage && !nextRound?.isGroupStage) {
+  if (isLastGroupStageRound(state.rounds, roundIndex)) {
     nextState = {
       ...nextState,
       groupStandings: computeGroupStandings(nextState),
@@ -253,13 +256,12 @@ export function getAllTies(state: TournamentState, roundIndex: number): Record<s
   const ties: Record<string, TournamentTieCluster> = {
     ...detectTieBreaks(roundIndex, round, state),
   };
-  const nextRound = state.rounds[roundIndex + 1];
   // The stored tables are not kept up to date while a round is scored, so the current round checks fresh ones.
   const standings = isCurrentRound(state, roundIndex) ? refreshRoundStandings(state, roundIndex) : state;
   if (isLastStandingsRound(state, roundIndex)) {
     for (const cutoff of detectQualCutoffTies(standings)) ties[cutoff.key] = cutoff;
   }
-  if (round.isGroupStage && !nextRound?.isGroupStage) {
+  if (isLastGroupStageRound(state.rounds, roundIndex)) {
     for (const group of state.groups) {
       const cutoff = detectGroupCutoffTie(group.label, standings);
       if (cutoff) ties[cutoff.key] = cutoff;
@@ -382,7 +384,7 @@ export function qualTieBoundaryText(
     if (!names.includes(name)) names.push(name);
   }
   if (names.length < 2) return null;
-  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return joinWithAnd(names);
 }
 
 function cutoffCluster(
@@ -410,10 +412,7 @@ function detectQualBandTies(
 ): CutoffTieCluster[] {
   const destinationAt = (rank: number) => routes[rank - 1] ?? 'eliminated';
   const clusters: CutoffTieCluster[] = [];
-  let first = 0;
-  while (first < table.length) {
-    let last = first;
-    while (last + 1 < table.length && sameStanding(table[last + 1], table[first])) last += 1;
+  for (const { first, last } of levelRuns(table, sameStanding)) {
     const firstRank = first + 1;
     const lastRank = last + 1;
     const straddles = Array.from({ length: lastRank - firstRank }, (_, offset) => firstRank + offset).some(
@@ -424,7 +423,6 @@ function detectQualBandTies(
       const key = holdsLastRoutedRank ? QUAL_CUTOFF_KEY : `${QUAL_BAND_KEY_PREFIX}${firstRank}`;
       clusters.push({ ...cutoffCluster(key, table.slice(first, last + 1)), firstRank });
     }
-    first = last + 1;
   }
   return clusters;
 }
@@ -612,16 +610,9 @@ function rankGroupExit(
   const destinationAt = (rank: number) => routes[rank - 1] ?? 'eliminated';
   const ordered = [...natural];
   const bandTies: CutoffTieCluster[] = [];
-  let first = 0;
-  while (first < natural.length) {
-    let last = first;
-    while (
-      last + 1 < natural.length &&
-      placeOf.get(natural[last + 1].name) === placeOf.get(natural[first].name) &&
-      sameStanding(natural[last + 1], natural[first])
-    ) {
-      last += 1;
-    }
+  const levelInPlace = (entry: TournamentStanding, start: TournamentStanding) =>
+    placeOf.get(entry.name) === placeOf.get(start.name) && sameStanding(entry, start);
+  for (const { first, last } of levelRuns(natural, levelInPlace)) {
     const firstRank = first + 1;
     const straddles = Array.from({ length: last - first }, (_, offset) => firstRank + offset).some(
       (rank) => destinationAt(rank) !== destinationAt(rank + 1),
@@ -647,7 +638,6 @@ function rankGroupExit(
         ordered[first + offset] = players.find((entry) => entry.name === name) ?? ordered[first + offset];
       }
     }
-    first = last + 1;
   }
   return { ordered, bandTies };
 }
@@ -813,18 +803,13 @@ export interface StandingsOptions {
   liveRound?: number;
 }
 
-/** True once every unit assigned to the room has a score (an absentee's 0 is a stored score). */
-export function isRoomFullyScored(state: TournamentState, roundIndex: number, room: number): boolean {
-  return isRoomScored(state, roundIndex, room);
-}
-
 function isHeldBackLiveRoom(
   state: TournamentState,
   roundIndex: number,
   room: number,
   options: StandingsOptions | undefined,
 ): boolean {
-  return options?.liveRound === roundIndex && !isRoomFullyScored(state, roundIndex, room);
+  return options?.liveRound === roundIndex && !isRoomScored(state, roundIndex, room);
 }
 
 /** True once the round is being played or is over: a bye or a lone unit only earns its win then. */
@@ -855,19 +840,40 @@ function walkoverNames(state: TournamentState, roundIndex: number, round: Tourna
   return names;
 }
 
-function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutcome {
+/** What a walkover win is: the places a won match is read from, and what the outcome is marked as. */
+export interface WalkoverKind {
+  /** The size of the room whose winner's points the win gets (Standard points / Custom table). */
+  roomSize: number;
+  bye: boolean;
+  walkover: boolean;
+}
+
+/**
+ * A win taken without a match, worth what a played clean win gives: the winner's points of a room of `roomSize`
+ * (Standard points / Custom table), or a Win for each game of the round under match results (a Best of N as one match).
+ * No score and no room share.
+ */
+export function walkoverOutcome(
+  state: TournamentState,
+  roundIndex: number,
+  { roomSize, bye, walkover }: WalkoverKind,
+): RoundOutcome {
   const settings = matchResultSettings(state);
   const win = settings ? matchResultsWin(state, roundIndex, settings) : null;
   return {
     roundIndex,
     score: null,
     rank: null,
-    points: win ? win.points : (roomPointsByPlace(state, 1)[0] ?? 0),
-    bye: true,
+    points: win ? win.points : (roomPointsByPlace(state, roomSize)[0] ?? 0),
+    bye,
     share: null,
+    ...(walkover ? { walkover: true } : {}),
     ...(win ? { results: win.results } : {}),
   };
 }
+
+/** A unit alone in its room (a bye, or its opponent was removed or absent) wins the round: the winner's points of a room of 1. */
+const SOLO_WIN: WalkoverKind = { roomSize: 1, bye: true, walkover: false };
 
 /** Every scored unit of a room with its result, best place first. */
 function roomOutcomes(
@@ -923,7 +929,7 @@ export function computeQualificationStandings(
       }
     }
     for (const name of walkoverNames(state, roundIndex, round)) {
-      accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex));
+      accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex, SOLO_WIN));
     }
   }
   return materializeStandings([...accumulators.values()]);
@@ -969,7 +975,7 @@ export function computeGroupStandings(
       byGroup
         .get(groupOf.get(name) ?? '')
         ?.get(name)
-        ?.rounds.push(walkoverOutcome(state, roundIndex));
+        ?.rounds.push(walkoverOutcome(state, roundIndex, SOLO_WIN));
     }
   }
 
@@ -1031,7 +1037,6 @@ interface AdvancementResult {
 
 export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: number): AdvancementResult {
   const round = state.rounds[roundIndex];
-  const nextRound = state.rounds[roundIndex + 1];
   if (isLastStandingsRound(state, roundIndex)) {
     const { qualTable, ordered } = orderedQualificationTable(state);
     return {
@@ -1041,7 +1046,7 @@ export function roomBasedComputeAdvancement(state: TournamentState, roundIndex: 
     };
   }
 
-  if (round.isGroupStage && !nextRound?.isGroupStage) {
+  if (isLastGroupStageRound(state.rounds, roundIndex)) {
     return computeGroupStageAdvancement(state);
   }
 

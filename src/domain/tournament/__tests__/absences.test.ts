@@ -14,10 +14,11 @@ import {
   usesAbsences,
   withoutRoundAbsences,
 } from '../absences';
-import { buildAdvancementTiers, isRoomFullyScored } from '../advancement';
+import { buildAdvancementTiers } from '../advancement';
 import { setRoundScore, swapIndividual, swapTeam } from '../mutations';
 import { discardDrawsAfter } from '../redraw';
 import { previousColumnStart } from '../round-columns';
+import { isRoomScored } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { generated, oneRoomState as build, teamOf as team } from './test-fixtures';
@@ -298,7 +299,7 @@ describe('cleanup', () => {
     expect(next.absences).toEqual({ 'r0-rm1-p0': 'absent' });
     expect(isUnitAbsentFromRoom(next, 0, 1, 0)).toBe(true);
     expect(absentInRoom(next, 0, 1)).toEqual(['Zed']);
-    expect(isRoomFullyScored(next, 0, 1)).toBe(true);
+    expect(isRoomScored(next, 0, 1)).toBe(true);
     expect(next.withdrawnUnits.map((unit) => [unit.name, unit.playedAnyMatch, unit.absentRound])).toEqual([
       ['Ann', false, 0],
     ]);
@@ -357,7 +358,7 @@ describe('cleanup', () => {
     const back = { ...advanced, curRound: previousColumnStart(advanced) ?? 0, reserves: ['Zed'] };
     const swapped = swapIndividual(back, seat.name, 'Zed');
     expect(swapped.players).toContain('Zed');
-    expect(isRoomFullyScored(swapped, 0, 1)).toBe(true);
+    expect(isRoomScored(swapped, 0, 1)).toBe(true);
     const again = pressNextRound(swapped);
     const room = again.assignments[0].filter((entry) => entry.room === 1).map((entry) => entry.name);
     const tiers = buildAdvancementTiers(again, 0, room);

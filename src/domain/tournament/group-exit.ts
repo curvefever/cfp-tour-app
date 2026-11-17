@@ -1,3 +1,5 @@
+import { joinWithAnd } from '../../lib/join-with-and';
+import { ordinal } from '../../lib/ordinal';
 import { compareStandings, rankingPoints, sameStanding } from './advancement';
 import { fairCutShape, type FairCutChancePlace } from './fair-cut';
 import { groupSizesOf } from './group-settings';
@@ -378,19 +380,6 @@ function perGroupRefusal(
   const smallest = Math.min(...groupSizes);
   if (qualifiers <= smallest) return null;
   return `Qualifiers per group (${qualifiers}) is more than the ${smallest} ${unitPlural} of the smallest group: ${unitCount} ${unitPlural} make ${groups}. Use at most ${smallest}, or change the group size.`;
-}
-
-function ordinal(place: number): string {
-  const lastTwo = place % 100;
-  if (lastTwo >= 11 && lastTwo <= 13) return `${place}th`;
-  const suffix: Record<number, string> = { 1: 'st', 2: 'nd', 3: 'rd' };
-  return `${place}${suffix[place % 10] ?? 'th'}`;
-}
-
-function joinWithAnd(parts: readonly string[]): string {
-  return parts.length < 2
-    ? (parts[0] ?? '')
-    : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }
 
 /** "group of 5", "groups of 4", "groups of 5 and 4": the groups at these positions, told by their sizes. */

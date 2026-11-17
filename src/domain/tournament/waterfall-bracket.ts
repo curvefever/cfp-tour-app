@@ -177,11 +177,21 @@ function sourceKindOfLabel(label: string): StandingsSourceKind | null {
 /** Rooms are addressed by a single letter in ROUTES, so a round can have at most 26. */
 export const MAX_ROOMS_PER_ROUND = 26;
 
-function ok<T>(value: T): WaterfallParseResult<T> {
+export function ok<T>(value: T): WaterfallParseResult<T> {
   return { ok: true, value };
 }
-function err<T>(error: string): WaterfallParseResult<T> {
+export function err<T>(error: string): WaterfallParseResult<T> {
   return { ok: false, error };
+}
+
+/** The message for a ROUTES line (or a BEST line) of a round that ROUNDS does not declare. */
+export function undeclaredRoundMessage(label: string): string {
+  return `ROUTES references round "${label}", which isn't declared in ROUNDS.`;
+}
+
+/** The message for a band that routes to a round that ROUNDS does not declare; `source` is what routes ("Qual", `Round "R1"`). */
+export function undeclaredDestinationMessage(source: string, destinationLabel: string): string {
+  return `${source} routes to "${destinationLabel}", which isn't declared in ROUNDS.`;
 }
 
 /** Trims a round name and collapses runs of whitespace to one space, so "Semi   A" and "Semi A" are the same name. */
@@ -593,7 +603,7 @@ function buildQualDestinations(
     if (!expanded.ok) return err(`${name}: ${expanded.error}`);
     const destKey = band.destinationLabel.toLowerCase();
     if (destKey !== ELIMINATED && !roundByLabel.has(destKey)) {
-      return err(`${name} routes to "${band.destinationLabel}", which isn't declared in ROUNDS.`);
+      return err(undeclaredDestinationMessage(name, band.destinationLabel));
     }
     for (const rank of expanded.value) {
       if (rank < 1) return err(`${name}: rank ${rank} is out of range -- ${SOURCE_RANK[kind]}s start at 1.`);
@@ -734,7 +744,7 @@ export function validateAndOrderWaterfallGraph(
   for (const route of routeLines) {
     const key = route.label.toLowerCase();
     if (!roundByLabel.has(key)) {
-      return err(`ROUTES references round "${route.label}", which isn't declared in ROUNDS.`);
+      return err(undeclaredRoundMessage(route.label));
     }
     routesByLabel.set(key, [...(routesByLabel.get(key) ?? []), route]);
   }
@@ -809,9 +819,7 @@ export function validateAndOrderWaterfallGraph(
         const destKey = destinationLabel.toLowerCase();
         if (destKey === ELIMINATED) continue;
         if (!roundByLabel.has(destKey)) {
-          return err(
-            `Round "${round.label}" routes to "${destinationLabel}", which isn't declared in ROUNDS.`,
-          );
+          return err(undeclaredDestinationMessage(`Round "${round.label}"`, destinationLabel));
         }
         if (destKey === key) {
           return err(

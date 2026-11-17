@@ -9,6 +9,7 @@ import {
   roomUnitCount,
 } from './advancement';
 import { rosterKeys } from './roster';
+import { swapChain } from './swap-chain';
 import type { PendingBracketSeed, TournamentRound, TournamentStanding, TournamentState } from './types';
 import { roundDestinations } from './waterfall-best';
 import { absenteeDestination, waterfallDestination } from './waterfall-bracket';
@@ -25,12 +26,9 @@ import { absenteeDestination, waterfallDestination } from './waterfall-bracket';
  * the unit that replaced it if it was swapped out (followed through further swaps), else null (a withdrawal).
  */
 export function currentUnit(state: TournamentState, roster: Set<string>, name: string): string | null {
-  let current = name;
-  for (let hops = 0; hops <= state.withdrawnUnits.length; hops += 1) {
-    if (roster.has(current)) return current;
-    const next = state.withdrawnUnits.find((unit) => unit.name === current)?.replacedBy;
-    if (next === undefined) return null;
-    current = next;
+  const successorOf = (unit: string) => state.withdrawnUnits.find((entry) => entry.name === unit)?.replacedBy;
+  for (const holder of swapChain(successorOf, name, state.withdrawnUnits.length)) {
+    if (roster.has(holder)) return holder;
   }
   return null;
 }

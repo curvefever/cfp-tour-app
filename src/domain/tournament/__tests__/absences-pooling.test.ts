@@ -3,7 +3,6 @@ import { answerAbsence } from '../absences';
 import {
   computeQualificationStandings,
   detectTieBreaks,
-  isRoomFullyScored,
   presentUnitCount,
   relativeRoomShare,
   roomFinishOrder,
@@ -11,6 +10,7 @@ import {
   scoreRoom,
 } from '../advancement';
 import { resolveTournamentTie } from '../mutations';
+import { isRoomScored } from '../scoring';
 import { describeStandings } from '../standings-display';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { advanceTournamentRound } from '../transitions';
@@ -161,7 +161,7 @@ describe('43 FFA: a room with one present unit, and a room with none', () => {
     expect(row(winner)?.totalFP).toBe(roomPointsByPlace(state, 1)[0]);
     for (const name of absentees) expect(row(name)?.rounds).toEqual([]);
     for (const name of names(state, 2)) expect(row(name)?.rounds).toEqual([]);
-    expect(isRoomFullyScored(state, 0, 2)).toBe(true);
+    expect(isRoomScored(state, 0, 2)).toBe(true);
   });
 });
 
