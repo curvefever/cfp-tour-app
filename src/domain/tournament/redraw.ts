@@ -1,6 +1,5 @@
 import { withoutRoundAbsences } from './absences';
-import { currentUnit, replayBracketPools } from './bracket-replay';
-import { rosterKeys } from './roster';
+import { recordedUnits, replayBracketPools, sameNames } from './bracket-replay';
 import { roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { rewindRoomHistory } from './seeding';
 import { lastAssignedRound, roundColumn } from './round-columns';
@@ -56,8 +55,6 @@ function undoPoolingByeCounts(counts: Record<string, number>, names: string[]): 
   }
 }
 
-const sortedNames = (names: string[]): string[] => [...names].sort();
-
 /**
  * True when the recorded results explain every bracket pool and lucky-loser list after `roundIndex`'s
  * column: for each later round, the units it holds now (its pool, its line-up and its byes, current names,
@@ -69,9 +66,7 @@ const sortedNames = (names: string[]): string[] => [...names].sort();
 function replayExplainsPools(state: TournamentState, roundIndex: number): boolean {
   const { start, end: keep } = roundColumn(state.rounds, roundIndex);
   const lastAdvanced = roundColumn(state.rounds, lastAssignedRound(state)).start;
-  const roster = new Set(rosterKeys(state.players));
-  const current = (names: string[]) => names.flatMap((name) => currentUnit(state, roster, name) ?? []);
-  const lineUp = (index: number) => (state.assignments[index] ?? []).map((entry) => entry.name);
+  const { current, lineUp } = recordedUnits(state);
   const redone = new Set(
     current(
       Array.from({ length: Math.max(lastAdvanced - start, 0) }, (_, offset) => start + offset).flatMap(
@@ -79,10 +74,9 @@ function replayExplainsPools(state: TournamentState, roundIndex: number): boolea
       ),
     ),
   );
-  const outsideRedone = (names: string[]) => sortedNames(current(names).filter((name) => !redone.has(name)));
+  const outsideRedone = (names: string[]) => current(names).filter((name) => !redone.has(name));
   const replay = replayBracketPools(state, start);
-  const same = (actual: string[], replayed: string[] | undefined) =>
-    JSON.stringify(actual) === JSON.stringify(sortedNames(replayed ?? []));
+  const same = (actual: string[], replayed: string[] | undefined) => sameNames(actual, replayed ?? []);
 
   for (let index = keep + 1; index < state.rounds.length; index += 1) {
     // A drawn round lists its byes in its line-up too (room null): count each unit once.

@@ -1,7 +1,7 @@
 import { withoutRoundAbsences } from './absences';
 import { isGroupBandKey, isGroupCutoffKey, isQualCutoffKey } from './advancement';
 import { bestPlaceTieKey } from './best-place';
-import { currentUnit, replayBracketPools } from './bracket-replay';
+import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
 import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
@@ -42,12 +42,6 @@ export type WaterfallGraphEditResult =
 
 const MISSING_CONFIG_MESSAGE =
   "Can't save — this tournament's gamemode configuration is missing a room size or Finals format. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
-
-function sameNameSet(assignments: string[], seeds: PendingBracketSeed[]): boolean {
-  const existing = new Set(assignments);
-  const replayed = new Set(seeds.map((seed) => seed.name));
-  return existing.size === replayed.size && [...existing].every((name) => replayed.has(name));
-}
 
 /**
  * A qualification-table, Swiss or group-stage tournament's graph has a Qual or Groups source: the last pooling round
@@ -449,7 +443,9 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
       const name = currentUnit(state, roster, entry.name);
       return name === null ? [] : [name];
     });
-    if (sameNameSet(lineUp, replayPools.get(index) ?? [])) continue;
+    const replayed = (replayPools.get(index) ?? []).map((seed) => seed.name);
+    // As a set: a name a list repeats counts once.
+    if (sameNames([...new Set(lineUp)], [...new Set(replayed)])) continue;
     if (isRoundDone(state, index)) {
       return {
         ok: false,

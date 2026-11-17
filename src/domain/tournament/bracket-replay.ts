@@ -35,6 +35,23 @@ export function currentUnit(state: TournamentState, roster: Set<string>, name: s
   return null;
 }
 
+/** What the checks of the recorded draws read: a recorded name as the unit now holding it (nothing once it has left), and a round's recorded line-up. */
+export function recordedUnits(state: TournamentState): {
+  current: (names: string[]) => string[];
+  lineUp: (index: number) => string[];
+} {
+  const roster = new Set(rosterKeys(state.players));
+  return {
+    current: (names) => names.flatMap((name) => currentUnit(state, roster, name) ?? []),
+    lineUp: (index) => (state.assignments[index] ?? []).map((entry) => entry.name),
+  };
+}
+
+/** Whether two lists hold the same names, each as often (the order does not matter). */
+export function sameNames(first: readonly string[], second: readonly string[]): boolean {
+  return JSON.stringify([...first].sort()) === JSON.stringify([...second].sort());
+}
+
 interface DoubleEliminationContributions {
   /** What the round sends to each destination, keyed by `winnersTo` and `losersTo`. */
   additions: Map<number, PendingBracketSeed[]>;

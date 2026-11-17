@@ -1,7 +1,7 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
 import { hasPendingTies, isUncontestedRoom } from './advancement';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
-import { currentUnit, replayBracketPools, routeWaterfallRound } from './bracket-replay';
+import { recordedUnits, replayBracketPools, routeWaterfallRound, sameNames } from './bracket-replay';
 import { discardRoundDraws } from './redraw';
 import {
   isRoundDone,
@@ -13,7 +13,6 @@ import {
   undrawnRounds,
   usesDependencyPlay,
 } from './round-columns';
-import { rosterKeys } from './roster';
 import { isRoomScored, occupiedRooms, roundHasAnyScore, type UnscoredRoom } from './scoring';
 import {
   cloneForTransition,
@@ -271,9 +270,7 @@ function replayExplainsUndo(
   dropped: WaterfallStep,
   pools: ReadonlyMap<number, PendingBracketSeed[]>,
 ): boolean {
-  const roster = new Set(rosterKeys(state.players));
-  const current = (names: string[]) => names.flatMap((name) => currentUnit(state, roster, name) ?? []);
-  const lineUp = (index: number) => (state.assignments[index] ?? []).map((entry) => entry.name);
+  const { current, lineUp } = recordedUnits(state);
   const sentUnits = new Set(current(dropped.sent.flatMap(lineUp)));
   const drew = new Set(dropped.drew ?? []);
   return undrawnRounds(undrawn).every((index) => {
@@ -282,7 +279,7 @@ function replayExplainsUndo(
       : (state.pendingBracketSeeds[index] ?? []).map((seed) => seed.name);
     const expected = current(held).filter((name) => !sentUnits.has(name));
     const replayed = (pools.get(index) ?? []).map((seed) => seed.name);
-    return JSON.stringify(expected.sort()) === JSON.stringify(replayed.sort());
+    return sameNames(expected, replayed);
   });
 }
 
