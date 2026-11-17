@@ -112,11 +112,15 @@ function eliminationTargetList(rounds: TournamentRound[]): number[] {
   return rounds.filter(isEliminationRound).map((round) => round.advTotal);
 }
 
-function syncSettings(
-  state: TournamentState,
+/** The config and the settings snapshot with the elimination targets (and the qualification count) written; the config keeps the type it came with. */
+function syncSettings<Config extends Partial<MaterializedGamemodeConfig>>(
+  state: Pick<TournamentState, 'settings'> & { gamemodeConfig: Config },
   targets: number[] | undefined,
   qualAdv: number | undefined,
-): Pick<TournamentState, 'settings' | 'gamemodeConfig'> {
+): {
+  settings: TournamentState['settings'];
+  gamemodeConfig: Omit<Config, 'explicitTargets'> & Pick<MaterializedGamemodeConfig, 'explicitTargets'>;
+} {
   const { explicitTargets: _previous, ...rest } = state.gamemodeConfig;
   const gamemodeConfig = targets ? { ...rest, explicitTargets: targets } : rest;
   const settings = state.settings && {
@@ -186,11 +190,11 @@ function applyPoolingEdit(
 
   const cfg = { ...state.cfg, qualAdv };
   const synced = syncSettings(
-    { ...state, cfg, gamemodeConfig: { ...config, semisSize } },
+    { settings: state.settings, gamemodeConfig: { ...config, semisSize } },
     targets,
     scope.qualAdvEditable ? qualAdv : undefined,
   );
-  const gamemodeConfig = synced.gamemodeConfig as MaterializedGamemodeConfig;
+  const gamemodeConfig = synced.gamemodeConfig;
   const roster = rosterKeys(state.players);
   const progression = buildScheduleRounds({
     bracketPhase: config.bracketPhase,
@@ -267,10 +271,11 @@ function applyBracketEdit(
   targets: number[],
   scope: Extract<AdvancementScope, { kind: 'bracket' }>,
 ): AdvancementEditResult {
-  const config = state.gamemodeConfig as MaterializedGamemodeConfig;
   const current = state.rounds[state.curRound];
   const invalid = validateBracketTargets(targets, scope, current);
   if (invalid) return { ok: false, error: invalid };
+  const config = generatedConfig(state);
+  if (!config) return { ok: false, error: 'This tournament is missing its room size.' };
 
   const rounds = [...state.rounds];
   rounds[state.curRound] = {
