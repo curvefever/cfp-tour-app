@@ -6,7 +6,7 @@
  * A round's format = its override (stored by `roundNoteNames`, written as a ROUNDS-line token: "BO3", "GAMES 2"),
  * else its stage's format, else one game. A graph round of a Custom bracket and the race Grand Final have no stage.
  */
-import { BEST_OF_VALUES, stageMatchFields } from './match-format';
+import { BEST_OF_VALUES, stageMatchFields, type MatchFormat } from './match-format';
 import { isPoolingRound } from './pooling';
 import { roundNoteNames, roundNoteRows } from './round-notes';
 import { bracketLogicOf } from './upper-lower';
@@ -252,10 +252,7 @@ export function bracketStageLabel(scheduleLogic: ScheduleLogicKey): string {
 }
 
 /** A stage's format: summed `games`, or a Best of N when `bestOf` is set. */
-export function stageFormat(
-  stage: RoundStage,
-  config: MatchFormatConfig,
-): { games: number; bestOf?: number } {
+export function stageFormat(stage: RoundStage, config: MatchFormatConfig): MatchFormat {
   switch (stage) {
     case 'pooling':
       return { games: config.poolingGames ?? 1, bestOf: config.poolingBestOf };
@@ -271,11 +268,7 @@ export function stageFormat(
 }
 
 /** The format of one round, or null when it has no stage. */
-function roundFormat(
-  round: TournamentRound,
-  name: string,
-  config: MatchFormatConfig,
-): { games: number; bestOf?: number } | null {
+function roundFormat(round: TournamentRound, name: string, config: MatchFormatConfig): MatchFormat | null {
   const stage = matchStage(round);
   if (!stage) return null;
   const override = config.matchOverrides?.[name];

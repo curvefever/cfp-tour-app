@@ -6,14 +6,8 @@
 import { invalidateStaleTieResolutions } from './advancement';
 import { isOneScorePerTeam } from './formats';
 import { occupiedRooms, parseScoreKey, roundKeyPrefix, scoreKey } from './scoring';
+import type { RoundMatchFields } from './match-format';
 import type { TournamentRound, TournamentState } from './types';
-
-type MatchFormat = Pick<TournamentRound, 'bestOf' | 'numGames'>;
-
-/** Whether two rounds play the same match format (a round with no `numGames` plays one game). */
-export function sameMatchFormat(first: MatchFormat, second: MatchFormat): boolean {
-  return first.bestOf === second.bestOf && (first.numGames ?? 1) === (second.numGames ?? 1);
-}
 
 function hasScore(value: unknown): boolean {
   return value !== null && value !== undefined && value !== '';
@@ -68,7 +62,7 @@ const gamesText = (count: number) => `${count} ${count === 1 ? 'game' : 'games'}
 export function changeRoundMatchFormat(
   state: TournamentState,
   roundIndex: number,
-  next: MatchFormat,
+  next: RoundMatchFields,
 ): { state: TournamentState } | { error: string } {
   const round = state.rounds[roundIndex];
   const label =

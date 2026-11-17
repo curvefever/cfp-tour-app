@@ -3,7 +3,8 @@ import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
-import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
+import { sameRoundFormat } from './match-format';
+import { changeRoundMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
 import {
   currentColumn,
@@ -327,7 +328,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     // The round in play may change its match format (its scores are read again under the new one); a finished one may not.
     if (
       isRoundDone(state, firstWaterfallIndex + index) &&
-      !sameMatchFormat(oldRound, matchFormatFields(spec, finalsGames, finalsBestOf))
+      !sameRoundFormat(oldRound, matchFormatFields(spec, finalsGames, finalsBestOf))
     ) {
       return {
         ok: false,
@@ -486,7 +487,7 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   // The round in play takes the match format of the edit; its typed scores are carried over or refused.
   for (const [index, spec] of materialized.slice(0, reached.length).entries()) {
     const roundIndex = firstWaterfallIndex + index;
-    if (sameMatchFormat(working.rounds[roundIndex], spec)) continue;
+    if (sameRoundFormat(working.rounds[roundIndex], spec)) continue;
     const changed = changeRoundMatchFormat(working, roundIndex, spec);
     if ('error' in changed) return { ok: false, error: changed.error };
     working = changed.state;

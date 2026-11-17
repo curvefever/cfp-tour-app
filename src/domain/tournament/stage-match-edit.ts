@@ -7,7 +7,8 @@
  * (a re-fitted Kings Valley tail, a live advancement edit) keeps them. A round already finished never changes, and a
  * graph round of a Custom bracket changes through Edit graph.
  */
-import { changeRoundMatchFormat, sameMatchFormat } from './match-format-change';
+import { sameMatchFormat, sameRoundFormat, type MatchFormat } from './match-format';
+import { changeRoundMatchFormat } from './match-format-change';
 import { isRoundDone } from './round-columns';
 import {
   applyMatchFormats,
@@ -25,16 +26,8 @@ import type { TournamentState } from './types';
 type GamemodeConfig = TournamentState['gamemodeConfig'];
 import { matchFormatToken, parseMatchFormatToken } from './waterfall-bracket';
 
-export type MatchStage = RoundStage;
-
-/** A format: `games` summed, or a Best of N when `bestOf` is set (`games` is then only remembered). */
-export interface StageMatch {
-  games: number;
-  bestOf?: number;
-}
-
-export interface StageMatchEntry extends StageMatch {
-  stage: MatchStage;
+export interface StageMatchEntry extends MatchFormat {
+  stage: RoundStage;
   label: string;
   /** Every round of the stage is finished: its format can't change any more. */
   locked: boolean;
@@ -46,10 +39,10 @@ export interface RoundMatchEntry {
   name: string;
   /** The name the Bracket shows, when it differs. */
   shown?: string;
-  stage: MatchStage;
+  stage: RoundStage;
   index: number;
   /** The override's format; absent when the round plays its stage's. */
-  override?: StageMatch;
+  override?: MatchFormat;
 }
 
 export type StageMatchScope =
@@ -59,13 +52,13 @@ export type StageMatchEditResult = { ok: true; state: TournamentState } | { ok: 
 
 /** What to change: the formats of some stages, and the overrides of some rounds by name (null clears one). */
 export interface MatchEditInput {
-  stages?: Partial<Record<MatchStage, StageMatch>>;
-  rounds?: Record<string, StageMatch | null>;
+  stages?: Partial<Record<RoundStage, MatchFormat>>;
+  rounds?: Record<string, MatchFormat | null>;
 }
 
-const STAGES: MatchStage[] = ['pooling', 'bracket', 'losers', 'semis', 'finals'];
+const STAGES: RoundStage[] = ['pooling', 'bracket', 'losers', 'semis', 'finals'];
 
-function stageLabel(stage: MatchStage, state: TournamentState): string {
+function stageLabel(stage: RoundStage, state: TournamentState): string {
   switch (stage) {
     case 'pooling':
       return 'Pooling rounds';
@@ -78,10 +71,6 @@ function stageLabel(stage: MatchStage, state: TournamentState): string {
     case 'finals':
       return 'Final';
   }
-}
-
-function sameStageMatch(first: StageMatch, second: StageMatch): boolean {
-  return first.bestOf === second.bestOf && (first.bestOf !== undefined || first.games === second.games);
 }
 
 function openIndexes(state: TournamentState): number[] {
@@ -113,7 +102,7 @@ export function stageMatchScope(state: TournamentState): StageMatchScope {
     const override = parseMatchFormatToken(overrides[name] ?? '');
     return {
       name,
-      stage: matchStage(state.rounds[index]) as MatchStage,
+      stage: matchStage(state.rounds[index]) as RoundStage,
       index,
       ...(shown === undefined ? {} : { shown }),
       ...(override ? { override } : {}),
@@ -123,10 +112,10 @@ export function stageMatchScope(state: TournamentState): StageMatchScope {
 }
 
 type StageKeys = 'Games' | 'BestOf';
-type StageConfigKey = `${MatchStage}${StageKeys}`;
+type StageConfigKey = `${RoundStage}${StageKeys}`;
 
 /** The gamemode config with the stage's format written: the games always for the Semis and the Final, otherwise only when not the default one game; no Best of N key when the games are summed. */
-function withStageConfig(config: GamemodeConfig, stage: MatchStage, match: StageMatch): GamemodeConfig {
+function withStageConfig(config: GamemodeConfig, stage: RoundStage, match: MatchFormat): GamemodeConfig {
   const next: Record<string, unknown> = { ...config };
   const gamesKey: StageConfigKey = `${stage}Games`;
   const bestOfKey: StageConfigKey = `${stage}BestOf`;
@@ -142,7 +131,7 @@ function withStageConfig(config: GamemodeConfig, stage: MatchStage, match: Stage
 function withMatchSettings(state: TournamentState, input: MatchEditInput): TournamentState {
   let config = state.gamemodeConfig;
   const settings: Record<string, string> = {};
-  for (const [stage, match] of Object.entries(input.stages ?? {}) as Array<[MatchStage, StageMatch]>) {
+  for (const [stage, match] of Object.entries(input.stages ?? {}) as Array<[RoundStage, MatchFormat]>) {
     config = withStageConfig(config, stage, match);
     settings[`${stage}Games`] = String(match.games);
     settings[`${stage}BestOf`] = String(match.bestOf ?? '');
@@ -170,10 +159,10 @@ function inputRefusal(
   scope: StageMatchScope & { kind: 'stages' },
   input: MatchEditInput,
 ): string | null {
-  for (const [stage, match] of Object.entries(input.stages ?? {}) as Array<[MatchStage, StageMatch]>) {
+  for (const [stage, match] of Object.entries(input.stages ?? {}) as Array<[RoundStage, MatchFormat]>) {
     const entry = scope.stages.find((candidate) => candidate.stage === stage);
     if (!entry) return `There is no ${stage} stage to change here.`;
-    if (entry.locked && !sameStageMatch(entry, match)) {
+    if (entry.locked && !sameMatchFormat(entry, match)) {
       return `Can't save: "${entry.label}" is finished, so its match format can't change.`;
     }
   }
@@ -182,7 +171,7 @@ function inputRefusal(
     if (!names.has(name)) return `Can't save: the schedule has no round "${name}".`;
     const entry = scope.rounds.find((candidate) => candidate.name === name);
     const current = entry?.override ?? null;
-    const unchanged = match === null ? current === null : current !== null && sameStageMatch(current, match);
+    const unchanged = match === null ? current === null : current !== null && sameMatchFormat(current, match);
     if (!entry && !unchanged) return `Can't save: "${name}" is finished, so its match format can't change.`;
   }
   return null;
@@ -209,7 +198,7 @@ export function applyStageMatchEdit(
   for (const { index } of scope.rounds) {
     const round = working.rounds[index];
     const wanted = { bestOf: formatted[index].bestOf, numGames: formatted[index].numGames };
-    if (sameMatchFormat(round, wanted)) continue;
+    if (sameRoundFormat(round, wanted)) continue;
     if (wanted.bestOf !== undefined && round.anonymousGames?.length) {
       return {
         ok: false,

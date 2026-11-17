@@ -1,3 +1,4 @@
+import type { MatchFormat } from './match-format';
 import type { RoomSize, TournamentRound } from './types';
 import {
   ELIMINATED,
@@ -9,6 +10,7 @@ import {
   assignWaterfallColumns,
   err,
   expandRankTokens,
+  matchFormatToken,
   normalizeRoundLabel,
   ok,
   parseWaterfallGraph,
@@ -368,17 +370,27 @@ export function groupRoomWithOut(
   return out.length > 0 ? [...groups, { destination: ELIMINATED, ranks: out }] : groups;
 }
 
-/** The match format a parsed ROUNDS line asked for. */
-function matchOfLine(line: { bestOf?: number; games?: number }): WaterfallMatch | null {
-  if (line.bestOf !== undefined) return { kind: 'best-of', bestOf: line.bestOf };
-  if (line.games !== undefined) return { kind: 'games', games: line.games };
-  return null;
+/** A match format as the editor holds it: one of the two kinds. */
+function waterfallMatchOf(format: MatchFormat): WaterfallMatch {
+  return format.bestOf === undefined
+    ? { kind: 'games', games: format.games }
+    : { kind: 'best-of', bestOf: format.bestOf };
 }
 
-/** The ROUNDS-line token of a match format: "BO3" or "GAMES 2" (empty for the default). */
+/** The match format an editor choice stands for. */
+function matchFormatOf(match: WaterfallMatch): MatchFormat {
+  return match.kind === 'best-of' ? { games: 1, bestOf: match.bestOf } : { games: match.games };
+}
+
+/** The match format a parsed ROUNDS line asked for. */
+function matchOfLine(line: { bestOf?: number; games?: number }): WaterfallMatch | null {
+  if (line.bestOf === undefined && line.games === undefined) return null;
+  return waterfallMatchOf({ games: line.games ?? 1, bestOf: line.bestOf });
+}
+
+/** The ROUNDS-line token of a match format, after a space: " BO3" or " GAMES 2" (empty for the default). */
 function matchToken(match: WaterfallMatch | null): string {
-  if (match === null) return '';
-  return match.kind === 'best-of' ? ` BO${match.bestOf}` : ` GAMES ${match.games}`;
+  return match === null ? '' : ` ${matchFormatToken(matchFormatOf(match))}`;
 }
 
 /** The ROUTES line of each room of a round that routes something. */
@@ -429,8 +441,8 @@ export function finalsMatchOf(
   finalsGames: number | undefined,
   finalsBestOf: number | undefined,
 ): WaterfallMatch | undefined {
-  if (finalsBestOf !== undefined) return { kind: 'best-of', bestOf: finalsBestOf };
-  return finalsGames === undefined ? undefined : { kind: 'games', games: finalsGames };
+  if (finalsBestOf === undefined && finalsGames === undefined) return undefined;
+  return waterfallMatchOf({ games: finalsGames ?? 1, bestOf: finalsBestOf });
 }
 
 /**
@@ -441,10 +453,7 @@ function matchOfRound(
   round: TournamentRound,
   finalsMatch: WaterfallMatch | undefined,
 ): WaterfallMatch | null {
-  const own: WaterfallMatch =
-    round.bestOf !== undefined
-      ? { kind: 'best-of', bestOf: round.bestOf }
-      : { kind: 'games', games: round.numGames ?? 1 };
+  const own = waterfallMatchOf({ games: round.numGames ?? 1, bestOf: round.bestOf });
   if (!round.isFinal) return own.kind === 'games' && own.games === 1 ? null : own;
   if (finalsMatch === undefined) return own.kind === 'best-of' ? own : null;
   return matchToken(own) === matchToken(finalsMatch) ? null : own;

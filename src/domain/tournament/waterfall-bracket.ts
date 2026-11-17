@@ -1,5 +1,11 @@
 import { newRound } from './new-round';
-import { BEST_OF_VALUES, bestOfGameCount, stageMatchFields } from './match-format';
+import {
+  BEST_OF_VALUES,
+  bestOfGameCount,
+  stageMatchFields,
+  type MatchFormat,
+  type RoundMatchFields,
+} from './match-format';
 import { plainRoundName } from './round-name';
 import type { RoomSize, TournamentRound, WaterfallBestRoute } from './types';
 import {
@@ -328,12 +334,12 @@ function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>)
 }
 
 /** A match format in the words of a ROUNDS line: "BO3" for a Best of 3, "GAMES 2" for two summed games. */
-export function matchFormatToken(match: { games: number; bestOf?: number }): string {
+export function matchFormatToken(match: MatchFormat): string {
   return writtenMatchFormat(match);
 }
 
 /** The match format a ROUNDS-line token text spells ("BO3", "GAMES 2"), or null when the text is anything else. */
-export function parseMatchFormatToken(text: string): { games: number; bestOf?: number } | null {
+export function parseMatchFormatToken(text: string): MatchFormat | null {
   const parsedTrailer = parseRoundLineTrailer('', text.trim().split(/\s+/));
   if (!parsedTrailer.ok) return null;
   const { bestOf, games, isFinal, isRanking, column } = parsedTrailer.value;
@@ -1289,7 +1295,7 @@ export function matchFormatFields(
   roundSpec: WaterfallRoundSpec,
   finalsGames: number,
   finalsBestOf?: number,
-): Pick<TournamentRound, 'numGames' | 'bestOf'> {
+): RoundMatchFields {
   if (roundSpec.bestOf !== undefined) {
     const largestRoom = Math.max(...roundSpec.roomSizes);
     return { bestOf: roundSpec.bestOf, numGames: bestOfGameCount(roundSpec.bestOf, largestRoom) };

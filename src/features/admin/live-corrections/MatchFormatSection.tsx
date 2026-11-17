@@ -2,18 +2,18 @@ import { useState } from 'react';
 import {
   applyStageMatchEdit,
   stageMatchScope,
-  type MatchStage,
   type RoundMatchEntry,
-  type StageMatch,
   type StageMatchEntry,
 } from '../../../domain/tournament/stage-match-edit';
+import type { MatchFormat } from '../../../domain/tournament/match-format';
+import type { RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { Alert, Button, ButtonRow, Field } from '../../../components/ui';
 import { matchFromSelectValue, matchLabelOf, matchSelectValue } from '../setup/format-fields';
 import { MatchSelect } from '../setup/MatchSelect';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 
-type StagePicks = Partial<Record<MatchStage, string>>;
+type StagePicks = Partial<Record<RoundStage, string>>;
 /** A round's pick by its name: a select value, '' for its stage's format. */
 type RoundPicks = Record<string, string>;
 
@@ -26,7 +26,7 @@ const roundPickOf = (entry: RoundMatchEntry) =>
     : '';
 
 /** What the picked select value means for the stage: a Best of N keeps the games the stage remembers. */
-function stageMatchOf(entry: StageMatchEntry, pick: string): StageMatch {
+function stageMatchOf(entry: StageMatchEntry, pick: string): MatchFormat {
   const { games, bestOf } = matchFromSelectValue(pick);
   return {
     games: games === undefined ? entry.games : Number(games),
@@ -35,7 +35,7 @@ function stageMatchOf(entry: StageMatchEntry, pick: string): StageMatch {
 }
 
 /** What the picked select value means for a round: its own format, or null for its stage's. */
-function roundMatchOf(pick: string): StageMatch | null {
+function roundMatchOf(pick: string): MatchFormat | null {
   if (!pick) return null;
   const { games, bestOf } = matchFromSelectValue(pick);
   return { games: Number(games ?? 1), ...(bestOf ? { bestOf: Number(bestOf) } : {}) };
@@ -102,7 +102,7 @@ function MatchFormatFields({ stages, rounds }: { stages: StageMatchEntry[]; roun
   const changedRounds = rounds.filter(
     (entry) => roundPicks[entry.name] !== undefined && roundPicks[entry.name] !== roundPickOf(entry),
   );
-  const stageEntry = (stage: MatchStage) => stages.find((entry) => entry.stage === stage) as StageMatchEntry;
+  const stageEntry = (stage: RoundStage) => stages.find((entry) => entry.stage === stage) as StageMatchEntry;
 
   function save() {
     const result = applyStageMatchEdit(
@@ -122,7 +122,7 @@ function MatchFormatFields({ stages, rounds }: { stages: StageMatchEntry[]; roun
     app.updateState(result.state);
   }
 
-  function stageFormatOf(stage: MatchStage): string {
+  function stageFormatOf(stage: RoundStage): string {
     const entry = stageEntry(stage);
     const { games, bestOf } = stageMatchOf(entry, stagePicks[stage] ?? stagePickOf(entry));
     return matchLabelOf(games, bestOf);

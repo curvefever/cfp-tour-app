@@ -31,12 +31,31 @@ export function bestOfGameCount(bestOf: number, largestRoomUnits: number): numbe
   return largestRoomUnits * (winsNeeded(bestOf) - 1) + 1;
 }
 
+/** How a round is played, as a setting: `games` summed, or a Best of N when `bestOf` is set (`games` is then only remembered). */
+export interface MatchFormat {
+  games: number;
+  bestOf?: number;
+}
+
+/** How a round is played, as a drawn round stores it: `numGames` is, for a Best of N, the most games its largest room can need. */
+export type RoundMatchFields = Pick<TournamentRound, 'bestOf' | 'numGames'>;
+
+/** Whether two settings play the same: the same N, or the same games summed (the games of a Best of N are only remembered). */
+export function sameMatchFormat(first: MatchFormat, second: MatchFormat): boolean {
+  return first.bestOf === second.bestOf && (first.bestOf !== undefined || first.games === second.games);
+}
+
+/** Whether two rounds play the same match format: the same N and game count (a round with no `numGames` plays one game). */
+export function sameRoundFormat(first: RoundMatchFields, second: RoundMatchFields): boolean {
+  return first.bestOf === second.bestOf && (first.numGames ?? 1) === (second.numGames ?? 1);
+}
+
 /** The `numGames` / `bestOf` of a Semis or Final: a Best of N when `bestOf` is set, otherwise `games` summed. */
 export function stageMatchFields(
   games: number,
   bestOf: number | undefined,
   largestRoomUnits: number,
-): Pick<TournamentRound, 'numGames' | 'bestOf'> {
+): RoundMatchFields {
   if (bestOf === undefined) return { numGames: games };
   return { bestOf, numGames: bestOfGameCount(bestOf, largestRoomUnits) };
 }
