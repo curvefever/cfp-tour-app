@@ -22,6 +22,7 @@ import {
 } from '../../domain/tournament/mutations';
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
+  findUnit,
   isDisplayNameTaken,
   isWithdrawnName,
   rosterKeys,
@@ -196,7 +197,7 @@ export function swapPlayer(state: TournamentState, name: string, apply: UpdateSt
   // Only the active roster is a real conflict here -- a name matching an existing reserve is legitimately
   // consumed by swapIndividual() (it promotes that reserve), matching the "+" reserve-add button's own
   // effect, so that case is not blocked.
-  if ((state.players as string[]).includes(value.trim())) {
+  if (findUnit(state.players, value.trim()) !== undefined) {
     window.alert(`"${value.trim()}" is already registered — pick a different name.`);
     return;
   }
@@ -308,9 +309,8 @@ function ReserveChipName({
   name: string;
   state: TournamentState;
 }) {
-  const team = (state.reserves as Array<string | TournamentTeam>).find(
-    (entry): entry is TournamentTeam => typeof entry !== 'string' && entry.teamId === name,
-  );
+  const reserve = findUnit(state.reserves, name);
+  const team = typeof reserve === 'object' ? reserve : undefined;
   if (!team)
     return (
       <>

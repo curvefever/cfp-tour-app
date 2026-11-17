@@ -1,7 +1,7 @@
 import { unmarkOneScoreTeamMemberAbsent } from './absences';
 import { getGameFormat } from './formats';
 import { updateTeam } from './mutations';
-import { findUnstorableNames, rosterNames, unstorableNamesMessage } from './roster';
+import { findUnit, findUnstorableNames, rosterNames, unstorableNamesMessage } from './roster';
 import { roundsInPlay } from './round-columns';
 import type { TeamMember, TournamentState, TournamentTeam } from './types';
 
@@ -55,9 +55,8 @@ export function removeReserveIndividual(state: TournamentState, index: number): 
 }
 
 function teamOf(state: TournamentState, teamId: string): TournamentTeam | undefined {
-  return isTeamFormat(state)
-    ? (state.players as TournamentTeam[]).find((team) => team.teamId === teamId)
-    : undefined;
+  const unit = isTeamFormat(state) ? findUnit(state.players, teamId) : undefined;
+  return typeof unit === 'object' ? unit : undefined;
 }
 
 /** Why a member swap is refused, or null when it can go ahead. `reserveIndex` says the newcomer is that individual reserve. */

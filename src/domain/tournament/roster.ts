@@ -2,7 +2,7 @@ import { getGameFormat } from './formats';
 import type { IdSource } from './runtime';
 import type { GameFormatKey, TeamMember, TournamentRoster, TournamentState, TournamentTeam } from './types';
 
-function isTournamentTeam(entry: string | TournamentTeam): entry is TournamentTeam {
+export function isTournamentTeam(entry: string | TournamentTeam): entry is TournamentTeam {
   return typeof entry === 'object' && entry !== null;
 }
 
@@ -12,6 +12,28 @@ function rosterKey(entry: string | TournamentTeam): string {
 
 export function rosterKeys(players: TournamentRoster): string[] {
   return players.map(rosterKey);
+}
+
+/**
+ * A roster is a list of names in a players' format and a list of teams in a team format; the three functions below
+ * hide which. A unit's key is its name or its team's id, read from the entries themselves (an empty list has no
+ * shape, and needs none). Each answer is a new list, never the one given.
+ */
+const entriesOf = (roster: TournamentRoster) => roster as Array<string | TournamentTeam>;
+
+/** The unit with this key (the name, or the team's id), or undefined. */
+export function findUnit(roster: TournamentRoster, key: string): string | TournamentTeam | undefined {
+  return entriesOf(roster).find((entry) => rosterKey(entry) === key);
+}
+
+/** The roster without the unit with this key (a new list, whether or not the unit was there). */
+export function withoutUnit(roster: TournamentRoster, key: string): TournamentRoster {
+  return entriesOf(roster).filter((entry) => rosterKey(entry) !== key) as TournamentRoster;
+}
+
+/** The roster with the unit added at the end. */
+export function withUnit(roster: TournamentRoster, unit: string | TournamentTeam): TournamentRoster {
+  return [...entriesOf(roster), unit] as TournamentRoster;
 }
 
 /**

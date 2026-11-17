@@ -26,10 +26,13 @@ import { roundInPlayOf } from './round-columns';
 import {
   findUnstorableNames,
   isDisplayNameTaken,
+  findUnit,
   isWithdrawnName,
   rosterKeys,
   teamNames,
   unitDisplay,
+  withUnit,
+  withoutUnit,
 } from './roster';
 import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildScheduleRounds } from './schedule-generation';
@@ -40,14 +43,7 @@ import {
   scoreKeysForPosition,
   SHARED_TIE_MARK,
 } from './scoring';
-import type {
-  GameFormatKey,
-  TournamentRoster,
-  TournamentRound,
-  TournamentState,
-  TournamentTeam,
-  WithdrawnUnit,
-} from './types';
+import type { GameFormatKey, TournamentRound, TournamentState, TournamentTeam, WithdrawnUnit } from './types';
 
 // Scores must be non-negative integers. Rejects (rather than truncates)
 // decimals so "5.7" doesn't silently become "5", and rejects negatives --
@@ -205,9 +201,9 @@ export function shareTiedPoints(state: TournamentState, key: string, names: stri
 export function renameIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
   const trimmed = newName.trim();
   if (!trimmed || trimmed === oldName) return state;
-  const players = state.players as string[];
-  const reserves = state.reserves as string[];
-  if (players.includes(trimmed) || reserves.includes(trimmed)) return state;
+  if (findUnit(state.players, trimmed) !== undefined || findUnit(state.reserves, trimmed) !== undefined) {
+    return state;
+  }
   if (isWithdrawnName(state, trimmed)) return state;
   if (findUnstorableNames([trimmed]).length) return state;
   const rename = (name: string) => (name === oldName ? trimmed : name);
@@ -218,8 +214,8 @@ export function renameIndividual(state: TournamentState, oldName: string, newNam
   }
   const renamed: TournamentState = {
     ...state,
-    players: players.map(rename),
-    reserves: reserves.map(rename),
+    players: (state.players as string[]).map(rename),
+    reserves: (state.reserves as string[]).map(rename),
     ...renameInSchedule(state, rename),
     tieResolutions: Object.fromEntries(
       Object.entries(state.tieResolutions).map(([key, value]) => [
@@ -375,16 +371,16 @@ function moveReserveToPlayers(state: TournamentState, key: string): TournamentSt
   if (!format.teamSize) {
     return {
       ...state,
-      players: [...(state.players as string[]), key] as TournamentRoster,
-      reserves: (state.reserves as string[]).filter((entry) => entry !== key),
+      players: withUnit(state.players, key),
+      reserves: withoutUnit(state.reserves, key),
     };
   }
-  const team = (state.reserves as TournamentTeam[]).find((entry) => entry.teamId === key);
-  if (!team) return null;
+  const team = findUnit(state.reserves, key);
+  if (typeof team !== 'object') return null;
   return {
     ...state,
-    players: [...(state.players as TournamentTeam[]), team] as TournamentRoster,
-    reserves: (state.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key),
+    players: withUnit(state.players, team),
+    reserves: withoutUnit(state.reserves, key),
   };
 }
 
@@ -536,12 +532,12 @@ export function addWalkUpIndividual(
   if (!trimmed || getGameFormat(state.gameFormat)?.teamSize) {
     return { status: 'blocked', reason: 'room-cap' };
   }
-  if ((state.players as string[]).includes(trimmed) || (state.reserves as string[]).includes(trimmed)) {
+  if (findUnit(state.players, trimmed) !== undefined || findUnit(state.reserves, trimmed) !== undefined) {
     return { status: 'blocked', reason: 'duplicate-name' };
   }
   if (isWithdrawnName(state, trimmed)) return { status: 'blocked', reason: 'withdrawn-name' };
   if (findUnstorableNames([trimmed]).length) return { status: 'blocked', reason: 'unstorable-name' };
-  const withReserve = { ...state, reserves: [...(state.reserves as string[]), trimmed] };
+  const withReserve = { ...state, reserves: withUnit(state.reserves, trimmed) };
   return benchIfSwappable(state, withReserve, addReserveUnit(withReserve, trimmed, options, runtime));
 }
 
@@ -556,18 +552,12 @@ export function addWalkUpTeam(
   if (team.members.every((member) => !member)) return { status: 'blocked', reason: 'no-members' };
   if (isDisplayNameTaken(state, team.teamName)) return { status: 'blocked', reason: 'duplicate-name' };
   if (findUnstorableNames(teamNames(team)).length) return { status: 'blocked', reason: 'unstorable-name' };
-  const withReserve = { ...state, reserves: [...(state.reserves as TournamentTeam[]), team] };
+  const withReserve = { ...state, reserves: withUnit(state.reserves, team) };
   return benchIfSwappable(state, withReserve, addReserveUnit(withReserve, team.teamId, options, runtime));
 }
 
 export function removeReserveUnit(state: TournamentState, key: string): TournamentState {
-  const format = getGameFormat(state.gameFormat);
-  return {
-    ...state,
-    reserves: format?.teamSize
-      ? (state.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key)
-      : (state.reserves as string[]).filter((entry) => entry !== key),
-  };
+  return { ...state, reserves: withoutUnit(state.reserves, key) };
 }
 
 function removeUnitFromCurrentRoom(state: TournamentState, key: string): TournamentState {
@@ -733,8 +723,6 @@ function withoutPendingUnit(
 }
 
 export function removeRosterUnit(state: TournamentState, key: string): TournamentState {
-  const format = getGameFormat(state.gameFormat);
-  const teamSize = format?.teamSize ?? 0;
   let next = removeUnitFromCurrentRoom(recordWithdrawal(state, key, 'removed'), key);
   const strip = (values: string[]) => values.filter((name) => name !== key);
   const tieResolutions = Object.fromEntries(
@@ -745,12 +733,8 @@ export function removeRosterUnit(state: TournamentState, key: string): Tournamen
   );
   next = {
     ...next,
-    players: teamSize
-      ? (next.players as TournamentTeam[]).filter((entry) => entry.teamId !== key)
-      : (next.players as string[]).filter((entry) => entry !== key),
-    reserves: teamSize
-      ? (next.reserves as TournamentTeam[]).filter((entry) => entry.teamId !== key)
-      : (next.reserves as string[]).filter((entry) => entry !== key),
+    players: withoutUnit(next.players, key),
+    reserves: withoutUnit(next.reserves, key),
     qualTable: next.qualTable.filter((entry) => entry.name !== key),
     pendingBracketSeeds: withoutPendingUnit(next.pendingBracketSeeds, key),
     luckyLosers: next.luckyLosers.map(strip),
@@ -1007,8 +991,8 @@ export function renameTeamMember(
   newName: string,
 ): TournamentState {
   const trimmed = newName.trim();
-  const team = (state.players as TournamentTeam[]).find((entry) => entry.teamId === teamId);
-  const oldName = team?.members[memberIndex]?.name;
+  const team = findUnit(state.players, teamId);
+  const oldName = typeof team === 'object' ? team.members[memberIndex]?.name : undefined;
   if (!oldName || !trimmed || trimmed === oldName) return state;
   const renamed = updateTeam(state, teamId, (entry) => ({
     ...entry,

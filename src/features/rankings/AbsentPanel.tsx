@@ -5,7 +5,8 @@ import {
   unmarkOneScoreTeamMemberAbsent,
 } from '../../domain/tournament/absences';
 import { swapWindowOpen } from '../../domain/tournament/mutations';
-import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
+import { findUnit } from '../../domain/tournament/roster';
+import type { TournamentState } from '../../domain/tournament/types';
 import { Badge, Button, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import {
@@ -22,11 +23,9 @@ type App = ReturnType<typeof useTournamentApp>;
 
 /** The swap and remove buttons of an absent unit still on the roster; the swap is closed once eliminations start. */
 function UnitTools({ app, row, state }: { app: App; row: AbsentMatchRow; state: TournamentState }) {
-  const team = (state.players as Array<string | TournamentTeam>).find(
-    (entry): entry is TournamentTeam => typeof entry !== 'string' && entry.teamId === row.unit,
-  );
-  const onRoster = team !== undefined || (state.players as Array<string | TournamentTeam>).includes(row.unit);
-  if (!onRoster) return null;
+  const unit = findUnit(state.players, row.unit);
+  if (unit === undefined) return null;
+  const team = typeof unit === 'object' ? unit : undefined;
   const teamSize = team?.members.length ?? 0;
   const swapsOpen = swapWindowOpen(state);
   return (

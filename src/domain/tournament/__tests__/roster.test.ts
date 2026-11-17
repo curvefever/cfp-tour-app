@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  findUnit,
   findUnstorableNames,
   rosterFitsFormat,
   rosterNames,
   teamNames,
   unitDisplay,
   unstorableNamesMessage,
+  withUnit,
+  withoutUnit,
 } from '../roster';
 import type { TournamentTeam } from '../types';
 import { rosterFor } from './test-fixtures';
@@ -133,5 +136,42 @@ describe('unitDisplay of a team that left the roster', () => {
 
   it('falls back to the key for a unit that never was on the roster', () => {
     expect(unitDisplay(state, 'team_x')).toEqual({ label: 'team_x', members: null });
+  });
+});
+
+describe('findUnit, withoutUnit and withUnit: a roster of names or of teams', () => {
+  const team = (id: string): TournamentTeam => ({ teamId: id, teamName: id, members: [{ name: `${id}a` }] });
+
+  it('find a unit by its name or its team id', () => {
+    expect(findUnit(['Ann', 'Bob'], 'Bob')).toBe('Bob');
+    expect(findUnit(['Ann', 'Bob'], 'Cy')).toBeUndefined();
+    expect(findUnit([team('t1'), team('t2')], 't2')).toEqual(team('t2'));
+    expect(findUnit([team('t1')], 'Ann')).toBeUndefined();
+  });
+
+  it('take a unit out into a new list, whether or not it was there', () => {
+    const names = ['Ann', 'Bob'];
+    expect(withoutUnit(names, 'Ann')).toEqual(['Bob']);
+    expect(withoutUnit(names, 'Cy')).toEqual(names);
+    expect(withoutUnit(names, 'Cy')).not.toBe(names);
+    const teams = [team('t1'), team('t2')];
+    expect(withoutUnit(teams, 't1')).toEqual([team('t2')]);
+    expect(withoutUnit(teams, 'zz')).not.toBe(teams);
+  });
+
+  it('put a unit in at the end, into a new list', () => {
+    const names = ['Ann'];
+    expect(withUnit(names, 'Bob')).toEqual(['Ann', 'Bob']);
+    expect(names).toEqual(['Ann']);
+    expect(withUnit([team('t1')], team('t2'))).toEqual([team('t1'), team('t2')]);
+  });
+
+  it('read an empty list as either shape', () => {
+    expect(findUnit([], 'Ann')).toBeUndefined();
+    const empty: string[] = [];
+    expect(withoutUnit(empty, 'Ann')).toEqual([]);
+    expect(withoutUnit(empty, 'Ann')).not.toBe(empty);
+    expect(withUnit(empty, 'Ann')).toEqual(['Ann']);
+    expect(withUnit([], team('t1'))).toEqual([team('t1')]);
   });
 });
