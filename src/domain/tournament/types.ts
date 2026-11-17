@@ -266,10 +266,6 @@ export interface GeneratedTournamentConfig {
   qualifiersPerGroup: number;
   /** Absent means 'per-group'. With a total mode `qualAdv` is the total and `qualifiersPerGroup` is ignored. */
   groupExit?: GroupExitMode;
-  scoring: ScoringSystemKey;
-  drawPublication: DrawPublicationKey;
-  finalsGames: number;
-  semisGames: number;
   /** Set when the Final (or the Semis) is a Best of N instead of summed games. */
   finalsBestOf?: number;
   semisBestOf?: number;
@@ -312,7 +308,6 @@ export interface MaterializedGamemodeConfig {
   explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
   /** The organiser's parsed/validated waterfall routing graph (waterfall-bracket.ts), only present when bracketPhase === 'waterfall-bracket'. Consumed once by waterfallBracketPhase() at generation time -- every round's own rank-band routing lives on TournamentRound.waterfallRoutes after that, so nothing downstream reads this back off state. */
   graph?: OrderedWaterfallGraph;
-  poolingPhase: PoolingPhaseKey;
   bracketPhase: ScheduleLogicKey;
   finalsGames: number;
   semisGames: number;
@@ -330,10 +325,6 @@ export interface MaterializedGamemodeConfig {
   matchOverrides?: Record<string, string>;
   grandFinalWbTarget: number;
   grandFinalLbTarget: number;
-  groupSize: number;
-  roundRobinMode: RoundRobinMode;
-  qualifiersPerGroup: number;
-  groupExit?: GroupExitMode;
 }
 
 export interface TournamentState {
@@ -372,9 +363,11 @@ export interface TournamentState {
   anonymousFinalists: AnonymousFinalist[];
   reserveOpen: boolean;
   started: boolean;
+  /** The pooling settings and the head counts (the pooling phase, "Advance to bracket", the group settings). Empty before Generate. */
   cfg: Partial<GeneratedTournamentConfig>;
   scheduleLogic: ScheduleLogicKey;
   gameFormat: GameFormatKey;
+  /** The rooms, scoring, match formats, draw publication, bracket kind and version switches. Empty before Generate. */
   gamemodeConfig: Partial<MaterializedGamemodeConfig>;
   /** The Setup form as typed when this schedule was generated (roster excluded), for copying onto a later tournament -- see tournament-settings.ts. Absent before Generate has run. */
   settings?: TournamentSettings;

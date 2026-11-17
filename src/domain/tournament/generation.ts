@@ -45,6 +45,10 @@ import type {
   TournamentState,
 } from './types';
 
+/** What generation works with: the stored `cfg` plus the settings it reads here and keeps in `gamemodeConfig` only. */
+type GenerationConfig = GeneratedTournamentConfig &
+  Pick<MaterializedGamemodeConfig, 'scoring' | 'drawPublication' | 'finalsGames' | 'semisGames'>;
+
 interface GenerationForm extends PersistedSetup {
   /** A setting kept out of PersistedSetup, the stored shape of the Setup form. */
   lbQualifiers?: string;
@@ -217,7 +221,7 @@ export function generateTournament(
   const scoringVisible = form.poolingPhase !== 'none';
   const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
   const matchConfig = matchFormatConfig(form, chosen);
-  const config: GeneratedTournamentConfig = {
+  const config: GenerationConfig = {
     n: unitCount,
     poolingPhase: form.poolingPhase,
     qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
@@ -696,15 +700,10 @@ export function generateTournament(
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),
     ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
     ...(waterfallGraph !== undefined ? { graph: waterfallGraph } : {}),
-    poolingPhase: config.poolingPhase,
     bracketPhase: schedule,
     ...matchConfig,
     grandFinalWbTarget,
     grandFinalLbTarget,
-    groupSize: config.groupSize,
-    roundRobinMode: config.roundRobinMode,
-    qualifiersPerGroup: config.qualifiersPerGroup,
-    ...(config.groupExit ? { groupExit: config.groupExit } : {}),
   };
   const roster = rosterKeys(current.players);
   let progression;
@@ -744,6 +743,13 @@ export function generateTournament(
       })),
     ]),
   );
+  const {
+    scoring: _scoring,
+    drawPublication: _drawPublication,
+    finalsGames: _finalsGames,
+    semisGames: _semisGames,
+    ...storedConfig
+  } = config;
   const state: TournamentState = {
     ...current,
     rounds: progression.rounds,
@@ -771,7 +777,7 @@ export function generateTournament(
     reserveOpen: true,
     started: false,
     tournamentId: current.tournamentId ?? runtime.ids.tournamentId(),
-    cfg: config,
+    cfg: storedConfig,
     scheduleLogic: schedule,
     gameFormat: form.gameFormat,
     gamemodeConfig,
