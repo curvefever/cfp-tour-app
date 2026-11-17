@@ -26,12 +26,12 @@ import {
   graphTextHasQualLine,
   parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
-  type OrderedWaterfallGraph,
 } from './waterfall-bracket';
 import type { TournamentRuntime } from './runtime';
 import type {
   GeneratedTournamentConfig,
   MaterializedGamemodeConfig,
+  OrderedWaterfallGraph,
   PersistedSetup,
   RoomSize,
   ScheduleLogicKey,

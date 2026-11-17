@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GAME_FORMAT_LIST, deriveRoomSize, getGameFormat } from '../formats';
-import type { RoomSize } from '../types';
+import type { OrderedWaterfallGraph, RoomSize } from '../types';
 import {
   bracketLogicOf,
   upperLowerEntries,
@@ -10,11 +10,7 @@ import {
   upperLowerShape,
   type UpperLowerRound,
 } from '../upper-lower';
-import {
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-  type OrderedWaterfallGraph,
-} from '../waterfall-bracket';
+import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 
 const roomOf = (key: string): RoomSize => deriveRoomSize(getGameFormat(key as never) as never);
 const FFA = roomOf('ffa-individual');

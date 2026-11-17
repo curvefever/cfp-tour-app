@@ -5,6 +5,7 @@ import type {
   PoolingPhaseKey,
   RoomSize,
   ScheduleLogicKey,
+  TeamScoringRuleKey,
   TournamentState,
 } from './types';
 
@@ -95,7 +96,7 @@ export const GAME_FORMATS: Readonly<Partial<Record<GameFormatKey, Readonly<GameF
   Object.fromEntries(GAME_FORMAT_LIST.map((format) => [format.key, format]));
 
 /** Stored value, kept as first named; the rule is "One score per team". */
-export const ONE_SCORE_PER_TEAM = 'survival-teams' as const;
+export const ONE_SCORE_PER_TEAM = 'survival-teams' as const satisfies TeamScoringRuleKey;
 
 /** Whether the tournament scores its teams by one score per team (not per member). */
 export function isOneScorePerTeam(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {

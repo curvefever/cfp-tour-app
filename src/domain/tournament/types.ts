@@ -1,6 +1,3 @@
-import type { ONE_SCORE_PER_TEAM } from './formats';
-import type { OrderedWaterfallGraph } from './waterfall-bracket';
-
 export type ActiveTab = 'tournaments' | 'info' | 'admin' | 'bracket' | 'standings' | 'rankings';
 
 /** `team-<n>v<n>…` keys come from the format rule in formats.ts (players per team × teams per room). */
@@ -24,7 +21,7 @@ export type MatchResultCode = 'W' | 'TW' | 'TL' | 'L' | 'T';
 /** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissFoldPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
 export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
-export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | typeof ONE_SCORE_PER_TEAM;
+export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | 'survival-teams';
 export type RoundRobinMode = 'single' | 'double';
 
 /** How a group stage sends units to the bracket: so many per group (the default, and what a stored tournament without the field does), or a total shared between the groups by an even split or a fair cut (`group-exit.ts`). */
@@ -270,6 +267,48 @@ export interface GeneratedTournamentConfig {
   /** Set when the Final (or the Semis) is a Best of N instead of summed games. */
   finalsBestOf?: number;
   semisBestOf?: number;
+}
+
+export interface WaterfallRoundSpec {
+  label: string;
+  roomSizes: number[];
+  isFinal: boolean;
+  /** RANKING on the ROUNDS line: a placement match that sends nobody on. */
+  isRanking?: true;
+  /** True when the organiser numbered the round's column (COLUMN n), false/absent when it is automatic. */
+  columnSet?: true;
+  /** Best of N (odd, 3-9), written BO<n> on the ROUNDS line. At most one of `bestOf` and `games` is set. */
+  bestOf?: number;
+  /** N games, summed (1-4), written GAMES <n> on the ROUNDS line. */
+  games?: number;
+}
+
+/**
+ * The fully validated, topologically-sorted graph -- `rounds[0]` is always
+ * the entry round (the one with no incoming bands), and every band's
+ * destination has already been resolved to an index into `rounds`/`routes`
+ * (or the literal 'eliminated'). `routes[i][room]` is index-aligned with
+ * `rounds[i].roomSizes` and, within a room, index-aligned with rank (i.e.
+ * `routes[i][room][rank - 1]` is that rank's destination) -- a flat
+ * per-rank array rather than a list of {fromRank,toRank} ranges, since a
+ * real band is often non-contiguous ("ranks 5 and 8 both go to 6B") and a
+ * per-rank array sidesteps range-splitting entirely, both for this
+ * validator's own partition check and for a later O(1) rank lookup.
+ */
+export interface OrderedWaterfallGraph {
+  rounds: WaterfallRoundSpec[];
+  /** Index-aligned with `rounds`: the column each round is played in (from 1). Rounds of one column are next to each other. */
+  columns: number[];
+  routes: Array<Array<Array<number | 'eliminated'>>>;
+  /** Index-aligned with `rounds`: the round's BEST line, the destination an index into `rounds`. Absent when no round has one. */
+  best?: Array<WaterfallBestRoute | null>;
+  /**
+   * Where the qualification table's standings go, when the graph has a Qual
+   * source: index = standings rank - 1, value = index into `rounds` or
+   * 'eliminated'. Its length is the highest routed rank (anything past the
+   * end is eliminated).
+   */
+  qualRoutes?: Array<number | 'eliminated'>;
 }
 
 export interface MaterializedGamemodeConfig {

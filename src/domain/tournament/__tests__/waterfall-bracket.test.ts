@@ -10,10 +10,9 @@ import {
   waterfallBracketPhase,
   waterfallDestination,
   waterfallStandingsRoutes,
-  type OrderedWaterfallGraph,
 } from '../waterfall-bracket';
 import { buildAssignments, buildRound } from './test-fixtures';
-import type { RoomSize } from '../types';
+import type { OrderedWaterfallGraph, RoomSize } from '../types';
 
 const FFA_ROOM_SIZE: RoomSize = { min: 6, max: 8, ideal: 8 };
 // Permissive bound for tests that aren't exercising rule 1 (room-size bounds)

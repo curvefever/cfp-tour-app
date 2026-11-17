@@ -9,8 +9,7 @@
  */
 import { getFinalUnitScore, getUnitScore, getUnitScoreForGame } from './scoring';
 import type { RankScore } from './scoring';
-import type { TournamentRound, TournamentState } from './types';
-import type { WaterfallRoundSpec } from './waterfall-bracket';
+import type { TournamentRound, TournamentState, WaterfallRoundSpec } from './types';
 
 /** The N a Best of N can have. */
 export const BEST_OF_VALUES = [3, 5, 7, 9];
