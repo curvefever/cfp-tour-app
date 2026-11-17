@@ -33,12 +33,16 @@ import {
 import { getDefenderIndex } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { TournamentUnit } from '../../components/tournament/TournamentUnit';
-import { destinationLabel } from '../bracket/exit-text';
+import { destinationLabel } from '../tournament/components/exit-text';
 import { Button, Input, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle, TeamConfirmationLabel } from './ConfirmToggle';
-import { confirmationCountText, confirmationView, type ConfirmationView } from './confirmation-view';
+import {
+  confirmationCountText,
+  confirmationView,
+  type ConfirmationView,
+} from '../tournament/components/confirmation-view';
 import { naturalByLabel } from './ranking-order';
 import { benchedMessage, reserveAddHint } from './reserve-hint';
 import { TeamMemberRow, VacantSlot } from './TeamSlots';

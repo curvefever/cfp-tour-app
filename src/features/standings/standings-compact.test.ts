@@ -10,7 +10,7 @@ import {
 } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
-import { sharesWholePercent } from './standings-text';
+import { sharesWholePercent } from '../tournament/components/standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 

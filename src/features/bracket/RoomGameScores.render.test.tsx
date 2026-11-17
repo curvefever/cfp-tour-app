@@ -8,7 +8,7 @@ import type { PersistedSetup, TournamentState, TournamentTeam } from '../../doma
 import type { FixtureTournament } from '../../../e2e/screens/fixtures';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import { scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
-import { renderApp, type AppRole } from '../shell/test-app';
+import { renderApp, type AppRole } from '../../test-support/test-app';
 import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({

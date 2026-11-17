@@ -4,8 +4,8 @@ import { tracksLikelyAbsentees } from '../../domain/tournament/absences';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { roundsInPlay } from '../../domain/tournament/round-columns';
 import type { TournamentState } from '../../domain/tournament/types';
-import { toggleTitle } from '../rankings/confirmation-view';
-import { destinationLabel } from './exit-text';
+import { toggleTitle } from '../tournament/components/confirmation-view';
+import { destinationLabel } from '../tournament/components/exit-text';
 
 /** One name of the Bracket's likely-absent line. */
 export interface LikelyAbsentChip {

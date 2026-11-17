@@ -10,7 +10,7 @@ import {
 } from '../../domain/tournament/__tests__/dependency-play-fixtures';
 import { rankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { roundsInPlay } from '../../domain/tournament/round-columns';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

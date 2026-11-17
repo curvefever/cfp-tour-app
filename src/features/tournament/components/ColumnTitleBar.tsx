@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
-import { Badge, cn, columnTitleClassName } from '../../components/ui';
-import type { RoundGameCount } from '../../domain/tournament/bracket';
-import type { RoundSettings } from '../../domain/tournament/round-notes';
-import { RoundSettingsPopup } from './RoundSettingsPopup';
-import type { RoomsScored } from './still-playing';
+import { Badge, cn, columnTitleClassName } from '../../../components/ui';
+import type { RoundGameCount } from '../../../domain/tournament/bracket';
+import type { RoundSettings } from '../../../domain/tournament/round-notes';
+import { RoundSettingsPopup } from '../../bracket/RoundSettingsPopup';
+import type { RoomsScored } from '../../bracket/still-playing';
 
 /** "1 GAME", "3 GAMES", "UP TO 4 GAMES" for the race Grand Final, or "BEST OF 3". */
 function gameCountText({ games, upTo, bestOf }: RoundGameCount): string {

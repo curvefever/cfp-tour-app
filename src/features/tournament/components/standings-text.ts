@@ -1,15 +1,15 @@
-import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../domain/tournament/advancement';
-import { usesGroupAverages } from '../../domain/tournament/group-standings';
-import { getGameFormat } from '../../domain/tournament/formats';
-import { matchResultSettings } from '../../domain/tournament/match-results';
-import { formatStandingValue } from '../../domain/tournament/scoring';
+import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../../domain/tournament/advancement';
+import { usesGroupAverages } from '../../../domain/tournament/group-standings';
+import { getGameFormat } from '../../../domain/tournament/formats';
+import { matchResultSettings } from '../../../domain/tournament/match-results';
+import { formatStandingValue } from '../../../domain/tournament/scoring';
 import {
   isCountedRound,
   type StandingsDisplay,
   type StandingsDisplayTable,
-} from '../../domain/tournament/standings-display';
-import type { StandingRoundResult, TournamentState } from '../../domain/tournament/types';
-import { ordinal, placeOrdinal } from '../../lib/ordinal';
+} from '../../../domain/tournament/standings-display';
+import type { StandingRoundResult, TournamentState } from '../../../domain/tournament/types';
+import { ordinal, placeOrdinal } from '../../../lib/ordinal';
 import { groupExitCutSentence } from './group-exit-text';
 
 /** Where the standings are: how many rounds are in, that they are final, or when they start. */

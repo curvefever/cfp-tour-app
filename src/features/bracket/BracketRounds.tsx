@@ -27,9 +27,13 @@ import {
   roundStripBoxLabels,
 } from './round-strip';
 import { AnonymousFinalCard } from './AnonymousFinalCard';
-import { ColumnTitleBar } from './ColumnTitleBar';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import { FoldedBox, FoldedRoundBody } from './FoldedBox';
-import { type FoldedRoundSummary, foldedColumnSummary, foldedRoundSummary } from './folded-round';
+import {
+  type FoldedRoundSummary,
+  foldedColumnSummary,
+  foldedRoundSummary,
+} from '../tournament/components/folded-round';
 import { ROUND_COLUMN_WIDTH, roundColumnWidth } from './game-columns';
 import { RoundBody } from './RoundBody';
 import { StickyScrollbar, hiddenScrollbarClass } from './StickyScrollbar';

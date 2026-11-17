@@ -1,4 +1,4 @@
-import type { StandingsKind } from '../../domain/tournament/standings-display';
+import type { StandingsKind } from '../../../domain/tournament/standings-display';
 
 export interface StandingsNames {
   /** The tab, the page heading label and the Bracket column title: "Qualification". */

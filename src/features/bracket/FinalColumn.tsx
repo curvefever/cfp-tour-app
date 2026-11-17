@@ -12,7 +12,7 @@ import { GamesHeader } from './GameScores';
 import { FinalRow } from './FinalRow';
 import { RoomFrame } from './RoomCard';
 import { scrollableCardClass, scrollableRowsClass } from './game-columns';
-import { roomTitle } from './room-title';
+import { roomTitle } from '../tournament/components/room-title';
 
 /** The Grand Final race: who is ahead of whom, and who has won. */
 function RaceLine({

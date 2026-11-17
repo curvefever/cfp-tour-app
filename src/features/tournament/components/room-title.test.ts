@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
+import { buildRound } from '../../../domain/tournament/__tests__/test-fixtures';
 import { roomTitle } from './room-title';
 
 describe('roomTitle', () => {

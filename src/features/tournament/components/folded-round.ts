@@ -1,12 +1,12 @@
-import { absentInRoom } from '../../domain/tournament/absences';
-import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
-import { unitRankScore } from '../../domain/tournament/match-format';
-import { unitDisplay } from '../../domain/tournament/roster';
-import { orderRoomWithPlaces, type RankScore } from '../../domain/tournament/scoring';
-import type { TournamentState } from '../../domain/tournament/types';
-import { placeOrdinal } from '../../lib/ordinal';
-import { isRoundDone } from '../../domain/tournament/round-columns';
-import { isNotCountedRound } from './title-bar-marks';
+import { absentInRoom } from '../../../domain/tournament/absences';
+import { bracketRoundLabels, roomLetter } from '../../../domain/tournament/bracket';
+import { unitRankScore } from '../../../domain/tournament/match-format';
+import { unitDisplay } from '../../../domain/tournament/roster';
+import { orderRoomWithPlaces, type RankScore } from '../../../domain/tournament/scoring';
+import type { TournamentState } from '../../../domain/tournament/types';
+import { placeOrdinal } from '../../../lib/ordinal';
+import { isRoundDone } from '../../../domain/tournament/round-columns';
+import { isNotCountedRound } from '../../bracket/title-bar-marks';
 
 interface FoldedFollowed {
   /** The followed unit's name as shown (a team's name, a player's name). */

@@ -4,10 +4,10 @@ import type { ActiveRanking, EliminatedRanking, FinalistRanking } from '../../do
 import { standingsKind } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal, placeOrdinal } from '../../lib/ordinal';
-import { standingsNames } from '../standings/standings-names';
-import { destinationLabel } from '../bracket/exit-text';
-import { placeInRoom } from '../bracket/folded-round';
-import { roomTitle } from '../bracket/room-title';
+import { standingsNames } from '../tournament/components/standings-names';
+import { destinationLabel } from '../tournament/components/exit-text';
+import { placeInRoom } from '../tournament/components/folded-round';
+import { roomTitle } from '../tournament/components/room-title';
 
 type Labels = ReturnType<typeof bracketRoundLabels>;
 

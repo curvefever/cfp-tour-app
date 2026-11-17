@@ -1,5 +1,5 @@
 import { Badge, PageHeading, Panel, cn } from '../../components/ui';
-import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import type { TournamentWinner } from '../../domain/tournament/rankings';
 import { getTourEnvironment } from '../sync/firebase-paths';
 import { useTournamentApp } from '../tournament/TournamentProvider';

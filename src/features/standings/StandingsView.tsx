@@ -11,12 +11,12 @@ import { readBracketFollow } from '../../lib/persistence/storage';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { Alert, PageHeading, cn } from '../../components/ui';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
-import { FollowBar } from '../bracket/FollowBanner';
-import { rememberedFollow, standingsFollowDetail } from '../bracket/follow-text';
+import { FollowBar } from '../tournament/components/FollowBanner';
+import { rememberedFollow, standingsFollowDetail } from '../tournament/components/follow-text';
 import { GroupSwapBar, useGroupSwap } from './GroupSwap';
 import { TournamentStandings } from './TournamentStandings';
-import { standingsNames } from './standings-names';
-import { standingsExplanation } from './standings-text';
+import { standingsNames } from '../tournament/components/standings-names';
+import { standingsExplanation } from '../tournament/components/standings-text';
 
 /**
  * The "how it works" box: open on a desktop; on a phone it is one line that unfolds (the heading becomes that

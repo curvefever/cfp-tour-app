@@ -1,5 +1,5 @@
-import type { GroupExitClass, GroupExitShape } from '../../domain/tournament/group-exit';
-import { ordinal } from '../../lib/ordinal';
+import type { GroupExitClass, GroupExitShape } from '../../../domain/tournament/group-exit';
+import { ordinal } from '../../../lib/ordinal';
 
 /**
  * The wording of a group stage's exit, from its shape (`group-exit.ts`): the Setup help line, the Groups

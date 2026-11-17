@@ -1,5 +1,5 @@
-import type { StandingsDisplay } from '../../domain/tournament/standings-display';
-import { cn } from '../../components/ui';
+import type { StandingsDisplay } from '../../../domain/tournament/standings-display';
+import { cn } from '../../../components/ui';
 
 /** TEMPORARY while the standings can still change, FINAL once the last pooling round is over; nothing before they start. */
 export function PhaseBadge({ phase }: { phase: StandingsDisplay['phase'] }) {

@@ -3,7 +3,7 @@ import { unitLabelPluralLower } from '../../domain/tournament/formats';
 import { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { cn } from '../../components/ui';
-import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import { ColumnRows } from './ColumnRows';
 import { Podium } from './Podium';
 import { joinMembers } from '../tournament/components/member-line';

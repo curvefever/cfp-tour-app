@@ -7,7 +7,7 @@ import {
 } from '../../../domain/tournament/group-exit';
 import { GROUP_SIZE_BOUNDS } from '../../../domain/tournament/pooling';
 import type { PersistedSetup } from '../../../domain/tournament/types';
-import { groupExitHelp } from '../../standings/group-exit-text';
+import { groupExitHelp } from '../../tournament/components/group-exit-text';
 
 /**
  * The help line under "Teams out of the groups": what the current roster would do with a total, in words, or why

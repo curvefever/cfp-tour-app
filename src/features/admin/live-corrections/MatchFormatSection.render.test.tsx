@@ -8,7 +8,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../../../domai
 import { advanceTournamentRound } from '../../../domain/tournament/transitions';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { scoreCurrentRound } from '../../../domain/tournament/__tests__/play-through';
-import { renderApp } from '../../shell/test-app';
+import { renderApp } from '../../../test-support/test-app';
 
 vi.mock('../../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../sync/firebase-client')>()),

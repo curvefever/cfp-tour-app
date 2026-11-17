@@ -20,7 +20,7 @@ import {
   roundCells,
   standingsExplanation,
   standingsHeads,
-} from './standings-text';
+} from '../tournament/components/standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 

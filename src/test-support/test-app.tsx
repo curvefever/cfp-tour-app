@@ -1,20 +1,15 @@
 import { act, render } from '@testing-library/react';
-import { createDefaultSetup } from '../../domain/tournament/state-defaults';
-import { createTournamentRuntime } from '../../domain/tournament/runtime';
-import type { ActiveTab } from '../../domain/tournament/types';
-import { getAnonymousAuthSnapshot, Role, type AuthSnapshot } from '../auth/auth.shared';
-import { AuthProvider } from '../auth/AuthProvider';
-import { TournamentContext, type TournamentAppContext } from '../tournament/TournamentProvider';
-import type { TournamentSummary } from '../tournaments/tournament-summary';
-import {
-  fixtureIndexEntry,
-  loadedState,
-  setupOf,
-  type FixtureTournament,
-} from '../../../e2e/screens/fixtures';
-import { displayAccess } from '../tournament/display-access';
-import { AppShell } from './AppShell';
-import { tabContextFor, visibleTabs } from './tabs';
+import { createDefaultSetup } from '../domain/tournament/state-defaults';
+import { createTournamentRuntime } from '../domain/tournament/runtime';
+import type { ActiveTab } from '../domain/tournament/types';
+import { getAnonymousAuthSnapshot, Role, type AuthSnapshot } from '../features/auth/auth.shared';
+import { AuthProvider } from '../features/auth/AuthProvider';
+import { TournamentContext, type TournamentAppContext } from '../features/tournament/TournamentProvider';
+import type { TournamentSummary } from '../features/tournaments/tournament-summary';
+import { fixtureIndexEntry, loadedState, setupOf, type FixtureTournament } from '../../e2e/screens/fixtures';
+import { displayAccess } from '../features/tournament/display-access';
+import { AppShell } from '../features/shell/AppShell';
+import { tabContextFor, visibleTabs } from '../features/shell/tabs';
 
 /** Test helpers: render the real `AppShell` for a fixture tournament, without Firebase, sync or server functions. */
 

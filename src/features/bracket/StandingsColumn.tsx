@@ -1,6 +1,6 @@
 import type { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { unitDisplay } from '../../domain/tournament/roster';
-import { pointsCell } from '../standings/standings-text';
+import { pointsCell } from '../tournament/components/standings-text';
 import {
   standingFor,
   type StandingsDisplay,
@@ -16,12 +16,12 @@ import {
   standingsGroupStarts,
   standingsRowResult,
 } from '../tournament/components/result-row';
-import { ColumnTitleBar } from './ColumnTitleBar';
-import { ExitIcon } from './ExitIcon';
-import { PhaseBadge } from './PhaseBadge';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
+import { ExitIcon } from '../tournament/components/ExitIcon';
+import { PhaseBadge } from '../tournament/components/PhaseBadge';
 import { FoldedBox } from './FoldedBox';
-import { standingsNames } from '../standings/standings-names';
-import { standingsExitLines } from './exit-lines';
+import { standingsNames } from '../tournament/components/standings-names';
+import { standingsExitLines } from '../tournament/components/exit-lines';
 import { phoneFullWidthClass, phoneHiddenClass } from './phone-box';
 import { RoomFrame } from './RoomCard';
 import { RoundSettingsBand } from './RoundSettingsBand';

@@ -24,7 +24,7 @@ import {
   roundCells,
   standingsHeads,
   standingsRoundLabel,
-} from './standings-text';
+} from '../tournament/components/standings-text';
 
 type Entry = StandingsDisplayTable['entries'][number];
 

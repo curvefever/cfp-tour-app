@@ -19,9 +19,9 @@ import {
 import { atEntry, indexOf, pressed } from '../../domain/tournament/__tests__/dependency-play-fixtures';
 import { withDependencyPlay } from '../../domain/tournament/__tests__/qual-waterfall';
 import { bracketLegend } from './bracket-legend';
-import { roomExitLines } from './exit-lines';
-import { placeInRoom } from './folded-round';
-import { followBannerText } from './follow-text';
+import { roomExitLines } from '../tournament/components/exit-lines';
+import { placeInRoom } from '../tournament/components/folded-round';
+import { followBannerText } from '../tournament/components/follow-text';
 import { luckyLoserNames } from './room-row-inputs';
 import { absenteeFate, advanceResult, roomRowResult } from './room-row-result';
 

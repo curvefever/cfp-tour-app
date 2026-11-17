@@ -9,7 +9,7 @@ import { computeRankings } from '../../domain/tournament/rankings';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
-import { placeInRoom } from '../bracket/folded-round';
+import { placeInRoom } from '../tournament/components/folded-round';
 import { stillInResults } from './ranking-results';
 
 function advance(state: TournamentState): TournamentState {

@@ -1,5 +1,5 @@
 import { Button } from '../../components/ui';
-import { useConfirmationClick } from '../rankings/useConfirmationClick';
+import { useConfirmationClick } from '../tournament/components/useConfirmationClick';
 import type { LikelyAbsentChip } from './likely-absent-line';
 
 /** The element id the sticky bar's count scrolls to. */

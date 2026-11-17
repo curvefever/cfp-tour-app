@@ -2,7 +2,7 @@
 import { act, cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
-import { renderApp, settle, type AppRole } from '../shell/test-app';
+import { renderApp, settle, type AppRole } from '../../test-support/test-app';
 import { TOUR_BUILD_ID } from './build-id';
 
 // A plain function, not `vi.fn`: its result tracking leaves a rejected promise unhandled.

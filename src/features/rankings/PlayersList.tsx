@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { rosterKeys } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
-import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import { formatScheduledAt } from '../tournaments/tournament-info';
 import { ColumnRows } from './ColumnRows';
 import { registeredLine, rosterRows } from './players-line';

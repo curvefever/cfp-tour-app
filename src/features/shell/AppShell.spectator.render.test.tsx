@@ -16,7 +16,7 @@ import {
   type TournamentAppContext,
 } from '../tournament/TournamentProvider';
 import { AppShell } from './AppShell';
-import { renderApp, settle, testAppContext } from './test-app';
+import { renderApp, settle, testAppContext } from '../../test-support/test-app';
 
 const hoisted = vi.hoisted(() => ({ summaries: [] as unknown[] }));
 

@@ -1,19 +1,19 @@
-import { type BracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
-import { bestPlaceChoice } from '../../domain/tournament/best-place';
-import { exitBandAtRank, roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
-import { rosterKeys, unitDisplay } from '../../domain/tournament/roster';
+import { type BracketFollowStatus, bracketRoundLabels } from '../../../domain/tournament/bracket';
+import { bestPlaceChoice } from '../../../domain/tournament/best-place';
+import { exitBandAtRank, roundExitRule, type RoomExitBand } from '../../../domain/tournament/room-exits';
+import { rosterKeys, unitDisplay } from '../../../domain/tournament/roster';
 import {
   standingFor,
   type StandingsDisplay,
   type StandingsDisplayTable,
-} from '../../domain/tournament/standings-display';
-import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
-import { ordinal, placeOrdinal } from '../../lib/ordinal';
-import { standingsNames } from '../standings/standings-names';
+} from '../../../domain/tournament/standings-display';
+import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
+import { ordinal, placeOrdinal } from '../../../lib/ordinal';
+import { standingsNames } from './standings-names';
 import { destinationLabel } from './exit-text';
 import { placeInRoom } from './folded-round';
 import { roomTitle } from './room-title';
-import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
+import { isRoundDone, isRoundReached } from '../../../domain/tournament/round-columns';
 
 type Labels = ReturnType<typeof bracketRoundLabels>;
 

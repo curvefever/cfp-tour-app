@@ -7,7 +7,7 @@ import {
   pointsCell,
   roundCells,
   type StandingsHeads,
-} from './standings-text';
+} from '../tournament/components/standings-text';
 
 const DEFAULT_HEADS: StandingsHeads = { rank: 'Rank', points: 'Points', tieBreak: 'Tie-break' };
 

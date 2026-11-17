@@ -3,7 +3,7 @@ import { cleanup, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { afterRound1 } from '../../domain/tournament/__tests__/absentee-bracket-fixture';
 import type { TournamentState } from '../../domain/tournament/types';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

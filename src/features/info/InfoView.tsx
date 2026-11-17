@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PageHeading, cn } from '../../components/ui';
 import { bracketLogicOf } from '../../domain/tournament/upper-lower';
-import { ColumnTitleBar } from '../bracket/ColumnTitleBar';
+import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { scheduledParts, tournamentFormatLine, type ScheduledParts } from '../tournaments/tournament-info';

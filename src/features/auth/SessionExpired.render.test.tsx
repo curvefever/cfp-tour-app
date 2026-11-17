@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
-import { renderApp, settle, type AppRole } from '../shell/test-app';
+import { renderApp, settle, type AppRole } from '../../test-support/test-app';
 import { Role, type SessionCheck } from './auth.shared';
 import { signalSessionExpired } from './session-expired-signal';
 

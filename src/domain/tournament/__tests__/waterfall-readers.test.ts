@@ -29,7 +29,7 @@ import {
   scoreTied,
   type Strategy,
 } from './dependency-play-fixtures';
-import { followBannerText } from '../../../features/bracket/follow-text';
+import { followBannerText } from '../../../features/tournament/components/follow-text';
 import { describeStandings } from '../standings-display';
 import { absentMatchRows } from '../../../features/rankings/absent-panel';
 import { unscoredRoomsMessage } from '../../../features/bracket/next-round-warning';

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { type BracketFollowStatus } from '../../domain/tournament/bracket';
-import { describeStandings } from '../../domain/tournament/standings-display';
-import type { TournamentState } from '../../domain/tournament/types';
-import { cn } from '../../components/ui';
+import { type BracketFollowStatus } from '../../../domain/tournament/bracket';
+import { describeStandings } from '../../../domain/tournament/standings-display';
+import type { TournamentState } from '../../../domain/tournament/types';
+import { cn } from '../../../components/ui';
 import { followBannerText } from './follow-text';
 
 /** The follow banner's bar: "Following Dune" and what comes after it. Shared by the Bracket and the Standings tab. */

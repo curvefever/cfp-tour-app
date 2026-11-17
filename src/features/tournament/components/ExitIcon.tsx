@@ -1,7 +1,7 @@
-import { cn } from '../../components/ui';
-import { Stripe } from '../tournament/components/ResultStripe';
+import { cn } from '../../../components/ui';
+import { Stripe } from './ResultStripe';
 import type { ExitLine } from './exit-lines';
-import { PopupIcon } from './PopupIcon';
+import { PopupIcon } from '../../bracket/PopupIcon';
 
 /** The arrow glyph: a line leaving the room towards where its places go. */
 function ArrowGlyph() {

@@ -8,7 +8,11 @@ import { isCurrentRound } from '../../domain/tournament/round-columns';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { ordinal } from '../../lib/ordinal';
-import { formatTieBreak, formatTieBreakPrecise, sharesWholePercent } from '../standings/standings-text';
+import {
+  formatTieBreak,
+  formatTieBreakPrecise,
+  sharesWholePercent,
+} from '../tournament/components/standings-text';
 import { spareCutText } from './spare-cut-text';
 import { roomsStillPlaying, stillPlayingText } from './still-playing';
 

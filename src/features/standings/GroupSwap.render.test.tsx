@@ -10,7 +10,7 @@ import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';
 import { scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { loadedState, type FixtureTournament } from '../../../e2e/screens/fixtures';
-import { testAppContext, type AppRole } from '../shell/test-app';
+import { testAppContext, type AppRole } from '../../test-support/test-app';
 import { TournamentContext } from '../tournament/TournamentProvider';
 import { StandingsView } from './StandingsView';
 

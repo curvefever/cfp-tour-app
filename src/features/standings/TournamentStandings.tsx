@@ -7,9 +7,9 @@ import type {
 } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
 import { columnTitleClassName } from '../../components/ui';
-import { ExitIcon } from '../bracket/ExitIcon';
-import { standingsExitLines } from '../bracket/exit-lines';
-import { PhaseBadge } from '../bracket/PhaseBadge';
+import { ExitIcon } from '../tournament/components/ExitIcon';
+import { standingsExitLines } from '../tournament/components/exit-lines';
+import { PhaseBadge } from '../tournament/components/PhaseBadge';
 import type { GroupSwapPicking } from './GroupSwap';
 import { StandingsCompactList } from './StandingsCompactList';
 import { StandingsTable } from './StandingsTable';

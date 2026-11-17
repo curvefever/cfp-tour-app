@@ -1,5 +1,5 @@
-import { clickConfirmationAndSeat } from '../../domain/tournament/returning-unit';
-import { useTournamentApp } from '../tournament/TournamentProvider';
+import { clickConfirmationAndSeat } from '../../../domain/tournament/returning-unit';
+import { useTournamentApp } from '../TournamentProvider';
 
 /**
  * What a click on a name's "?" does, wherever the "?" is (the Players tab's toggle, the Bracket's likely-absent line):

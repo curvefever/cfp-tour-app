@@ -1,7 +1,7 @@
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
-import { destinationLabel } from '../bracket/exit-text';
+import { destinationLabel } from '../tournament/components/exit-text';
 import { eliminatedRankText, eliminatedWhere, finalistWhere, WITHDRAWN_WHERE } from './ranking-where';
 
 type Rankings = NonNullable<ReturnType<typeof computeRankings>>;

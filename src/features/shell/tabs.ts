@@ -1,6 +1,6 @@
 import { standingsKind } from '../../domain/tournament/standings-display';
 import type { ActiveTab, TournamentPhase, TournamentState } from '../../domain/tournament/types';
-import { standingsNames } from '../standings/standings-names';
+import { standingsNames } from '../tournament/components/standings-names';
 import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 

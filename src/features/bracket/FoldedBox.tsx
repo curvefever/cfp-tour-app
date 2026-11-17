@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '../../components/ui';
-import { DoneMark } from './ColumnTitleBar';
-import type { FoldedRoundSummary } from './folded-round';
+import { DoneMark } from '../tournament/components/ColumnTitleBar';
+import type { FoldedRoundSummary } from '../tournament/components/folded-round';
 
 /**
  * A folded Bracket column: one small box, all of it the button that unfolds it. A lighter bar carries the name,

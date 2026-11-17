@@ -10,7 +10,7 @@ import { UPPER_LOWER_GRAPH } from '../../domain/tournament/__tests__/upper-lower
 import { flagFinalGameAnonymous } from '../../domain/tournament/mutations';
 import type { TournamentState } from '../../domain/tournament/types';
 import { goBack } from '../../domain/tournament/waterfall-steps';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

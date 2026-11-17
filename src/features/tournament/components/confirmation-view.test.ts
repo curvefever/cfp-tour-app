@@ -1,5 +1,5 @@
-import { r1WithFiveAbsent } from '../../domain/tournament/__tests__/absentee-bracket-fixture';
-import { markBack } from '../../domain/tournament/likely-absentees';
+import { r1WithFiveAbsent } from '../../../domain/tournament/__tests__/absentee-bracket-fixture';
+import { markBack } from '../../../domain/tournament/likely-absentees';
 import { describe, expect, it } from 'vitest';
 import {
   confirmationCountText,

@@ -11,7 +11,7 @@ import { Button, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle } from './ConfirmToggle';
-import type { ConfirmationView } from './confirmation-view';
+import type { ConfirmationView } from '../tournament/components/confirmation-view';
 import { ICON_BUTTON } from './tool-buttons';
 
 const SLOT_ROW = 'flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs';

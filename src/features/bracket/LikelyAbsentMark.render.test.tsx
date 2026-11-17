@@ -6,7 +6,7 @@ import { answerAbsence } from '../../domain/tournament/absences';
 import { markBack } from '../../domain/tournament/likely-absentees';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

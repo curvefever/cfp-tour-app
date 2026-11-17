@@ -6,7 +6,7 @@ import { generateTournament } from '../../../domain/tournament/generation';
 import { createTournamentRuntime } from '../../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
-import { renderApp } from '../../shell/test-app';
+import { renderApp } from '../../../test-support/test-app';
 
 vi.mock('../../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../sync/firebase-client')>()),

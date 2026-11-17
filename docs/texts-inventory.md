@@ -21,9 +21,9 @@ A read-only review aid listing the wording a user can see in the app. It is not 
 
 | Wording | Test file(s) |
 | --- | --- |
-| Standings sentences, table cells | `src/features/standings/standings-text.test.ts` |
-| Exit pop-up lines | `src/features/bracket/exit-lines.test.ts` |
-| Follow banner | `src/features/bracket/follow-text.test.ts` |
+| Standings sentences, table cells | `src/features/tournament/components/standings-text.test.ts` |
+| Exit pop-up lines | `src/features/tournament/components/exit-lines.test.ts` |
+| Follow banner | `src/features/tournament/components/follow-text.test.ts` |
 | Colour key rows | `src/features/bracket/bracket-legend.test.ts` |
 | Room titles, "still playing", folded rounds, team lines | `room-title.test.ts`, `still-playing.test.ts`, `folded-round.test.ts`, `team-member-line.test.ts` (same folder) |
 | Rankings "where", podium, registered line | `src/features/rankings/ranking-where.test.ts`, `ranking-podium.test.ts`, `players-line.test.ts` |
@@ -215,12 +215,12 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Sentence | Built in | Example output |
 | --- | --- | --- |
-| Room title | [room-title.ts:14](src/features/bracket/room-title.ts:14) | Final · Semi A · Group B · Room A · Room C |
-| Exit pop-up, bracket room | [exit-lines.ts:69](src/features/bracket/exit-lines.ts:69) | 1 → Semis · 2–3 → R1C · 4 ★ lucky loser? (2 spots) · 5–8 out · with `cutVersion` and several room sizes: 4 ★ lucky loser? (2–3 spots, rooms of 4) · 3 ★ lucky loser? (0–1 spot, room of 3) · 1 → Room A (Kings Valley) · stay |
-| Exit pop-up, pooling room | [exit-lines.ts:95](src/features/bracket/exit-lines.ts:95) | 1st +8 / 2nd +7 … 7th +2 points · All → qualification · All seeding only, not counted · All → Round 4 |
-| Exit pop-up, standings | [exit-lines.ts:118](src/features/bracket/exit-lines.ts:118) | 1–16 → R1 · 17–24 → R1C · 25–37 out · 1–2 (each group) → Round 4 · 3+ out · All → Semis |
-| Follow banner | [follow-text.ts:86](src/features/bracket/follow-text.ts:86) | Quarters · Room B · 4th → Semi B · Out in Quarters · Room B · 7th · Round 3 · Bye · Round 2 · Room B · #6 in qualification · Group B · Room A · #2 in group · Out in qualification · #25 · Not in this bracket |
-| Follow banner on Standings tab | [follow-text.ts:128](src/features/bracket/follow-text.ts:128) | #14 · → Round 4 · #30 · out · Not in these standings |
+| Room title | [room-title.ts:14](src/features/tournament/components/room-title.ts:14) | Final · Semi A · Group B · Room A · Room C |
+| Exit pop-up, bracket room | [exit-lines.ts:69](src/features/tournament/components/exit-lines.ts:69) | 1 → Semis · 2–3 → R1C · 4 ★ lucky loser? (2 spots) · 5–8 out · with `cutVersion` and several room sizes: 4 ★ lucky loser? (2–3 spots, rooms of 4) · 3 ★ lucky loser? (0–1 spot, room of 3) · 1 → Room A (Kings Valley) · stay |
+| Exit pop-up, pooling room | [exit-lines.ts:95](src/features/tournament/components/exit-lines.ts:95) | 1st +8 / 2nd +7 … 7th +2 points · All → qualification · All seeding only, not counted · All → Round 4 |
+| Exit pop-up, standings | [exit-lines.ts:118](src/features/tournament/components/exit-lines.ts:118) | 1–16 → R1 · 17–24 → R1C · 25–37 out · 1–2 (each group) → Round 4 · 3+ out · All → Semis |
+| Follow banner | [follow-text.ts:86](src/features/tournament/components/follow-text.ts:86) | Quarters · Room B · 4th → Semi B · Out in Quarters · Room B · 7th · Round 3 · Bye · Round 2 · Room B · #6 in qualification · Group B · Room A · #2 in group · Out in qualification · #25 · Not in this bracket |
+| Follow banner on Standings tab | [follow-text.ts:128](src/features/tournament/components/follow-text.ts:128) | #14 · → Round 4 · #30 · out · Not in these standings |
 | Colour key row | [bracket-legend.ts:64](src/features/bracket/bracket-legend.ts:64) | Through = Advances or qualifies · Through to R1B or R2 = A second group of places · Lucky loser = Qualified on a spare spot ★ · Out = Eliminated · Undecided = Not settled yet, or a tie-break pending · Losers bracket = Dropped, still playing · Promoted / Stays / Demoted = Kings Valley: moves up a room / same room / moves down a room (rows shown only where the tournament has such rounds) |
 | Lucky loser race box (one room size, and tournaments without `cutVersion`) | [RoundNotes.tsx:27](src/features/bracket/RoundNotes.tsx:27) | ★ LUCKY LOSER RACE · 2 SPOTS, then "Room C still playing." / "Rooms B and C still playing." / "Rooms A, B and C still playing." |
 | Lucky loser race box, fair cut with several room sizes | [RoundNotes.tsx:91](src/features/bracket/RoundNotes.tsx:91) | ★ ROOMS OF 4 · 2–3 SPOTS, a list of units, ★ ROOM OF 3 · 0–1 SPOT, then "Spare cut: Team Cedar is in the bottom 14% of rooms of 4 so far, Team Dune in the bottom 21% of rooms of 3. Team Cedar goes out." (… "drops to the losers bracket." in a double-elimination winners round) |
@@ -326,53 +326,53 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `{UP TO }{n} GAMES` | built | viewer | [ColumnTitleBar.tsx:7](src/features/bracket/ColumnTitleBar.tsx:7) |  |
-| `Fold {title}` | built | viewer | [ColumnTitleBar.tsx:14](src/features/bracket/ColumnTitleBar.tsx:14) |  |
-| `NOW` | fixed | viewer | [ColumnTitleBar.tsx:64](src/features/bracket/ColumnTitleBar.tsx:64) |  |
+| `{UP TO }{n} GAMES` | built | viewer | [ColumnTitleBar.tsx:7](src/features/tournament/components/ColumnTitleBar.tsx:7) |  |
+| `Fold {title}` | built | viewer | [ColumnTitleBar.tsx:14](src/features/tournament/components/ColumnTitleBar.tsx:14) |  |
+| `NOW` | fixed | viewer | [ColumnTitleBar.tsx:64](src/features/tournament/components/ColumnTitleBar.tsx:64) |  |
 
 ### exit-lines.ts — Generated: lines of the room "exit" pop-up (arrow icon) and of the standings pop-up
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:35](src/features/bracket/exit-lines.ts:35) |  |
-| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:41](src/features/bracket/exit-lines.ts:41) |  |
-| `{rank} ★` | built | viewer | [exit-lines.ts:46](src/features/bracket/exit-lines.ts:46) |  |
-| `lucky loser? ({spots} spot{∅ / s})` | built | viewer | [exit-lines.ts:53](src/features/bracket/exit-lines.ts:53) | one room size, and tournaments without `cutVersion` |
-| `lucky loser? ({min}–{max} spot{∅ / s}, room(s) of {size})` | built | viewer | [exit-lines.ts:30](src/features/bracket/exit-lines.ts:30) | fair cut with several room sizes; "{max} spot(s)" alone when min = max; "room of" for one room, "rooms of" for several |
-| `out` | fixed | viewer | [exit-lines.ts:50](src/features/bracket/exit-lines.ts:50) | lower case on screen |
-| `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:55](src/features/bracket/exit-lines.ts:55) |  |
-| `stay` | fixed | viewer | [exit-lines.ts:58](src/features/bracket/exit-lines.ts:58) | lower case on screen |
-| `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:63](src/features/bracket/exit-lines.ts:63) |  |
-| `{1st} +{points}` | built | viewer | [exit-lines.ts:77](src/features/bracket/exit-lines.ts:77) |  |
-| `{2nd +7.5} … {7th +1} points` | built | viewer | [exit-lines.ts:81](src/features/bracket/exit-lines.ts:81) | the points of that room's own size: a room of 7 in FFA shows 2nd +7.5 … 7th +1 (scaled points); a tournament made before scaled points shows the same list in every room |
-| `All` | fixed | viewer | [exit-lines.ts:103](src/features/bracket/exit-lines.ts:103) |  |
-| `→ {standingsInline}` | built | viewer | [exit-lines.ts:103](src/features/bracket/exit-lines.ts:103) |  |
-| `All` | fixed | viewer | [exit-lines.ts:104](src/features/bracket/exit-lines.ts:104) |  |
-| `seeding only, not counted` | fixed | viewer | [exit-lines.ts:104](src/features/bracket/exit-lines.ts:104) |  |
-| `All` | fixed | viewer | [exit-lines.ts:108](src/features/bracket/exit-lines.ts:108) |  |
-| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:108](src/features/bracket/exit-lines.ts:108) |  |
-| `→ {destination}` | built | viewer | [exit-lines.ts:132](src/features/bracket/exit-lines.ts:132) |  |
-| `out` | fixed | viewer | [exit-lines.ts:132](src/features/bracket/exit-lines.ts:132) |  |
-| `All` | fixed | viewer | [exit-lines.ts:138](src/features/bracket/exit-lines.ts:138) |  |
-| `→ {destination}` | built | viewer | [exit-lines.ts:138](src/features/bracket/exit-lines.ts:138) |  |
-| `{rankRange} (each group)` | built | viewer | [exit-lines.ts:142](src/features/bracket/exit-lines.ts:142) |  |
-| `→ {destination}` | built | viewer | [exit-lines.ts:142](src/features/bracket/exit-lines.ts:142) |  |
-| `{cut}+` | built | viewer | [exit-lines.ts:143](src/features/bracket/exit-lines.ts:143) |  |
-| `out` | fixed | viewer | [exit-lines.ts:143](src/features/bracket/exit-lines.ts:143) |  |
-| `→ {destination}` | built | viewer | [exit-lines.ts:147](src/features/bracket/exit-lines.ts:147) |  |
-| `out` | fixed | viewer | [exit-lines.ts:148](src/features/bracket/exit-lines.ts:148) |  |
+| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:35](src/features/tournament/components/exit-lines.ts:35) |  |
+| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:41](src/features/tournament/components/exit-lines.ts:41) |  |
+| `{rank} ★` | built | viewer | [exit-lines.ts:46](src/features/tournament/components/exit-lines.ts:46) |  |
+| `lucky loser? ({spots} spot{∅ / s})` | built | viewer | [exit-lines.ts:53](src/features/tournament/components/exit-lines.ts:53) | one room size, and tournaments without `cutVersion` |
+| `lucky loser? ({min}–{max} spot{∅ / s}, room(s) of {size})` | built | viewer | [exit-lines.ts:30](src/features/tournament/components/exit-lines.ts:30) | fair cut with several room sizes; "{max} spot(s)" alone when min = max; "room of" for one room, "rooms of" for several |
+| `out` | fixed | viewer | [exit-lines.ts:50](src/features/tournament/components/exit-lines.ts:50) | lower case on screen |
+| `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:55](src/features/tournament/components/exit-lines.ts:55) |  |
+| `stay` | fixed | viewer | [exit-lines.ts:58](src/features/tournament/components/exit-lines.ts:58) | lower case on screen |
+| `→ Room {roomLetter}` | built | viewer | [exit-lines.ts:63](src/features/tournament/components/exit-lines.ts:63) |  |
+| `{1st} +{points}` | built | viewer | [exit-lines.ts:77](src/features/tournament/components/exit-lines.ts:77) |  |
+| `{2nd +7.5} … {7th +1} points` | built | viewer | [exit-lines.ts:81](src/features/tournament/components/exit-lines.ts:81) | the points of that room's own size: a room of 7 in FFA shows 2nd +7.5 … 7th +1 (scaled points); a tournament made before scaled points shows the same list in every room |
+| `All` | fixed | viewer | [exit-lines.ts:103](src/features/tournament/components/exit-lines.ts:103) |  |
+| `→ {standingsInline}` | built | viewer | [exit-lines.ts:103](src/features/tournament/components/exit-lines.ts:103) |  |
+| `All` | fixed | viewer | [exit-lines.ts:104](src/features/tournament/components/exit-lines.ts:104) |  |
+| `seeding only, not counted` | fixed | viewer | [exit-lines.ts:104](src/features/tournament/components/exit-lines.ts:104) |  |
+| `All` | fixed | viewer | [exit-lines.ts:108](src/features/tournament/components/exit-lines.ts:108) |  |
+| `→ {destinationLabel}` | built | viewer | [exit-lines.ts:108](src/features/tournament/components/exit-lines.ts:108) |  |
+| `→ {destination}` | built | viewer | [exit-lines.ts:132](src/features/tournament/components/exit-lines.ts:132) |  |
+| `out` | fixed | viewer | [exit-lines.ts:132](src/features/tournament/components/exit-lines.ts:132) |  |
+| `All` | fixed | viewer | [exit-lines.ts:138](src/features/tournament/components/exit-lines.ts:138) |  |
+| `→ {destination}` | built | viewer | [exit-lines.ts:138](src/features/tournament/components/exit-lines.ts:138) |  |
+| `{rankRange} (each group)` | built | viewer | [exit-lines.ts:142](src/features/tournament/components/exit-lines.ts:142) |  |
+| `→ {destination}` | built | viewer | [exit-lines.ts:142](src/features/tournament/components/exit-lines.ts:142) |  |
+| `{cut}+` | built | viewer | [exit-lines.ts:143](src/features/tournament/components/exit-lines.ts:143) |  |
+| `out` | fixed | viewer | [exit-lines.ts:143](src/features/tournament/components/exit-lines.ts:143) |  |
+| `→ {destination}` | built | viewer | [exit-lines.ts:147](src/features/tournament/components/exit-lines.ts:147) |  |
+| `out` | fixed | viewer | [exit-lines.ts:148](src/features/tournament/components/exit-lines.ts:148) |  |
 
 ### exit-text.ts — Generated: round name as a destination
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Round {n}` | built | viewer | [exit-text.ts:5](src/features/bracket/exit-text.ts:5) |  |
+| `Round {n}` | built | viewer | [exit-text.ts:5](src/features/tournament/components/exit-text.ts:5) |  |
 
 ### ExitIcon.tsx
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Close` | fixed | viewer | [ExitIcon.tsx:106](src/features/bracket/ExitIcon.tsx:106) |  |
+| `Close` | fixed | viewer | [ExitIcon.tsx:106](src/features/tournament/components/ExitIcon.tsx:106) |  |
 
 ### FinalColumn.tsx — Final column (scores per game)
 
@@ -410,10 +410,10 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Bye` | fixed | viewer | [folded-round.ts:57](src/features/bracket/folded-round.ts:57) |  |
-| `Bye` | fixed | viewer | [folded-round.ts:61](src/features/bracket/folded-round.ts:61) |  |
-| `Room {letter}` | built | viewer | [folded-round.ts:63](src/features/bracket/folded-round.ts:63) |  |
-| `{room} · {ordinal}` | built | viewer | [folded-round.ts:71](src/features/bracket/folded-round.ts:71) |  |
+| `Bye` | fixed | viewer | [folded-round.ts:57](src/features/tournament/components/folded-round.ts:57) |  |
+| `Bye` | fixed | viewer | [folded-round.ts:61](src/features/tournament/components/folded-round.ts:61) |  |
+| `Room {letter}` | built | viewer | [folded-round.ts:63](src/features/tournament/components/folded-round.ts:63) |  |
+| `{room} · {ordinal}` | built | viewer | [folded-round.ts:71](src/features/tournament/components/folded-round.ts:71) |  |
 
 ### FoldedBox.tsx — Collapsed round box
 
@@ -426,44 +426,44 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Group {groupLabel}` | built | viewer | [follow-text.ts:33](src/features/bracket/follow-text.ts:33) |  |
-| `{table} · #{rank}` | built | viewer | [follow-text.ts:34](src/features/bracket/follow-text.ts:34) |  |
-| `group` | fixed | viewer | [follow-text.ts:48](src/features/bracket/follow-text.ts:48) |  |
-| `Group {groupLabel}` | built | viewer | [follow-text.ts:49](src/features/bracket/follow-text.ts:49) |  |
-| `· #{rank} in {where}` | built | viewer | [follow-text.ts:50](src/features/bracket/follow-text.ts:50) |  |
-| `→ {destinationLabel}` | built | viewer | [follow-text.ts:67](src/features/bracket/follow-text.ts:67) |  |
-| `→ {roomTitle}` | built | viewer | [follow-text.ts:70](src/features/bracket/follow-text.ts:70) |  |
-| `stays` | fixed | viewer | [follow-text.ts:72](src/features/bracket/follow-text.ts:72) |  |
-| `out` | fixed | viewer | [follow-text.ts:74](src/features/bracket/follow-text.ts:74) |  |
-| `· lucky loser?` | fixed | viewer | [follow-text.ts:76](src/features/bracket/follow-text.ts:76) |  |
-| `Not in this bracket` | fixed | viewer | [follow-text.ts:94](src/features/bracket/follow-text.ts:94) |  |
-| `Out in {roundName}` | built | viewer | [follow-text.ts:106](src/features/bracket/follow-text.ts:106) |  |
-| `{roundName} · Bye` | built | viewer | [follow-text.ts:106](src/features/bracket/follow-text.ts:106) |  |
-| `{roundName} · {roomTitle}` | built | viewer | [follow-text.ts:108](src/features/bracket/follow-text.ts:108) |  |
-| `Out in {outAtStandings}` | built | viewer | [follow-text.ts:111](src/features/bracket/follow-text.ts:111) |  |
-| `{where}{standingsSuffix}` | built | viewer | [follow-text.ts:113](src/features/bracket/follow-text.ts:113) |  |
-| `· {ordinal}` | built | viewer | [follow-text.ts:116](src/features/bracket/follow-text.ts:116) |  |
-| `Out in {where}{placeText}` | built | viewer | [follow-text.ts:117](src/features/bracket/follow-text.ts:117) |  |
-| `→ {roomTitle}` | built | viewer | [follow-text.ts:122](src/features/bracket/follow-text.ts:122) |  |
-| `{where}{placeText}{next}` | built | viewer | [follow-text.ts:124](src/features/bracket/follow-text.ts:124) |  |
-| `#{rank} · {standingsDestination}` | built | viewer | [follow-text.ts:134](src/features/bracket/follow-text.ts:134) |  |
-| `Not in these standings` | fixed | viewer | [follow-text.ts:145](src/features/bracket/follow-text.ts:145) |  |
-| `→ {destination}` | built | viewer | [follow-text.ts:156](src/features/bracket/follow-text.ts:156) |  |
-| `out` | fixed | viewer | [follow-text.ts:158](src/features/bracket/follow-text.ts:158) |  |
-| `→ {destinationLabel}` | built | viewer | [follow-text.ts:159](src/features/bracket/follow-text.ts:159) |  |
+| `Group {groupLabel}` | built | viewer | [follow-text.ts:33](src/features/tournament/components/follow-text.ts:33) |  |
+| `{table} · #{rank}` | built | viewer | [follow-text.ts:34](src/features/tournament/components/follow-text.ts:34) |  |
+| `group` | fixed | viewer | [follow-text.ts:48](src/features/tournament/components/follow-text.ts:48) |  |
+| `Group {groupLabel}` | built | viewer | [follow-text.ts:49](src/features/tournament/components/follow-text.ts:49) |  |
+| `· #{rank} in {where}` | built | viewer | [follow-text.ts:50](src/features/tournament/components/follow-text.ts:50) |  |
+| `→ {destinationLabel}` | built | viewer | [follow-text.ts:67](src/features/tournament/components/follow-text.ts:67) |  |
+| `→ {roomTitle}` | built | viewer | [follow-text.ts:70](src/features/tournament/components/follow-text.ts:70) |  |
+| `stays` | fixed | viewer | [follow-text.ts:72](src/features/tournament/components/follow-text.ts:72) |  |
+| `out` | fixed | viewer | [follow-text.ts:74](src/features/tournament/components/follow-text.ts:74) |  |
+| `· lucky loser?` | fixed | viewer | [follow-text.ts:76](src/features/tournament/components/follow-text.ts:76) |  |
+| `Not in this bracket` | fixed | viewer | [follow-text.ts:94](src/features/tournament/components/follow-text.ts:94) |  |
+| `Out in {roundName}` | built | viewer | [follow-text.ts:106](src/features/tournament/components/follow-text.ts:106) |  |
+| `{roundName} · Bye` | built | viewer | [follow-text.ts:106](src/features/tournament/components/follow-text.ts:106) |  |
+| `{roundName} · {roomTitle}` | built | viewer | [follow-text.ts:108](src/features/tournament/components/follow-text.ts:108) |  |
+| `Out in {outAtStandings}` | built | viewer | [follow-text.ts:111](src/features/tournament/components/follow-text.ts:111) |  |
+| `{where}{standingsSuffix}` | built | viewer | [follow-text.ts:113](src/features/tournament/components/follow-text.ts:113) |  |
+| `· {ordinal}` | built | viewer | [follow-text.ts:116](src/features/tournament/components/follow-text.ts:116) |  |
+| `Out in {where}{placeText}` | built | viewer | [follow-text.ts:117](src/features/tournament/components/follow-text.ts:117) |  |
+| `→ {roomTitle}` | built | viewer | [follow-text.ts:122](src/features/tournament/components/follow-text.ts:122) |  |
+| `{where}{placeText}{next}` | built | viewer | [follow-text.ts:124](src/features/tournament/components/follow-text.ts:124) |  |
+| `#{rank} · {standingsDestination}` | built | viewer | [follow-text.ts:134](src/features/tournament/components/follow-text.ts:134) |  |
+| `Not in these standings` | fixed | viewer | [follow-text.ts:145](src/features/tournament/components/follow-text.ts:145) |  |
+| `→ {destination}` | built | viewer | [follow-text.ts:156](src/features/tournament/components/follow-text.ts:156) |  |
+| `out` | fixed | viewer | [follow-text.ts:158](src/features/tournament/components/follow-text.ts:158) |  |
+| `→ {destinationLabel}` | built | viewer | [follow-text.ts:159](src/features/tournament/components/follow-text.ts:159) |  |
 
 ### FollowBanner.tsx — Following banner
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Following` | fixed | viewer | [FollowBanner.tsx:14](src/features/bracket/FollowBanner.tsx:14) | CSS caps (banner) |
+| `Following` | fixed | viewer | [FollowBanner.tsx:14](src/features/tournament/components/FollowBanner.tsx:14) | CSS caps (banner) |
 
 ### PhaseBadge.tsx — TEMPORARY / FINAL tag on a round
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `TEMPORARY` | fixed | viewer | [PhaseBadge.tsx:15](src/features/bracket/PhaseBadge.tsx:15) |  |
-| `FINAL` | fixed | viewer | [PhaseBadge.tsx:15](src/features/bracket/PhaseBadge.tsx:15) |  |
+| `TEMPORARY` | fixed | viewer | [PhaseBadge.tsx:15](src/features/tournament/components/PhaseBadge.tsx:15) |  |
+| `FINAL` | fixed | viewer | [PhaseBadge.tsx:15](src/features/tournament/components/PhaseBadge.tsx:15) |  |
 
 ### PlaceholderRound.tsx — Rounds not yet drawn
 
@@ -476,10 +476,10 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Final` | fixed | viewer | [room-title.ts:16](src/features/bracket/room-title.ts:16) | CSS caps (room header) |
-| `Semi {letter}` | built | viewer | [room-title.ts:17](src/features/bracket/room-title.ts:17) | CSS caps (room header) |
-| `Group {groupLetter} · Room {letter}` | built | viewer | [room-title.ts:18](src/features/bracket/room-title.ts:18) | CSS caps (room header) |
-| `Room {letter}` | built | viewer | [room-title.ts:19](src/features/bracket/room-title.ts:19) | CSS caps (room header) |
+| `Final` | fixed | viewer | [room-title.ts:16](src/features/tournament/components/room-title.ts:16) | CSS caps (room header) |
+| `Semi {letter}` | built | viewer | [room-title.ts:17](src/features/tournament/components/room-title.ts:17) | CSS caps (room header) |
+| `Group {groupLetter} · Room {letter}` | built | viewer | [room-title.ts:18](src/features/tournament/components/room-title.ts:18) | CSS caps (room header) |
+| `Room {letter}` | built | viewer | [room-title.ts:19](src/features/tournament/components/room-title.ts:19) | CSS caps (room header) |
 
 ### RoomCard.tsx — Room card header and exit-icon label
 
@@ -578,55 +578,55 @@ The Standings tab. Its tab name, heading label and explanation title are chosen 
 
 | Sentence | Built in | Example output |
 | --- | --- | --- |
-| Progress sentence | [standings-text.ts:8](src/features/standings/standings-text.ts:8) | Standings start after Round 2. · After 3 of 5 rounds. · These are the final standings. |
-| Points sentence (standard, scaled points) | [standings-text.ts:47](src/features/standings/standings-text.ts:47) | Each counted round, your place in your room earns points: 1st = 10, 2nd = 8, 3rd = 6, 4th = 5, 5th = 4, 6th = 3, 7th = 2, 8th = 1. In a room of 7: 1st = 10, 2nd = 7.5, 3rd = 5.5, 4th = 4.5, 5th = 3.5, 6th = 2, 7th = 1 (places spread evenly between first and last). |
-| Points sentence (standard, tournament made before scaled points) | [standings-text.ts:55](src/features/standings/standings-text.ts:55) | Each counted round, your place in your room earns points: 1st = 8, 2nd = 7, …, 8th = 1, whatever the size of your room. |
-| Points sentence (custom table / 1v1) | [standings-text.ts:22](src/features/standings/standings-text.ts:22) | Each counted round, your place in your room earns points from the organiser's table: 1st = 10, 2nd = 8, … · Each counted round, a win earns 3 points and a loss 1. |
-| Non-counting rounds | [standings-text.ts:36](src/features/standings/standings-text.ts:36) | A bye counts as a win; a missed round earns 0. Round 1 doesn't count. / Rounds 1–2 don't count. |
-| Cut sentence | [standings-text.ts:44](src/features/standings/standings-text.ts:44) | Points are added up; most points ranks first. The top 16 go through. (final: qualified; groups: "The top 2 of each group go through."; none: "Everyone goes through." / "Everyone qualified.") |
-| Tie-break | [standings-text.ts:62](src/features/standings/standings-text.ts:62) | On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room). |
-| Table cells | [standings-text.ts:75](src/features/standings/standings-text.ts:75) | Bye · 147% · — · 0 (a missed round) |
+| Progress sentence | [standings-text.ts:8](src/features/tournament/components/standings-text.ts:8) | Standings start after Round 2. · After 3 of 5 rounds. · These are the final standings. |
+| Points sentence (standard, scaled points) | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) | Each counted round, your place in your room earns points: 1st = 10, 2nd = 8, 3rd = 6, 4th = 5, 5th = 4, 6th = 3, 7th = 2, 8th = 1. In a room of 7: 1st = 10, 2nd = 7.5, 3rd = 5.5, 4th = 4.5, 5th = 3.5, 6th = 2, 7th = 1 (places spread evenly between first and last). |
+| Points sentence (standard, tournament made before scaled points) | [standings-text.ts:55](src/features/tournament/components/standings-text.ts:55) | Each counted round, your place in your room earns points: 1st = 8, 2nd = 7, …, 8th = 1, whatever the size of your room. |
+| Points sentence (custom table / 1v1) | [standings-text.ts:22](src/features/tournament/components/standings-text.ts:22) | Each counted round, your place in your room earns points from the organiser's table: 1st = 10, 2nd = 8, … · Each counted round, a win earns 3 points and a loss 1. |
+| Non-counting rounds | [standings-text.ts:36](src/features/tournament/components/standings-text.ts:36) | A bye counts as a win; a missed round earns 0. Round 1 doesn't count. / Rounds 1–2 don't count. |
+| Cut sentence | [standings-text.ts:44](src/features/tournament/components/standings-text.ts:44) | Points are added up; most points ranks first. The top 16 go through. (final: qualified; groups: "The top 2 of each group go through."; none: "Everyone goes through." / "Everyone qualified.") |
+| Tie-break | [standings-text.ts:62](src/features/tournament/components/standings-text.ts:62) | On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room). |
+| Table cells | [standings-text.ts:75](src/features/tournament/components/standings-text.ts:75) | Bye · 147% · — · 0 (a missed round) |
 
 ### standings-names.ts — The three names of the Standings tab (tab, heading, explanation title, inline)
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Qualification` | fixed | viewer | [standings-names.ts:13](src/features/standings/standings-names.ts:13) | CSS caps (page label, column title) |
-| `How qualification works` | fixed | viewer | [standings-names.ts:13](src/features/standings/standings-names.ts:13) | CSS caps (box title) |
-| `qualification` | fixed | viewer | [standings-names.ts:13](src/features/standings/standings-names.ts:13) |  |
-| `Swiss` | fixed | viewer | [standings-names.ts:14](src/features/standings/standings-names.ts:14) | CSS caps (page label, column title) |
-| `Swiss` | fixed | viewer | [standings-names.ts:14](src/features/standings/standings-names.ts:14) | CSS caps (page label, column title) |
-| `How the Swiss stage works` | fixed | viewer | [standings-names.ts:14](src/features/standings/standings-names.ts:14) | CSS caps (box title) |
-| `Groups` | fixed | viewer | [standings-names.ts:15](src/features/standings/standings-names.ts:15) | CSS caps (page label, column title) |
-| `How the group stage works` | fixed | viewer | [standings-names.ts:15](src/features/standings/standings-names.ts:15) | CSS caps (box title) |
-| `groups` | fixed | viewer | [standings-names.ts:15](src/features/standings/standings-names.ts:15) |  |
+| `Qualification` | fixed | viewer | [standings-names.ts:13](src/features/tournament/components/standings-names.ts:13) | CSS caps (page label, column title) |
+| `How qualification works` | fixed | viewer | [standings-names.ts:13](src/features/tournament/components/standings-names.ts:13) | CSS caps (box title) |
+| `qualification` | fixed | viewer | [standings-names.ts:13](src/features/tournament/components/standings-names.ts:13) |  |
+| `Swiss` | fixed | viewer | [standings-names.ts:14](src/features/tournament/components/standings-names.ts:14) | CSS caps (page label, column title) |
+| `Swiss` | fixed | viewer | [standings-names.ts:14](src/features/tournament/components/standings-names.ts:14) | CSS caps (page label, column title) |
+| `How the Swiss stage works` | fixed | viewer | [standings-names.ts:14](src/features/tournament/components/standings-names.ts:14) | CSS caps (box title) |
+| `Groups` | fixed | viewer | [standings-names.ts:15](src/features/tournament/components/standings-names.ts:15) | CSS caps (page label, column title) |
+| `How the group stage works` | fixed | viewer | [standings-names.ts:15](src/features/tournament/components/standings-names.ts:15) | CSS caps (box title) |
+| `groups` | fixed | viewer | [standings-names.ts:15](src/features/tournament/components/standings-names.ts:15) |  |
 
 ### standings-text.ts — Generated: the explanation box and the table cells
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Standings start after Round {firstCountedRoundNum}.` | built | viewer | [standings-text.ts:9](src/features/standings/standings-text.ts:9) |  |
-| `These are the final standings.` | fixed | viewer | [standings-text.ts:10](src/features/standings/standings-text.ts:10) |  |
-| `After {roundsDone} of {roundsTotal} rounds.` | built | viewer | [standings-text.ts:11](src/features/standings/standings-text.ts:11) |  |
-| `Each counted round, a win earns {win points} points and a loss {loss points}.` | built | viewer | [standings-text.ts:26](src/features/standings/standings-text.ts:26) |  |
-| `{ordinal} = {value}` | built | viewer | [standings-text.ts:27](src/features/standings/standings-text.ts:27) |  |
-| `Each counted round, your place in your room earns points from the organiser's table: {places}.` | built | viewer | [standings-text.ts:52](src/features/standings/standings-text.ts:52) | tournament without `pointsVersion` |
-| `, whatever the size of your room` | fixed | viewer | [standings-text.ts:54](src/features/standings/standings-text.ts:54) | tournament without `pointsVersion`, rooms of different sizes |
-| `Each counted round, your place in your room earns points: {places}{sizeNote}.` | built | viewer | [standings-text.ts:55](src/features/standings/standings-text.ts:55) | tournament without `pointsVersion` |
-| `Each counted round, your place in your room earns points{ from the organiser's table / ∅}: {places}.` | built | viewer | [standings-text.ts:47](src/features/standings/standings-text.ts:47) | tournament with `pointsVersion` 2 (scaled points); places of the largest room |
-| `In a room of {size}: {places} (places spread evenly between first and last).` | built | viewer | [standings-text.ts:33](src/features/standings/standings-text.ts:33) | `pointsVersion` 2: one sentence per smaller room size of the counted rounds, after the sentence above |
-| `Round {n} doesn't count.` | built | viewer | [standings-text.ts:40](src/features/standings/standings-text.ts:40) |  |
-| `Rounds {first}–{last} don't count.` | built | viewer | [standings-text.ts:41](src/features/standings/standings-text.ts:41) |  |
-| `go through` | fixed | viewer | [standings-text.ts:46](src/features/standings/standings-text.ts:46) |  |
-| `Everyone qualified.` | fixed | viewer | [standings-text.ts:47](src/features/standings/standings-text.ts:47) |  |
-| `Everyone goes through.` | fixed | viewer | [standings-text.ts:47](src/features/standings/standings-text.ts:47) |  |
-| `The top {cut} of each group {verb}.` | built | viewer | [standings-text.ts:48](src/features/standings/standings-text.ts:48) |  |
-| `The top {cut} {verb}.` | built | viewer | [standings-text.ts:48](src/features/standings/standings-text.ts:48) |  |
-| `A bye counts as a win; a missed round earns 0.` | fixed | viewer | [standings-text.ts:59](src/features/standings/standings-text.ts:59) |  |
-| `Points are added up; most points ranks first. {cutSentence}` | built | viewer | [standings-text.ts:60](src/features/standings/standings-text.ts:60) |  |
-| `On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).` | fixed | viewer | [standings-text.ts:61](src/features/standings/standings-text.ts:61) |  |
-| `Bye` | fixed | viewer | [standings-text.ts:77](src/features/standings/standings-text.ts:77) |  |
-| `{percent}%` | built | viewer | [standings-text.ts:87](src/features/standings/standings-text.ts:87) |  |
+| `Standings start after Round {firstCountedRoundNum}.` | built | viewer | [standings-text.ts:9](src/features/tournament/components/standings-text.ts:9) |  |
+| `These are the final standings.` | fixed | viewer | [standings-text.ts:10](src/features/tournament/components/standings-text.ts:10) |  |
+| `After {roundsDone} of {roundsTotal} rounds.` | built | viewer | [standings-text.ts:11](src/features/tournament/components/standings-text.ts:11) |  |
+| `Each counted round, a win earns {win points} points and a loss {loss points}.` | built | viewer | [standings-text.ts:26](src/features/tournament/components/standings-text.ts:26) |  |
+| `{ordinal} = {value}` | built | viewer | [standings-text.ts:27](src/features/tournament/components/standings-text.ts:27) |  |
+| `Each counted round, your place in your room earns points from the organiser's table: {places}.` | built | viewer | [standings-text.ts:52](src/features/tournament/components/standings-text.ts:52) | tournament without `pointsVersion` |
+| `, whatever the size of your room` | fixed | viewer | [standings-text.ts:54](src/features/tournament/components/standings-text.ts:54) | tournament without `pointsVersion`, rooms of different sizes |
+| `Each counted round, your place in your room earns points: {places}{sizeNote}.` | built | viewer | [standings-text.ts:55](src/features/tournament/components/standings-text.ts:55) | tournament without `pointsVersion` |
+| `Each counted round, your place in your room earns points{ from the organiser's table / ∅}: {places}.` | built | viewer | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) | tournament with `pointsVersion` 2 (scaled points); places of the largest room |
+| `In a room of {size}: {places} (places spread evenly between first and last).` | built | viewer | [standings-text.ts:33](src/features/tournament/components/standings-text.ts:33) | `pointsVersion` 2: one sentence per smaller room size of the counted rounds, after the sentence above |
+| `Round {n} doesn't count.` | built | viewer | [standings-text.ts:40](src/features/tournament/components/standings-text.ts:40) |  |
+| `Rounds {first}–{last} don't count.` | built | viewer | [standings-text.ts:41](src/features/tournament/components/standings-text.ts:41) |  |
+| `go through` | fixed | viewer | [standings-text.ts:46](src/features/tournament/components/standings-text.ts:46) |  |
+| `Everyone qualified.` | fixed | viewer | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) |  |
+| `Everyone goes through.` | fixed | viewer | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) |  |
+| `The top {cut} of each group {verb}.` | built | viewer | [standings-text.ts:48](src/features/tournament/components/standings-text.ts:48) |  |
+| `The top {cut} {verb}.` | built | viewer | [standings-text.ts:48](src/features/tournament/components/standings-text.ts:48) |  |
+| `A bye counts as a win; a missed round earns 0.` | fixed | viewer | [standings-text.ts:59](src/features/tournament/components/standings-text.ts:59) |  |
+| `Points are added up; most points ranks first. {cutSentence}` | built | viewer | [standings-text.ts:60](src/features/tournament/components/standings-text.ts:60) |  |
+| `On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).` | fixed | viewer | [standings-text.ts:61](src/features/tournament/components/standings-text.ts:61) |  |
+| `Bye` | fixed | viewer | [standings-text.ts:77](src/features/tournament/components/standings-text.ts:77) |  |
+| `{percent}%` | built | viewer | [standings-text.ts:87](src/features/tournament/components/standings-text.ts:87) |  |
 
 ### StandingsTable.tsx — Standings table headers and tie marks
 

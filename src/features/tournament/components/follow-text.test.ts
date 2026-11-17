@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
+import { buildState, scoreCurrentRound } from '../../../domain/tournament/__tests__/play-through';
 import {
   buildQualWaterfall,
   playToQualificationExit,
-} from '../../domain/tournament/__tests__/qual-waterfall';
-import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
-import { expectedRounds } from '../../domain/tournament/expected-draw';
-import { currentColumn } from '../../domain/tournament/round-columns';
-import { describeStandings } from '../../domain/tournament/standings-display';
-import { scoreByHash } from '../../domain/tournament/__tests__/spread-play';
-import { UPPER_LOWER_GRAPH } from '../../domain/tournament/__tests__/upper-lower-graph';
-import { advanceTournamentRound } from '../../domain/tournament/transitions';
-import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
+} from '../../../domain/tournament/__tests__/qual-waterfall';
+import { bracketFollowStatus, bracketRoundLabels } from '../../../domain/tournament/bracket';
+import { expectedRounds } from '../../../domain/tournament/expected-draw';
+import { currentColumn } from '../../../domain/tournament/round-columns';
+import { describeStandings } from '../../../domain/tournament/standings-display';
+import { scoreByHash } from '../../../domain/tournament/__tests__/spread-play';
+import { UPPER_LOWER_GRAPH } from '../../../domain/tournament/__tests__/upper-lower-graph';
+import { advanceTournamentRound } from '../../../domain/tournament/transitions';
+import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
 import {
   followBannerText,
   rememberedFollow,

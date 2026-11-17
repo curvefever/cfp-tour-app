@@ -2,7 +2,7 @@
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { r1WithFiveAbsent } from '../../domain/tournament/__tests__/absentee-bracket-fixture';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

@@ -1,5 +1,5 @@
-import { roomLetter } from '../../domain/tournament/bracket';
-import type { TournamentRound } from '../../domain/tournament/types';
+import { roomLetter } from '../../../domain/tournament/bracket';
+import type { TournamentRound } from '../../../domain/tournament/types';
 
 type RoomTitleRound = Pick<
   TournamentRound,

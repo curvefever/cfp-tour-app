@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildState } from '../../domain/tournament/__tests__/play-through';
-import { bracketRoundLabels } from '../../domain/tournament/bracket';
-import { groupExitShape } from '../../domain/tournament/group-exit';
-import { describeStandings } from '../../domain/tournament/standings-display';
-import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { standingsExitLines } from '../bracket/exit-lines';
-import { settingsRecapGroups } from '../admin/settings-recap';
-import { groupExitHelpLine } from '../admin/setup/group-exit-help';
-import { schedulePreviewRows } from '../admin/setup/schedule-preview-rows';
+import { buildState } from '../../../domain/tournament/__tests__/play-through';
+import { bracketRoundLabels } from '../../../domain/tournament/bracket';
+import { groupExitShape } from '../../../domain/tournament/group-exit';
+import { describeStandings } from '../../../domain/tournament/standings-display';
+import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
+import { standingsExitLines } from './exit-lines';
+import { settingsRecapGroups } from '../../admin/settings-recap';
+import { groupExitHelpLine } from '../../admin/setup/group-exit-help';
+import { schedulePreviewRows } from '../../admin/setup/schedule-preview-rows';
 import { groupExitCutSentence, groupExitHelp } from './group-exit-text';
 import { standingsExplanation } from './standings-text';
 

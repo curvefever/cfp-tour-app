@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { StandingsDisplay } from '../../domain/tournament/standings-display';
-import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
-import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
-import type { TournamentState } from '../../domain/tournament/types';
+import type { StandingsDisplay } from '../../../domain/tournament/standings-display';
+import { buildRound } from '../../../domain/tournament/__tests__/test-fixtures';
+import { createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
+import type { TournamentState } from '../../../domain/tournament/types';
 import {
   formatTieBreak,
   formatTieBreakPrecise,

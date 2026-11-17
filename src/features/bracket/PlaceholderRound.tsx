@@ -13,8 +13,8 @@ import { ResultStripe } from '../tournament/components/ResultStripe';
 import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ByeCard } from './ByeCard';
 import { RoomFrame } from './RoomCard';
-import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
-import { roomTitle } from './room-title';
+import { type ExitLine, poolingExitLines, roomExitLines } from '../tournament/components/exit-lines';
+import { roomTitle } from '../tournament/components/room-title';
 
 /** One slot of a room that is not drawn yet: an empty dashed stripe, and what will fill it (or the unit already known). */
 function SlotRow({ index, known, label }: { index: number; known: boolean; label: string }) {

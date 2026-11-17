@@ -8,7 +8,7 @@ import { withEarlierPointsRule } from '../../domain/tournament/__tests__/play-th
 import { noteGameCount, roundNoteNames } from '../../domain/tournament/round-notes';
 import { FALLBACK } from './app-shell-sweep';
 
-import { renderApp, type AppRole } from './test-app';
+import { renderApp, type AppRole } from '../../test-support/test-app';
 
 // Only what reaches the network is replaced: the presence subscription and the presence server function.
 vi.mock('../sync/firebase-client', async (importOriginal) => ({

@@ -1,9 +1,13 @@
 import type { ReactNode } from 'react';
 import type { TeamConfirmation } from '../../domain/tournament/confirmations';
 import { Button, cn } from '../../components/ui';
-import { teamConfirmationText, toggleTitle, type ToggleMark } from './confirmation-view';
+import {
+  teamConfirmationText,
+  toggleTitle,
+  type ToggleMark,
+} from '../tournament/components/confirmation-view';
 import { CHIP_BUTTON, ICON_BUTTON } from './tool-buttons';
-import { useConfirmationClick } from './useConfirmationClick';
+import { useConfirmationClick } from '../tournament/components/useConfirmationClick';
 
 const SIZES = {
   row: ICON_BUTTON,

@@ -3,7 +3,7 @@ import { cleanup, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
 import { playersWhoPlayed } from '../../domain/tournament/players-who-played';
-import { renderApp } from '../shell/test-app';
+import { renderApp } from '../../test-support/test-app';
 
 vi.mock('../sync/firebase-client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../sync/firebase-client')>()),

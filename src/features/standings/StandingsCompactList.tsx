@@ -15,7 +15,12 @@ import {
   standingsRowResult,
 } from '../tournament/components/result-row';
 import { compactRoundPoints, standingsDetailLines } from './standings-compact';
-import { entriesSharingPercent, pointsCell, standingsHeads, standingsRoundLabel } from './standings-text';
+import {
+  entriesSharingPercent,
+  pointsCell,
+  standingsHeads,
+  standingsRoundLabel,
+} from '../tournament/components/standings-text';
 import type { GroupSwapPicking } from './GroupSwap';
 import { TieMark } from './StandingsTable';
 

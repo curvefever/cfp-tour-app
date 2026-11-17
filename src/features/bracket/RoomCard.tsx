@@ -11,16 +11,16 @@ import { unitRankScore } from '../../domain/tournament/match-format';
 import { orderRoomWithPlaces, scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
-import { ExitIcon } from './ExitIcon';
-import { type ExitLine, poolingExitLines, roomExitLines } from './exit-lines';
+import { ExitIcon } from '../tournament/components/ExitIcon';
+import { type ExitLine, poolingExitLines, roomExitLines } from '../tournament/components/exit-lines';
 import { GamesHeader } from './GameScores';
 import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { placesLine, type RankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
-import { roomTitle } from './room-title';
-import { destinationLabel } from './exit-text';
+import { roomTitle } from '../tournament/components/room-title';
+import { destinationLabel } from '../tournament/components/exit-text';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 /** The units of a group room that make its match void for the others: the absent ones, and the ones removed from the group. */

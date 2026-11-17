@@ -2,7 +2,7 @@ import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import type { ActiveTab } from '../../domain/tournament/types';
 import { fixtureTournaments, type FixtureTournament } from '../../../e2e/screens/fixtures';
-import { renderApp, tabsFor, type AppRole } from './test-app';
+import { renderApp, tabsFor, type AppRole } from '../../test-support/test-app';
 
 /**
  * The render sweep of `AppShell`: every tab of every fixture tournament, as a viewer and as an admin. It is cut

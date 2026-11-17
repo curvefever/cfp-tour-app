@@ -1,21 +1,21 @@
-import { roomPointsByPlace } from '../../domain/tournament/advancement';
-import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
-import type { GroupExitShape } from '../../domain/tournament/group-exit';
-import { matchResultSettings } from '../../domain/tournament/match-results';
-import { roundExitRule, type RoomExitBand } from '../../domain/tournament/room-exits';
-import { formatStandingValue } from '../../domain/tournament/scoring';
+import { roomPointsByPlace } from '../../../domain/tournament/advancement';
+import { bracketRoundLabels, roomLetter } from '../../../domain/tournament/bracket';
+import type { GroupExitShape } from '../../../domain/tournament/group-exit';
+import { matchResultSettings } from '../../../domain/tournament/match-results';
+import { roundExitRule, type RoomExitBand } from '../../../domain/tournament/room-exits';
+import { formatStandingValue } from '../../../domain/tournament/scoring';
 import {
   standingsKind,
   type StandingsDisplay,
   type StandingsDisplayTable,
-} from '../../domain/tournament/standings-display';
-import type { TournamentState } from '../../domain/tournament/types';
-import { ordinal } from '../../lib/ordinal';
-import { chanceSpots } from '../standings/group-exit-text';
-import { standingsNames } from '../standings/standings-names';
-import { standingsRowResult, stripeTone, type StripeTone } from '../tournament/components/result-row';
+} from '../../../domain/tournament/standings-display';
+import type { TournamentState } from '../../../domain/tournament/types';
+import { ordinal } from '../../../lib/ordinal';
+import { chanceSpots } from './group-exit-text';
+import { standingsNames } from './standings-names';
+import { standingsRowResult, stripeTone, type StripeTone } from './result-row';
 import { destinationLabel } from './exit-text';
-import { advanceResult } from './room-row-result';
+import { advanceResult } from '../../bracket/room-row-result';
 
 /** One line of an exit pop-up: a stripe colour (none for pooling rooms), the places it covers and where they go. */
 export interface ExitLine {

@@ -8,7 +8,7 @@ import { isFinalComplete } from '../../domain/tournament/rankings';
 import { isRoundDone } from '../../domain/tournament/round-columns';
 import type { StandingsDisplay } from '../../domain/tournament/standings-display';
 import type { TournamentState } from '../../domain/tournament/types';
-import { standingsNames } from '../standings/standings-names';
+import { standingsNames } from '../tournament/components/standings-names';
 import { showsNowPill } from './title-bar-marks';
 
 /**

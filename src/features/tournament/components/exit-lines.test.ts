@@ -3,23 +3,23 @@ import {
   buildState,
   withEarlierGroupRule,
   withEarlierPointsRule,
-} from '../../domain/tournament/__tests__/play-through';
+} from '../../../domain/tournament/__tests__/play-through';
 import {
   QUAL_GRAPH,
   buildQualWaterfall,
   playToQualificationExit,
-} from '../../domain/tournament/__tests__/qual-waterfall';
-import { bracketRoundLabels } from '../../domain/tournament/bracket';
-import { type RoomExitBand } from '../../domain/tournament/room-exits';
-import { describeStandings } from '../../domain/tournament/standings-display';
-import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { roundExitRule } from '../../domain/tournament/room-exits';
+} from '../../../domain/tournament/__tests__/qual-waterfall';
+import { bracketRoundLabels } from '../../../domain/tournament/bracket';
+import { type RoomExitBand } from '../../../domain/tournament/room-exits';
+import { describeStandings } from '../../../domain/tournament/standings-display';
+import type { PersistedSetup, TournamentState } from '../../../domain/tournament/types';
+import { roundExitRule } from '../../../domain/tournament/room-exits';
 import {
   SE_2V2V2V2,
   firstEliminationIndex,
   generate,
-} from '../../domain/tournament/__tests__/fair-cut-fixtures';
-import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
+} from '../../../domain/tournament/__tests__/fair-cut-fixtures';
+import { WATERFALL_EXAMPLES } from '../../../domain/tournament/waterfall-examples';
 import { poolingExitLines, roomExitLines, standingsExitLines } from './exit-lines';
 
 const labels = (names: string[]) => names.map((label, index) => ({ label, roundNumber: index + 1 }));

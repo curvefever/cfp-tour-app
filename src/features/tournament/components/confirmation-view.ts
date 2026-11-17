@@ -1,4 +1,4 @@
-import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { bracketRoundLabels } from '../../../domain/tournament/bracket';
 import {
   confirmationSource,
   rosterConfirmationSummary,
@@ -7,10 +7,10 @@ import {
   type ConfirmationSource,
   type RosterConfirmationSummary,
   type TeamConfirmation,
-} from '../../domain/tournament/confirmations';
-import { absenceMarks } from '../../domain/tournament/likely-absentees';
-import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
-import { destinationLabel } from '../bracket/exit-text';
+} from '../../../domain/tournament/confirmations';
+import { absenceMarks } from '../../../domain/tournament/likely-absentees';
+import type { TournamentState, TournamentTeam } from '../../../domain/tournament/types';
+import { destinationLabel } from './exit-text';
 
 /** What a toggle shows: why the name is confirmed (null: not), and for a likely absentee or a back mark the round it answers. */
 export interface ToggleMark {

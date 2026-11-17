@@ -7,7 +7,7 @@ import {
 } from '../../../domain/tournament/fair-cut';
 import { groupExitShapeOf } from '../../../domain/tournament/group-exit';
 import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
-import { groupExitClause, groupSizesText } from '../../standings/group-exit-text';
+import { groupExitClause, groupSizesText } from '../../tournament/components/group-exit-text';
 import { plural } from './plural';
 
 export interface SchedulePreviewRow {

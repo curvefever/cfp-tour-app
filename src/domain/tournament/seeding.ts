@@ -6,7 +6,7 @@ import {
 } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { likelyAbsentees } from './likely-absentees';
-import { lexicographicMinAssignment } from './assignment';
+import { lexicographicMinAssignment } from './cheapest-assignment';
 import type { GroupExitSelection } from './group-exit';
 import {
   isFullFieldRound,
