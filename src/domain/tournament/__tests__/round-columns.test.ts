@@ -4,6 +4,7 @@ import {
   isCurrentRound,
   isRoundDone,
   isRoundReached,
+  lastAssignedRound,
   nextColumnStart,
   previousColumnStart,
   roundColumn,
@@ -11,7 +12,7 @@ import {
   undrawnRounds,
   usesDependencyPlay,
 } from '../round-columns';
-import type { TournamentRound, WaterfallStep } from '../types';
+import type { RoundAssignment, TournamentRound, WaterfallStep } from '../types';
 import { buildRound } from './test-fixtures';
 import { withDependencyPlay } from './qual-waterfall';
 
@@ -237,5 +238,40 @@ describe('dependency play: states that read exactly as today', () => {
   it('lists the rounds after the column in play as undrawn outside dependency play', () => {
     expect(undrawnRounds(stateAt(COLUMNED, 2))).toEqual([4, 5, 6, 7]);
     expect(roundsInPlay(stateAt(COLUMNED, 4))).toEqual([4, 5, 6]);
+  });
+});
+
+describe('lastAssignedRound', () => {
+  const lineUp = (name: string): RoundAssignment[] => [{ name, room: 1, isLucky: false }];
+
+  it('is -1 when no round has a line-up', () => {
+    expect(lastAssignedRound({ assignments: [] })).toBe(-1);
+    expect(lastAssignedRound({ assignments: [[], []] })).toBe(-1);
+  });
+
+  it('is the index of the last round with a line-up', () => {
+    expect(lastAssignedRound({ assignments: [lineUp('A')] })).toBe(0);
+    expect(lastAssignedRound({ assignments: [lineUp('A'), lineUp('B'), lineUp('C')] })).toBe(2);
+  });
+
+  it('does not count a trailing round without a line-up', () => {
+    expect(lastAssignedRound({ assignments: [lineUp('A'), lineUp('B'), [], []] })).toBe(1);
+    expect(lastAssignedRound({ assignments: [lineUp('A'), [], []] })).toBe(0);
+  });
+
+  it('does not count an empty round in the middle, and goes on to the later one', () => {
+    expect(lastAssignedRound({ assignments: [lineUp('A'), [], lineUp('C')] })).toBe(2);
+    expect(lastAssignedRound({ assignments: [lineUp('A'), [], lineUp('C'), []] })).toBe(2);
+  });
+
+  it('skips a hole in the array', () => {
+    const middle: RoundAssignment[][] = [];
+    middle[0] = lineUp('A');
+    middle[2] = lineUp('C');
+    expect(lastAssignedRound({ assignments: middle })).toBe(2);
+    const trailing: RoundAssignment[][] = [];
+    trailing[0] = lineUp('A');
+    trailing.length = 3;
+    expect(lastAssignedRound({ assignments: trailing })).toBe(0);
   });
 });
