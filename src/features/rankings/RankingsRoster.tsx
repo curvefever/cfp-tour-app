@@ -13,12 +13,13 @@ import {
   removeReserveUnit,
   removeRosterUnit,
   renameIndividual,
-  swapIndividual,
-  swapTeam,
+  swapIndividualResult,
+  swapTeamResult,
   swapWindowOpen,
   updateTeam,
   type ReserveAddOptions,
   type ReserveAddResult,
+  type RosterEditResult,
 } from '../../domain/tournament/mutations';
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
@@ -130,18 +131,25 @@ const SWAPS_CLOSED_TITLE = 'Swaps closed — eliminations have started';
 const TEAM_SWAPS_CLOSED_NOTE =
   'Team swaps closed — eliminations have started (a player can still be swapped)';
 
-/** Applies a swap, or says so when the outgoing unit is neither seated in the current round nor waiting for a later one. */
+/**
+ * Applies a swap, or says so when the engine refuses it. The pre-checks of the callers have worded the refusals the
+ * organiser can cause; what reaches here is a unit that is neither seated in the current round nor waiting for a later
+ * one, and every other reason the engine can give (a closed window, a name taken) is told the same way.
+ */
 function applySwap(
   state: TournamentState,
   apply: (updater: (current: TournamentState) => TournamentState) => void,
-  swap: (current: TournamentState) => TournamentState,
+  swap: (current: TournamentState) => RosterEditResult,
   unitLabel: string,
 ) {
-  if (swap(state) === state) {
+  if (swap(state).status === 'refused') {
     window.alert(`Can't swap "${unitLabel}" — it isn't in the current round or waiting for a later one.`);
     return;
   }
-  apply(swap);
+  apply((current) => {
+    const result = swap(current);
+    return result.status === 'done' ? result.state : current;
+  });
 }
 
 /** What the Reserves panel says once eliminations have started: the window is closed; the waiting list stays visible. */
@@ -205,7 +213,7 @@ export function swapPlayer(state: TournamentState, name: string, apply: UpdateSt
     window.alert(withdrawnNameMessage(value));
     return;
   }
-  applySwap(state, apply, (current) => swapIndividual(current, name, value), name);
+  applySwap(state, apply, (current) => swapIndividualResult(current, name, value), name);
 }
 
 type RosterApp = Pick<ReturnType<typeof useTournamentApp>, 'runtime' | 'updateState'>;
@@ -273,7 +281,12 @@ export function swapTeamUnit(state: TournamentState, team: TournamentTeam, teamS
     window.alert(`A team called "${replacement.teamName}" is already registered — pick a different name.`);
     return;
   }
-  applySwap(state, app.updateState, (current) => swapTeam(current, team.teamId, replacement), team.teamName);
+  applySwap(
+    state,
+    app.updateState,
+    (current) => swapTeamResult(current, team.teamId, replacement),
+    team.teamName,
+  );
 }
 
 /** Removes a team after the checks a removal needs (the strict odd-count strategy) and a confirmation. */
