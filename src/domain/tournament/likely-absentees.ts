@@ -101,6 +101,26 @@ export function likelyAbsentees(state: TournamentState, targetRoundIndex: number
   return likely;
 }
 
+/**
+ * The units seated in a room of the round that are still expected missing from it, which the Bracket marks "ABS?": the
+ * unit is likely absent for the round (`isLikelyAbsent`), has not played in it yet (an unanswered 0 is not a play) and is
+ * not answered absent in it. Empty before `absenceVersion` 3.
+ */
+export function likelyAbsentInRound(state: TournamentState, roundIndex: number): Set<string> {
+  const marked = new Set<string>();
+  if (!tracksLikelyAbsentees(state)) return marked;
+  const seated: Record<number, number> = {};
+  for (const entry of state.assignments[roundIndex] ?? []) {
+    if (entry.room === null) continue;
+    const position = (seated[entry.room] = (seated[entry.room] ?? -1) + 1);
+    if (!isLikelyAbsent(state, entry.name, roundIndex)) continue;
+    if (seatHasPlayed(state, roundIndex, entry.room, position)) continue;
+    if (absentInRoom(state, roundIndex, entry.room).includes(entry.name)) continue;
+    marked.add(entry.name);
+  }
+  return marked;
+}
+
 /** The units a player stands for: the teams that have it as a member, or the player itself. */
 export function unitsOfPlayer(state: TournamentState, name: string): string[] {
   const teams = Object.entries(buildTeamMap(state)).filter(([, team]) =>

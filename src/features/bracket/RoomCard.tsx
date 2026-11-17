@@ -3,6 +3,7 @@ import { absenteeLeavesCustomBracket, absentInRoom } from '../../domain/tourname
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
 import { groupSeats, usesGroupAverages } from '../../domain/tournament/group-standings';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
+import { latestAbsenceRound, likelyAbsentInRound } from '../../domain/tournament/likely-absentees';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
@@ -19,6 +20,7 @@ import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from '
 import { LoneUnitRow, RoomRow } from './RoomRow';
 import { absenteeFate, roomRowResult } from './room-row-result';
 import { roomTitle } from './room-title';
+import { destinationLabel } from './exit-text';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
 
 /** The units of a group room that make its match void for the others: the absent ones, and the ones removed from the group. */
@@ -29,6 +31,19 @@ function voidingUnits(
 ): string[] {
   const seats = groupSeats(state);
   return units.map((unit) => unit.name).filter((name) => absentNames.includes(name) || seats.isRemoved(name));
+}
+
+/** The round a likely absentee was last absent from, as the "ABS?" mark names it; undefined for any other unit. */
+function absentSinceOf(
+  state: TournamentState,
+  roundIndex: number,
+  name: string,
+  likelyAbsent: Set<string>,
+  labels: ReturnType<typeof bracketRoundLabels>,
+): string | undefined {
+  if (!likelyAbsent.has(name)) return undefined;
+  const since = latestAbsenceRound(state, name, roundIndex);
+  return since === null ? undefined : destinationLabel(since, labels);
 }
 
 /** The small header of a pooling room that shows points: SCORE and PTS. */
@@ -168,6 +183,7 @@ export function RoomCard({
   // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
   // The units that were present are placed by score; an absentee has no place and comes after them.
   const absentNames = absentInRoom(state, roundIndex, room);
+  const likelyAbsent = likelyAbsentInRound(state, roundIndex);
   const presentScored = scored.filter((entry) => !absentNames.includes(entry.name));
   const display = showResults
     ? [
@@ -221,6 +237,7 @@ export function RoomCard({
         return (
           <RoomRow
             absent={absent}
+            absentSince={absentSinceOf(state, roundIndex, entry.name, likelyAbsent, labels)}
             followed={followKey === entry.name}
             gameColumns={gameColumns}
             columns={columns}

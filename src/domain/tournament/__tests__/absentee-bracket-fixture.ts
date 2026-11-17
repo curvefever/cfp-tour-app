@@ -3,7 +3,7 @@ import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
-import { pressNextRound, scoreCurrentRound } from './play-through';
+import { buildState, pressNextRound, scoreCurrentRound } from './play-through';
 
 /** Two rooms of 8 into a top Semi A and a Lower round: 1-4 of each room go to Semi A, 5-8 to Lower. */
 export const ABSENTEE_GRAPH = `
@@ -71,6 +71,27 @@ export function afterRound1(
   };
   const keys = absentSeats.map(([room, position]) => `r0-rm${room}-p${position}`);
   const scored = scoreCurrentRound(started, 0);
+  const zeroed = {
+    ...scored,
+    scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
+  };
+  return pressNextRound(answerAbsence(zeroed, keys, 'absent'));
+}
+
+/**
+ * A started tournament of 13 teams of two (2v2v2v2, members scored one by one), round 1 scored, the members at the
+ * given seats ([room, position, member]) answered absent, advanced to round 2.
+ */
+export function teamsAfterRound1(absentMembers: Array<[room: number, position: number, member: number]>) {
+  const built = buildState({
+    label: '2v2v2v2',
+    count: 13,
+    setup: { gameFormat: 'team-2v2v2v2' },
+    teams: true,
+  });
+  if (!built) throw new Error('generation failed');
+  const keys = absentMembers.map(([room, position, member]) => `r0-rm${room}-p${position}-m${member}`);
+  const scored = scoreCurrentRound(built, 2);
   const zeroed = {
     ...scored,
     scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },

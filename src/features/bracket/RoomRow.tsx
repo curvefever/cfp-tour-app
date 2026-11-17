@@ -86,6 +86,7 @@ function NameWithMarks({
   resolvedTie,
   star,
   placeMark,
+  absentSince,
 }: {
   children: ReactNode;
   manual: boolean;
@@ -94,13 +95,21 @@ function NameWithMarks({
   star: 'lucky' | 'candidate' | null;
   /** The final place a ranking room gives this unit ("17th"), as Rankings numbers it. */
   placeMark?: string;
+  /** The round the unit was last absent from, when it is still expected missing from this one ("ABS?"). */
+  absentSince?: string;
 }) {
+  const absentTitle = absentSince === undefined ? undefined : `Absent in ${absentSince} and not back yet`;
   return (
     <span className='flex min-w-0 items-center gap-1.5'>
       <span className='min-w-0 wrap-break-word text-[15px] font-semibold'>{children}</span>
       {placeMark ? <span className='shrink-0 text-xs font-bold text-muted'>{placeMark}</span> : null}
       {star ? <LuckyStar candidate={star === 'candidate'} /> : null}
       {manual ? <ManualMarker /> : null}
+      {absentSince !== undefined ? (
+        <Badge aria-label={absentTitle} className={markClassName} title={absentTitle} tone='danger'>
+          ABS?
+        </Badge>
+      ) : null}
       {resolvedTie ? (
         <Badge className={markClassName} tone='warning'>
           ⚖ TB
@@ -157,6 +166,8 @@ export interface RoomRowProps {
   score: number | null;
   /** The unit was absent from the room: "ABS" takes the place of its score. */
   absent: boolean;
+  /** The name of the round the unit was last absent from while it is still expected missing here: the row shows "ABS?". */
+  absentSince?: string;
   result: RowResult;
   star: 'lucky' | 'candidate' | null;
   /** The room is complete: places, scores and tie marks show. */
@@ -292,6 +303,7 @@ export function RoomRow(props: RoomRowProps) {
   const nameBlock = (
     <span className={cn('flex min-w-0 flex-col gap-0.5', gameColumns ? 'max-w-full grow' : 'flex-1')}>
       <NameWithMarks
+        absentSince={props.absentSince}
         manual={manual}
         pendingTie={pendingTie}
         resolvedTie={showResults && resolvedTie}
