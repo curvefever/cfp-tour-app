@@ -7,13 +7,8 @@ import {
   roomBasedComputeAdvancement,
   sameStanding,
 } from '../advancement';
-import {
-  type GroupMatchPoints,
-  groupSeats,
-  sameGroupStanding,
-  usesGroupAverages,
-  withHeadToHead,
-} from '../group-standings';
+import { type GroupMatchPoints, groupSeats, sameGroupStanding, withHeadToHead } from '../group-standings';
+import { usesGroupAverages } from '../rule-versions';
 import { removeRosterUnit } from '../mutations';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';

@@ -1,4 +1,5 @@
-import { absentInRoom, routesAbsenteesByLastPlace } from './absences';
+import { absentInRoom } from './absences';
+import { routesAbsenteesByLastPlace } from './rule-versions';
 import { bestPlaceChoice } from './best-place';
 import {
   buildAdvancementTiers,

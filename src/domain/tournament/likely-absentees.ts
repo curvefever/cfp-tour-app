@@ -8,7 +8,8 @@
  * Marking back is stored by player name (`state.backFromAbsence`: name -> the round index of the absence it answers),
  * so it follows a rename and a team's members, and a later absence (a later round index) never reads an old mark.
  */
-import { absentInRoom, seatHasPlayed, tracksLikelyAbsentees } from './absences';
+import { absentInRoom, seatHasPlayed } from './absences';
+import { tracksLikelyAbsentees } from './rule-versions';
 import { buildTeamMap } from './roster';
 import type { TournamentState } from './types';
 

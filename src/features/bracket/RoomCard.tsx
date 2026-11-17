@@ -1,7 +1,8 @@
 import { type ReactNode } from 'react';
 import { absenteeLeavesCustomBracket, absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
-import { groupSeats, usesGroupAverages } from '../../domain/tournament/group-standings';
+import { groupSeats } from '../../domain/tournament/group-standings';
+import { usesGroupAverages } from '../../domain/tournament/rule-versions';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';
 import { latestAbsenceRound, likelyAbsentInRound } from '../../domain/tournament/likely-absentees';
 import { getGameFormat } from '../../domain/tournament/formats';

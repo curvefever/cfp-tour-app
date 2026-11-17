@@ -11,9 +11,9 @@ import {
   pendingAbsenceQuestions,
   playersInPlay,
   unmarkOneScoreTeamMemberAbsent,
-  usesAbsences,
   withoutRoundAbsences,
 } from '../absences';
+import { usesAbsences } from '../rule-versions';
 import { buildAdvancementTiers } from '../advancement';
 import { setRoundScore, swapIndividual, swapTeam } from '../mutations';
 import { discardDrawsAfter } from '../redraw';

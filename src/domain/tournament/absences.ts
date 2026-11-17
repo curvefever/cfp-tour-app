@@ -12,6 +12,7 @@
 import { invalidateStaleTieResolutions } from './advancement';
 import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
+import { routesAbsenteesByLastPlace, usesAbsences } from './rule-versions';
 import { buildTeamMap } from './roster';
 import { isCurrentRound, roundsInPlay } from './round-columns';
 import {
@@ -49,21 +50,6 @@ export interface RoomAbsenceQuestions {
   roundIndex: number;
   room: number;
   questions: AbsenceQuestion[];
-}
-
-/** The one switch: a tournament generated without `absenceVersion` behaves as before, with no questions and no marks. */
-export function usesAbsences(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
-  return (state.gamemodeConfig.absenceVersion ?? 0) >= 1;
-}
-
-/** Whether the draws and the confirmation marks know who was absent last round (`absenceVersion` 3, `likely-absentees.ts`). */
-export function tracksLikelyAbsentees(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
-  return (state.gamemodeConfig.absenceVersion ?? 0) >= 3;
-}
-
-/** Whether a Custom bracket room keeps an absentee out of any seat above the room's last place (`absenceVersion` 2). */
-export function routesAbsenteesByLastPlace(state: Pick<TournamentState, 'gamemodeConfig'>): boolean {
-  return (state.gamemodeConfig.absenceVersion ?? 0) >= 2;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../../domain/tournament/advancement';
-import { usesGroupAverages } from '../../../domain/tournament/group-standings';
+import { usesGroupAverages } from '../../../domain/tournament/rule-versions';
 import { getGameFormat } from '../../../domain/tournament/formats';
 import { matchResultSettings } from '../../../domain/tournament/match-results';
 import { formatStandingValue } from '../../../domain/tournament/scoring';

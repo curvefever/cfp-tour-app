@@ -1,7 +1,7 @@
 import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
-import { usesGroupAverages } from '../../domain/tournament/group-standings';
+import { usesGroupAverages } from '../../domain/tournament/rule-versions';
 import { matchResultSettings } from '../../domain/tournament/match-results';
 import { readTieResolution } from '../../domain/tournament/scoring';
 import { describeStandings } from '../../domain/tournament/standings-display';

@@ -1,6 +1,6 @@
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { isLikelyAbsent, latestAbsenceRound } from '../../domain/tournament/likely-absentees';
-import { tracksLikelyAbsentees } from '../../domain/tournament/absences';
+import { tracksLikelyAbsentees } from '../../domain/tournament/rule-versions';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { roundsInPlay } from '../../domain/tournament/round-columns';
 import type { TournamentState } from '../../domain/tournament/types';

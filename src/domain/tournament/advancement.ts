@@ -17,9 +17,9 @@ import {
   groupSeats,
   playedMatchOf,
   sameGroupStanding,
-  usesGroupAverages,
   withHeadToHead,
 } from './group-standings';
+import { usesGroupAverages } from './rule-versions';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { levelRuns } from './level-runs';
 import { matchResultSettings, matchResultsOfRoom, matchResultsWin } from './match-results';

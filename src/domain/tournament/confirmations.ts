@@ -1,4 +1,5 @@
-import { isMarkedAbsent, usesAbsences } from './absences';
+import { isMarkedAbsent } from './absences';
+import { usesAbsences } from './rule-versions';
 import { getGameFormat, isOneScorePerTeam } from './formats';
 import { absenceMarks, markBack, unmarkBack, type AbsenceMarks } from './likely-absentees';
 import { buildTeamMap } from './roster';

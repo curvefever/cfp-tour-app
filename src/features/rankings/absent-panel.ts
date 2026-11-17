@@ -3,8 +3,8 @@ import {
   isMemberMarkedAbsent,
   seatAbsenceKeys,
   oneScoreTeamMemberKey,
-  usesAbsences,
 } from '../../domain/tournament/absences';
+import { usesAbsences } from '../../domain/tournament/rule-versions';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { isOneScorePerTeam } from '../../domain/tournament/formats';
 import { buildTeamMap, rosterKeys, unitDisplay } from '../../domain/tournament/roster';

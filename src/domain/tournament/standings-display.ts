@@ -20,8 +20,8 @@ import {
   groupRoundMisses,
   groupSeats,
   sameGroupStanding,
-  usesGroupAverages,
 } from './group-standings';
+import { usesGroupAverages } from './rule-versions';
 import { exitGroups } from './exit-groups';
 import { GROUP_EXIT_TIE_KEY, groupExitShapeOf, type GroupExitShape } from './group-exit';
 import { plainRoundName } from './round-name';
