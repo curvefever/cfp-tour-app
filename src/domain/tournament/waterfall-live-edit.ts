@@ -19,6 +19,7 @@ import { plainRoundName } from './round-name';
 import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
+import { generatedConfig } from './generated-config';
 import { isUpperLowerBracket, withoutUpperLowerMark } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
@@ -257,11 +258,12 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   if (firstWaterfallIndex === -1) {
     return { ok: false, error: 'This tournament has no custom bracket phase to edit.' };
   }
-  const roomSize = state.gamemodeConfig.roomSize;
+  const config = generatedConfig(state);
   const { finalsGames, finalsBestOf } = state.gamemodeConfig;
-  if (!roomSize || finalsGames === undefined) {
+  if (!config || finalsGames === undefined) {
     return { ok: false, error: MISSING_CONFIG_MESSAGE };
   }
+  const { roomSize } = config;
 
   const entryRound = state.rounds[firstWaterfallIndex];
   const qualIndex = standingsRoundIndex(state, firstWaterfallIndex);

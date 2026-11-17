@@ -9,6 +9,7 @@ import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
 import { buildScheduleRounds, getMinimumBracketUnits } from './schedule-generation';
 import { defaultSemisSize, eliminationRound } from './single-elimination';
+import { generatedConfig } from './generated-config';
 import type { MaterializedGamemodeConfig, TournamentRound, TournamentState } from './types';
 
 /**
@@ -62,10 +63,10 @@ function none(reason: string): AdvancementScope {
 }
 
 function qualAdvBounds(state: TournamentState): { min: number; max: number } | null {
-  const roomSize = state.gamemodeConfig.roomSize;
-  if (!roomSize) return null;
+  const config = generatedConfig(state);
+  if (!config) return null;
   return {
-    min: getMinimumBracketUnits(state.scheduleLogic, roomSize),
+    min: getMinimumBracketUnits(state.scheduleLogic, config.roomSize),
     max: rosterKeys(state.players).length,
   };
 }
@@ -147,9 +148,9 @@ function applyPoolingEdit(
   input: Extract<AdvancementEditInput, { kind: 'pooling' }>,
   scope: Extract<AdvancementScope, { kind: 'pooling' }>,
 ): AdvancementEditResult {
-  const config = state.gamemodeConfig as MaterializedGamemodeConfig;
+  const config = generatedConfig(state);
   const format = getGameFormat(state.gameFormat);
-  if (!format || !config.roomSize) return { ok: false, error: 'This tournament is missing its room size.' };
+  if (!format || !config) return { ok: false, error: 'This tournament is missing its room size.' };
 
   let qualAdv = scope.qualAdv;
   if (scope.qualAdvEditable) {

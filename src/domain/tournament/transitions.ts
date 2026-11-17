@@ -46,6 +46,7 @@ import type {
   TournamentStanding,
   TournamentState,
 } from './types';
+import { generatedConfig } from './generated-config';
 import { declaredWaterfallSeats, fitWaterfallRound } from './waterfall-bracket';
 import {
   currentColumn,
@@ -185,13 +186,13 @@ function fitNextRound(
   byeCount: number,
 ): RoundFitFailure | null {
   const round = state.rounds[roundIndex];
-  const roomSize = state.gamemodeConfig.roomSize;
+  const config = generatedConfig(state);
   const withByes = round.byeCount === byeCount ? round : { ...round, byeCount };
   const seats = withByes.rooms.reduce((total, size) => total + size, 0);
-  if (seats !== poolSize && !roomSize) {
+  if (seats !== poolSize && !config) {
     return { reason: 'missing-room-size', message: MISSING_ROOM_SIZE_MESSAGE };
   }
-  const fitted = roomSize ? fitRoundToPool(withByes, poolSize, roomSize) : withByes;
+  const fitted = config ? fitRoundToPool(withByes, poolSize, config.roomSize) : withByes;
   if ('error' in fitted) return { reason: 'too-few-units', message: fitted.error };
   state.rounds[roundIndex] = fitted;
   return null;
@@ -224,10 +225,11 @@ function fitKingsValleyTail(
   const plannedSeats = nextRound.rooms.reduce((total, size) => total + size, 0);
   if (plannedSeats === poolSize) return null;
 
-  const roomSize = state.gamemodeConfig.roomSize;
-  if (!roomSize) {
+  const config = generatedConfig(state);
+  if (!config) {
     return { reason: 'missing-room-size', message: MISSING_ROOM_SIZE_MESSAGE };
   }
+  const { roomSize } = config;
   // kingsValleyBracketPhase always converges to a Final at >= 2 once it
   // starts at >= 2 (the roomSizes.length <= 1 collapse only ever fires once
   // total has shrunk to at most roomSize.max, never below its own starting
@@ -390,8 +392,8 @@ function advanceDoubleElimination(
   if (round.bracket === 'grand-final') {
     return { status: 'noop', reason: 'grand-final', state: input };
   }
-  const roomSize = input.gamemodeConfig.roomSize;
-  if (!roomSize) {
+  const config = generatedConfig(input);
+  if (!config) {
     return {
       status: 'blocked',
       reason: 'missing-room-size',
@@ -399,6 +401,7 @@ function advanceDoubleElimination(
       state: input,
     };
   }
+  const { roomSize } = config;
   const state = cloneForTransition(input);
   const { additions, lucky } = doubleEliminationContributions(state, roundIndex);
 
@@ -755,8 +758,8 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
     seeded = seedFromGroupStageRound(nextRound);
     state.byes[roundIndex + 1] = [...(nextRound.groupByes ?? [])];
   } else if (nextRound.isSwiss) {
-    const roomSize = state.gamemodeConfig.roomSize;
-    if (!roomSize) {
+    const config = generatedConfig(state);
+    if (!config) {
       return {
         status: 'blocked',
         reason: 'missing-room-size',
@@ -764,6 +767,7 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
         state,
       };
     }
+    const { roomSize } = config;
     const paired = swissFoldPair({
       activeNames: advancing.map((entry) => entry.name),
       throughRoundIndex: roundIndex,
@@ -797,8 +801,8 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
       seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, result.groupExit);
     }
   } else {
-    const roomSize = state.gamemodeConfig.roomSize;
-    if (!roomSize) {
+    const config = generatedConfig(state);
+    if (!config) {
       return {
         status: 'blocked',
         reason: 'missing-room-size',
@@ -806,6 +810,7 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
         state,
       };
     }
+    const { roomSize } = config;
     const newByes: SeedCandidate[] = [];
     const joiners = new Set(lateJoinersOf(state, roundIndex));
     if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {

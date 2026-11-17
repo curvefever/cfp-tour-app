@@ -10,6 +10,7 @@ import { moveConfirmation } from './confirmations';
 import { emptySchedule } from './empty-schedule';
 import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
+import { generatedConfig } from './generated-config';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { replanUpperLower } from './upper-lower-replan';
 import { getGameFormat } from './formats';
@@ -41,7 +42,6 @@ import {
 } from './scoring';
 import type {
   GameFormatKey,
-  MaterializedGamemodeConfig,
   TournamentRoster,
   TournamentRound,
   TournamentState,
@@ -237,8 +237,8 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
   if (!round?.isNoElim || state.cfg.poolingPhase === 'group-stage') return state;
   const format = getGameFormat(state.gameFormat);
   if (!format) return null;
-  const config = state.gamemodeConfig as MaterializedGamemodeConfig;
-  if (!config.roomSize || !config.bracketPhase) return null;
+  const config = generatedConfig(state);
+  if (!config || !config.bracketPhase) return null;
   const progression = buildScheduleRounds({
     bracketPhase: config.bracketPhase,
     poolingPhase: state.cfg.poolingPhase ?? 'none',
@@ -277,8 +277,9 @@ function rebuildFutureRounds(state: TournamentState): TournamentState | null {
  * yet reached for the roster count, so the Bracket shows the sizes the draw will use.
  */
 function refitFuturePoolingRounds(state: TournamentState): TournamentState {
-  const roomSize = state.gamemodeConfig.roomSize;
-  if (!roomSize) return state;
+  const config = generatedConfig(state);
+  if (!config) return state;
+  const { roomSize } = config;
   const count = rosterKeys(state.players).length;
   const rounds = state.rounds.map((round, index) =>
     index > state.curRound && round.isNoElim && !round.isGroupStage && !round.isWaterfall
@@ -395,10 +396,10 @@ function seatInRoundInPlay(
   key: string,
   options: ReserveAddOptions,
 ): ReserveAddResult {
-  const roomSize = state.gamemodeConfig.roomSize;
+  const config = generatedConfig(state);
   const round = state.rounds[state.curRound];
-  if (!getGameFormat(state.gameFormat) || !roomSize || !round)
-    return { status: 'blocked', reason: 'room-cap' };
+  if (!getGameFormat(state.gameFormat) || !config || !round) return { status: 'blocked', reason: 'room-cap' };
+  const { roomSize } = config;
   const assignments = state.assignments[state.curRound] ?? [];
   let room = 1;
   let count = assignments.filter((entry) => entry.room === room).length;

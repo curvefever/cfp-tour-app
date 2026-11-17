@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { generatedConfig } from '../generated-config';
-import type { TournamentState } from '../types';
 import { generated } from './test-fixtures';
 
 describe('generatedConfig', () => {

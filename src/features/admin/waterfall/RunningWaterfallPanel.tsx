@@ -17,6 +17,7 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
 import { UpperLowerLiveFields } from './UpperLowerLiveFields';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
+import { generatedConfig } from '../../../domain/tournament/generated-config';
 import { isUpperLowerBracket } from '../../../domain/tournament/rule-versions';
 import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
 
@@ -83,8 +84,9 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
   const [success, setSuccess] = useState('');
   const [redrawPrompt, setRedrawPrompt] = useState<string | null>(null);
 
-  const roomSize = state.gamemodeConfig.roomSize;
-  if (!roomSize) return null;
+  const config = generatedConfig(state);
+  if (!config) return null;
+  const { roomSize } = config;
   const entryRound = state.rounds.find((round) => round.isWaterfall);
   // A round added here is named on from the tournament's own numbering (its bracket's first round), and never renumbered.
   const firstRoundNumber = entryRound?.roundNum ?? 1;
