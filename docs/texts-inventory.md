@@ -1646,14 +1646,13 @@ Messages written in server functions and data helpers; they reach the screen as 
 
 ## 11. Shared UI (src/components/**)
 
-No user-visible words are written in `src/components/**`: `Button`, `Badge`, `Alert`, `Modal`, `Table`, `Stats`, `Form`, `PageHeading`, `SectionPanel`, `Surface` and `TournamentUnit` only show text handed to them. What they do decide is capitals:
+No user-visible words are written in `src/components/**`: `Button`, `Badge`, `Alert`, `Modal`, `Table`, `Form`, `PageHeading`, `SectionPanel`, `Surface` and `TournamentUnit` only show text handed to them. What they do decide is capitals:
 
 | Component | Effect | Where |
 | --- | --- | --- |
 | `PageHeading` | the tournament name is normal case; its `label` (the view name underneath) is in capitals | [typography.ts:7](src/components/ui/typography.ts:7) |
 | `Badge` | every badge text is in capitals | [Badge.tsx:17](src/components/ui/Badge.tsx:17) |
 | `TableHeadCell` | every table header is in capitals | [Table.tsx:8](src/components/ui/Table.tsx:8) |
-| `Stats` | every stat label is in capitals | [Stats.tsx:9](src/components/ui/Stats.tsx:9) |
 | `SectionPanel` | the title is a small capital label, or normal case when `large` (running Admin: "Settings", "Tournament progress") | [SectionPanel.tsx:46](src/components/ui/SectionPanel.tsx:46) |
 | Column title, room header, panel label classes | capitals | [typography.ts:11](src/components/ui/typography.ts:11) |
 
