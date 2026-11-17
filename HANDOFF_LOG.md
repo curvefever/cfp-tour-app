@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## The ABS? mark, EXPECTED for admins only, Copy players and View as spectator (done — 2026-11-17, on `test`)
+## The ABS? mark, EXPECTED for admins only, Copy players and View as spectator (done — 2026-11-17, pushed to `main` on 2026-11-17)
 
 **Context.** From the live tournament 1794604973922 (15 Nov): players waited for no-shows (8 of 55 never played, yet they were drawn into every round) and nothing on the Bracket told viewers that a player had been absent last time. Neymar Jr and LOSTCAURE LAURA saw their names in one Round 3 room and then played in another. A replay on the real engine reproduces the stored Round 3 exactly with the two back marks (Plip Plop and epicBearr, both absent in Round 2) set before Next Round, so **nobody was moved after the draw**: what changed was the EXPECTED preview, because each back mark re-runs the whole draw and 35–48 of the 55 players changed rooms. The organiser's decisions (2026-11-17): EXPECTED is shown to admins only; the draw itself is unchanged (a back mark before Next Round re-draws the whole next round with that player present, the fairest draw); dependency play is unchanged; "ABS?" sits after the name; Copy players lists names alphabetically.
 
