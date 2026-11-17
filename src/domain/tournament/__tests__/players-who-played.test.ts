@@ -119,6 +119,23 @@ describe('playersWhoPlayed, team formats', () => {
     expect(playersWhoPlayed(marked)).toEqual(['a', 'c', 'd']);
   });
 
+  it('a team removed after a room round keeps its present member and not the absent one, in 13 teams', () => {
+    let state = started(13, 'team-2v2v2v2', true);
+    const team = unitAt(state, 1, 0);
+    const [present, absent] = (
+      (state.players as TournamentTeam[]).find((entry) => entry.teamId === team)?.members ?? []
+    ).map((member) => member?.name ?? '');
+    // Round 1: the team plays with its second member absent. Round 2 is drawn, then the team is removed.
+    state = pressNextRound(scoreWithAbsent(state, 2, [`${seatKey(state, team)}-m1`]));
+    const removed = removeRosterUnit(state, team);
+
+    expect(removed.withdrawnUnits).toMatchObject([{ name: team, playedAnyMatch: true }]);
+    const list = playersWhoPlayed(removed);
+    expect(list).toContain(present);
+    expect(list).not.toContain(absent);
+    expect(list).toHaveLength(13 * 2 - 1);
+  });
+
   it('a team that played the Final lists every member, and so does one removed after playing it', () => {
     const base = oneRoomState({
       gameFormat: 'team-2v2v2v2',
