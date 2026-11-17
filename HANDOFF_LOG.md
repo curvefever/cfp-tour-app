@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Cleanup part 1A: the tests (done locally on `test` — 2026-11-14, not pushed yet)
+## Cleanup part 1A: the tests (done — 2026-11-14, pushed to `main` on 2026-11-17)
 
 **Context.** The first of three sub-parts of cleanup part 1 (`plans/2026-11-14-cleanup-part-1.md`, from the cleanup audit of 2026-11-10; 1B removals and moves and 1C one place for each repeated idea follow). It is the test work and the deploy check: test code, one CI workflow and docs, nothing in `src/` outside test files. Commits on `test`: A1 `9636e0b`, A2 `70d39c3`, A3 `196edf7`, A4 `456ddfb`, A5 `6aa7c54` and `d97faef`.
 
@@ -34,7 +34,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** The tournament of 15 Nov pinned (its own small stage once finished); any change to `src/` outside test files; the Bracket's rows of the old tournaments (stage C13 pins them before moving anything).
 
-## Bracket preview: Custom bracket slots through the real draw, and the bracket shown to viewers before the start (done locally on `test` — 2026-11-14, not pushed yet)
+## Bracket preview: Custom bracket slots through the real draw, and the bracket shown to viewers before the start (done — 2026-11-14, pushed to `main` at `2383956`)
 
 **Context.** The 8th Anniversary FFA tournament on production (`1794604973922`: 48 FFA, qualification table, a hand-made Custom bracket, published and not started; read only through the anonymous REST read, never opened). Its Bracket showed Round 7 Upper (2 × 6, fed by `Semi A: 5-8`, one room, and `Round 6 Middle.A/B: 1-4`) with Semi A's 5th + 7th in room A and 6th + 8th in room B, while the real draw (`tieredBracketSeed`, its balance term) pairs 5 + 8 and 6 + 7; a replay on the tournament's own data confirmed it. The fault was in the preview only: `distributeTierMajorPool` starts each tier one room further on, and a one-room source makes every place its own tier, so the places went A, B, A, B instead of back and forth. Any Custom bracket round fed by a one-room source, or by tiers smaller than the number of target rooms, had it. Second, a viewer saw no Bracket before the start (`showsDraw`); the organiser wanted a published tournament to show its shape, with no names. Commits `f760fcc` (part A), `4926629` (its tests), `8c194e1` (part B).
 
@@ -50,7 +50,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** Single elimination, Semis and double-elimination projections keep `distributeTierMajorPool`; whether they should also run their real draw is parked in `docs/open-items.md`. The draw stays in the data a viewer's browser downloads (the stored state, the Players tab): the preview hides names on screen only, as it was downloaded before this build; not hiding it from the data is accepted. Showing the real Round 1 draw to viewers before the start (the organiser chose empty seats). The Standings tab before the start.
 
-## A best of a place route in a Custom bracket round (done locally on `test` — 2026-11-13, not pushed yet)
+## A best of a place route in a Custom bracket round (done — 2026-11-13, pushed to `main` at `b08c26c`)
 
 **Context.** The organiser's FFA tournament of 2026-11-15: 3 rooms of 8 send 16 on, which the rooms can't share evenly. Until now the organiser routed one room's 6th by hand. Wanted: "the best n of the k-th places go to round X", the app deciding which room's unit goes. Plan `plans/2026-11-13-best-of-a-place.md`, approved by the organiser on 2026-11-13, five stages (planner/reviewer and implementer sessions), commits `944ec00` (stage 1), `cbbb2be` (2), `5bf1d5d` (3), `cdbc595` (4) and their follow-ups `918cf8b`, `522d1c7`, `bf45e29`, `194b955`, `6fb5a62`.
 
@@ -74,7 +74,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** The fair cut by room size in a Custom bracket and any size-aware "best" (parked in `docs/open-items.md`, the gap "Kings Valley and waterfall rounds are not covered by the fair cut"). A route over several places, several BEST lines in a round, a BEST on `Qual`/`Groups`. The built-in upper and lower bracket writing BEST lines. Storing who was chosen. Lucky losers and the fair cut of other formats (unchanged).
 
-## F4: a unit that left comes back when a round is sent on again (done locally on `test` — 2026-11-13, not pushed yet)
+## F4: a unit that left comes back when a round is sent on again (done — 2026-11-13, pushed to `main` at `97b3c2d`)
 
 **How it was found.** The live check of the F1–F3 build on the test site (throwaway tournament: FFA 13, qualification table, upper and lower bracket, dependency play), then reproduced in a scratch test. It was already there before the F1–F3 build. Plan `plans/2026-11-13-f4-returning-unit.md`, approved by the organiser on 2026-11-13, one stage.
 
@@ -96,7 +96,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** Any change to what a removal or swap does at the moment it is made (both already correct the pools). Double elimination's own routing (the replay maps it; no test showed the same symptom there). The fair cut for Custom bracket rounds (an open item of the same day): a later build.
 
-## Cleanup audit: faults F1 to F3 and the consistency check (done locally on `test` — 2026-11-13, not pushed yet)
+## Cleanup audit: faults F1 to F3 and the consistency check (done — 2026-11-13, pushed to `main` at `97b3c2d`)
 
 **Context.** The read-only cleanup audit (`plans/2026-11-10-cleanup-audit-findings.md`, starting point `a791046`, tagged `pre-cleanup-audit`) found three real faults, all of one shape: a correction changed one part of a tournament and forgot another part that holds the same seat or the same name. Plan `plans/2026-11-13-cleanup-faults-f1-f3.md` (approved by the organiser on 2026-11-13), written by the planner/reviewer session, built by an implementer in five stages, one local commit each on `test`; nothing was pushed. Deadline: the production tournament of 2026-11-15 (FFA, Custom bracket). Every fix started with its test failing for the reason the finding gives.
 
