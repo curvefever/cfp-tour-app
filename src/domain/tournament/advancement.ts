@@ -43,6 +43,7 @@ import {
   tieResolutionList,
 } from './scoring';
 import { rosterKeys } from './roster';
+import { plainRoundName } from './round-name';
 import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
 import { isCurrentRound, isRoundDone, roundsInPlay } from './round-columns';
 
@@ -377,10 +378,7 @@ export function qualTieBoundaryText(
   const names: string[] = [];
   for (let rank = tie.firstRank; rank < tie.firstRank + tie.players.length; rank += 1) {
     const destination = routes[rank - 1] ?? 'eliminated';
-    const name =
-      destination === 'eliminated'
-        ? 'elimination'
-        : (state.rounds[destination]?.customLabel ?? `Round ${state.rounds[destination]?.roundNum}`);
+    const name = destination === 'eliminated' ? 'elimination' : plainRoundName(state.rounds[destination]);
     if (!names.includes(name)) names.push(name);
   }
   if (names.length < 2) return null;

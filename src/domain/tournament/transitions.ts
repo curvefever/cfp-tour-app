@@ -26,6 +26,7 @@ import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
+import { plainRoundName } from './round-name';
 import {
   avoidSameGroupInFirstBracketRound,
   recordRoomHistory,
@@ -479,7 +480,7 @@ function advanceKingsValley(input: TournamentState, roundIndex: number): RoundAd
 
 /** A waterfall round accepts fewer units than it declares (a withdrawal), never more. */
 function malformedWaterfallRoundMessage(round: TournamentRound, actual: number): string {
-  const label = round.customLabel ?? `Round ${round.roundNum}`;
+  const label = plainRoundName(round);
   return `Can't advance into "${label}" — ${actual} entrant(s) would arrive, more than the ${declaredWaterfallSeats(round)} the graph declares for it. The graph's rank-band counts don't add up for this round; check the routing with "Edit graph" in the Admin tab before advancing further.`;
 }
 

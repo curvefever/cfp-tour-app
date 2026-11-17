@@ -24,6 +24,7 @@ import {
 } from './group-standings';
 import { exitGroups } from './exit-groups';
 import { GROUP_EXIT_TIE_KEY, groupExitShapeOf, type GroupExitShape } from './group-exit';
+import { plainRoundName } from './round-name';
 import { isRoomScored, tieResolutionList } from './scoring';
 import type { TournamentRound, TournamentStanding, TournamentState } from './types';
 
@@ -132,10 +133,7 @@ function standingsBands(
   const bands: StandingsBand[] = [];
   for (let index = 0; index < rowCount; index += 1) {
     const route = routes[index] ?? 'eliminated';
-    const destination =
-      route === 'eliminated'
-        ? 'out'
-        : (state.rounds[route]?.customLabel ?? `Round ${state.rounds[route]?.roundNum}`);
+    const destination = route === 'eliminated' ? 'out' : plainRoundName(state.rounds[route]);
     const group = route === 'eliminated' ? 0 : (groups.get(route) ?? 0);
     if (bands.at(-1)?.destination !== destination) {
       bands.push({ start: index, destination, ...(group ? { group } : {}) });

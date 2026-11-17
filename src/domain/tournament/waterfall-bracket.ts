@@ -1,5 +1,6 @@
 import { newRound } from './new-round';
 import { BEST_OF_VALUES, bestOfGameCount, stageMatchFields } from './match-format';
+import { plainRoundName } from './round-name';
 import type { RoomSize, TournamentRound, WaterfallBestRoute } from './types';
 import {
   absoluteBest,
@@ -1271,7 +1272,7 @@ export function fitWaterfallRound(
   const seats = declared.reduce((total, size) => total + size, 0);
   const minimum = round.isFinal ? 2 : 1;
   if (poolSize < minimum) {
-    const label = round.customLabel ?? `Round ${round.roundNum}`;
+    const label = plainRoundName(round);
     const reaching = poolSize <= 0 ? 'Nobody' : `Only ${poolSize} unit`;
     return {
       error: `${reaching} would reach "${label}", which needs at least ${minimum} to play. A mid-tournament withdrawal has emptied it; check Manage Teams before advancing further.`,

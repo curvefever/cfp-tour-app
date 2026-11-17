@@ -14,6 +14,7 @@ import {
   usesDependencyPlay,
 } from './round-columns';
 import { discardRoundDraws } from './redraw';
+import { plainRoundName } from './round-name';
 import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
@@ -197,7 +198,7 @@ function startedRounds(
       state.curRound < firstWaterfallIndex ? 0 : currentColumn(state).end - firstWaterfallIndex + 1;
     return { drawn: count, fixed: count };
   }
-  const label = (index: number) => state.rounds[index].customLabel ?? `Round ${state.rounds[index].roundNum}`;
+  const label = (index: number) => plainRoundName(state.rounds[index]);
   const reopened = reopenedRounds(state);
   if (reopened.length > 0) {
     const names = reopened.map((index) => `"${label(index)}"`).join(', ');
@@ -228,13 +229,12 @@ function lateFeederRefusal(
   firstWaterfallIndex: number,
   drawn: number,
 ): string | null {
-  const label = (round: TournamentRound) => round.customLabel ?? `Round ${round.roundNum}`;
   for (let index = firstWaterfallIndex; index < firstWaterfallIndex + drawn; index += 1) {
     const source = rounds.findIndex(
       (round, candidate) => routesTo(round, index) && !isRoundDone(state, candidate),
     );
     if (source !== -1) {
-      return `Can't save: "${label(rounds[source])}" is not done yet, so it can't feed "${label(rounds[index])}", which is already drawn.`;
+      return `Can't save: "${plainRoundName(rounds[source])}" is not done yet, so it can't feed "${plainRoundName(rounds[index])}", which is already drawn.`;
     }
   }
   return null;
