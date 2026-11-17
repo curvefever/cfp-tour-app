@@ -3,6 +3,7 @@ import { isLastGroupStageRound } from './advancement';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { roomPairKey, snakeSeed, tieredBracketSeed } from './seeding';
+import { hasFairCutVersion } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   isRoundDone,
@@ -763,7 +764,7 @@ export function projectFutureRoundSlots(
         }
         continue;
       }
-      if (state.gamemodeConfig?.cutVersion === 2 && roundCoversFairCut(source)) {
+      if (hasFairCutVersion(state) && roundCoversFairCut(source)) {
         // The fair cut: each room size sends its own number of places on, the rest of the target are lucky losers.
         const { directPerRoom, lucky } = fairCutSlotPlan(source, seatedRoomSizes(state, sourceIndex));
         for (let rank = 1; rank <= Math.max(0, ...directPerRoom); rank += 1) {

@@ -1,5 +1,5 @@
 import { largestRoomSize, rankingPoints, roomPointsByPlace } from '../../../domain/tournament/advancement';
-import { usesGroupAverages } from '../../../domain/tournament/rule-versions';
+import { usesGroupAverages, usesScaledPoints } from '../../../domain/tournament/rule-versions';
 import { getGameFormat } from '../../../domain/tournament/formats';
 import { matchResultSettings } from '../../../domain/tournament/match-results';
 import { formatStandingValue } from '../../../domain/tournament/scoring';
@@ -59,7 +59,7 @@ function matchResultsSentence(state: TournamentState): string {
 }
 
 function pointsSentence(state: TournamentState): string {
-  const { scoring, roomSize, pointsVersion } = state.gamemodeConfig;
+  const { scoring, roomSize } = state.gamemodeConfig;
   if (scoring === 'match-results' && matchResultSettings(state)) return matchResultsSentence(state);
   const largestRoom = largestRoomSize(state);
   const points = roomPointsByPlace(state, largestRoom);
@@ -67,7 +67,7 @@ function pointsSentence(state: TournamentState): string {
     return `Each counted round, a win earns ${points[0]} points and a loss ${points[1]}.`;
   const places = placesList(points);
   const source = scoring === 'positional-points' ? " from the organiser's table" : '';
-  if (pointsVersion === 2) {
+  if (usesScaledPoints(state)) {
     return [
       `Each counted round, your place in your room earns points${source}: ${places}.`,
       ...smallerRoomSentences(state, largestRoom),

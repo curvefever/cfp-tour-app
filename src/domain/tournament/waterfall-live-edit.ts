@@ -19,6 +19,7 @@ import { plainRoundName } from './round-name';
 import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
+import { isUpperLowerBracket, withoutUpperLowerMark } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   declaredWaterfallRooms,
@@ -506,8 +507,8 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
  */
 export function applyHandGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const result = applyWaterfallGraphEdit(state, text);
-  if (!result.ok || !result.state.gamemodeConfig.upperLowerVersion) return result;
-  const { upperLowerVersion: _version, ...gamemodeConfig } = result.state.gamemodeConfig;
+  if (!result.ok || !isUpperLowerBracket(result.state)) return result;
+  const gamemodeConfig = withoutUpperLowerMark(result.state.gamemodeConfig);
   return {
     ...result,
     state: {

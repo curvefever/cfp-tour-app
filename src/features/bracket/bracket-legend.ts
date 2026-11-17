@@ -1,6 +1,7 @@
 import { roundExitGroups } from '../../domain/tournament/exit-groups';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import { usesFairCut } from '../../domain/tournament/fair-cut';
+import { hasFairCutVersion } from '../../domain/tournament/rule-versions';
 import { roundDestinations } from '../../domain/tournament/waterfall-best';
 import type { TournamentState } from '../../domain/tournament/types';
 import type { StripeTone } from '../tournament/components/result-row';
@@ -111,7 +112,7 @@ export function bracketLegend(state: TournamentState): BracketLegend {
   }
   const luckyText = bestOfPlace
     ? BEST_OF_PLACE_TEXT
-    : state.gamemodeConfig.cutVersion === 2
+    : hasFairCutVersion(state)
       ? FAIR_CUT_LUCKY_TEXT
       : EARLIER_LUCKY_TEXT;
   return { rows, luckyLosers, bestOfPlace, luckyText };

@@ -11,6 +11,7 @@ import {
   upperLowerGraphText,
   upperLowerUpper,
 } from './upper-lower';
+import { isUpperLowerBracket } from './rule-versions';
 import { applyWaterfallGraphEdit } from './waterfall-live-edit';
 
 const sameOf = (before: TournamentState, after: TournamentState): boolean =>
@@ -21,7 +22,7 @@ export type UpperLowerReplan = { ok: true; state: TournamentState } | { ok: fals
 
 /** Where an upper and lower bracket can still be worked out again: the version is set and no bracket round is drawn. */
 function replannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
-  if (!state.gamemodeConfig.upperLowerVersion) return null;
+  if (!isUpperLowerBracket(state)) return null;
   const first = state.rounds.findIndex((round) => round.isWaterfall);
   const format = getGameFormat(state.gameFormat);
   if (first === -1 || !format || isRoundReached(state, first)) return null;

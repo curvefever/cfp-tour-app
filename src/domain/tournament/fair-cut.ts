@@ -1,5 +1,6 @@
 import { absentInRoom } from './absences';
 import { isStandingsCutoffRound, presentUnitCount, relativeRoomShare, scoreRoom } from './advancement';
+import { hasFairCutVersion } from './rule-versions';
 import { comparableRoomTotal, orderRoomByScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -205,7 +206,7 @@ export function roundFairCutShape(state: TournamentState, roundIndex: number): F
  */
 export function usesFairCut(state: TournamentState, roundIndex: number): boolean {
   const round = state.rounds[roundIndex];
-  if (!round || state.gamemodeConfig.cutVersion !== 2) return false;
+  if (!round || !hasFairCutVersion(state)) return false;
   return roundCoversFairCut(round) && !isStandingsCutoffRound(state, roundIndex);
 }
 

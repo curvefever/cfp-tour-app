@@ -19,7 +19,7 @@ import {
   sameGroupStanding,
   withHeadToHead,
 } from './group-standings';
-import { usesGroupAverages } from './rule-versions';
+import { usesGroupAverages, usesScaledPoints } from './rule-versions';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { levelRuns } from './level-runs';
 import { matchResultSettings, matchResultsOfRoom, matchResultsWin } from './match-results';
@@ -699,10 +699,10 @@ export function largestRoomSize(state: TournamentState): number {
  * the same list in every room, Standard from the largest room size down to 1, a Custom table whole.
  */
 export function roomPointsByPlace(state: TournamentState, roomSize: number): number[] {
-  const { scoring, positionalPointsTable, pointsVersion } = state.gamemodeConfig;
+  const { scoring, positionalPointsTable } = state.gamemodeConfig;
   const largestRoom = largestRoomSize(state);
   const custom = scoring === 'positional-points';
-  if (pointsVersion !== 2) {
+  if (!usesScaledPoints(state)) {
     return custom
       ? (positionalPointsTable ?? [])
       : Array.from({ length: largestRoom }, (_, index) => standardPoints(index + 1, largestRoom));

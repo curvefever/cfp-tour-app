@@ -1,3 +1,4 @@
+import { hasDependencyPlayVersion } from './rule-versions';
 import type { TournamentRound, TournamentState } from './types';
 
 /**
@@ -53,9 +54,7 @@ export function currentColumn(state: ColumnState): RoundColumn {
  * every other format and in an older tournament: every helper below then reads exactly as column play.
  */
 export function usesDependencyPlay(state: ColumnState): boolean {
-  return (
-    state.gamemodeConfig?.dependencyPlayVersion === 1 && Boolean(state.rounds[state.curRound]?.isWaterfall)
-  );
+  return hasDependencyPlayVersion(state) && Boolean(state.rounds[state.curRound]?.isWaterfall);
 }
 
 /**

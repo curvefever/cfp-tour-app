@@ -6,6 +6,7 @@ import {
   type FairCutGroup,
 } from '../../../domain/tournament/fair-cut';
 import { groupExitShapeOf } from '../../../domain/tournament/group-exit';
+import { hasFairCutVersion } from '../../../domain/tournament/rule-versions';
 import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
 import { groupExitClause, groupSizesText } from '../../tournament/components/group-exit-text';
 import { plural } from './plural';
@@ -43,7 +44,7 @@ function lossText(group: FairCutGroup): string {
 
 /** The fair cut's wording of a cut over several room sizes; null when the round keeps the usual "incl. N lucky losers". */
 function fairCutCut(state: TournamentState, round: TournamentRound): string | null {
-  if (state.gamemodeConfig.cutVersion !== 2 || !roundCoversFairCut(round)) return null;
+  if (!hasFairCutVersion(state) || !roundCoversFairCut(round)) return null;
   const { groups } = fairCutShape(round.rooms, fairCutSurvivors(round, round.rooms));
   if (groups.length < 2) return null;
   return `${round.advTotal} advance: ${groups.map(lossText).join(', ')}`;

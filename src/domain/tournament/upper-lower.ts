@@ -2,6 +2,7 @@ import { parseAdvanceToBracket } from './bracket-entry';
 import { groupExitIsTotal } from './group-exit';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
+import { isUpperLowerBracket } from './rule-versions';
 import type { PersistedSetup, RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
 
@@ -22,7 +23,7 @@ export type BracketLogic = ScheduleLogicKey | 'upper-lower';
 export function bracketLogicOf(
   state: Pick<TournamentState, 'scheduleLogic' | 'gamemodeConfig'>,
 ): BracketLogic {
-  return state.gamemodeConfig.upperLowerVersion ? 'upper-lower' : state.scheduleLogic;
+  return isUpperLowerBracket(state) ? 'upper-lower' : state.scheduleLogic;
 }
 
 /** Half a room: the places that go to the Final, or to the next round up, from a room of the bracket. */

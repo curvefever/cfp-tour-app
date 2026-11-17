@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert, Button, ButtonRow, Field, Input } from '../../../components/ui';
 import { isRoundReached } from '../../../domain/tournament/round-columns';
 import { rosterKeys } from '../../../domain/tournament/roster';
+import { isUpperLowerBracket } from '../../../domain/tournament/rule-versions';
 import { upperLowerAutomaticPlaceholder } from '../setup/upper-lower-summary';
 import type { TournamentState } from '../../../domain/tournament/types';
 import {
@@ -24,7 +25,7 @@ export function UpperLowerLiveFields({ state }: { state: TournamentState }) {
   const [saved, setSaved] = useState(false);
 
   const first = state.rounds.findIndex((round) => round.isWaterfall);
-  if (!state.gamemodeConfig.upperLowerVersion || first === -1 || isRoundReached(state, first)) return null;
+  if (!isUpperLowerBracket(state) || first === -1 || isRoundReached(state, first)) return null;
   const fallback = upperLowerUpperFallback(state);
   const automatic = state.settings
     ? upperLowerAutomaticPlaceholder(state.settings, rosterKeys(state.players).length)

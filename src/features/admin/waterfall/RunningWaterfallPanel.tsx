@@ -17,6 +17,7 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
 import { UpperLowerLiveFields } from './UpperLowerLiveFields';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
+import { isUpperLowerBracket } from '../../../domain/tournament/rule-versions';
 import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
 
 /** Said while the tournament is an upper and lower bracket: a hand edit ends the automatic rooms (`applyHandGraphEdit`). */
@@ -187,7 +188,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
       <Alert className='mb-3' tone='info'>
         {CAUTION_MESSAGE}
       </Alert>
-      {state.gamemodeConfig.upperLowerVersion ? (
+      {isUpperLowerBracket(state) ? (
         <Alert className='mb-3' tone='info'>
           {HAND_EDIT_MESSAGE}
         </Alert>
