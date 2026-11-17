@@ -17,7 +17,7 @@ import type { GroupExitMode, TournamentState, TournamentStanding } from './types
 /** The tie-resolution key of a tie at the last chance spot, between teams of different groups. */
 export const GROUP_EXIT_TIE_KEY = 'group-exit-cutoff';
 
-export function groupExitMode(cfg: { groupExit?: GroupExitMode }): GroupExitMode {
+function groupExitMode(cfg: { groupExit?: GroupExitMode }): GroupExitMode {
   return cfg.groupExit ?? 'per-group';
 }
 
@@ -305,7 +305,7 @@ export function groupSizesOf(unitCount: number, groupSize: number): number[] {
 }
 
 /** "3 groups (5, 4, 4)": the groups a roster is split into. */
-export function describeGroupSizes(groupSizes: readonly number[]): string {
+function describeGroupSizes(groupSizes: readonly number[]): string {
   return `${groupSizes.length} group${groupSizes.length === 1 ? '' : 's'} (${groupSizes.join(', ')})`;
 }
 
@@ -327,7 +327,7 @@ export function groupExitRefusal(
 }
 
 /** `groupExitRefusal` for groups that already exist (a running tournament's real sizes, after any withdrawals). */
-export function groupExitRefusalForSizes(
+function groupExitRefusalForSizes(
   groupSizes: readonly number[],
   mode: GroupExitMode,
   total: number,

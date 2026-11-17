@@ -39,12 +39,12 @@ import { RoundSettingsBand } from './RoundSettingsBand';
 import { isCurrentRound, isRoundDone, usesDependencyPlay } from '../../domain/tournament/round-columns';
 
 /** The width-affecting classes of an open round column: its own width on a desktop (`--round-w`), the page's width on a phone. */
-export function roundColumnWidthClass() {
+function roundColumnWidthClass() {
   return cn('w-(--round-w) min-w-(--round-w) shrink-0', phoneFullWidthClass);
 }
 
 /** One round (or one double-elimination wave) as a column: a title bar, then its room cards. */
-export function RoundColumn({
+function RoundColumn({
   banded = false,
   children,
   collapsed = false,

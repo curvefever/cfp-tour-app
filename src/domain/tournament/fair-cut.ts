@@ -261,7 +261,7 @@ export interface FairCutUnit {
   roomScored: boolean;
 }
 
-export interface FairCutGroupResult extends FairCutGroup {
+interface FairCutGroupResult extends FairCutGroup {
   /** The group's units best first: place, then relative score, then room number; an all-zero room's units last of their place. */
   ranked: FairCutUnit[];
   /** How many units the rank keeps once the spare cuts the group took are counted. */
@@ -400,7 +400,7 @@ export function fairCutAdvancement(state: TournamentState, roundIndex: number): 
 }
 
 /** One unit in a group's lucky-loser race. */
-export interface FairCutRaceUnit {
+interface FairCutRaceUnit {
   name: string;
   room: number;
   relative: number;
@@ -411,7 +411,7 @@ export interface FairCutRaceUnit {
 }
 
 /** The lucky-loser race of one room size. */
-export interface FairCutRaceGroup {
+interface FairCutRaceGroup {
   size: number;
   rooms: number;
   minSpots: number;

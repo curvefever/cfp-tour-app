@@ -98,7 +98,7 @@ export function mergeRemoteWriterState(
  * a screenshot next to the rules text), never takes back what was just typed. `pending` is the patch of those
  * edits; only its paths are used, and the values are read from `local`.
  */
-export function keepPendingEdits(
+function keepPendingEdits(
   merged: TournamentState,
   local: TournamentState,
   pending: Record<string, unknown>,

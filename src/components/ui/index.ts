@@ -5,7 +5,6 @@ export * from './Feedback';
 export * from './Form';
 export * from './PageHeading';
 export * from './SectionPanel';
-export * from './Stats';
 export * from './Surface';
 export * from './Table';
 export * from './typography';

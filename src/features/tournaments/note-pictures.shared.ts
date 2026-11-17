@@ -8,7 +8,7 @@ import { IMAGE_ID_PATTERN, validateImageDataUrl } from './screenshots.shared';
 export const MAX_NOTE_PICTURES = 24;
 
 /** The box a picture belongs to: the round's own (`round`) or one of its games (`g1`…`g9`). */
-export const NOTE_SLOT_PATTERN = /^(round|g[1-9])$/;
+const NOTE_SLOT_PATTERN = /^(round|g[1-9])$/;
 
 export interface NotePictureSlot {
   tournamentId: string;
@@ -38,7 +38,7 @@ export interface RenameNotePictureRoundsInput {
 }
 
 /** The most rounds one call renames (a graph has far fewer). */
-export const MAX_ROUND_RENAMES = 100;
+const MAX_ROUND_RENAMES = 100;
 
 /** One picture to put into a box of a tournament. */
 export interface NotePictureEntry {

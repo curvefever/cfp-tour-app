@@ -12,7 +12,3 @@ export function downloadBlob(filename: string, blob: Blob): void {
   anchor.remove();
   URL.revokeObjectURL(url);
 }
-
-export function downloadJson(filename: string, value: unknown): void {
-  downloadBlob(filename, new Blob([JSON.stringify(value, null, 2)], { type: "application/json" }));
-}

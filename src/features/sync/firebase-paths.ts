@@ -1,4 +1,4 @@
-export const PRODUCTION_TOUR_HOSTNAME = 'tournaments.curvefever.pro';
+const PRODUCTION_TOUR_HOSTNAME = 'tournaments.curvefever.pro';
 
 export type TourEnvironment = 'prod' | 'test';
 

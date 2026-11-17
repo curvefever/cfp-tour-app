@@ -50,7 +50,7 @@ export function parseLifecycle(value: unknown): TournamentLifecycle | null {
   });
 }
 
-export function toSubject(facts: StoredFacts): LifecycleSubject | null {
+function toSubject(facts: StoredFacts): LifecycleSubject | null {
   if (!facts.lifecycle) return null;
   return {
     status: facts.lifecycle.status,

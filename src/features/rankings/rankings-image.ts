@@ -19,7 +19,7 @@ async function loadAppFont(): Promise<void> {
   await document.fonts.ready;
 }
 
-export async function buildRankingsImage(state: TournamentState): Promise<Blob | null> {
+async function buildRankingsImage(state: TournamentState): Promise<Blob | null> {
   const data = computeRankings(state);
   if (!data) return null;
   const [logo] = await Promise.all([loadRankingsLogo(), loadAppFont()]);

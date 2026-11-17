@@ -5,7 +5,7 @@ import { roundDestinations } from '../../domain/tournament/waterfall-best';
 import type { TournamentState } from '../../domain/tournament/types';
 import type { StripeTone } from '../tournament/components/result-row';
 
-export interface LegendRow {
+interface LegendRow {
   /** The stripe colour the row explains. */
   tone: StripeTone;
   name: string;

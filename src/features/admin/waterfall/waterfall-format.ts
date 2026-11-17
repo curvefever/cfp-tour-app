@@ -40,12 +40,12 @@ export function parseSlotKey(key: string): WaterfallSlot {
 }
 
 /** The name shown for the Qual source of a graph. */
-export const QUAL_DISPLAY_NAME = 'Qualification table';
+const QUAL_DISPLAY_NAME = 'Qualification table';
 /** The name shown for the Groups source of a graph. */
-export const GROUPS_DISPLAY_NAME = 'Groups';
+const GROUPS_DISPLAY_NAME = 'Groups';
 
 /** The name shown for the Qual source of a graph that follows a Swiss. */
-export const SWISS_DISPLAY_NAME = 'Swiss standings';
+const SWISS_DISPLAY_NAME = 'Swiss standings';
 
 /** The name of the pooling exit a graph is fed by: the qualification table, the Swiss standings, or the groups. */
 export function standingsSourceName(kind: StandingsSourceKind | undefined, afterSwiss?: boolean): string {

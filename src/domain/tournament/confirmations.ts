@@ -5,7 +5,7 @@ import { buildTeamMap } from './roster';
 import { finalScoreKey, scoreKeysForPosition, scoreOrDefault } from './scoring';
 import type { TournamentState, TournamentTeam } from './types';
 
-export type ConfirmationLevel = 'all' | 'some' | 'none';
+type ConfirmationLevel = 'all' | 'some' | 'none';
 
 /**
  * Why a name counts as confirmed: a score of play (it locks the mark), the organiser's mark, or having been marked
@@ -30,7 +30,7 @@ export interface RosterConfirmationSummary {
 const isPositive = (raw: string | number | null | undefined) => (scoreOrDefault(raw, null) ?? 0) > 0;
 
 /** The organiser's own mark, whatever the scores say. */
-export function isManuallyConfirmed(state: TournamentState, name: string): boolean {
+function isManuallyConfirmed(state: TournamentState, name: string): boolean {
   return state.confirmations[name] === true;
 }
 

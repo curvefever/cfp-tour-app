@@ -6,7 +6,7 @@ import type { TournamentState } from '../../domain/tournament/types';
 const labelOf = (state: TournamentState, name: string) => unitDisplay(state, name).label;
 
 /** "players" or "teams", from the game format. */
-export function swapUnitsWord(state: TournamentState): string {
+function swapUnitsWord(state: TournamentState): string {
   return (getGameFormat(state.gameFormat)?.unitLabelPlural ?? 'Players').toLowerCase();
 }
 

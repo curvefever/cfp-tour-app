@@ -1,4 +1,4 @@
-export interface Clock {
+interface Clock {
   now(): number;
 }
 

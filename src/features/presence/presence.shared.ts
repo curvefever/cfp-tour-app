@@ -8,7 +8,7 @@ export const PRESENCE_REPEAT_MS = 15_000;
 export const PRESENCE_STALE_MS = 30_000;
 
 /** What `presence/{tournamentId}/{userKey}` holds: who is in which field, and when (database clock) they said so. */
-export interface PresenceEntry {
+interface PresenceEntry {
   name: string;
   field: string;
   at: number;

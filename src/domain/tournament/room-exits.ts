@@ -89,7 +89,7 @@ export type RoundExitRule =
   | { kind: 'none' }; // Final, grand final
 
 /** A run of final standings (1-based ranks, inclusive) that share a destination; `to: null` is the open-ended tail past the last routed rank. */
-export interface StandingsExitBand {
+interface StandingsExitBand {
   from: number;
   to: number | null;
   destination: number | 'eliminated';

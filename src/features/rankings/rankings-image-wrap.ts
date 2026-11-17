@@ -2,7 +2,7 @@
 export type Measure = (text: string) => number;
 
 /** What stands between two members on a line, as on the page. */
-export const MEMBER_SEPARATOR = ' · ';
+const MEMBER_SEPARATOR = ' · ';
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 

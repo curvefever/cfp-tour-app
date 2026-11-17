@@ -28,7 +28,7 @@ function placesPhrase(direct: number, of: string): string {
  * the top 2 of each group of 4". `singular` is when one winner is all there is to say ("the winner of each group"), so
  * a verb after it reads "goes through".
  */
-export function directPlaces(shape: GroupExitShape): { text: string; singular: boolean } {
+function directPlaces(shape: GroupExitShape): { text: string; singular: boolean } {
   const same = shape.classes.every((cls) => cls.direct === shape.classes[0].direct);
   if (same)
     return {
@@ -38,8 +38,6 @@ export function directPlaces(shape: GroupExitShape): { text: string; singular: b
   const text = shape.classes.map((cls) => placesPhrase(cls.direct, sizeClassText(cls))).join(' and ');
   return { text, singular: shape.classes.length === 1 && shape.classes[0].direct === 1 };
 }
-
-export const directPlacesText = (shape: GroupExitShape): string => directPlaces(shape).text;
 
 /** The verb after "the winner of each group": "go through" reads "goes through", "advance" reads "advances". */
 function agreeing(verb: string, singular: boolean): string {

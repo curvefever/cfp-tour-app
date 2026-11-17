@@ -12,7 +12,7 @@ import type { TournamentRound, TournamentState } from './types';
  */
 
 /** One unit at the best place of a room, with its score relative to the room's average. */
-export interface BestCandidate {
+interface BestCandidate {
   name: string;
   room: number;
   share: number;

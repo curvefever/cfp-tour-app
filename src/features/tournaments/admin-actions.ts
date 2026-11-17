@@ -6,7 +6,7 @@ export const FINISH_REMINDER = 'Final complete — check the last scores, then F
 
 export type StatusButton = 'publish' | 'unpublish' | 'finish' | 'reopen' | 'delete';
 
-export interface AdminStatusAction {
+interface AdminStatusAction {
   action: StatusButton;
   /** Why the action cannot be done right now, to show next to the button; null when it can. */
   refusal: string | null;

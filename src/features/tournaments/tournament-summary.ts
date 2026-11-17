@@ -34,7 +34,7 @@ export type TournamentDescription = Pick<
   'title' | 'scheduledAt' | 'gameFormat' | 'poolingPhase' | 'scheduleLogic' | 'unitCount'
 >;
 
-export const DESCRIPTION_KEYS = [
+const DESCRIPTION_KEYS = [
   'title',
   'scheduledAt',
   'gameFormat',

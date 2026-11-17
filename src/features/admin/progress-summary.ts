@@ -8,7 +8,7 @@ import { isRoundDone, isRoundReached, roundsInPlay } from '../../domain/tourname
 
 export type StageState = 'done' | 'now' | 'upcoming';
 
-export interface ProgressStage {
+interface ProgressStage {
   name: string;
   state: StageState;
 }

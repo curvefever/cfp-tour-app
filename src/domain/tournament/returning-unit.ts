@@ -16,7 +16,7 @@ import { roomChoiceCost } from './seeding';
 import type { TournamentState } from './types';
 
 /** `moved` to another room, `stays` in its room (nothing better, or nowhere to go), `scored` its room has scores, `undrawn` it has no room yet. */
-export type SeatOutcome = 'moved' | 'stays' | 'scored' | 'undrawn';
+type SeatOutcome = 'moved' | 'stays' | 'scored' | 'undrawn';
 
 export interface SeatResult {
   state: TournamentState;

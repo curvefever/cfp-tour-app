@@ -42,7 +42,7 @@ export function stageMatchFields(
 }
 
 /** One unit of a Best-of room, in seat order. */
-export interface UnitMatch {
+interface UnitMatch {
   name: string;
   /** Every game of the round as typed, counted or not. */
   perGame: Array<number | null>;

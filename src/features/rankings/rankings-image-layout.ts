@@ -1,4 +1,4 @@
-export const IMAGE_COLUMNS = 3;
+const IMAGE_COLUMNS = 3;
 export const PADDING = 32;
 const COLUMN_GAP = 24;
 export const HEADER_HEIGHT = 112;
@@ -32,7 +32,7 @@ const CARD_PADDING = {
 };
 
 /** One row of the image with the place it is drawn at. */
-export interface PlacedRow<T> {
+interface PlacedRow<T> {
   row: T;
   /** The row's place in the whole list, which sets its ground (they alternate down the list). */
   index: number;
@@ -64,7 +64,7 @@ export interface RowLines {
 const SINGLE_LINE: RowLines = { nameLines: 1, memberLines: 0 };
 
 /** A row's height: `ROW_HEIGHT` for one name line and no members, more for each further line. */
-export function rowHeight({ nameLines, memberLines }: RowLines): number {
+function rowHeight({ nameLines, memberLines }: RowLines): number {
   return ROW_HEIGHT + (Math.max(1, nameLines) - 1) * ROW_NAME_LINE + memberLines * ROW_MEMBER_LINE;
 }
 

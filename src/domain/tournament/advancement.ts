@@ -347,9 +347,9 @@ function decisionHolds(state: TournamentState, key: string, cluster: TiedUnits |
 }
 
 /** Tie-resolution key of the cluster that holds the last routed qualification rank (the single cut-off without a Qual source). */
-export const QUAL_CUTOFF_KEY = 'qual-cutoff';
+const QUAL_CUTOFF_KEY = 'qual-cutoff';
 /** Key prefix of the other clusters that straddle a band boundary of the standings routing. */
-export const QUAL_BAND_KEY_PREFIX = 'qual-band-';
+const QUAL_BAND_KEY_PREFIX = 'qual-band-';
 
 /** True for every tie-resolution key the qualification table's cut-offs use. */
 export function isQualCutoffKey(key: string): boolean {
@@ -856,7 +856,7 @@ function walkoverOutcome(state: TournamentState, roundIndex: number): RoundOutco
 }
 
 /** Every scored unit of a room with its result, best place first. */
-export function roomOutcomes(
+function roomOutcomes(
   state: TournamentState,
   roundIndex: number,
   room: number,
@@ -1078,7 +1078,7 @@ export function computeStandingsCutoffAdvancing(
   return new Set(roomBasedComputeAdvancement(state, roundIndex).advancing.map((entry) => entry.name));
 }
 
-export interface AdvancementTierMember {
+interface AdvancementTierMember {
   name: string;
   /** Score relative to the room average in the round just completed (1 = average; `relativeRoomShare`) -- the in-tier order only, never comparable across tiers. Relative, so rooms of different sizes compare. */
   pct: number;

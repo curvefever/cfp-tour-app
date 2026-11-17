@@ -20,7 +20,7 @@ export interface MatchResultSettings {
 }
 
 /** The default `points` of a Setup form. */
-export const DEFAULT_MATCH_RESULT_POINTS = '3, 2, 1, 0';
+const DEFAULT_MATCH_RESULT_POINTS = '3, 2, 1, 0';
 
 /** The tie margin of a game format, for the formats whose target score the organiser has given us. Other formats start with an empty field. */
 const DEFAULT_TIE_MARGINS: Partial<Record<GameFormatKey, number>> = {

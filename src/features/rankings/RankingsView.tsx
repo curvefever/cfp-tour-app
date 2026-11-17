@@ -37,7 +37,7 @@ function RosterOnly({ state, editable }: { state: TournamentState; editable: boo
   return editable ? <OrganiserTools state={state} /> : <PlayersList state={state} />;
 }
 
-export function RankingsContent({
+function RankingsContent({
   data,
   editable = false,
   state,

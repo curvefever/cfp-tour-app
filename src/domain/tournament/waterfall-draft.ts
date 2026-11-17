@@ -140,7 +140,7 @@ function reshapeRoutes(
   return next;
 }
 
-export function findWaterfallRound(draft: WaterfallDraft, label: string): WaterfallDraftRound | undefined {
+function findWaterfallRound(draft: WaterfallDraft, label: string): WaterfallDraftRound | undefined {
   return draft.rounds.find((round) => round.label === label);
 }
 
@@ -150,7 +150,7 @@ function labelIsTaken(draft: WaterfallDraft, label: string): boolean {
 }
 
 /** Highest rank sent anywhere (not eliminated), 0 when none. */
-export function highestRoutedQualRank(qualRoutes: WaterfallSlotDestination[]): number {
+function highestRoutedQualRank(qualRoutes: WaterfallSlotDestination[]): number {
   return qualRoutes.reduce(
     (highest, destination, index) =>
       destination !== null && destination !== ELIMINATED ? index + 1 : highest,
@@ -639,7 +639,7 @@ export function waterfallRoundIntake(draft: WaterfallDraft): WaterfallIntake {
 }
 
 /** The default name of the round played as number `number`: "Round 4". */
-export function defaultRoundName(number: number): string {
+function defaultRoundName(number: number): string {
   return `Round ${number}`;
 }
 

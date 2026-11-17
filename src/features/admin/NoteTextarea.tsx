@@ -3,7 +3,7 @@ import { cn, Textarea } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 
 /** The most characters a settings note holds, a round's or a game's. */
-export const MAX_NOTE_LENGTH = 160;
+const MAX_NOTE_LENGTH = 160;
 
 /** Sizes a textarea to its content, so a longer note grows the box instead of scrolling inside it. */
 function useAutoGrow(value: string) {

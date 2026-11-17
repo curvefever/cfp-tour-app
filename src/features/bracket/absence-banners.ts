@@ -5,7 +5,7 @@ import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import type { AbsenceAnswer, TournamentState } from '../../domain/tournament/types';
 
 /** A button of the bar: answers every key in `keys` with `answer`. */
-export interface AbsenceBannerButton {
+interface AbsenceBannerButton {
   label: string;
   keys: string[];
   answer: AbsenceAnswer;
@@ -22,7 +22,7 @@ export interface AbsenceBannerRow {
 }
 
 /** Who a score key belongs to as the bar names it: "Carol", "Alice (Red)", with " · game 2" in a multi-game round. */
-export function questionLabel(state: TournamentState, question: AbsenceQuestion): string {
+function questionLabel(state: TournamentState, question: AbsenceQuestion): string {
   const unit = unitDisplay(state, question.unit).label;
   const member =
     question.memberIndex === undefined

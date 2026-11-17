@@ -36,7 +36,7 @@ import {
   usesDependencyPlay,
 } from './round-columns';
 
-export interface RankingDisplay {
+interface RankingDisplay {
   name: string;
   label: string;
   members: string[] | null;

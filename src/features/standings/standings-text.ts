@@ -161,7 +161,7 @@ export interface RoundCells {
 }
 
 /** Why a round reads "W/O": the opponent did not turn up, and the unit has no other counted match. */
-export const WALKOVER_TITLE = 'Opponent absent: counted as a win, no other match counted';
+const WALKOVER_TITLE = 'Opponent absent: counted as a win, no other match counted';
 
 /** What a counted round without a result of the unit's own was: a match void for it, or a bye (a group stage with per-match standings). */
 export type MissedRound = 'void' | 'bye';

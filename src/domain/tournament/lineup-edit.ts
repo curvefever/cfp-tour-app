@@ -285,7 +285,7 @@ function moveSizeProblem(
  * Why a unit of a drawn round cannot move to `room`, or null when it can: the round allows it, neither room has a score
  * (the unit's own room loses a seat, so its positions shift), and the room sizes stay within the round's limits.
  */
-export function unitMoveProblem(
+function unitMoveProblem(
   state: TournamentState,
   roundIndex: number,
   unit: string,

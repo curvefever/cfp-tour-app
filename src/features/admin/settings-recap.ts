@@ -29,7 +29,7 @@ import {
 } from './setup/format-fields';
 import { plural } from './setup/plural';
 
-export interface RecapItem {
+interface RecapItem {
   label: string;
   value: string;
 }

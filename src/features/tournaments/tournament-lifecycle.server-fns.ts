@@ -6,7 +6,6 @@ import { startDrawRefusal } from './start-guard';
 import {
   validateCreateInput,
   validateStartInput,
-  validateTestRunInput,
   validateTransitionInput,
 } from './tournament-lifecycle.shared';
 import {
@@ -24,7 +23,6 @@ import {
   planPublish,
   planReopen,
   planReturnToDraft,
-  planSetTestRun,
   planStart,
   planUnpublish,
 } from './tournament-updates';
@@ -92,14 +90,6 @@ export const deleteTournament = createServerFn({ method: 'POST' })
     await requireTourAdminPermission();
     const paths = requestPaths(data.tournamentId);
     await applyPlan(planDelete(paths, await readStoredFacts(paths)));
-  });
-
-export const setTournamentTestRun = createServerFn({ method: 'POST' })
-  .inputValidator(validateTestRunInput)
-  .handler(async ({ data }): Promise<void> => {
-    await requireTourAdminPermission();
-    const paths = requestPaths(data.tournamentId);
-    await applyPlan(planSetTestRun(paths, await readStoredFacts(paths), data.testRun, isTestEnvironment()));
   });
 
 /** Starts a tournament exactly once: the second of two simultaneous calls is refused. */

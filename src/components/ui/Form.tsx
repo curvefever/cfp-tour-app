@@ -3,7 +3,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type HTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -11,7 +10,7 @@ import {
 } from 'react';
 import { cn } from './cn';
 
-export const controlClassName =
+const controlClassName =
   'w-full h-10 max-[700px]:h-11 rounded border border-input-border bg-input px-3 text-[15px] text-foreground outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/25 aria-invalid:border-warning disabled:cursor-not-allowed disabled:opacity-70';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
@@ -63,10 +62,6 @@ export function Field({
       {children}
     </div>
   );
-}
-
-export function FieldDisplay({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn(controlClassName, className)} {...props} />;
 }
 
 /** Spin arrows sit inside a number box in Firefox and eat the width a long score needs. */

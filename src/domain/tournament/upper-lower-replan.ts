@@ -71,7 +71,7 @@ export function upperLowerUpperFallback(state: TournamentState): string | null {
  * back to evenly, so a removal is never blocked by it. A save the Custom bracket engine refuses (a group stage's
  * exit) is refused in both, and the state stays.
  */
-export function tryReplanUpperLower(state: TournamentState, strict = false): UpperLowerReplan {
+function tryReplanUpperLower(state: TournamentState, strict = false): UpperLowerReplan {
   const planned = replannable(state);
   if (!planned) return { ok: true, state };
   const { first, roomSize } = planned;

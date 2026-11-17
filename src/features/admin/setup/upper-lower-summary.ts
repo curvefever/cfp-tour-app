@@ -29,7 +29,7 @@ export function upperLowerAutomaticPlaceholder(
 export const NO_ROSTER_TEXT = 'Works out the rooms from the head count once a roster is loaded.';
 
 /** One round of the bracket as the Setup panel lists it: its name, its rooms and where its units go. */
-export interface UpperLowerSummaryRound {
+interface UpperLowerSummaryRound {
   name: string;
   rooms: string;
   goes: string;

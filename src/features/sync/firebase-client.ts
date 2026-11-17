@@ -21,7 +21,7 @@ declare global {
   }
 }
 
-export const FIREBASE_CONFIG = {
+const FIREBASE_CONFIG = {
   apiKey: 'AIzaSyAzbwk2ZJj2jmtKRFjzDJyPk4ePmF3Q04M',
   authDomain: 'curve-tour-app.firebaseapp.com',
   databaseURL: 'https://curve-tour-app-default-rtdb.europe-west1.firebasedatabase.app',
@@ -37,7 +37,7 @@ function firebaseApp(): FirebaseApp {
   return getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 }
 
-export function getFirebaseDatabase(): Database | null {
+function getFirebaseDatabase(): Database | null {
   if (database !== undefined) return database;
   try {
     database = getDatabase(firebaseApp());

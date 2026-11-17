@@ -569,9 +569,9 @@ export function recencyWeight(roundsAgo: number): number {
  * have no independent empirical validation beyond reproducing the originally
  * validated (progress=0) prototype's behavior. */
 export const DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP = 10;
-export const DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS = 1;
+const DIVERSITY_PRIORITY_WEIGHT_AT_SEMIS = 1;
 export const BALANCE_PRIORITY_WEIGHT_AT_WARMUP = 1;
-export const BALANCE_PRIORITY_WEIGHT_AT_SEMIS = 6;
+const BALANCE_PRIORITY_WEIGHT_AT_SEMIS = 6;
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));

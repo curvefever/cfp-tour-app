@@ -4,7 +4,7 @@ import { standingsNames } from '../standings/standings-names';
 import { tournamentPhase } from '../tournaments/tournament-lifecycle';
 import type { TournamentSummary } from '../tournaments/tournament-summary';
 
-export const TABS: Array<{ key: ActiveTab; label: string }> = [
+const TABS: Array<{ key: ActiveTab; label: string }> = [
   { key: 'tournaments', label: 'Tournaments' },
   { key: 'info', label: 'Info' },
   { key: 'admin', label: 'Admin' },

@@ -1,8 +1,8 @@
 import { distributeRooms, isSeatable } from './room-distribution';
 import type { RoomSize, TournamentRound } from './types';
 
-export const KINGS_VALLEY_MOVE_FRACTION = 0.25;
-export const KINGS_VALLEY_ELIMINATION_FRACTION = 0.5;
+const KINGS_VALLEY_MOVE_FRACTION = 0.25;
+const KINGS_VALLEY_ELIMINATION_FRACTION = 0.5;
 export const MAX_KINGS_VALLEY_ROUNDS = 14;
 
 export interface KingsValleyConfig {

@@ -14,7 +14,7 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { errorText } from '../image-upload';
 
 /** A round renamed in the graph editor by hand. */
-export interface RoundRenamed {
+interface RoundRenamed {
   from: string;
   to: string;
 }

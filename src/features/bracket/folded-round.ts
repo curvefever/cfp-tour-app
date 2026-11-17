@@ -8,7 +8,7 @@ import { placeOrdinal } from '../../lib/ordinal';
 import { isRoundDone } from '../../domain/tournament/round-columns';
 import { isNotCountedRound } from './title-bar-marks';
 
-export interface FoldedFollowed {
+interface FoldedFollowed {
   /** The followed unit's name as shown (a team's name, a player's name). */
   label: string;
   /** The room it played in; null for a bye. */

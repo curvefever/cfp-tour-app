@@ -92,7 +92,7 @@ function pictureAt(map: unknown, name: string, slot: string): string | undefined
 }
 
 /** The key of a game's box: `g1`…`g9`. */
-export function gameKey(gameNumber: number): string {
+function gameKey(gameNumber: number): string {
   return `g${gameNumber}`;
 }
 
@@ -285,7 +285,7 @@ function textEntries(texts: unknown): Array<[string, string]> {
  * The game notes with one changed: blank text deletes it, a round left without game notes is dropped, and so is an
  * empty map (`undefined` when nothing is left). Entries that are not text are dropped.
  */
-export function setGameNote(
+function setGameNote(
   notes: GameNotes | undefined,
   name: string,
   key: string,

@@ -29,7 +29,7 @@ export type RoundRobinMode = 'single' | 'double';
 
 /** How a group stage sends units to the bracket: so many per group (the default, and what a stored tournament without the field does), or a total shared between the groups by an even split or a fair cut (`group-exit.ts`). */
 export type GroupExitMode = 'per-group' | 'even-split' | 'fair-cut';
-export type BracketKey = 'winners' | 'losers' | 'grand-final';
+type BracketKey = 'winners' | 'losers' | 'grand-final';
 export type AbsenceAnswer = 'absent' | 'played';
 
 export interface TeamMember {
@@ -231,7 +231,7 @@ export interface TournamentGroup {
   members: string[];
 }
 
-export interface DefenderChange {
+interface DefenderChange {
   round: number;
   memberIdx: number;
 }

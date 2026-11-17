@@ -4,7 +4,7 @@ import type { AnonymousFinalist, TournamentState } from './types';
 export const MAX_ANONYMOUS_FINALISTS = 10;
 
 /** The aliases `Finalist-1…n` for a line-up, in seat order, none connected yet. */
-export function finalistAliasesFor(names: readonly string[]): AnonymousFinalist[] {
+function finalistAliasesFor(names: readonly string[]): AnonymousFinalist[] {
   return names.map((realKey, index) => ({ alias: `Finalist-${index + 1}`, realKey, connected: false }));
 }
 

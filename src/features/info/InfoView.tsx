@@ -8,7 +8,7 @@ import { scheduledParts, tournamentFormatLine, type ScheduledParts } from '../to
 import { RulesText } from './RulesText';
 import { ScreenshotGallery } from './ScreenshotGallery';
 
-export const GENERAL_RULES_URL = 'https://info.curvefever.pro/tournaments/tournament-rules';
+const GENERAL_RULES_URL = 'https://info.curvefever.pro/tournaments/tournament-rules';
 
 /** The scheduled time in the time zone of the viewer; empty until the page is in the browser, where that zone is known. */
 function useScheduledParts(scheduledAt: number | null): ScheduledParts | null {

@@ -1,6 +1,5 @@
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
-import { cn } from '../ui';
 
 /** The member line broken only between names: each name stays whole, the separator ends the line before. */
 function WrappingMembers({ members, separator }: { members: string[]; separator: string }) {
@@ -44,25 +43,5 @@ export function TournamentUnit({
         </small>
       ) : null}
     </span>
-  );
-}
-
-export function Position({
-  children,
-  highlighted = false,
-}: {
-  children: React.ReactNode;
-  highlighted?: boolean;
-}) {
-  return (
-    <span className={cn('text-xl font-bold text-muted', highlighted && 'text-primary')}>{children}</span>
-  );
-}
-
-export function ByeCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className='mb-4 flex items-center gap-3 rounded-lg border border-accent bg-accent-soft px-4 py-3'>
-      {children}
-    </div>
   );
 }

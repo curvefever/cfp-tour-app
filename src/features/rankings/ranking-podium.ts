@@ -19,7 +19,7 @@ export interface PodiumCard {
 }
 
 /** One line of the list under the podium: everybody from the fourth entry down, the withdrawn last. */
-export interface FinishRow {
+interface FinishRow {
   key: string;
   rank: string;
   label: string;
