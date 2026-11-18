@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Cleanup part 1C: one place for each repeated idea (done — 2026-11-18)
+## Cleanup part 1C: one place for each repeated idea (done — 2026-11-18, pushed to `test`)
 
 **Context.** The third and last sub-part of cleanup part 1 (from the cleanup audit of 2026-11-10; 1A the tests, 1B the removals). Each stage takes one idea written in several places and gives it one. Moving and merging only: no behaviour changes, except what each stage says below. It ran from `e0140bc` (`origin/test`), in two implementer sessions (C1 to C7, then C8 to C14) with a planner-reviewer gating every stage: the implementer recorded outputs across a spread before moving code and compared after (deep-equal), committed locally, reported; the reviewer read every production hunk, ran mutations on the new single place and replied before the next stage. Where two copies differed, each caller kept its own result and the difference went into the list below. Nothing is pushed by the implementer.
 
@@ -47,6 +47,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 - Unreachable or redundant, left as written: `lucky: false` in `outOfCompleteRooms` (`roundDecided: false` already turns it off); `rule.rooms` in its `roomRowResult` call (only the bands are read); `index` for an absentee in `roomRows`; `scored.length > 0` in `complete`; the `complete` test in `placeInRoom`.
 - Docs: `texts-inventory.md` carries line numbers that drifted (not part of 1C).
 - Flakes and failures: `BackAfterDraw.render.test.tsx` failed once under load and passes alone; the touch screens test above fails with and without the change (both in `docs/open-items.md`).
+
+**Checks at the final review.** eslint, prettier and `tsc` clean over the 131 changed `.ts` and `.tsx` files; the diff of the test files shows only the allowed edits above, and no old-tournament pin changed. Full suite: passed on `6b99071` (262 files, 6,657 tests).
 
 **Out of scope.** Splitting any long function or many-job file (part 2, after the rigidity audit); every change of behaviour (part 3: the C5 differences, C7-2's odd-count rule, round-name wordings); the generator and the rigidity audit's markings; pushing to `main`. The live check on the test site (a throwaway Test run) is the reviewer's, after the push.
 
