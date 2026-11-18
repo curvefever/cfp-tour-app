@@ -1,8 +1,7 @@
 import { absentInRoom } from '../../../domain/tournament/absences';
 import { bracketRoundLabels, roomLetter } from '../../../domain/tournament/bracket';
-import { unitRankScore } from '../../../domain/tournament/match-format';
 import { unitDisplay } from '../../../domain/tournament/roster';
-import { orderRoomWithPlaces, type RankScore } from '../../../domain/tournament/scoring';
+import { roomRows } from '../../../domain/tournament/room-rows';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { placeOrdinal } from '../../../lib/ordinal';
 import { isRoundDone } from '../../../domain/tournament/round-columns';
@@ -35,31 +34,16 @@ export interface RoomPlace {
   shared: boolean;
 }
 
-/** The place of the unit seated at `position` of `room`, ordered by score as the room card orders its rows. */
+/** The place of `name` in `room`, as the room card orders its rows (`roomRows`); null until the room is complete, and for an absentee. */
 export function placeInRoom(
   state: TournamentState,
   roundIndex: number,
   room: number,
   name: string,
 ): RoomPlace | null {
-  const units = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === room);
-  const scored = units.map((entry, position) => ({
-    name: entry.name,
-    rank: unitRankScore(state, roundIndex, room, position, null),
-  }));
-  if (scored.length === 0 || scored.some((entry) => entry.rank === null)) return null;
-  // An absentee has no place; the units that were present are placed among themselves.
-  const absent = absentInRoom(state, roundIndex, room);
-  const ordered = orderRoomWithPlaces(
-    scored
-      .filter((entry) => !absent.includes(entry.name))
-      .map(({ name: unit, rank }) => ({ name: unit, ...(rank as RankScore) })),
-    roundIndex,
-    room,
-    state,
-  );
-  const found = ordered.find((item) => item.entry.name === name);
-  return found ? { place: found.place, shared: found.sharedBy > 1 } : null;
+  const { rows, complete } = roomRows(state, roundIndex, room);
+  const row = complete ? rows.find((entry) => entry.name === name) : undefined;
+  return row?.place != null ? { place: row.place, shared: row.shared } : null;
 }
 
 /**
