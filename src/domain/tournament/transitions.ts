@@ -27,12 +27,12 @@ import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { fitRoundToPool } from './room-distribution';
 import { plainRoundName } from './round-name';
+import { swissPair } from './swiss-pairing';
 import {
   avoidSameGroupInFirstBracketRound,
   recordRoomHistory,
   selectPoolingBye,
   sequentialSeed,
-  swissFoldPair,
   tieredBracketSeed,
   seedFromPoolingExit,
   seedPoolByStanding,
@@ -768,7 +768,7 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
       };
     }
     const { roomSize } = config;
-    const paired = swissFoldPair({
+    const paired = swissPair({
       activeNames: advancing.map((entry) => entry.name),
       throughRoundIndex: roundIndex,
       roomSize,

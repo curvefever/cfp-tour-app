@@ -18,7 +18,7 @@ export type ScoringSystemKey = 'fairpoints' | 'positional-points' | 'match-resul
 
 /** The result of one game of a head-to-head match under match-result scoring: Win, Tie Win, Tie Loss, Loss, or Tie (equal scores). */
 export type MatchResultCode = 'W' | 'TW' | 'TL' | 'L' | 'T';
-/** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissFoldPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
+/** 'adaptive' (default): each round's room draw is computed live from real prior-round results (tieredSeed/swissPair). 'fixed': the whole qual-table/Swiss schedule is published upfront at generation time, from roster order only -- see fixed-draws.ts. */
 export type DrawPublicationKey = 'adaptive' | 'fixed';
 export type OddCountStrategyKey = 'none' | 'bye' | 'flex';
 export type TeamScoringRuleKey = 'sum-members' | 'designated-player' | 'survival-teams';
@@ -136,7 +136,7 @@ export interface TournamentRound {
   anonymousGames?: number[];
   /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
   seedingOverride?: 'diversity' | 'balance' | 'random';
-  /** This qual-table/Swiss round's real player-to-room assignment, computed once at generation time (fixed-draws.ts) instead of live via tieredSeed/swissFoldPair -- only set when gamemodeConfig.drawPublication === 'fixed'. Mirrors matches/groupByes' role for group-stage rounds: state.assignments[roundIndex] stays empty until this round is actually reached (see transitions.ts), so this is the source of truth for a not-yet-played fixed round's content. */
+  /** This qual-table/Swiss round's real player-to-room assignment, computed once at generation time (fixed-draws.ts) instead of live via tieredSeed/swissPair -- only set when gamemodeConfig.drawPublication === 'fixed'. Mirrors matches/groupByes' role for group-stage rounds: state.assignments[roundIndex] stays empty until this round is actually reached (see transitions.ts), so this is the source of truth for a not-yet-played fixed round's content. */
   fixedRoomAssignments?: RoundAssignment[];
 }
 

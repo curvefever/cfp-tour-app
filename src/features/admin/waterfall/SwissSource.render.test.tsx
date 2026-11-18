@@ -50,14 +50,14 @@ describe('the running Admin graph of a Swiss with a Qual line', () => {
 
 describe('the tie banners after a Swiss', () => {
   it('read "Swiss tie" when the graph has a Qual line', () => {
-    render(<TieBanners state={tiedAlike(swiss(11))} />);
+    render(<TieBanners state={tiedAlike(swiss(16))} />);
     expect(screen.getByText(/Swiss tie between U and L/)).toBeTruthy();
     expect(screen.getByText(/Swiss tie between L and elimination/)).toBeTruthy();
     expect(screen.queryByText(/Qualification tie/)).toBeNull();
   });
 
   it('keep "Qualification tie" when the Swiss has no Qual line', () => {
-    render(<TieBanners state={tiedAlike(swiss(11, { qualAdv: '8' }, SWISS_LINELESS_GRAPH))} />);
+    render(<TieBanners state={tiedAlike(swiss(16, { qualAdv: '8' }, SWISS_LINELESS_GRAPH))} />);
     expect(screen.getByText(/Qualification tie/)).toBeTruthy();
     expect(screen.queryByText(/Swiss tie/)).toBeNull();
   });

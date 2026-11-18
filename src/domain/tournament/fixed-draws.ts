@@ -12,7 +12,7 @@ import type { RoundAssignment, TournamentRound } from './types';
  * The whole qual-table/Swiss room schedule, computed once at generation
  * time from roster order alone -- never from live results. Used when
  * gamemodeConfig.drawPublication === 'fixed' instead of the live
- * tieredSeed()/swissFoldPair() reseed every other tournament uses. Stored
+ * tieredSeed()/swissPair() reseed every other tournament uses. Stored
  * per-round on TournamentRound.fixedRoomAssignments (mirroring group-stage's
  * own matches/groupByes precedent) rather than pre-populated into
  * state.assignments, since a non-empty state.assignments[roundIndex] is

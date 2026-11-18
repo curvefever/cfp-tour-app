@@ -141,7 +141,7 @@ export function swissPoolingPhase(
   config: Pick<PoolingConfig, 'n' | 'qualAdv'>,
   format: Pick<PoolingFormatConfig, 'roomSize' | 'oddCountStrategy' | 'swissRounds' | 'nonCountingRounds'>,
 ): PoolingPhaseResult {
-  // Both Swiss seeders (swissFoldPair, buildFixedSwissSchedule) pair units two
+  // Both Swiss seeders (swissPair, buildFixedSwissSchedule) pair units two
   // by two and always give an odd unit a real bye, whatever the odd-count
   // strategy, so the declared shape is always that of a head-to-head bye.
   const headToHead = swissShape(format.roomSize);

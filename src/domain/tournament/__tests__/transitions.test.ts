@@ -310,7 +310,7 @@ describe('advanceTournamentRound — next-round seeding dispatch', () => {
     expect(result.state.byes[1]).toEqual(['P3']);
   });
 
-  it('dispatches to Swiss fold-pairing when nextRound.isSwiss', () => {
+  it('dispatches to the Swiss pairing when nextRound.isSwiss', () => {
     const players = ['P1', 'P2', 'P3', 'P4'];
     const state = createDefaultTournamentState({
       gameFormat: 'ffa-individual',
@@ -334,8 +334,8 @@ describe('advanceTournamentRound — next-round seeding dispatch', () => {
     const result = advanceTournamentRound(state);
     expect(result.status).toBe('advanced');
     if (result.status !== 'advanced') return;
-    // No qual/swiss rounds played yet -> roster-order fold, matching
-    // seeding.test.ts's already-verified "rank i vs rank i+half" case.
+    // No qual/swiss rounds played yet -> one score group in roster order, top half against bottom half
+    // (swiss-pairing.test.ts's group-of-6 case).
     expect(result.state.assignments[1]).toEqual([
       { name: 'P1', room: 1, isLucky: false },
       { name: 'P3', room: 1, isLucky: false },

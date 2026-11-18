@@ -111,8 +111,8 @@ describe('match results in a 4v4 Swiss, 16 teams', () => {
     if (result.status !== 'advanced') throw new Error(`expected an advance, got ${result.status}`);
     for (let room = 1; room <= 8; room += 1) {
       const pair = seated(result.state, 1, room);
-      // Swiss folds the standings: each of the 8 winners meets one of the 8 losers.
-      expect(winners.includes(pair[0])).not.toBe(winners.includes(pair[1]));
+      // Swiss pairs inside the score groups: the 8 winners meet each other, and so do the 8 losers.
+      expect(winners.includes(pair[0])).toBe(winners.includes(pair[1]));
     }
   });
 });

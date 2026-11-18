@@ -39,7 +39,7 @@ export function drawnAheadStatus(state: TournamentState, roundIndex: number): Dr
 
 /**
  * True when advancing into `round` counted its bye in `poolingByeCounts`: the
- * generic no-elimination branch (selectPoolingBye) and Swiss (swissFoldPair)
+ * generic no-elimination branch (selectPoolingBye) and Swiss (swissPair)
  * do; fixed draws and group stages never do (transitions.ts).
  */
 function advanceCountedPoolingBye(round: TournamentRound): boolean {

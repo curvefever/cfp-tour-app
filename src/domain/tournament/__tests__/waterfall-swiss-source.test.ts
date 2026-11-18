@@ -137,10 +137,11 @@ describe.each(FORMATS.flatMap((format) => COUNTS.map((count) => ({ ...format, co
 );
 
 describe('ties at a band boundary and at the cut', () => {
-  it('11 units: a tie across the 4/5 boundary and one at the 8/9 cut are asked for, then resolved', () => {
-    const state = toSwissExit(swiss(11), (current, index) => scoredAlike({ ...current, curRound: index }));
+  it('16 units: a tie across the 4/5 boundary and one at the 8/9 cut are asked for, then resolved', () => {
+    // Scored alike, units with the same record tie: 4 of them on 3-1 (ranks 2-5) and 6 on 2-2 (ranks 6-11).
+    const state = toSwissExit(swiss(16), (current, index) => scoredAlike({ ...current, curRound: index }));
     const ties = getAllTies(state, state.curRound);
-    expect(Object.keys(ties)).toEqual(expect.arrayContaining(['qual-band-1', 'qual-cutoff']));
+    expect(Object.keys(ties)).toEqual(expect.arrayContaining(['qual-band-2', 'qual-cutoff']));
     const blocked = advanceTournamentRound(state);
     expect(blocked.status).not.toBe('advanced');
     const advanced = pressed(resolveEveryTie(state, state.curRound));

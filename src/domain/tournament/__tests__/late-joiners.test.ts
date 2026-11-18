@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildAdvancementTiers, computeQualificationStandings } from '../advancement';
+import {
+  buildAdvancementTiers,
+  computeQualificationStandings,
+  rankingPoints,
+  samePoints,
+} from '../advancement';
 import { generateTournament } from '../generation';
 import { lateJoinersOf } from '../late-joiners';
 import {
@@ -501,30 +506,44 @@ describe('a late joiner is seeded as an average unit, and never given a bye, in 
       oddCountStrategy: 'bye',
     } as const;
 
-    const rankedWithout = (state: TournamentState, joiners: string[]) =>
-      computeQualificationStandings(state)
-        .map((entry) => entry.name)
-        .filter((name) => !joiners.includes(name));
+    /** The units that are not joiners in standings order, split into score groups (units on equal points), best first. */
+    const groupsWithout = (state: TournamentState, joiners: string[]) => {
+      const groups: Array<{ points: number | null; names: string[] }> = [];
+      for (const entry of computeQualificationStandings(state)) {
+        if (joiners.includes(entry.name)) continue;
+        const last = groups.at(-1);
+        if (last && samePoints(last.points, rankingPoints(entry))) last.names.push(entry.name);
+        else groups.push({ points: rankingPoints(entry), names: [entry.name] });
+      }
+      return groups.map((group) => group.names);
+    };
     const opponentOf = (state: TournamentState, roundIndex: number, name: string) => {
       const room = state.assignments[roundIndex].find((entry) => entry.name === name)?.room;
       return state.assignments[roundIndex].find((entry) => entry.room === room && entry.name !== name)?.name;
     };
 
-    it('31 registered: the joiner goes last in the fold, so they meet the middle-ranked unit (fold index half - 1), and there is no bye', () => {
+    it('31 registered: the joiner is placed in the score group holding the middle rank, and there is no bye', () => {
       const joined = join(scoreThenPress(build(31, setup)));
-      const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late']);
+      const [, middle, lowest] = groupsWithout(scoreCurrentRound(joined, 0), ['Late']);
       const next = scoreThenPress(joined);
       expect(next.byes[2] ?? []).toEqual([]);
-      expect(opponentOf(next, 2, 'Late')).toBe(ranked[15]);
+      // Groups of 8, 16 and 7: the middle rank is in the second. The joiner ends it (17, odd), so as its lowest unit it
+      // floats down to open the third group: [Late, 7 units], top half against bottom half, so they meet the 4th.
+      expect([middle.length, lowest.length]).toEqual([16, 7]);
+      expect(opponentOf(next, 2, 'Late')).toBe(lowest[3]);
     });
 
-    it('30 registered and two joiners: they meet the units at fold index half - 2 and half - 1, in add order', () => {
+    it('30 registered and two joiners: they end the score group holding the middle rank, in add order', () => {
       const joined = join(join(scoreThenPress(build(30, setup)), 'Late1'), 'Late2');
-      const ranked = rankedWithout(scoreCurrentRound(joined, 0), ['Late1', 'Late2']);
+      const [, middle] = groupsWithout(scoreCurrentRound(joined, 0), ['Late1', 'Late2']);
       const next = scoreThenPress(joined);
       expect(next.byes[2] ?? []).toEqual([]);
-      expect(opponentOf(next, 2, 'Late1')).toBe(ranked[14]);
-      expect(opponentOf(next, 2, 'Late2')).toBe(ranked[15]);
+      // Groups of 8, 14 and 8: the middle rank is in the second, which the joiners end (16). Both meet units of that
+      // group, in the bottom half of it paired against the top half (a pair that met in round 1 is traded away).
+      expect(middle).toHaveLength(14);
+      const opponents = [opponentOf(next, 2, 'Late1'), opponentOf(next, 2, 'Late2')];
+      expect(opponents.every((name) => middle.slice(0, 8).includes(name as string))).toBe(true);
+      expect(new Set(opponents).size).toBe(2);
     });
 
     it('30 registered plus a joiner is 31: the bye goes to a regular unit', () => {

@@ -1,9 +1,4 @@
-import {
-  buildAdvancementTiers,
-  computeQualificationStandings,
-  exitOrderTiers,
-  isStandingsCutoffRound,
-} from './advancement';
+import { buildAdvancementTiers, exitOrderTiers, isStandingsCutoffRound } from './advancement';
 import { lateJoinersOf } from './late-joiners';
 import { likelyAbsentees } from './likely-absentees';
 import { lexicographicMinAssignment } from './cheapest-assignment';
@@ -18,7 +13,6 @@ import {
 import type { RandomSource } from './runtime';
 import type {
   PendingBracketSeed,
-  RoomSize,
   RoundAssignment,
   TournamentGroup,
   TournamentRound,
@@ -217,7 +211,7 @@ export function avoidSameGroupInFirstBracketRound(
 }
 
 /** The pairs that shared a room in any round up to `throughRoundIndex` (or in the ones `counts` accepts). */
-function metPairs(
+export function metPairs(
   state: Pick<TournamentState, 'assignments'>,
   throughRoundIndex: number,
   counts: (roundIndex: number) => boolean = () => true,
@@ -406,82 +400,6 @@ export function selectPoolingBye(
 
 export function roomPairKey(first: string, second: string): string {
   return first < second ? `${first}|${second}` : `${second}|${first}`;
-}
-
-export function swissFoldPair(options: {
-  activeNames: string[];
-  throughRoundIndex: number;
-  roomSize: RoomSize;
-  state: TournamentState;
-}): {
-  seeded: RoundAssignment[];
-  byeName: string | null;
-  poolingByeCounts: Record<string, number>;
-} {
-  const { activeNames, throughRoundIndex, roomSize, state } = options;
-  if (roomSize.ideal !== 2) {
-    throw new Error(
-      `swissFoldPair requires a head-to-head room shape (roomSize.ideal === 2) — got ${roomSize.ideal}.`,
-    );
-  }
-  const standings = computeQualificationStandings(state);
-  // A late joiner's level is unknown: they go last in the fold order, so each meets a middle-ranked unit (index k pairs with k + half), not the weakest; and they never get the bye.
-  const joiners = lateJoinersOf(state, throughRoundIndex).filter((name) => activeNames.includes(name));
-  const sorted = standings
-    .filter((entry) => activeNames.includes(entry.name) && !joiners.includes(entry.name))
-    .map((entry) => entry.name);
-  for (const name of activeNames) {
-    if (!sorted.includes(name) && !joiners.includes(name)) sorted.push(name);
-  }
-  sorted.push(...joiners);
-
-  const poolingByeCounts = { ...state.poolingByeCounts };
-  let byeName: string | null = null;
-  if (sorted.length % 2 !== 0) {
-    const regular = sorted.filter((name) => !joiners.includes(name));
-    const eligible = regular.length ? regular : sorted;
-    const minimum = Math.min(...eligible.map((name) => poolingByeCounts[name] ?? 0));
-    const median = Math.floor(sorted.length / 2);
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const name of eligible.filter((candidate) => (poolingByeCounts[candidate] ?? 0) === minimum)) {
-      const distance = Math.abs(sorted.indexOf(name) - median);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        byeName = name;
-      }
-    }
-    sorted.splice(sorted.indexOf(byeName as string), 1);
-    poolingByeCounts[byeName as string] = (poolingByeCounts[byeName as string] ?? 0) + 1;
-  }
-
-  const half = sorted.length / 2;
-  const pairs: Array<[string, string]> = Array.from({ length: half }, (_, index) => [
-    sorted[index],
-    sorted[index + half],
-  ]);
-  const played = metPairs(state, throughRoundIndex, (roundIndex) =>
-    Boolean(state.rounds[roundIndex]?.isSwiss),
-  );
-  for (let index = 0; index < pairs.length; index += 1) {
-    if (played.has(roomPairKey(...pairs[index])) && index + 1 < pairs.length) {
-      const swappedFirst: [string, string] = [pairs[index][0], pairs[index + 1][1]];
-      const swappedSecond: [string, string] = [pairs[index + 1][0], pairs[index][1]];
-      if (!played.has(roomPairKey(...swappedFirst)) && !played.has(roomPairKey(...swappedSecond))) {
-        pairs[index] = swappedFirst;
-        pairs[index + 1] = swappedSecond;
-      }
-    }
-  }
-
-  const seeded: RoundAssignment[] = [];
-  for (const [index, pair] of pairs.entries()) {
-    seeded.push(
-      { name: pair[0], room: index + 1, isLucky: false },
-      { name: pair[1], room: index + 1, isLucky: false },
-    );
-  }
-  if (byeName) seeded.push({ name: byeName, room: null, isLucky: false });
-  return { seeded, byeName, poolingByeCounts };
 }
 
 /**
