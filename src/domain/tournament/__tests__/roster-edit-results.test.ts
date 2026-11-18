@@ -111,6 +111,7 @@ describe('swapIndividualResult: the first check that fails is the reason', () =>
     expect(refusedWith(swapIndividualResult(closed, 'Nobody', 'Zed'))).toBe('swap-closed');
     expect(refusedWith(swapIndividualResult(closed, 'P1', ''))).toBe('empty-name');
     expect(refusedWith(swapIndividualResult(ghost, 'Ghost', 'a.b'))).toBe('unstorable-name');
+    expect(refusedWith(swapIndividualResult(closed, 'P1', 'a.b'))).toBe('unstorable-name');
   });
 });
 
@@ -151,6 +152,13 @@ describe('swapTeamResult: the first check that fails is the reason', () => {
       'not-a-team-format',
     );
     expect(refusedWith(swapTeamResult(closed, 't1', team('t2', 'Fresh')))).toBe('swap-closed');
+    expect(refusedWith(swapTeamResult(closed, 't1', team('nt', 'Fresh', ['A.nn'])))).toBe('swap-closed');
+    const closedPlayers = swapsClosed(
+      generated(24, { scheduleLogic: 'single-elimination', poolingPhase: 'none' }),
+      0,
+    );
+    expect(swapWindowOpen(closedPlayers)).toBe(false);
+    expect(refusedWith(swapTeamResult(closedPlayers, 'P1', team('nt', 'Fresh')))).toBe('not-a-team-format');
     expect(refusedWith(swapTeamResult(withTeam(team('ghost')), 'ghost', team('nt', 'Fresh', ['A.nn'])))).toBe(
       'unstorable-name',
     );
