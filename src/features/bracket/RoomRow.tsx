@@ -6,6 +6,7 @@ import type { TournamentState, TournamentTeam } from '../../domain/tournament/ty
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
 import { ResultStripe } from '../tournament/components/ResultStripe';
+import type { RoomRowUnit } from '../../domain/tournament/room-rows';
 import { type RowResult, roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
 import {
@@ -154,18 +155,10 @@ export interface RoomRowProps {
   state: TournamentState;
   roundIndex: number;
   room: number;
-  /** Seat in the room (the score keys use it). */
-  position: number;
-  name: string;
+  /** The unit this row draws: its seat, name, score, place and whether it was absent. */
+  row: RoomRowUnit;
   /** The row's place in the room's order (0-based), for the alternating ground. */
   index: number;
-  /** The row's place in the room (null until the room is complete). */
-  place: number | null;
-  /** Another unit on the same score shares the place. */
-  sharedPlace: boolean;
-  score: number | null;
-  /** The unit was absent from the room: "ABS" takes the place of its score. */
-  absent: boolean;
   /** The name of the round the unit was last absent from while it is still expected missing here: the row shows "ABS?". */
   absentSince?: string;
   result: RowResult;
@@ -203,7 +196,8 @@ export interface RoomRowProps {
 
 /** The score inputs of an editable team row: one per member (and per game), then the total. */
 function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) {
-  const { state, roundIndex, room, position, name, team, games } = props;
+  const { state, roundIndex, room, team, games } = props;
+  const { name, position } = props.row;
   const notNeeded = unneededGames(state, roundIndex, room);
   const summary = unitScoreSummary(state, roundIndex, room, position);
   return (
@@ -254,10 +248,8 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
 }
 
 export function RoomRow(props: RoomRowProps) {
-  const { state, roundIndex, room, position, name, index, score, result, star, showResults, rowsEditable } =
-    props;
-  const { absent } = props;
-  const { place, sharedPlace } = props;
+  const { state, roundIndex, room, index, result, star, showResults, rowsEditable } = props;
+  const { name, position, score, absent, place, shared: sharedPlace } = props.row;
   const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
   const { memberInputs, games, gameColumns, columns } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;

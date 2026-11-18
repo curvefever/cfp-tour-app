@@ -1,5 +1,4 @@
 import { type ReactNode } from 'react';
-import { absenteeLeavesCustomBracket, absentInRoom } from '../../domain/tournament/absences';
 import { isUncontestedRoom } from '../../domain/tournament/advancement';
 import { groupSeats } from '../../domain/tournament/group-standings';
 import { usesGroupAverages } from '../../domain/tournament/rule-versions';
@@ -8,8 +7,8 @@ import { latestAbsenceRound, likelyAbsentInRound } from '../../domain/tournament
 import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
-import { unitRankScore } from '../../domain/tournament/match-format';
-import { orderRoomWithPlaces, scoredTeamSize } from '../../domain/tournament/scoring';
+import { roomRows } from '../../domain/tournament/room-rows';
+import { scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
 import { ExitIcon } from '../tournament/components/ExitIcon';
@@ -19,7 +18,7 @@ import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { placesLine, type RankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
-import { absenteeFate, roomRowResult } from '../../domain/tournament/room-row-result';
+import { roomRowResult } from '../../domain/tournament/room-row-result';
 import { roomTitle } from '../tournament/components/room-title';
 import { destinationLabel } from '../tournament/components/exit-text';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';
@@ -175,30 +174,11 @@ export function RoomCard({
       </RoomFrame>
     );
   }
-  const scored = units.map((entry, position) => {
-    const rank = unitRankScore(state, roundIndex, room, position, null);
-    return { name: entry.name, position, score: rank?.score ?? null, tiebreak: rank?.tiebreak };
-  });
-  const complete = scored.length > 0 && scored.every((entry) => entry.score !== null);
-  const showResults = isRoundReached(state, roundIndex) && complete;
-  // The room keeps its seating order until every unit is scored, so rows do not jump while a score is typed.
-  // The units that were present are placed by score; an absentee has no place and comes after them.
-  const absentNames = absentInRoom(state, roundIndex, room);
+  const reached = isRoundReached(state, roundIndex);
+  const { rows, complete } = roomRows(state, roundIndex, room, { ordered: reached });
+  const showResults = reached && complete;
+  const absentNames = rows.filter((row) => row.absent).map((row) => row.name);
   const likelyAbsent = likelyAbsentInRound(state, roundIndex, room);
-  const presentScored = scored.filter((entry) => !absentNames.includes(entry.name));
-  const display = showResults
-    ? [
-        ...orderRoomWithPlaces(
-          presentScored as Array<{ name: string; position: number; score: number; tiebreak?: number }>,
-          roundIndex,
-          room,
-          state,
-        ).map(({ entry, place, sharedBy }) => ({ ...entry, place, shared: sharedBy > 1 })),
-        ...absentNames
-          .flatMap((name) => scored.filter((entry) => entry.name === name))
-          .map((entry) => ({ ...entry, place: null, shared: false })),
-      ]
-    : scored.map((entry) => ({ ...entry, place: null, shared: false }));
   // A group room with an absent or removed unit is void for the unit that turned up (per-match standings).
   const gone = round.isGroupStage && usesGroupAverages(state) ? voidingUnits(state, units, absentNames) : [];
   const voidMatch = gone.length > 0 && gone.length < units.length;
@@ -219,17 +199,14 @@ export function RoomCard({
       ) : points ? (
         <PointsHeader wide={resultCodes !== null} />
       ) : null}
-      {display.map((entry, index) => {
+      {rows.map((entry, index) => {
         const lucky = luckyNames.includes(entry.name);
         const pendingTie = showResults && pendingTieNames.has(entry.name);
-        const absent = absentNames.includes(entry.name);
-        const absentRank = presentScored.length + absentNames.indexOf(entry.name);
-        const leavesBracket = absenteeLeavesCustomBracket(state, round, room, units.length, absentRank);
         const { result, star } = roomRowResult({
           rule: exitRule,
           bands,
-          rank: absent ? absentRank + 1 : (entry.place ?? index + 1),
-          absentee: absent ? absenteeFate(round, leavesBracket) : undefined,
+          rank: entry.rank,
+          absentee: entry.fate,
           lucky,
           pendingTie,
           roomComplete: showResults,
@@ -237,7 +214,6 @@ export function RoomCard({
         });
         return (
           <RoomRow
-            absent={absent}
             absentSince={absentSinceOf(state, roundIndex, entry.name, likelyAbsent, labels)}
             followed={followKey === entry.name}
             gameColumns={gameColumns}
@@ -249,21 +225,17 @@ export function RoomCard({
             key={entry.name}
             manual={Boolean(units.find((unit) => unit.name === entry.name)?.manual)}
             memberInputs={memberInputs}
-            name={entry.name}
             pendingTie={pendingTie}
-            place={entry.place}
             points={points ? (points.get(entry.name) ?? null) : undefined}
             resultCode={resultCodes?.get(entry.name)}
             voided={voidMatch && !gone.includes(entry.name)}
             widePoints={resultCodes !== null}
-            position={entry.position}
             resolvedTie={resolvedTieNames.has(entry.name)}
             result={result}
             room={room}
+            row={entry}
             roundIndex={roundIndex}
             rowsEditable={rowsEditable}
-            score={entry.score}
-            sharedPlace={entry.shared}
             showResults={showResults}
             star={star}
             state={state}
