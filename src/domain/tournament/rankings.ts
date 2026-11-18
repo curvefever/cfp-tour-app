@@ -1,4 +1,4 @@
-import { absenteeLeavesCustomBracket, absentInRoom } from './absences';
+import { absentInRoom } from './absences';
 import {
   compareStandings,
   isStandingsCutoffRound,
@@ -11,17 +11,13 @@ import {
   scoreRoom,
 } from './advancement';
 import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './standings-display';
-import { exitBandAtRank, type RoomExitBand, roundExitRule } from './room-exits';
+import { type RoomExitBand, roundExitRule } from './room-exits';
+import { roomRowResult } from './room-row-result';
+import { roomRows } from './room-rows';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
 import { isBestOfRound, roomMatch } from './match-format';
-import {
-  compareRankScores,
-  getFinalUnitScore,
-  isRoomScored,
-  orderRoomWithPlaces,
-  tieResolutionList,
-} from './scoring';
+import { compareRankScores, getFinalUnitScore, isRoomScored, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import { roundDestinations } from './waterfall-best';
 import type {
@@ -332,7 +328,12 @@ function eliminatedByPastRound(
   return eliminationsInRound(state, roundIndex, (name) => !survived.has(name));
 }
 
-/** The rows a complete room of a per-room round draws red (`roomRowResult`): no band, or an eliminate band. */
+/**
+ * The units a complete room of a per-room round counts out: the rows of `roomRows`, each read by `roomRowResult` as the
+ * Bracket reads it before the round is sent on (no lucky loser is known, a best place or a lucky chance is still a
+ * candidate): a row that reads red (eliminate) or as a place in a ranking room (out of the bracket, playing for places).
+ * A room with one present unit is a walkover: nobody there is placed, only its absentees are read.
+ */
 function outOfCompleteRooms(
   state: TournamentState,
   roundIndex: number,
@@ -344,34 +345,20 @@ function outOfCompleteRooms(
     const room = Number(roomKey);
     if (!Number.isInteger(room) || isUncontestedRoom(state, roundIndex, room)) continue;
     if (!isRoomScored(state, roundIndex, room)) continue;
-    const scored = scoreRoom(state, roundIndex, room, null);
-    // A room with one present unit is a walkover: nobody there is placed.
-    const placed = isWalkoverRoom(state, roundIndex, room)
-      ? []
-      : orderRoomWithPlaces(scored, roundIndex, room, state);
-    for (const { entry, place } of placed) {
-      const band = exitBandAtRank(rooms[room - 1] ?? [], place);
-      if (!pending.has(entry.name) && (!band || band.kind === 'eliminate')) out.add(entry.name);
-    }
-    const round = state.rounds[roundIndex];
-    // An absentee of a winners round drops to the losers bracket: still in play.
-    if (round.bracket === 'winners') continue;
-    const absent = absentInRoom(state, roundIndex, room);
-    for (const [index, name] of absent.entries()) {
-      // An absentee is ranked last of its room: a custom bracket or Kings Valley routes it by that rank, every other round cuts it.
-      const band = exitBandAtRank(rooms[room - 1] ?? [], scored.length + index + 1);
-      // A custom bracket of absenceVersion 2 keeps an absentee only where the room's last place goes.
-      const roomSize = scored.length + absent.length;
-      const leaves = absenteeLeavesCustomBracket(state, round, room, roomSize, scored.length + index);
-      const bestPlaceOut = band?.kind === 'best-place' && band.otherwise === 'eliminate';
-      if (
-        leaves ||
-        !(round.isWaterfall || round.isKingsValley) ||
-        !band ||
-        band.kind === 'eliminate' ||
-        bestPlaceOut
-      )
-        out.add(name);
+    const walkover = isWalkoverRoom(state, roundIndex, room);
+    for (const row of roomRows(state, roundIndex, room).rows) {
+      if (walkover && !row.absent) continue;
+      const { result } = roomRowResult({
+        rule: { kind: 'per-room', rooms },
+        bands: rooms[room - 1] ?? [],
+        rank: row.rank,
+        absentee: row.fate,
+        lucky: false,
+        pendingTie: pending.has(row.name),
+        roomComplete: true,
+        roundDecided: false,
+      });
+      if (result === 'eliminate' || result === 'place') out.add(row.name);
     }
   }
   return out;
