@@ -23,7 +23,7 @@ import { roomExitLines } from '../tournament/components/exit-lines';
 import { placeInRoom } from '../tournament/components/folded-round';
 import { followBannerText } from '../tournament/components/follow-text';
 import { luckyLoserNames } from './room-row-inputs';
-import { absenteeFate, advanceResult, roomRowResult } from './room-row-result';
+import { absenteeFate, advanceResult, roomRowResult } from '../../domain/tournament/room-row-result';
 
 /** What the Bracket draws for a best place: the row stripe and star, the exit pop-up, the follow banner and the legend. */
 

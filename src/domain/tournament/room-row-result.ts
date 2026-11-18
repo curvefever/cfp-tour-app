@@ -1,6 +1,28 @@
-import { exitBandAtRank, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
-import type { TournamentRound } from '../../domain/tournament/types';
-import { destinationGroupResult, type RowResult } from '../tournament/components/result-row';
+import { exitBandAtRank, type RoomExitBand, type RoundExitRule } from './room-exits';
+import type { TournamentRound } from './types';
+
+export type RowResult =
+  | 'advance'
+  | 'advance-second'
+  | 'advance-third'
+  | 'advance-placement'
+  | 'place'
+  | 'drop'
+  | 'eliminate'
+  | 'lucky'
+  | 'candidate'
+  | 'pending'
+  | 'undecided'
+  | 'promote'
+  | 'stay'
+  | 'demote'
+  | '';
+
+/** The result of a row going on to a destination of the given group: the first group green, the second yellow, the third and later purple. */
+export function destinationGroupResult(group = 0): RowResult {
+  if (group <= 0) return 'advance';
+  return group === 1 ? 'advance-second' : 'advance-third';
+}
 
 export interface RoomRowInput {
   /** The round's exit rule: only a per-room rule gives a row a result of its own. */

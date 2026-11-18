@@ -4,7 +4,7 @@ import type { ActiveRanking } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { placeInRoom } from '../tournament/components/folded-round';
 import { luckyLoserNames } from '../bracket/room-row-inputs';
-import { roomRowResult } from '../bracket/room-row-result';
+import { roomRowResult } from '../../domain/tournament/room-row-result';
 import type { RowResult } from '../tournament/components/result-row';
 import { isRoundDone } from '../../domain/tournament/round-columns';
 

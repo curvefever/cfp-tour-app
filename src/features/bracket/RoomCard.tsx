@@ -19,7 +19,7 @@ import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { placesLine, type RankingRoomPlaces } from '../../domain/tournament/ranking-places';
 import { roomShowsGameColumns, scrollableCardClass, scrollableRowsClass } from './game-columns';
 import { LoneUnitRow, RoomRow } from './RoomRow';
-import { absenteeFate, roomRowResult } from './room-row-result';
+import { absenteeFate, roomRowResult } from '../../domain/tournament/room-row-result';
 import { roomTitle } from '../tournament/components/room-title';
 import { destinationLabel } from '../tournament/components/exit-text';
 import { isRoundDone, isRoundReached } from '../../domain/tournament/round-columns';

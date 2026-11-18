@@ -15,7 +15,7 @@ import { chanceSpots } from './group-exit-text';
 import { standingsNames } from './standings-names';
 import { standingsRowResult, stripeTone, type StripeTone } from './result-row';
 import { destinationLabel } from './exit-text';
-import { advanceResult } from '../../bracket/room-row-result';
+import { advanceResult } from '../../../domain/tournament/room-row-result';
 
 /** One line of an exit pop-up: a stripe colour (none for pooling rooms), the places it covers and where they go. */
 export interface ExitLine {

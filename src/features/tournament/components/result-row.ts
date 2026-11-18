@@ -4,30 +4,17 @@ import {
   isStandingsRowOut,
   standingsBandAt,
 } from '../../../domain/tournament/standings-display';
+import { destinationGroupResult, type RowResult } from '../../../domain/tournament/room-row-result';
 import { cn } from '../../../components/ui';
+
+/** What a row of the Bracket or a standings table reads (defined with the rows' rule, `room-row-result.ts`). */
+export { destinationGroupResult, type RowResult };
 
 /** Row styling shared by Bracket's room rows and the standings tables, so a result looks the same in both. */
 export const bracketRowBase = 'px-3 py-1 text-xs';
 
 /** A row of a Bracket card: at least the row height, its content centred vertically (score inputs below the line stack as before). */
 export const roomRowClass = cn(bracketRowBase, 'flex min-h-8 flex-col justify-center');
-
-export type RowResult =
-  | 'advance'
-  | 'advance-second'
-  | 'advance-third'
-  | 'advance-placement'
-  | 'place'
-  | 'drop'
-  | 'eliminate'
-  | 'lucky'
-  | 'candidate'
-  | 'pending'
-  | 'undecided'
-  | 'promote'
-  | 'stay'
-  | 'demote'
-  | '';
 
 /** The colour of a result stripe; `dashed` is the empty, outlined stripe of an undecided row. */
 export type StripeTone = 'green' | 'yellow' | 'orange' | 'purple' | 'red' | 'neutral' | 'dashed';
@@ -61,12 +48,6 @@ export function stripeTone(result: RowResult): StripeTone | null {
     case '':
       return null;
   }
-}
-
-/** The result of a row going on to a destination of the given group: the first group green, the second yellow, the third and later purple. */
-export function destinationGroupResult(group = 0): RowResult {
-  if (group <= 0) return 'advance';
-  return group === 1 ? 'advance-second' : 'advance-third';
 }
 
 /** A row's surface: alternating grounds, flush against each other; a followed row gets the lighter ground and a ring. */

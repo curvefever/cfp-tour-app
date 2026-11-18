@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
-import { buildQualWaterfall } from '../../domain/tournament/__tests__/qual-waterfall';
-import { removeRosterUnit } from '../../domain/tournament/mutations';
-import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../../domain/tournament/room-exits';
-import { advanceTournamentRound } from '../../domain/tournament/transitions';
-import type { TournamentState } from '../../domain/tournament/types';
-import { WATERFALL_EXAMPLES } from '../../domain/tournament/waterfall-examples';
-import { stripeTone } from '../tournament/components/result-row';
-import { absenteeFate, roomRowResult, type RoomRowInput } from './room-row-result';
+import { buildState, scoreCurrentRound } from '../__tests__/play-through';
+import { buildQualWaterfall } from '../__tests__/qual-waterfall';
+import { removeRosterUnit } from '../mutations';
+import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../room-exits';
+import { advanceTournamentRound } from '../transitions';
+import type { TournamentState } from '../types';
+import { WATERFALL_EXAMPLES } from '../waterfall-examples';
+import { stripeTone } from '../../../features/tournament/components/result-row';
+import { absenteeFate, roomRowResult, type RoomRowInput } from '../room-row-result';
 
 const perRoom = (bands: RoomExitBand[]): RoundExitRule => ({ kind: 'per-room', rooms: [bands] });
 

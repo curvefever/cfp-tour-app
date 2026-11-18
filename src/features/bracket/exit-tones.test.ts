@@ -5,7 +5,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../../domain/t
 import type { TournamentState } from '../../domain/tournament/types';
 import { rosterFor, testRuntime } from '../../domain/tournament/__tests__/test-fixtures';
 import { stripeTone, type StripeTone } from '../tournament/components/result-row';
-import { advanceResult } from './room-row-result';
+import { advanceResult } from '../../domain/tournament/room-row-result';
 
 /**
  * In a room, two different destinations never look the same: the Bracket has three colours for destinations
