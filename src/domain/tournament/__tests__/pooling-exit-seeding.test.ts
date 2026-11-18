@@ -13,7 +13,10 @@ import { createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';
 import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
-import { buildRound } from './test-fixtures';
+import { answerAbsence } from '../absences';
+import { indexOf } from './dependency-play-fixtures';
+import { atEntry, swiss } from './swiss-source-fixtures';
+import { buildRound, oneRoomState } from './test-fixtures';
 
 const ranks = (count: number) => Array.from({ length: count }, (_, index) => `U${index + 1}`);
 
@@ -166,7 +169,12 @@ describe('seedFromPoolingExit: pairs met in an earlier qualification round', () 
 });
 
 /** A state at the last qualification round, `count` units in rooms of two, `met` pairs having shared a room in it. */
-function atQualificationExit(count: number, nextRooms: number[], met: Array<[string, string]> = []) {
+function atQualificationExit(
+  count: number,
+  nextRooms: number[],
+  met: Array<[string, string]> = [],
+  pooling: 'qual-table' | 'swiss' = 'qual-table',
+) {
   const names = ranks(count);
   // The met pairs share a room of the played round; every other unit has a room of its own (no other pair has met).
   const together = met.flat();
@@ -176,11 +184,11 @@ function atQualificationExit(count: number, nextRooms: number[], met: Array<[str
     isLucky: false,
   }));
   return createDefaultTournamentState({
-    cfg: { poolingPhase: 'qual-table', qualAdv: nextRooms.reduce((sum, size) => sum + size, 0) },
+    cfg: { poolingPhase: pooling, qualAdv: nextRooms.reduce((sum, size) => sum + size, 0) },
     rounds: [
       buildRound({
         roundNum: 1,
-        isQual: true,
+        ...(pooling === 'swiss' ? { isSwiss: true } : { isQual: true }),
         isNoElim: true,
         rooms: [2, ...Array<number>(count - 2).fill(1)],
         players: count,
@@ -236,6 +244,48 @@ describe('seedFromPoolingExit: the draw after a qualification table', () => {
     expect(roomsByRank(balance, order)).toBe('1v4 | 2v3');
     const random = tieredSeed({ state, roundIndex: 0, advancing: advance(order), seedingOverride: 'random' });
     expect(random.seeded).toHaveLength(4);
+  });
+});
+
+describe('seedFromPoolingExit: a Swiss is drawn strictly by the standings', () => {
+  const advance = (names: string[]) => names.map((name) => ({ name, isLucky: false }));
+  const order = ranks(6);
+  /** 12 units, the top 6 into 3 rooms of 2; the first and the sixth of the exit order have met. */
+  const exitWith = (pooling: 'qual-table' | 'swiss') =>
+    atQualificationExit(12, [2, 2, 2], [['U1', 'U6']], pooling);
+
+  it('after a Swiss: 1v6 | 2v5 | 3v4 although 1 and 6 have met', () => {
+    const seeded = seedFromPoolingExit({
+      state: exitWith('swiss'),
+      roundIndex: 0,
+      advancing: advance(order),
+    });
+    expect(roomsByRank(seeded, order)).toBe('1v6 | 2v5 | 3v4');
+  });
+
+  it('after a qualification table the same met pair is still parted by a trade with a neighbour', () => {
+    const seeded = seedFromPoolingExit({
+      state: exitWith('qual-table'),
+      roundIndex: 0,
+      advancing: advance(order),
+    });
+    expect(roomsByRank(seeded, order)).toBe('1v5 | 2v6 | 3v4');
+  });
+
+  it('after a Swiss with a likely absentee: the absentee is placed as before, the rest follow the plain snake', () => {
+    const state = oneRoomState({
+      players: ranks(8),
+      rounds: [{ isSwiss: true }, { rooms: [4, 4], players: 8 }],
+      scores: Object.fromEntries(
+        ranks(8).map((_, index) => [`r0-rm1-p${index}`, index === 0 || index === 7 ? 0 : 50 - index]),
+      ),
+    });
+    const withVersion = { ...state, gamemodeConfig: { ...state.gamemodeConfig, absenceVersion: 3 as const } };
+    const absent = answerAbsence(withVersion, ['r0-rm1-p0', 'r0-rm1-p7'], 'absent');
+    const seeded = seedFromPoolingExit({ state: absent, roundIndex: 0, advancing: advance(ranks(8)) });
+    // Everyone shared the one room of round 1, so a qualification table would trade; a Swiss does not.
+    // U1 and U8 sit in rooms 1 and 2; U2..U7 snake over the three seats left in each.
+    expect(roomsByRank(seeded, ranks(8))).toBe('1v2v5v6 | 3v4v7v8');
   });
 });
 
@@ -301,7 +351,7 @@ describe('the first bracket round after a qualification table or Swiss, played t
   const base: Setup = { gameFormat: 'team-4v4', qualAdv: '8', scheduleLogic: 'single-elimination' };
 
   it.each(['qual-table', 'swiss'] as const)(
-    '%s, 16 teams into 8: 1v8 | 2v7 | 3v6 | 4v5 unless a pair has met, then one rank off',
+    '%s, 16 teams into 8: 1v8 | 2v7 | 3v6 | 4v5, one rank off where a pair has met (after a Swiss: always the plain snake)',
     (poolingPhase) => {
       let plain = 0;
       for (let seed = 1; seed <= 12; seed += 1) {
@@ -322,7 +372,7 @@ describe('the first bracket round after a qualification table or Swiss, played t
           [3, 6],
           [4, 5],
         ].some(([first, second]) => met.has(roomPairKey(order[first - 1], order[second - 1])));
-        if (!snakeMet) {
+        if (poolingPhase === 'swiss' || !snakeMet) {
           expect(roomsByRank(seeded, order), `seed ${seed}`).toBe(snake);
           plain += 1;
         }
@@ -508,20 +558,15 @@ R2.B: 1->Final, 2->eliminated
           : selectGroupExit(state, state.groupStandings).advancing;
       expect(bracketRooms(state).flat().sort()).toEqual([...order].sort());
       const snake = snakeSeed(order, state.rounds[state.curRound].rooms);
+      // After a Swiss the draw is the plain snake whatever met; after groups it is, unless two group-mates share a room.
       const unmet =
-        poolingPhase === 'swiss'
-          ? ![
-              [0, 7],
-              [1, 6],
-              [2, 5],
-              [3, 4],
-            ].some(([first, second]) => metBefore(state).has(roomPairKey(order[first], order[second])))
-          : [...new Set(snake.map((entry) => entry.room))].every((room) => {
-              const labels = snake
-                .filter((entry) => entry.room === room)
-                .map((entry) => state.groups.find((group) => group.members.includes(entry.name))?.label);
-              return new Set(labels).size === labels.length;
-            });
+        poolingPhase === 'swiss' ||
+        [...new Set(snake.map((entry) => entry.room))].every((room) => {
+          const labels = snake
+            .filter((entry) => entry.room === room)
+            .map((entry) => state.groups.find((group) => group.members.includes(entry.name))?.label);
+          return new Set(labels).size === labels.length;
+        });
       if (unmet) {
         expect(roomsByRank(state.assignments[state.curRound], order), `seed ${seed}`).toBe(
           roomsByRank(snake, order),
@@ -536,7 +581,7 @@ R2.B: 1->Final, 2->eliminated
 describe('a Custom bracket round fed only by the Qual source', () => {
   const pool = (count: number) =>
     ranks(count).map((name, index) => ({ name, isLucky: false, tierRank: index, pct: 1 }));
-  const noMeetings = { assignments: [] as RoundAssignment[][] };
+  const noMeetings = { assignments: [] as RoundAssignment[][], rounds: [] };
 
   it('16 ranked units into 2 rooms of 8: ranks 1,4,5,8,9,12,13,16 | 2,3,6,7,10,11,14,15 before the near-neighbour pass', () => {
     const seeded = seedPoolByStanding({
@@ -568,10 +613,66 @@ describe('a Custom bracket round fed only by the Qual source', () => {
     const seeded = seedPoolByStanding({
       pool: pool(8),
       roomSizes: [4, 4],
-      state: { assignments: [played] },
+      state: { assignments: [played], rounds: [] },
       targetRoundIndex: 3,
     });
     expect(roomsByRank(seeded, ranks(8))).toBe('1v4v5v7 | 2v3v6v8');
+  });
+
+  describe('after a Swiss', () => {
+    const swissState = (met: Array<[string, string]>) => ({
+      assignments: [
+        met.flatMap(([first, second], index) => [
+          { name: first, room: index + 1, isLucky: false },
+          { name: second, room: index + 1, isLucky: false },
+        ]),
+      ],
+      rounds: [buildRound({ roundNum: 1, isSwiss: true, isNoElim: true })],
+    });
+    const layer = (names: string[], state: ReturnType<typeof swissState>) =>
+      seedPoolByStanding({
+        pool: names.map((name, index) => ({ name, isLucky: false, tierRank: index, pct: 1 })),
+        roomSizes: [2, 2, 2],
+        state,
+        targetRoundIndex: 3,
+      });
+
+    it('each layer is drawn 1v6 | 2v5 | 3v4 of its own ranks, the pairs that have met kept', () => {
+      const state = swissState([
+        ['U1', 'U6'],
+        ['U7', 'U12'],
+        ['U8', 'U11'],
+      ]);
+      expect(roomsByRank(layer(ranks(12).slice(0, 6), state), ranks(12).slice(0, 6))).toBe('1v6 | 2v5 | 3v4');
+      expect(roomsByRank(layer(ranks(12).slice(6), state), ranks(12).slice(6))).toBe('1v6 | 2v5 | 3v4');
+    });
+
+    it('a Swiss of 13 (one bye each round) into layers 1-4 and 5-8: each layer is the plain snake of the exit order', () => {
+      const start = swiss(13);
+      const entry = atEntry(start);
+      const last = start.rounds.findIndex((round) => round.isWaterfall) - 1;
+      const exit = (entry.rounds[last].standingsExitOrder ?? []).map((unit) => unit.name);
+      const layerRooms = (label: string) =>
+        entry.assignments[indexOf(entry, label)].reduce<string[][]>((rooms, unit) => {
+          if (unit.room !== null) (rooms[unit.room - 1] ??= []).push(unit.name);
+          return rooms;
+        }, []);
+      for (const [label, ranksOfLayer] of [
+        ['U', exit.slice(0, 4)],
+        ['L', exit.slice(4, 8)],
+      ] as const) {
+        const [first, second, third, fourth] = ranksOfLayer;
+        expect(
+          layerRooms(label).map((room) => [...room].sort()),
+          label,
+        ).toEqual(
+          [
+            [first, fourth],
+            [second, third],
+          ].map((room) => [...room].sort()),
+        );
+      }
+    });
   });
 
   it('is told by the stored routes: the Qual source names it and no waterfall round routes into it', () => {

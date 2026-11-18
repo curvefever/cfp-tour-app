@@ -31,6 +31,10 @@ export const isPoolingRound = (round: TournamentRound): boolean =>
 export const swissRoutesItsStandings = (state: Pick<TournamentState, 'cfg' | 'rounds'>): boolean =>
   state.cfg.poolingPhase === 'swiss' && state.rounds.some((round) => round.isSwiss && round.standingsRoutes);
 
+/** Whether the tournament's pooling phase is a Swiss: it has Swiss rounds, adaptive or fixed (a tournament has one pooling kind). */
+export const hasSwissPooling = (state: Pick<TournamentState, 'rounds'>): boolean =>
+  state.rounds.some((round) => round.isSwiss);
+
 /** A qualification or Swiss round whose result counts toward the standings (the rule of `computeQualificationStandings`). */
 export const isCountedPoolingRound = (round: TournamentRound): boolean =>
   (round.isQual || !!round.isSwiss) && !round.excludeFromStandings;

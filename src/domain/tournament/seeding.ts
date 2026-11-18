@@ -3,6 +3,7 @@ import { lateJoinersOf } from './late-joiners';
 import { likelyAbsentees } from './likely-absentees';
 import { lexicographicMinAssignment } from './cheapest-assignment';
 import type { GroupExitSelection } from './group-exit';
+import { hasSwissPooling } from './pooling';
 import {
   isFullFieldRound,
   smallerRoomSeatsBefore,
@@ -235,7 +236,7 @@ export function metPairs(
 }
 
 /**
- * A greedy pass over a seeding by exit order: in each room, a pair that has met before is parted by trading the
+ * A greedy pass over a seeding by exit order (the separation after a qualification table): in each room, a pair that has met before is parted by trading the
  * lower-ranked unit of the pair with the unit one rank below it in the exit order, then the one above, then the same
  * for the higher-ranked unit. A trade is made only between two rooms and only when it strictly lowers the number of
  * met pairs in them. A unit trades at most once, so it never moves more than one rank in the order.
@@ -295,12 +296,12 @@ export function avoidMetPairsNearRank(
  * A pool that arrives in standings order (a waterfall round fed only by the Qual or Groups source: `tierRank` is the
  * standing within the pool), drawn like the first bracket round after a pooling exit: the snake over the rooms, then
  * the separation for the kind of pooling phase. After a group stage (`groups` given) the group-mates apart, with the
- * group places from `throughByGroup`; otherwise the near-neighbour pass for the units that have met.
+ * group places from `throughByGroup`; otherwise the separation of `separateAfterExit`.
  */
 export function seedPoolByStanding(options: {
   pool: PendingBracketSeed[];
   roomSizes: number[];
-  state: Pick<TournamentState, 'assignments'>;
+  state: Pick<TournamentState, 'assignments' | 'rounds'>;
   targetRoundIndex: number;
   groups?: { groups: TournamentGroup[]; throughByGroup: string[][] };
   /** The units of the pool likely to be absent (`likelyAbsentees`): placed first, one to a room. */
@@ -319,8 +320,21 @@ export function seedPoolByStanding(options: {
             advancing: exitOrder,
             throughByGroup: groups.throughByGroup,
           })
-        : avoidMetPairsNearRank(snake, exitOrder, metPairs(state, targetRoundIndex - 1)),
+        : separateAfterExit(state, targetRoundIndex - 1)(snake, exitOrder),
   );
+}
+
+/**
+ * The separation after the snake, for an exit that is not a group stage: a qualification table trades the units that
+ * have met (`avoidMetPairsNearRank`); a Swiss is drawn strictly by the standings, rematches allowed (its rounds
+ * already refuse a rematch where they can, and the standings reflect who each unit faced).
+ */
+function separateAfterExit(
+  state: Pick<TournamentState, 'assignments' | 'rounds'>,
+  throughRoundIndex: number,
+): (snake: RoundAssignment[], exitOrder: string[]) => RoundAssignment[] {
+  if (hasSwissPooling(state)) return (snake) => snake;
+  return (snake, exitOrder) => avoidMetPairsNearRank(snake, exitOrder, metPairs(state, throughRoundIndex));
 }
 
 /**
@@ -357,8 +371,9 @@ function snakeAroundLikelyAbsentees(
 /**
  * The first bracket round after a qualification table, Swiss or group stage, drawn by the exit order (`advancing`,
  * best first): the snake over the round's rooms, so the best meets the weakest, then the separation pass for the kind
- * of pooling phase. Groups: the group-mates apart (`avoidSameGroupInFirstBracketRound`); otherwise the units that have
- * met before, by a trade with a near neighbour in the order. A seeding override keeps its own fill, over the same order.
+ * of pooling phase. Groups: the group-mates apart (`avoidSameGroupInFirstBracketRound`); a qualification table: the units
+ * that have met before, by a trade with a near neighbour in the order; a Swiss: none, strictly by the standings. A seeding
+ * override keeps its own fill, over the same order.
  */
 export function seedFromPoolingExit(options: {
   state: TournamentState;
@@ -381,7 +396,7 @@ export function seedFromPoolingExit(options: {
           rooms,
           likelyAbsentees(state, roundIndex + 1),
           roundIndex + 1,
-          (snake, exitOrder) => avoidMetPairsNearRank(snake, exitOrder, metPairs(state, roundIndex)),
+          separateAfterExit(state, roundIndex),
         );
   }
   return isGroupExit ? avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit) : seeded;
