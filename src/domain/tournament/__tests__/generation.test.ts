@@ -342,7 +342,7 @@ describe('generateTournament -- Swiss format gating', () => {
     ['team-2v2v2v2', 10, '2v2v2v2'],
     ['team-3v3v3', 8, '3v3v3'],
   ] as const)(
-    'refuses Swiss for %s -- fold-pairing needs a head-to-head room shape',
+    'refuses Swiss for %s -- Swiss pairing needs a head-to-head room shape',
     (gameFormat, confirmedCount, label) => {
       const state = createDefaultTournamentState({
         confirmedCount,

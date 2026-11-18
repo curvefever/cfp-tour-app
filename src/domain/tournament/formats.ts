@@ -167,7 +167,11 @@ export const POOLING_PHASE_WORDS: Record<PoolingPhaseKey, ChoiceWords<string | n
     recap: 'Qualification Table',
     list: 'Qualification table',
   },
-  swiss: { setup: 'Swiss — fold-paired rounds feed cumulative standings', recap: 'Swiss', list: 'Swiss' },
+  swiss: {
+    setup: 'Swiss — rounds paired by points feed cumulative standings',
+    recap: 'Swiss',
+    list: 'Swiss',
+  },
   'group-stage': {
     setup: 'Group Stage — round-robin groups, top finishers advance',
     recap: 'Group Stage',

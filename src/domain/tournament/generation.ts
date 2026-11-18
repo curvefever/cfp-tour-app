@@ -231,7 +231,7 @@ export function generateTournament(
   };
   if (config.poolingPhase === 'swiss' && format.idealRoomSize !== 2) {
     return generationError(
-      `Swiss isn't available for ${format.label} — fold-pairing only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
+      `Swiss isn't available for ${format.label} — Swiss pairing only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
     );
   }
   if (config.poolingPhase === 'group-stage') {

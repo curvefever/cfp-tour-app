@@ -118,7 +118,7 @@ export function FormatPanel({
           ],
     [raceCompatible],
   );
-  // Swiss fold-pairing and Group Stage round-robin scheduling both only make
+  // Swiss pairing and Group Stage round-robin scheduling both only make
   // sense for a head-to-head (exactly 2 units per room) format — neither can
   // represent a multi-way FFA/team room.
   const headToHeadOnly = format?.idealRoomSize === 2;

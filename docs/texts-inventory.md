@@ -950,7 +950,7 @@ Setup of a draft: TOURNAMENT, FORMAT, ROSTER, SCHEDULE PREVIEW panels, the water
 | `Double elimination — FFA/Team` | fixed | admin | [FormatPanel.tsx:64](src/features/admin/setup/FormatPanel.tsx:64) |  |
 | `None — standard elimination from R1` | fixed | admin | [FormatPanel.tsx:73](src/features/admin/setup/FormatPanel.tsx:73) |  |
 | `Qualification Table — R1/R2/R3 feed cumulative table` | fixed | admin | [FormatPanel.tsx:74](src/features/admin/setup/FormatPanel.tsx:74) |  |
-| `Swiss — fold-paired rounds feed cumulative standings` | fixed | admin | [FormatPanel.tsx:77](src/features/admin/setup/FormatPanel.tsx:77) |  |
+| `Swiss — rounds paired by points feed cumulative standings` | fixed | admin | [FormatPanel.tsx:77](src/features/admin/setup/FormatPanel.tsx:77) |  |
 | `Group Stage — round-robin groups, top finishers advance` | fixed | admin | [FormatPanel.tsx:78](src/features/admin/setup/FormatPanel.tsx:78) |  |
 | `FORMAT` | fixed | admin | [FormatPanel.tsx:127](src/features/admin/setup/FormatPanel.tsx:127) |  |
 | `Game format` | fixed | admin | [FormatPanel.tsx:129](src/features/admin/setup/FormatPanel.tsx:129) |  |
