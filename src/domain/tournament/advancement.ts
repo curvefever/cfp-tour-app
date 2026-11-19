@@ -22,7 +22,7 @@ import {
 import { usesGroupAverages, usesScaledPoints } from './rule-versions';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { levelRuns } from './level-runs';
-import { matchResultSettings, matchResultsOfRoom, matchResultsWin } from './match-results';
+import { matchResultSettings, matchResultsOfRoom, matchResultsWalkover } from './match-results';
 import { lateJoinersOf } from './late-joiners';
 import { unitRankScore } from './match-format';
 import {
@@ -740,7 +740,7 @@ export function relativeRoomShare(
 
 /**
  * A unit's totals over its counted rounds. totalFP (the name is persisted) is the SUM of the round points,
- * higher is better: a counted round not played earns 0, a bye earns 1st-place points. It stays null until the
+ * higher is better: a counted round not played earns 0, a bye earns 1st-place points (a Tie Win under match results). It stays null until the
  * unit has a result. The tie-breaker roomShare averages the relative room share over the rounds played in a
  * room (byes skipped). `averaged` (a group stage with per-match standings) adds the counted matches and the points
  * per match, which then rank the table.
@@ -824,18 +824,26 @@ export function activeGroupByes(state: TournamentState, round: TournamentRound):
   return (round.groupByes ?? []).filter((name) => !idle.has(name));
 }
 
-/** Units that sit a counted round out with a win: its byes, and every unit alone in a room (its opponent was removed or absent). */
-function walkoverNames(state: TournamentState, roundIndex: number, round: TournamentRound): Set<string> {
-  if (!roundHasBegun(state, roundIndex)) return new Set();
-  const names = new Set(round.isGroupStage ? activeGroupByes(state, round) : (state.byes[roundIndex] ?? []));
+/** The units that sit a counted round out: those on a bye, and those alone in a room (their opponent was removed or absent). */
+interface Walkovers {
+  byes: Set<string>;
+  lone: Set<string>;
+}
+
+function walkoverNames(state: TournamentState, roundIndex: number, round: TournamentRound): Walkovers {
+  const walkovers: Walkovers = { byes: new Set(), lone: new Set() };
+  if (!roundHasBegun(state, roundIndex)) return walkovers;
+  walkovers.byes = new Set(
+    round.isGroupStage ? activeGroupByes(state, round) : (state.byes[roundIndex] ?? []),
+  );
   for (let room = 1; room <= round.rooms.length; room += 1) {
     if (!isWalkoverRoom(state, roundIndex, room)) continue;
     const absent = new Set(absentInRoom(state, roundIndex, room));
     for (const entry of state.assignments[roundIndex]) {
-      if (entry.room === room && !absent.has(entry.name)) names.add(entry.name);
+      if (entry.room === room && !absent.has(entry.name)) walkovers.lone.add(entry.name);
     }
   }
-  return names;
+  return walkovers;
 }
 
 /** What a walkover win is: the places a won match is read from, and what the outcome is marked as. */
@@ -844,20 +852,22 @@ export interface WalkoverKind {
   roomSize: number;
   bye: boolean;
   walkover: boolean;
+  /** Under match results, the win is a Tie Win for each game instead of a Win (a Swiss or qualification bye). */
+  tieWin?: boolean;
 }
 
 /**
  * A win taken without a match, worth what a played clean win gives: the winner's points of a room of `roomSize`
- * (Standard points / Custom table), or a Win for each game of the round under match results (a Best of N as one match).
- * No score and no room share.
+ * (Standard points / Custom table), or a Win (a Tie Win for a Swiss or qualification bye) for each game of the round
+ * under match results (a Best of N as one match). No score and no room share.
  */
 export function walkoverOutcome(
   state: TournamentState,
   roundIndex: number,
-  { roomSize, bye, walkover }: WalkoverKind,
+  { roomSize, bye, walkover, tieWin }: WalkoverKind,
 ): RoundOutcome {
   const settings = matchResultSettings(state);
-  const win = settings ? matchResultsWin(state, roundIndex, settings) : null;
+  const win = settings ? matchResultsWalkover(state, roundIndex, settings, tieWin ? 'TW' : 'W') : null;
   return {
     roundIndex,
     score: null,
@@ -870,8 +880,11 @@ export function walkoverOutcome(
   };
 }
 
-/** A unit alone in its room (a bye, or its opponent was removed or absent) wins the round: the winner's points of a room of 1. */
+/** A unit alone in its room (its opponent was removed or absent) wins the round: the winner's points of a room of 1. */
 const SOLO_WIN: WalkoverKind = { roomSize: 1, bye: true, walkover: false };
+
+/** A bye in Swiss or a qualification table: the winner's points of a room of 1, or under match results a Tie Win for each game. */
+const POOLING_BYE: WalkoverKind = { ...SOLO_WIN, tieWin: true };
 
 /** Every scored unit of a room with its result, best place first. */
 function roomOutcomes(
@@ -926,9 +939,11 @@ export function computeQualificationStandings(
         accumulators.get(name)?.rounds.push(outcome);
       }
     }
-    for (const name of walkoverNames(state, roundIndex, round)) {
+    const { byes, lone } = walkoverNames(state, roundIndex, round);
+    for (const name of byes)
+      accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex, POOLING_BYE));
+    for (const name of lone)
       accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex, SOLO_WIN));
-    }
   }
   return materializeStandings([...accumulators.values()]);
 }
@@ -969,7 +984,8 @@ export function computeGroupStandings(
       if (match) playedMatches.push(match);
     }
     if (averaged) continue;
-    for (const name of walkoverNames(state, roundIndex, round)) {
+    const { byes, lone } = walkoverNames(state, roundIndex, round);
+    for (const name of [...byes, ...lone]) {
       byGroup
         .get(groupOf.get(name) ?? '')
         ?.get(name)

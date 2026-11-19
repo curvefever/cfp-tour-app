@@ -80,6 +80,12 @@ function pointsSentence(state: TournamentState): string {
   return `Each counted round, your place in your room earns points: ${places}${sizeNote}.`;
 }
 
+/** What a bye is worth, as the start of a sentence: a tie win in a Swiss or qualification table scored by match results, else a win. */
+function byeSentence(state: TournamentState, display: StandingsDisplay): string {
+  const tieWin = matchResultSettings(state) !== null && !display.perGroup;
+  return `A bye counts as a ${tieWin ? 'tie win' : 'win'};`;
+}
+
 /** "Round 1 doesn't count." / "Rounds 1–2 don't count."; empty when every round counts. */
 function nonCountingSentence(state: TournamentState): string {
   const roundNums = state.rounds.filter((round) => round.excludeFromStandings).map((round) => round.roundNum);
@@ -112,7 +118,7 @@ export function standingsExplanation(state: TournamentState, display: StandingsD
     [
       perMatch
         ? `Groups are ranked by points per match (Pts / match). A bye is not a match. A match against a withdrawn opponent is void. A match against an absent opponent is void for the ${unit} that turned up, unless it has no other counted match: then it counts as a win. The absent ${unit} gets 0 for it.`
-        : 'A bye counts as a win; a missed round earns 0.',
+        : `${byeSentence(state, display)} a missed round earns 0.`,
       nonCountingSentence(state),
     ]
       .filter(Boolean)

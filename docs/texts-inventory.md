@@ -582,7 +582,7 @@ The Standings tab. Its tab name, heading label and explanation title are chosen 
 | Points sentence (standard, scaled points) | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) | Each counted round, your place in your room earns points: 1st = 10, 2nd = 8, 3rd = 6, 4th = 5, 5th = 4, 6th = 3, 7th = 2, 8th = 1. In a room of 7: 1st = 10, 2nd = 7.5, 3rd = 5.5, 4th = 4.5, 5th = 3.5, 6th = 2, 7th = 1 (places spread evenly between first and last). |
 | Points sentence (standard, tournament made before scaled points) | [standings-text.ts:55](src/features/tournament/components/standings-text.ts:55) | Each counted round, your place in your room earns points: 1st = 8, 2nd = 7, …, 8th = 1, whatever the size of your room. |
 | Points sentence (custom table / 1v1) | [standings-text.ts:22](src/features/tournament/components/standings-text.ts:22) | Each counted round, your place in your room earns points from the organiser's table: 1st = 10, 2nd = 8, … · Each counted round, a win earns 3 points and a loss 1. |
-| Non-counting rounds | [standings-text.ts:36](src/features/tournament/components/standings-text.ts:36) | A bye counts as a win; a missed round earns 0. Round 1 doesn't count. / Rounds 1–2 don't count. |
+| Non-counting rounds | [standings-text.ts:36](src/features/tournament/components/standings-text.ts:36) | A bye counts as a win (a tie win in a Swiss or qualification table under match results); a missed round earns 0. Round 1 doesn't count. / Rounds 1–2 don't count. |
 | Cut sentence | [standings-text.ts:44](src/features/tournament/components/standings-text.ts:44) | Points are added up; most points ranks first. The top 16 go through. (final: qualified; groups: "The top 2 of each group go through."; none: "Everyone goes through." / "Everyone qualified.") |
 | Tie-break | [standings-text.ts:62](src/features/tournament/components/standings-text.ts:62) | On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room). |
 | Table cells | [standings-text.ts:75](src/features/tournament/components/standings-text.ts:75) | Bye · 147% · — · 0 (a missed round) |
@@ -622,7 +622,7 @@ The Standings tab. Its tab name, heading label and explanation title are chosen 
 | `Everyone goes through.` | fixed | viewer | [standings-text.ts:47](src/features/tournament/components/standings-text.ts:47) |  |
 | `The top {cut} of each group {verb}.` | built | viewer | [standings-text.ts:48](src/features/tournament/components/standings-text.ts:48) |  |
 | `The top {cut} {verb}.` | built | viewer | [standings-text.ts:48](src/features/tournament/components/standings-text.ts:48) |  |
-| `A bye counts as a win; a missed round earns 0.` | fixed | viewer | [standings-text.ts:59](src/features/tournament/components/standings-text.ts:59) |  |
+| `A bye counts as a {win / tie win}; a missed round earns 0.` | built | viewer | [standings-text.ts:59](src/features/tournament/components/standings-text.ts:59) |  |
 | `Points are added up; most points ranks first. {cutSentence}` | built | viewer | [standings-text.ts:60](src/features/tournament/components/standings-text.ts:60) |  |
 | `On equal points, the tie-break is how you scored compared with your rooms' average (100% = an average score in your room).` | fixed | viewer | [standings-text.ts:61](src/features/tournament/components/standings-text.ts:61) |  |
 | `Bye` | fixed | viewer | [standings-text.ts:77](src/features/tournament/components/standings-text.ts:77) |  |

@@ -141,7 +141,7 @@ function withLateJoiners(advancing: SeedCandidate[], joiners: string[]): SeedCan
   return [...advancing, ...absent.map((name) => ({ name, isLucky: false }))];
 }
 
-/** Candidates for a bye: never a late joiner in their first round (a bye counts as a win), unless nobody else is left. */
+/** Candidates for a bye: never a late joiner in their first round (a bye earns points), unless nobody else is left. */
 function byeCandidates(advancing: SeedCandidate[], joiners: ReadonlySet<string>): SeedCandidate[] {
   const regular = advancing.filter((entry) => !joiners.has(entry.name));
   return regular.length ? regular : advancing;

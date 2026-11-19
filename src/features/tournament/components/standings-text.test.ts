@@ -167,6 +167,20 @@ describe('standingsExplanation', () => {
     );
   });
 
+  it('calls a bye a tie win in a Swiss or qualification table under match results, a win in a group stage', () => {
+    const matchResults = {
+      scoring: 'match-results' as const,
+      matchResultPoints: [3, 2, 1, 0] as [number, number, number, number],
+      tieMargin: 100,
+    };
+    expect(standingsExplanation(stateWith(matchResults), display({}, 16))[2]).toBe(
+      'A bye counts as a tie win; a missed round earns 0.',
+    );
+    expect(standingsExplanation(stateWith(matchResults), display({ perGroup: true }, 2))[2]).toBe(
+      'A bye counts as a win; a missed round earns 0.',
+    );
+  });
+
   it('takes the cut from the display: top 16 versus top 24', () => {
     expect(standingsExplanation(stateWith(FOUR), display({}, 16))[3]).toContain('The top 16 go through.');
     expect(standingsExplanation(stateWith(FOUR), display({}, 24))[3]).toContain('The top 24 go through.');

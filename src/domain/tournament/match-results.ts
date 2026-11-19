@@ -216,13 +216,18 @@ export function scoringForPooling<T extends string>(
     : scoring;
 }
 
-/** What a clean win of a head-to-head round is worth under match results: a Win for each game (a Best of N is one match). */
-export function matchResultsWin(
+/**
+ * What a match won without playing is worth under match results: the result `code` (a Win, or a Tie Win for a bye)
+ * for each game of the round, a Best of N counting as one match.
+ */
+export function matchResultsWalkover(
   state: Pick<TournamentState, 'rounds'>,
   roundIndex: number,
   settings: MatchResultSettings,
+  code: 'W' | 'TW',
 ): { points: number; results: MatchResultCode[] } {
   const round = state.rounds[roundIndex];
   const games = round?.bestOf !== undefined ? 1 : Math.max(round?.numGames ?? 1, 1);
-  return { points: settings.points[0] * games, results: Array.from({ length: games }, () => 'W' as const) };
+  const results = Array.from({ length: games }, () => code);
+  return { points: pointsOfResult(code, settings.points) * games, results };
 }

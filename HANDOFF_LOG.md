@@ -6,6 +6,22 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A bye is worth a Tie Win under match results (done — 2026-11-19, on `test`, not pushed)
+
+**Context.** Under match results (Win 3, Tie Win 2, Tie Loss 1, Loss 0) a bye in a Swiss or qualification table earned a Win for each game of the round, the most a played match gives. The bye goes to the lowest-ranked unit, which is where the bracket cut falls (15 players, 12 qualify), so a unit that sat out could pass one that played and took a Tie Win. The organiser's research of 18 graded-scale rulebooks found both values: full win (Netrunner, older X-Wing, Age of Sigmar, Flames of War) and below full (FIDE Double-Swiss gives the second-best level; Armada 80% of the maximum). The organiser chose the Tie Win (2026-11-19). Plan: `plans/2026-11-19-bye-tie-win.md`.
+
+**The change.** `advancement.ts`: `walkoverNames` now returns `{ byes, lone }`; `computeQualificationStandings` gives a bye `POOLING_BYE` (a `WalkoverKind` with `tieWin`) and a lone unit `SOLO_WIN`; the non-averaged group-stage path sums both with `SOLO_WIN`, as before. `match-results.ts`: `matchResultsWin` became `matchResultsWalkover(…, code)`, a Win or a Tie Win for each game (Best of N one match). Standard points and the Custom table are untouched (`tieWin` is read only under match results). Texts: `standings-text.ts` says "A bye counts as a tie win" in a Swiss or qualification table under match results; comment in `transitions.ts`. The standings cell of a bye still reads "Bye" and its points. Docs: `docs/rules.md` (Match results, the bye bullet, Reserve admission), `docs/views.md`, `docs/texts-inventory.md`, `HANDOFF.md`.
+
+**No version switch.** Planner's read-only check of the production index (2026-11-19): no qualification table uses match results, and the only Swiss with byes is the test run 1795088000013; the 3v3 Save Your Buddy event (Swiss) has not started. `old-tournaments.test.ts` passes untouched.
+
+**Tests.** New `bye-tie-win.test.ts`: a 15-unit 1v1 Swiss over 3 rounds (every bye earns 2, result `TW`, no score or place; played rooms still 3 or 0); two games a round earn 4 (two `TW`), a Best of 3 earns 2 (one `TW`); points 5, 3, 1, 0 earn 3; a qualification table gives its bye the Tie Win; a unit left alone by a removed opponent still earns 3 (`W`); Standard points keep the bye at first-place points; a group stage without `groupAverageVersion` still gives its bye a Win. Changed on purpose in `match-results-pooling.test.ts`: the 4v4 qualification table's bye now earns 2, not 3 (the one case pinning a bye under match results; the room-left-with-one-team case stays 3). New case in `standings-text.test.ts` for the sentence.
+
+**Checks.** eslint, prettier and types clean over the changed files; `vitest related`: 208 files, 6,003 tests passed. Full suite: not run by the implementer (filled by the reviewer).
+
+**Out of scope.** A setting to choose the bye's value per tournament; Standard points and the Custom table (the bye keeps first-place points); group stage byes and forfeits; excluding byes from opponents' tie-breaks (already true: a bye has no score and no share).
+
+---
+
 ## Swiss exit drawn strictly by standings (done — 2026-11-18, on `test`, not pushed)
 
 **Context.** After a Swiss the first bracket round is the snake over the exit order (rooms of 2: 1v6, 2v5, 3v4 within a layer of 6), and then the separation pass `avoidMetPairsNearRank` traded a unit that had already met its opponent with a neighbour one rank away. The organiser chose to draw strictly by the standings after a Swiss, rematches allowed, as major Swiss events do (Magic: the Top 8 is seeded 1v8, 2v7 and so on, and rematches from the Swiss are allowed). The rematch ban belongs to the Swiss rounds themselves, which already have it (see "Swiss pairs within score groups"). Plan `plans/2026-11-18-swiss-exit-strict.md`, base `test` at `de95d8b`.

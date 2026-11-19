@@ -61,14 +61,14 @@ describe('match results in a 4v4 qualification table, 13 teams', () => {
     });
   });
 
-  it('gives each room the points of its match result, and the bye a win', () => {
+  it('gives each room the points of its match result, and the bye a tie win', () => {
     const state = played();
     const [one, two, three, four] = [1, 2, 3, 4].map((room) => seated(state, 0, room));
     expect([pointsOf(state, one[0]), pointsOf(state, one[1])]).toEqual([3, 0]);
     expect([pointsOf(state, two[0]), pointsOf(state, two[1])]).toEqual([2, 1]);
     expect([pointsOf(state, three[0]), pointsOf(state, three[1])]).toEqual([1.5, 1.5]);
     expect([pointsOf(state, four[0]), pointsOf(state, four[1])]).toEqual([3, 0]);
-    expect(pointsOf(state, state.byes[0][0])).toBe(3);
+    expect(pointsOf(state, state.byes[0][0])).toBe(2);
   });
 
   it('gives no points for a room that is not fully scored', () => {
