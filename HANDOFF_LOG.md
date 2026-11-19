@@ -16,7 +16,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Tests.** `visit.test.ts`: the production test run opened by its link now opens on Bracket (changed on purpose); a draft test run by its link and an unknown id still give the notice; new, a lone ongoing production test run never loads without a link. `tournament-lifecycle.test.ts`: `isVisibleToViewers` renamed, new `isOpenByLinkForViewers` cases. The list test that hides test runs from viewers on production is unchanged and still passes. `vitest related` over the changed files: 42 files, 842 tests passed; eslint, prettier and types clean.
 
-**Full suite:** not run (no shared code: `src/features/tournaments/` only); a push to `main` needs one run covering `aad2d54`. Reviewer mutation checks, each failing a test: the link back to the listed rule; drafts opening by link; the no-link landing opening a test run; test runs listed for viewers.
+**Full suite:** not run (no shared code: `src/features/tournaments/` only); before the push to `main`, full suite passed on `91d7af0` (264 files). Reviewer mutation checks, each failing a test: the link back to the listed rule; drafts opening by link; the no-link landing opening a test run; test runs listed for viewers.
 
 **Out of scope.** An "Unofficial" mark, listed publicly (roadmap); a secret token in the link (the id stays the access boundary); showing viewers that a tournament is a test run. No live check done.
 
