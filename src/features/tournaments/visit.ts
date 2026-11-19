@@ -1,7 +1,7 @@
 import { TOURNAMENT_PHASES, type ActiveTab, type TournamentPhase } from '../../domain/tournament/types';
 import type { ExitedMemory, LastView } from '../../lib/persistence/storage';
 import type { TourEnvironment } from '../sync/firebase-paths';
-import { isVisibleToViewers, tournamentPhase } from './tournament-lifecycle';
+import { isListedForViewers, isOpenByLinkForViewers, tournamentPhase } from './tournament-lifecycle';
 import type { TournamentSummary } from './tournament-summary';
 
 export const UNAVAILABLE_NOTICE = "This tournament isn't available.";
@@ -72,11 +72,11 @@ export function resolveVisit(input: VisitInput): VisitResult {
   const { urlId, summaries, env, nowMs, memory, isAdmin } = input;
   if (urlId) {
     const linked = summaries.find((summary) => summary.id === urlId);
-    const canSee = linked && (isAdmin || isVisibleToViewers(linked, env));
+    const canSee = linked && (isAdmin || isOpenByLinkForViewers(linked));
     return canSee ? opens(linked, input) : { ...NOTHING_LOADED, notice: UNAVAILABLE_NOTICE };
   }
 
-  const visible = summaries.filter((summary) => isVisibleToViewers(summary, env));
+  const visible = summaries.filter((summary) => isListedForViewers(summary, env));
   const live = visible.filter((summary) => {
     const phase = tournamentPhase(summary, nowMs);
     return phase === 'starting-soon' || phase === 'ongoing';

@@ -6,6 +6,22 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Production test run opens by link (done — 2026-11-19, on `test`, not pushed)
+
+**Context.** On production a test run was hidden from viewers: not listed, and its link answered "This tournament isn't available." (`resolveVisit` through `isVisibleToViewers`). The organiser wants to share a test run with a few spectators by link while keeping it out of the Tournaments list and the automatic landing. The data is already public (any tournament is readable by its id, `docs/platform.md`), so only the app's own gate changes. Plan: `plans/2026-11-19-test-run-link-access.md`.
+
+**The rule.** A published production test run opens for a viewer with its `?t=<id>` link, on its landing tab like any tournament. A draft stays unavailable, test run or not. The Tournaments list and the automatic landing (the single live tournament, the recently finished one) still never offer a production test run. Admins and the test site are unchanged.
+
+**The change.** `tournament-lifecycle.ts`: `isVisibleToViewers` became `isListedForViewers` (same rule, used by `tournaments-list.ts` and the no-link branch of `resolveVisit`), and `isOpenByLinkForViewers(summary)` (`status !== 'draft'`) is new, used by the link branch of `resolveVisit`. Nothing else hides a test run once loaded: checked `TournamentProvider` (the visit effect only calls `resolveVisit`), live sync, `CopyViewerLink`, the follow box and Rankings (none reads `testRun`; it is read only by the admin list, the status panel, the lifecycle guards and the Tournaments card badge). The viewer views and the "Test run" badge are unchanged.
+
+**Tests.** `visit.test.ts`: the production test run opened by its link now opens on Bracket (changed on purpose); a draft test run by its link and an unknown id still give the notice; new, a lone ongoing production test run never loads without a link. `tournament-lifecycle.test.ts`: `isVisibleToViewers` renamed, new `isOpenByLinkForViewers` cases. The list test that hides test runs from viewers on production is unchanged and still passes. `vitest related` over the changed files: 42 files, 842 tests passed; eslint, prettier and types clean.
+
+**Full suite:** not run (no shared code: `src/features/tournaments/` only).
+
+**Out of scope.** An "Unofficial" mark, listed publicly (roadmap); a secret token in the link (the id stays the access boundary); showing viewers that a tournament is a test run. No live check done.
+
+---
+
 ## A bye is worth a Tie Win under match results (done — 2026-11-19, on `test`, not pushed)
 
 **Context.** Under match results (Win 3, Tie Win 2, Tie Loss 1, Loss 0) a bye in a Swiss or qualification table earned a Win for each game of the round, the most a played match gives. The bye goes to the lowest-ranked unit, which is where the bracket cut falls (15 players, 12 qualify), so a unit that sat out could pass one that played and took a Tie Win. The organiser's research of 18 graded-scale rulebooks found both values: full win (Netrunner, older X-Wing, Age of Sigmar, Flames of War) and below full (FIDE Double-Swiss gives the second-best level; Armada 80% of the maximum). The organiser chose the Tie Win (2026-11-19). Plan: `plans/2026-11-19-bye-tie-win.md`.

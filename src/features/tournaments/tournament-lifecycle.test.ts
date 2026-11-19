@@ -6,7 +6,8 @@ import {
   canReopen,
   canReturnToDraft,
   canUnpublish,
-  isVisibleToViewers,
+  isListedForViewers,
+  isOpenByLinkForViewers,
   STARTING_SOON_MS,
   tournamentPhase,
   transitionRefusal,
@@ -53,21 +54,32 @@ describe('tournamentPhase', () => {
   });
 });
 
-describe('isVisibleToViewers', () => {
+describe('isListedForViewers', () => {
   it('never shows a draft', () => {
-    expect(isVisibleToViewers({ status: 'draft', testRun: false }, 'prod')).toBe(false);
-    expect(isVisibleToViewers({ status: 'draft', testRun: true }, 'test')).toBe(false);
+    expect(isListedForViewers({ status: 'draft', testRun: false }, 'prod')).toBe(false);
+    expect(isListedForViewers({ status: 'draft', testRun: true }, 'test')).toBe(false);
   });
 
   it('shows a published or finished tournament on production', () => {
-    expect(isVisibleToViewers({ status: 'published', testRun: false }, 'prod')).toBe(true);
-    expect(isVisibleToViewers({ status: 'finished', testRun: false }, 'prod')).toBe(true);
+    expect(isListedForViewers({ status: 'published', testRun: false }, 'prod')).toBe(true);
+    expect(isListedForViewers({ status: 'finished', testRun: false }, 'prod')).toBe(true);
   });
 
   it('hides a test run on production but not on the test site', () => {
-    expect(isVisibleToViewers({ status: 'published', testRun: true }, 'prod')).toBe(false);
-    expect(isVisibleToViewers({ status: 'finished', testRun: true }, 'prod')).toBe(false);
-    expect(isVisibleToViewers({ status: 'published', testRun: true }, 'test')).toBe(true);
+    expect(isListedForViewers({ status: 'published', testRun: true }, 'prod')).toBe(false);
+    expect(isListedForViewers({ status: 'finished', testRun: true }, 'prod')).toBe(false);
+    expect(isListedForViewers({ status: 'published', testRun: true }, 'test')).toBe(true);
+  });
+});
+
+describe('isOpenByLinkForViewers', () => {
+  it('never opens a draft, test run or not', () => {
+    expect(isOpenByLinkForViewers({ status: 'draft' })).toBe(false);
+  });
+
+  it('opens a published or finished tournament, a production test run included', () => {
+    expect(isOpenByLinkForViewers({ status: 'published' })).toBe(true);
+    expect(isOpenByLinkForViewers({ status: 'finished' })).toBe(true);
   });
 });
 

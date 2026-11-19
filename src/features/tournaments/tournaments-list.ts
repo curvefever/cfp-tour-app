@@ -1,6 +1,6 @@
 import { getGameFormat } from '../../domain/tournament/formats';
 import type { TourEnvironment } from '../sync/firebase-paths';
-import { isVisibleToViewers, tournamentPhase, type TournamentPhase } from './tournament-lifecycle';
+import { isListedForViewers, tournamentPhase, type TournamentPhase } from './tournament-lifecycle';
 import type { TournamentSummary } from './tournament-summary';
 
 export interface TournamentCard {
@@ -45,7 +45,7 @@ function byDateNewestFirst(a: TournamentCard, b: TournamentCard): number {
 }
 
 /**
- * The Tournaments page's sections. A draft has no section, so it is never listed; a viewer sees what `isVisibleToViewers` allows (on
+ * The Tournaments page's sections. A draft has no section, so it is never listed; a viewer sees what `isListedForViewers` allows (on
  * production no test run), an admin also sees the test runs.
  */
 export function tournamentSections(
@@ -53,7 +53,7 @@ export function tournamentSections(
   options: { env: TourEnvironment; nowMs: number; isAdmin: boolean },
 ): TournamentSections {
   const cards = summaries
-    .filter((summary) => options.isAdmin || isVisibleToViewers(summary, options.env))
+    .filter((summary) => options.isAdmin || isListedForViewers(summary, options.env))
     .map((summary): TournamentCard => {
       const phase = tournamentPhase(summary, options.nowMs);
       return {

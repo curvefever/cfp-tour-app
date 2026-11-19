@@ -24,13 +24,21 @@ export function tournamentPhase(
   return startsSoon ? 'starting-soon' : 'upcoming';
 }
 
-/** Whether a viewer (not an admin) may see the tournament: never a draft, and on production never a test run. */
-export function isVisibleToViewers(
+/**
+ * Whether a viewer (not an admin) is shown the tournament in the Tournaments list or opened on it by a visit without
+ * a link: never a draft, and on production never a test run.
+ */
+export function isListedForViewers(
   summary: Pick<TournamentSummary, 'status' | 'testRun'>,
   env: TourEnvironment,
 ): boolean {
   if (summary.status === 'draft') return false;
   return !(env === 'prod' && summary.testRun);
+}
+
+/** Whether a viewer (not an admin) who has the tournament's link may open it: any tournament that is not a draft, a production test run included. */
+export function isOpenByLinkForViewers(summary: Pick<TournamentSummary, 'status'>): boolean {
+  return summary.status !== 'draft';
 }
 
 export type TournamentAction =

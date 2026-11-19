@@ -69,9 +69,18 @@ describe('a link to a tournament', () => {
     });
   });
 
-  it('says the same for a test run on production, and for an id nobody knows', () => {
+  it('opens a published test run on production for a viewer who has its link, on its landing tab', () => {
     const rehearsal = { ...ongoing('a'), testRun: true };
-    expect(visit([rehearsal], { urlId: 'a' }).notice).toBe(UNAVAILABLE_NOTICE);
+    expect(visit([rehearsal], { urlId: 'a' })).toEqual({ tournamentId: 'a', tab: 'bracket' });
+  });
+
+  it('still says the tournament is not available for a draft test run on production, and for an id nobody knows', () => {
+    const draftRehearsal = { ...draft('a'), testRun: true };
+    expect(visit([draftRehearsal], { urlId: 'a' })).toEqual({
+      tournamentId: null,
+      tab: 'tournaments',
+      notice: UNAVAILABLE_NOTICE,
+    });
     expect(visit([upcoming('a')], { urlId: 'missing' }).notice).toBe(UNAVAILABLE_NOTICE);
     expect(visit([], { urlId: 'a' }).tournamentId).toBeNull();
   });
@@ -93,6 +102,11 @@ describe('a link to a tournament', () => {
 });
 
 describe('a visit without a link', () => {
+  it('never opens a production test run, even when it is the only tournament in play', () => {
+    const rehearsal = { ...ongoing('a'), testRun: true };
+    expect(visit([rehearsal])).toEqual({ tournamentId: null, tab: 'tournaments' });
+  });
+
   it('loads the only tournament that is ongoing, on Bracket', () => {
     expect(visit([ongoing('a'), upcoming('b')])).toEqual({ tournamentId: 'a', tab: 'bracket' });
   });
