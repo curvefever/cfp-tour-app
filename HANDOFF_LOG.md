@@ -16,7 +16,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Tests.** New `bye-tie-win.test.ts`: a 15-unit 1v1 Swiss over 3 rounds (every bye earns 2, result `TW`, no score or place; played rooms still 3 or 0); two games a round earn 4 (two `TW`), a Best of 3 earns 2 (one `TW`); points 5, 3, 1, 0 earn 3; a qualification table gives its bye the Tie Win; a unit left alone by a removed opponent still earns 3 (`W`); Standard points keep the bye at first-place points; a group stage without `groupAverageVersion` still gives its bye a Win. Changed on purpose in `match-results-pooling.test.ts`: the 4v4 qualification table's bye now earns 2, not 3 (the one case pinning a bye under match results; the room-left-with-one-team case stays 3). New case in `standings-text.test.ts` for the sentence.
 
-**Checks.** eslint, prettier and types clean over the changed files; `vitest related`: 208 files, 6,003 tests passed. Full suite: not run by the implementer (filled by the reviewer).
+**Checks.** eslint, prettier and types clean over the changed files; `vitest related`: 208 files, 6,003 tests passed. Full suite: passed on `56fdbfb` (264 files). Reviewer mutation checks, each failing a test: the bye back to a Win; a lone unit given the Tie Win; group-stage byes dropped; the standings sentence always "win"; the games count not multiplied.
 
 **Out of scope.** A setting to choose the bye's value per tournament; Standard points and the Custom table (the bye keeps first-place points); group stage byes and forfeits; excluding byes from opponents' tie-breaks (already true: a bye has no score and no share).
 
