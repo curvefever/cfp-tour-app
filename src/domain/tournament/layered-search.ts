@@ -18,13 +18,15 @@ export interface EntryLevel {
 
 export interface SearchSettings {
   roomSize: RoomSize;
-  /** Games before the bracket (the table), of the semi-finals and of the Final: the games of a bracket are these plus one a bracket round. */
-  tableGames: number;
-  semiGames: number;
-  finalGames: number;
-  /** The games wanted: a bracket never has more, and the nearest to it is preferred. */
-  wantGames: number;
+  /**
+   * The bracket rounds wanted: the rounds after the table, Semi-Final B and the Final included. A bracket has this
+   * many or one fewer, and the nearest to it is preferred.
+   */
+  wantRounds: number;
 }
+
+/** The rounds every bracket has beyond those before the last semi-final: the last semi-final and the Final. */
+export const ROUNDS_AFTER_THE_BRACKET_ROUNDS = 2;
 
 /** Where the top `k` of each room of a level go. */
 export type TopGoes = 'stay' | 'through' | 'last-semi';
@@ -65,8 +67,6 @@ export interface Bracket {
   entry: EntryLevel[];
   /** The rounds before the last semi-final. */
   rounds: BracketRound[];
-  /** The games of the whole bracket, as the settings count them. */
-  games: number;
   /** The comparison of this bracket: see `compareKeys`. */
   key: number[];
 }
@@ -74,7 +74,7 @@ export interface Bracket {
 /**
  * What a bracket is compared by, a sum over its rounds so the comparison is exact:
  * 0 rooms of a last-resort size; 1 rooms where more than half of the players do not stay; 2 seats missing from full
- * rooms; 3 games off the number wanted; 4 the square of the players out, summed over the rounds (the evenness of the
+ * rooms; 3 bracket rounds off the number wanted; 4 the square of the players out, summed over the rounds (the evenness of the
  * cut); 5 rounds in which somebody waits; 6 seats missing counted again by the level's height above the Lower level.
  */
 const KEY_LENGTH = 7;
@@ -104,7 +104,6 @@ interface Position {
 interface Tail {
   key: number[];
   rounds: BracketRound[];
-  games: number;
 }
 
 /** What is built while the levels of one round are walked. */
@@ -133,16 +132,16 @@ const positionId = (position: Position): string =>
  * whichever shape led to it), so asking for many shapes costs little more than asking for one.
  */
 export function createBracketSearch(settings: SearchSettings): (entry: EntryLevel[]) => Bracket | null {
-  const { roomSize, tableGames, semiGames, finalGames, wantGames } = settings;
+  const { roomSize, wantRounds } = settings;
   const full = roomSize.ideal;
   const half = Math.floor(full / 2);
   const memo = new Map<string, Tail | null>();
 
   /** Once the first semi-final is played and exactly a full room is left (the waiting ones included), they are the last semi-final. */
   function lastSemiFinal(depth: number): Tail | null {
-    const games = tableGames + depth + (semiGames - 1) + semiGames + finalGames;
-    if (games > wantGames) return null;
-    return { key: [0, 0, 0, Math.abs(wantGames - games), 0, 0, 0], rounds: [], games };
+    const rounds = depth + ROUNDS_AFTER_THE_BRACKET_ROUNDS;
+    if (rounds > wantRounds || rounds < wantRounds - 1) return null;
+    return { key: [0, 0, 0, wantRounds - rounds, 0, 0, 0], rounds: [] };
   }
 
   function best(position: Position): Tail | null {
@@ -162,6 +161,11 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
     const seatings = levels.map((level) => seatLevel(level.players, roomSize));
     const waitedRounds = position.waitedRounds + (waiting > 0 ? 1 : 0);
     if (waitedRounds > 1 || seatings.some((seating) => seating === null)) return null;
+    // Only the Lower level may have rooms of different sizes: every room of the others is as big as its neighbours.
+    const unequalAbove = levels.some(
+      (level, index) => level.name !== 'Lower' && new Set(seatings[index]?.rooms).size > 1,
+    );
+    if (unequalAbove) return null;
 
     const firstSemi = !firstSemiPlayed && levels[0].players === full && levels.length > 1 && depth > 0;
     const modes: Mode[] = firstSemi ? ['play-on', 'wait'] : firstSemiPlayed ? ['through', 'stay'] : ['stay'];
@@ -188,7 +192,6 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
         : null;
       top = {
         key,
-        games: tail.games,
         rounds: [{ waiting, firstSemiFinal, levels: draft.levels, out: draft.out }, ...tail.rounds],
       };
     };
@@ -253,9 +256,7 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
 
   return (entry) => {
     const found = best({ levels: entry, firstSemiPlayed: false, waiting: 0, waitedRounds: 0, depth: 0 });
-    return found
-      ? { entry, rounds: withLastRoundToLastSemi(found.rounds), games: found.games, key: found.key }
-      : null;
+    return found ? { entry, rounds: withLastRoundToLastSemi(found.rounds), key: found.key } : null;
   };
 }
 
