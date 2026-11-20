@@ -15,13 +15,14 @@ import {
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { ProgressSubsection } from '../ProgressSubsection';
+import { LayeredPlanCard } from './LayeredPlanCard';
 import { UpperLowerLiveFields } from './UpperLowerLiveFields';
 import { WaterfallGraphEditor } from './WaterfallGraphEditor';
 import { generatedConfig } from '../../../domain/tournament/generated-config';
-import { isUpperLowerBracket } from '../../../domain/tournament/rule-versions';
+import { isLayeredBracket, isUpperLowerBracket } from '../../../domain/tournament/rule-versions';
 import { isCurrentRound, isRoundReached } from '../../../domain/tournament/round-columns';
 
-/** Said while the tournament is an upper and lower bracket: a hand edit ends the automatic rooms (`applyHandGraphEdit`). */
+/** Said while the tournament is an upper and lower or a layered bracket: a hand edit ends the automatic rooms (`applyHandGraphEdit`). */
 const HAND_EDIT_MESSAGE =
   'Saving here makes this a Custom bracket: the app stops working the rooms out when the head count changes.';
 
@@ -158,6 +159,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
     return (
       <ProgressSubsection title='CUSTOM BRACKET GRAPH'>
         <UpperLowerLiveFields state={state} />
+        <LayeredPlanCard state={state} />
         {success ? (
           <Alert className='mb-3' tone='success'>
             {success}
@@ -190,7 +192,7 @@ export function RunningWaterfallPanel({ state }: { state: TournamentState }) {
       <Alert className='mb-3' tone='info'>
         {CAUTION_MESSAGE}
       </Alert>
-      {isUpperLowerBracket(state) ? (
+      {isUpperLowerBracket(state) || isLayeredBracket(state) ? (
         <Alert className='mb-3' tone='info'>
           {HAND_EDIT_MESSAGE}
         </Alert>

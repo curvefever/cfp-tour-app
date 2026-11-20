@@ -5,12 +5,15 @@ import {
   hasFairCutVersion,
   isLayeredBracket,
   isUpperLowerBracket,
+  layeredKeptPlayOf,
   layeredPlayOf,
   routesAbsenteesByLastPlace,
   tracksLikelyAbsentees,
   usesAbsences,
   usesGroupAverages,
   usesScaledPoints,
+  withLayeredKept,
+  withLayeredPlay,
   withoutAppWrittenMark,
 } from '../rule-versions';
 import type { TournamentState } from '../types';
@@ -80,6 +83,33 @@ describe('rule versions: a tournament stored without a switch keeps the earlier 
     const config = { layeredVersion: 1, layeredPlay: 28, cutVersion: 2 } as TournamentState['gamemodeConfig'];
     expect(withoutAppWrittenMark(config)).toEqual({ cutVersion: 2 });
     expect(config.layeredPlay).toBe(28);
+  });
+
+  it('keeps the number a layered plan was kept at only for a layered bracket, and drops it with the mark', () => {
+    expect(layeredKeptPlayOf(withConfig({ layeredVersion: 1, layeredKeptPlay: 26 }))).toBe(26);
+    expect(layeredKeptPlayOf(withConfig({ layeredVersion: 1 }))).toBeUndefined();
+    expect(layeredKeptPlayOf(withConfig({ upperLowerVersion: 1, layeredKeptPlay: 26 }))).toBeUndefined();
+    const config = {
+      layeredVersion: 1,
+      layeredPlay: 28,
+      layeredKeptPlay: 26,
+      cutVersion: 2,
+    } as TournamentState['gamemodeConfig'];
+    expect(withoutAppWrittenMark(config)).toEqual({ cutVersion: 2 });
+  });
+
+  it('writes the number a plan was made for and clears the kept one, or keeps the plan in use at a number', () => {
+    const config = {
+      layeredVersion: 1,
+      layeredPlay: 28,
+      layeredKeptPlay: 26,
+    } as TournamentState['gamemodeConfig'];
+    expect(withLayeredPlay(config, 24)).toEqual({ layeredVersion: 1, layeredPlay: 24 });
+    expect(withLayeredKept({ layeredVersion: 1, layeredPlay: 28 }, 26)).toEqual({
+      layeredVersion: 1,
+      layeredPlay: 28,
+      layeredKeptPlay: 26,
+    });
   });
 
   it('leaves a config with no mark as it is', () => {

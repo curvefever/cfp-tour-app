@@ -381,7 +381,7 @@ function doubleEliminationFinalMessage(finalRound: TournamentRound, actual: numb
   return `Can't advance into the Final — ${actual} entrants would arrive instead of ${required}. A mid-tournament withdrawal has likely thrown off the losers bracket's balance too deeply for the usual single-bye recovery to fix automatically; check Manage Teams, or add a replacement, before advancing further.`;
 }
 
-const MISSING_ROOM_SIZE_MESSAGE =
+export const MISSING_ROOM_SIZE_MESSAGE =
   "Can't advance — this tournament's gamemode configuration is missing a room size. This should never happen for a tournament generated through Setup; it may indicate corrupted or manually-edited state.";
 
 function advanceDoubleElimination(

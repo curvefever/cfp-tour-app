@@ -1,4 +1,5 @@
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
+import { checkLayeredPlan } from '../../domain/tournament/layered-replan';
 import { roundsInPlay } from '../../domain/tournament/round-columns';
 import type { UnscoredRoom } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
@@ -28,4 +29,17 @@ export function incompleteRoomsMessage(
     ({ roundIndex, room }) => `${labels[roundIndex]?.label ?? ''} · Room ${roomLetter(room)}`,
   );
   return `Not all scores in: ${names.join(', ')}. Go on anyway?`;
+}
+
+/**
+ * Said on the last table round of a layered bracket while a new plan is waiting in the running Admin ("A NEW PLAN FOR THE
+ * BRACKET"): Next Round plays the plan in use unless the organiser uses the new one first. Null when no plan waits, or the
+ * round in play is not the last table round.
+ */
+export function layeredPlanWarning(state: TournamentState): string | null {
+  const first = state.rounds.findIndex((round) => round.isWaterfall);
+  if (first === -1 || state.curRound !== first - 1) return null;
+  const check = checkLayeredPlan(state);
+  if (check.kind !== 'new') return null;
+  return `A new plan for the bracket is waiting in Admin: ${check.playNow} play now. Next Round plays the plan in use.`;
 }

@@ -220,13 +220,18 @@ export function differsFromUsualValues(form: LayeredForm, registered: number): b
 }
 
 /** The plan for the form and the head count, or why there is none: the gate first, then the plan's own refusals. */
-export function planLayeredFor(form: LayeredForm, registered: number): LayeredFormPlan {
+export function planLayeredFor(
+  form: LayeredForm,
+  registered: number,
+  /** The number of the first bracket round when it is not the one the form's table rounds give (a tournament under way). */
+  firstRoundNumber?: number,
+): LayeredFormPlan {
   const gate = layeredGateRefusal(form);
   if (gate) return { ok: false, message: gate };
   const format = getGameFormat(form.gameFormat);
   if (!format) return { ok: false, message: 'This game format is not available yet.' };
   const roomSize = deriveRoomSize(format);
-  const firstRound = roundsBeforeBracket(form, registered) + 1;
+  const firstRound = firstRoundNumber ?? roundsBeforeBracket(form, registered) + 1;
   const typed = layeredTypedOf(form, firstRound);
   if (!typed.ok) return typed;
   const planned = planLayered({

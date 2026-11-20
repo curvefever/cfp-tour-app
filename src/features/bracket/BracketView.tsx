@@ -35,7 +35,7 @@ import { destinationLabel } from '../tournament/components/exit-text';
 import { nextColumnStart, usesDependencyPlay } from '../../domain/tournament/round-columns';
 import { canGoBack, goBack, nextRoundPlan } from '../../domain/tournament/waterfall-steps';
 import { unscoredRooms } from '../../domain/tournament/scoring';
-import { incompleteRoomsMessage, unscoredRoomsMessage } from './next-round-warning';
+import { incompleteRoomsMessage, layeredPlanWarning, unscoredRoomsMessage } from './next-round-warning';
 import { nextRoundLine, reopenedNote } from './next-round-line';
 import { hasRoundNotes } from './title-bar-marks';
 import { usePanelSpace } from './use-panel-space';
@@ -100,6 +100,7 @@ export function BracketView() {
   const previousAvailable = canGoBack(app.state);
   const drawnAhead = isLastRound || plan ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   const planLine = plan ? nextRoundLine(app.state, plan) : null;
+  const layeredWarning = layeredPlanWarning(app.state);
   const reopened = plan ? reopenedNote(app.state) : null;
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
@@ -111,6 +112,7 @@ export function BracketView() {
       : { rooms: unscoredRooms(app.state), message: unscoredRoomsMessage };
     if (confirmation.rooms.length > 0 && !window.confirm(confirmation.message(app.state, confirmation.rooms)))
       return;
+    if (layeredWarning && !window.confirm(`${layeredWarning} Go on anyway?`)) return;
     let result;
     try {
       result = advanceTournamentRound(app.state);
@@ -262,6 +264,11 @@ export function BracketView() {
             </Button>
           ) : null}
           {planLine ? <p className='m-0 basis-full text-sm text-muted'>{planLine}</p> : null}
+          {layeredWarning ? (
+            <p className='m-0 basis-full text-sm text-warning' id='layered-plan-waiting'>
+              {layeredWarning}
+            </p>
+          ) : null}
         </ButtonRow>
       ) : null}
     </div>

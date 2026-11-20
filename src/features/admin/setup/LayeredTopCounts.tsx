@@ -1,7 +1,6 @@
 import { Button, Input, Select } from '../../../components/ui';
 import { withTopCount, type TopCountLine } from '../../../domain/tournament/layered-form';
 import type { SemiOthersRow, TopCountRow } from './layered-summary';
-import { useSetupUpdate } from './useSetupChange';
 
 /** What the first semi-final's other half do, as the select words it. */
 const SEMI_OTHERS_WORDS = {
@@ -28,19 +27,20 @@ export function LayeredTopCounts({
   rows,
   noLongerApply,
   semiOthers,
+  topCountsText,
+  onTopCounts,
+  onSemiOthers,
 }: {
   rows: TopCountRow[];
   noLongerApply: TopCountLine[];
   semiOthers: SemiOthersRow;
+  /** The field's text and what changes it: Setup's form, or the card's draft. */
+  topCountsText: string;
+  onTopCounts: (text: string) => void;
+  onSemiOthers: (value: '' | 'play-on' | 'wait') => void;
 }) {
-  const updateSetup = useSetupUpdate();
-  const setTop = (name: string, top: string) =>
-    updateSetup((current) => ({
-      ...current,
-      layeredTopCounts: withTopCount(current.layeredTopCounts, name, top),
-    }));
-  const setSemi = (value: '' | 'play-on' | 'wait') =>
-    updateSetup((current) => ({ ...current, layeredSemiOthers: value }));
+  const setTop = (name: string, top: string) => onTopCounts(withTopCount(topCountsText, name, top));
+  const setSemi = onSemiOthers;
   return (
     <div className='flex flex-col gap-2' id='layered-top-counts'>
       <b className='text-sm'>Top places of each room</b>
@@ -100,14 +100,17 @@ export function LayeredTopCounts({
 }
 
 /** While the bracket is refused: what was typed for the top places, so that a number can be cleared and the plan tried again. */
-export function TypedTopCounts({ lines }: { lines: TopCountLine[] }) {
-  const updateSetup = useSetupUpdate();
+export function TypedTopCounts({
+  lines,
+  topCountsText,
+  onTopCounts,
+}: {
+  lines: TopCountLine[];
+  topCountsText: string;
+  onTopCounts: (text: string) => void;
+}) {
   if (lines.length === 0) return null;
-  const clear = (name: string) =>
-    updateSetup((current) => ({
-      ...current,
-      layeredTopCounts: withTopCount(current.layeredTopCounts, name, ''),
-    }));
+  const clear = (name: string) => onTopCounts(withTopCount(topCountsText, name, ''));
   return (
     <ul className='mt-3 flex flex-col gap-1.5' id='layered-typed-top-counts'>
       {lines.map((line) => (

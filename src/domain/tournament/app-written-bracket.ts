@@ -43,11 +43,20 @@ export function markAppWrittenStages(rounds: TournamentRound[]): TournamentRound
   }));
 }
 
-/** Where an app-written bracket can still be worked out again: its mark is set and no bracket round is drawn. */
-export function replannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
-  if (!isUpperLowerBracket(state)) return null;
+/** Where a bracket the app wrote can still be worked out again: no bracket round is drawn. */
+function notEnteredYet(state: TournamentState): { first: number; roomSize: RoomSize } | null {
   const first = state.rounds.findIndex((round) => round.isWaterfall);
   const format = getGameFormat(state.gameFormat);
   if (first === -1 || !format || isRoundReached(state, first)) return null;
   return { first, roomSize: deriveRoomSize(format) };
+}
+
+/** Where the built-in upper and lower bracket can still be worked out again: its mark is set and no bracket round is drawn. */
+export function replannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
+  return isUpperLowerBracket(state) ? notEnteredYet(state) : null;
+}
+
+/** Where a layered bracket can still be planned again: its mark is set and no bracket round is drawn. */
+export function layeredReplannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
+  return isLayeredBracket(state) ? notEnteredYet(state) : null;
 }

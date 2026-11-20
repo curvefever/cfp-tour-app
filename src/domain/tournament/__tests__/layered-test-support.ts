@@ -1,8 +1,11 @@
+import { answerAbsence } from '../absences';
 import { generateTournament } from '../generation';
+import { rosterKeys } from '../roster';
 import { planLayered, type LayeredInput, type LayeredPlan } from '../layered-plan';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { indexOf } from './dependency-play-fixtures';
+import { pressNextRound, scoreCurrentRound } from './play-through';
 import { rosterFor, startedState, testRuntime, type Setup } from './test-fixtures';
 
 /** What the tests of a layered bracket generated from the Setup form share. */
@@ -55,4 +58,40 @@ export function seatedRooms(state: TournamentState, label: string): number[] {
   const rooms = state.rounds[indexOf(state, label)].rooms;
   const seated = state.assignments[indexOf(state, label)] ?? [];
   return rooms.map((_, room) => seated.filter((entry) => entry.room === room + 1).length);
+}
+
+/** The score key of a unit's seat in a round, from the line-up. */
+function seatKey(state: TournamentState, round: number, name: string): string {
+  const seated: Record<number, number> = {};
+  for (const entry of state.assignments[round] ?? []) {
+    if (entry.room === null) continue;
+    const position = (seated[entry.room] = (seated[entry.room] ?? -1) + 1);
+    if (entry.name === name) return `r${round}-rm${entry.room}-p${position}`;
+  }
+  throw new Error(`${name} has no seat in round ${round}`);
+}
+
+/** The round in play scored, the given units answered absent in it, and Next Round pressed. */
+export function playRound(state: TournamentState, absent: string[]): TournamentState {
+  const keys = absent.map((name) => seatKey(state, state.curRound, name));
+  const scored = scoreCurrentRound(state, 0);
+  const zeroed = {
+    ...scored,
+    scores: { ...scored.scores, ...Object.fromEntries(keys.map((key) => [key, 0])) },
+  };
+  return pressNextRound(answerAbsence(zeroed, keys, 'absent'));
+}
+
+export const players = (state: TournamentState): string[] => rosterKeys(state.players);
+
+/** 31 registered, round 1 played with three absent, round 2 in play: 28 play. */
+export function afterThreeAbsent(setup: Setup = FFA_QUAL): TournamentState {
+  const state = built(31, setup);
+  return playRound(state, players(state).slice(0, 3));
+}
+
+/** The same with two more absent as well as the first three (they stay absent in round 2): 26 play. */
+export function afterFiveAbsent(setup: Setup = FFA_QUAL): TournamentState {
+  const state = afterThreeAbsent(setup);
+  return playRound(state, players(state).slice(0, 5));
 }

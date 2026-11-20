@@ -467,7 +467,9 @@ export function FormatPanel({
             </p>
           </PresenceField>
         ) : null}
-        <LayeredFields registered={registered} setup={setup} shown={shown} />
+        {shown.has('layeredExpected') ? (
+          <LayeredFields form={setup} onChange={change} registered={registered} />
+        ) : null}
         {format?.supportedOddCountStrategies && shown.has('oddCountStrategy') ? (
           <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
             <Select

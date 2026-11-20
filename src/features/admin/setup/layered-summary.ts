@@ -169,7 +169,7 @@ const SEMI_A_NOTE: Record<'play-on' | 'wait' | 'last-semi', string> = {
 };
 
 /** The grid: a column per round and a row per level; Semi-Final A takes the top row in its round, Semi-Final B and the Final close it. */
-function gridOf(plan: LayeredPlan, firstRound: number): SummaryGrid {
+export function gridOf(plan: LayeredPlan, firstRound: number): SummaryGrid {
   const rows = plan.levels.map((level) => level.name);
   const rowOf = (name: string): number => rows.indexOf(name as (typeof rows)[number]);
   const half = plan.lastSemiFinal.toFinal;
@@ -218,11 +218,21 @@ function noLongerApplyOf(plan: LayeredPlan, firstRound: number, orphans: TopCoun
   return [...orphans, ...unused];
 }
 
+/** The one line over a plan: the players, the bracket, who is out at the table, and the games. */
+export function planHeading(plan: LayeredPlan, registered: number): string {
+  return `${registered} registered · ${plan.play.value} expected to play · ${plan.inBracket.value} in the bracket · ${plan.outAtTable} out at the table · ${plan.games} games`;
+}
+
 /** The summary of the layered bracket for this form and head count (null before a roster is loaded). */
-export function layeredSummary(form: LayeredForm, registered: number | null): LayeredSummary {
+export function layeredSummary(
+  form: LayeredForm,
+  registered: number | null,
+  /** The number of the first bracket round when the tournament is under way and numbers it itself. */
+  firstRoundNumber?: number,
+): LayeredSummary {
   const format = getGameFormat(form.gameFormat);
   if (!format || registered === null) return { kind: 'waiting', message: NO_LAYERED_ROSTER_TEXT };
-  const planned = planLayeredFor(form, registered);
+  const planned = planLayeredFor(form, registered, firstRoundNumber);
   if (!planned.ok) {
     return {
       kind: 'refused',
@@ -233,7 +243,7 @@ export function layeredSummary(form: LayeredForm, registered: number | null): La
   const { plan, roomSize, firstRound } = planned;
   return {
     kind: 'ready',
-    heading: `${registered} registered · ${plan.play.value} expected to play · ${plan.inBracket.value} in the bracket · ${plan.outAtTable} out at the table · ${plan.games} games`,
+    heading: planHeading(plan, registered),
     numbers: numbersOf(plan),
     flags: flagsOf(plan, roomSize),
     grid: gridOf(plan, firstRound),

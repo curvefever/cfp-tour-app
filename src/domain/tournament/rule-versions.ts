@@ -64,6 +64,22 @@ export function layeredPlayOf(state: WithConfig): number | undefined {
   return isLayeredBracket(state) ? state.gamemodeConfig.layeredPlay : undefined;
 }
 
+/** The number who play at which the organiser kept the plan in use, or undefined for none (`layeredKeptPlay`). */
+export function layeredKeptPlayOf(state: WithConfig): number | undefined {
+  return isLayeredBracket(state) ? state.gamemodeConfig.layeredKeptPlay : undefined;
+}
+
+/** The config of a layered bracket planned for `play` who play: any kept number is cleared, the plan in use is the new one. */
+export function withLayeredPlay(gamemodeConfig: GamemodeConfig, play: number): GamemodeConfig {
+  const { layeredKeptPlay: _kept, ...rest } = gamemodeConfig;
+  return { ...rest, layeredPlay: play };
+}
+
+/** The config of a layered bracket whose plan in use was kept at `play` who play. */
+export function withLayeredKept(gamemodeConfig: GamemodeConfig, play: number): GamemodeConfig {
+  return { ...gamemodeConfig, layeredKeptPlay: play };
+}
+
 /** Whether a config carries the mark of a bracket the app wrote itself, either kind (a config as the builders hold it, not a whole state). */
 export function hasAppWrittenMark(
   gamemodeConfig: Pick<GamemodeConfig, 'upperLowerVersion' | 'layeredVersion'>,
@@ -77,6 +93,7 @@ export function withoutAppWrittenMark(gamemodeConfig: GamemodeConfig): GamemodeC
     upperLowerVersion: _upperLower,
     layeredVersion: _layered,
     layeredPlay: _play,
+    layeredKeptPlay: _kept,
     ...unmarked
   } = gamemodeConfig;
   return unmarked;

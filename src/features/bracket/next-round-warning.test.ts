@@ -5,7 +5,15 @@ import { buildState } from '../../domain/tournament/__tests__/play-through';
 import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall';
 import { unscoredRooms } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
-import { unscoredRoomsMessage } from './next-round-warning';
+import {
+  afterFiveAbsent,
+  afterThreeAbsent,
+  built,
+  playRound,
+  players,
+} from '../../domain/tournament/__tests__/layered-test-support';
+import { keepLayeredPlan } from '../../domain/tournament/layered-replan';
+import { layeredPlanWarning, unscoredRoomsMessage } from './next-round-warning';
 
 describe('unscoredRoomsMessage', () => {
   it('names a room of a single round plainly, and lists several with commas', () => {
@@ -49,5 +57,45 @@ describe('unscoredRoomsMessage', () => {
     const scored = scoreCurrentRound(state, 2);
     const message = unscoredRoomsMessage(scored, [{ roundIndex: lower, room: 2 }]);
     expect(message).toBe('No score yet in Round 5 Lower · Room B. Go to the next round anyway?');
+  });
+});
+
+describe('layeredPlanWarning', () => {
+  /** 31 registered, five absent after round 1 and round 2 (26 play): round 3, the last table round, in play. */
+  const atLastTableRound = () => afterFiveAbsent();
+
+  it('names a waiting new plan on the last table round, and says Next Round plays the plan in use', () => {
+    const state = atLastTableRound();
+    expect(state.curRound).toBe(state.rounds.findIndex((round) => round.isWaterfall) - 1);
+    expect(layeredPlanWarning(state)).toBe(
+      'A new plan for the bracket is waiting in Admin: 26 play now. Next Round plays the plan in use.',
+    );
+  });
+
+  it('is silent while the table has rounds to go, when no plan waits, and once the plan is kept', () => {
+    expect(layeredPlanWarning(afterThreeAbsent())).toBeNull();
+    // The same three stay absent in round 2: 28 play, as planned.
+    const three = afterThreeAbsent();
+    const noChange = playRound(three, players(three).slice(0, 3));
+    expect(layeredPlanWarning(noChange)).toBeNull();
+    expect(layeredPlanWarning(keepLayeredPlan(atLastTableRound()))).toBeNull();
+  });
+
+  it('is silent for a tournament that is not a layered bracket', () => {
+    const start = buildState({
+      label: 'ffa 37',
+      count: 37,
+      teams: false,
+      setup: {
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'single-elimination',
+        poolingPhase: 'qual-table',
+        qualAdv: '24',
+      },
+    });
+    if (!start) throw new Error('no state');
+    expect(layeredPlanWarning(start)).toBeNull();
+    expect(layeredPlanWarning(built(31))).toBeNull();
+    expect(players(built(31))).toHaveLength(31);
   });
 });
