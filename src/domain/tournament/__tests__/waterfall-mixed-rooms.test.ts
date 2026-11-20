@@ -13,6 +13,7 @@ import {
   parseWaterfallDraft,
   resizeWaterfallRound,
   serializeWaterfallDraft,
+  setWaterfallRoomSizes,
   suggestedBest,
   waterfallDraftFromRounds,
   type WaterfallDraft,
@@ -158,6 +159,23 @@ describe('the draft of a mixed round', () => {
     expect(assigned.routes.R4[1][7]).toBe('R5');
     const resized = resizeWaterfallRound(draft, 'R5', 2, 7);
     expect(resized.rounds[0].roomSizes).toEqual([8, 8, 7]);
+  });
+
+  it('gives a round the rooms it is told, keeps the slots that still exist and clamps what cannot be', () => {
+    const draft = draftOf(plain);
+    const changed = setWaterfallRoomSizes(draft, 'R4', [8, 7, 7]);
+    expect(changed.rounds[0].roomSizes).toEqual([8, 7, 7]);
+    expect(changed.routes.R4.map((room) => room.length)).toEqual([8, 7, 7]);
+    expect(changed.routes.R4[0]).toEqual(draft.routes.R4[0]);
+    expect(changed.routes.R4[1].slice(0, 4)).toEqual(['R5', 'R5', 'R5', 'R5']);
+    const clamped = setWaterfallRoomSizes(draft, 'R4', [0, 99]);
+    expect(clamped.rounds[0].roomSizes).toEqual([1, 64]);
+    const tooMany = setWaterfallRoomSizes(
+      draft,
+      'R4',
+      Array.from({ length: 40 }, () => 2),
+    );
+    expect(tooMany.rounds[0].roomSizes).toHaveLength(26);
   });
 
   it('is rebuilt from a drawn round with the rooms it declared, also while the round is short', () => {

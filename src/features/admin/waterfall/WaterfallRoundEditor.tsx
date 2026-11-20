@@ -3,7 +3,6 @@ import { MAX_ROOMS_PER_ROUND, roomIndexToLetter } from '../../../domain/tourname
 import {
   groupRoomByDestination,
   groupRoomWithOut,
-  largestRoomOf,
   MAX_WATERFALL_ROOM_SIZE,
   roomCountOf,
   seatsOf,
@@ -23,6 +22,9 @@ import {
   destinationName,
   formatRanks,
   describeRankLabels,
+  readRoomSizes,
+  roomSizesField,
+  roomSizesSummary,
   fieldLabelClass,
   standingsSourceName,
   slotKey,
@@ -37,7 +39,8 @@ export interface RoundEditorActions {
   onSend: (destination: string) => void;
   /** Returns an error message, or null when the rename went through. */
   onRename: (name: string) => string | null;
-  onResize: (roomCount: number, roomSize: number) => void;
+  /** The rooms the round gets: one size per room. */
+  onResize: (roomSizes: number[]) => void;
   onSetFinal: (isFinal: boolean) => void;
   onSetRanking: (isRanking: boolean) => void;
   /** A whole column number, or null to leave the round's column automatic. */
@@ -195,8 +198,9 @@ function RoundSettings({
 }) {
   const [name, setName] = useState(round.label);
   const [rooms, setRooms] = useState(String(roomCountOf(round)));
-  const [size, setSize] = useState(String(largestRoomOf(round)));
+  const [size, setSize] = useState(roomSizesField(round.roomSizes));
   const [nameError, setNameError] = useState('');
+  const [sizeError, setSizeError] = useState('');
   const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') event.currentTarget.blur();
   };
@@ -208,15 +212,18 @@ function RoundSettings({
     setNameError(error ?? '');
     if (error) setName(round.label);
   };
+  const restoreSize = (error: string) => {
+    setRooms(String(roomCountOf(round)));
+    setSize(roomSizesField(round.roomSizes));
+    setSizeError(error);
+  };
   const commitSize = () => {
     const nextRooms = readCount(rooms, MAX_ROOMS_PER_ROUND);
-    const nextSize = readCount(size, MAX_WATERFALL_ROOM_SIZE);
-    if (nextRooms === null || nextSize === null) {
-      setRooms(String(roomCountOf(round)));
-      setSize(String(largestRoomOf(round)));
-    } else if (nextRooms !== roomCountOf(round) || nextSize !== largestRoomOf(round)) {
-      actions.onResize(nextRooms, nextSize);
-    }
+    if (nextRooms === null) return restoreSize(`Rooms is a whole number from 1 to ${MAX_ROOMS_PER_ROUND}.`);
+    const read = readRoomSizes(size, nextRooms, MAX_WATERFALL_ROOM_SIZE);
+    if (!read.ok) return restoreSize(read.error);
+    setSizeError('');
+    if (read.roomSizes.join('+') !== round.roomSizes.join('+')) actions.onResize(read.roomSizes);
   };
 
   return (
@@ -244,11 +251,13 @@ function RoundSettings({
             value={rooms}
           />
         </label>
-        <label className={cn(fieldLabelClass, 'w-28')}>
+        <label
+          className={cn(fieldLabelClass, 'w-32')}
+          title='One number for every room, or one number per room: 8, 8, 7'
+        >
           Players per room
           <Input
             className='mt-1'
-            inputMode='numeric'
             onBlur={commitSize}
             onChange={(event) => setSize(event.target.value)}
             onKeyDown={blurOnEnter}
@@ -284,6 +293,7 @@ function RoundSettings({
         </Button>
       </div>
       {nameError ? <p className='mt-1 text-xs text-danger'>{nameError}</p> : null}
+      {sizeError ? <p className='mt-1 text-xs text-danger'>{sizeError}</p> : null}
     </div>
   );
 }
@@ -557,9 +567,7 @@ function RoundSummary({
     <div className='flex flex-wrap items-center gap-3'>
       <b>{round.label}</b>
       <span className='text-sm text-muted'>
-        {roomCountOf(round) > 1
-          ? `${roomCountOf(round)} rooms × ${largestRoomOf(round)}`
-          : `${largestRoomOf(round)} players`}
+        {roomSizesSummary(round.roomSizes)}
         {round.isFinal ? ' · Final' : ''}
       </span>
       {columns ? <ColumnField info={columns} round={round} /> : null}

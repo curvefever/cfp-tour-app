@@ -845,27 +845,31 @@ export function renameWaterfallRound(
   return ok(withBests({ ...draft, rounds, routes, qualRoutes }, renamedBests(draft.best, renamed)));
 }
 
-/** Changes a round's room count and size, keeping every slot that still exists. */
+/** Gives a round the rooms `roomSizes` names (at most `MAX_ROOMS_PER_ROUND`, each from 1 to `MAX_WATERFALL_ROOM_SIZE`), keeping every slot that still exists. */
+export function setWaterfallRoomSizes(
+  draft: WaterfallDraft,
+  label: string,
+  roomSizes: number[],
+): WaterfallDraft {
+  const clamped = roomSizes
+    .slice(0, MAX_ROOMS_PER_ROUND)
+    .map((size) => Math.min(Math.max(Math.trunc(size) || 1, 1), MAX_WATERFALL_ROOM_SIZE));
+  const rounds = draft.rounds.map((round) =>
+    round.label === label ? { ...round, roomSizes: clamped.length > 0 ? clamped : [1] } : round,
+  );
+  const resized = rounds.find((round) => round.label === label);
+  const best = resized ? fittedBests(draft.best, label, resized.roomSizes) : draft.best;
+  return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
+}
+
+/** Changes a round to `roomCount` rooms of `roomSize` each, keeping every slot that still exists. */
 export function resizeWaterfallRound(
   draft: WaterfallDraft,
   label: string,
   roomCount: number,
   roomSize: number,
 ): WaterfallDraft {
-  const rounds = draft.rounds.map((round) =>
-    round.label === label
-      ? {
-          ...round,
-          roomSizes: equalRooms(
-            Math.min(Math.max(Math.trunc(roomCount) || 1, 1), MAX_ROOMS_PER_ROUND),
-            Math.min(Math.max(Math.trunc(roomSize) || 1, 1), MAX_WATERFALL_ROOM_SIZE),
-          ),
-        }
-      : round,
-  );
-  const resized = rounds.find((round) => round.label === label);
-  const best = resized ? fittedBests(draft.best, label, resized.roomSizes) : draft.best;
-  return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
+  return setWaterfallRoomSizes(draft, label, equalRooms(Math.max(Math.trunc(roomCount) || 1, 1), roomSize));
 }
 
 /** Marks one round as the Final (clearing the flag elsewhere), or clears it. A round that becomes the Final loses its outgoing routes. */

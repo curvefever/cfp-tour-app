@@ -1,7 +1,5 @@
 import { Fragment } from 'react';
 import {
-  largestRoomOf,
-  roomCountOf,
   waterfallColumnGroups,
   waterfallQualCounts,
   type WaterfallColumnGroup,
@@ -11,7 +9,7 @@ import {
 } from '../../../domain/tournament/waterfall-draft';
 import { QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
 import { cn } from '../../../components/ui/cn';
-import { destinationColor, roundIntakeBadge, standingsSourceName } from './waterfall-format';
+import { destinationColor, roomSizesLabel, roundIntakeBadge, standingsSourceName } from './waterfall-format';
 
 const badgeClass = {
   ok: 'bg-success-soft text-success',
@@ -72,7 +70,7 @@ export function WaterfallRoundList({
           </span>
         </span>
         <span className='text-xs text-muted'>
-          {roomCountOf(round)} × {largestRoomOf(round)}
+          {roomSizesLabel(round.roomSizes)}
           {round.isFinal ? ' · Final' : ''}
         </span>
         {round.column === null ? null : (

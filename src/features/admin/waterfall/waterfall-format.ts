@@ -31,6 +31,51 @@ export function destinationColor(draft: WaterfallDraft, destination: string | nu
   return ROUND_COLORS[Math.max(index, 0) % ROUND_COLORS.length];
 }
 
+const allEqual = (sizes: number[]): boolean => sizes.every((size) => size === sizes[0]);
+
+/** The size of a round's rooms as the round list and summary read it: "3 × 8" for equal rooms, "8 + 8 + 7" for unequal ones. */
+export function roomSizesLabel(roomSizes: number[]): string {
+  return allEqual(roomSizes) ? `${roomSizes.length} × ${roomSizes[0]}` : roomSizes.join(' + ');
+}
+
+/** The size of a round's rooms in a sentence of its summary: "3 rooms × 8", "8 players" (one room), "8 + 8 + 7 players". */
+export function roomSizesSummary(roomSizes: number[]): string {
+  if (roomSizes.length === 1) return `${roomSizes[0]} players`;
+  return allEqual(roomSizes)
+    ? `${roomSizes.length} rooms × ${roomSizes[0]}`
+    : `${roomSizes.join(' + ')} players`;
+}
+
+/** The "Players per room" field of a round: the one size when every room has it, else one size per room ("8, 8, 7"). */
+export function roomSizesField(roomSizes: number[]): string {
+  return allEqual(roomSizes) ? String(roomSizes[0]) : roomSizes.join(', ');
+}
+
+export type RoomSizesRead = { ok: true; roomSizes: number[] } | { ok: false; error: string };
+
+/**
+ * Reads the "Players per room" field for a round of `roomCount` rooms: one whole number is the size of every room;
+ * a list (separated by commas, spaces or plus signs) gives one size per room and must be as long as the rooms.
+ */
+export function readRoomSizes(text: string, roomCount: number, maxSize: number): RoomSizesRead {
+  const parts = text.split(/[\s,+]+/).filter(Boolean);
+  const sizes = parts.map(Number);
+  if (sizes.length === 0 || sizes.some((size) => !Number.isInteger(size) || size < 1 || size > maxSize)) {
+    return {
+      ok: false,
+      error: `Players per room is one whole number, or one number per room, like 8, 8, 7.`,
+    };
+  }
+  if (sizes.length === 1) return { ok: true, roomSizes: Array.from({ length: roomCount }, () => sizes[0]) };
+  if (sizes.length !== roomCount) {
+    return {
+      ok: false,
+      error: `Give one size for each of the ${roomCount} rooms, or a single size for all of them.`,
+    };
+  }
+  return { ok: true, roomSizes: sizes };
+}
+
 export function slotKey(room: number, rank: number): string {
   return `${room}:${rank}`;
 }

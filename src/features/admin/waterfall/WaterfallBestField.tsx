@@ -2,6 +2,7 @@ import {
   bestDestinationChoices,
   largestRoomOf,
   roomCountOf,
+  roomsWithPlace,
   suggestedBest,
   type WaterfallDraft,
   type WaterfallDraftBest,
@@ -60,11 +61,13 @@ export function WaterfallBestField({
           value={best ? String(best.place) : NONE}
         >
           <option value={NONE}>None</option>
-          {range(largestRoomOf(round)).map((place) => (
-            <option key={place} value={place}>
-              {ordinal(place)}
-            </option>
-          ))}
+          {range(largestRoomOf(round))
+            .filter((place) => roomsWithPlace(round, place) >= 2)
+            .map((place) => (
+              <option key={place} value={place}>
+                {ordinal(place)}
+              </option>
+            ))}
         </Select>
         {best ? (
           <>
@@ -76,7 +79,7 @@ export function WaterfallBestField({
               onChange={(event) => change({ count: Number(event.target.value) })}
               value={String(best.count)}
             >
-              {range(roomCountOf(round) - 1).map((count) => (
+              {range(roomsWithPlace(round, best.place) - 1).map((count) => (
                 <option key={count} value={count}>
                   {count}
                 </option>

@@ -15,7 +15,7 @@ import {
   parseWaterfallDraft,
   removeWaterfallRound,
   renameWaterfallRound,
-  resizeWaterfallRound,
+  setWaterfallRoomSizes,
   serializeWaterfallDraft,
   setWaterfallColumn,
   setWaterfallBest,
@@ -175,7 +175,8 @@ function DraftEditor({
   const qualSelected = draft.qualRoutes !== null && (selectedLabel === QUAL_LABEL || selectedLabel === '');
   // The slots being picked: a round's rooms, or the qualification table's single row of ranks.
   const roomCount = qualSelected ? 1 : roomCountOf(round);
-  const slotsPerRoom = qualSelected ? (draft.qualRoutes?.length ?? 0) : largestRoomOf(round);
+  const slotsInRoom = (room: number) =>
+    qualSelected ? (draft.qualRoutes?.length ?? 0) : (round.roomSizes[room] ?? 0);
   const intake = waterfallRoundIntake(draft);
   const afterGroups = standingsSource && standingsKind === 'groups';
   // What each rank of the group exit is: for the ranks the line sends on (the total follows the highest routed one).
@@ -215,7 +216,8 @@ function DraftEditor({
       const turnOn = !picked.has(slotKey(room, rank));
       const next = new Set(picked);
       for (const targetRoom of rooms) {
-        for (let target = from; target <= to; target += 1) {
+        // "Apply to every room" reaches the rooms that have the place: a room of 7 has no 8th.
+        for (let target = from; target <= Math.min(to, slotsInRoom(targetRoom)); target += 1) {
           if (turnOn) next.add(slotKey(targetRoom, target));
           else next.delete(slotKey(targetRoom, target));
         }
@@ -226,7 +228,7 @@ function DraftEditor({
     onSelectAll: () => {
       const all = new Set<string>();
       for (let room = 0; room < roomCount; room += 1) {
-        for (let rank = 1; rank <= slotsPerRoom; rank += 1) all.add(slotKey(room, rank));
+        for (let rank = 1; rank <= slotsInRoom(room); rank += 1) all.add(slotKey(room, rank));
       }
       setPicked(all);
     },
@@ -244,7 +246,7 @@ function DraftEditor({
       commit(result.value, { from: round.label, to });
       return null;
     },
-    onResize: (roomCount, roomSize) => commit(resizeWaterfallRound(draft, round.label, roomCount, roomSize)),
+    onResize: (roomSizes) => commit(setWaterfallRoomSizes(draft, round.label, roomSizes)),
     onSetFinal: (isFinal) => {
       if (
         isFinal &&
