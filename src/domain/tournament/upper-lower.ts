@@ -2,9 +2,11 @@ import { parseAdvanceToBracket } from './bracket-entry';
 import { groupExitIsTotal } from './group-exit';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
-import { isUpperLowerBracket } from './rule-versions';
-import type { PersistedSetup, RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
+import type { PersistedSetup, RoomSize } from './types';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
+
+// The logic reader moved to `app-written-bracket.ts`; the name stays exported here for its callers.
+export { bracketLogicOf, type BracketLogic } from './app-written-bracket';
 
 /**
  * The built-in upper and lower bracket (`docs/rules.md`, "Upper and lower bracket"): after a pooling phase the units
@@ -12,19 +14,6 @@ import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind }
  * and a Final. This file is the rule, pure: how many enter, the rooms, and the Custom bracket graph text that plays it.
  * Nothing here knows a game format by name: the rooms, the half and the Final follow from the format's room size.
  */
-
-/** What reads the logic of a tournament: the schedule logic, or `'upper-lower'` for a Custom bracket the app works out itself. */
-export type BracketLogic = ScheduleLogicKey | 'upper-lower';
-
-/**
- * The logic a tournament is set up and shown with. At runtime an upper and lower bracket is a Custom bracket
- * (`state.scheduleLogic` is `'waterfall-bracket'`, never `'upper-lower'`); `gamemodeConfig.upperLowerVersion` marks it.
- */
-export function bracketLogicOf(
-  state: Pick<TournamentState, 'scheduleLogic' | 'gamemodeConfig'>,
-): BracketLogic {
-  return isUpperLowerBracket(state) ? 'upper-lower' : state.scheduleLogic;
-}
 
 /** Half a room: the places that go to the Final, or to the next round up, from a room of the bracket. */
 const halfOf = (roomSize: RoomSize): number => Math.floor(roomSize.ideal / 2);
@@ -326,24 +315,6 @@ export function upperLowerGraphText(
     ...shape.rounds.flatMap(routeLines),
     '',
   ].join('\n');
-}
-
-/** The match stage a round of the built-in bracket plays: the Final the Finals format, a Semi-Final the Semis format, every other round the bracket rounds format. */
-export function upperLowerStageOf(name: string, isFinal: boolean): 'bracket' | 'semis' | 'finals' {
-  if (isFinal) return 'finals';
-  return name.startsWith('Semi-Final') ? 'semis' : 'bracket';
-}
-
-/**
- * Marks the rounds of a freshly built upper and lower bracket with the match stage they play: a Semi-Final round the
- * Semis format, the Final the Finals format, every other round the bracket rounds format. `applyMatchFormats` then
- * formats the marked rounds as it formats any stage, so each format can change live.
- */
-export function markUpperLowerStages(rounds: TournamentRound[]): TournamentRound[] {
-  return rounds.map((entry) => ({
-    ...entry,
-    graphMatchStage: upperLowerStageOf(entry.customLabel ?? '', entry.isFinal === true),
-  }));
 }
 
 /** The Setup fields an upper and lower bracket reads to work out how many enter and what its rounds are called. */

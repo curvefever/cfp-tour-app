@@ -1,17 +1,10 @@
-import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from './formats';
+import { markUpperLowerStages, replannable } from './app-written-bracket';
+import { unitLabelPluralLower } from './formats';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
-import { isRoundReached } from './round-columns';
 import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
 import type { RoomSize, TournamentState } from './types';
-import {
-  markUpperLowerStages,
-  resolveUpperLowerEntry,
-  upperLowerEntry,
-  upperLowerGraphText,
-  upperLowerUpper,
-} from './upper-lower';
-import { isUpperLowerBracket } from './rule-versions';
+import { resolveUpperLowerEntry, upperLowerEntry, upperLowerGraphText, upperLowerUpper } from './upper-lower';
 import { applyWaterfallGraphEdit } from './waterfall-live-edit';
 
 const sameOf = (before: TournamentState, after: TournamentState): boolean =>
@@ -19,15 +12,6 @@ const sameOf = (before: TournamentState, after: TournamentState): boolean =>
   JSON.stringify([after.rounds, after.cfg, after.gamemodeConfig]);
 
 export type UpperLowerReplan = { ok: true; state: TournamentState } | { ok: false; message: string };
-
-/** Where an upper and lower bracket can still be worked out again: the version is set and no bracket round is drawn. */
-function replannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
-  if (!isUpperLowerBracket(state)) return null;
-  const first = state.rounds.findIndex((round) => round.isWaterfall);
-  const format = getGameFormat(state.gameFormat);
-  if (first === -1 || !format || isRoundReached(state, first)) return null;
-  return { first, roomSize: deriveRoomSize(format) };
-}
 
 /**
  * The number entering for the units still in the roster, from the settings' "Advance to bracket" or, left empty, from

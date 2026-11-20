@@ -15,7 +15,7 @@ import {
 } from './match-format';
 import { isPoolingRound } from './pooling';
 import { roundNoteNames, roundNoteRows } from './round-notes';
-import { bracketLogicOf } from './upper-lower';
+import { bracketLogicOf } from './app-written-bracket';
 import type {
   MaterializedGamemodeConfig,
   PersistedSetup,

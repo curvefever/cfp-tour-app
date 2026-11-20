@@ -14,7 +14,7 @@ import {
   type SharedFinalDoubleEliminationConfig,
 } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
-import { markUpperLowerStages } from './upper-lower';
+import { markUpperLowerStages } from './app-written-bracket';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
 import {
   waterfallBracketPhase,

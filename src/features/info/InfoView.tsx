@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { PageHeading, cn } from '../../components/ui';
-import { bracketLogicOf } from '../../domain/tournament/upper-lower';
+import { bracketLogicOf } from '../../domain/tournament/app-written-bracket';
 import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';

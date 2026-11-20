@@ -27,7 +27,7 @@ import {
   type RoundStage,
 } from './round-match-formats';
 import { roundNoteRows } from './round-notes';
-import { bracketLogicOf } from './upper-lower';
+import { bracketLogicOf } from './app-written-bracket';
 import type { TournamentState } from './types';
 
 type GamemodeConfig = TournamentState['gamemodeConfig'];
