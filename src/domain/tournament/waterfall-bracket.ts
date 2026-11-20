@@ -266,9 +266,16 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
       );
     }
     roomSizes = [total];
+  } else if (/^\d+(\+\d+)+$/.test(sizeSpec)) {
+    roomSizes = sizeSpec.split('+').map((size) => Number.parseInt(size, 10));
+    if (roomSizes.some((size) => size < 1)) {
+      return err(
+        `ROUNDS line for "${label}" has an invalid room size in "${sizeSpec}" -- every room must be positive.`,
+      );
+    }
   } else {
     return err(
-      `ROUNDS line for "${label}" has an unrecognized size ("${sizeSpec}") -- expected a whole number or "<rooms>x<size>" (e.g. "4x8").`,
+      `ROUNDS line for "${label}" has an unrecognized size ("${sizeSpec}") -- expected a whole number, "<rooms>x<size>" (e.g. "4x8") or the sizes of the rooms (e.g. "8+8+7").`,
     );
   }
 
@@ -1182,12 +1189,12 @@ export function declaredWaterfallSeats(round: TournamentRound): number {
 }
 
 /**
- * Takes `missing` seats out of the declared rooms, one per room in turn starting from the last
- * room, so room sizes differ by at most 1 (2x8 missing 1 is [8, 7], missing 2 is [7, 7]).
+ * Takes `missing` seats out of the declared rooms, one at a time out of the last of the largest rooms, so rooms
+ * that start level end at most 1 apart (2x8 missing 1 is [8, 7], missing 2 is [7, 7]; 8+8+7 missing 1 is [8, 7, 7]).
  */
 function removeSeatsFromLastRooms(declared: number[], missing: number): number[] {
   const rooms = [...declared];
-  for (let taken = 0; taken < missing; taken += 1) rooms[rooms.length - 1 - (taken % rooms.length)] -= 1;
+  for (let taken = 0; taken < missing; taken += 1) rooms[rooms.lastIndexOf(Math.max(...rooms))] -= 1;
   return rooms.filter((size) => size > 0);
 }
 

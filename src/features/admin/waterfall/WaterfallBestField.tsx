@@ -1,5 +1,7 @@
 import {
   bestDestinationChoices,
+  largestRoomOf,
+  roomCountOf,
   suggestedBest,
   type WaterfallDraft,
   type WaterfallDraftBest,
@@ -29,7 +31,7 @@ export function WaterfallBestField({
   onSetBest?: (best: WaterfallDraftBest | null) => void;
 }) {
   const best = draft.best?.[round.label];
-  const offered = !round.isFinal && !round.isRanking && round.roomCount >= 2;
+  const offered = !round.isFinal && !round.isRanking && roomCountOf(round) >= 2;
   if (!offered || (!onSetBest && !best)) return null;
 
   const later = bestDestinationChoices(draft, round.label, best?.place);
@@ -58,7 +60,7 @@ export function WaterfallBestField({
           value={best ? String(best.place) : NONE}
         >
           <option value={NONE}>None</option>
-          {range(round.roomSize).map((place) => (
+          {range(largestRoomOf(round)).map((place) => (
             <option key={place} value={place}>
               {ordinal(place)}
             </option>
@@ -74,7 +76,7 @@ export function WaterfallBestField({
               onChange={(event) => change({ count: Number(event.target.value) })}
               value={String(best.count)}
             >
-              {range(round.roomCount - 1).map((count) => (
+              {range(roomCountOf(round) - 1).map((count) => (
                 <option key={count} value={count}>
                   {count}
                 </option>

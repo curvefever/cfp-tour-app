@@ -383,15 +383,17 @@ describe('waterfall draft edits', () => {
   it('starts blank with an entry round sized to the entrants when they divide into rooms', () => {
     const draft = blankWaterfallDraft(24, FFA_ROOM_SIZE, { firstRoundNumber: 1 });
     expect(draft.rounds).toEqual([
-      { label: 'Round 1', roomCount: 3, roomSize: 8, isFinal: false, column: null, match: null },
-      { label: 'Final', roomCount: 1, roomSize: 8, isFinal: true, column: null, match: null },
+      { label: 'Round 1', roomSizes: [8, 8, 8], isFinal: false, column: null, match: null },
+      { label: 'Final', roomSizes: [8], isFinal: true, column: null, match: null },
     ]);
     expect(draft.routes['Round 1']).toEqual(Array.from({ length: 3 }, () => Array(8).fill(null)));
   });
 
   it('starts with a single room when the entrants are unknown or do not divide evenly', () => {
-    expect(blankWaterfallDraft(null, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomCount).toBe(1);
-    expect(blankWaterfallDraft(21, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomCount).toBe(1);
+    expect(blankWaterfallDraft(null, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomSizes).toEqual([
+      8,
+    ]);
+    expect(blankWaterfallDraft(21, FFA_ROOM_SIZE, { firstRoundNumber: 1 }).rounds[0].roomSizes).toEqual([8]);
   });
 
   it('adds a round before the Final, with a name nobody uses yet', () => {
@@ -508,7 +510,7 @@ describe('waterfall draft edits', () => {
 
   it('clamps a resize to the room limits', () => {
     const clamped = resizeWaterfallRound(draftOf(SECOND_CHANCE_GRAPH), 'R1', 999, 0);
-    expect(clamped.rounds[0]).toMatchObject({ roomCount: 26, roomSize: 1 });
+    expect(clamped.rounds[0]).toMatchObject({ roomSizes: Array(26).fill(1) });
   });
 
   it('makes a round the only Final, dropping its outgoing routes, and can undo it', () => {
@@ -599,7 +601,7 @@ describe('waterfallDraftFromRounds', () => {
 
     const draft = waterfallDraftFromRounds(atR1c.rounds);
 
-    expect(draft.rounds.find((round) => round.label === 'R1C')).toMatchObject({ roomCount: 1, roomSize: 8 });
+    expect(draft.rounds.find((round) => round.label === 'R1C')).toMatchObject({ roomSizes: [8] });
     expect(serializeWaterfallDraft(draft)).toContain('R1C = 8');
   });
 

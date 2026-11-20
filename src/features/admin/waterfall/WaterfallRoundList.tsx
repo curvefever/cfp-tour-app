@@ -1,5 +1,7 @@
 import { Fragment } from 'react';
 import {
+  largestRoomOf,
+  roomCountOf,
   waterfallColumnGroups,
   waterfallQualCounts,
   type WaterfallColumnGroup,
@@ -70,7 +72,7 @@ export function WaterfallRoundList({
           </span>
         </span>
         <span className='text-xs text-muted'>
-          {round.roomCount} × {round.roomSize}
+          {roomCountOf(round)} × {largestRoomOf(round)}
           {round.isFinal ? ' · Final' : ''}
         </span>
         {round.column === null ? null : (

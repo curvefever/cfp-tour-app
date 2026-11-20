@@ -21,6 +21,8 @@ import {
   setWaterfallBest,
   setWaterfallMatch,
   setWaterfallFinal,
+  largestRoomOf,
+  roomCountOf,
   setWaterfallRanking,
   waterfallColumnChoices,
   waterfallDraftColumns,
@@ -172,8 +174,8 @@ function DraftEditor({
   const round = draft.rounds.find((candidate) => candidate.label === selectedLabel) ?? draft.rounds[0];
   const qualSelected = draft.qualRoutes !== null && (selectedLabel === QUAL_LABEL || selectedLabel === '');
   // The slots being picked: a round's rooms, or the qualification table's single row of ranks.
-  const roomCount = qualSelected ? 1 : round.roomCount;
-  const slotsPerRoom = qualSelected ? (draft.qualRoutes?.length ?? 0) : round.roomSize;
+  const roomCount = qualSelected ? 1 : roomCountOf(round);
+  const slotsPerRoom = qualSelected ? (draft.qualRoutes?.length ?? 0) : largestRoomOf(round);
   const intake = waterfallRoundIntake(draft);
   const afterGroups = standingsSource && standingsKind === 'groups';
   // What each rank of the group exit is: for the ranks the line sends on (the total follows the highest routed one).
@@ -295,7 +297,7 @@ function DraftEditor({
     : undefined;
 
   const addRound = () => {
-    const next = addWaterfallRound(draft, round.roomSize, firstRoundNumber);
+    const next = addWaterfallRound(draft, largestRoomOf(round), firstRoundNumber);
     const added = next.rounds.find((candidate) => !draft.rounds.some((old) => old.label === candidate.label));
     commit(next);
     setSelectedLabel(added?.label ?? '');

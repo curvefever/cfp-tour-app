@@ -46,13 +46,13 @@ export function mapBests(
 export function fittedBests(
   best: WaterfallDraftBests | undefined,
   label: string,
-  roomCount: number,
-  roomSize: number,
+  roomSizes: number[],
 ): WaterfallDraftBests | undefined {
   return mapBests(best, (own, line) => {
     if (own !== label) return line;
-    if (roomCount < 2 || line.place > roomSize) return null;
-    return { ...line, count: Math.min(line.count, roomCount - 1) };
+    const rooms = roomSizes.filter((size) => size >= line.place).length;
+    if (rooms < 2) return null;
+    return { ...line, count: Math.min(line.count, rooms - 1) };
   });
 }
 

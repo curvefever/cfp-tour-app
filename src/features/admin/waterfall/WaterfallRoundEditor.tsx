@@ -3,7 +3,10 @@ import { MAX_ROOMS_PER_ROUND, roomIndexToLetter } from '../../../domain/tourname
 import {
   groupRoomByDestination,
   groupRoomWithOut,
+  largestRoomOf,
   MAX_WATERFALL_ROOM_SIZE,
+  roomCountOf,
+  seatsOf,
   type WaterfallColumnChoices,
   type WaterfallDraft,
   type WaterfallDraftBest,
@@ -191,8 +194,8 @@ function RoundSettings({
   finalsMatch?: WaterfallMatch;
 }) {
   const [name, setName] = useState(round.label);
-  const [rooms, setRooms] = useState(String(round.roomCount));
-  const [size, setSize] = useState(String(round.roomSize));
+  const [rooms, setRooms] = useState(String(roomCountOf(round)));
+  const [size, setSize] = useState(String(largestRoomOf(round)));
   const [nameError, setNameError] = useState('');
   const blurOnEnter = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') event.currentTarget.blur();
@@ -209,9 +212,9 @@ function RoundSettings({
     const nextRooms = readCount(rooms, MAX_ROOMS_PER_ROUND);
     const nextSize = readCount(size, MAX_WATERFALL_ROOM_SIZE);
     if (nextRooms === null || nextSize === null) {
-      setRooms(String(round.roomCount));
-      setSize(String(round.roomSize));
-    } else if (nextRooms !== round.roomCount || nextSize !== round.roomSize) {
+      setRooms(String(roomCountOf(round)));
+      setSize(String(largestRoomOf(round)));
+    } else if (nextRooms !== roomCountOf(round) || nextSize !== largestRoomOf(round)) {
       actions.onResize(nextRooms, nextSize);
     }
   };
@@ -461,7 +464,7 @@ function RoomSlots({
   return (
     <SlotGrid
       draft={draft}
-      name={round.roomCount > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room'}
+      name={roomCountOf(round) > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room'}
       onPickSlot={onPickSlot}
       picked={picked}
       room={room}
@@ -554,7 +557,9 @@ function RoundSummary({
     <div className='flex flex-wrap items-center gap-3'>
       <b>{round.label}</b>
       <span className='text-sm text-muted'>
-        {round.roomCount > 1 ? `${round.roomCount} rooms × ${round.roomSize}` : `${round.roomSize} players`}
+        {roomCountOf(round) > 1
+          ? `${roomCountOf(round)} rooms × ${largestRoomOf(round)}`
+          : `${largestRoomOf(round)} players`}
         {round.isFinal ? ' · Final' : ''}
       </span>
       {columns ? <ColumnField info={columns} round={round} /> : null}
@@ -598,7 +603,7 @@ export function WaterfallRoundEditor({
           actions={actions}
           columns={columns}
           finalsMatch={finalsMatch}
-          key={`${round.label}-${round.roomCount}-${round.roomSize}`}
+          key={`${round.label}-${round.roomSizes.join('+')}`}
           round={round}
         />
       ) : (
@@ -613,8 +618,8 @@ export function WaterfallRoundEditor({
         <div className='mt-3 rounded-lg bg-surface-low p-4'>
           <b>Final</b>
           <p className='mt-1 text-sm text-muted'>
-            Nothing routes out of the Final. It receives {incomingPlayers} of the{' '}
-            {round.roomCount * round.roomSize} players it needs.
+            Nothing routes out of the Final. It receives {incomingPlayers} of the {seatsOf(round)} players it
+            needs.
           </p>
         </div>
       ) : (
@@ -630,7 +635,7 @@ export function WaterfallRoundEditor({
           ) : null}
           <WaterfallBestField draft={draft} onSetBest={actions?.onSetBest} round={round} />
           <p className='mt-3 text-sm text-muted'>A rank left as "out" is eliminated.</p>
-          {Array.from({ length: round.roomCount }, (_, room) => (
+          {Array.from({ length: roomCountOf(round) }, (_, room) => (
             <RoomSlots
               draft={draft}
               key={room}

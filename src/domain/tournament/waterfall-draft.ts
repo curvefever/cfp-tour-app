@@ -58,8 +58,8 @@ export type WaterfallMatch = { kind: 'games'; games: number } | { kind: 'best-of
 
 export interface WaterfallDraftRound {
   label: string;
-  roomCount: number;
-  roomSize: number;
+  /** The seats of each room, in order: `[8, 8, 7]`. Equal rooms are written `3x8`, unequal rooms `8+8+7`. */
+  roomSizes: number[];
   isFinal: boolean;
   /** RANKING: a placement match, every rank goes out. */
   isRanking?: true;
@@ -110,12 +110,39 @@ export interface WaterfallSlot {
 
 export const MAX_WATERFALL_ROOM_SIZE = 64;
 
+type WithRoomSizes = Pick<WaterfallDraftRound, 'roomSizes'>;
+
+/** How many rooms a round has. */
+export const roomCountOf = (round: WithRoomSizes): number => round.roomSizes.length;
+
+/** The size of a round's largest room: the highest place any of its rooms has. */
+export const largestRoomOf = (round: WithRoomSizes): number => Math.max(...round.roomSizes);
+
+/** The seats of all of a round's rooms together. */
+export const seatsOf = (round: WithRoomSizes): number => round.roomSizes.reduce((sum, size) => sum + size, 0);
+
+/** How many of a round's rooms have the place (the rooms the best of a place chooses between). */
+export const roomsWithPlace = (round: WithRoomSizes, place: number): number =>
+  round.roomSizes.filter((size) => size >= place).length;
+
+/** `count` rooms of one size. */
+export const equalRooms = (count: number, size: number): number[] =>
+  Array.from({ length: count }, () => size);
+
+/** The size token of a ROUNDS line: `8` for one room, `3x8` for equal rooms, `8+8+7` for unequal ones. */
+export function roomSizesText(roomSizes: number[]): string {
+  if (roomSizes.length === 1) return String(roomSizes[0]);
+  return roomSizes.every((size) => size === roomSizes[0])
+    ? `${roomSizes.length}x${roomSizes[0]}`
+    : roomSizes.join('+');
+}
+
 function unsetRoom(roomSize: number): WaterfallSlotDestination[] {
   return Array.from({ length: roomSize }, () => null);
 }
 
 function emptyRoutes(round: WaterfallDraftRound): WaterfallSlotDestination[][] {
-  return round.isFinal ? [] : Array.from({ length: round.roomCount }, () => unsetRoom(round.roomSize));
+  return round.isFinal ? [] : round.roomSizes.map(unsetRoom);
 }
 
 /** The stored form of a destination: 'eliminated' and null are the same thing, kept as null. */
@@ -218,7 +245,7 @@ function buildQualRoutes(
   } else {
     const startingLabel = waterfallRoundIntake({ ...draft, qualRoutes: null }).startingRound;
     const entry = startingLabel ? byLower.get(startingLabel.toLowerCase()) : undefined;
-    if (entry) routed = Array.from({ length: entry.roomCount * entry.roomSize }, () => entry.label);
+    if (entry) routed = Array.from({ length: seatsOf(entry) }, () => entry.label);
   }
   const highest = highestRoutedQualRank(routed);
   const shown = Math.max(highest, options.rankCount ?? highest + (options.padRanks ?? 0), 1);
@@ -235,8 +262,7 @@ export function parseWaterfallDraft(
 
   const rounds: WaterfallDraftRound[] = raw.value.roundLines.map((line) => ({
     label: line.label,
-    roomCount: line.roomSizes.length,
-    roomSize: line.roomSizes[0],
+    roomSizes: line.roomSizes,
     isFinal: line.isFinal,
     ...(line.isRanking ? { isRanking: true as const } : {}),
     column: line.column,
@@ -252,14 +278,14 @@ export function parseWaterfallDraft(
     if (round.isFinal) {
       return err(`Round "${round.label}" is marked FINAL but has an outgoing ROUTES line.`);
     }
-    if (line.room === null && round.roomCount > 1) {
+    if (line.room === null && roomCountOf(round) > 1) {
       return err(
-        `Round "${round.label}" has ${round.roomCount} rooms, so each ROUTES line needs a room letter.`,
+        `Round "${round.label}" has ${roomCountOf(round)} rooms, so each ROUTES line needs a room letter.`,
       );
     }
     const roomIndex = (line.room ?? 1) - 1;
-    if (roomIndex >= round.roomCount) {
-      return err(`Round "${round.label}" only has ${round.roomCount} room(s).`);
+    if (roomIndex >= roomCountOf(round)) {
+      return err(`Round "${round.label}" only has ${roomCountOf(round)} room(s).`);
     }
     const claimedKey = `${round.label}.${roomIndex}`;
     const claimedRanks = claimed.get(claimedKey) ?? new Set<number>();
@@ -273,8 +299,9 @@ export function parseWaterfallDraft(
       if (!ranks.ok) return ranks;
       for (const rank of ranks.value) {
         const room = routes[round.label][roomIndex];
-        if (rank < 1 || rank > round.roomSize) {
-          return err(`Round "${round.label}": rank ${rank} is out of range for a room of ${round.roomSize}.`);
+        const roomSize = round.roomSizes[roomIndex];
+        if (rank < 1 || rank > roomSize) {
+          return err(`Round "${round.label}": rank ${rank} is out of range for a room of ${roomSize}.`);
         }
         if (claimedRanks.has(rank)) {
           return err(`Round "${round.label}": rank ${rank} is routed more than once.`);
@@ -399,7 +426,8 @@ function roomRouteLines(draft: WaterfallDraft, round: WaterfallDraftRound): stri
       ({ destination, ranks }) => `${compressWaterfallRanks(ranks).join(',')}->${destination}`,
     );
     if (bands.length === 0) return [];
-    const address = round.roomCount > 1 ? `${round.label}.${roomIndexToLetter(roomIndex + 1)}` : round.label;
+    const address =
+      roomCountOf(round) > 1 ? `${round.label}.${roomIndexToLetter(roomIndex + 1)}` : round.label;
     return [`${address}: ${bands.join(', ')}`];
   });
 }
@@ -408,8 +436,7 @@ function roomRouteLines(draft: WaterfallDraft, round: WaterfallDraftRound): stri
 export function serializeWaterfallDraft(draft: WaterfallDraft): string {
   if (draft.rounds.length === 0) return '';
   const roundLines = draft.rounds.map((round) => {
-    const size = round.roomCount > 1 ? `${round.roomCount}x${round.roomSize}` : String(round.roomSize);
-    return `${round.label} = ${size}${round.isFinal ? ' FINAL' : ''}${round.isRanking ? ' RANKING' : ''}${matchToken(round.match)}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
+    return `${round.label} = ${roomSizesText(round.roomSizes)}${round.isFinal ? ' FINAL' : ''}${round.isRanking ? ' RANKING' : ''}${matchToken(round.match)}${round.column === null ? '' : ` COLUMN ${round.column}`}`;
   });
   const routeLines = draft.rounds.flatMap((round) => [
     ...roomRouteLines(draft, round),
@@ -477,8 +504,7 @@ export function waterfallDraftFromRounds(
     const declared = declaredWaterfallRooms(round);
     return {
       label: round.customLabel as string,
-      roomCount: declared.length,
-      roomSize: declared[0],
+      roomSizes: declared,
       isFinal: round.isFinal,
       ...(round.waterfallRanking ? { isRanking: true as const } : {}),
       column: round.waterfallColumnSet ? (round.waterfallColumn ?? null) : null,
@@ -544,7 +570,7 @@ function legacyQualRoutes(draft: WaterfallDraft): WaterfallSlotDestination[] {
     draft,
     waterfallRoundIntake({ ...draft, qualRoutes: null }).startingRound ?? '',
   );
-  return entry ? Array.from({ length: entry.roomCount * entry.roomSize }, () => entry.label) : [];
+  return entry ? Array.from({ length: seatsOf(entry) }, () => entry.label) : [];
 }
 
 export interface WaterfallFlowEdge {
@@ -671,13 +697,15 @@ export function blankWaterfallDraft(
   const rounds: WaterfallDraftRound[] = [
     {
       label: defaultRoundName(options.firstRoundNumber),
-      roomCount: fits ? Math.min(entrantCount / roomSize.ideal, MAX_ROOMS_PER_ROUND) : 1,
-      roomSize: roomSize.ideal,
+      roomSizes: equalRooms(
+        fits ? Math.min(entrantCount / roomSize.ideal, MAX_ROOMS_PER_ROUND) : 1,
+        roomSize.ideal,
+      ),
       isFinal: false,
       column: null,
       match: null,
     },
-    { label: 'Final', roomCount: 1, roomSize: roomSize.ideal, isFinal: true, column: null, match: null },
+    { label: 'Final', roomSizes: [roomSize.ideal], isFinal: true, column: null, match: null },
   ];
   const qualRoutes = options.standingsSource
     ? Array.from({ length: entrantCount ?? roomSize.max }, (): WaterfallSlotDestination => null)
@@ -706,8 +734,7 @@ export function addWaterfallRound(
   while (labelIsTaken(draft, defaultRoundName(number))) number += 1;
   const added: WaterfallDraftRound = {
     label: defaultRoundName(number),
-    roomCount: 1,
-    roomSize,
+    roomSizes: [roomSize],
     isFinal: false,
     column: null,
     match: null,
@@ -829,13 +856,15 @@ export function resizeWaterfallRound(
     round.label === label
       ? {
           ...round,
-          roomCount: Math.min(Math.max(Math.trunc(roomCount) || 1, 1), MAX_ROOMS_PER_ROUND),
-          roomSize: Math.min(Math.max(Math.trunc(roomSize) || 1, 1), MAX_WATERFALL_ROOM_SIZE),
+          roomSizes: equalRooms(
+            Math.min(Math.max(Math.trunc(roomCount) || 1, 1), MAX_ROOMS_PER_ROUND),
+            Math.min(Math.max(Math.trunc(roomSize) || 1, 1), MAX_WATERFALL_ROOM_SIZE),
+          ),
         }
       : round,
   );
   const resized = rounds.find((round) => round.label === label);
-  const best = resized ? fittedBests(draft.best, label, resized.roomCount, resized.roomSize) : draft.best;
+  const best = resized ? fittedBests(draft.best, label, resized.roomSizes) : draft.best;
   return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
 }
 
@@ -929,7 +958,7 @@ export function suggestedBest(
   place: number,
 ): WaterfallDraftBest | null {
   const round = findWaterfallRound(draft, label);
-  if (!round || round.roomCount < 2 || place < 1 || place > round.roomSize) return null;
+  if (!round || place < 1 || roomsWithPlace(round, place) < 2) return null;
   const destination = bestDestinationChoices(draft, label, place)[0];
   return destination ? { place, count: 1, destination } : null;
 }
@@ -1053,7 +1082,7 @@ export function assignWaterfallSlots(
   if (!round || round.isFinal || !validDestination) return draft;
   const routes = { ...draft.routes, [label]: draft.routes[label].map((room) => [...room]) };
   for (const { room, rank } of slots) {
-    if (room >= 0 && room < round.roomCount && rank >= 1 && rank <= round.roomSize) {
+    if (room >= 0 && room < roomCountOf(round) && rank >= 1 && rank <= round.roomSizes[room]) {
       routes[label][room][rank - 1] = storedDestination(destination);
     }
   }

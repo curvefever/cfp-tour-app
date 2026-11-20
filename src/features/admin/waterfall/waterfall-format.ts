@@ -6,6 +6,7 @@ import {
 } from '../../../domain/tournament/waterfall-bracket';
 import {
   compressWaterfallRanks,
+  seatsOf,
   type WaterfallDraft,
   type WaterfallDraftRound,
   type WaterfallFlowEdge,
@@ -110,7 +111,7 @@ export function roundIntakeBadge(
   intake: WaterfallIntake,
   entrantCount: number | null,
 ): RoundIntakeBadge {
-  const needs = round.roomCount * round.roomSize;
+  const needs = seatsOf(round);
   if (intake.startingRound === round.label) {
     if (entrantCount === null) return { text: String(needs), state: 'neutral' };
     return { text: `${entrantCount} / ${needs}`, state: entrantCount === needs ? 'ok' : 'bad' };

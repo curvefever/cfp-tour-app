@@ -1,4 +1,8 @@
-import { waterfallFlowEdges, type WaterfallDraft } from '../../../domain/tournament/waterfall-draft';
+import {
+  roomCountOf,
+  waterfallFlowEdges,
+  type WaterfallDraft,
+} from '../../../domain/tournament/waterfall-draft';
 import { Alert } from '../../../components/ui';
 import { describeFlowEdge, destinationColor, destinationName, sourceName } from './waterfall-format';
 
@@ -17,7 +21,10 @@ export function WaterfallSidePanel({
   standingsSource: boolean;
 }) {
   const edges = waterfallFlowEdges(draft);
-  const roomCountOf = (label: string) => draft.rounds.find((round) => round.label === label)?.roomCount ?? 1;
+  const roomsOfRound = (label: string) => {
+    const round = draft.rounds.find((candidate) => candidate.label === label);
+    return round ? roomCountOf(round) : 1;
+  };
 
   return (
     <div className='min-w-0'>
@@ -53,7 +60,7 @@ export function WaterfallSidePanel({
             <b>{sourceName(edge.from, draft.standingsKind, draft.afterSwiss)}</b> → {destinationName(edge.to)}{' '}
             <span className='text-muted'>
               {edge.players} player{edge.players > 1 ? 's' : ''} ·{' '}
-              {describeFlowEdge(edge, roomCountOf(edge.from))}
+              {describeFlowEdge(edge, roomsOfRound(edge.from))}
             </span>
           </span>
         </div>
