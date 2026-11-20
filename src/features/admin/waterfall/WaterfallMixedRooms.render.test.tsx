@@ -83,14 +83,39 @@ describe('the size field of a round', () => {
     expect(lastText(onChange)).toContain('R4.B: 1-4->R5');
   });
 
-  it('refuses a list that is not as long as the rooms, says why, and puts the rooms back', () => {
-    const onChange = editor(TWO_ROOMS);
-    type(sizeField(), '8, 8, 7');
+  it('lets a list that was edited alone set the number of rooms, and the Rooms field follows', () => {
+    const onChange = editor(THREE_ROOMS);
+    type(sizeField(), '8, 8, 7, 7');
+    expect(lastText(onChange)).toContain('R4 = 8+8+7+7\n');
+  });
+
+  it('cuts the list from the end, or extends it with its last room, when Rooms was edited alone', () => {
+    const onChange = editor(THREE_ROOMS);
+    type(roomsField(), '4');
+    expect(lastText(onChange)).toContain('R4 = 8+8+7+7\n');
+    cleanup();
+    const second = editor(THREE_ROOMS);
+    type(roomsField(), '2');
+    expect(lastText(second)).toContain('R4 = 2x8\n');
+  });
+
+  it('takes both fields when they were edited together and agree', () => {
+    const onChange = editor(THREE_ROOMS);
+    fireEvent.change(roomsField(), { target: { value: '4' } });
+    type(sizeField(), '8, 6, 6, 6');
+    expect(lastText(onChange)).toContain('R4 = 8+6+6+6\n');
+  });
+
+  it('refuses both fields edited together that disagree, says why, and puts the rooms back', () => {
+    const onChange = editor(THREE_ROOMS);
+    fireEvent.change(roomsField(), { target: { value: '4' } });
+    type(sizeField(), '8, 8, 6');
     expect(onChange).not.toHaveBeenCalled();
     expect(
-      screen.getByText('Give one size for each of the 2 rooms, or a single size for all of them.'),
+      screen.getByText('Give one size for each of the 4 rooms, or a single size for all of them.'),
     ).toBeTruthy();
-    expect(sizeField().value).toBe('8, 7');
+    expect(roomsField().value).toBe('3');
+    expect(sizeField().value).toBe('8, 8, 7');
   });
 
   it('refuses a size that is not a whole number', () => {

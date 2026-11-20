@@ -53,27 +53,60 @@ export function roomSizesField(roomSizes: number[]): string {
 
 export type RoomSizesRead = { ok: true; roomSizes: number[] } | { ok: false; error: string };
 
+export interface RoomSizesFields {
+  /** The text of the "Players per room" field. */
+  sizesText: string;
+  /** The text of the "Rooms" field. */
+  roomsText: string;
+  /** The rooms the round has now: what the fields showed before they were edited. */
+  current: number[];
+  maxSize: number;
+  maxRooms: number;
+}
+
+/** A list cut from the end to `count` rooms, or extended by repeating its last room. */
+function listOfLength(sizes: number[], count: number): number[] {
+  return Array.from({ length: count }, (_, index) => sizes[Math.min(index, sizes.length - 1)]);
+}
+
 /**
- * Reads the "Players per room" field for a round of `roomCount` rooms: one whole number is the size of every room;
- * a list (separated by commas, spaces or plus signs) gives one size per room and must be as long as the rooms.
+ * The rooms the "Rooms" and "Players per room" fields ask for. One whole number in "Players per room" is the size of
+ * every room, and Rooms is how many. A list (commas, spaces or plus signs) gives one size per room: when only the list
+ * was edited its length sets the number of rooms; when only Rooms was edited the list is cut from the end or extended
+ * by repeating its last room; when both were edited they must agree.
  */
-export function readRoomSizes(text: string, roomCount: number, maxSize: number): RoomSizesRead {
-  const parts = text.split(/[\s,+]+/).filter(Boolean);
-  const sizes = parts.map(Number);
+export function readRoomSizes({
+  sizesText,
+  roomsText,
+  current,
+  maxSize,
+  maxRooms,
+}: RoomSizesFields): RoomSizesRead {
+  const rooms = Number(roomsText);
+  if (!Number.isInteger(rooms) || rooms < 1 || rooms > maxRooms) {
+    return { ok: false, error: `Rooms is a whole number from 1 to ${maxRooms}.` };
+  }
+  const sizes = sizesText
+    .split(/[\s,+]+/)
+    .filter(Boolean)
+    .map(Number);
   if (sizes.length === 0 || sizes.some((size) => !Number.isInteger(size) || size < 1 || size > maxSize)) {
     return {
       ok: false,
-      error: `Players per room is one whole number, or one number per room, like 8, 8, 7.`,
+      error: 'Players per room is one whole number, or one number per room, like 8, 8, 7.',
     };
   }
-  if (sizes.length === 1) return { ok: true, roomSizes: Array.from({ length: roomCount }, () => sizes[0]) };
-  if (sizes.length !== roomCount) {
+  if (sizes.length === 1) return { ok: true, roomSizes: listOfLength(sizes, rooms) };
+  if (sizes.length > maxRooms) return { ok: false, error: `A round has at most ${maxRooms} rooms.` };
+  const sizesEdited = sizesText.trim() !== roomSizesField(current);
+  const roomsEdited = rooms !== current.length;
+  if (sizesEdited && roomsEdited && sizes.length !== rooms) {
     return {
       ok: false,
-      error: `Give one size for each of the ${roomCount} rooms, or a single size for all of them.`,
+      error: `Give one size for each of the ${rooms} rooms, or a single size for all of them.`,
     };
   }
-  return { ok: true, roomSizes: sizes };
+  return { ok: true, roomSizes: roomsEdited && !sizesEdited ? listOfLength(sizes, rooms) : sizes };
 }
 
 export function slotKey(room: number, rank: number): string {

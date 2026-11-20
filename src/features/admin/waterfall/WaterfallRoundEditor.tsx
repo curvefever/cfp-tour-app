@@ -179,12 +179,6 @@ function MatchField({
   );
 }
 
-/** Whole number within [1, max], or null. */
-function readCount(text: string, max: number): number | null {
-  const value = Number(text);
-  return Number.isInteger(value) && value >= 1 && value <= max ? value : null;
-}
-
 function RoundSettings({
   round,
   actions,
@@ -218,9 +212,13 @@ function RoundSettings({
     setSizeError(error);
   };
   const commitSize = () => {
-    const nextRooms = readCount(rooms, MAX_ROOMS_PER_ROUND);
-    if (nextRooms === null) return restoreSize(`Rooms is a whole number from 1 to ${MAX_ROOMS_PER_ROUND}.`);
-    const read = readRoomSizes(size, nextRooms, MAX_WATERFALL_ROOM_SIZE);
+    const read = readRoomSizes({
+      sizesText: size,
+      roomsText: rooms,
+      current: round.roomSizes,
+      maxSize: MAX_WATERFALL_ROOM_SIZE,
+      maxRooms: MAX_ROOMS_PER_ROUND,
+    });
     if (!read.ok) return restoreSize(read.error);
     setSizeError('');
     if (read.roomSizes.join('+') !== round.roomSizes.join('+')) actions.onResize(read.roomSizes);
