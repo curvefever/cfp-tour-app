@@ -112,7 +112,14 @@ function topLevels(roomSize: RoomSize): number[] {
   return tops;
 }
 
-/** The entry shapes for `size` in the bracket with `levelCount` levels, in the order they are tried. */
+/** The level below the top starts with at least 3/4 of the top level's players: 16 needs 12, 14 needs 11, 12 needs 9. */
+const belowTopIsBigEnough = (top: number, below: number): boolean => 4 * below >= 3 * top;
+
+/**
+ * The entry shapes for `size` in the bracket with `levelCount` levels, in the order they are tried. Unless the organiser
+ * typed the top level, the level below the top must be big enough (3/4 of the top); when no top level gives that, the
+ * top level is the smallest there is (12).
+ */
 function entryShapes(
   size: number,
   roomSize: RoomSize,
@@ -120,36 +127,46 @@ function entryShapes(
   typedTop?: number,
 ): EntryLevel[][] {
   const topMax = 2 * roomSize.ideal;
-  if (levelCount === 3) return threeLevelShapes(size, roomSize, typedTop ?? topMax);
+  if (levelCount === 3) return threeLevelShapes(size, roomSize, typedTop);
   const seats = (top: number) => size - top >= roomSize.min - 1 && seatLevel(size - top, roomSize) !== null;
   const shape = (top: number): EntryLevel[] => [
     { name: 'Upper', players: top },
     { name: 'Lower', players: size - top },
   ];
   if (typedTop !== undefined) return seats(typedTop) ? [shape(typedTop)] : [];
-  if (size - topMax >= roomSize.min && seatsNormally(size - topMax, roomSize)) return [shape(topMax)];
-  return topLevels(roomSize)
-    .filter(seats)
-    .map((top) => shape(top));
+  const seated = topLevels(roomSize).filter(seats);
+  const bigEnough = seated.filter((top) => belowTopIsBigEnough(top, size - top));
+  const tops = bigEnough.length > 0 ? bigEnough : seated.filter((top) => top === 2 * roomSize.min);
+  if (tops.includes(topMax) && size - topMax >= roomSize.min && seatsNormally(size - topMax, roomSize)) {
+    return [shape(topMax)];
+  }
+  return tops.map((top) => shape(top));
 }
 
 /**
- * The top level and every split of the rest into a Middle and a Lower level that both seat in normal rooms, the Middle
- * level in at least two rooms, the smaller Middle level first.
+ * Every split of the rest into a Middle and a Lower level that both seat in normal rooms, the Middle level in at least
+ * two rooms, the smaller Middle level first. The top level is two full rooms; the Middle level starts with at least 3/4 of
+ * it, and when no split gives that the top level is the smallest there is. A typed top level is taken as it is.
  */
-function threeLevelShapes(size: number, roomSize: RoomSize, top: number): EntryLevel[][] {
-  const shapes: EntryLevel[][] = [];
-  const rest = size - top;
-  for (let middle = roomSize.min; middle <= rest - roomSize.min; middle += 1) {
-    const rooms = seatLevel(middle, roomSize)?.rooms.length ?? 0;
-    if (rooms < 2 || !seatsNormally(middle, roomSize) || !seatsNormally(rest - middle, roomSize)) continue;
-    shapes.push([
-      { name: 'Upper', players: top },
-      { name: 'Middle', players: middle },
-      { name: 'Lower', players: rest - middle },
-    ]);
-  }
-  return shapes;
+function threeLevelShapes(size: number, roomSize: RoomSize, typedTop?: number): EntryLevel[][] {
+  const shapesFor = (top: number, checkMiddle: boolean): EntryLevel[][] => {
+    const shapes: EntryLevel[][] = [];
+    const rest = size - top;
+    for (let middle = roomSize.min; middle <= rest - roomSize.min; middle += 1) {
+      const rooms = seatLevel(middle, roomSize)?.rooms.length ?? 0;
+      if (rooms < 2 || !seatsNormally(middle, roomSize) || !seatsNormally(rest - middle, roomSize)) continue;
+      if (checkMiddle && !belowTopIsBigEnough(top, middle)) continue;
+      shapes.push([
+        { name: 'Upper', players: top },
+        { name: 'Middle', players: middle },
+        { name: 'Lower', players: rest - middle },
+      ]);
+    }
+    return shapes;
+  };
+  if (typedTop !== undefined) return shapesFor(typedTop, false);
+  const full = shapesFor(2 * roomSize.ideal, true);
+  return full.length > 0 ? full : shapesFor(2 * roomSize.min, true);
 }
 
 /** What a plan is made from: the room size, how games are counted and what the organiser typed. */
@@ -157,13 +174,15 @@ interface Basis {
   roomSize: RoomSize;
   games: LayeredGames;
   typed?: LayeredTyped;
+  /** One bracket round more than the usual: tried when the usual number cannot seat the share of those who play. */
+  extraRound: boolean;
   /** The search of each number of levels, made when first asked for: a plan asks it for many sizes and shapes. */
   searches: Map<LevelCount, (entry: EntryLevel[]) => Bracket | null>;
 }
 
-/** The bracket rounds a bracket with `levelCount` levels is designed with: what the organiser typed, else the usual. */
+/** The bracket rounds a bracket with `levelCount` levels is designed with: what the organiser typed, else the usual (one more when asked for). */
 const wantedRounds = (basis: Basis, levelCount: LevelCount): number =>
-  basis.typed?.bracketRounds ?? ROUNDS_BY_LEVELS[levelCount];
+  basis.typed?.bracketRounds ?? ROUNDS_BY_LEVELS[levelCount] + (basis.extraRound ? 1 : 0);
 
 const searchSettings = (basis: Basis, levelCount: LevelCount): SearchSettings => ({
   roomSize: basis.roomSize,
@@ -255,28 +274,64 @@ function chooseSize(play: number, registered: number, basis: Basis): Chosen | nu
   return found;
 }
 
+/** A bracket designed with one round more than the usual, and the size the usual number gave. */
+interface ExtraRound {
+  usualSize: number;
+}
+
+/**
+ * The size of the bracket, with one more bracket round than usual when the usual number cannot seat the share: the size
+ * it gives is under 75% of those who play. The longer bracket is used when it gives a size from 75% to 85% with no more
+ * rooms of a last-resort size and no more rooms where more than half do not stay. A typed number of rounds turns this off.
+ */
+function chooseSizeAndRounds(
+  play: number,
+  registered: number,
+  basis: Basis,
+): { chosen: Chosen; basis: Basis; extra?: ExtraRound } | null {
+  const usual = chooseSize(play, registered, basis);
+  if (!usual) return null;
+  const share75 = Math.ceil((3 * play) / 4);
+  if (basis.typed?.bracketRounds !== undefined || usual.size >= share75) return { chosen: usual, basis };
+  const longer: Basis = { ...basis, extraRound: true, searches: new Map() };
+  const more = chooseSize(play, registered, longer);
+  const fits =
+    more &&
+    more.size >= share75 &&
+    more.size <= Math.floor((17 * play) / 20) &&
+    more.bracket.key[0] <= usual.bracket.key[0] &&
+    more.bracket.key[1] <= usual.bracket.key[1];
+  return fits ? { chosen: more, basis: longer, extra: { usualSize: usual.size } } : { chosen: usual, basis };
+}
+
 function topLevelNumber(bracket: Bracket, roomSize: RoomSize, typed: boolean): LayeredNumber {
   const value = bracket.entry[0].players;
   if (typed) return yours(value);
-  return app(
-    value,
-    value === 2 * roomSize.ideal
-      ? `two full rooms of ${roomSize.ideal}`
-      : `${value} in two equal rooms: with ${2 * roomSize.ideal} on top the rest of the bracket does not seat in rooms of ${roomSize.min} to ${roomSize.max}`,
-  );
+  const full = 2 * roomSize.ideal;
+  if (value === full) return app(value, `two full rooms of ${roomSize.ideal}`);
+  const below = bracket.entry.reduce((total, level) => total + level.players, 0) - full;
+  const why = belowTopIsBigEnough(full, below)
+    ? `with ${full} on top the rest of the bracket does not seat in rooms of ${roomSize.min} to ${roomSize.max}`
+    : `with ${full} on top the level below would have ${below}, under 3/4 of ${full}`;
+  return app(value, `${value} in two equal rooms: ${why}`);
 }
 
 function bracketRoundsNumber(
   bracket: Bracket,
   typed: number | undefined,
   levelCount: LevelCount,
+  extra: { usualSize: number; play: number } | undefined,
 ): LayeredNumber {
   const value = bracket.rounds.length + ROUNDS_AFTER_THE_BRACKET_ROUNDS;
   if (typed === undefined) {
-    return app(
-      value,
-      `${ROUNDS_BY_LEVELS[levelCount]} bracket rounds for ${levelCount} levels, or one fewer if that seats better`,
-    );
+    const usual = ROUNDS_BY_LEVELS[levelCount];
+    if (extra) {
+      return app(
+        value,
+        `${usual + 1} bracket rounds for ${levelCount} levels, one more than usual: with ${usual} the bracket would hold only ${extra.usualSize}, under 75% of the ${extra.play} who play, or one fewer if that seats better`,
+      );
+    }
+    return app(value, `${usual} bracket rounds for ${levelCount} levels, or one fewer if that seats better`);
   }
   return typed === value
     ? yours(value)
@@ -323,6 +378,7 @@ function planOf(
   play: LayeredNumber,
   inBracket: LayeredNumber,
   bracket: Bracket,
+  extra?: ExtraRound,
 ): LayeredPlan {
   const { roomSize } = input;
   const levelRounds = bracket.rounds.flatMap((round) => round.levels);
@@ -332,7 +388,12 @@ function planOf(
     play,
     inBracket,
     outAtTable: play.value - inBracket.value,
-    bracketRounds: bracketRoundsNumber(bracket, basis.typed?.bracketRounds, levelCount),
+    bracketRounds: bracketRoundsNumber(
+      bracket,
+      basis.typed?.bracketRounds,
+      levelCount,
+      extra && { usualSize: extra.usualSize, play: play.value },
+    ),
     games: bracketGames(basis.games, bracket.rounds.length),
     levelCount: levelCountNumber(bracket, inBracket.value, basis),
     topLevel: topLevelNumber(bracket, roomSize, basis.typed?.topLevel !== undefined),
@@ -388,7 +449,13 @@ export function planLayered(input: LayeredInput): LayeredResult {
   const refusal = typedRefusal(input, play.value);
   if (refusal) return { ok: false, message: refusal };
 
-  const basis: Basis = { roomSize, games: input.games ?? USUAL_GAMES, typed, searches: new Map() };
+  const basis: Basis = {
+    roomSize,
+    games: input.games ?? USUAL_GAMES,
+    typed,
+    extraRound: false,
+    searches: new Map(),
+  };
   if (typed?.inBracket !== undefined) {
     const bracket = bracketForSize(typed.inBracket, basis);
     if (!bracket) {
@@ -399,13 +466,14 @@ export function planLayered(input: LayeredInput): LayeredResult {
     }
     return { ok: true, plan: planOf(input, basis, play, yours(typed.inBracket), bracket) };
   }
-  const chosen = chooseSize(play.value, registered, basis);
-  if (!chosen) {
+  const sized = chooseSizeAndRounds(play.value, registered, basis);
+  if (!sized) {
     return {
       ok: false,
       message: `No layered bracket fits ${play.value} players${levelsWords(typed?.levels)} in ${roundsWords(Math.ceil((3 * play.value) / 4), basis)}. Try another number of bracket rounds, or build the bracket by hand with the Custom bracket.`,
     };
   }
+  const { chosen, extra } = sized;
   const inBracket = app(chosen.size, inBracketReason(chosen, play.value));
-  return { ok: true, plan: planOf(input, basis, play, inBracket, chosen.bracket) };
+  return { ok: true, plan: planOf(input, sized.basis, play, inBracket, chosen.bracket, extra) };
 }
