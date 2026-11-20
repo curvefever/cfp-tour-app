@@ -262,7 +262,7 @@ describe('the typed top places of each room and the other half of Semi-Final A',
       { name: 'Round 6 - Lower', top: 4, typed: '' },
     ]);
     expect(summary.noLongerApply).toEqual([]);
-    expect(summary.semiOthers).toEqual({ value: 'play-on', typed: '' });
+    expect(summary.semiOthers).toEqual({ value: 'play-on', typed: '', noLongerApplies: false });
   });
 
   it('shows a typed number in its row, and the plan designed around it', () => {
@@ -296,7 +296,17 @@ describe('the typed top places of each room and the other half of Semi-Final A',
     expect(readyOf(layeredSummary(form({ layeredSemiOthers: 'wait' }), 53)).semiOthers).toEqual({
       value: 'wait',
       typed: 'wait',
+      noLongerApplies: false,
     });
     expect(readyOf(layeredSummary(form(), 24)).semiOthers.value).toBe('last-semi');
+  });
+
+  it('says a typed choice no longer applies where the first semi-final is in the last round: 24 registered', () => {
+    expect(readyOf(layeredSummary(form({ layeredSemiOthers: 'play-on' }), 24)).semiOthers).toEqual({
+      value: 'last-semi',
+      typed: 'play-on',
+      noLongerApplies: true,
+    });
+    expect(readyOf(layeredSummary(form(), 24)).semiOthers.noLongerApplies).toBe(false);
   });
 });

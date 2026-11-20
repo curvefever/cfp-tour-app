@@ -303,3 +303,24 @@ describe('the top places of each room and the other half of Semi-Final A', () =>
     expect(setups.at(-1)?.layeredTopCounts).toBe('');
   });
 });
+
+describe('the other half of Semi-Final A where the first semi-final is in the last round', () => {
+  it('shows a typed choice as "no longer applies" with a Clear button, at 24 registered', () => {
+    atCount(24, { layeredSemiOthers: 'wait' });
+    render(<LayeredPanel />);
+    const note = document.querySelector('[data-no-longer-applies="semi-others"]') as HTMLElement;
+    expect(note.textContent).toBe('no longer applies');
+    fireEvent.click(within(note.parentElement as HTMLElement).getByRole('button', { name: 'Clear' }));
+    expect(setups.at(-1)?.layeredSemiOthers).toBe('');
+  });
+
+  it('shows nothing of the kind when it applies, or when nothing was typed', () => {
+    atCount(53, { layeredSemiOthers: 'wait' });
+    const { unmount } = render(<LayeredPanel />);
+    expect(document.querySelector('[data-no-longer-applies="semi-others"]')).toBeNull();
+    unmount();
+    atCount(24);
+    render(<LayeredPanel />);
+    expect(document.querySelector('[data-no-longer-applies="semi-others"]')).toBeNull();
+  });
+});

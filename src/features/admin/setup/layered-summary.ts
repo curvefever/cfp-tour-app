@@ -72,6 +72,8 @@ export interface TopCountRow {
 export interface SemiOthersRow {
   value: 'play-on' | 'wait' | 'last-semi';
   typed: '' | 'play-on' | 'wait';
+  /** Typed, and the first semi-final is in the last round: its other half go to Semi-Final B whatever is chosen. */
+  noLongerApplies: boolean;
 }
 
 export type LayeredSummary =
@@ -237,7 +239,11 @@ export function layeredSummary(form: LayeredForm, registered: number | null): La
     grid: gridOf(plan, firstRound),
     topCounts: topCountRowsOf(plan, firstRound, form.layeredTopCounts),
     noLongerApply: noLongerApplyOf(plan, firstRound, planned.orphans),
-    semiOthers: { value: plan.semiOthers.value, typed: form.layeredSemiOthers },
+    semiOthers: {
+      value: plan.semiOthers.value,
+      typed: form.layeredSemiOthers,
+      noLongerApplies: form.layeredSemiOthers !== '' && plan.semiOthers.value === 'last-semi',
+    },
     differsFromUsual: differsFromUsualValues(form, registered),
   };
 }

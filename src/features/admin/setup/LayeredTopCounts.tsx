@@ -39,6 +39,8 @@ export function LayeredTopCounts({
       ...current,
       layeredTopCounts: withTopCount(current.layeredTopCounts, name, top),
     }));
+  const setSemi = (value: '' | 'play-on' | 'wait') =>
+    updateSetup((current) => ({ ...current, layeredSemiOthers: value }));
   return (
     <div className='flex flex-col gap-2' id='layered-top-counts'>
       <b className='text-sm'>Top places of each room</b>
@@ -76,18 +78,22 @@ export function LayeredTopCounts({
           className='!h-8 !w-auto'
           id='layered-semi-others'
           value={semiOthers.typed}
-          onChange={(event) =>
-            updateSetup((current) => ({
-              ...current,
-              layeredSemiOthers: event.target.value as '' | 'play-on' | 'wait',
-            }))
-          }
+          onChange={(event) => setSemi(event.target.value as '' | 'play-on' | 'wait')}
         >
           <option value=''>{`Automatic: ${SEMI_OTHERS_WORDS[semiOthers.value]}`}</option>
           <option value='play-on'>{SEMI_OTHERS_WORDS['play-on']}</option>
           <option value='wait'>{SEMI_OTHERS_WORDS.wait}</option>
         </Select>
-        <span className='text-xs text-muted'>{semiOthers.typed ? 'yours' : "the app's"}</span>
+        {semiOthers.noLongerApplies ? (
+          <>
+            <span className='text-warning' data-no-longer-applies='semi-others'>
+              no longer applies
+            </span>
+            <Button onClick={() => setSemi('')}>Clear</Button>
+          </>
+        ) : (
+          <span className='text-xs text-muted'>{semiOthers.typed ? 'yours' : "the app's"}</span>
+        )}
       </div>
     </div>
   );
