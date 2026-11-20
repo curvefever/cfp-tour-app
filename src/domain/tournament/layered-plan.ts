@@ -112,13 +112,17 @@ function topLevels(roomSize: RoomSize): number[] {
   return tops;
 }
 
+/** A top level of one full room is the first semi-final (Semi A) in the first bracket round. */
+const oneRoomTop = (roomSize: RoomSize): number => roomSize.ideal;
+
 /** The level below the top starts with at least 3/4 of the top level's players: 16 needs 12, 14 needs 11, 12 needs 9. */
 const belowTopIsBigEnough = (top: number, below: number): boolean => 4 * below >= 3 * top;
 
 /**
  * The entry shapes for `size` in the bracket with `levelCount` levels, in the order they are tried. Unless the organiser
- * typed the top level, the level below the top must be big enough (3/4 of the top); when no top level gives that, the
- * top level is the smallest there is (12).
+ * typed the top level, the level below the top must be big enough (3/4 of the top); when no top level of two rooms gives
+ * that with the rest in normal rooms, the top level is one full room if its level below is big enough and seats in
+ * normal rooms, else the smallest of two rooms (12).
  */
 function entryShapes(
   size: number,
@@ -127,7 +131,8 @@ function entryShapes(
   typedTop?: number,
 ): EntryLevel[][] {
   const topMax = 2 * roomSize.ideal;
-  if (levelCount === 3) return threeLevelShapes(size, roomSize, typedTop);
+  if (levelCount === 3)
+    return typedTop === oneRoomTop(roomSize) ? [] : threeLevelShapes(size, roomSize, typedTop);
   const seats = (top: number) => size - top >= roomSize.min - 1 && seatLevel(size - top, roomSize) !== null;
   const shape = (top: number): EntryLevel[] => [
     { name: 'Upper', players: top },
@@ -136,6 +141,11 @@ function entryShapes(
   if (typedTop !== undefined) return seats(typedTop) ? [shape(typedTop)] : [];
   const seated = topLevels(roomSize).filter(seats);
   const bigEnough = seated.filter((top) => belowTopIsBigEnough(top, size - top));
+  const cleanly = bigEnough.some((top) => seatsNormally(size - top, roomSize));
+  const one = oneRoomTop(roomSize);
+  if (!cleanly && belowTopIsBigEnough(one, size - one) && seatsNormally(size - one, roomSize)) {
+    return [shape(one)];
+  }
   const tops = bigEnough.length > 0 ? bigEnough : seated.filter((top) => top === 2 * roomSize.min);
   if (tops.includes(topMax) && size - topMax >= roomSize.min && seatsNormally(size - topMax, roomSize)) {
     return [shape(topMax)];
@@ -309,6 +319,12 @@ function topLevelNumber(bracket: Bracket, roomSize: RoomSize, typed: boolean): L
   if (typed) return yours(value);
   const full = 2 * roomSize.ideal;
   if (value === full) return app(value, `two full rooms of ${roomSize.ideal}`);
+  if (value === oneRoomTop(roomSize)) {
+    return app(
+      value,
+      `${value} in one room, which is Semi A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size`,
+    );
+  }
   const below = bracket.entry.reduce((total, level) => total + level.players, 0) - full;
   const why = belowTopIsBigEnough(full, below)
     ? `with ${full} on top the rest of the bracket does not seat in rooms of ${roomSize.min} to ${roomSize.max}`
@@ -414,8 +430,8 @@ const typedRefusal = (input: LayeredInput, play: number): string | null => {
     return `${size} in the bracket is outside what a layered bracket takes: from ${LAYERED_MIN_IN_BRACKET} up to the ${registered} registered.`;
   }
   const top = typed?.topLevel;
-  if (top !== undefined && !topLevels(roomSize).includes(top)) {
-    return `The top level is two equal rooms: ${topLevels(roomSize).reverse().join(', ')} players.`;
+  if (top !== undefined && top !== oneRoomTop(roomSize) && !topLevels(roomSize).includes(top)) {
+    return `The top level is two equal rooms: ${topLevels(roomSize).reverse().join(', ')} players, or one full room: ${oneRoomTop(roomSize)}.`;
   }
   const rounds = typed?.bracketRounds;
   if (rounds !== undefined && (rounds < MIN_BRACKET_ROUNDS || rounds > MAX_BRACKET_ROUNDS)) {

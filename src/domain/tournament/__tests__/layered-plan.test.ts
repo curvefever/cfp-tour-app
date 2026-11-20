@@ -66,15 +66,12 @@ describe('the five brackets of the recipe, in full', () => {
     {
       registered: 31,
       play: 28,
-      inBracket: 20,
-      levels: [12, 8],
+      inBracket: 23,
+      levels: [8, 15],
       bracketRounds: 4,
       games: 11,
-      rounds: [
-        'Upper 2x6 top 4 stay (4 down); Lower 8 top 4 stay (4 out)',
-        'semi last-semi; Lower 8 top 4 last-semi (4 out)',
-      ],
-      waiting: [0, 0],
+      rounds: ['semi wait; Lower 8+7 top 4 stay (7 out)', 'Lower 8 top 4 last-semi (4 out)'],
+      waiting: [0, 4],
     },
     {
       registered: 37,
@@ -147,9 +144,10 @@ describe('the size chosen for every field', () => {
   const ranges: Array<[number, number, number]> = [
     [22, 22, 18],
     [23, 23, 19],
-    [24, 28, 20],
-    [29, 29, 24],
-    [30, 30, 25],
+    [24, 24, 20],
+    [25, 25, 21],
+    [26, 27, 22],
+    [28, 30, 23],
     [31, 31, 26],
     [32, 32, 27],
     [33, 34, 28],
@@ -247,11 +245,11 @@ describe('a typed top level of 16 may play two rounds before its room: 16, then 
     ]);
   });
 
-  it('gives 20 in the bracket, 12 and 8, for 29 registered (26 who play): a top of 16 would leave 6 below it', () => {
+  it('gives 22 in the bracket, 8 and 14, for 29 registered (26 who play): a top of 16 would leave 6 below it', () => {
     const found = forRegistered(29);
     expect(found.play.value).toBe(26);
-    expect(found.inBracket.value).toBe(20);
-    expect(found.levels.map((level) => level.players)).toEqual([12, 8]);
+    expect(found.inBracket.value).toBe(22);
+    expect(found.levels.map((level) => level.players)).toEqual([8, 14]);
   });
 
   it('plans a typed top of 16 at 21 in the bracket in full: out 2, 3, 4', () => {
@@ -396,10 +394,10 @@ describe('three levels, 6 bracket rounds: 41 to 48 in the bracket', () => {
 describe('the other two-level sizes', () => {
   it.each([
     [19, [12, 7], [3, 4], 4],
-    [20, [12, 8], [4, 4], 4],
-    [21, [12, 9], [5, 4], 4],
-    [22, [12, 10], [6, 4], 4],
-    [23, [12, 11], [7, 4], 4],
+    [20, [8, 12], [4, 4], 4],
+    [21, [8, 13], [5, 4], 4],
+    [22, [8, 14], [6, 4], 4],
+    [23, [8, 15], [7, 4], 4],
     [24, [12, 12], [4, 4, 4], 5],
     [25, [12, 13], [5, 4, 4], 5],
     [26, [14, 12], [4, 6, 4], 5],
@@ -450,7 +448,7 @@ describe('who set each number, and why', () => {
   });
 
   it('says in words why a top level is not 16', () => {
-    const found = plan({ registered: 60, roomSize: FFA, typed: { inBracket: 21 } });
+    const found = plan({ registered: 60, roomSize: FFA, typed: { inBracket: 19 } });
     expect(found.topLevel.value).toBe(12);
     expect(found.topLevel.reason).toContain('under 3/4');
     const seated = plan({ registered: 60, roomSize: FFA, typed: { inBracket: 33 } });
@@ -541,7 +539,11 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
   let sentToFinal = 0;
   let roundsWithWaiting = 0;
   const first = found.rounds[0];
-  expect(first.firstSemiFinal, `${label}: the first semi-final is not the first bracket round`).toBeNull();
+  // The first semi-final is in the first bracket round only when the top level is one full room.
+  if (found.levels[0].players !== FULL)
+    expect(first.firstSemiFinal, `${label}: the first semi-final is not the first bracket round`).toBeNull();
+  else
+    expect(first.firstSemiFinal, `${label}: a top level of one room is the first semi-final`).not.toBeNull();
   found.rounds.forEach((round, index) => {
     const isLast = index === found.rounds.length - 1;
     expect(round.waiting, `${label}: round ${index + 1} waiting`).toBe(waiting);
@@ -650,17 +652,17 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
   );
   expect(found.levels.reduce((total, level) => total + level.players, 0)).toBe(found.inBracket.value);
   const top = found.levels[0].players;
-  expect(top).toBeGreaterThanOrEqual(2 * FFA.min);
+  expect(top === FULL || top >= 2 * FFA.min).toBe(true);
   expect(top).toBeLessThanOrEqual(2 * FULL);
   // The level below the top starts with at least 3/4 of the top level (16 needs 12, 14 needs 11, 12 needs 9), unless the
-  // organiser typed the top level; under 21 in the bracket no top level gives that, and the top level is 12.
+  // organiser typed the top level; under 20 in the bracket no top level gives that, and the top level is 12.
   if (found.topLevel.setBy === 'app') {
-    if (found.inBracket.value >= 21) {
+    if (found.inBracket.value >= 20) {
       expect(
         4 * found.levels[1].players,
         `${label}: the level below the top is at least 3/4 of it`,
       ).toBeGreaterThanOrEqual(3 * top);
-    } else expect(top, `${label}: under 21 in the bracket the top level is 12`).toBe(2 * FFA.min);
+    } else expect(top, `${label}: under 20 in the bracket the top level is 12`).toBe(2 * FFA.min);
   }
 }
 
@@ -758,8 +760,7 @@ describe('a 7th bracket round of its own, when the usual number cannot seat the 
 
 describe('the level below the top has at least 3/4 of the top level', () => {
   it.each([
-    [21, [12, 9]],
-    [22, [12, 10]],
+    [24, [12, 12]],
     [25, [12, 13]],
     [26, [14, 12]],
     [27, [14, 13]],
@@ -770,20 +771,11 @@ describe('the level below the top has at least 3/4 of the top level', () => {
     expect(found.topLevel.setBy).toBe('app');
   });
 
-  it('makes the top level 12 where no top level gives it: under 21 in the bracket', () => {
-    for (const size of [18, 19, 20]) {
+  it('makes the top level 12 where no top level gives it: 18 and 19 in the bracket', () => {
+    for (const size of [18, 19]) {
       const found = plan({ registered: 90, roomSize: FFA, typed: { inBracket: size } });
       expect(found.topLevel.value).toBe(12);
     }
-  });
-
-  it('gives 20 (12 and 8) for 29 to 31 registered, and 12 and 12 for 32', () => {
-    for (const registered of [29, 30, 31]) {
-      const found = forRegistered(registered);
-      expect(found.inBracket.value).toBe(20);
-      expect(found.levels.map((level) => level.players)).toEqual([12, 8]);
-    }
-    expect(forRegistered(32).levels.map((level) => level.players)).toEqual([12, 12]);
   });
 
   it('gives the Middle level of three levels 3/4 of the top level as well: 12 or more under a top of 16', () => {
@@ -801,11 +793,11 @@ describe('the level below the top has at least 3/4 of the top level', () => {
     expect(found.levelCount.value).toBe(2);
   });
 
-  it('says in words why the top level is 12 for 31 registered: the level below a 16 would have 4', () => {
-    const found = forRegistered(31);
-    expect(found.levels.map((level) => level.players)).toEqual([12, 8]);
+  it('says in words why the top level is 12 for 19 in the bracket: the level below a 16 would have 3', () => {
+    const found = plan({ registered: 90, roomSize: FFA, typed: { inBracket: 19 } });
+    expect(found.levels.map((level) => level.players)).toEqual([12, 7]);
     expect(found.topLevel.reason).toBe(
-      '12 in two equal rooms: with 16 on top the level below would have 4, under 3/4 of 16',
+      '12 in two equal rooms: with 16 on top the level below would have 3, under 3/4 of 16',
     );
   });
 
@@ -813,6 +805,83 @@ describe('the level below the top has at least 3/4 of the top level', () => {
     const found = plan({ registered: 80, roomSize: FFA, typed: { inBracket: 22, topLevel: 16 } });
     expect(found.levels.map((level) => level.players)).toEqual([16, 6]);
     expect(found.topLevel).toEqual({ value: 16, setBy: 'organiser', reason: '' });
+  });
+});
+
+describe('a top level of one full room, the first semi-final in the first bracket round', () => {
+  const sized = (size: number, typed = {}) =>
+    plan({ registered: 90, roomSize: FFA, typed: { inBracket: size, ...typed } });
+
+  it('plans 20 in the bracket as 8 and 12: Semi A waits, the Lower level plays 6 and 6, then a full room', () => {
+    const found = sized(20);
+    expect(found.levels.map((level) => [level.name, level.players])).toEqual([
+      ['Upper', 8],
+      ['Lower', 12],
+    ]);
+    expect(found.rounds.map(roundText)).toEqual([
+      'semi wait; Lower 2x6 top 4 stay (4 out)',
+      'Lower 8 top 4 last-semi (4 out)',
+    ]);
+    expect(found.rounds.map((round) => round.waiting)).toEqual([0, 4]);
+    expect(found.bracketRounds.value).toBe(4);
+    expect(found.lastResortRooms + found.longShotRooms).toBe(0);
+  });
+
+  it('plans 21, 22 and 23 in the bracket as 8 with 13, 14 and 15 below, with no room of a last-resort size', () => {
+    expect(sized(21).rounds[0].levels[0].rooms).toEqual([7, 6]);
+    expect(sized(22).rounds[0].levels[0].rooms).toEqual([7, 7]);
+    expect(sized(23).rounds[0].levels[0].rooms).toEqual([8, 7]);
+    for (const size of [21, 22, 23]) {
+      expect(sized(size).levels.map((level) => level.players)).toEqual([8, size - 8]);
+      expect(sized(size).lastResortRooms).toBe(0);
+    }
+  });
+
+  it('keeps 12 on top at 18 and 19 in the bracket (8 and 10, 8 and 11 would need rooms of a last-resort size) and at 24', () => {
+    const tops = (size: number) => sized(size).levels.map((level) => level.players);
+    expect(tops(18)).toEqual([12, 6]);
+    expect(tops(19)).toEqual([12, 7]);
+    expect(tops(24)).toEqual([12, 12]);
+  });
+
+  it('says in words that it is one room and why two rooms on top were not used', () => {
+    expect(sized(20).topLevel).toEqual({
+      value: 8,
+      setBy: 'app',
+      reason:
+        '8 in one room, which is Semi A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size',
+    });
+  });
+
+  it('takes a typed top of one full room as typed, in two levels only', () => {
+    const found = sized(24, { topLevel: 8 });
+    expect(found.levels.map((level) => level.players)).toEqual([8, 16]);
+    expect(found.topLevel).toEqual({ value: 8, setBy: 'organiser', reason: '' });
+    expect(found.rounds[0].firstSemiFinal).not.toBeNull();
+    expect(forSize(48, { topLevel: 8, levels: 3 }).ok).toBe(false);
+    const refused = planLayered({ registered: 90, roomSize: FFA, typed: { topLevel: 10 } });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.message).toContain('one full room: 8');
+  });
+
+  it('leaves the first semi-final out of the first bracket round for every other top level', () => {
+    for (let size = 24; size <= 40; size += 1) {
+      expect(sized(size).rounds[0].firstSemiFinal, `${size} in the bracket`).toBeNull();
+    }
+  });
+
+  it('follows the room size: with rooms of 5 to 6, 18 in the bracket are one room of 6 and 12 below', () => {
+    const found = plan({ registered: 90, roomSize: { min: 5, max: 6, ideal: 6 }, typed: { inBracket: 18 } });
+    expect(found.levels.map((level) => level.players)).toEqual([6, 12]);
+    expect(found.rounds[0].firstSemiFinal).not.toBeNull();
+  });
+
+  it('has the size per field from 20 to 34 who play', () => {
+    const sizes = Array.from({ length: 15 }, (_, index) => {
+      const result = forPlay(20 + index);
+      return result.ok ? result.plan.inBracket.value : null;
+    });
+    expect(sizes).toEqual([18, 18, 18, 19, 20, 21, 22, 22, 23, 23, 23, 26, 27, 28, 28]);
   });
 });
 

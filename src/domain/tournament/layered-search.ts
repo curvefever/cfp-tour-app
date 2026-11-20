@@ -167,7 +167,8 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
     );
     if (unequalAbove) return null;
 
-    const firstSemi = !firstSemiPlayed && levels[0].players === full && levels.length > 1 && depth > 0;
+    // A top level of exactly one full room is the first semi-final, in the first bracket round too.
+    const firstSemi = !firstSemiPlayed && levels[0].players === full && levels.length > 1;
     const modes: Mode[] = firstSemi ? ['play-on', 'wait'] : firstSemiPlayed ? ['through', 'stay'] : ['stay'];
     const lowest = levels.length - 1;
     let top: Tail | null = null;
