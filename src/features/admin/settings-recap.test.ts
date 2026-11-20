@@ -243,6 +243,36 @@ describe('the recap of an upper and lower bracket after a group stage', () => {
   });
 });
 
+describe('the recap of a layered bracket', () => {
+  const layered = {
+    scheduleLogic: 'layered',
+    gameFormat: 'ffa-individual',
+    poolingPhase: 'qual-table',
+  } as const satisfies Partial<PersistedSetup>;
+
+  it('has no "Advance to bracket" line: Setup hides it and the plan works the number out', () => {
+    const labels = settingsRecapGroups(stateOf({ ...layered, qualAdv: '24' })).flatMap((group) =>
+      group.items.map((item) => item.label),
+    );
+    expect(labels).not.toContain('Advance to bracket');
+    expect(labels).not.toContain('Qualifiers per group');
+  });
+
+  it('lists the five numbers, "Automatic" where nothing was typed, and the formats of the bracket rounds', () => {
+    const items = groupItems(stateOf({ ...layered, layeredExpected: '26', layeredLevels: '3' }));
+    expect(items['Expected to play']).toBe('26');
+    expect(items['Levels']).toBe('3');
+    expect(items['In the bracket']).toBe('Automatic');
+    expect(items['Bracket rounds']).toBe('Automatic');
+    expect(items['Top level']).toBe('Automatic');
+    expect(items['Bracket rounds format']).toBe('Single game');
+  });
+
+  it('names the schedule logic', () => {
+    expect(groupItems(stateOf(layered))['Schedule logic']).toBe('Layered bracket');
+  });
+});
+
 describe('the recap against the Setup form', () => {
   const formats = Object.keys(GAME_FORMATS) as PersistedSetup['gameFormat'][];
   const logics: PersistedSetup['scheduleLogic'][] = [
@@ -252,6 +282,7 @@ describe('the recap against the Setup form', () => {
     'kings-valley',
     'waterfall-bracket',
     'upper-lower',
+    'layered',
   ];
   const poolings: PersistedSetup['poolingPhase'][] = ['none', 'qual-table', 'swiss', 'group-stage'];
   const scorings: PersistedSetup['scoring'][] = ['fairpoints', 'positional-points', 'match-results'];

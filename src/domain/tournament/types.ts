@@ -518,6 +518,12 @@ export interface PersistedSetup {
   upperLowerAdvance: string;
   /** "Upper rooms" of an upper and lower bracket: how many of the units that enter start in the upper rooms. '' = evenly (half). */
   upperLowerUpper: string;
+  /** The layered bracket's typed numbers, each '' = the app's own (`planLayered`): how many are expected to play, how many are in the bracket, the bracket rounds after the table, the levels (2 or 3) and the top level. */
+  layeredExpected: string;
+  layeredInBracket: string;
+  layeredRounds: string;
+  layeredLevels: string;
+  layeredTop: string;
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

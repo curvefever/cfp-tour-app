@@ -634,7 +634,7 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
   expect(roundsWithWaiting, `${label}: nobody sits out more than one round`).toBeLessThanOrEqual(1);
   // Bracket rounds (the last semi-final and the Final included) are the number wanted, or one fewer: 5 for two levels,
   // 6 for three, and one more when the plan says it tried a 7th round of its own.
-  const extraRound = found.bracketRounds.reason.includes('one more than usual');
+  const extraRound = found.bracketRounds.reason.includes('under 75%');
   const wanted = (found.levels.length === 2 ? 5 : 6) + (extraRound ? 1 : 0);
   expect(found.bracketRounds.value, `${label}: bracket rounds`).toBeGreaterThanOrEqual(wanted - 1);
   expect(found.bracketRounds.value).toBeLessThanOrEqual(wanted);
@@ -718,8 +718,9 @@ describe('a 7th bracket round of its own, when the usual number cannot seat the 
     expect(found.levels.map((level) => level.players)).toEqual([16, 12, 32]);
     expect(found.bracketRounds.value).toBe(7);
     expect(found.bracketRounds.setBy).toBe('app');
-    expect(found.bracketRounds.reason).toContain('one more than usual');
-    expect(found.bracketRounds.reason).toContain('only 52');
+    expect(found.bracketRounds.reason).toBe(
+      '7 bracket rounds, one more than the usual 6 for three levels: with 6, only 52 of the 72 who play would be in the bracket (under 75%)',
+    );
     expect(found.longShotRooms).toBe(1);
     expect(found.lastResortRooms).toBe(0);
     expect(found.games).toBe(14);
@@ -730,13 +731,13 @@ describe('a 7th bracket round of its own, when the usual number cannot seat the 
     expect(found.play.value).toBe(65);
     expect(found.inBracket.value).toBe(52);
     expect(found.bracketRounds.value).toBe(6);
-    expect(found.bracketRounds.reason).not.toContain('one more than usual');
+    expect(found.bracketRounds.reason).not.toContain('under 75%');
   });
 
   it('is tried for 70 to 75 who play and for nobody else', () => {
     const extra = Array.from({ length: 61 }, (_, index) => 20 + index).filter((play) => {
       const result = forPlay(play);
-      return result.ok && result.plan.bracketRounds.reason.includes('one more than usual');
+      return result.ok && result.plan.bracketRounds.reason.includes('under 75%');
     });
     expect(extra).toEqual([70, 71, 72, 73, 74, 75]);
   });
@@ -754,7 +755,7 @@ describe('a 7th bracket round of its own, when the usual number cannot seat the 
   it('is not used when the longer bracket has more rooms of a last-resort size or more where more than half do not stay', () => {
     // Rooms of 5 to 6: 67 registered (60 play) seat 40 in two levels, under 75%; a 6th round gives a size with 3 more such rooms.
     const found = plan({ registered: 67, roomSize: { min: 5, max: 6, ideal: 6 } });
-    expect(found.bracketRounds.reason).not.toContain('one more than usual');
+    expect(found.bracketRounds.reason).not.toContain('under 75%');
     expect(found.bracketRounds.value).toBeLessThanOrEqual(5);
     expect(found.inBracket.value).toBeLessThan(Math.ceil((3 * found.play.value) / 4));
   });
@@ -762,7 +763,7 @@ describe('a 7th bracket round of its own, when the usual number cannot seat the 
   it('is not tried when the organiser typed the size of the bracket', () => {
     const found = plan({ registered: 80, roomSize: FFA, typed: { inBracket: 52 } });
     expect(found.bracketRounds.value).toBe(6);
-    expect(found.bracketRounds.reason).not.toContain('one more than usual');
+    expect(found.bracketRounds.reason).not.toContain('under 75%');
   });
 });
 
@@ -857,7 +858,7 @@ describe('a top level of one full room, the first semi-final in the first bracke
       value: 8,
       setBy: 'app',
       reason:
-        '8 in one room, which is Semi A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size',
+        '8 in one room, which is Semi-Final A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size',
     });
   });
 

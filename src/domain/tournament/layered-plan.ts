@@ -36,7 +36,10 @@ export type LevelCount = 2 | 3;
 
 /** The games of everything but the bracket rounds before the last semi-final: the length of the tournament is worked out from them. */
 export interface LayeredGames {
+  /** The games of every table round together. */
   table: number;
+  /** The most games a room of an ordinary bracket round can need; 1 when absent. */
+  bracket?: number;
   semis: number;
   final: number;
 }
@@ -102,7 +105,9 @@ const yours = (value: number): LayeredNumber => ({ value, setBy: 'organiser', re
 
 /** The games a bracket of `rounds` rounds before the last semi-final takes, the table's included. */
 export function bracketGames(games: LayeredGames, rounds: number): number {
-  return games.table + rounds + (games.semis - 1) + games.semis + games.final;
+  const ordinary = games.bracket ?? 1;
+  // The round of the first semi-final takes the longer of its own games and an ordinary round's.
+  return games.table + (rounds - 1) * ordinary + Math.max(games.semis, ordinary) + games.semis + games.final;
 }
 
 /** The top levels there can be: two equal rooms, so an even number from two smallest rooms to two full ones. */
@@ -322,7 +327,7 @@ function topLevelNumber(bracket: Bracket, roomSize: RoomSize, typed: boolean): L
   if (value === oneRoomTop(roomSize)) {
     return app(
       value,
-      `${value} in one room, which is Semi A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size`,
+      `${value} in one room, which is Semi-Final A: with two rooms on top the level below would be under 3/4 of the top level or need rooms of a last-resort size`,
     );
   }
   const below = bracket.entry.reduce((total, level) => total + level.players, 0) - full;
@@ -331,6 +336,8 @@ function topLevelNumber(bracket: Bracket, roomSize: RoomSize, typed: boolean): L
     : `with ${full} on top the level below would have ${below}, under 3/4 of ${full}`;
   return app(value, `${value} in two equal rooms: ${why}`);
 }
+
+const levelWords = (levels: LevelCount): string => (levels === 2 ? 'two' : 'three');
 
 function bracketRoundsNumber(
   bracket: Bracket,
@@ -342,9 +349,12 @@ function bracketRoundsNumber(
   if (typed === undefined) {
     const usual = ROUNDS_BY_LEVELS[levelCount];
     if (extra) {
+      const held = `with ${usual}, only ${extra.usualSize} of the ${extra.play} who play would be in the bracket (under 75%)`;
       return app(
         value,
-        `${usual + 1} bracket rounds for ${levelCount} levels, one more than usual: with ${usual} the bracket would hold only ${extra.usualSize}, under 75% of the ${extra.play} who play, or one fewer if that seats better`,
+        value > usual
+          ? `${value} bracket rounds, one more than the usual ${usual} for ${levelWords(levelCount)} levels: ${held}`
+          : `${value} bracket rounds, the usual ${usual} for ${levelWords(levelCount)} levels, one fewer than the ${usual + 1} the app tried: ${held}`,
       );
     }
     return app(value, `${usual} bracket rounds for ${levelCount} levels, or one fewer if that seats better`);

@@ -162,6 +162,31 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Upper rooms',
     value: (settings) => orDefault(settings.upperLowerUpper, 'Evenly'),
   },
+  layeredExpected: {
+    group: 'POOLING',
+    label: 'Expected to play',
+    value: (settings) => orDefault(settings.layeredExpected, 'Automatic'),
+  },
+  layeredInBracket: {
+    group: 'POOLING',
+    label: 'In the bracket',
+    value: (settings) => orDefault(settings.layeredInBracket, 'Automatic'),
+  },
+  layeredRounds: {
+    group: 'POOLING',
+    label: 'Bracket rounds',
+    value: (settings) => orDefault(settings.layeredRounds, 'Automatic'),
+  },
+  layeredLevels: {
+    group: 'POOLING',
+    label: 'Levels',
+    value: (settings) => orDefault(settings.layeredLevels, 'Automatic'),
+  },
+  layeredTop: {
+    group: 'POOLING',
+    label: 'Top level',
+    value: (settings) => orDefault(settings.layeredTop, 'Automatic'),
+  },
   nonCountingRounds: {
     group: 'POOLING',
     label: 'Non-counting rounds',

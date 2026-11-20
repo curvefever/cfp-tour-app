@@ -33,6 +33,8 @@ import {
 import { GameFormatFields } from './GameFormatFields';
 import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
 import { upperLowerAutomaticPlaceholder } from './upper-lower-summary';
+import { layeredGateRefusal } from '../../../domain/tournament/layered-form';
+import { LayeredFields } from './LayeredFields';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
 import { nextTeamScoringRule } from './game-format-choice';
@@ -104,6 +106,7 @@ export function FormatPanel({
   const registered = state.confirmedCount ?? null;
   const format = getGameFormat(setup.gameFormat);
   const shown = visibleFormatFields(setup);
+  const layeredOffered = layeredGateRefusal(setup) === null;
   const exitHelp = groupExitHelpLine(setup, registered, (format?.unitLabelPlural ?? 'players').toLowerCase());
   const raceCompatible = format?.idealRoomSize === 2 && setup.oddCountStrategy !== 'flex';
   const scheduleOptions = useMemo(
@@ -260,6 +263,9 @@ export function FormatPanel({
               <option value='kings-valley'>{SCHEDULE_LOGIC_WORDS['kings-valley'].setup}</option>
             )}
             <option value='upper-lower'>{SCHEDULE_LOGIC_WORDS['upper-lower'].setup}</option>
+            {layeredOffered || setup.scheduleLogic === 'layered' ? (
+              <option value='layered'>{SCHEDULE_LOGIC_WORDS.layered.setup}</option>
+            ) : null}
             <option value='waterfall-bracket'>{SCHEDULE_LOGIC_WORDS['waterfall-bracket'].setup}</option>
           </Select>
         </PresenceField>
@@ -461,6 +467,7 @@ export function FormatPanel({
             </p>
           </PresenceField>
         ) : null}
+        <LayeredFields registered={registered} setup={setup} shown={shown} />
         {format?.supportedOddCountStrategies && shown.has('oddCountStrategy') ? (
           <PresenceField htmlFor='cfg-odd-count-strategy' label='Odd-count strategy'>
             <Select

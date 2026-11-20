@@ -231,7 +231,7 @@ export function bracketStageLabel(scheduleLogic: ScheduleLogicKey): string {
     case 'upper-lower':
       return 'Upper and lower rounds';
     case 'layered':
-      return 'Bracket rounds';
+      return 'Bracket rounds format';
     case 'single-elimination':
       return 'Elimination rounds';
     case 'kings-valley':

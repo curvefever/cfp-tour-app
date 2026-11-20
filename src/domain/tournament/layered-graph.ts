@@ -5,7 +5,8 @@ import { QUAL_LABEL, roomIndexToLetter } from './waterfall-bracket';
 /**
  * The layered bracket as Custom bracket graph text (`ROUNDS:` / `ROUTES:`), the form the Custom bracket engine plays
  * (`docs/rules.md`, "Layered bracket"). Pure: the plan says every room and who goes where; this file only names the
- * rounds and writes the lines. Names: "Round n - Upper", "Round n - Middle", "Round n - Lower" (n counted on from the
+ * rounds and writes the lines. `formatOf` gives the match format token of a round ("BO3", "GAMES 2", or none): the text
+ * the app derives has none, the text "Adjust rounds by hand" writes carries the formats the Setup selects said. Names: "Round n - Upper", "Round n - Middle", "Round n - Lower" (n counted on from the
  * rounds played before the bracket), "Semi-Final A" for the top level's full room, "Semi-Final B" and "Final".
  */
 
@@ -68,6 +69,12 @@ function levelBands(
   return bands;
 }
 
+/** A ROUNDS line: the name, the seats and the round's match format token when there is one (the Final carries none). */
+function roundLine(name: string, seats: string, formatOf: (roundName: string) => string): string {
+  const token = formatOf(name);
+  return `${name} = ${seats}${token ? ` ${token}` : ''}`;
+}
+
 function routeLines(name: string, bandsOfRooms: Band[][]): string[] {
   return bandsOfRooms.flatMap((bands, room) => {
     const address = bandsOfRooms.length > 1 ? `${name}.${roomIndexToLetter(room + 1)}` : name;
@@ -91,7 +98,11 @@ function qualLine(entry: EntryLevel[], names: RoundNames): string {
  * rounds). Nothing is declared or routed twice: the first semi-final is a round of its own in place of the top level's
  * rounds, and a level with players waiting for the last semi-final sends them there directly.
  */
-export function layeredGraphText(plan: LayeredPlan, firstRoundNumber: number): string {
+export function layeredGraphText(
+  plan: LayeredPlan,
+  firstRoundNumber: number,
+  formatOf: (roundName: string) => string = () => '',
+): string {
   const names = new RoundNames(plan.rounds, firstRoundNumber);
   const full = plan.finalPlayers;
   const roundLines: string[] = [];
@@ -100,7 +111,7 @@ export function layeredGraphText(plan: LayeredPlan, firstRoundNumber: number): s
     if (round.firstSemiFinal) {
       const { upperHalf, others } = names.afterSemiFinalA(index);
       const half = plan.lastSemiFinal.toFinal;
-      roundLines.push(`${SEMI_FINAL_A} = ${full}`);
+      roundLines.push(roundLine(SEMI_FINAL_A, `${full}`, formatOf));
       routes.push(
         `${SEMI_FINAL_A}: ${bandsText([
           { first: 1, last: half, to: upperHalf },
@@ -111,7 +122,7 @@ export function layeredGraphText(plan: LayeredPlan, firstRoundNumber: number): s
     round.levels.forEach((level, position) => {
       const name = names.of(index, level.level);
       const below = round.levels[position + 1]?.level;
-      roundLines.push(`${name} = ${seatsText(level.rooms)}`);
+      roundLines.push(roundLine(name, seatsText(level.rooms), formatOf));
       routes.push(
         ...routeLines(
           name,
@@ -120,7 +131,7 @@ export function layeredGraphText(plan: LayeredPlan, firstRoundNumber: number): s
       );
     });
   });
-  roundLines.push(`${SEMI_FINAL_B} = ${full}`, `${FINAL} = ${full} FINAL`);
+  roundLines.push(roundLine(SEMI_FINAL_B, `${full}`, formatOf), `${FINAL} = ${full} FINAL`);
   routes.push(`${SEMI_FINAL_B}: ${bandsText([{ first: 1, last: plan.lastSemiFinal.toFinal, to: FINAL }])}`);
   return ['ROUNDS:', ...roundLines, '', 'ROUTES:', ...routes, ''].join('\n');
 }

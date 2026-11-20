@@ -16,6 +16,7 @@ import { RosterPanel } from './setup/RosterPanel';
 import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
 import { useWaterfallNumbering, WaterfallNumberingContext } from './setup/useWaterfallNumbering';
+import { LayeredPanel } from './setup/LayeredPanel';
 import { UpperLowerPanel } from './setup/UpperLowerPanel';
 import { WaterfallPanel } from './setup/WaterfallPanel';
 
@@ -94,6 +95,7 @@ export function SetupView() {
           />
           <WaterfallPanel lbQualifiers={lbQualifiers} />
           <UpperLowerPanel />
+          <LayeredPanel />
           <InfoContentPanel />
           <RosterPanel onLoaded={() => setError('')} />
         </div>

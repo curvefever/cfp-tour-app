@@ -122,6 +122,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   // An upper and lower bracket has its own optional "Advance to bracket" after any pooling phase; left empty it reads the pooling setting (qualAdv, 24 by default, behind its placeholder).
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isAppWritten, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
+  add(isLayered, 'layeredExpected', 'layeredInBracket', 'layeredRounds', 'layeredLevels', 'layeredTop');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(

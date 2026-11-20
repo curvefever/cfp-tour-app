@@ -1,6 +1,15 @@
 import { deriveRoomSize, getGameFormat, POOLING_PHASE_WORDS } from './formats';
+import { appWrittenStageOf } from './app-written-bracket';
 import { layeredGraphText } from './layered-graph';
-import { planLayered, type LayeredPlan } from './layered-plan';
+import {
+  planLayered,
+  USUAL_GAMES,
+  type LayeredGames,
+  type LayeredPlan,
+  type LayeredTyped,
+} from './layered-plan';
+import { bestOfGameCount, matchFormatToken, parseMatchFormatToken } from './match-format';
+import { matchFormatConfig, parseMatchOverrides, stageFormat } from './round-match-formats';
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { GameFormatKey, PersistedSetup, PoolingPhaseKey, RoomSize } from './types';
 
@@ -35,6 +44,23 @@ export type LayeredForm = Pick<
   | 'swissRoundsOverride'
   | 'groupSize'
   | 'roundRobinMode'
+  | 'nonCountingRounds'
+  | 'poolingGames'
+  | 'poolingBestOf'
+  | 'bracketGames'
+  | 'bracketBestOf'
+  | 'semisGames'
+  | 'semisBestOf'
+  | 'finalsGames'
+  | 'finalsBestOf'
+  | 'losersGames'
+  | 'losersBestOf'
+  | 'matchOverrides'
+  | 'layeredExpected'
+  | 'layeredInBracket'
+  | 'layeredRounds'
+  | 'layeredLevels'
+  | 'layeredTop'
 >;
 
 /** Why a layered bracket is not offered for this game format and pooling phase, or null when it is. */
@@ -54,6 +80,83 @@ export function layeredGateRefusal(form: Pick<LayeredForm, 'gameFormat' | 'pooli
 export type LayeredFormPlan =
   { ok: true; plan: LayeredPlan; roomSize: RoomSize; firstRound: number } | { ok: false; message: string };
 
+type Typed = { ok: true; typed: LayeredTyped } | { ok: false; message: string };
+
+/** A typed whole number, undefined when the field is empty, null when it is not a positive whole number. */
+function wholeNumber(raw: string): number | null | undefined {
+  const text = raw.trim();
+  if (!text) return undefined;
+  return /^[1-9][0-9]*$/.test(text) ? Number(text) : null;
+}
+
+/** What the organiser typed in the layered fields, or the first that is no number (the plan's own limits are checked by the plan). */
+export function layeredTypedOf(form: LayeredForm): Typed {
+  const numbers = {
+    play: [form.layeredExpected, 'Expected to play'],
+    inBracket: [form.layeredInBracket, 'In the bracket'],
+    bracketRounds: [form.layeredRounds, 'Bracket rounds'],
+    topLevel: [form.layeredTop, 'Top level'],
+  } as const;
+  const typed: LayeredTyped = {};
+  for (const [key, [raw, label]] of Object.entries(numbers)) {
+    const value = wholeNumber(raw);
+    if (value === null) return { ok: false, message: `${label} must be a whole number — got "${raw}".` };
+    if (value !== undefined) typed[key as keyof typeof numbers] = value;
+  }
+  const levels = form.layeredLevels.trim();
+  if (levels && levels !== '2' && levels !== '3') {
+    return { ok: false, message: `Levels must be 2 or 3 — got "${form.layeredLevels}".` };
+  }
+  if (levels) typed.levels = levels === '2' ? 2 : 3;
+  return { ok: true, typed };
+}
+
+/** The most games a room can need in a stage: a Best of N takes its deciding game, else the games summed. */
+function gamesOfStage(games: string, bestOf: string, roomUnits: number): number {
+  const best = Number.parseInt(bestOf, 10);
+  return best ? bestOfGameCount(best, roomUnits) : Number.parseInt(games, 10) || 1;
+}
+
+/**
+ * How the form's formats count the games of the whole tournament: every table round (pooling format), an ordinary
+ * bracket round (bracket rounds format), a Semi-Final and the Final. Per-round overrides are not counted.
+ */
+export function layeredGamesOf(form: LayeredForm, roomSize: RoomSize, registered: number): LayeredGames {
+  const room = roomSize.ideal;
+  const table =
+    roundsBeforeBracket(form, registered) * gamesOfStage(form.poolingGames, form.poolingBestOf, room);
+  return {
+    table,
+    bracket: gamesOfStage(form.bracketGames, form.bracketBestOf, room),
+    semis: gamesOfStage(form.semisGames, form.semisBestOf, room),
+    final: gamesOfStage(form.finalsGames, form.finalsBestOf, room),
+  };
+}
+
+/** The settings of the organiser's usual tournament: 4 table rounds with the first not counted, the Semi-Finals and the Final over two games each. */
+export const USUAL_FORM_VALUES = {
+  qualRoundsOverride: '4',
+  nonCountingRounds: '1',
+  semisGames: '2',
+  semisBestOf: '',
+  finalsGames: '2',
+  finalsBestOf: '',
+} as const satisfies Partial<PersistedSetup>;
+
+/** Whether the form's table rounds, non-counting rounds, Semis or Finals format differ from the usual values. */
+export function differsFromUsualValues(form: LayeredForm, registered: number): boolean {
+  const games = layeredGamesOf(form, { min: 1, ideal: 8, max: 8 }, registered);
+  const nonCounting = Number.parseInt(form.nonCountingRounds, 10) || 0;
+  return (
+    roundsBeforeBracket(form, registered) !== Number(USUAL_FORM_VALUES.qualRoundsOverride) ||
+    nonCounting !== Number(USUAL_FORM_VALUES.nonCountingRounds) ||
+    games.semis !== USUAL_GAMES.semis ||
+    games.final !== USUAL_GAMES.final ||
+    form.semisBestOf !== '' ||
+    form.finalsBestOf !== ''
+  );
+}
+
 /** The plan for the form and the head count, or why there is none: the gate first, then the plan's own refusals. */
 export function planLayeredFor(form: LayeredForm, registered: number): LayeredFormPlan {
   const gate = layeredGateRefusal(form);
@@ -61,7 +164,14 @@ export function planLayeredFor(form: LayeredForm, registered: number): LayeredFo
   const format = getGameFormat(form.gameFormat);
   if (!format) return { ok: false, message: 'This game format is not available yet.' };
   const roomSize = deriveRoomSize(format);
-  const planned = planLayered({ registered, roomSize });
+  const typed = layeredTypedOf(form);
+  if (!typed.ok) return typed;
+  const planned = planLayered({
+    registered,
+    roomSize,
+    games: layeredGamesOf(form, roomSize, registered),
+    typed: typed.typed,
+  });
   if (!planned.ok) return planned;
   return {
     ok: true,
@@ -82,5 +192,30 @@ export function layeredGraphFor(
     ok: true,
     text: layeredGraphText(planned.plan, planned.firstRound),
     play: planned.plan.play.value,
+  };
+}
+
+/** The match format of a round as a ROUNDS-line token, or '' for the default single game (the Final carries none). */
+function tokenOf(roundName: string, form: LayeredForm): string {
+  if (roundName === 'Final') return '';
+  const override = parseMatchFormatToken(parseMatchOverrides(form.matchOverrides)[roundName] ?? '');
+  const match =
+    override ?? stageFormat(appWrittenStageOf(roundName, false), matchFormatConfig(form, 'layered'));
+  return match.bestOf !== undefined || match.games !== 1 ? matchFormatToken(match) : '';
+}
+
+/**
+ * The graph text "Adjust rounds by hand" hands to the Custom bracket: the worked-out rounds, each with the match format
+ * the Setup selects and the per-round overrides gave it.
+ */
+export function layeredByHand(
+  form: LayeredForm,
+  registered: number,
+): { ok: true; text: string } | { ok: false; message: string } {
+  const planned = planLayeredFor(form, registered);
+  if (!planned.ok) return planned;
+  return {
+    ok: true,
+    text: layeredGraphText(planned.plan, planned.firstRound, (roundName) => tokenOf(roundName, form)),
   };
 }

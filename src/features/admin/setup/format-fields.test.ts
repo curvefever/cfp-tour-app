@@ -79,7 +79,19 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'semisGames',
     'semisBestOf',
   ],
-  layered: ['bracketGames', 'bracketBestOf', 'finalsGames', 'finalsBestOf', 'semisGames', 'semisBestOf'],
+  layered: [
+    'layeredExpected',
+    'layeredInBracket',
+    'layeredRounds',
+    'layeredLevels',
+    'layeredTop',
+    'bracketGames',
+    'bracketBestOf',
+    'finalsGames',
+    'finalsBestOf',
+    'semisGames',
+    'semisBestOf',
+  ],
 };
 
 /** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's; a group stage's exit stays (it is the automatic number). A layered bracket has none: it works the number out. */
