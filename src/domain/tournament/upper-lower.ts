@@ -5,9 +5,6 @@ import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup, RoomSize } from './types';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
 
-// The logic reader moved to `app-written-bracket.ts`; the name stays exported here for its callers.
-export { bracketLogicOf, type BracketLogic } from './app-written-bracket';
-
 /**
  * The built-in upper and lower bracket (`docs/rules.md`, "Upper and lower bracket"): after a pooling phase the units
  * enter in two or four rooms by their pooling place, the upper half and the lower half meet again in Semi-Final rounds

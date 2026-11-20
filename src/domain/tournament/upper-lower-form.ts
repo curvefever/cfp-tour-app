@@ -3,7 +3,7 @@ import { registeredBelowFloorMessage } from './generation';
 import { matchFormatToken, parseMatchFormatToken } from './match-format';
 import { matchFormatConfig, parseMatchOverrides, stageFormat } from './round-match-formats';
 import type { PersistedSetup, RoomSize } from './types';
-import { upperLowerStageOf } from './app-written-bracket';
+import { appWrittenStageOf } from './app-written-bracket';
 import { planUpperLower, upperLowerGraphText, type UpperLowerRound } from './upper-lower';
 
 /**
@@ -31,7 +31,7 @@ function tokenOf(round: UpperLowerRound, form: PersistedSetup): string {
   if (round.isFinal) return '';
   const config = matchFormatConfig(form, 'upper-lower');
   const override = parseMatchFormatToken(parseMatchOverrides(form.matchOverrides)[round.name] ?? '');
-  const match = override ?? stageFormat(upperLowerStageOf(round.name, false), config);
+  const match = override ?? stageFormat(appWrittenStageOf(round.name, false), config);
   return match.bestOf !== undefined || match.games !== 1 ? matchFormatToken(match) : '';
 }
 

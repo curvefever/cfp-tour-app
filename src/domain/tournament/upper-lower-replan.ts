@@ -1,4 +1,4 @@
-import { markUpperLowerStages, replannable } from './app-written-bracket';
+import { markAppWrittenStages, replannable } from './app-written-bracket';
 import { unitLabelPluralLower } from './formats';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { applyMatchFormats } from './round-match-formats';
@@ -74,7 +74,7 @@ function tryReplanUpperLower(state: TournamentState, strict = false): UpperLower
   );
   if (!edited.ok) return strict ? { ok: false, message: edited.error } : { ok: true, state };
   const { gamemodeConfig, rounds } = edited.state;
-  const staged = [...rounds.slice(0, first), ...markUpperLowerStages(rounds.slice(first))];
+  const staged = [...rounds.slice(0, first), ...markAppWrittenStages(rounds.slice(first))];
   const replanned = {
     ...edited.state,
     // The snapshot keeps what the form said; the graph is derived, not typed.

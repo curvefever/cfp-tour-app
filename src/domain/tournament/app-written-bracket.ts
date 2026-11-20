@@ -24,7 +24,7 @@ export function bracketLogicOf(
 }
 
 /** The match stage a round of an app-written bracket plays: the Final the Finals format, a Semi-Final the Semis format, every other round the bracket rounds format. */
-export function upperLowerStageOf(name: string, isFinal: boolean): 'bracket' | 'semis' | 'finals' {
+export function appWrittenStageOf(name: string, isFinal: boolean): 'bracket' | 'semis' | 'finals' {
   if (isFinal) return 'finals';
   return name.startsWith('Semi-Final') ? 'semis' : 'bracket';
 }
@@ -34,10 +34,10 @@ export function upperLowerStageOf(name: string, isFinal: boolean): 'bracket' | '
  * Semis format, the Final the Finals format, every other round the bracket rounds format. `applyMatchFormats` then
  * formats the marked rounds as it formats any stage, so each format can change live.
  */
-export function markUpperLowerStages(rounds: TournamentRound[]): TournamentRound[] {
+export function markAppWrittenStages(rounds: TournamentRound[]): TournamentRound[] {
   return rounds.map((entry) => ({
     ...entry,
-    graphMatchStage: upperLowerStageOf(entry.customLabel ?? '', entry.isFinal === true),
+    graphMatchStage: appWrittenStageOf(entry.customLabel ?? '', entry.isFinal === true),
   }));
 }
 

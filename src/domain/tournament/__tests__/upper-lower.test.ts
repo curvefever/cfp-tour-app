@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { bracketLogicOf } from '../app-written-bracket';
 import { GAME_FORMAT_LIST, deriveRoomSize, getGameFormat } from '../formats';
 import type { OrderedWaterfallGraph, RoomSize } from '../types';
 import {
-  bracketLogicOf,
   upperLowerEntries,
   upperLowerEntry,
   upperLowerFinalSize,

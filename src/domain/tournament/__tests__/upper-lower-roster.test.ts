@@ -8,7 +8,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { applyStageMatchEdit } from '../stage-match-edit';
 import { readTournamentSettings } from '../tournament-settings';
 import type { TournamentRound, TournamentState } from '../types';
-import { bracketLogicOf } from '../upper-lower';
+import { bracketLogicOf } from '../app-written-bracket';
 import { applyUpperLowerFields, replanUpperLower, upperLowerUpperFallback } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';

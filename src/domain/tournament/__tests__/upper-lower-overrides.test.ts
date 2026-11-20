@@ -4,7 +4,7 @@ import { removeRosterUnit } from '../mutations';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
-import { bracketLogicOf } from '../upper-lower';
+import { bracketLogicOf } from '../app-written-bracket';
 import { planUpperLowerFor, upperLowerByHand } from '../upper-lower-form';
 import { applyUpperLowerFields } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';

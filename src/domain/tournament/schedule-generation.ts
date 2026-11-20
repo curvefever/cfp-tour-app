@@ -14,7 +14,7 @@ import {
   type SharedFinalDoubleEliminationConfig,
 } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
-import { markUpperLowerStages } from './app-written-bracket';
+import { markAppWrittenStages } from './app-written-bracket';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';
 import {
   waterfallBracketPhase,
@@ -157,7 +157,7 @@ function buildProgression(input: ScheduleInput): TournamentProgression {
       const format = { ...input.format, graph: heldForPhase(input.format.graph) };
       bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, format);
       // The built-in upper and lower bracket's rounds play match stages, marked before the formats are applied.
-      if (format.upperLowerVersion) bracket = markUpperLowerStages(bracket);
+      if (format.upperLowerVersion) bracket = markAppWrittenStages(bracket);
       pooledRounds = withStandingsRoutes(
         pooledRounds,
         waterfallStandingsRoutes(format.graph, pooled.nextRoundNum),

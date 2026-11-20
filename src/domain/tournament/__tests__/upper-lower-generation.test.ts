@@ -6,7 +6,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
 import { readTournamentSettings } from '../tournament-settings';
 import type { TournamentState } from '../types';
-import { bracketLogicOf } from '../upper-lower';
+import { bracketLogicOf } from '../app-written-bracket';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
 import { indexOf, playToBracketEntry } from './dependency-play-fixtures';
