@@ -197,7 +197,7 @@ describe('the Format panel', () => {
   it('shows the five numbers empty, with the app as placeholder, and the bracket formats; not the table advance', () => {
     atCount(31);
     formatPanel();
-    const field = (label: string) => screen.getByLabelText(label);
+    const field = (label: string) => screen.getByLabelText<HTMLInputElement>(label);
     expect(field('Expected to play (optional)').placeholder).toBe('28');
     expect(field('In the bracket (optional)').placeholder).toBe('23');
     expect(field('Bracket rounds (optional)').placeholder).toBe('4');
@@ -230,6 +230,6 @@ describe('the Format panel', () => {
   it('shows the placeholder of a field given what else is typed', () => {
     atCount(31, { layeredExpected: '26' });
     formatPanel();
-    expect(screen.getByLabelText('In the bracket (optional)').placeholder).toBe('22');
+    expect(screen.getByLabelText<HTMLInputElement>('In the bracket (optional)').placeholder).toBe('22');
   });
 });
