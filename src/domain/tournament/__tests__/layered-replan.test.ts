@@ -59,6 +59,35 @@ describe('the number who play now', () => {
   });
 });
 
+describe('the answer at the number the plan was made for or kept at needs no planning', () => {
+  /** A state whose graph edit refuses: planning and saving would say so, so an answer without it is a shortcut. */
+  const withoutFinalsGames = (state: TournamentState): TournamentState => {
+    const { finalsGames: _games, ...config } = state.gamemodeConfig;
+    return { ...state, gamemodeConfig: config };
+  };
+
+  it('is current when the number who play now is the number the plan was made for, without a graph edit', () => {
+    expect(checkLayeredPlan(withoutFinalsGames(built(31)))).toEqual({ kind: 'current', playNow: 28 });
+    expect(checkLayeredPlan(withoutFinalsGames(afterThreeAbsent()))).toEqual({
+      kind: 'current',
+      playNow: 28,
+    });
+  });
+
+  it('plans, and so meets the refusal, at any other number', () => {
+    expect(checkLayeredPlan(withoutFinalsGames(afterFiveAbsent())).kind).toBe('refused');
+  });
+
+  it('is kept when the number who play now is the number it was kept at, without a graph edit', () => {
+    const kept = keepLayeredPlan(afterFiveAbsent());
+    expect(checkLayeredPlan(withoutFinalsGames(kept))).toEqual({ kind: 'kept', playNow: 26 });
+  });
+
+  it('does not take the shortcut for the typed numbers of the card', () => {
+    expect(checkLayeredPlan(withoutFinalsGames(built(31)), { layeredRounds: '5' }).kind).toBe('refused');
+  });
+});
+
 describe('a new plan while the table runs', () => {
   it('31 registered, 28 expected: nothing before the first table round, nothing with three absent (28 play)', () => {
     expect(checkLayeredPlan(built(31))).toEqual({ kind: 'current', playNow: 28 });

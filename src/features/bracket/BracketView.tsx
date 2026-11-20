@@ -100,7 +100,7 @@ export function BracketView() {
   const previousAvailable = canGoBack(app.state);
   const drawnAhead = isLastRound || plan ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   const planLine = plan ? nextRoundLine(app.state, plan) : null;
-  const layeredWarning = layeredPlanWarning(app.state);
+  const layeredWarning = useMemo(() => layeredPlanWarning(app.state), [app.state]);
   const reopened = plan ? reopenedNote(app.state) : null;
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'

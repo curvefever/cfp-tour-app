@@ -147,6 +147,12 @@ function replannedState(
 export function checkLayeredPlan(state: TournamentState, overrides: LayeredOverrides = {}): LayeredPlanCheck {
   if (!layeredReplannable(state) || !state.settings) return { kind: 'none' };
   const playNow = layeredPlayNow(state);
+  // The plan in use was made from these settings for the number it was made for, and kept at the number it was kept at:
+  // at either number the answer is known without planning (this runs on every render of the Next Round panel).
+  if (Object.keys(overrides).length === 0) {
+    if (playNow === layeredPlayOf(state)) return { kind: 'current', playNow };
+    if (playNow === layeredKeptPlayOf(state)) return { kind: 'kept', playNow };
+  }
   const planned = planFromState(state, overrides, playNow);
   if (!planned.ok) return planned.message ? { kind: 'refused', message: planned.message } : { kind: 'none' };
   const candidate = replannedState(state, planned, playNow);

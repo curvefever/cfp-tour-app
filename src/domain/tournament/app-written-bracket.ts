@@ -57,6 +57,7 @@ export function replannable(state: TournamentState): { first: number; roomSize: 
 }
 
 /** Where a layered bracket can still be planned again: its mark is set and no bracket round is drawn. */
-export function layeredReplannable(state: TournamentState): { first: number; roomSize: RoomSize } | null {
-  return isLayeredBracket(state) ? notEnteredYet(state) : null;
+export function layeredReplannable(state: TournamentState): { first: number } | null {
+  const found = isLayeredBracket(state) ? notEnteredYet(state) : null;
+  return found && { first: found.first };
 }
