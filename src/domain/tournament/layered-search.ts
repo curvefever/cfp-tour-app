@@ -127,8 +127,12 @@ const positionId = (position: Position): string =>
     position.depth,
   ].join('|');
 
-/** The best bracket for one entry shape, or null when none of the allowed ones exists. */
-export function searchBracket(entry: EntryLevel[], settings: SearchSettings): Bracket | null {
+/**
+ * A search with these settings: it gives the best bracket for an entry shape, or null when none of the allowed ones
+ * exists. Every shape asked of one search shares what has been worked out (a position later in a bracket is the same
+ * whichever shape led to it), so asking for many shapes costs little more than asking for one.
+ */
+export function createBracketSearch(settings: SearchSettings): (entry: EntryLevel[]) => Bracket | null {
   const { roomSize, tableGames, semiGames, finalGames, wantGames } = settings;
   const full = roomSize.ideal;
   const half = Math.floor(full / 2);
@@ -247,10 +251,12 @@ export function searchBracket(entry: EntryLevel[], settings: SearchSettings): Br
     return top;
   }
 
-  const found = best({ levels: entry, firstSemiPlayed: false, waiting: 0, waitedRounds: 0, depth: 0 });
-  return found
-    ? { entry, rounds: withLastRoundToLastSemi(found.rounds), games: found.games, key: found.key }
-    : null;
+  return (entry) => {
+    const found = best({ levels: entry, firstSemiPlayed: false, waiting: 0, waitedRounds: 0, depth: 0 });
+    return found
+      ? { entry, rounds: withLastRoundToLastSemi(found.rounds), games: found.games, key: found.key }
+      : null;
+  };
 }
 
 /**
