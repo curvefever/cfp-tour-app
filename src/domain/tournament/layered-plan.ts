@@ -357,7 +357,13 @@ function bracketRoundsNumber(
           : `${value} bracket rounds, the usual ${usual} for ${levelWords(levelCount)} levels, one fewer than the ${usual + 1} the app tried: ${held}`,
       );
     }
-    return app(value, `${usual} bracket rounds for ${levelCount} levels, or one fewer if that seats better`);
+    const words = levelWords(levelCount);
+    return app(
+      value,
+      value === usual
+        ? `the usual ${usual} bracket rounds for ${words} levels`
+        : `${value} bracket rounds, one fewer than the usual ${usual} for ${words} levels, because that seats better`,
+    );
   }
   return typed === value
     ? yours(value)

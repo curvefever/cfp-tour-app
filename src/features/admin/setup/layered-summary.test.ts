@@ -102,7 +102,7 @@ describe('the Setup panel of a layered bracket', () => {
       'Final: Final 8/null | - · wait 0 · out 0',
     ]);
     expect(grid.columns[0].cells[0]?.note).toBe('the others wait for Semi-Final B');
-    expect(grid.columns[1].cells[1]?.note).toBe('the top places go to Semi-Final B');
+    expect(grid.columns[1].cells[1]?.note).toBe('the top 4 go to Semi-Final B');
   });
 
   it('53 registered, two levels: Upper 2 x 8 above Lower 3 x 8, Semi-Final A in the second round', () => {
@@ -143,11 +143,31 @@ describe('the Setup panel of a layered bracket', () => {
     expect(summary.numbers[1].source.startsWith("the app's: ")).toBe(true);
   });
 
-  it('shows a typed number the plan cannot take as it is: yours, with what the app made of it', () => {
-    const summary = readyOf(layeredSummary(form({ layeredRounds: '7' }), 53));
-    const rounds = summary.numbers[4];
-    expect(rounds.label).toBe('Bracket rounds');
-    expect(rounds.source.startsWith('yours')).toBe(true);
+  it('shows a typed number the plan cannot take as it is: yours, and what the app made of it', () => {
+    const summary = readyOf(layeredSummary(form({ layeredRounds: '5' }), 31));
+    expect(summary.numbers[4]).toEqual({
+      key: 'bracketRounds',
+      label: 'Bracket rounds',
+      value: '4',
+      source: 'yours: you asked for 5 bracket rounds; this bracket takes 4',
+    });
+    // The numbers the organiser did not type stay the app's.
+    expect(summary.numbers.slice(0, 4).every((number) => number.source.startsWith("the app's: "))).toBe(true);
+  });
+
+  it('words the bracket rounds the app chose: the usual number, or one fewer because that seats better', () => {
+    expect(readyOf(layeredSummary(form(), 53)).numbers[4].source).toBe(
+      "the app's: the usual 5 bracket rounds for two levels",
+    );
+    expect(readyOf(layeredSummary(form(), 31)).numbers[4].source).toBe(
+      "the app's: 4 bracket rounds, one fewer than the usual 5 for two levels, because that seats better",
+    );
+  });
+
+  it('words the through and last-semi notes with the count: of each room, or for a single room', () => {
+    const { grid } = readyOf(layeredSummary(form(), 80));
+    expect(grid.columns[3].cells[1]?.note).toBe('the top 2 go to Semi-Final B');
+    expect(grid.columns[4].cells[2]?.note).toBe('the top 3 of each room go to Semi-Final B');
   });
 
   it('never words a number as "enter" alone or "4 stay"', () => {

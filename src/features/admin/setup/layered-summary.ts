@@ -119,7 +119,10 @@ function flagsOf(plan: LayeredPlan, roomSize: RoomSize): string[] {
 }
 
 function levelNote(level: LevelRound): string {
-  return level.topGoes === 'stay' ? '' : 'the top places go to Semi-Final B';
+  if (level.topGoes === 'stay') return '';
+  return level.rooms.length === 1
+    ? `the top ${level.top} go to Semi-Final B`
+    : `the top ${level.top} of each room go to Semi-Final B`;
 }
 
 function levelCell(level: LevelRound): GridCell {
