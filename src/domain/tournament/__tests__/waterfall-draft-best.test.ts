@@ -156,6 +156,18 @@ describe('the best of a place follows the edits of the draft', () => {
     expect(resizeWaterfallRound(two, 'R4', 3, 7).best).toEqual(two.best);
   });
 
+  it('is kept on the last place of a full room, and is dropped when the rooms have shrunk below it', () => {
+    const twoRooms = resizeWaterfallRound(draftOf(EXAMPLE), 'R4', 2, 8);
+    const onTheLast = setWaterfallBest(twoRooms, 'R4', { place: 8, count: 3, destination: 'R5' });
+    expect(onTheLast.best?.R4).toEqual({ place: 8, count: 3, destination: 'R5' });
+    expect(resizeWaterfallRound(onTheLast, 'R4', 3, 8).best?.R4).toEqual({
+      place: 8,
+      count: 2,
+      destination: 'R5',
+    });
+    expect(resizeWaterfallRound(onTheLast, 'R4', 2, 7).best).toBeUndefined();
+  });
+
   it('is dropped when the round becomes the Final or a ranking match', () => {
     expect(setWaterfallFinal(draftOf(EXAMPLE), 'R4', true).best).toBeUndefined();
     expect(setWaterfallRanking(draftOf(EXAMPLE), 'R4', true).best).toBeUndefined();
