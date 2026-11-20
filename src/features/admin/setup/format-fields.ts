@@ -98,6 +98,9 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   const isDouble = isRace || isShared;
   const isKings = choices.scheduleLogic === 'kings-valley';
   const isUpperLower = choices.scheduleLogic === 'upper-lower';
+  // A layered bracket reads the same three selects as the upper and lower bracket, and works out how many it takes.
+  const isLayered = choices.scheduleLogic === 'layered';
+  const isAppWritten = isUpperLower || isLayered;
   const fields = new Set<FormatField>([
     'gameFormat',
     'scheduleLogic',
@@ -117,7 +120,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add(poolingPhase === 'group-stage', 'qualifiersPerGroup');
   add(poolingPhase === 'qual-table' || poolingPhase === 'swiss', 'nonCountingRounds');
   // An upper and lower bracket has its own optional "Advance to bracket" after any pooling phase; left empty it reads the pooling setting (qualAdv, 24 by default, behind its placeholder).
-  add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isUpperLower, 'qualAdv');
+  add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isAppWritten, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
@@ -129,10 +132,10 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   );
   add(isRace, 'grandFinalWbTarget', 'grandFinalLbTarget');
   add(!isRace, 'finalsGames', 'finalsBestOf');
-  add(isSingle || isDouble || isKings || isUpperLower, 'bracketGames', 'bracketBestOf');
+  add(isSingle || isDouble || isKings || isAppWritten, 'bracketGames', 'bracketBestOf');
   add(isDouble, 'losersGames', 'losersBestOf');
   add(isSingle, 'semisOverride');
-  add(isSingle || isUpperLower, 'semisGames', 'semisBestOf');
+  add(isSingle || isAppWritten, 'semisGames', 'semisBestOf');
   add(isShared, 'lbQualifiers');
   add(isSingle || isShared, 'finalOverride', 'eliminationRoundTargets', 'eliminationSeedingOverrides');
   add(poolingPhase === 'qual-table', 'qualRoundsOverride');

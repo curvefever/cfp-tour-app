@@ -7,6 +7,7 @@ import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley'
 import { groupExitRefusal, groupsLineExit } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
+import { layeredGateRefusal, layeredGraphFor } from './layered-form';
 import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { validateRoomCap } from './room-distribution';
 import { rosterFitsFormat, rosterKeys } from './roster';
@@ -192,10 +193,11 @@ export function generateTournament(
       'The roster was loaded for a different game format — click "Load roster & reserves" again before generating.',
     );
   }
-  // An upper and lower bracket is generated as a Custom bracket over a graph the app derives; the choice is kept in
-  // the form (and so in the settings snapshot) and on the config (`upperLowerVersion`), never in `state.scheduleLogic`.
+  // An upper and lower bracket or a layered bracket is generated as a Custom bracket over a graph the app derives; the
+  // choice is kept in the form (and so in the settings snapshot) and on the config (`upperLowerVersion`,
+  // `layeredVersion`), never in `state.scheduleLogic`.
   const chosen = form.scheduleLogic;
-  const schedule = chosen === 'upper-lower' ? 'waterfall-bracket' : chosen;
+  const schedule = chosen === 'upper-lower' || chosen === 'layered' ? 'waterfall-bracket' : chosen;
   if (!format.defaultRoomSize && !format.idealRoomSize) {
     return generationError('This game format has no room size.');
   }
@@ -204,6 +206,8 @@ export function generateTournament(
   const unitPlural = format.unitLabelPlural.toLowerCase();
   const belowFloor = registeredBelowFloorMessage(chosen, formatRoomSize, unitPlural, unitCount);
   if (belowFloor) return generationError(belowFloor);
+  const layeredGate = chosen === 'layered' ? layeredGateRefusal(form) : null;
+  if (layeredGate) return generationError(layeredGate);
 
   // A setting whose Setup field is hidden is ignored: the form keeps its stale
   // value (so switching back restores it) but generation uses the default.
@@ -265,10 +269,15 @@ export function generateTournament(
   const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
   const roomSize = deriveRoomSize(format, oddCountStrategy);
 
-  // An upper and lower bracket reads the graph the app derives from the head count, not the form's.
+  // An upper and lower bracket or a layered bracket reads the graph the app derives from the head count, not the form's.
   let graphText = form.waterfallGraph;
   if (chosen === 'upper-lower') {
     const derived = upperLowerGraphFor(form, unitCount, formatRoomSize, unitPlural);
+    if (!derived.ok) return generationError(derived.message);
+    graphText = derived.text;
+  }
+  if (chosen === 'layered') {
+    const derived = layeredGraphFor(form, unitCount);
     if (!derived.ok) return generationError(derived.message);
     graphText = derived.text;
   }
@@ -685,6 +694,7 @@ export function generateTournament(
     absenceVersion: 3,
     dependencyPlayVersion: 1,
     ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
+    ...(chosen === 'layered' ? { layeredVersion: 1 as const } : {}),
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

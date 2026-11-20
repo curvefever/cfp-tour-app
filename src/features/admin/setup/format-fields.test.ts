@@ -79,17 +79,19 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'semisGames',
     'semisBestOf',
   ],
+  layered: ['bracketGames', 'bracketBestOf', 'finalsGames', 'finalsBestOf', 'semisGames', 'semisBestOf'],
 };
 
-/** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's; a group stage's exit stays (it is the automatic number). */
+/** An upper and lower bracket has its own "Advance to bracket", after any pooling phase, in place of the table's; a group stage's exit stays (it is the automatic number). A layered bracket has none: it works the number out. */
 function poolingFieldsOf(
   poolingPhase: string,
   scheduleLogic: string,
   byPooling: FormatField[],
 ): FormatField[] {
-  if (scheduleLogic !== 'upper-lower') return byPooling;
+  if (scheduleLogic !== 'upper-lower' && scheduleLogic !== 'layered') return byPooling;
   const own = byPooling.filter((field) => field !== 'qualAdv');
-  return poolingPhase === 'none' ? own : [...own, 'upperLowerAdvance', 'upperLowerUpper'];
+  if (scheduleLogic === 'layered' || poolingPhase === 'none') return own;
+  return [...own, 'upperLowerAdvance', 'upperLowerUpper'];
 }
 
 function fieldsOf(choices: Partial<FormatChoices>): FormatField[] {

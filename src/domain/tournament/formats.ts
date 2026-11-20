@@ -153,6 +153,11 @@ export const SCHEDULE_LOGIC_WORDS: Record<ScheduleLogicKey, ChoiceWords> = {
     recap: 'Upper and lower bracket',
     list: 'Upper and lower bracket',
   },
+  layered: {
+    setup: 'Layered bracket (the app writes it)',
+    recap: 'Layered bracket',
+    list: 'Layered bracket',
+  },
 };
 
 /** `list` is null for "None": the format line names no pooling phase. */

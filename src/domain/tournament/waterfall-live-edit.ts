@@ -20,7 +20,7 @@ import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
 import { routesTo } from './waterfall-steps';
 import { generatedConfig } from './generated-config';
-import { isUpperLowerBracket, withoutUpperLowerMark } from './rule-versions';
+import { hasAppWrittenMark, withoutAppWrittenMark } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
   declaredWaterfallRooms,
@@ -502,15 +502,15 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
 }
 
 /**
- * A graph save made by hand in the running Admin ("Edit graph"). On an upper and lower bracket it makes it a Custom
- * bracket for good: the version is dropped and every round's stage cleared (the rounds keep the formats they have; the
+ * A graph save made by hand in the running Admin ("Edit graph"). On a bracket the app wrote (the upper and lower
+ * bracket, the layered bracket) it makes it a Custom bracket for good: the mark is dropped and every round's stage cleared (the rounds keep the formats they have; the
  * graph text carries them), and the settings snapshot reads Custom bracket, so the app stops working the rooms out and
  * Copy settings copies the edited graph.
  */
 export function applyHandGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const result = applyWaterfallGraphEdit(state, text);
-  if (!result.ok || !isUpperLowerBracket(result.state)) return result;
-  const gamemodeConfig = withoutUpperLowerMark(result.state.gamemodeConfig);
+  if (!result.ok || !hasAppWrittenMark(result.state.gamemodeConfig)) return result;
+  const gamemodeConfig = withoutAppWrittenMark(result.state.gamemodeConfig);
   return {
     ...result,
     state: {

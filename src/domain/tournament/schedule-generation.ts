@@ -22,6 +22,7 @@ import {
   type WaterfallBracketConfig,
 } from './waterfall-bracket';
 import { applyMatchFormats, type MatchFormatConfig } from './round-match-formats';
+import { hasAppWrittenMark } from './rule-versions';
 import type { PoolingPhaseKey, RoomSize, ScheduleLogicKey, TournamentGroup, TournamentRound } from './types';
 
 interface TournamentProgression {
@@ -39,7 +40,7 @@ export type ScheduleFormat = PoolingFormatConfig &
   MatchFormatConfig &
   Pick<WaterfallBracketConfig, 'finalsGames' | 'finalsBestOf'> &
   Partial<Pick<SharedFinalDoubleEliminationConfig, 'lbQualifiers'>> &
-  Partial<Pick<WaterfallBracketConfig, 'graph'>> & { upperLowerVersion?: 1 };
+  Partial<Pick<WaterfallBracketConfig, 'graph'>> & { upperLowerVersion?: 1; layeredVersion?: 1 };
 
 /** What `buildScheduleRounds` builds the rounds from: not the Setup form, but the numbers worked out from it. */
 export interface ScheduleInput {
@@ -69,7 +70,7 @@ export function getMinimumBracketUnits(bracketPhase: ScheduleLogicKey, roomSize:
   // graph (validateAndOrderWaterfallGraph's rule 9, checked in generation.ts)
   // -- this early, generic gate only needs to let any positive count through
   // so that later, more specific error reaches the organiser instead.
-  if (bracketPhase === 'waterfall-bracket') return 1;
+  if (bracketPhase === 'waterfall-bracket' || bracketPhase === 'layered') return 1;
   // Two rooms of the smallest size: the floor of an upper and lower bracket (upper-lower.ts).
   if (bracketPhase === 'upper-lower') return 2 * roomSize.min;
   if (bracketPhase === 'double-elimination') return 4;
@@ -156,8 +157,8 @@ function buildProgression(input: ScheduleInput): TournamentProgression {
     case 'waterfall-bracket': {
       const format = { ...input.format, graph: heldForPhase(input.format.graph) };
       bracket = waterfallBracketPhase(pooled.seedTotal, pooled.nextRoundNum, format);
-      // The built-in upper and lower bracket's rounds play match stages, marked before the formats are applied.
-      if (format.upperLowerVersion) bracket = markAppWrittenStages(bracket);
+      // The rounds of a bracket the app wrote (upper and lower, layered) play match stages, marked before the formats are applied.
+      if (hasAppWrittenMark(format)) bracket = markAppWrittenStages(bracket);
       pooledRounds = withStandingsRoutes(
         pooledRounds,
         waterfallStandingsRoutes(format.graph, pooled.nextRoundNum),
@@ -165,9 +166,10 @@ function buildProgression(input: ScheduleInput): TournamentProgression {
       break;
     }
     case 'upper-lower':
+    case 'layered':
       // Only a Setup choice: the tournament it makes is a Custom bracket, whose bracket phase is 'waterfall-bracket'.
       throw new Error(
-        'An upper and lower bracket is built as a Custom bracket, not as a bracket phase of its own.',
+        'An upper and lower bracket or a layered bracket is built as a Custom bracket, not as a bracket phase of its own.',
       );
   }
   return {

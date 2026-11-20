@@ -119,7 +119,7 @@ export function matchFormatConfig(
   const finalsBestOf = bestOfSetting(form.finalsBestOf, schedule !== 'double-elimination');
   const semisBestOf = bestOfSetting(
     form.semisBestOf,
-    schedule === 'single-elimination' || schedule === 'upper-lower',
+    schedule === 'single-elimination' || schedule === 'upper-lower' || schedule === 'layered',
   );
   const overrides = parseMatchOverrides(form.matchOverrides);
   return {
@@ -230,6 +230,8 @@ export function bracketStageLabel(scheduleLogic: ScheduleLogicKey): string {
   switch (scheduleLogic) {
     case 'upper-lower':
       return 'Upper and lower rounds';
+    case 'layered':
+      return 'Bracket rounds';
     case 'single-elimination':
       return 'Elimination rounds';
     case 'kings-valley':

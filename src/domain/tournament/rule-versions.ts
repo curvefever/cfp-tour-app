@@ -54,8 +54,20 @@ export function isUpperLowerBracket(state: WithConfig): boolean {
   return Boolean(state.gamemodeConfig.upperLowerVersion);
 }
 
-/** The config of a Custom bracket the organiser has taken over by hand: no longer marked as the built-in upper and lower bracket. */
-export function withoutUpperLowerMark(gamemodeConfig: GamemodeConfig): GamemodeConfig {
-  const { upperLowerVersion: _mark, ...unmarked } = gamemodeConfig;
+/** `layeredVersion`: the Custom bracket is the layered bracket the app writes (`layered-graph.ts`). Like the upper and lower mark it marks a format, not an earlier rule. */
+export function isLayeredBracket(state: WithConfig): boolean {
+  return Boolean(state.gamemodeConfig.layeredVersion);
+}
+
+/** Whether a config carries the mark of a bracket the app wrote itself, either kind (a config as the builders hold it, not a whole state). */
+export function hasAppWrittenMark(
+  gamemodeConfig: Pick<GamemodeConfig, 'upperLowerVersion' | 'layeredVersion'>,
+): boolean {
+  return Boolean(gamemodeConfig.upperLowerVersion || gamemodeConfig.layeredVersion);
+}
+
+/** The config of a Custom bracket the organiser has taken over by hand: no longer marked as a bracket the app wrote (the upper and lower bracket or the layered bracket). */
+export function withoutAppWrittenMark(gamemodeConfig: GamemodeConfig): GamemodeConfig {
+  const { upperLowerVersion: _upperLower, layeredVersion: _layered, ...unmarked } = gamemodeConfig;
   return unmarked;
 }

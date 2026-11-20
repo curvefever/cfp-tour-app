@@ -3,6 +3,7 @@ import { POOLING_PHASE_WORDS, SCHEDULE_LOGIC_WORDS } from '../formats';
 
 // The three wordings as they were written in three places (formats.ts, FormatPanel.tsx, tournament-info.ts) before the table.
 const RECAP_SCHEDULE = {
+  layered: 'Layered bracket',
   'single-elimination': 'Single elimination',
   'double-elimination': 'Double elimination',
   'double-elimination-shared-final': 'Double elimination — FFA/Team',
@@ -17,6 +18,7 @@ const RECAP_POOLING = {
   'group-stage': 'Group Stage',
 };
 const SETUP_SCHEDULE = {
+  layered: 'Layered bracket (the app writes it)',
   'single-elimination': 'Single elimination',
   'double-elimination': 'Double elimination',
   'double-elimination-shared-final': 'Double elimination — FFA/Team',
@@ -37,6 +39,7 @@ const LIST_POOLING = {
   'group-stage': 'Group stage',
 };
 const LIST_SCHEDULE = {
+  layered: 'Layered bracket',
   'single-elimination': 'Single elimination',
   'double-elimination': 'Double elimination',
   'double-elimination-shared-final': 'Double elimination',
@@ -56,6 +59,6 @@ it("the table holds today's three wordings for every choice", () => {
     expect(words.setup).toBe(SETUP_POOLING[key as keyof typeof SETUP_POOLING]);
     expect(words.list).toBe(LIST_POOLING[key as keyof typeof LIST_POOLING]);
   }
-  expect(Object.keys(SCHEDULE_LOGIC_WORDS)).toHaveLength(6);
+  expect(Object.keys(SCHEDULE_LOGIC_WORDS)).toHaveLength(7);
   expect(Object.keys(POOLING_PHASE_WORDS)).toHaveLength(4);
 });

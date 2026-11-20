@@ -1,26 +1,28 @@
 import { deriveRoomSize, getGameFormat } from './formats';
 import { isRoundReached } from './round-columns';
-import { isUpperLowerBracket } from './rule-versions';
+import { isLayeredBracket, isUpperLowerBracket } from './rule-versions';
 import type { RoomSize, ScheduleLogicKey, TournamentRound, TournamentState } from './types';
 
 /**
- * What every bracket the app writes itself has in common (today the built-in upper and lower bracket): at runtime it is
+ * What every bracket the app writes itself has in common (the built-in upper and lower bracket and the layered bracket): at runtime it is
  * a Custom bracket, a mark on `gamemodeConfig` (read in `rule-versions.ts`) says the app wrote it, its rounds carry the
  * match stage they play, and it can be worked out again until a bracket round is drawn. Nothing here depends on the
  * shape of a particular bracket.
  */
 
-/** What reads the logic of a tournament: the schedule logic, or `'upper-lower'` for a Custom bracket the app works out itself. */
-export type BracketLogic = ScheduleLogicKey | 'upper-lower';
+/** What reads the logic of a tournament: the schedule logic, or `'upper-lower'` or `'layered'` for a Custom bracket the app works out itself. */
+export type BracketLogic = ScheduleLogicKey;
 
 /**
- * The logic a tournament is set up and shown with. At runtime an upper and lower bracket is a Custom bracket
- * (`state.scheduleLogic` is `'waterfall-bracket'`, never `'upper-lower'`); `gamemodeConfig.upperLowerVersion` marks it.
+ * The logic a tournament is set up and shown with. At runtime an upper and lower bracket or a layered bracket is a
+ * Custom bracket (`state.scheduleLogic` is `'waterfall-bracket'`, never `'upper-lower'` or `'layered'`); the mark on
+ * `gamemodeConfig` (`rule-versions.ts`) says which.
  */
 export function bracketLogicOf(
   state: Pick<TournamentState, 'scheduleLogic' | 'gamemodeConfig'>,
 ): BracketLogic {
-  return isUpperLowerBracket(state) ? 'upper-lower' : state.scheduleLogic;
+  if (isUpperLowerBracket(state)) return 'upper-lower';
+  return isLayeredBracket(state) ? 'layered' : state.scheduleLogic;
 }
 
 /** The match stage a round of an app-written bracket plays: the Final the Finals format, a Semi-Final the Semis format, every other round the bracket rounds format. */
