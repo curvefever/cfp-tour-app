@@ -1,10 +1,13 @@
 import {
   compareKeys,
+  topKey,
   createBracketSearch,
   ROUNDS_AFTER_THE_BRACKET_ROUNDS,
   type Bracket,
   type BracketRound,
   type EntryLevel,
+  type LevelName,
+  type SemiOthers,
   type SearchSettings,
 } from './layered-search';
 import { seatLevel, seatsNormally } from './layered-seating';
@@ -47,6 +50,13 @@ export interface LayeredGames {
 /** 4 table rounds, semi-finals and Final over two games each. */
 export const USUAL_GAMES: LayeredGames = { table: 4, semis: 2, final: 2 };
 
+/** The top `k` of each room typed for one level of one bracket round (0 is the first bracket round). */
+export interface TypedTopCount {
+  round: number;
+  level: LevelName;
+  top: number;
+}
+
 /** What the organiser typed: each is fixed, empty (absent) is the app's. */
 export interface LayeredTyped {
   /** The number expected to play. */
@@ -58,11 +68,17 @@ export interface LayeredTyped {
   topLevel?: number;
   /** Two or three levels. */
   levels?: LevelCount;
+  /** The top `k` of each room of a level in a round: each is taken as typed, and the app designs the rest around it. */
+  topCounts?: TypedTopCount[];
+  /** What the first semi-final's other half do: play on in the level below, or wait for the last semi-final. */
+  semiOthers?: 'play-on' | 'wait';
 }
 
 export interface LayeredInput {
   registered: number;
   roomSize: RoomSize;
+  /** The number of the first bracket round ("Round 5" after four table rounds), for the words of a refusal. */
+  firstRound?: number;
   /** How games are counted, for the length shown; they are not an input to the plan. */
   games?: LayeredGames;
   typed?: LayeredTyped;
@@ -90,6 +106,10 @@ export interface LayeredPlan {
   levels: EntryLevel[];
   /** The rounds before the last semi-final. */
   rounds: BracketRound[];
+  /** What was typed for the top places of each room, each with whether this plan has that round and level: one that does not no longer applies. */
+  topCounts: Array<TypedTopCount & { applies: boolean }>;
+  /** What the first semi-final's other half do ("last-semi": it is in the last round, where they go to the last semi-final whatever is chosen), and who set it. */
+  semiOthers: { value: SemiOthers; setBy: 'app' | 'organiser' };
   /** The last semi-final and the Final: a full room each, the top half of the semi-final to the Final. */
   lastSemiFinal: { players: number; toFinal: number };
   finalPlayers: number;
@@ -202,6 +222,10 @@ const wantedRounds = (basis: Basis, levelCount: LevelCount): number =>
 const searchSettings = (basis: Basis, levelCount: LevelCount): SearchSettings => ({
   roomSize: basis.roomSize,
   wantRounds: wantedRounds(basis, levelCount),
+  fixedTop: new Map(
+    (basis.typed?.topCounts ?? []).map((entry) => [topKey(entry.round, entry.level), entry.top]),
+  ),
+  semiOthers: basis.typed?.semiOthers,
 });
 
 function searchFor(basis: Basis, levelCount: LevelCount): (entry: EntryLevel[]) => Bracket | null {
@@ -404,6 +428,12 @@ function levelCountNumber(bracket: Bracket, size: number, basis: Basis): Layered
     : app(2, `two levels: no three-level bracket seats ${size} in the bracket`);
 }
 
+/** What the first semi-final's other half do in this bracket, and whether the organiser typed it. */
+function semiOthersOf(bracket: Bracket, typed: 'play-on' | 'wait' | undefined): LayeredPlan['semiOthers'] {
+  const others = bracket.rounds.find((round) => round.firstSemiFinal)?.firstSemiFinal?.others ?? 'wait';
+  return { value: others, setBy: typed ? 'organiser' : 'app' };
+}
+
 function planOf(
   input: LayeredInput,
   basis: Basis,
@@ -431,6 +461,11 @@ function planOf(
     topLevel: topLevelNumber(bracket, roomSize, basis.typed?.topLevel !== undefined),
     levels: bracket.entry,
     rounds: bracket.rounds,
+    topCounts: (basis.typed?.topCounts ?? []).map((entry) => ({
+      ...entry,
+      applies: bracket.rounds[entry.round]?.levels.some((level) => level.level === entry.level) === true,
+    })),
+    semiOthers: semiOthersOf(bracket, basis.typed?.semiOthers),
     lastSemiFinal: { players: roomSize.ideal, toFinal: Math.floor(roomSize.ideal / 2) },
     finalPlayers: roomSize.ideal,
     lastResortRooms: levelRounds.reduce((total, level) => total + level.lastResortRooms, 0),
@@ -460,13 +495,91 @@ const levelsWords = (levels: LevelCount | undefined): string =>
   levels === undefined ? '' : ` with ${levels === 2 ? 'two' : 'three'} levels`;
 
 /** The bracket rounds a bracket of `size` in the bracket is designed with, for a refusal's words. */
+/** What to try instead of a number in the bracket no bracket seats: the nearest numbers that do have one. */
+function neighbours(size: number, registered: number, basis: Basis): string {
+  const nearest = nearestText(
+    (value) => bracketForSize(value, basis) !== null,
+    size,
+    LAYERED_MIN_IN_BRACKET,
+    registered,
+  );
+  return nearest
+    ? `${nearest} in the bracket can be seated; or try another number of bracket rounds.`
+    : 'Try another number of bracket rounds.';
+}
+
 function roundsWords(size: number, basis: Basis): string {
   const rounds = wantedRounds(basis, basis.typed?.levels ?? usualLevels(size));
   return `${rounds - 1} or ${rounds} bracket rounds`;
 }
 
+/** "27 or 29", "29" or "": the nearest number below and above a number that cannot be used, among those that can. */
+function nearestText(
+  works: (value: number) => boolean,
+  from: number,
+  lowest: number,
+  highest: number,
+): string {
+  let below: number | undefined;
+  for (let value = from - 1; value >= lowest && below === undefined; value -= 1)
+    if (works(value)) below = value;
+  let above: number | undefined;
+  for (let value = from + 1; value <= highest && above === undefined; value += 1)
+    if (works(value)) above = value;
+  return [below, above].filter((value) => value !== undefined).join(' or ');
+}
+
+const roundNameOf = (first: number, entry: TypedTopCount): string =>
+  `Round ${first + entry.round} - ${entry.level}`;
+
+/**
+ * Why a top number the organiser typed for each room cannot be used, naming the nearest numbers that can, or null when
+ * it is not the cause. Each of `entries` is tried alone: taken out, the plan is made again; where its round and level
+ * exist in that plan and its number does not seat, the numbers around it that do are named. `together` adds the words
+ * for typed numbers that each work alone and not with the others.
+ */
+function topCountRefusal(input: LayeredInput, entries: TypedTopCount[], together: boolean): string | null {
+  const counts = input.typed?.topCounts ?? [];
+  const first = input.firstRound ?? 1;
+  const planWith = (topCounts: TypedTopCount[]) =>
+    planWithin({ ...input, typed: { ...input.typed, topCounts } }, false);
+  const applies = (result: LayeredResult, entry: TypedTopCount): boolean =>
+    result.ok &&
+    result.plan.rounds[entry.round]?.levels.some((level) => level.level === entry.level) === true;
+  for (const entry of entries) {
+    const others = counts.filter((other) => other.round !== entry.round || other.level !== entry.level);
+    if (!applies(planWith(others), entry)) continue;
+    const works = (top: number) =>
+      applies(planWith([...others, { round: entry.round, level: entry.level, top }]), entry);
+    const nearest = nearestText(works, entry.top, 1, input.roomSize.max);
+    const where = roundNameOf(first, entry);
+    return nearest
+      ? `The top ${entry.top} of each room cannot be used in ${where}; ${nearest} can.`
+      : `The top ${entry.top} of each room cannot be used in ${where}: no other number seats there either, so change another number you typed.`;
+  }
+  return together && planWith([]).ok
+    ? 'The top places you typed for each room cannot be used together. Clear one of them.'
+    : null;
+}
+
+/**
+ * A plan, unless a typed number for the top places of each room that the app's own plan has could not be kept in this
+ * one: then that number is refused, with the numbers that can be used. One for a round or level this plan does not have
+ * only no longer applies, and stays in the plan marked so.
+ */
+function settled(input: LayeredInput, plan: LayeredPlan, diagnose: boolean): LayeredResult {
+  const unused = plan.topCounts.filter((entry) => !entry.applies);
+  const refusal = diagnose && unused.length > 0 ? topCountRefusal(input, unused, false) : null;
+  return refusal ? { ok: false, message: refusal } : { ok: true, plan };
+}
+
 /** The plan for a field, or why there is none. */
 export function planLayered(input: LayeredInput): LayeredResult {
+  return planWithin(input, true);
+}
+
+/** `diagnose` is off while a refusal is being explained: asking why a number cannot be used must not ask again. */
+function planWithin(input: LayeredInput, diagnose: boolean): LayeredResult {
   const { registered, roomSize, typed } = input;
   if (registered < LAYERED_MIN_IN_BRACKET) {
     return {
@@ -493,19 +606,23 @@ export function planLayered(input: LayeredInput): LayeredResult {
     if (!bracket) {
       return {
         ok: false,
-        message: `No layered bracket seats ${typed.inBracket} in the bracket${levelsWords(typed.levels)} in ${roundsWords(typed.inBracket, basis)}. Try another number in the bracket, or another number of bracket rounds.`,
+        message:
+          (diagnose ? topCountRefusal(input, input.typed?.topCounts ?? [], true) : null) ??
+          `No layered bracket seats ${typed.inBracket} in the bracket${levelsWords(typed.levels)} in ${roundsWords(typed.inBracket, basis)}. ${neighbours(typed.inBracket, registered, basis)}`,
       };
     }
-    return { ok: true, plan: planOf(input, basis, play, yours(typed.inBracket), bracket) };
+    return settled(input, planOf(input, basis, play, yours(typed.inBracket), bracket), diagnose);
   }
   const sized = chooseSizeAndRounds(play.value, registered, basis);
   if (!sized) {
     return {
       ok: false,
-      message: `No layered bracket fits ${play.value} players${levelsWords(typed?.levels)} in ${roundsWords(Math.ceil((3 * play.value) / 4), basis)}. Try another number of bracket rounds, or build the bracket by hand with the Custom bracket.`,
+      message:
+        (diagnose ? topCountRefusal(input, input.typed?.topCounts ?? [], true) : null) ??
+        `No layered bracket fits ${play.value} players${levelsWords(typed?.levels)} in ${roundsWords(Math.ceil((3 * play.value) / 4), basis)}. Try another number of bracket rounds, or build the bracket by hand with the Custom bracket.`,
     };
   }
   const { chosen, extra } = sized;
   const inBracket = app(chosen.size, inBracketReason(chosen, play.value));
-  return { ok: true, plan: planOf(input, sized.basis, play, inBracket, chosen.bracket, extra) };
+  return settled(input, planOf(input, sized.basis, play, inBracket, chosen.bracket, extra), diagnose);
 }

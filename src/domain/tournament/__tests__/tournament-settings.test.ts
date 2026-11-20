@@ -60,6 +60,8 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   layeredRounds: '6',
   layeredLevels: '3',
   layeredTop: '16',
+  layeredTopCounts: 'Round 6 - Middle: 3',
+  layeredSemiOthers: 'wait',
   oddCountStrategy: 'bye',
   teamScoringRule: 'sum-members',
   matchOverrides: 'Round 2: GAMES 2\nSemis: BO3',

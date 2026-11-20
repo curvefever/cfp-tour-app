@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bracketLogicOf } from '../app-written-bracket';
 import { generateTournament } from '../generation';
 import { layeredGateRefusal, LAYERED_FORMATS, LAYERED_POOLING_PHASES } from '../layered-form';
-import { planLayered, type LayeredPlan } from '../layered-plan';
+import { planLayered } from '../layered-plan';
 import { layeredPlayOf } from '../rule-versions';
 import { removeRosterUnit } from '../mutations';
 import { rosterKeys } from '../roster';
@@ -20,61 +20,23 @@ import {
   playToBracketEntry,
   STRATEGIES,
 } from './dependency-play-fixtures';
-import { rosterFor, startedState, testRuntime, type Setup } from './test-fixtures';
+import {
+  FFA_QUAL,
+  FFA_ROOM,
+  FIRST_ROUND,
+  built,
+  generate,
+  planFor,
+  plannedRounds,
+  roomsOf,
+  seatedRooms,
+} from './layered-test-support';
+import { rosterFor, testRuntime, type Setup } from './test-fixtures';
 
 /**
  * A layered bracket generated from the Setup form: a Custom bracket the app marks, whose rounds, rooms and routes are
  * the plan's (`planLayered`), after a qualification table.
  */
-
-const FFA_QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table' } as const;
-const FFA_ROOM = { min: 6, ideal: 8, max: 8 };
-
-function generate(count: number, setup: Setup = FFA_QUAL) {
-  const form = createDefaultSetup({ scheduleLogic: 'layered', ...setup });
-  return generateTournament(
-    createDefaultTournamentState({ confirmedCount: count, players: rosterFor(form.gameFormat, count) }),
-    form,
-    testRuntime(),
-  );
-}
-
-function built(count: number, setup: Setup = FFA_QUAL): TournamentState {
-  return startedState(generate(count, setup));
-}
-
-function planFor(count: number): LayeredPlan {
-  const planned = planLayered({ registered: count, roomSize: FFA_ROOM });
-  if (!planned.ok) throw new Error(planned.message);
-  return planned.plan;
-}
-
-const roomsOf = (state: TournamentState, label: string): number[] =>
-  state.rounds[indexOf(state, label)].rooms;
-
-/** The first bracket round's number: "Round 4" after three qualification rounds. */
-const FIRST_ROUND = 4;
-
-/** The names the plan gives its rounds, in the order the plan has them, with the rooms each plays. */
-function plannedRounds(plan: LayeredPlan): Array<{ name: string; rooms: number[] }> {
-  const rounds = plan.rounds.flatMap((round, index) => {
-    const semi = round.firstSemiFinal ? [{ name: 'Semi-Final A', rooms: [plan.finalPlayers] }] : [];
-    const levels = round.levels.map((level) => ({
-      name: `Round ${FIRST_ROUND + index} - ${level.level}`,
-      rooms: level.rooms,
-    }));
-    return [...semi, ...levels];
-  });
-  const full = [plan.finalPlayers];
-  return [...rounds, { name: 'Semi-Final B', rooms: full }, { name: 'Final', rooms: full }];
-}
-
-/** The seats each room of a round really holds once it is drawn. */
-function seatedRooms(state: TournamentState, label: string): number[] {
-  const rooms = state.rounds[indexOf(state, label)].rooms;
-  const seated = state.assignments[indexOf(state, label)] ?? [];
-  return rooms.map((_, room) => seated.filter((entry) => entry.room === room + 1).length);
-}
 
 /** The awkward counts of the organiser's practice, with the ones around them, and a three-level field. */
 const COUNTS = [24, 31, 37, 43, 53, 60];

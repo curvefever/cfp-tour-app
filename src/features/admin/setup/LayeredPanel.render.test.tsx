@@ -233,3 +233,73 @@ describe('the Format panel', () => {
     expect(screen.getByLabelText<HTMLInputElement>('In the bracket (optional)').placeholder).toBe('22');
   });
 });
+
+describe('the top places of each room and the other half of Semi-Final A', () => {
+  const topField = (name: string) =>
+    screen.getByLabelText<HTMLInputElement>(`The top places of each room in ${name}`);
+
+  it("has a field per level of every round, empty, with the app's number as placeholder", () => {
+    atCount(53);
+    render(<LayeredPanel />);
+    expect(topField('Round 4 - Upper').placeholder).toBe('4');
+    expect(topField('Round 4 - Lower').placeholder).toBe('5');
+    expect(topField('Round 5 - Lower').placeholder).toBe('4');
+    expect(topField('Round 6 - Lower').placeholder).toBe('4');
+    expect(topField('Round 4 - Lower').value).toBe('');
+    expect(screen.queryByLabelText('The top places of each room in Semi-Final A')).toBeNull();
+  });
+
+  it('keeps what is typed in the form line, and keeps the schedule logic: only Adjust rounds by hand makes a Custom bracket', () => {
+    atCount(53);
+    render(<LayeredPanel />);
+    fireEvent.change(topField('Round 5 - Lower'), { target: { value: '4' } });
+    expect(setups.at(-1)?.layeredTopCounts).toBe('Round 5 - Lower: 4');
+    expect(setups.at(-1)?.scheduleLogic).toBe('layered');
+    fireEvent.change(screen.getByLabelText('The other half of Semi-Final A'), { target: { value: 'wait' } });
+    expect(setups.at(-1)?.layeredSemiOthers).toBe('wait');
+    expect(setups.at(-1)?.scheduleLogic).toBe('layered');
+  });
+
+  it('shows a typed number as yours, and clearing the field takes the line out', () => {
+    atCount(53, { layeredTopCounts: 'Round 5 - Lower: 4\nRound 6 - Lower: 4' });
+    render(<LayeredPanel />);
+    expect(topField('Round 5 - Lower').value).toBe('4');
+    expect(within(topField('Round 5 - Lower').closest('li') as HTMLElement).getByText('yours')).toBeTruthy();
+    fireEvent.change(topField('Round 5 - Lower'), { target: { value: '' } });
+    expect(setups.at(-1)?.layeredTopCounts).toBe('Round 6 - Lower: 4');
+  });
+
+  it("shows the other half of Semi-Final A with the app's own choice, and what was typed as yours", () => {
+    atCount(53);
+    const { unmount } = render(<LayeredPanel />);
+    expect(screen.getByRole('option', { name: 'Automatic: Play on in the level below' })).toBeTruthy();
+    unmount();
+    atCount(53, { layeredSemiOthers: 'wait' });
+    render(<LayeredPanel />);
+    const select = screen.getByLabelText<HTMLSelectElement>('The other half of Semi-Final A');
+    expect(select.value).toBe('wait');
+  });
+
+  it('shows "no longer applies" beside a number for a level or round the plan does not have, and clears it on a press', () => {
+    atCount(31, { layeredTopCounts: 'Round 5 - Middle: 3\nRound 4 - Lower: 4' });
+    render(<LayeredPanel />);
+    const line = document.querySelector('[data-no-longer-applies="Round 5 - Middle"]') as HTMLElement;
+    expect(within(line).getByText('no longer applies')).toBeTruthy();
+    expect(line.textContent).toContain('Round 5 - Middle');
+    expect(line.textContent).toContain('the top 3');
+    fireEvent.click(within(line).getByRole('button', { name: 'Clear' }));
+    expect(setups.at(-1)?.layeredTopCounts).toBe('Round 4 - Lower: 4');
+  });
+
+  it('shows a refusal with the numbers that can be used, and the typed lines to clear', () => {
+    atCount(53, { layeredTopCounts: 'Round 4 - Lower: 7' });
+    render(<LayeredPanel />);
+    expect(document.getElementById('layered-summary')?.textContent).toContain(
+      'The top 7 of each room cannot be used in Round 4 - Lower; 6 can.',
+    );
+    const typed = within(document.getElementById('layered-typed-top-counts') as HTMLElement);
+    expect(typed.getByText(/the top 7, yours/)).toBeTruthy();
+    fireEvent.click(typed.getByRole('button', { name: 'Clear' }));
+    expect(setups.at(-1)?.layeredTopCounts).toBe('');
+  });
+});

@@ -50,6 +50,8 @@ export const SETTING_KEYS = [
   'layeredRounds',
   'layeredLevels',
   'layeredTop',
+  'layeredTopCounts',
+  'layeredSemiOthers',
   'oddCountStrategy',
   'teamScoringRule',
 ] as const satisfies readonly (keyof PersistedSetup)[];

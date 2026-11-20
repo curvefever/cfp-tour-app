@@ -85,6 +85,8 @@ const BY_LOGIC: Record<PersistedSetup['scheduleLogic'], FormatField[]> = {
     'layeredRounds',
     'layeredLevels',
     'layeredTop',
+    'layeredTopCounts',
+    'layeredSemiOthers',
     'bracketGames',
     'bracketBestOf',
     'finalsGames',

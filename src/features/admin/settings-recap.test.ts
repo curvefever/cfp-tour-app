@@ -268,6 +268,21 @@ describe('the recap of a layered bracket', () => {
     expect(items['Bracket rounds format']).toBe('Single game');
   });
 
+  it('lists the typed top places of each room and the other half of Semi-Final A', () => {
+    const items = groupItems(
+      stateOf({
+        ...layered,
+        layeredTopCounts: 'Round 4 - Lower: 4\nRound 5 - Lower: 3',
+        layeredSemiOthers: 'wait',
+      }),
+    );
+    expect(items['Top places of each room']).toBe('Round 4 - Lower: 4, Round 5 - Lower: 3');
+    expect(items['Semi-Final A, the other half']).toBe('Wait');
+    const none = groupItems(stateOf(layered));
+    expect(none['Top places of each room']).toBe('Automatic');
+    expect(none['Semi-Final A, the other half']).toBe('Automatic');
+  });
+
   it('names the schedule logic', () => {
     expect(groupItems(stateOf(layered))['Schedule logic']).toBe('Layered bracket');
   });

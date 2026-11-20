@@ -37,7 +37,7 @@ function generated(count: number, setup: Setup = {}) {
 
 describe('the numbers typed into the form', () => {
   it('are none when every field is empty', () => {
-    expect(layeredTypedOf(formOf())).toEqual({ ok: true, typed: {} });
+    expect(layeredTypedOf(formOf(), 4)).toEqual({ ok: true, typed: {}, orphans: [] });
   });
 
   it('read each field as its own number', () => {
@@ -50,10 +50,12 @@ describe('the numbers typed into the form', () => {
           layeredLevels: '3',
           layeredTop: '14',
         }),
+        4,
       ),
     ).toEqual({
       ok: true,
       typed: { play: 26, inBracket: 20, bracketRounds: 5, levels: 3, topLevel: 14 },
+      orphans: [],
     });
   });
 
@@ -64,7 +66,7 @@ describe('the numbers typed into the form', () => {
     [{ layeredTop: '-8' }, 'Top level must be a whole number — got "-8".'],
     [{ layeredLevels: '4' }, 'Levels must be 2 or 3 — got "4".'],
   ])('refuse %j in words', (setup, message) => {
-    expect(layeredTypedOf(formOf(setup))).toEqual({ ok: false, message });
+    expect(layeredTypedOf(formOf(setup), 4)).toEqual({ ok: false, message });
   });
 });
 

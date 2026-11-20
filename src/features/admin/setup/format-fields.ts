@@ -123,6 +123,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isAppWritten, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
   add(isLayered, 'layeredExpected', 'layeredInBracket', 'layeredRounds', 'layeredLevels', 'layeredTop');
+  add(isLayered, 'layeredTopCounts', 'layeredSemiOthers');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');
   add(poolingPhase !== 'none' && choices.scoring === 'positional-points', 'positionalPointsTable');
   add(

@@ -8,6 +8,7 @@ import {
   type SummaryGrid,
   type SummaryNumber,
 } from './layered-summary';
+import { LayeredTopCounts, TypedTopCounts } from './LayeredTopCounts';
 import { useSetupUpdate } from './useSetupChange';
 
 /** Asked before "Adjust rounds by hand" hands the rounds over: the app stops working the rooms out. */
@@ -153,13 +154,19 @@ export function LayeredPanel() {
           {summary.message}
         </p>
       ) : summary.kind === 'refused' ? (
-        <Alert id='layered-summary' tone='danger'>
-          {summary.message}
-        </Alert>
+        <div id='layered-summary'>
+          <Alert tone='danger'>{summary.message}</Alert>
+          <TypedTopCounts lines={summary.typedTopCounts} />
+        </div>
       ) : (
         <div className='flex flex-col gap-4' id='layered-summary'>
           <p className='text-sm font-semibold'>{summary.heading}</p>
           <NumberList numbers={summary.numbers} />
+          <LayeredTopCounts
+            noLongerApply={summary.noLongerApply}
+            rows={summary.topCounts}
+            semiOthers={summary.semiOthers}
+          />
           {summary.flags.length > 0 ? (
             <ul className='flex flex-col gap-1 text-sm text-warning' id='layered-flags'>
               {summary.flags.map((flag) => (

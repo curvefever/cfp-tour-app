@@ -23,7 +23,14 @@ export interface SearchSettings {
    * many or one fewer, and the nearest to it is preferred.
    */
   wantRounds: number;
+  /** The top `k` of each room the organiser typed, by `topKey` (bracket round and level): the search takes exactly that number there. */
+  fixedTop?: ReadonlyMap<string, number>;
+  /** What the organiser typed for the first semi-final's other half: the search takes only that. */
+  semiOthers?: 'play-on' | 'wait';
 }
+
+/** The key of a level in a bracket round (0 is the first bracket round) in `SearchSettings.fixedTop`. */
+export const topKey = (round: number, level: LevelName): string => `${round}|${level}`;
 
 /** The rounds every bracket has beyond those before the last semi-final: the last semi-final and the Final. */
 export const ROUNDS_AFTER_THE_BRACKET_ROUNDS = 2;
@@ -132,7 +139,7 @@ const positionId = (position: Position): string =>
  * whichever shape led to it), so asking for many shapes costs little more than asking for one.
  */
 export function createBracketSearch(settings: SearchSettings): (entry: EntryLevel[]) => Bracket | null {
-  const { roomSize, wantRounds } = settings;
+  const { roomSize, wantRounds, fixedTop, semiOthers } = settings;
   const full = roomSize.ideal;
   const half = Math.floor(full / 2);
   const memo = new Map<string, Tail | null>();
@@ -169,7 +176,8 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
 
     // A top level of exactly one full room is the first semi-final, in the first bracket round too.
     const firstSemi = !firstSemiPlayed && levels[0].players === full && levels.length > 1;
-    const modes: Mode[] = firstSemi ? ['play-on', 'wait'] : firstSemiPlayed ? ['through', 'stay'] : ['stay'];
+    const semiModes: Mode[] = semiOthers ? [semiOthers] : ['play-on', 'wait'];
+    const modes: Mode[] = firstSemi ? semiModes : firstSemiPlayed ? ['through', 'stay'] : ['stay'];
     const lowest = levels.length - 1;
     let top: Tail | null = null;
 
@@ -213,7 +221,9 @@ export function createBracketSearch(settings: SearchSettings): (entry: EntryLeve
       const highestTop = Math.max(lowestTop, smallest - 2);
       const through = index === 0 && mode === 'through';
       const missing = missingSeats(rooms, roomSize);
+      const typedTop = fixedTop?.get(topKey(depth, levels[index].name));
       for (let k = lowestTop; k <= highestTop; k += 1) {
+        if (typedTop !== undefined && k !== typedTop) continue;
         const stay = k * rooms.length;
         const rest = levels[index].players - stay;
         const next = [...draft.next];

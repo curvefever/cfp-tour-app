@@ -2,8 +2,10 @@ import { getGameFormat } from '../../../domain/tournament/formats';
 import type { LevelRound } from '../../../domain/tournament/layered-search';
 import {
   differsFromUsualValues,
+  parseTopCounts,
   planLayeredFor,
   type LayeredForm,
+  type TopCountLine,
 } from '../../../domain/tournament/layered-form';
 import type { LayeredNumber, LayeredPlan } from '../../../domain/tournament/layered-plan';
 import type { RoomSize } from '../../../domain/tournament/types';
@@ -56,15 +58,40 @@ export interface SummaryGrid {
   columns: GridColumn[];
 }
 
+/** One level of one bracket round, with the top places of each room the plan gives it and what was typed for it. */
+export interface TopCountRow {
+  /** "Round 6 - Middle": the name the typed line is kept under. */
+  name: string;
+  /** The top places of each room in the plan: the typed number where one was typed. */
+  top: number;
+  /** The number as typed, '' for none. */
+  typed: string;
+}
+
+/** What the first semi-final's other half do in the plan, and what was typed. */
+export interface SemiOthersRow {
+  value: 'play-on' | 'wait' | 'last-semi';
+  typed: '' | 'play-on' | 'wait';
+}
+
 export type LayeredSummary =
   | { kind: 'waiting'; message: string }
-  | { kind: 'refused'; message: string }
+  | {
+      kind: 'refused';
+      message: string;
+      /** What was typed for the top places of each room, so that it can be cleared while the bracket is refused. */
+      typedTopCounts: TopCountLine[];
+    }
   | {
       kind: 'ready';
       heading: string;
       numbers: SummaryNumber[];
       flags: string[];
       grid: SummaryGrid;
+      topCounts: TopCountRow[];
+      /** Typed top places of each room for a round or level this plan does not have. */
+      noLongerApply: TopCountLine[];
+      semiOthers: SemiOthersRow;
       /** The form's table rounds, Semis or Finals format differ from the usual values. */
       differsFromUsual: boolean;
     };
@@ -167,12 +194,40 @@ function gridOf(plan: LayeredPlan, firstRound: number): SummaryGrid {
   return { rows, columns };
 }
 
+const topCountName = (firstRound: number, round: number, level: string): string =>
+  `Round ${firstRound + round} - ${level}`;
+
+/** A row for every level of every round the plan has (the first semi-final's room has no choice of its own). */
+function topCountRowsOf(plan: LayeredPlan, firstRound: number, typedText: string): TopCountRow[] {
+  const typed = new Map(parseTopCounts(typedText).map((line) => [line.name, line.top]));
+  return plan.rounds.flatMap((round, index) =>
+    round.levels.map((level) => {
+      const name = topCountName(firstRound, index, level.level);
+      return { name, top: level.top, typed: typed.get(name) ?? '' };
+    }),
+  );
+}
+
+/** The typed lines whose round or level the plan does not have: lines that name no round of a bracket, and typed numbers the plan marks as not applying. */
+function noLongerApplyOf(plan: LayeredPlan, firstRound: number, orphans: TopCountLine[]): TopCountLine[] {
+  const unused = plan.topCounts
+    .filter((entry) => !entry.applies)
+    .map((entry) => ({ name: topCountName(firstRound, entry.round, entry.level), top: `${entry.top}` }));
+  return [...orphans, ...unused];
+}
+
 /** The summary of the layered bracket for this form and head count (null before a roster is loaded). */
 export function layeredSummary(form: LayeredForm, registered: number | null): LayeredSummary {
   const format = getGameFormat(form.gameFormat);
   if (!format || registered === null) return { kind: 'waiting', message: NO_LAYERED_ROSTER_TEXT };
   const planned = planLayeredFor(form, registered);
-  if (!planned.ok) return { kind: 'refused', message: planned.message };
+  if (!planned.ok) {
+    return {
+      kind: 'refused',
+      message: planned.message,
+      typedTopCounts: parseTopCounts(form.layeredTopCounts),
+    };
+  }
   const { plan, roomSize, firstRound } = planned;
   return {
     kind: 'ready',
@@ -180,6 +235,9 @@ export function layeredSummary(form: LayeredForm, registered: number | null): La
     numbers: numbersOf(plan),
     flags: flagsOf(plan, roomSize),
     grid: gridOf(plan, firstRound),
+    topCounts: topCountRowsOf(plan, firstRound, form.layeredTopCounts),
+    noLongerApply: noLongerApplyOf(plan, firstRound, planned.orphans),
+    semiOthers: { value: plan.semiOthers.value, typed: form.layeredSemiOthers },
     differsFromUsual: differsFromUsualValues(form, registered),
   };
 }

@@ -524,6 +524,10 @@ export interface PersistedSetup {
   layeredRounds: string;
   layeredLevels: string;
   layeredTop: string;
+  /** The layered bracket's top places of each room typed per round and level, one line each ("Round 6 - Middle: 3"; `layered-form.ts`); '' = the app's own. */
+  layeredTopCounts: string;
+  /** What the first semi-final's other half do, typed: 'play-on' or 'wait'; '' = the app's own. */
+  layeredSemiOthers: '' | 'play-on' | 'wait';
   oddCountStrategy: OddCountStrategyKey | '';
   teamScoringRule: TeamScoringRuleKey | '';
   roster: string;

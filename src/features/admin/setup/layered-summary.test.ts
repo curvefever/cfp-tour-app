@@ -65,11 +65,11 @@ describe('the Setup panel of a layered bracket', () => {
   });
 
   it('says a typed number that is no number, before anything is planned', () => {
-    expect(layeredSummary(form({ layeredExpected: 'many' }), 31)).toEqual({
+    expect(layeredSummary(form({ layeredExpected: 'many' }), 31)).toMatchObject({
       kind: 'refused',
       message: 'Expected to play must be a whole number — got "many".',
     });
-    expect(layeredSummary(form({ layeredLevels: '4' }), 31)).toEqual({
+    expect(layeredSummary(form({ layeredLevels: '4' }), 31)).toMatchObject({
       kind: 'refused',
       message: 'Levels must be 2 or 3 — got "4".',
     });
@@ -249,5 +249,54 @@ describe('the placeholders of the typed fields', () => {
     };
     expect(layeredPlaceholders(form(), null)).toEqual(automatic);
     expect(layeredPlaceholders(form({ poolingPhase: 'swiss' }), 31)).toEqual(automatic);
+  });
+});
+
+describe('the typed top places of each room and the other half of Semi-Final A', () => {
+  it("lists a row per level of every round, each with the plan's number and nothing typed", () => {
+    const summary = readyOf(layeredSummary(form(), 53));
+    expect(summary.topCounts).toEqual([
+      { name: 'Round 4 - Upper', top: 4, typed: '' },
+      { name: 'Round 4 - Lower', top: 5, typed: '' },
+      { name: 'Round 5 - Lower', top: 4, typed: '' },
+      { name: 'Round 6 - Lower', top: 4, typed: '' },
+    ]);
+    expect(summary.noLongerApply).toEqual([]);
+    expect(summary.semiOthers).toEqual({ value: 'play-on', typed: '' });
+  });
+
+  it('shows a typed number in its row, and the plan designed around it', () => {
+    const summary = readyOf(layeredSummary(form({ layeredTopCounts: 'Round 5 - Lower: 4' }), 53));
+    const row = summary.topCounts.find((entry) => entry.name === 'Round 5 - Lower');
+    expect(row).toEqual({ name: 'Round 5 - Lower', top: 4, typed: '4' });
+    expect(summary.noLongerApply).toEqual([]);
+  });
+
+  it('lists a typed number for a level the plan does not have as no longer applying, and a line naming no round', () => {
+    const summary = readyOf(
+      layeredSummary(form({ layeredTopCounts: 'Round 5 - Middle: 3\nRound 2 - Lower: 4' }), 31),
+    );
+    expect(summary.noLongerApply).toEqual([
+      { name: 'Round 2 - Lower', top: '4' },
+      { name: 'Round 5 - Middle', top: '3' },
+    ]);
+    expect(summary.topCounts.every((row) => row.typed === '')).toBe(true);
+  });
+
+  it('refuses a number the plan cannot use, naming the numbers that can, and keeps the typed lines to clear', () => {
+    const summary = layeredSummary(form({ layeredTopCounts: 'Round 4 - Lower: 7' }), 53);
+    expect(summary).toEqual({
+      kind: 'refused',
+      message: 'The top 7 of each room cannot be used in Round 4 - Lower; 6 can.',
+      typedTopCounts: [{ name: 'Round 4 - Lower', top: '7' }],
+    });
+  });
+
+  it('reads the other half of Semi-Final A as typed, and as the last round makes it', () => {
+    expect(readyOf(layeredSummary(form({ layeredSemiOthers: 'wait' }), 53)).semiOthers).toEqual({
+      value: 'wait',
+      typed: 'wait',
+    });
+    expect(readyOf(layeredSummary(form(), 24)).semiOthers.value).toBe('last-semi');
   });
 });

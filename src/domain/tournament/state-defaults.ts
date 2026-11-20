@@ -83,6 +83,8 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     layeredRounds: '',
     layeredLevels: '',
     layeredTop: '',
+    layeredTopCounts: '',
+    layeredSemiOthers: '',
     oddCountStrategy: '',
     teamScoringRule: '',
     roster: '',

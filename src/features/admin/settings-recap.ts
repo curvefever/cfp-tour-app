@@ -187,6 +187,17 @@ const RECAP: Record<RecapField, RecapEntry> = {
     label: 'Top level',
     value: (settings) => orDefault(settings.layeredTop, 'Automatic'),
   },
+  layeredTopCounts: {
+    group: 'POOLING',
+    label: 'Top places of each room',
+    value: (settings) => orDefault(settings.layeredTopCounts.split('\n').join(', '), 'Automatic'),
+  },
+  layeredSemiOthers: {
+    group: 'POOLING',
+    label: 'Semi-Final A, the other half',
+    value: (settings) =>
+      ({ '': 'Automatic', 'play-on': 'Play on', wait: 'Wait' })[settings.layeredSemiOthers],
+  },
   nonCountingRounds: {
     group: 'POOLING',
     label: 'Non-counting rounds',
