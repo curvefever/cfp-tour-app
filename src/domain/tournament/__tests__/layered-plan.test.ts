@@ -619,6 +619,14 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
     for (const [name, count] of next) if (count > 0) players.set(name, count);
     waiting = waitingNext;
     if (isLast) {
+      // `layeredGraphText` relies on this: a level going down here would route to a round that is never declared.
+      expect(round.levels.length, `${label}: the last round before the last semi-final has one level`).toBe(
+        1,
+      );
+      expect(
+        round.levels.every((level) => level.down === 0),
+        `${label}: the last round before the last semi-final sends nobody down a level`,
+      ).toBe(true);
       const left = waiting + [...players.values()].reduce((total, count) => total + count, 0);
       expect(left, `${label}: a full room is left for the last semi-final`).toBe(FULL);
     }

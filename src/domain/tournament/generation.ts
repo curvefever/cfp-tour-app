@@ -276,10 +276,12 @@ export function generateTournament(
     if (!derived.ok) return generationError(derived.message);
     graphText = derived.text;
   }
+  let layeredPlay: number | undefined;
   if (chosen === 'layered') {
     const derived = layeredGraphFor(form, unitCount);
     if (!derived.ok) return generationError(derived.message);
     graphText = derived.text;
+    layeredPlay = derived.play;
   }
 
   // After a qualification table or a group stage the waterfall graph's own Qual or Groups routing decides
@@ -694,7 +696,7 @@ export function generateTournament(
     absenceVersion: 3,
     dependencyPlayVersion: 1,
     ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
-    ...(chosen === 'layered' ? { layeredVersion: 1 as const } : {}),
+    ...(layeredPlay !== undefined ? { layeredVersion: 1 as const, layeredPlay } : {}),
     drawPublication: config.drawPublication,
     ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
     ...(explicitTargets !== undefined ? { explicitTargets } : {}),

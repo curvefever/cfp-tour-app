@@ -340,6 +340,8 @@ export interface MaterializedGamemodeConfig {
   upperLowerVersion?: 1;
   /** Marks a Custom bracket the app works out itself: the layered bracket (layered-plan.ts, layered-graph.ts). `scheduleLogic` stays 'waterfall-bracket'; read only in `rule-versions.ts`. */
   layeredVersion?: 1;
+  /** A layered bracket only: the number who play that its plan was made for (`planLayered`'s expected to play). Stored with the mark so a later plan can be compared with it; read only in `rule-versions.ts`. */
+  layeredPlay?: number;
   /** How a group stage ranks its groups. Absent = total points, a bye and a lone unit's walkover counted as wins; 2 = points per match played, with a bye or a match against an absent or removed unit not counted (group-standings.ts, `usesGroupAverages`). generation.ts writes 2; a stored tournament without it keeps its standings. */
   groupAverageVersion?: 2;
   /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 3; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`); 3 = version 2 plus likely absentees: the draws place a unit absent from its last round first, one per room, and the confirmation mark reads "?" until the organiser marks it back (`tracksLikelyAbsentees`, `likely-absentees.ts`). */

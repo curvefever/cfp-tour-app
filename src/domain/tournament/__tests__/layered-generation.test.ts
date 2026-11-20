@@ -3,6 +3,7 @@ import { bracketLogicOf } from '../app-written-bracket';
 import { generateTournament } from '../generation';
 import { layeredGateRefusal, LAYERED_FORMATS, LAYERED_POOLING_PHASES } from '../layered-form';
 import { planLayered, type LayeredPlan } from '../layered-plan';
+import { layeredPlayOf } from '../rule-versions';
 import { removeRosterUnit } from '../mutations';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -87,6 +88,16 @@ describe('generating a layered bracket', () => {
     expect(state.gamemodeConfig.upperLowerVersion).toBeUndefined();
     expect(state.gamemodeConfig.bracketPhase).toBe('waterfall-bracket');
     expect(state.settings?.scheduleLogic).toBe('layered');
+  });
+
+  it.each([
+    [31, 28],
+    [53, 48],
+  ])('FFA %i: the number who play that the plan was made for, %i, is stored with the mark', (count, play) => {
+    const state = built(count);
+    expect(state.gamemodeConfig.layeredPlay).toBe(play);
+    expect(layeredPlayOf(state)).toBe(play);
+    expect(play).toBe(planFor(count).play.value);
   });
 
   it('FFA 31: 23 of the 28 who play are in the bracket: ranks 1 to 8 go to Semi-Final A, 9 to 23 to the Lower level', () => {
@@ -278,6 +289,7 @@ describe('a hand edit of a layered bracket', () => {
     if (!edited.ok) return;
     expect(bracketLogicOf(edited.state)).toBe('waterfall-bracket');
     expect(edited.state.gamemodeConfig.layeredVersion).toBeUndefined();
+    expect(edited.state.gamemodeConfig.layeredPlay).toBeUndefined();
     expect(edited.state.settings?.scheduleLogic).toBe('waterfall-bracket');
     expect(edited.state.rounds.every((round) => round.graphMatchStage === undefined)).toBe(true);
   });

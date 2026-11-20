@@ -640,6 +640,15 @@ function upperLower31(): TournamentState {
   );
 }
 
+/**
+ * The layered bracket at 31 players, played into its first bracket round: Semi-Final A (the top 8) and the Lower level
+ * (8 + 7) are drawn and not scored.
+ */
+function layered31(): TournamentState {
+  const start = generate(31, { scheduleLogic: 'layered', poolingPhase: 'qual-table' });
+  return playUntil(start, (round) => Boolean(round.isWaterfall), 1);
+}
+
 /** The built-in "32 players, spreadsheet layout" with Round 5 fully scored and not sent on: its exit colours follow the destination, in every room. */
 function spreadsheet32Round5(): TournamentState {
   const example = WATERFALL_EXAMPLES.find((entry) => entry.id === 'spreadsheet-32');
@@ -967,6 +976,7 @@ export function fixtureTournaments(): FixtureTournament[] {
     entry('best-of-5-1v1-rooms', bestOfFiveHeadToHead(), { tabs: ['Bracket'] }),
     entry('teams-four-game-final', teamsFourGameFinal(), { tabs: ['Bracket'] }),
     entry('upper-lower-31', upperLower31(), { infoBox: true }),
+    entry('layered-31', layered31(), { infoBox: true }),
     entry('dependency-play-draws', dependencyPlay37('draws'), { tabs: ['Bracket'] }),
     entry('dependency-play-in-play', dependencyPlay37('in play'), { tabs: ['Bracket'] }),
     entry('dependency-play-nothing-finished', dependencyPlay37('nothing finished'), { tabs: ['Bracket'] }),

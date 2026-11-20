@@ -75,8 +75,12 @@ export function planLayeredFor(form: LayeredForm, registered: number): LayeredFo
 export function layeredGraphFor(
   form: LayeredForm,
   registered: number,
-): { ok: true; text: string } | { ok: false; message: string } {
+): { ok: true; text: string; play: number } | { ok: false; message: string } {
   const planned = planLayeredFor(form, registered);
   if (!planned.ok) return planned;
-  return { ok: true, text: layeredGraphText(planned.plan, planned.firstRound) };
+  return {
+    ok: true,
+    text: layeredGraphText(planned.plan, planned.firstRound),
+    play: planned.plan.play.value,
+  };
 }

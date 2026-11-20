@@ -5,6 +5,7 @@ import {
   hasFairCutVersion,
   isLayeredBracket,
   isUpperLowerBracket,
+  layeredPlayOf,
   routesAbsenteesByLastPlace,
   tracksLikelyAbsentees,
   usesAbsences,
@@ -69,6 +70,16 @@ describe('rule versions: a tournament stored without a switch keeps the earlier 
     expect(withoutAppWrittenMark(layered)).toEqual({ cutVersion: 2 });
     expect(upperLower.upperLowerVersion).toBe(1);
     expect(layered.layeredVersion).toBe(1);
+  });
+
+  it('reads the number a layered plan was made for only from a layered bracket, and drops it with the mark', () => {
+    expect(layeredPlayOf(withConfig({ layeredVersion: 1, layeredPlay: 28 }))).toBe(28);
+    expect(layeredPlayOf(withConfig({ layeredVersion: 1 }))).toBeUndefined();
+    expect(layeredPlayOf(withConfig({ upperLowerVersion: 1, layeredPlay: 28 }))).toBeUndefined();
+    expect(layeredPlayOf(withConfig({}))).toBeUndefined();
+    const config = { layeredVersion: 1, layeredPlay: 28, cutVersion: 2 } as TournamentState['gamemodeConfig'];
+    expect(withoutAppWrittenMark(config)).toEqual({ cutVersion: 2 });
+    expect(config.layeredPlay).toBe(28);
   });
 
   it('leaves a config with no mark as it is', () => {

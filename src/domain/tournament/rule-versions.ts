@@ -59,6 +59,11 @@ export function isLayeredBracket(state: WithConfig): boolean {
   return Boolean(state.gamemodeConfig.layeredVersion);
 }
 
+/** The number who play that a layered bracket's plan was made for, or undefined for a tournament that is not one (`layeredPlay`). */
+export function layeredPlayOf(state: WithConfig): number | undefined {
+  return isLayeredBracket(state) ? state.gamemodeConfig.layeredPlay : undefined;
+}
+
 /** Whether a config carries the mark of a bracket the app wrote itself, either kind (a config as the builders hold it, not a whole state). */
 export function hasAppWrittenMark(
   gamemodeConfig: Pick<GamemodeConfig, 'upperLowerVersion' | 'layeredVersion'>,
@@ -68,6 +73,11 @@ export function hasAppWrittenMark(
 
 /** The config of a Custom bracket the organiser has taken over by hand: no longer marked as a bracket the app wrote (the upper and lower bracket or the layered bracket). */
 export function withoutAppWrittenMark(gamemodeConfig: GamemodeConfig): GamemodeConfig {
-  const { upperLowerVersion: _upperLower, layeredVersion: _layered, ...unmarked } = gamemodeConfig;
+  const {
+    upperLowerVersion: _upperLower,
+    layeredVersion: _layered,
+    layeredPlay: _play,
+    ...unmarked
+  } = gamemodeConfig;
   return unmarked;
 }
