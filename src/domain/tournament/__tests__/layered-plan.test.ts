@@ -793,6 +793,22 @@ describe('the level below the top has at least 3/4 of the top level', () => {
     }
   });
 
+  it('turns a Middle level under 3/4 of the top into two levels: rooms of 5 to 8, 60 registered give 16 and 24, not 16, 10 and 16', () => {
+    // With rooms of 5 to 8 a Middle level of 10 (two rooms of 5) seats, so only the 3/4 rule (12 under a top of 16) refuses it.
+    const found = plan({ registered: 60, roomSize: { min: 5, max: 8, ideal: 8 } });
+    expect(found.inBracket.value).toBe(40);
+    expect(found.levels.map((level) => level.players)).toEqual([16, 24]);
+    expect(found.levelCount.value).toBe(2);
+  });
+
+  it('says in words why the top level is 12 for 31 registered: the level below a 16 would have 4', () => {
+    const found = forRegistered(31);
+    expect(found.levels.map((level) => level.players)).toEqual([12, 8]);
+    expect(found.topLevel.reason).toBe(
+      '12 in two equal rooms: with 16 on top the level below would have 4, under 3/4 of 16',
+    );
+  });
+
   it('keeps a top level the organiser typed, even when the level below is smaller than 3/4 of it', () => {
     const found = plan({ registered: 80, roomSize: FFA, typed: { inBracket: 22, topLevel: 16 } });
     expect(found.levels.map((level) => level.players)).toEqual([16, 6]);
