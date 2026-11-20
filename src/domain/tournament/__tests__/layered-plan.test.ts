@@ -308,6 +308,29 @@ describe('three levels, 13 games: 41 to 48 in the bracket', () => {
     expect(two.levelCount).toEqual({ value: 2, setBy: 'organiser', reason: '' });
   });
 
+  it('falls back to two levels above 40 when the games allowed are fewer than three levels need, and says so', () => {
+    // Three levels take 13 games at least: with 12 allowed only a two-level bracket exists, for every size from 41 to 64.
+    for (const size of [41, 44, 52, 64]) {
+      const found = plan({ registered: 90, roomSize: FFA, typed: { inBracket: size, games: 12 } });
+      expect(found.levels, `${size}`).toHaveLength(2);
+      expect(found.games.value).toBeLessThanOrEqual(12);
+      expect(found.levelCount).toEqual({
+        value: 2,
+        setBy: 'app',
+        reason: `two levels: no three-level bracket seats ${size} in the bracket`,
+      });
+    }
+    const typedTop = plan({
+      registered: 90,
+      roomSize: FFA,
+      typed: { inBracket: 44, games: 12, topLevel: 14 },
+    });
+    expect(typedTop.levels.map((level) => level.players)).toEqual([14, 30]);
+    expect(plan({ registered: 90, roomSize: FFA, typed: { inBracket: 44, games: 13 } }).levels).toHaveLength(
+      3,
+    );
+  });
+
   it('refuses typed three levels when no three-level bracket seats the size, naming the levels', () => {
     const result = forSize(18, { levels: 3 });
     expect(result.ok).toBe(false);
