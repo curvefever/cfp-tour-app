@@ -197,6 +197,43 @@ describe('the size chosen for every field', () => {
   });
 });
 
+describe('a top level of 16 may play two rounds before its room: 16, then 12, then a full room of 8', () => {
+  it('plans 22 in the bracket in full: nobody waits, the first semi-final is the third round', () => {
+    const found = plan({ registered: 80, roomSize: FFA, typed: { inBracket: 22 } });
+    expect(found.levels.map((level) => level.players)).toEqual([16, 6]);
+    expect(found.games.value).toBe(12);
+    expect(found.rounds.map((round) => round.out)).toEqual([2, 4, 4]);
+    expect(found.rounds.map((round) => round.waiting)).toEqual([0, 0, 0]);
+    expect(found.rounds.map(roundText)).toEqual([
+      'Upper 2x8 top 6 stay (4 down); Lower 6 top 4 stay (2 out)',
+      'Upper 2x6 top 4 stay (4 down); Lower 8 top 4 stay (4 out)',
+      'semi last-semi; Lower 8 top 4 last-semi (4 out)',
+    ]);
+  });
+
+  it('gives 22 in the bracket for 29 registered (26 who play)', () => {
+    const found = forRegistered(29);
+    expect(found.play.value).toBe(26);
+    expect(found.inBracket.value).toBe(22);
+    expect(found.rounds.map(roundText)).toEqual(
+      plan({ registered: 80, roomSize: FFA, typed: { inBracket: 22 } }).rounds.map(roundText),
+    );
+  });
+
+  it('plans a typed top of 16 at 21 in the bracket in full: out 2, 3, 4', () => {
+    const found = plan({ registered: 80, roomSize: FFA, typed: { inBracket: 21, topLevel: 16 } });
+    expect(found.levels.map((level) => level.players)).toEqual([16, 5]);
+    expect(found.games.value).toBe(12);
+    expect(found.rounds.map((round) => round.out)).toEqual([2, 3, 4]);
+    expect(found.rounds.map(roundText)).toEqual([
+      'Upper 2x8 top 6 stay (4 down); Lower 5 top 3 stay (2 out)',
+      'Upper 2x6 top 4 stay (4 down); Lower 7 top 4 stay (3 out)',
+      'semi last-semi; Lower 8 top 4 last-semi (4 out)',
+    ]);
+    expect(found.lastResortRooms).toBe(1);
+  });
+});
+
 describe('the other two-level sizes', () => {
   it.each([
     [19, [13, 6], [3, 4], 11],
@@ -317,6 +354,16 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
     const names = [...players.keys()];
     let semiDown = 0;
     let semiWait = 0;
+    // The top level is like any other level: the first semi-final is played in the round after it is exactly one
+    // full room, and until then it is more than one.
+    const upper = players.get('Upper') ?? 0;
+    if (round.firstSemiFinal)
+      expect(upper, `${label}: the first semi-final comes when the top level is one full room`).toBe(FULL);
+    else if (upper > 0)
+      expect(
+        upper,
+        `${label}: the top level is not below a full room before the first semi-final`,
+      ).toBeGreaterThan(FULL);
     if (round.firstSemiFinal) {
       const semi = names[0];
       expect(players.get(semi), `${label}: the first semi-final holds a full room`).toBe(FULL);
