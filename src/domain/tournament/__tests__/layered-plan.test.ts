@@ -173,6 +173,22 @@ describe('the size chosen for every field', () => {
     }
   });
 
+  it('widens the range before it accepts a last-resort room: with a top level typed, 22 who play get 20, not 19', () => {
+    // Without the widening the first range holds 19 (14 and 5: a room of 5) and the answer would be a last-resort room.
+    const found = plan({ registered: 80, roomSize: FFA, typed: { play: 22, topLevel: 14 } });
+    expect(found.inBracket.value).toBe(20);
+    expect(found.levels.map((level) => level.players)).toEqual([14, 6]);
+    expect(found.lastResortRooms).toBe(0);
+    expect(found.inBracket.reason).toContain('2 sizes wider each way');
+  });
+
+  it('widens up to three times: 23 who play with a top level of 16 get 22, never 21 (16 and 5)', () => {
+    const found = plan({ registered: 80, roomSize: FFA, typed: { play: 23, topLevel: 16 } });
+    expect(found.inBracket.value).toBe(22);
+    expect(found.lastResortRooms).toBe(0);
+    expect(found.inBracket.reason).toContain('3 sizes wider each way');
+  });
+
   it('keeps the app’s own choice at 40 or fewer in the bracket for every field up to 57', () => {
     for (let play = 20; play <= 57; play += 1) {
       const result = forPlay(play);
@@ -356,6 +372,9 @@ function expectPlanKeepsTheRules(found: LayeredPlan, label: string) {
   });
   expect(roundsWithWaiting, `${label}: nobody sits out more than one round`).toBeLessThanOrEqual(1);
   expect(found.rounds.length, `${label}: rounds`).toBeLessThanOrEqual(3);
+  // One round fewer than the usual number is allowed, and no more.
+  expect(found.games.value, `${label}: games`).toBeGreaterThanOrEqual(bracketGames(USUAL_GAMES, 3) - 1);
+  expect(found.games.value).toBeLessThanOrEqual(bracketGames(USUAL_GAMES, 3));
   expect(
     found.rounds.some((round) => round.firstSemiFinal),
     `${label}: there is a first semi-final`,
