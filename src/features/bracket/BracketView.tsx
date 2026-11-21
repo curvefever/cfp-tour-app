@@ -78,6 +78,8 @@ export function BracketView() {
     () => (preview || app.isViewer ? null : expectedRounds(app.state)),
     [app.state, app.isViewer, preview],
   );
+  // Every hook sits above the early return below: the page can be open before the rounds arrive.
+  const layeredWarning = useMemo(() => layeredPlanWarning(app.state), [app.state]);
   if (!app.state.rounds.length) {
     return (
       <>
@@ -100,7 +102,6 @@ export function BracketView() {
   const previousAvailable = canGoBack(app.state);
   const drawnAhead = isLastRound || plan ? 'none' : drawnAheadStatus(app.state, app.state.curRound);
   const planLine = plan ? nextRoundLine(app.state, plan) : null;
-  const layeredWarning = useMemo(() => layeredPlanWarning(app.state), [app.state]);
   const reopened = plan ? reopenedNote(app.state) : null;
   function advance() {
     // Last-resort backstop: every known failure mode returns a 'blocked'
