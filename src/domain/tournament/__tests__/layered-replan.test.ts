@@ -8,6 +8,7 @@ import {
   acceptLayeredPlan,
   type LayeredPlanCheck,
 } from '../layered-replan';
+import { planLayeredFor, planLayeredForUncached, type LayeredForm } from '../layered-form';
 import { addWalkUpIndividual, removeRosterUnit } from '../mutations';
 import { layeredKeptPlayOf, layeredPlayOf } from '../rule-versions';
 import { MISSING_ROOM_SIZE_MESSAGE } from '../transitions';
@@ -473,5 +474,27 @@ describe('differsOnlyInFirstLowerRooms', () => {
     const changed = structuredClone(next());
     flip(changed);
     expect(differsOnlyInFirstLowerRooms(inUse(), changed)).toBe(false);
+  });
+});
+
+describe('the plans kept between checks', () => {
+  it('give the answer planning gives, after the number who play changes and comes back', () => {
+    const state = afterSevenJoined();
+    const twelveFewer = players(state)
+      .slice(12, 24)
+      .reduce((current, unit) => removeRosterUnit(current, unit), state);
+    const before = checkLayeredPlan(state);
+    expect(newOf(checkLayeredPlan(twelveFewer)).playNow).toBe(23);
+    expect(checkLayeredPlan(state)).toEqual(before);
+    for (const play of [35, 23, 35, 31, 35]) {
+      const form = { ...state.settings, layeredExpected: `${play}` } as LayeredForm;
+      expect(planLayeredFor(form, 38, FIRST_ROUND)).toEqual(planLayeredForUncached(form, 38, FIRST_ROUND));
+    }
+  });
+
+  it('a score that leaves the number who play as it is gives the same check', () => {
+    const state = afterSevenJoined();
+    const scored = { ...state, scores: { ...state.scores, 'r2-rm0-p0': 7 } };
+    expect(checkLayeredPlan(scored)).toEqual(checkLayeredPlan(state));
   });
 });

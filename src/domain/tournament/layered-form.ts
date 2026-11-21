@@ -219,11 +219,35 @@ export function differsFromUsualValues(form: LayeredForm, registered: number): b
   );
 }
 
-/** The plan for the form and the head count, or why there is none: the gate first, then the plan's own refusals. */
+/** The most plans kept: the running Admin plans the same few inputs again after every score. */
+const PLAN_CACHE_SIZE = 8;
+const planCache = new Map<string, LayeredFormPlan>();
+
+/**
+ * The plan for the form and the head count, or why there is none: the gate first, then the plan's own refusals. The
+ * answer for the same form, head count and first round is kept (a few of them, the oldest dropped first), so a score
+ * that leaves the number who play as it is does not plan again. The plan is pure in its inputs: the answer is the one
+ * planning would give, and the plans it returns are read, never changed.
+ */
 export function planLayeredFor(
   form: LayeredForm,
   registered: number,
   /** The number of the first bracket round when it is not the one the form's table rounds give (a tournament under way). */
+  firstRoundNumber?: number,
+): LayeredFormPlan {
+  const key = JSON.stringify([form, registered, firstRoundNumber]);
+  const kept = planCache.get(key);
+  if (kept) return kept;
+  const made = planLayeredForUncached(form, registered, firstRoundNumber);
+  if (planCache.size >= PLAN_CACHE_SIZE) planCache.delete(planCache.keys().next().value as string);
+  planCache.set(key, made);
+  return made;
+}
+
+/** `planLayeredFor` without the kept answers: for the test that the two give the same plan. */
+export function planLayeredForUncached(
+  form: LayeredForm,
+  registered: number,
   firstRoundNumber?: number,
 ): LayeredFormPlan {
   const gate = layeredGateRefusal(form);

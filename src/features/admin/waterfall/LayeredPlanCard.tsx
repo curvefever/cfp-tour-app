@@ -48,7 +48,11 @@ export function LayeredPlanCard({ state }: { state: TournamentState }) {
   const [draft, setDraft] = useState<LayeredOverrides>({});
   const [error, setError] = useState('');
   const waiting = useMemo(() => checkLayeredPlan(state), [state]);
-  const proposal = useMemo(() => checkLayeredPlan(state, draft), [state, draft]);
+  // With nothing typed here the proposal is the waiting plan: it is not worked out twice.
+  const proposal = useMemo(
+    () => (Object.keys(draft).length === 0 ? waiting : checkLayeredPlan(state, draft)),
+    [state, draft, waiting],
+  );
   if (waiting.kind !== 'new' || !state.settings) return null;
 
   const stored = state.settings;
