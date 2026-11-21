@@ -194,9 +194,11 @@ describe('a round fed by several kinds of source is seated by their real tiers',
       qualAdv: '13',
       waterfallGraph: graph,
     });
+    // The arrivals from Src's room (seed 1, the room of Qual 1-6) rank before the Qual units 7-13 (rule 3: one scale),
+    // so the five Src places are tiers 0-4 and the Qual units tiers 5-11.
     expect(tags(projectedRooms(state, 'Mid'), 7)).toEqual([
-      ['Q1', 'Q3', 'Q5', 'Q6', 'Src.A2', 'Src.A4'],
-      ['Q2', 'Q4', 'Q7', 'Src.A1', 'Src.A3', 'Src.A5'],
+      ['Q3', 'Q4', 'Q7', 'Src.A1', 'Src.A4', 'Src.A5'],
+      ['Q1', 'Q2', 'Q5', 'Q6', 'Src.A2', 'Src.A3'],
     ]);
   });
 

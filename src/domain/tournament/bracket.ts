@@ -2,7 +2,9 @@ import { ordinal } from '../../lib/ordinal';
 import { isLastGroupStageRound } from './advancement';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
-import { roomPairKey, snakeSeed, tieredBracketSeed } from './seeding';
+import { drawCustomBracketPool, usesSeedLines } from './custom-bracket-draw';
+import { projectedSeeds } from './projected-seeds';
+import { roomPairKey, snakeSeed } from './seeding';
 import { hasFairCutVersion } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {
@@ -506,10 +508,12 @@ function realTierRank(slot: ProjectedSlotLabel, standingsPlaces: number[]): numb
 }
 
 /**
- * Places a Custom bracket round's pool by the real draw: `tieredBracketSeed`, the function the round's transition
- * calls, over stand-in units named in pool order. Each carries the `tierRank` it would arrive with, and the only
- * history is the room it comes from (`roomHistory`: the source round, for every pair from one source room), so
- * the preview matches the real draw whenever the real history adds nothing. Returns null when a slot has no real
+ * Places a Custom bracket round's pool by the real draw: `drawCustomBracketPool`, the function the round's transition
+ * calls, over stand-in units named in pool order. Each carries the `tierRank`, `seed` and `from` it would arrive with
+ * (a slot without a known seed, a best of a place, leaves its pool to the draw without seed lines: a known drift), and
+ * the only history is the room it comes from (`roomHistory`: the source round, for every pair from one source room), so
+ * the preview matches the real draw whenever the real history adds nothing. Where the seed lines draw the round, every
+ * slot from a room names that room (`roomKnown`), since the line makes it known. Returns null when a slot has no real
  * counterpart or the draw does not fill the declared rooms, and the caller falls back to the approximation.
  */
 function drawPoolAsRealDraw(
@@ -518,7 +522,9 @@ function drawPoolAsRealDraw(
   rounds: TournamentRound[],
   targetRoundIndex: number,
   sourceIndexOf: ReadonlyMap<ProjectedSlotLabel, number>,
+  seedOf: (slot: ProjectedSlotLabel) => number | undefined,
 ): ProjectedSlotLabel[][] | null {
+  const standingsRound = rounds.findIndex((round) => round.standingsRoutes);
   const standingsPlaces = pool
     .map(standingsRankOf)
     .filter((rank) => rank > 0)
@@ -530,15 +536,34 @@ function drawPoolAsRealDraw(
     const tierRank = realTierRank(slot, standingsPlaces);
     if (tierRank === null) return null;
     const name = `s${String(index).padStart(4, '0')}`;
-    standIns.push({ name, isLucky: false, tierRank, pct: 1 });
     const sourceIndex = sourceIndexOf.get(slot);
+    const seed = seedOf(slot);
+    const from = slot.kind === 'standings-rank' ? standingsRound : sourceIndex;
+    standIns.push({
+      name,
+      isLucky: false,
+      tierRank,
+      pct: 1,
+      ...(seed === undefined ? {} : { seed }),
+      ...(from === undefined ? {} : { from }),
+    });
     if (slot.kind !== 'waterfall-rank' || sourceIndex === undefined) continue;
     const sourceRoom = `${sourceIndex}:${slot.room}`;
     for (const other of seenFrom.get(sourceRoom) ?? []) roomHistory[roomPairKey(name, other)] = sourceIndex;
     seenFrom.set(sourceRoom, [...(seenFrom.get(sourceRoom) ?? []), name]);
   }
 
-  const { seeded } = tieredBracketSeed({ pool: standIns, roomSizes, roomHistory, rounds, targetRoundIndex });
+  const seeded = drawCustomBracketPool({
+    pool: standIns,
+    roomSizes,
+    roomHistory,
+    rounds,
+    targetRoundIndex,
+    likelyAbsent: new Set(),
+  });
+  if (usesSeedLines(standIns, roomSizes)) {
+    for (const slot of pool) if (slot.kind === 'waterfall-rank') slot.roomKnown = true;
+  }
   // Each room lists its slots in pool order, as the other placements do.
   const poolIndexesByRoom: number[][] = roomSizes.map(() => []);
   for (const { name, room } of seeded) {
@@ -620,6 +645,13 @@ export function projectFutureRoundSlots(
   const labels = bracketRoundLabels({ rounds });
   const result: Record<number, ProjectedSlotLabel[][] | null> = {};
   const unresolved = new Set<number>();
+  // The round index each waterfall slot comes from: the stand-in draw's history and the seed of a room (drawPoolAsRealDraw).
+  const waterfallSourceIndex = new Map<ProjectedSlotLabel, number>();
+  const seedOf = projectedSeeds({
+    assignments: state.assignments ?? [],
+    projected: result,
+    sourceIndexOf: waterfallSourceIndex,
+  });
 
   for (const targetIndex of undrawnRounds(state)) {
     const round = rounds[targetIndex];
@@ -660,8 +692,6 @@ export function projectFutureRoundSlots(
     // A target of several rooms is drawn from results, so a slot can't name the room it comes from, only the place.
     const roomKnown = round.rooms.length === 1;
     const pool: ProjectedSlotLabel[] = [];
-    // The round index each waterfall slot comes from: the stand-in draw's only history (drawPoolAsRealDraw).
-    const waterfallSourceIndex = new Map<ProjectedSlotLabel, number>();
     const resolvedWaterfallSources = new Set<number>();
     for (const { sourceIndex, edge } of predecessors) {
       const source = rounds[sourceIndex];
@@ -804,13 +834,13 @@ export function projectFutureRoundSlots(
     // - A pool of standings places only: its order is known before any score, so it takes the real draw's snake
     //   (seedPoolByStanding), minus the separation passes, which depend on results.
     // - A Custom bracket round fed by a waterfall room or a best of a place: the real draw itself
-    //   (tieredBracketSeed) over stand-ins whose only history is their source room (drawPoolAsRealDraw).
+    //   (drawCustomBracketPool) over stand-ins whose only history is their source room (drawPoolAsRealDraw).
     // - Any other pool (single and double elimination, Semis): distributeTierMajorPool, an approximation of the
     //   real draw's wave fill that needs no history.
     const standingsOnly = predecessors.every(({ edge }) => edge === 'standings');
     const realDraw =
       !standingsOnly && round.isWaterfall
-        ? drawPoolAsRealDraw(pool, round.rooms, rounds, targetIndex, waterfallSourceIndex)
+        ? drawPoolAsRealDraw(pool, round.rooms, rounds, targetIndex, waterfallSourceIndex, seedOf)
         : null;
     result[targetIndex] = standingsOnly
       ? snakeStandingsPool(pool, round.rooms)

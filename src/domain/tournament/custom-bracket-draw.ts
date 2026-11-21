@@ -9,10 +9,9 @@
  *  4. otherwise (a unit without a seed: no pooling phase, or a pool pushed before seeds existed, or a seeding
  *     override): the balanced draw on the tiers as they are.
  */
-import { isFedOnlyByStandings } from './bracket-replay';
 import { selectGroupExit } from './advancement';
 import { seedPoolByStanding, snakeSeed, tieredBracketSeed } from './seeding';
-import type { PendingBracketSeed, RoundAssignment, TournamentState } from './types';
+import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
 
 type SeedingOverride = Parameters<typeof tieredBracketSeed>[0]['seedingOverride'];
 
@@ -66,34 +65,58 @@ export function onOneScale(pool: PendingBracketSeed[]): PendingBracketSeed[] {
   return pool.map((entry) => ({ ...entry, tierRank: entry.tierRank + (offsets.get(entry.from ?? -1) ?? 0) }));
 }
 
-/** The line-up of a Custom bracket round drawn from `pool`, by the rules above. */
-export function drawCustomBracketPool(options: {
+/** Whether rule 2 (seed lines) draws a pool: no override, a seed on every unit and the shape of rooms of two. */
+export function usesSeedLines(
+  pool: PendingBracketSeed[],
+  roomSizes: number[],
+  seedingOverride?: SeedingOverride,
+): boolean {
+  return !seedingOverride && everyUnitHasSeed(pool) && isSeedLineShape(roomSizes);
+}
+
+/** Rule 1: a round fed only by the pooling exit is drawn in standings order (the group-mates apart after a group stage). */
+export function drawFromPoolingExit(options: {
   state: TournamentState;
   roundIndex: number;
   pool: PendingBracketSeed[];
-  seedingOverride?: SeedingOverride;
   likelyAbsent: ReadonlySet<string>;
 }): RoundAssignment[] {
-  const { state, roundIndex, pool, seedingOverride, likelyAbsent } = options;
-  const roomSizes = state.rounds[roundIndex].rooms;
-  if (!seedingOverride && isFedOnlyByStandings(state.rounds, roundIndex)) {
-    return seedPoolByStanding({
-      pool,
-      roomSizes,
-      state,
-      targetRoundIndex: roundIndex,
-      likelyAbsent,
-      ...(state.rounds.some((round) => round.isGroupStage && round.standingsRoutes)
-        ? {
-            groups: {
-              groups: state.groups,
-              throughByGroup: selectGroupExit(state, state.groupStandings).throughByGroup,
-            },
-          }
-        : {}),
-    });
-  }
-  if (!seedingOverride && everyUnitHasSeed(pool) && isSeedLineShape(roomSizes)) {
+  const { state, roundIndex, pool, likelyAbsent } = options;
+  return seedPoolByStanding({
+    pool,
+    roomSizes: state.rounds[roundIndex].rooms,
+    state,
+    targetRoundIndex: roundIndex,
+    likelyAbsent,
+    ...(state.rounds.some((round) => round.isGroupStage && round.standingsRoutes)
+      ? {
+          groups: {
+            groups: state.groups,
+            throughByGroup: selectGroupExit(state, state.groupStandings).throughByGroup,
+          },
+        }
+      : {}),
+  });
+}
+
+/**
+ * The line-up of a Custom bracket round drawn from `pool`, by the rules above. `exitDraw` is rule 1 when the round is
+ * fed only by the pooling exit (and nothing overrides the seeding). A pure function of what it is given, so the Bracket's
+ * preview draws its stand-in units through it too.
+ */
+export function drawCustomBracketPool(options: {
+  pool: PendingBracketSeed[];
+  roomSizes: number[];
+  roomHistory: Record<string, number>;
+  rounds: TournamentRound[];
+  targetRoundIndex: number;
+  seedingOverride?: SeedingOverride;
+  likelyAbsent: ReadonlySet<string>;
+  exitDraw?: () => RoundAssignment[];
+}): RoundAssignment[] {
+  const { pool, roomSizes, seedingOverride } = options;
+  if (!seedingOverride && options.exitDraw) return options.exitDraw();
+  if (usesSeedLines(pool, roomSizes, seedingOverride)) {
     return snakeSeed(
       [...pool].sort(bySeedLine).map(({ name, isLucky }) => ({ name, isLucky })),
       roomSizes,
@@ -102,10 +125,10 @@ export function drawCustomBracketPool(options: {
   return tieredBracketSeed({
     pool: everyUnitHasSeed(pool) ? onOneScale(pool) : pool,
     roomSizes,
-    roomHistory: state.roomHistory,
-    rounds: state.rounds,
-    targetRoundIndex: roundIndex,
+    roomHistory: options.roomHistory,
+    rounds: options.rounds,
+    targetRoundIndex: options.targetRoundIndex,
     seedingOverride,
-    likelyAbsent,
+    likelyAbsent: options.likelyAbsent,
   }).seeded;
 }

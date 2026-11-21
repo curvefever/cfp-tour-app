@@ -11,11 +11,16 @@ import {
   refreshRoundStandings,
   roomBasedComputeAdvancement,
 } from './advancement';
-import { doubleEliminationContributions, routeStandings, routeWaterfallRound } from './bracket-replay';
+import {
+  doubleEliminationContributions,
+  isFedOnlyByStandings,
+  routeStandings,
+  routeWaterfallRound,
+} from './bracket-replay';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
-import { drawCustomBracketPool } from './custom-bracket-draw';
+import { drawCustomBracketPool, drawFromPoolingExit } from './custom-bracket-draw';
 import { likelyAbsentees } from './likely-absentees';
 import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
@@ -294,12 +299,18 @@ export function seedRoundFromPendingPool(
   // hand-authored rooms always fit and this never reshapes them.
   const failure = fitNextRound(state, roundIndex, pool.length, byeNames.length);
   if (failure) return failure;
+  const likelyAbsent = likelyAbsentees(state, roundIndex);
   const assignments = drawCustomBracketPool({
-    state,
-    roundIndex,
     pool,
+    roomSizes: state.rounds[roundIndex].rooms,
+    roomHistory: state.roomHistory,
+    rounds: state.rounds,
+    targetRoundIndex: roundIndex,
     seedingOverride: options.seedingOverride,
-    likelyAbsent: likelyAbsentees(state, roundIndex),
+    likelyAbsent,
+    exitDraw: isFedOnlyByStandings(state.rounds, roundIndex)
+      ? () => drawFromPoolingExit({ state, roundIndex, pool, likelyAbsent })
+      : undefined,
   });
   state.byes[roundIndex] = byeNames;
   for (const name of byeNames) {

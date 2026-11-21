@@ -1052,7 +1052,9 @@ describe("projectFutureRoundSlots -- a round fed only by the Qual or Groups line
       ['standings-rank', 'waterfall-rank'],
       ['standings-rank', 'waterfall-rank'],
     ]);
-    expect(places(projected[2]).map((room) => room[0])).toEqual(['3', '4']);
+    // Rooms of two with a seed on every unit are drawn by seed lines: round 1's room holds Qual 1-2 (seed 1), so its two
+    // places are the best seeds, then Qual 3 and 4: 1 v 4 and 2 v 3, the first of each room in pool order being Qual 4, Qual 3.
+    expect(places(projected[2]).map((room) => room[0])).toEqual(['4', '3']);
   });
 });
 
