@@ -26,28 +26,33 @@ function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scor
   );
 }
 
-/** The score inputs of one unit for the game being entered: one per member that takes a score, or one for the unit. */
+/**
+ * The score inputs of one unit for the game being entered: one per member when every member takes a score (Sum of
+ * members), else one box for the unit, on the defender's slot in Save your Buddy (`slots`: the slots that take a score).
+ */
 function FinalScoreEntry({
   activeTab,
-  inputsPerTeam,
+  everyMemberHasBox,
   name,
   roundIndex,
+  slots,
   state,
   team,
 }: {
   activeTab: number;
-  inputsPerTeam: number | undefined;
+  everyMemberHasBox: boolean;
   name: string;
   roundIndex: number;
+  slots: number[];
   state: TournamentState;
   team: TournamentTeam | undefined;
 }) {
   const app = useTournamentApp();
-  const slots = inputsPerTeam ? scoredMemberSlots(state, name, roundIndex, inputsPerTeam) : [];
+  const defenderSlot = everyMemberHasBox ? undefined : slots[0];
   return (
     <div className='mt-1 flex flex-wrap items-center gap-1.5'>
       <span className='text-[13px] text-muted'>G{activeTab}</span>
-      {inputsPerTeam ? (
+      {everyMemberHasBox ? (
         <TeamScoreFields>
           {slots.map((memberIndex) => {
             const member = team?.members?.[memberIndex];
@@ -69,8 +74,10 @@ function FinalScoreEntry({
             );
           })}
         </TeamScoreFields>
+      ) : defenderSlot !== undefined && !team?.members?.[defenderSlot] ? (
+        <ScoreInput className={compactScoreClass} disabled placeholder='—' />
       ) : (
-        <FinalUnitScoreInput scoreKey={finalScoreKey(activeTab, name)} state={state} />
+        <FinalUnitScoreInput scoreKey={finalScoreKey(activeTab, name, defenderSlot)} state={state} />
       )}
     </div>
   );
@@ -106,10 +113,9 @@ export function FinalRow(props: FinalRowProps) {
   const { state, roundIndex, name, index, complete, perGame, total, showsWins, followed, manual } = props;
   const { columns } = props;
   const { teamSize, team, entryGame, entryAnonymous, entryNotNeeded, inputsPerTeam } = props;
-  // A box for every member takes the member line's place; Save your Buddy shows the defender's box alone.
-  const everyMemberHasBox =
-    Boolean(inputsPerTeam) &&
-    scoredMemberSlots(state, name, roundIndex, inputsPerTeam ?? 0).length === inputsPerTeam;
+  // A box for every member takes the member line's place; Save your Buddy has one box, the defender's, like One score per team.
+  const slots = inputsPerTeam ? scoredMemberSlots(state, name, roundIndex, inputsPerTeam) : [];
+  const everyMemberHasBox = Boolean(inputsPerTeam) && slots.length === inputsPerTeam;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2 bg-inherit'>
@@ -144,9 +150,10 @@ export function FinalRow(props: FinalRowProps) {
       {entryGame > 0 && !entryAnonymous && !entryNotNeeded ? (
         <FinalScoreEntry
           activeTab={entryGame}
-          inputsPerTeam={inputsPerTeam}
+          everyMemberHasBox={everyMemberHasBox}
           name={name}
           roundIndex={roundIndex}
+          slots={slots}
           state={state}
           team={team}
         />

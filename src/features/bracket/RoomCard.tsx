@@ -224,7 +224,6 @@ export function RoomCard({
             inputsPerTeam={rowsEditable ? memberInputs : undefined}
             key={entry.name}
             manual={Boolean(units.find((unit) => unit.name === entry.name)?.manual)}
-            memberInputs={memberInputs}
             pendingTie={pendingTie}
             points={points ? (points.get(entry.name) ?? null) : undefined}
             resultCode={resultCodes?.get(entry.name)}

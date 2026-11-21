@@ -181,10 +181,8 @@ export interface RoomRowProps {
   /** The team behind a team row, to label its member inputs. */
   team: TournamentTeam | undefined;
   teamSize: number;
-  /** Member inputs shown per team while the row is editable (null: one input per team, or none). */
+  /** The team size of a team format that scores members, while the row is editable (undefined: one input per team, or none). */
   inputsPerTeam: number | undefined;
-  /** Whether the format scores each member (then the inputs are per member, not per team). */
-  memberInputs: number | undefined;
   games: number;
   /** Whether the row shows each game's score in columns (not while its boxes show them, nor in a single-game room). */
   gameColumns: boolean;
@@ -194,11 +192,10 @@ export interface RoomRowProps {
   finalPlace?: number;
 }
 
-/** The score inputs of an editable team row: one per member that takes a score (and per game), then the total. */
-function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) {
+/** The score inputs of an editable team row that scores every member (Sum of members): one per member (and per game), then the total. */
+function MemberInputs({ props, slots }: { props: RoomRowProps; slots: number[] }) {
   const { state, roundIndex, room, team, games } = props;
   const { name, position } = props.row;
-  const slots = scoredMemberSlots(state, name, roundIndex, count);
   const notNeeded = unneededGames(state, roundIndex, room);
   const summary = unitScoreSummary(state, roundIndex, room, position);
   return (
@@ -251,8 +248,8 @@ function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) 
 export function RoomRow(props: RoomRowProps) {
   const { state, roundIndex, room, index, result, star, showResults, rowsEditable } = props;
   const { name, position, score, absent, place, shared: sharedPlace } = props.row;
-  const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam } = props;
-  const { memberInputs, games, gameColumns, columns } = props;
+  const { followed, manual, pendingTie, resolvedTie, teamSize, inputsPerTeam, team } = props;
+  const { games, gameColumns, columns } = props;
   const unit = teamSize ? unitDisplay(state, name) : null;
   const label = unit?.label ?? name;
   const pointsColumn = props.points !== undefined;
@@ -291,11 +288,11 @@ export function RoomRow(props: RoomRowProps) {
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
-  // The member line shows for a team with members, unless a box for each of them takes its place (Save your Buddy
-  // shows the defender's box alone, so the other members stay on the line).
-  const everyMemberHasBox =
-    Boolean(inputsPerTeam) &&
-    scoredMemberSlots(state, name, roundIndex, inputsPerTeam ?? 0).length === inputsPerTeam;
+  // The member line shows for a team with members, unless a box for each of them takes its place. Save your Buddy
+  // has one box, the defender's, entered like One score per team's: the members stay on the line.
+  const slots = inputsPerTeam ? scoredMemberSlots(state, name, roundIndex, inputsPerTeam) : [];
+  const everyMemberHasBox = Boolean(inputsPerTeam) && slots.length === inputsPerTeam;
+  const defenderSlot = slots.length > 0 && !everyMemberHasBox ? slots[0] : undefined;
   const memberLine = Boolean(unit?.members?.length) && !everyMemberHasBox;
   const nameBlock = (
     <span className={cn('flex min-w-0 flex-col gap-0.5', gameColumns ? 'max-w-full grow' : 'flex-1')}>
@@ -371,16 +368,21 @@ export function RoomRow(props: RoomRowProps) {
           </span>
         </RowLine>
       )}
-      {inputsPerTeam ? <MemberInputs count={inputsPerTeam} props={props} /> : null}
-      {rowsEditable && !inlineInput && !memberInputs ? (
+      {everyMemberHasBox ? <MemberInputs props={props} slots={slots} /> : null}
+      {rowsEditable && !inlineInput && !everyMemberHasBox ? (
         <div className='mt-1 flex'>
-          <UnitScoreFields
-            games={games}
-            position={position}
-            room={room}
-            roundIndex={roundIndex}
-            state={state}
-          />
+          {defenderSlot !== undefined && !team?.members?.[defenderSlot] ? (
+            <ScoreInput className={cn(compactScoreClass, 'ml-auto')} disabled placeholder='—' />
+          ) : (
+            <UnitScoreFields
+              games={games}
+              member={defenderSlot}
+              position={position}
+              room={room}
+              roundIndex={roundIndex}
+              state={state}
+            />
+          )}
         </div>
       ) : null}
     </div>

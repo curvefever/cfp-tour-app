@@ -87,8 +87,8 @@ function memberAbsent(
 /**
  * The line under a team's name in a room: its members joined with " · " (`joinMembers`, which wraps only between members), the designated defender marked, and
  * with each member's own score after the name when `seat` is given (the room is complete) and the team scoring
- * rule scores members one by one, or "ABS" for a member who was absent. One score per team scores one number per team, so
- * it shows names only, and "absent" after a member the organiser marked by hand (`seat`, or `markSeat` before the room is complete).
+ * rule scores members one by one, or "ABS" for a member who was absent. One score per team scores one number per team,
+ * and Save your Buddy one number from the defender, which the row shows as the team's score, so both show names only, and "absent" after a member the organiser marked by hand (`seat`, or `markSeat` before the room is complete).
  */
 export function teamMemberLine(
   state: TournamentState,
@@ -101,6 +101,9 @@ export function teamMemberLine(
   if (!info.members?.length) return '';
   const team = buildTeamMap(state)[name];
   const teamSize = scoredTeamSize(state);
+  // Save your Buddy: the defender's score is the team's, shown on the right of the row, not after the name.
+  const everyMemberScored =
+    teamSize !== undefined && scoredMemberSlots(state, name, roundIndex, teamSize).length === teamSize;
   const members = info.members.map((member, index) => {
     const found = team?.members.findIndex((entry) => entry?.name === member) ?? -1;
     const rawIndex = found === -1 ? index : found;
@@ -123,7 +126,7 @@ export function teamMemberLine(
       return `${label} absent`;
     }
     const total =
-      seat !== null && teamSize !== undefined
+      seat !== null && teamSize !== undefined && everyMemberScored
         ? memberTotal(state, roundIndex, seat, rawIndex, teamSize)
         : null;
     return total === null ? label : `${label} ${total}`;

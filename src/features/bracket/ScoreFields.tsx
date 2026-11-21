@@ -83,21 +83,26 @@ export function TeamScoreFields({ children }: { children: ReactNode }) {
   );
 }
 
-/** The score inputs of one unit that takes a single score per game: one input, or G1..Gn plus a total. */
+/**
+ * The score inputs of one unit that takes a single score per game: one input, or G1..Gn plus a total. `member` is the
+ * slot the score is stored under, for a team whose one box is a member's (the defender in Save your Buddy).
+ */
 export function UnitScoreFields({
   state,
   roundIndex,
   room,
   position,
   games,
+  member,
 }: {
   state: TournamentState;
   roundIndex: number;
   room: number;
   position: number;
   games: number;
+  member?: number;
 }) {
-  const key = scoreKey(roundIndex, room, position);
+  const key = scoreKey(roundIndex, room, position, null, member ?? null);
   const notNeeded = unneededGames(state, roundIndex, room);
   const summary = unitScoreSummary(state, roundIndex, room, position);
   if (games <= 1)
@@ -105,7 +110,7 @@ export function UnitScoreFields({
   return (
     <TeamScoreFields>
       {Array.from({ length: games }, (_, gameIndex) => {
-        const gameKey = scoreKey(roundIndex, room, position, gameIndex + 1);
+        const gameKey = scoreKey(roundIndex, room, position, gameIndex + 1, member ?? null);
         return (
           <label key={gameKey}>
             <span>G{gameIndex + 1}</span>

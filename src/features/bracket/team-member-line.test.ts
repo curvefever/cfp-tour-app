@@ -74,12 +74,11 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
     expect(shown(line).split(' ')).toEqual([`Ana${number}_23_·`, `Ben${number}_18`]);
   });
 
-  it('keeps the shield on the designated defender under Save your Buddy, with the scores', () => {
+  it("keeps the shield on the designated defender under Save your Buddy, with names only: the score is the team's", () => {
     const { state, name } = scoredFirstSeat(start('designated-player'));
     const line = teamMemberLine(state, name, 0, { room: 1, position: 0 });
-    expect(shown(line)).toMatch(
-      /^Ana\d+_23_· Ben\d+_18$|^Ana\d+_🛡_23_· Ben\d+_18$|^Ana\d+_23_· Ben\d+_🛡_18$/,
-    );
+    // The defender's 23 shows on the right of the row; a score after a name would break this pattern.
+    expect(shown(line)).toMatch(/^Ana\d+(_🛡)?_· Ben\d+(_🛡)?$/);
     expect(line.match(/🛡/g)).toHaveLength(1);
   });
 

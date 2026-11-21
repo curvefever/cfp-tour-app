@@ -6,6 +6,29 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Save your Buddy rows show the defender's name once (done — 2026-11-21, on `test`, not pushed)
+
+**Context.** After the defender-only build went to prod, the organiser: "The name of the defender appears twice now in each bracket match. Showing it once is enough. It can be all shown normally: players to the left, score to the right, the only difference with regular matches being that one player has a shield next to them." Plan: `plans/2026-11-21-save-your-buddy-one-name.md`.
+
+**The rule.** A Save your Buddy row looks like a One score per team row; the only difference is the 🛡 after the defender in the member line. The score box has no name label (one box per team, or one G1, G2… box per game), stored on the defender's member key as before (`scoreKey(…, defender)`, `finalScoreKey(tab, name, defender)`); nothing in the domain changed. A complete room's member line shows names only, no score after the defender (the team's score is on the right of the row); ABS marks stay. Sum of members is unchanged: labelled boxes per member, each member's score after the name.
+
+**The change** (all in `src/features/bracket/`). `ScoreFields.tsx` `UnitScoreFields` takes an optional `member` that adds the member part to its keys, so Save your Buddy uses the One score per team input path (one layout for "one box per team per game"). `RoomRow.tsx`: the scored slots are read once (`scoredMemberSlots`); every slot scored → `MemberInputs` (Sum of members only, now handed the slots), else `UnitScoreFields` with `member` the defender's slot. `FinalRow.tsx`: the same switch once in `FinalRow`; `FinalScoreEntry` shows the labelled boxes for Sum of members, else the one `FinalUnitScoreInput` on the defender's Final key. `team-member-line.ts`: `memberTotal` only when every member is scored. The unused `memberInputs` prop of `RoomRow` (and its `RoomCard` argument) is gone; `inputsPerTeam` says it all.
+
+**A vacant defender slot** keeps the disabled "—" box, now in the One score per team box position (in a multi-game room one disabled box, as before, not one per game).
+
+**Tests.** `SaveYourBuddyInputs.render.test.tsx` (7): a room (one unlabelled box on `r0-rm1-p0-m0`, the row shows each member once, 🛡 once, nothing but the box in its wrapper), typing writes the defender's key, a two-game room (unlabelled G1/G2 boxes on `-g1-m0`, `-g2-m0`), Sum of members (three labelled boxes), and, new, the Final: Save your Buddy (one unlabelled box per team, members once) and its typed score on `game1-t1-m0`, Sum of members (six labelled boxes). Changed expectations: "gives each team one box in Save your Buddy, named after the defender…": the box was labelled `T1a 🛡` and the name showed again on the member line; now no label and the name once. `team-member-line.test.ts` "keeps the shield on the designated defender under Save your Buddy, with the scores": a score after the defender (23) and after a teammate; now names only with one 🛡.
+
+**Checks.** `vitest related` over the changed files: pass; eslint, prettier and types clean on the changed files. No e2e, no live check (the render test covers the row, and the keys are unchanged).
+
+**Full suite:** not run (no shared code: only `src/features/bracket/` changed).
+
+**Out of scope.** Moving the box of team rows to the right of the line (all team formats would change); Rankings' "🛡 Defender" marks and buttons; the ABS marks on the member line.
+
+### Documentation
+`docs/views.md` ("Room cards": the member line; "Score entry"). "Absence bars" checked: its sentence on ABS after a member's name stays true.
+
+---
+
 ## A Custom bracket after a Swiss works like after a qualification table (done — 2026-11-21, on `test`, not pushed)
 
 **Context.** Found in the live check of the seed-lines build: under a Swiss the Setup editor offered the Qual source only when the graph text already had the `Qual` line, and nothing in the UI could write the first one, so a graph like the organiser's test run (Qual 1-6 to the Quarter-finals, 7-10 to Round 6) could not be built from scratch in Setup. A first fix, a button that adds the line (`withSwissQualLine`, built and reviewed), was dropped: the organiser asked why this was specific to Swiss and chose "Same as qual table". Plan: `plans/2026-11-21-swiss-like-qual-table.md`, which replaces `plans/2026-11-21-swiss-qual-line-button.md`; the button's two local commits were never pushed and were reset away.
