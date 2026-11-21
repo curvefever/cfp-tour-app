@@ -28,7 +28,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **New tests.** `swiss-qual-source.test.ts` (4: 13 players, a lineless graph `R6 = 2x2 ...`: ranks 1-4 to R6 stored on the last Swiss round, `qualAdv` 4 whatever the form says; the organiser's shape with Qual 1-6 to QF and 7-10 to R6 under a Swiss: ranks stored, advance 10, the source is `'qual'`); `settings-recap.test.ts` (recap of a lineless Swiss: `'4, set by the custom bracket graph'`); `waterfall-swiss-source.test.ts` (the stored Swiss still enters its bracket as before). Fixture: `storedBeforeSwissRouting` in `swiss-source-fixtures.ts`. `vitest related` over every changed file plus `old-tournaments.test.ts`: all pass; eslint, prettier and types clean.
 
-**Full suite:** left for the reviewer (`src/domain/` is shared code).
+**Full suite:** passed on `4fa13a3` (13981 tests, none failed; the only two failing files were the Playwright specs of the worktree copy under `.claude/worktrees/`, which vitest cannot load). Reviewer: lint, format and types clean over the changed files; mutation checks, each failing a test: `standingsKindOfSetup` without Swiss (3 failed); `graphHasQualSource` without Swiss in `generation.ts` (1 failed, the withdrawal test; the generation tests of `swiss-qual-source.test.ts` did not catch it alone).
 
 **Out of scope.** Changing stored tournaments; removing a Qual line from the editor (a graph with no line and `Qual: 1-N -> entry` now mean the same); the no-pooling Custom bracket.
 
