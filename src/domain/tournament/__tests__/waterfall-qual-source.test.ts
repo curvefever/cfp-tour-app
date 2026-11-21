@@ -127,10 +127,10 @@ describeInBothShapes('the pooling exit of a waterfall graph with a Qual source',
       roomShare: 1 - index / 10,
     }));
     const round = { standingsRoutes: [5, 5, 7, 'eliminated', 7] } as unknown as TournamentRound;
-    const routed = routeStandings(table, round);
+    const routed = routeStandings(table, round, 3);
     expect(routed.get(5)).toEqual([
-      { name: 'P1', isLucky: false, tierRank: 0, pct: 1 },
-      { name: 'P2', isLucky: false, tierRank: 1, pct: 0.9 },
+      { name: 'P1', isLucky: false, tierRank: 0, pct: 1, seed: 1, from: 3 },
+      { name: 'P2', isLucky: false, tierRank: 1, pct: 0.9, seed: 2, from: 3 },
     ]);
     expect(routed.get(7)?.map((seed) => [seed.name, seed.tierRank])).toEqual([
       ['P3', 0],

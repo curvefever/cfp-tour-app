@@ -123,6 +123,22 @@ function memberDestination(
 }
 
 /**
+ * A room's seed in a round: the best (lowest) seed of the seats drawn into it, or null when a seat of it has none (a
+ * round drawn before seeds were stored, or from a pool without them). The seed every arrival from that room carries on.
+ */
+function roomSeeds(state: TournamentState, roundIndex: number): (room: number) => number | null {
+  const seedsByRoom = new Map<number, Array<number | undefined>>();
+  for (const entry of state.assignments[roundIndex] ?? []) {
+    if (entry.room === null) continue;
+    seedsByRoom.set(entry.room, [...(seedsByRoom.get(entry.room) ?? []), entry.seed]);
+  }
+  return (room) => {
+    const seeds = seedsByRoom.get(room) ?? [];
+    return seeds.length > 0 && seeds.every((seed) => seed !== undefined) ? Math.min(...seeds) : null;
+  };
+}
+
+/**
  * Ranks every occupant of a waterfall round within their own room
  * (buildAdvancementTiers, called once over the WHOLE room, not a pre-split
  * winners/losers list) and looks up each occupant's own band via
@@ -150,6 +166,7 @@ export function routeWaterfallRound(
   const roster = new Set(rosterKeys(state.players));
   const bestChosen = new Set(bestPlaceChoice(state, roundIndex, round)?.chosen);
 
+  const roomSeedOf = roomSeeds(state, roundIndex);
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const tier of tiers) {
     for (const member of tier.members) {
@@ -159,7 +176,15 @@ export function routeWaterfallRound(
       const name = currentUnit(state, roster, member.name);
       if (destination === null || name === null) continue;
       const additions = additionsByDestination.get(destination) ?? [];
-      additions.push({ name, isLucky: false, tierRank: tier.rank, pct: member.pct });
+      const seed = roomSeedOf(member.sourceRoom);
+      additions.push({
+        name,
+        isLucky: false,
+        tierRank: tier.rank,
+        pct: member.pct,
+        ...(seed === null ? {} : { seed }),
+        from: roundIndex,
+      });
       additionsByDestination.set(destination, additions);
     }
   }
@@ -174,12 +199,14 @@ export function routeWaterfallRound(
  * `ordered` is the table with every cut-off tie resolution applied
  * (orderedQualificationTable). Each destination's arrivals are numbered in
  * standings order (`tierRank`), with the standing's room share as `pct`, so a
- * round fed only by Qual is seeded in standings order. Same shape as
+ * round fed only by Qual is seeded in standings order. Each arrival also carries its `seed` (its place in the table,
+ * from 1) and `from` (`fromIndex`, the pooling round holding the routing). Same shape as
  * routeWaterfallRound: additions only, no pool is touched.
  */
 export function routeStandings(
   ordered: Array<Pick<TournamentStanding, 'name' | 'roomShare'>>,
   round: TournamentRound,
+  fromIndex: number,
 ): Map<number, PendingBracketSeed[]> {
   const additionsByDestination = new Map<number, PendingBracketSeed[]>();
   for (const [position, standing] of ordered.entries()) {
@@ -191,6 +218,8 @@ export function routeStandings(
       isLucky: false,
       tierRank: additions.length,
       pct: standing.roomShare ?? 0,
+      seed: position + 1,
+      from: fromIndex,
     });
     additionsByDestination.set(destination, additions);
   }
@@ -253,7 +282,7 @@ export function replayBracketPools(
       (qualRound.isGroupStage
         ? orderedGroupExit(state, computeGroupStandings(state))
         : orderedQualificationTable(state).ordered);
-    addToPools(routeStandings(exitOrder, qualRound));
+    addToPools(routeStandings(exitOrder, qualRound, qualIndex));
   }
   for (let index = 0; index < state.rounds.length; index += 1) {
     if (!replays(index)) continue;

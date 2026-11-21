@@ -268,6 +268,12 @@ function fitKingsValleyTail(
   return null;
 }
 
+/** The seed of every unit of a pool, or null unless every entry carries one (a pool pushed before seeds were stored has none). */
+function poolSeeds(pool: PendingBracketSeed[]): Map<string, number> | null {
+  if (pool.length === 0 || pool.some((entry) => entry.seed === undefined)) return null;
+  return new Map(pool.map((entry) => [entry.name, entry.seed as number]));
+}
+
 /**
  * Shape-agnostic core shared by every "finalize a round from its
  * accumulated pendingBracketSeeds pool" path: read the pool, pull out any
@@ -285,6 +291,7 @@ export function seedRoundFromPendingPool(
 ): RoundFitFailure | null {
   let pool = [...(state.pendingBracketSeeds[roundIndex] ?? [])];
   delete state.pendingBracketSeeds[roundIndex];
+  const seedOf = poolSeeds(pool);
   const byeNames = (options.chosenByes ?? []).map((candidate) => candidate.name);
   if (byeNames.length) {
     const byeSet = new Set(byeNames);
@@ -326,7 +333,9 @@ export function seedRoundFromPendingPool(
   for (const name of byeNames) {
     assignments.push({ name, room: null, isLucky: false });
   }
-  state.assignments[roundIndex] = assignments;
+  state.assignments[roundIndex] = seedOf
+    ? assignments.map((entry) => ({ ...entry, seed: seedOf.get(entry.name) as number }))
+    : assignments;
   state.roomHistory = recordRoomHistory(state.roomHistory, assignments, roundIndex);
   return null;
 }
@@ -657,7 +666,7 @@ function advanceFromStandings(
       roomShare: standing.roomShare ?? 0,
     })),
   };
-  return enterNextWaterfallColumn(input, state, roundIndex, routeStandings(ordered, round));
+  return enterNextWaterfallColumn(input, state, roundIndex, routeStandings(ordered, round, roundIndex));
 }
 
 /**

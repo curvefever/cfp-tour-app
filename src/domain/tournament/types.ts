@@ -148,6 +148,8 @@ export interface RoundAssignment {
   isLucky?: boolean;
   /** Placed, moved or reinstated by the organiser via a line-up correction (lineup-edit.ts). Only ever written as `true`. */
   manual?: true;
+  /** The seed the unit arrived with in a Custom bracket round fed by a pooling phase (`PendingBracketSeed.seed`); its room's seed for the round it feeds. */
+  seed?: number;
 }
 
 /**
@@ -164,7 +166,8 @@ export interface AnonymousFinalist {
 }
 
 /**
- * A double-elimination route before it is assigned to a physical room.
+ * A unit on its way to a round of a bracket (a double-elimination route, or an arrival of a Custom bracket), before
+ * it is assigned to a physical room.
  * `tierRank` and `pct` (the score relative to the room average, 1 = average; the
  * in-tier order only) are tagged once, at the moment this entry is pushed onto
  * `pendingBracketSeeds` (see `advanceDoubleElimination` in transitions.ts) --
@@ -172,12 +175,18 @@ export interface AnonymousFinalist {
  * generic reseeding path, captured here because a target round's pool can
  * accumulate from more than one source round, by which point there is no
  * single round left to re-derive it from.
+ * A Custom bracket fed by a pooling phase also tags `seed` (a qualifier: its place in the exit order from 1; a room
+ * arrival: its source room's seed, the best seed of the seats drawn into that room) and `from` (the index of the
+ * round the unit comes from: the pooling round holding `standingsRoutes` for a qualifier). Absent on a double
+ * elimination route and on a pool pushed before they existed.
  */
 export interface PendingBracketSeed {
   name: string;
   isLucky?: boolean;
   tierRank: number;
   pct: number;
+  seed?: number;
+  from?: number;
 }
 
 /** One press of Next Round in a Custom bracket of `dependencyPlayVersion`. */
