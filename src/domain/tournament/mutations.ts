@@ -7,6 +7,7 @@ import {
   withSeatsShiftedUp,
 } from './absences';
 import { moveConfirmation } from './confirmations';
+import { withDefenderKeysMoved } from './defender-move';
 import { emptySchedule } from './empty-schedule';
 import { moveBackMark } from './likely-absentees';
 import { isPlainFinalFullyScored, progressGrandFinalRace } from './finals';
@@ -38,6 +39,7 @@ import {
 import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildScheduleRounds } from './schedule-generation';
 import {
+  getDefenderIndex,
   getFinalUnitScore,
   readTieResolution,
   scoredTeamSize,
@@ -1042,11 +1044,12 @@ export function renameTeamMember(
 export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
   const changes = (state.defenderChanges[teamId] ?? []).map((entry) => ({ ...entry }));
   const round = roundInPlayOf(state, teamId);
+  const previous = getDefenderIndex(state, teamId, round);
   const existing = changes.find((entry) => entry.round === round);
   if (existing) existing.memberIdx = memberIdx;
   else changes.push({ round, memberIdx });
   return {
-    ...state,
+    ...withDefenderKeysMoved(state, teamId, round, previous, memberIdx),
     defenderChanges: { ...state.defenderChanges, [teamId]: changes },
   };
 }

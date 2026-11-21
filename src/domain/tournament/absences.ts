@@ -22,6 +22,7 @@ import {
   parseScoreKey,
   roomKeyPrefix,
   roundKeyPrefix,
+  scoredMemberSlots,
   scoredTeamSize,
   scoreKey,
   scoreOrDefault,
@@ -40,7 +41,7 @@ export interface AbsenceQuestion {
   position: number;
   /** The unit's key: a player's name or a team id. */
   unit: string;
-  /** Set when the key is a member's score (sum of members, Save your Buddy). */
+  /** Set when the key is a member's score (sum of members: any member; Save your Buddy: the defender's). */
   memberIndex?: number;
   /** Set in a round of several games. */
   game?: number;
@@ -138,7 +139,10 @@ function askedGames(state: TournamentState, roundIndex: number, room: number): n
   return Math.min(match.decidingGame ?? match.countedGames + 1, numGames);
 }
 
-/** Every score key of one seat that can hold a 0: per game, the unit's own key, or one per member that exists. */
+/**
+ * Every score key of one seat that can hold a 0: per game, the unit's own key, or one per member that takes a score
+ * and exists (every member in sum of members, the defender alone in Save your Buddy).
+ */
 function seatQuestions(
   state: TournamentState,
   roundIndex: number,
@@ -149,6 +153,7 @@ function seatQuestions(
   const games = askedGames(state, roundIndex, room);
   const teamSize = scoredTeamSize(state);
   const team = teamSize ? teamsOf(state)[unit] : undefined;
+  const slots = teamSize ? scoredMemberSlots(state, unit, roundIndex, teamSize) : [];
   const questions: AbsenceQuestion[] = [];
   for (let game = 1; game <= games; game += 1) {
     const gamePart = games > 1 ? game : null;
@@ -157,7 +162,7 @@ function seatQuestions(
       questions.push({ ...seat, key: scoreKey(roundIndex, room, position, gamePart) });
       continue;
     }
-    for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
+    for (const memberIndex of slots) {
       const key = scoreKey(roundIndex, room, position, gamePart, memberIndex);
       // A team that has left the roster has no member list: its slots are the ones that hold a stored score.
       const exists = team ? Boolean(team.members?.[memberIndex]) : state.scores[key] !== undefined;
@@ -173,7 +178,7 @@ function groupBy<T, K>(items: T[], keyOf: (item: T) => K): T[][] {
   return [...groups.values()];
 }
 
-/** A seat is absent from a room only if it is absent in every game; in a game, a team is absent when all its members are. */
+/** A seat is absent from a room only if it is absent in every game; in a game, a team is absent when every key asked about it is (all its members, or the defender alone in Save your Buddy). */
 function isSeatAbsent(state: TournamentState, questions: AbsenceQuestion[]): boolean {
   return (
     questions.length > 0 &&
@@ -264,10 +269,19 @@ export function hasPlayedAnyMatch(state: TournamentState, key: string): boolean 
   });
 }
 
+/** The slots of a team's members on the roster; a team that has left it has no member list, so every slot (the reader skips vacant ones). */
+function existingMemberSlots(state: TournamentState, unit: string, teamSize: number): number[] {
+  const team = teamsOf(state)[unit];
+  return Array.from({ length: teamSize }, (_, slot) => slot).filter(
+    (slot) => !team || Boolean(team.members?.[slot]),
+  );
+}
+
 /**
  * The slots of a team's members who showed up at its seat of a room, empty when the team did not play it. Scored one
- * by one (sum of members, Save your Buddy), a member showed up when one of its own scores is not an absence; with one
- * score per team, when the seat played and the member was not marked absent by hand.
+ * by one (sum of members), a member showed up when one of its own scores is not an absence; in Save your Buddy only
+ * the defender's score is entered, so when it is not an absence the team played and every member of it showed up;
+ * with one score per team, when the seat played and the member was not marked absent by hand.
  */
 export function membersPresentAtSeat(
   state: TournamentState,
@@ -277,11 +291,16 @@ export function membersPresentAtSeat(
 ): number[] {
   const unit = unitsOfRoom(state, roundIndex, room)[position];
   if (unit === undefined) return [];
-  if (scoredTeamSize(state)) {
+  const teamSize = scoredTeamSize(state);
+  if (teamSize) {
     const present = seatQuestions(state, roundIndex, room, position, unit).filter(
       ({ key }) => scoreOrDefault(state.scores[key], null) !== null && !isMarkedAbsent(state, key),
     );
-    return [...new Set(present.map((question) => question.memberIndex ?? -1))].filter((slot) => slot >= 0);
+    const slots = [...new Set(present.map((question) => question.memberIndex ?? -1))].filter(
+      (slot) => slot >= 0,
+    );
+    const everyMemberScores = scoredMemberSlots(state, unit, roundIndex, teamSize).length === teamSize;
+    return everyMemberScores || slots.length === 0 ? slots : existingMemberSlots(state, unit, teamSize);
   }
   if (!playedRoomSeat(state, roundIndex, room, position)) return [];
   const size = getGameFormat(state.gameFormat)?.teamSize ?? 0;

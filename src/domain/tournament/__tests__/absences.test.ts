@@ -60,14 +60,16 @@ describe('questions per mode', () => {
     ]);
   });
 
-  it('asks each member in Save your Buddy', () => {
+  it("asks only the defender's key in Save your Buddy", () => {
     const state = build({
       gameFormat: 'team-2v2v2v2',
       rule: 'designated-player',
       players: [team('Red', ['a', 'b']), team('Blue', ['c', 'd'])],
-      scores: { 'r0-rm1-p0-m1': 0 },
+      scores: { 'r0-rm1-p0-m0': 0, 'r0-rm1-p0-m1': 0 },
     });
-    expect(keysOf(state)).toEqual(['r0-rm1-p0-m1']);
+    expect(keysOf(state)).toEqual(['r0-rm1-p0-m0']);
+    const second = { ...state, defenderChanges: { Red: [{ round: 0, memberIdx: 1 }] } };
+    expect(keysOf(second)).toEqual(['r0-rm1-p0-m1']);
   });
 
   it("asks only the team's key in One score per team", () => {

@@ -34,6 +34,23 @@ export function getDefenderIndex(
   return bestIndex;
 }
 
+/**
+ * The member slots of a team that take a score: the defender alone in Save your Buddy (the team's score is only ever
+ * the defender's), every slot of the team otherwise. The one place that tells the two apart for entering, completing
+ * and asking about absences; `roundIndex` is the round the team plays (the Final's index in the Final).
+ */
+export function scoredMemberSlots(
+  state: Pick<TournamentState, 'defenderChanges' | 'gamemodeConfig'>,
+  teamKey: string | undefined,
+  roundIndex: number,
+  teamSize: number,
+): number[] {
+  if (state.gamemodeConfig.teamScoringRule === 'designated-player') {
+    return [getDefenderIndex(state, teamKey, roundIndex)];
+  }
+  return Array.from({ length: teamSize }, (_, slot) => slot);
+}
+
 /** Per-member score keys a unit has: the team size, or `undefined` when a unit takes one score (individual format, One score per team). */
 export function scoredTeamSize(
   state: Pick<TournamentState, 'gameFormat' | 'gamemodeConfig'>,
@@ -121,9 +138,15 @@ export function getUnitScoreForGame(
   // A team that has left the roster (removed or swapped out) is in no list any more, but its past rooms still hold
   // the scores it played: read its slots from the stored keys.
   const withdrawn = seated !== undefined && team === undefined;
+  const slots = scoredMemberSlots(state, seated?.name, roundIndex, teamSize);
   const values: number[] = [];
   let anyMissing = false;
   for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
+    // A slot that takes no score (a teammate of the defender in Save your Buddy) reads 0 and is never missing.
+    if (!slots.includes(memberIndex)) {
+      values.push(0);
+      continue;
+    }
     if (withdrawn) {
       values.push(
         scoreOrDefault(state.scores[scoreKey(roundIndex, room, position, game, memberIndex)], null) ?? 0,
@@ -204,9 +227,15 @@ export function getFinalUnitScore(
     return scoreOrDefault(state.finalScores[finalScoreKey(game, key)], fallback);
   }
   const team = buildTeamMap(state)[key];
+  const finalRoundIndex = state.rounds.findIndex((round) => round.isFinal);
+  const slots = scoredMemberSlots(state, key, finalRoundIndex, teamSize);
   const values: number[] = [];
   let anyMissing = false;
   for (let memberIndex = 0; memberIndex < teamSize; memberIndex += 1) {
+    if (!slots.includes(memberIndex)) {
+      values.push(0);
+      continue;
+    }
     // A team that has left the roster keeps the scores it played: read its slots from the stored keys.
     if (team && !team.members?.[memberIndex]) {
       values.push(0);
@@ -222,7 +251,6 @@ export function getFinalUnitScore(
   }
   if (anyMissing && fallback === null) return null;
   const rule = state.gamemodeConfig.teamScoringRule ?? 'sum-members';
-  const finalRoundIndex = state.rounds.findIndex((round) => round.isFinal);
   return computeTeamScore(values, rule, getDefenderIndex(state, key, finalRoundIndex));
 }
 
