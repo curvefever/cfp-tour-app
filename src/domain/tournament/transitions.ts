@@ -10,17 +10,12 @@ import {
   orderedQualificationTable,
   refreshRoundStandings,
   roomBasedComputeAdvancement,
-  selectGroupExit,
 } from './advancement';
-import {
-  doubleEliminationContributions,
-  isFedOnlyByStandings,
-  routeStandings,
-  routeWaterfallRound,
-} from './bracket-replay';
+import { doubleEliminationContributions, routeStandings, routeWaterfallRound } from './bracket-replay';
 import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
+import { drawCustomBracketPool } from './custom-bracket-draw';
 import { likelyAbsentees } from './likely-absentees';
 import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
@@ -33,9 +28,7 @@ import {
   recordRoomHistory,
   selectPoolingBye,
   sequentialSeed,
-  tieredBracketSeed,
   seedFromPoolingExit,
-  seedPoolByStanding,
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
@@ -301,34 +294,13 @@ export function seedRoundFromPendingPool(
   // hand-authored rooms always fit and this never reshapes them.
   const failure = fitNextRound(state, roundIndex, pool.length, byeNames.length);
   if (failure) return failure;
-  const roomSizes = state.rounds[roundIndex].rooms;
-  const likelyAbsent = likelyAbsentees(state, roundIndex);
-  const assignments =
-    !options.seedingOverride && isFedOnlyByStandings(state.rounds, roundIndex)
-      ? seedPoolByStanding({
-          pool,
-          roomSizes,
-          state,
-          targetRoundIndex: roundIndex,
-          likelyAbsent,
-          ...(state.rounds.some((round) => round.isGroupStage && round.standingsRoutes)
-            ? {
-                groups: {
-                  groups: state.groups,
-                  throughByGroup: selectGroupExit(state, state.groupStandings).throughByGroup,
-                },
-              }
-            : {}),
-        })
-      : tieredBracketSeed({
-          pool,
-          roomSizes,
-          roomHistory: state.roomHistory,
-          rounds: state.rounds,
-          targetRoundIndex: roundIndex,
-          seedingOverride: options.seedingOverride,
-          likelyAbsent,
-        }).seeded;
+  const assignments = drawCustomBracketPool({
+    state,
+    roundIndex,
+    pool,
+    seedingOverride: options.seedingOverride,
+    likelyAbsent: likelyAbsentees(state, roundIndex),
+  });
   state.byes[roundIndex] = byeNames;
   for (const name of byeNames) {
     assignments.push({ name, room: null, isLucky: false });

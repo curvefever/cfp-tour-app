@@ -159,6 +159,8 @@ function manualEntries(current: RoundAssignment[], draft: RoundAssignment[]): Ro
       name: entry.name,
       room: entry.room,
       isLucky: before ? before.isLucky : false,
+      // A unit already in the round keeps the seed it arrived with; one placed into it by hand has none.
+      ...(before?.seed !== undefined ? { seed: before.seed } : {}),
       ...(placedByHand ? { manual: true as const } : {}),
     };
   });

@@ -72,13 +72,18 @@ export function scoreWith(
   return { ...state, scores };
 }
 
-/** Scores a round so that the better seed of every room wins it (the units the round drew carry their seed). */
-export function favouritesWin(state: TournamentState, label: string): TournamentState {
+/** Scores a round so that the better seed of every room wins it (the units the round drew carry their seed), except the units `upsets` names: they win their room. */
+export function favouritesWin(state: TournamentState, label: string, upsets: string[] = []): TournamentState {
   const entries = state.assignments[indexOfLabel(state, label)] ?? [];
   return scoreWith(
     state,
     label,
-    Object.fromEntries(entries.map((entry) => [entry.name, 1000 - 10 * (entry.seed ?? 50)])),
+    Object.fromEntries(
+      entries.map((entry) => [
+        entry.name,
+        upsets.includes(entry.name) ? 5000 : 1000 - 10 * (entry.seed ?? 50),
+      ]),
+    ),
   );
 }
 

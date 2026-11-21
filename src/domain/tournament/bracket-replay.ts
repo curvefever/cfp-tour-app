@@ -123,18 +123,19 @@ function memberDestination(
 }
 
 /**
- * A room's seed in a round: the best (lowest) seed of the seats drawn into it, or null when a seat of it has none (a
- * round drawn before seeds were stored, or from a pool without them). The seed every arrival from that room carries on.
+ * A room's seed in a round: the best (lowest) seed of the seats drawn into it that have one, or null when none has (a
+ * round drawn before seeds were stored, or from a pool without them). A unit placed into the room by hand has no seed
+ * and does not cancel the others'. The seed every arrival from that room carries on.
  */
 function roomSeeds(state: TournamentState, roundIndex: number): (room: number) => number | null {
-  const seedsByRoom = new Map<number, Array<number | undefined>>();
+  const seedsByRoom = new Map<number, number[]>();
   for (const entry of state.assignments[roundIndex] ?? []) {
-    if (entry.room === null) continue;
+    if (entry.room === null || entry.seed === undefined) continue;
     seedsByRoom.set(entry.room, [...(seedsByRoom.get(entry.room) ?? []), entry.seed]);
   }
   return (room) => {
-    const seeds = seedsByRoom.get(room) ?? [];
-    return seeds.length > 0 && seeds.every((seed) => seed !== undefined) ? Math.min(...seeds) : null;
+    const seeds = seedsByRoom.get(room);
+    return seeds ? Math.min(...seeds) : null;
   };
 }
 
