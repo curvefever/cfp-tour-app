@@ -11,6 +11,7 @@ import {
   pressed,
   roomNames,
 } from './seed-lines-fixtures';
+import { buildQualWaterfall } from './qual-waterfall';
 import { swiss } from './swiss-source-fixtures';
 
 /**
@@ -75,5 +76,27 @@ describe('the expected draw after Round 6 is scored', () => {
     expect(roomNames(drawn, 'QF', 1)).toEqual(
       (expected?.assignments ?? []).filter((entry) => entry.room === 1).map((entry) => entry.name),
     );
+  });
+});
+
+describe('a round not drawn by seed lines keeps place-only labels', () => {
+  it('Upper arrivals from the Middle rooms of 8 name the place, not the room', () => {
+    const graph = `
+ROUNDS:
+M = 2x8
+U = 2x8
+Final = 8 FINAL
+
+ROUTES:
+Qual: 1-12->U, 13-28->M
+M.A: 1-2->U, 3-8->eliminated
+M.B: 1-2->U, 3-8->eliminated
+U.A: 1-4->Final, 5-8->eliminated
+U.B: 1-4->Final, 5-8->eliminated
+`;
+    const state = buildQualWaterfall(37, graph, {}, { columns: true });
+    const labels = previewOf(state, 'U').flat();
+    expect(labels).toContain('M · 1st');
+    expect(labels.some((label) => label.includes('Room'))).toBe(false);
   });
 });

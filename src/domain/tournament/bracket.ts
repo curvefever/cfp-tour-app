@@ -561,9 +561,6 @@ function drawPoolAsRealDraw(
     targetRoundIndex,
     likelyAbsent: new Set(),
   });
-  if (usesSeedLines(standIns, roomSizes)) {
-    for (const slot of pool) if (slot.kind === 'waterfall-rank') slot.roomKnown = true;
-  }
   // Each room lists its slots in pool order, as the other placements do.
   const poolIndexesByRoom: number[][] = roomSizes.map(() => []);
   for (const { name, room } of seeded) {
@@ -572,7 +569,12 @@ function drawPoolAsRealDraw(
   const byRoom = poolIndexesByRoom.map((indexes) =>
     indexes.sort((first, second) => first - second).map((index) => pool[index]),
   );
-  return byRoom.every((slots, index) => slots.length === roomSizes[index]) ? byRoom : null;
+  if (!byRoom.every((slots, index) => slots.length === roomSizes[index])) return null;
+  // Only a draw the caller uses names the room: the seed lines make each slot's source room known.
+  if (usesSeedLines(standIns, roomSizes)) {
+    for (const slot of pool) if (slot.kind === 'waterfall-rank') slot.roomKnown = true;
+  }
+  return byRoom;
 }
 
 /**
