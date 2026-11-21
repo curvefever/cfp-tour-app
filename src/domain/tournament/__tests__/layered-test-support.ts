@@ -1,5 +1,6 @@
 import { answerAbsence } from '../absences';
 import { generateTournament } from '../generation';
+import { addWalkUpIndividual } from '../mutations';
 import { rosterKeys } from '../roster';
 import { planLayered, type LayeredInput, type LayeredPlan } from '../layered-plan';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
@@ -94,4 +95,24 @@ export function afterThreeAbsent(setup: Setup = FFA_QUAL): TournamentState {
 export function afterFiveAbsent(setup: Setup = FFA_QUAL): TournamentState {
   const state = afterThreeAbsent(setup);
   return playRound(state, players(state).slice(0, 5));
+}
+
+/** `count` late joiners added to the roster, each drawn in at the next round. */
+export function withLateJoiners(state: TournamentState, count: number): TournamentState {
+  let joined = state;
+  for (let index = 1; index <= count; index += 1) {
+    const added = addWalkUpIndividual(joined, `Late ${index}`, { allowLateJoin: true });
+    if (added.status !== 'added') throw new Error(JSON.stringify(added));
+    joined = added.state;
+  }
+  return joined;
+}
+
+/**
+ * 31 registered, three absent from round 1, seven late joiners in round 2 (38 registered): round 3, the last table
+ * round, in play with 35 playing. The plan for 35 changes the bracket's shape (one Upper room becomes two), so a card.
+ */
+export function afterSevenJoined(setup: Setup = FFA_QUAL): TournamentState {
+  const state = afterThreeAbsent(setup);
+  return playRound(withLateJoiners(state, 7), players(state).slice(0, 3));
 }

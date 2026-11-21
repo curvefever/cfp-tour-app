@@ -3,6 +3,7 @@ import { generatedConfig } from './generated-config';
 import { layeredGraphText } from './layered-graph';
 import { planLayeredFor, type LayeredForm } from './layered-form';
 import type { LayeredPlan } from './layered-plan';
+import type { BracketRound } from './layered-search';
 import { likelyAbsentees } from './likely-absentees';
 import { rosterKeys } from './roster';
 import { applyMatchFormats } from './round-match-formats';
@@ -36,7 +37,7 @@ export type LayeredPlanCheck =
   | { kind: 'none' }
   /** The plan for the number who play now cannot be made (or saved): why, and the plan in use stays. */
   | { kind: 'refused'; message: string }
-  /** The plan for the number who play now is the plan in use. */
+  /** The plan for the number who play now is the plan in use, or differs from it only in the first Lower rooms. */
   | { kind: 'current'; playNow: number }
   /** It differs, and the organiser kept the plan in use at this number who play. */
   | { kind: 'kept'; playNow: number }
@@ -106,6 +107,56 @@ function planInUse(state: TournamentState, firstRound: number, registered: numbe
   return made.ok ? made.plan : null;
 }
 
+const sameValue = (first: unknown, second: unknown): boolean =>
+  JSON.stringify(first) === JSON.stringify(second);
+
+/** The first bracket round of two plans, the Lower level's room sizes and number out left aside: the rest must be equal. */
+function sameFirstRoundBesidesLower(inUse: BracketRound, next: BracketRound): boolean {
+  if (inUse.waiting !== next.waiting || !sameValue(inUse.firstSemiFinal, next.firstSemiFinal)) return false;
+  if (inUse.levels.length !== next.levels.length) return false;
+  return inUse.levels.every((level, index) => {
+    const other = next.levels[index];
+    if (level.level !== 'Lower') return sameValue(level, other);
+    return (
+      level.level === other.level &&
+      level.rooms.length === other.rooms.length &&
+      level.top === other.top &&
+      level.topGoes === other.topGoes
+    );
+  });
+}
+
+/**
+ * Whether two plans differ only in the Lower level's first bracket round: the same levels and rounds, every other level
+ * starting with the same players in the same rooms, the Lower level with the same number of rooms and the same top `k`
+ * (only its room sizes and the number out differ), and every later round the same. Such a change leaves the later
+ * bracket as it is, so it is not worth ending one more player's tournament for (`docs/rules.md`, "Layered bracket").
+ */
+export function differsOnlyInFirstLowerRooms(inUse: LayeredPlan, next: LayeredPlan): boolean {
+  const [inUseFirst, ...inUseLater] = inUse.rounds;
+  const [nextFirst, ...nextLater] = next.rounds;
+  if (!inUseFirst || !nextFirst) return false;
+  const entryBesidesLower = (plan: LayeredPlan) => plan.levels.filter((level) => level.name !== 'Lower');
+  const lowerLevels = (plan: LayeredPlan) => plan.levels.filter((level) => level.name === 'Lower').length;
+  const sameShape = (plan: LayeredPlan) => [
+    plan.levelCount.value,
+    plan.topLevel.value,
+    plan.bracketRounds.value,
+    plan.semiOthers.value,
+    plan.lastSemiFinal,
+    plan.finalPlayers,
+    plan.topCounts,
+  ];
+  return (
+    lowerLevels(inUse) === 1 &&
+    lowerLevels(next) === 1 &&
+    sameValue(sameShape(inUse), sameShape(next)) &&
+    sameValue(entryBesidesLower(inUse), entryBesidesLower(next)) &&
+    sameFirstRoundBesidesLower(inUseFirst, nextFirst) &&
+    sameValue(inUseLater, nextLater)
+  );
+}
+
 type Replanned = { ok: true; state: TournamentState } | { ok: false; message: string };
 
 /**
@@ -161,13 +212,24 @@ export function checkLayeredPlan(state: TournamentState, overrides: LayeredOverr
     (key) => overrides[key as keyof LayeredOverrides] !== state.settings?.[key as keyof LayeredOverrides],
   );
   if (!typedChanged && sameBracket(state, candidate.state)) return { kind: 'current', playNow };
+  const inUse = planInUse(state, planned.firstRound, planned.registered);
+  // A card is for a change in the bracket's shape: not for one that only moves the first Lower rooms (nothing typed),
+  // unless the plan in use can no longer be played (fewer play than it has in the bracket).
+  if (
+    Object.keys(overrides).length === 0 &&
+    inUse !== null &&
+    playNow >= inUse.inBracket.value &&
+    differsOnlyInFirstLowerRooms(inUse, planned.next)
+  ) {
+    return { kind: 'current', playNow };
+  }
   if (!typedChanged && layeredKeptPlayOf(state) === playNow) return { kind: 'kept', playNow };
   return {
     kind: 'new',
     playNow,
     registered: planned.registered,
     firstRound: planned.firstRound,
-    inUse: planInUse(state, planned.firstRound, planned.registered),
+    inUse,
     next: planned.next,
   };
 }

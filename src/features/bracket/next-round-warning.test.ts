@@ -6,11 +6,12 @@ import { liveTournament } from '../../domain/tournament/__tests__/qual-waterfall
 import { unscoredRooms } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import {
-  afterFiveAbsent,
+  afterSevenJoined,
   afterThreeAbsent,
   built,
   playRound,
   players,
+  withLateJoiners,
 } from '../../domain/tournament/__tests__/layered-test-support';
 import { checkLayeredPlan, keepLayeredPlan } from '../../domain/tournament/layered-replan';
 import { layeredPlanWarning, unscoredRoomsMessage } from './next-round-warning';
@@ -61,26 +62,26 @@ describe('unscoredRoomsMessage', () => {
 });
 
 describe('layeredPlanWarning', () => {
-  /** 31 registered, five absent after round 1 and round 2 (26 play): round 3, the last table round, in play. */
-  const atLastTableRound = () => afterFiveAbsent();
+  /** 31 registered, three absent, seven late joiners (35 play): round 3, the last table round, in play. */
+  const atLastTableRound = () => afterSevenJoined();
 
   it('names a waiting new plan on the last table round, and says Next Round plays the plan in use', () => {
     const state = atLastTableRound();
     expect(state.curRound).toBe(state.rounds.findIndex((round) => round.isWaterfall) - 1);
     expect(layeredPlanWarning(state)).toBe(
-      'A new plan for the bracket is waiting in Admin: 26 play now. Next Round plays the plan in use.',
+      'A new plan for the bracket is waiting in Admin: 35 play now. Next Round plays the plan in use.',
     );
   });
 
   it('is silent on an earlier table round even while a new plan waits, and speaks on the last one', () => {
-    // Five absent from round 1: 26 play already at round 2, with round 3 still to come.
-    const early = playRound(built(31), players(built(31)).slice(0, 5));
+    // Seven late joiners in round 2: 35 play already, with round 3 still to come.
+    const early = withLateJoiners(afterThreeAbsent(), 7);
     expect(early.curRound).toBe(early.rounds.findIndex((round) => round.isWaterfall) - 2);
     expect(checkLayeredPlan(early).kind).toBe('new');
     expect(layeredPlanWarning(early)).toBeNull();
-    const last = playRound(early, players(early).slice(0, 5));
+    const last = playRound(early, players(early).slice(0, 3));
     expect(checkLayeredPlan(last).kind).toBe('new');
-    expect(layeredPlanWarning(last)).toMatch(/^A new plan for the bracket is waiting in Admin: 26 play now/);
+    expect(layeredPlanWarning(last)).toMatch(/^A new plan for the bracket is waiting in Admin: 35 play now/);
   });
 
   it('is silent while the table has rounds to go, when no plan waits, and once the plan is kept', () => {

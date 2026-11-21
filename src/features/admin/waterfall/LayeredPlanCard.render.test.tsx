@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bracketLogicOf } from '../../../domain/tournament/app-written-bracket';
 import {
   afterFiveAbsent,
+  afterSevenJoined,
   afterThreeAbsent,
   built,
 } from '../../../domain/tournament/__tests__/layered-test-support';
@@ -35,29 +36,34 @@ describe('the card for a new plan', () => {
     expect(card()).toBeNull();
     unmount();
     current = afterThreeAbsent();
+    const again = render(<LayeredPlanCard state={current} />);
+    expect(card()).toBeNull();
+    again.unmount();
+    // 26 play: the plan would only move the first Lower rooms (7+7 in place of 8+7), which is not offered.
+    current = afterFiveAbsent();
     render(<LayeredPlanCard state={current} />);
     expect(card()).toBeNull();
   });
 
   it('is not shown for a bracket that is not a layered one', () => {
     current = {
-      ...afterFiveAbsent(),
-      gamemodeConfig: { ...afterFiveAbsent().gamemodeConfig, layeredVersion: undefined },
+      ...afterSevenJoined(),
+      gamemodeConfig: { ...afterSevenJoined().gamemodeConfig, layeredVersion: undefined },
     };
     render(<LayeredPlanCard state={current} />);
     expect(card()).toBeNull();
   });
 
   it('shows the plan in use beside the new one, each with its line and its rounds by levels', () => {
-    current = afterFiveAbsent();
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     expect(screen.getByText('A NEW PLAN FOR THE BRACKET')).toBeTruthy();
-    expect(card()?.textContent).toContain('26 play now');
+    expect(card()?.textContent).toContain('35 play now');
     expect(card()?.textContent).toContain('the plan in use was made for 28 who play');
     const inUse = within(document.getElementById('layered-plan-in-use') as HTMLElement);
     const next = within(document.getElementById('layered-plan-new') as HTMLElement);
     expect(inUse.getByText(/28 expected to play · 23 in the bracket/)).toBeTruthy();
-    expect(next.getByText(/26 expected to play · 22 in the bracket/)).toBeTruthy();
+    expect(next.getByText(/35 expected to play · 29 in the bracket/)).toBeTruthy();
     expect(inUse.getByText('The plan in use')).toBeTruthy();
     expect(next.getByText('The new plan')).toBeTruthy();
     // One grid and one set of phone blocks per plan: the plans sit beside each other on a wide screen, one above the other on a phone.
@@ -67,7 +73,7 @@ describe('the card for a new plan', () => {
   });
 
   it('has the two buttons and the typed numbers, without "Expected to play"', () => {
-    current = afterFiveAbsent();
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     expect(screen.getByRole('button', { name: 'Use the new plan' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Keep the current plan' })).toBeTruthy();
@@ -85,18 +91,18 @@ describe('the card for a new plan', () => {
 });
 
 describe('"Use the new plan"', () => {
-  it('saves the plan for 26 through the state, keeping the layered mark, and nothing else is saved', () => {
-    current = afterFiveAbsent();
+  it('saves the plan for 35 through the state, keeping the layered mark, and nothing else is saved', () => {
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     fireEvent.click(screen.getByRole('button', { name: 'Use the new plan' }));
     expect(saved).toHaveLength(1);
-    expect(layeredPlayOf(saved[0])).toBe(26);
+    expect(layeredPlayOf(saved[0])).toBe(35);
     expect(bracketLogicOf(saved[0])).toBe('layered');
     expect(checkLayeredPlan(saved[0]).kind).toBe('current');
   });
 
   it('takes a typed number into the plan and the stored settings', () => {
-    current = afterFiveAbsent();
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     fireEvent.change(screen.getByLabelText('Bracket rounds (optional)'), { target: { value: '5' } });
     fireEvent.click(screen.getByRole('button', { name: 'Use the new plan' }));
@@ -105,7 +111,7 @@ describe('"Use the new plan"', () => {
   });
 
   it('says why a typed number cannot be used, with the numbers that can, and does not save', () => {
-    current = afterFiveAbsent();
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     fireEvent.change(screen.getByLabelText('The top places of each room in Round 4 - Lower'), {
       target: { value: '7' },
@@ -126,19 +132,19 @@ describe('"Use the new plan"', () => {
 
 describe('"Keep the current plan"', () => {
   it('saves the number it was kept at and changes no round', () => {
-    current = afterFiveAbsent();
+    current = afterSevenJoined();
     render(<LayeredPlanCard state={current} />);
     fireEvent.click(screen.getByRole('button', { name: 'Keep the current plan' }));
     expect(saved).toHaveLength(1);
-    expect(layeredKeptPlayOf(saved[0])).toBe(26);
+    expect(layeredKeptPlayOf(saved[0])).toBe(35);
     expect(saved[0].rounds).toEqual(current.rounds);
   });
 
   it('is gone once the plan is kept: the card is not shown for the kept state, after a reload too', () => {
     current = JSON.parse(
       JSON.stringify({
-        ...afterFiveAbsent(),
-        gamemodeConfig: { ...afterFiveAbsent().gamemodeConfig, layeredKeptPlay: 26 },
+        ...afterSevenJoined(),
+        gamemodeConfig: { ...afterSevenJoined().gamemodeConfig, layeredKeptPlay: 35 },
       }),
     ) as TournamentState;
     render(<LayeredPlanCard state={current} />);

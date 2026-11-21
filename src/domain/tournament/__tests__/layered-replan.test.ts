@@ -3,6 +3,7 @@ import { bracketLogicOf } from '../app-written-bracket';
 import {
   checkLayeredPlan,
   keepLayeredPlan,
+  differsOnlyInFirstLowerRooms,
   layeredPlayNow,
   acceptLayeredPlan,
   type LayeredPlanCheck,
@@ -18,8 +19,11 @@ import {
   FFA_QUAL,
   FIRST_ROUND,
   afterFiveAbsent,
+  afterSevenJoined,
   afterThreeAbsent,
   built,
+  planFor,
+  playRound,
   plannedRounds,
   players,
   roomsOf,
@@ -94,30 +98,50 @@ describe('a new plan while the table runs', () => {
     expect(checkLayeredPlan(afterThreeAbsent())).toEqual({ kind: 'current', playNow: 28 });
   });
 
-  it('two more absent (26 play): a card, 22 in the bracket in place of 23, both plans', () => {
-    const check = newOf(checkLayeredPlan(afterFiveAbsent()));
-    expect(check.playNow).toBe(26);
-    expect(check.next.inBracket.value).toBe(22);
-    expect(check.next.play).toEqual({ value: 26, setBy: 'organiser', reason: '' });
+  it('two more absent (26 play): no card, the plan would only move the first Lower rooms (8+7 to 7+7)', () => {
+    expect(checkLayeredPlan(afterFiveAbsent())).toEqual({ kind: 'current', playNow: 26 });
+  });
+
+  it('seven late joiners (35 play): a card, 29 in the bracket in place of 23, one Upper room becomes two', () => {
+    const check = newOf(checkLayeredPlan(afterSevenJoined()));
+    expect(check.playNow).toBe(35);
+    expect(check.next.inBracket.value).toBe(29);
+    expect(check.next.play).toEqual({ value: 35, setBy: 'organiser', reason: '' });
+    expect(check.next.levels).toEqual([
+      { name: 'Upper', players: 16 },
+      { name: 'Lower', players: 13 },
+    ]);
+    expect(check.next.rounds[0].levels.map((level) => [level.level, level.rooms])).toEqual([
+      ['Upper', [8, 8]],
+      ['Lower', [7, 6]],
+    ]);
     expect(check.inUse?.inBracket.value).toBe(23);
     expect(check.inUse?.play.value).toBe(28);
     expect(check.firstRound).toBe(FIRST_ROUND);
   });
 
+  it('a typed number in the card at a first-Lower-rooms difference: the card shows the new plan', () => {
+    const state = afterFiveAbsent();
+    expect(checkLayeredPlan(state).kind).toBe('current');
+    const check = newOf(checkLayeredPlan(state, { layeredRounds: '5' }));
+    expect(check.next.inBracket.value).toBe(22);
+    expect(check.next.bracketRounds.setBy).toBe('organiser');
+  });
+
   it('the plan in use is the one the tournament was generated with', () => {
     const generated = built(31);
     expect(layeredPlayOf(generated)).toBe(28);
-    expect(newOf(checkLayeredPlan(afterFiveAbsent())).inUse?.levels).toEqual([
+    expect(newOf(checkLayeredPlan(afterSevenJoined())).inUse?.levels).toEqual([
       { name: 'Upper', players: 8 },
       { name: 'Lower', players: 15 },
     ]);
   });
 
   it('typed numbers stay as typed; only "Expected to play" becomes the number who play now', () => {
-    const state = afterFiveAbsent({ ...FFA_QUAL, layeredLevels: '2', layeredExpected: '30' });
+    const state = afterSevenJoined({ ...FFA_QUAL, layeredLevels: '2', layeredExpected: '30' });
     const check = newOf(checkLayeredPlan(state));
     expect(check.next.levelCount).toEqual({ value: 2, setBy: 'organiser', reason: '' });
-    expect(check.next.play.value).toBe(26);
+    expect(check.next.play.value).toBe(35);
     expect(check.inUse?.play.value).toBe(30);
   });
 
@@ -143,7 +167,7 @@ describe('a new plan while the table runs', () => {
   });
 
   it('a hand edit ends it after the card has shown', () => {
-    const state = afterFiveAbsent();
+    const state = afterSevenJoined();
     expect(checkLayeredPlan(state).kind).toBe('new');
     const handEdited = applyHandGraphEdit(
       state,
@@ -188,14 +212,14 @@ describe('a new plan while the table runs', () => {
 });
 
 describe('"Use the new plan"', () => {
-  it('saves the plan for 26: the rooms of a fresh plan at 26, the pooling rounds, scores and tie picks kept, the mark kept', () => {
-    const state = afterFiveAbsent();
+  it('saves the plan for 35: the rooms of a fresh plan at 35, the pooling rounds, scores and tie picks kept, the mark kept', () => {
+    const state = afterSevenJoined();
     const result = acceptLayeredPlan(state);
     if (!result.ok) throw new Error(result.message);
     const next = result.state;
-    const fresh = built(31, { ...FFA_QUAL, layeredExpected: '26' });
+    const fresh = built(38, { ...FFA_QUAL, layeredExpected: '35' });
     expect(bracketRooms(next)).toEqual(bracketRooms(fresh));
-    expect(next.cfg.qualAdv).toBe(22);
+    expect(next.cfg.qualAdv).toBe(29);
     expect(next.scores).toEqual(state.scores);
     expect(next.tieResolutions).toEqual(state.tieResolutions);
     // The last table round carries the routing of the standings, which follows the new plan.
@@ -204,7 +228,7 @@ describe('"Use the new plan"', () => {
     expect(pooling(next.rounds)).toEqual(pooling(state.rounds));
     expect(next.curRound).toBe(state.curRound);
     expect(bracketLogicOf(next)).toBe('layered');
-    expect(layeredPlayOf(next)).toBe(26);
+    expect(layeredPlayOf(next)).toBe(35);
     expect(next.settings).toEqual(state.settings);
   });
 
@@ -225,16 +249,16 @@ describe('"Use the new plan"', () => {
   });
 
   it("then plays to the Final, with every round drawn at the new plan's size", () => {
-    const result = acceptLayeredPlan(afterFiveAbsent());
+    const result = acceptLayeredPlan(afterSevenJoined());
     if (!result.ok) throw new Error(result.message);
-    expect(checkLayeredPlan(result.state)).toEqual({ kind: 'current', playNow: 26 });
+    expect(checkLayeredPlan(result.state)).toEqual({ kind: 'current', playNow: 35 });
     expectPlaysToTheFinal(result.state);
-    const expected = plannedRounds(newOf(checkLayeredPlan(afterFiveAbsent())).next);
+    const expected = plannedRounds(newOf(checkLayeredPlan(afterSevenJoined())).next);
     for (const { name, rooms } of expected) expect(roomsOf(result.state, name)).toEqual(rooms);
   });
 
   it('takes the typed numbers of the card into the plan and the stored settings', () => {
-    const state = afterFiveAbsent();
+    const state = afterSevenJoined();
     const overrides = { layeredRounds: '5' } as const;
     const check = newOf(checkLayeredPlan(state, overrides));
     expect(check.next.bracketRounds.setBy).toBe('organiser');
@@ -256,29 +280,34 @@ describe('"Use the new plan"', () => {
 
 describe('"Keep the current plan"', () => {
   it('hides the card at that number, and it comes back only when the number who play moves', () => {
-    const state = afterFiveAbsent();
+    const state = afterSevenJoined();
     const kept = keepLayeredPlan(state);
-    expect(layeredKeptPlayOf(kept)).toBe(26);
-    expect(checkLayeredPlan(kept)).toEqual({ kind: 'kept', playNow: 26 });
+    expect(layeredKeptPlayOf(kept)).toBe(35);
+    expect(checkLayeredPlan(kept)).toEqual({ kind: 'kept', playNow: 35 });
     expect(bracketRooms(kept)).toEqual(bracketRooms(state));
-    const sixPlay = removeRosterUnit(kept, players(kept)[10]);
-    expect(newOf(checkLayeredPlan(sixPlay)).playNow).toBe(25);
+    const oneFewer = removeRosterUnit(kept, players(kept)[10]);
+    expect(newOf(checkLayeredPlan(oneFewer)).playNow).toBe(34);
   });
 
   it('survives a reload: the kept number is in the stored config', () => {
-    const kept = keepLayeredPlan(afterFiveAbsent());
+    const kept = keepLayeredPlan(afterSevenJoined());
     const reloaded = JSON.parse(JSON.stringify(kept)) as TournamentState;
-    expect(checkLayeredPlan(reloaded)).toEqual({ kind: 'kept', playNow: 26 });
+    expect(checkLayeredPlan(reloaded)).toEqual({ kind: 'kept', playNow: 35 });
   });
 
   it('is gone once the new plan is used, and a later move of the number shows the card again', () => {
-    const kept = keepLayeredPlan(afterFiveAbsent());
+    const kept = keepLayeredPlan(afterSevenJoined());
     const used = acceptLayeredPlan(kept);
     if (!used.ok) throw new Error(used.message);
     expect(layeredKeptPlayOf(used.state)).toBeUndefined();
-    expect(layeredPlayOf(used.state)).toBe(26);
-    const later = removeRosterUnit(used.state, players(used.state)[12]);
-    expect(newOf(checkLayeredPlan(later)).playNow).toBe(25);
+    expect(layeredPlayOf(used.state)).toBe(35);
+    // One fewer only moves the first Lower rooms: no card. Eight fewer changes the shape: the card is back.
+    const oneFewer = removeRosterUnit(used.state, players(used.state)[12]);
+    expect(checkLayeredPlan(oneFewer).kind).toBe('current');
+    const later = players(used.state)
+      .slice(12, 20)
+      .reduce((state, unit) => removeRosterUnit(state, unit), used.state);
+    expect(newOf(checkLayeredPlan(later)).playNow).toBe(27);
   });
 
   it('does nothing outside the table: after the first bracket round is drawn the state is unchanged', () => {
@@ -314,5 +343,135 @@ describe('a late joiner and a withdrawal do not change the bracket by themselves
     const removed = removeRosterUnit(state, players(state)[20]);
     expect(bracketRooms(removed)).toEqual(bracketRooms(state));
     expect(layeredPlayNow(removed)).toBe(27);
+  });
+});
+
+/** Registered, then who is marked absent in round 1 (and stays absent): the number who play is the roster less them. */
+const awkwardCounts = (registered: number, absent: number) => {
+  const start = built(registered);
+  return playRound(start, players(start).slice(0, absent));
+};
+
+describe('a card only when the bracket changes shape: awkward counts', () => {
+  // Only the first Lower rooms change (the number in the bracket moves, nothing later does): no card.
+  it.each([
+    [37, 1, 36],
+    [37, 2, 35],
+    [43, 6, 37],
+    [43, 10, 33],
+    [53, 6, 47],
+    [53, 9, 44],
+    [61, 14, 47],
+    [61, 17, 44],
+    [80, 10, 70],
+  ])('%i registered, %i absent (%i play): no card', (registered, absent, play) => {
+    expect(checkLayeredPlan(awkwardCounts(registered, absent))).toEqual({ kind: 'current', playNow: play });
+  });
+
+  // The Upper level, the bracket rounds or the later rounds change: the card.
+  it.each([
+    [37, 5, 32],
+    [43, 11, 32],
+    [53, 10, 43],
+    [61, 1, 60],
+    [80, 4, 76],
+  ])('%i registered, %i absent (%i play): a card', (registered, absent, play) => {
+    expect(newOf(checkLayeredPlan(awkwardCounts(registered, absent))).playNow).toBe(play);
+  });
+
+  it('a three-level bracket where only the first Lower rooms change: 80 registered, 70 play', () => {
+    const state = awkwardCounts(80, 10);
+    expect(checkLayeredPlan(state).kind).toBe('current');
+    expect(newOf(checkLayeredPlan(state, { layeredRounds: '6' })).inUse?.levels).toHaveLength(3);
+  });
+});
+
+describe('differsOnlyInFirstLowerRooms', () => {
+  const inUse = () => planFor(31, { play: 28 });
+  const next = () => planFor(31, { play: 26 });
+
+  it('is true for the plans of 28 and 26 play at 31 registered: only the first Lower rooms differ', () => {
+    expect(inUse().rounds[0].levels.at(-1)?.rooms).toEqual([8, 7]);
+    expect(next().rounds[0].levels.at(-1)?.rooms).toEqual([7, 7]);
+    expect(differsOnlyInFirstLowerRooms(inUse(), next())).toBe(true);
+  });
+
+  it('is true when the Lower level has other room sizes, players and number out in the first round, and no more', () => {
+    const changed = next();
+    const lower = changed.rounds[0].levels.at(-1);
+    if (!lower) throw new Error('no Lower level');
+    lower.rooms = [8, 6];
+    lower.players = 14;
+    lower.out = lower.out + 1;
+    changed.rounds[0].out = changed.rounds[0].out + 1;
+    changed.levels = changed.levels.map((level) =>
+      level.name === 'Lower' ? { ...level, players: 14 } : level,
+    );
+    expect(differsOnlyInFirstLowerRooms(inUse(), changed)).toBe(true);
+  });
+
+  /** Each line of the rule flipped alone, on a copy of the new plan. */
+  const flips: Array<[string, (plan: ReturnType<typeof next>) => void]> = [
+    ['the level count', (plan) => void (plan.levelCount = { ...plan.levelCount, value: 3 })],
+    ['the top level', (plan) => void (plan.topLevel = { ...plan.topLevel, value: 14 })],
+    ['the bracket rounds', (plan) => void (plan.bracketRounds = { ...plan.bracketRounds, value: 6 })],
+    [
+      'what the other half of Semi-Final A do',
+      (plan) =>
+        void (plan.semiOthers = {
+          ...plan.semiOthers,
+          value: plan.semiOthers.value === 'wait' ? 'play-on' : 'wait',
+        }),
+    ],
+    ['the last semi-final', (plan) => void (plan.lastSemiFinal = { ...plan.lastSemiFinal, toFinal: 3 })],
+    ['the Final', (plan) => void (plan.finalPlayers += 1)],
+    [
+      'the typed top places',
+      (plan) => void plan.topCounts.push({ round: 0, level: 'Lower', top: 3, applies: true }),
+    ],
+    ['the players the Upper level starts with', (plan) => void (plan.levels[0].players += 1)],
+    [
+      'the levels (no Lower level)',
+      (plan) => void (plan.levels = plan.levels.filter((level) => level.name !== 'Lower')),
+    ],
+    ['the players waiting in the first round', (plan) => void (plan.rounds[0].waiting += 1)],
+    ['Semi-Final A in the first round', (plan) => void (plan.rounds[0].firstSemiFinal = null)],
+    [
+      'the other half of Semi-Final A in the first round',
+      (plan) => void (plan.rounds[0].firstSemiFinal = { others: 'last-semi' }),
+    ],
+    [
+      'the number of Lower rooms in the first round',
+      (plan) => void (plan.rounds[0].levels[0].rooms = [5, 5, 5]),
+    ],
+    ['the Lower top of the first round', (plan) => void (plan.rounds[0].levels[0].top += 1)],
+    [
+      'where the Lower top go in the first round',
+      (plan) => void (plan.rounds[0].levels[0].topGoes = 'through'),
+    ],
+    ['the number of bracket rounds', (plan) => void plan.rounds.pop()],
+    ['the rooms of a later round', (plan) => void (plan.rounds[1].levels[0].rooms = [6, 5])],
+    ['the top of a later round', (plan) => void (plan.rounds[1].levels[0].top += 1)],
+    ['the number out of a later round', (plan) => void (plan.rounds[1].out += 1)],
+    ['the players waiting in a later round', (plan) => void (plan.rounds[1].waiting += 1)],
+    ['the players going down in a later round', (plan) => void (plan.rounds[1].levels[0].down += 1)],
+  ];
+
+  it('keeps the Upper and Middle rooms of a three-level first round: 80 registered, 72 and 70 play', () => {
+    const before = planFor(80, { play: 72 });
+    const after = planFor(80, { play: 70 });
+    expect(before.levels).toHaveLength(3);
+    expect(differsOnlyInFirstLowerRooms(before, after)).toBe(true);
+    const changed = structuredClone(after);
+    const upper = changed.rounds[0].levels.find((level) => level.level !== 'Lower');
+    if (!upper) throw new Error('no level above the Lower level in the first round');
+    upper.rooms = [...upper.rooms, 1];
+    expect(differsOnlyInFirstLowerRooms(before, changed)).toBe(false);
+  });
+
+  it.each(flips)('is false when only %s differs', (_line, flip) => {
+    const changed = structuredClone(next());
+    flip(changed);
+    expect(differsOnlyInFirstLowerRooms(inUse(), changed)).toBe(false);
   });
 });
