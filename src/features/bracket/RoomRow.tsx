@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { unitDisplay } from '../../domain/tournament/roster';
 import { unneededGames } from '../../domain/tournament/match-format';
-import { formatStandingValue, scoreKey } from '../../domain/tournament/scoring';
+import { formatStandingValue, scoreKey, scoredMemberSlots } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Badge, ScoreInput, cn } from '../../components/ui';
 import { LuckyStar } from '../tournament/components/LuckyStar';
@@ -194,15 +194,16 @@ export interface RoomRowProps {
   finalPlace?: number;
 }
 
-/** The score inputs of an editable team row: one per member (and per game), then the total. */
+/** The score inputs of an editable team row: one per member that takes a score (and per game), then the total. */
 function MemberInputs({ props, count }: { props: RoomRowProps; count: number }) {
   const { state, roundIndex, room, team, games } = props;
   const { name, position } = props.row;
+  const slots = scoredMemberSlots(state, name, roundIndex, count);
   const notNeeded = unneededGames(state, roundIndex, room);
   const summary = unitScoreSummary(state, roundIndex, room, position);
   return (
     <TeamScoreFields>
-      {Array.from({ length: count }, (_, memberIndex) => {
+      {slots.map((memberIndex) => {
         const member = team?.members?.[memberIndex];
         if (!member) {
           return <ScoreInput key={memberIndex} className={compactScoreClass} disabled placeholder='—' />;
@@ -290,8 +291,12 @@ export function RoomRow(props: RoomRowProps) {
   ) : null;
   // A single-game, non-team row takes its one input right in the line; every other editable row gets its inputs below.
   const inlineInput = rowsEditable && !teamSize && games <= 1;
-  // The member line shows for a team with members, unless their score inputs take its place.
-  const memberLine = Boolean(unit?.members?.length) && !inputsPerTeam;
+  // The member line shows for a team with members, unless a box for each of them takes its place (Save your Buddy
+  // shows the defender's box alone, so the other members stay on the line).
+  const everyMemberHasBox =
+    Boolean(inputsPerTeam) &&
+    scoredMemberSlots(state, name, roundIndex, inputsPerTeam ?? 0).length === inputsPerTeam;
+  const memberLine = Boolean(unit?.members?.length) && !everyMemberHasBox;
   const nameBlock = (
     <span className={cn('flex min-w-0 flex-col gap-0.5', gameColumns ? 'max-w-full grow' : 'flex-1')}>
       <NameWithMarks

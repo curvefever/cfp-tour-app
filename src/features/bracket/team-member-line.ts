@@ -5,7 +5,12 @@ import {
 } from '../../domain/tournament/absences';
 import { countedGames } from '../../domain/tournament/match-format';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
-import { getDefenderIndex, scoreKeysForPosition, scoredTeamSize } from '../../domain/tournament/scoring';
+import {
+  getDefenderIndex,
+  scoreKeysForPosition,
+  scoredMemberSlots,
+  scoredTeamSize,
+} from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 import { joinMembers } from '../tournament/components/member-line';
 
@@ -48,7 +53,11 @@ function memberTotal(
   return total;
 }
 
-/** Whether the member was absent in every game that counts (sum of members, Save your Buddy). */
+/**
+ * Whether the member was absent in every game that counts. A member whose own score is entered is absent when that score
+ * is; a member who takes none (a teammate of the defender in Save your Buddy) is absent when the team is, that is,
+ * when the scores that are entered are.
+ */
 function memberAbsent(
   state: TournamentState,
   roundIndex: number,
@@ -65,8 +74,13 @@ function memberAbsent(
     teamSize,
   });
   const counted = Math.max(Math.min(numGames, countedGames(state, roundIndex, seat.room)), 1);
-  return Array.from({ length: counted }, (_, game) => keys[game * teamSize + memberIndex]).every((key) =>
-    isMarkedAbsent(state, key),
+  const unit = (state.assignments[roundIndex] ?? []).filter((entry) => entry.room === seat.room)[
+    seat.position
+  ];
+  const slots = scoredMemberSlots(state, unit?.name, roundIndex, teamSize);
+  const asked = slots.includes(memberIndex) ? [memberIndex] : slots;
+  return Array.from({ length: counted }, (_, game) => game).every((game) =>
+    asked.every((slot) => isMarkedAbsent(state, keys[game * teamSize + slot])),
   );
 }
 

@@ -1,6 +1,6 @@
 import { unitDisplay } from '../../domain/tournament/roster';
 import { setFinalScore } from '../../domain/tournament/mutations';
-import { finalScoreKey } from '../../domain/tournament/scoring';
+import { finalScoreKey, scoredMemberSlots } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { CommitScoreInput, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
@@ -26,7 +26,7 @@ function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scor
   );
 }
 
-/** The score inputs of one unit for the game being entered: one per member, or one for the unit. */
+/** The score inputs of one unit for the game being entered: one per member that takes a score, or one for the unit. */
 function FinalScoreEntry({
   activeTab,
   inputsPerTeam,
@@ -43,12 +43,13 @@ function FinalScoreEntry({
   team: TournamentTeam | undefined;
 }) {
   const app = useTournamentApp();
+  const slots = inputsPerTeam ? scoredMemberSlots(state, name, roundIndex, inputsPerTeam) : [];
   return (
     <div className='mt-1 flex flex-wrap items-center gap-1.5'>
       <span className='text-[13px] text-muted'>G{activeTab}</span>
       {inputsPerTeam ? (
         <TeamScoreFields>
-          {Array.from({ length: inputsPerTeam }, (_, memberIndex) => {
+          {slots.map((memberIndex) => {
             const member = team?.members?.[memberIndex];
             if (!member) {
               return <ScoreInput className={compactScoreClass} disabled key={memberIndex} placeholder='—' />;
@@ -105,6 +106,10 @@ export function FinalRow(props: FinalRowProps) {
   const { state, roundIndex, name, index, complete, perGame, total, showsWins, followed, manual } = props;
   const { columns } = props;
   const { teamSize, team, entryGame, entryAnonymous, entryNotNeeded, inputsPerTeam } = props;
+  // A box for every member takes the member line's place; Save your Buddy shows the defender's box alone.
+  const everyMemberHasBox =
+    Boolean(inputsPerTeam) &&
+    scoredMemberSlots(state, name, roundIndex, inputsPerTeam ?? 0).length === inputsPerTeam;
   return (
     <div className={cn(roomRowClass, rowSurfaceClasses(index, followed))}>
       <div className='flex items-center gap-2 bg-inherit'>
@@ -117,7 +122,7 @@ export function FinalRow(props: FinalRowProps) {
               {unitDisplay(state, name).label}
               {manual ? <ManualMarker /> : null}
             </span>
-            {teamSize && !inputsPerTeam ? (
+            {teamSize && !everyMemberHasBox ? (
               <TeamMembers name={name} roundIndex={roundIndex} state={state} />
             ) : null}
           </span>

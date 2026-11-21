@@ -83,6 +83,25 @@ describe('teamMemberLine at 13 teams in 2v2v2v2', () => {
     expect(line.match(/🛡/g)).toHaveLength(1);
   });
 
+  it('marks every member ABS when the defender is absent in Save your Buddy, and none when the defender played', () => {
+    const players = [teamOf('Red', ['a', 'b', 'c']), teamOf('Blue', ['d', 'e', 'f'])];
+    const room = oneRoomState({
+      gameFormat: 'team-3v3',
+      rule: 'designated-player',
+      players,
+      scores: { 'r0-rm1-p0-m0': 0, 'r0-rm1-p1-m0': 0 },
+    });
+    const answered = answerAbsence(
+      answerAbsence(room, ['r0-rm1-p0-m0'], 'absent'),
+      ['r0-rm1-p1-m0'],
+      'played',
+    );
+    const seat = { room: 1, position: 0 };
+    expect(shown(teamMemberLine(answered, 'Red', 0, seat))).toBe('a_🛡_ABS_· b_ABS_· c_ABS');
+    const played = teamMemberLine(answered, 'Blue', 0, { room: 1, position: 1 });
+    expect(played).not.toContain('ABS');
+  });
+
   it('shows names only under One score per team, even when the room is complete', () => {
     const { state, name } = scoredFirstSeat(start(ONE_SCORE_PER_TEAM));
     expect(shown(teamMemberLine(state, name, 0, { room: 1, position: 0 }))).toMatch(/^Ana\d+_· Ben\d+$/);
