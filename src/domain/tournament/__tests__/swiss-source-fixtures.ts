@@ -43,6 +43,20 @@ R2.A: 1->Final, 2->eliminated
 R2.B: 1->Final, 2->eliminated
 `;
 
+/**
+ * A Swiss tournament as it was stored before a Swiss always fed a Custom bracket through its Qual source: no round carries
+ * `standingsRoutes`, so it plays on with one entry round drawn from the top "Advance to bracket", as it always did.
+ */
+export function storedBeforeSwissRouting(state: TournamentState): TournamentState {
+  return {
+    ...state,
+    rounds: state.rounds.map((round) => {
+      const { standingsRoutes: _routes, ...kept } = round;
+      return kept;
+    }),
+  };
+}
+
 /** A started Swiss tournament with the graph, in column play, at its first Swiss round. */
 export function swiss(
   count: number,

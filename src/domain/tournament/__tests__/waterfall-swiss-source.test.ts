@@ -27,6 +27,7 @@ import {
   SWISS_QUAL_GRAPH as GRAPH,
   atEntry,
   firstBracketIndex,
+  storedBeforeSwissRouting,
   swiss,
   toSwissExit,
 } from './swiss-source-fixtures';
@@ -221,12 +222,23 @@ describe('changing the Qual line during the Swiss', () => {
   });
 });
 
-describe('a Swiss with no Qual line stays a Custom bracket with one entry round', () => {
-  it('has no routing on its Swiss rounds and reads "Advance to bracket" from the form', () => {
-    const state = swiss(11, { qualAdv: '8' }, LINELESS);
-    expect(state.rounds.every((round) => round.standingsRoutes === undefined)).toBe(true);
+describe('a Swiss whose graph has no Qual line is read as the top N into the entry round', () => {
+  it('routes ranks 1-8 to the entry round on its last Swiss round, and "Advance to bracket" comes from the graph', () => {
+    const state = swiss(11, { qualAdv: '3' }, LINELESS);
+    const last = firstBracketIndex(state) - 1;
+    expect(state.rounds[last].standingsRoutes).toEqual(Array(8).fill(firstBracketIndex(state)));
+    expect(state.rounds.slice(0, last).every((round) => round.standingsRoutes === undefined)).toBe(true);
     expect(state.cfg.qualAdv).toBe(8);
     expect(state.rounds[firstBracketIndex(state)].rooms).toEqual([2, 2, 2, 2]);
+  });
+
+  it('a Swiss stored before this (no routing on its rounds) still enters its bracket as it did: the top 8 into one entry round', () => {
+    const stored = storedBeforeSwissRouting(swiss(11, { qualAdv: '8' }, LINELESS));
+    expect(stored.rounds.every((round) => round.standingsRoutes === undefined)).toBe(true);
+    const entry = atEntry(stored);
+    const seated = entry.assignments[firstBracketIndex(entry)];
+    expect(seated).toHaveLength(8);
+    expect(entry.rounds[firstBracketIndex(entry)].rooms).toEqual([2, 2, 2, 2]);
   });
 });
 
@@ -293,8 +305,34 @@ describe('"Edit graph" on a Swiss with a Qual line', () => {
   );
 });
 
-describe('"Edit graph" on a Swiss with no Qual line', () => {
+describe('"Edit graph" on a Swiss whose graph had no Qual line', () => {
   const start = swiss(11, { qualAdv: '8' }, LINELESS);
+  const states = [
+    ['during the Swiss', toSwissExit(start)],
+    ['after the exit', withDependencyPlay(atEntry(start))],
+  ] as const;
+
+  it.each(states)(
+    '%s: the graph is read back with its Qual line (ranks 1-8 to R1), and saving it changes nothing',
+    (_when, state) => {
+      expect(waterfallDraftFromRounds(state.rounds, { rankCount: 11 }).qualRoutes).toEqual([
+        ...Array(8).fill('R1'),
+        null,
+        null,
+        null,
+      ]);
+      const text = editedText(state);
+      expect(text).toContain('Qual: 1-8->R1');
+      const saved = applyWaterfallGraphEdit(state, text);
+      expect(saved.ok ? '' : saved.error).toBe('');
+      if (!saved.ok) return;
+      expect(saved.state.rounds).toEqual(state.rounds);
+    },
+  );
+});
+
+describe('"Edit graph" on a Swiss stored before the Qual source (no routing on its rounds)', () => {
+  const start = storedBeforeSwissRouting(swiss(11, { qualAdv: '8' }, LINELESS));
   const states = [
     ['during the Swiss', toSwissExit(start)],
     ['after the exit', withDependencyPlay(atEntry(start))],
@@ -313,9 +351,12 @@ describe('"Edit graph" on a Swiss with no Qual line', () => {
 });
 
 describe('swissRoutesItsStandings', () => {
-  it('is true for a Swiss with a Qual line, false for one without and for a qualification table', () => {
+  it('is true for a Swiss generated with or without a Qual line, false for one stored before the routing and for a qualification table', () => {
     expect(swissRoutesItsStandings(swiss(11))).toBe(true);
-    expect(swissRoutesItsStandings(swiss(11, { qualAdv: '8' }, LINELESS))).toBe(false);
+    expect(swissRoutesItsStandings(swiss(11, { qualAdv: '8' }, LINELESS))).toBe(true);
+    expect(swissRoutesItsStandings(storedBeforeSwissRouting(swiss(11, { qualAdv: '8' }, LINELESS)))).toBe(
+      false,
+    );
     const table = generated(11, {
       gameFormat: 'individual-1v1',
       oddCountStrategy: 'bye',

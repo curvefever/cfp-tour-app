@@ -23,11 +23,7 @@ import {
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { matchFormatConfig, wholeNumber } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
-import {
-  graphTextHasQualLine,
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-} from './waterfall-bracket';
+import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from './waterfall-bracket';
 import type { TournamentRuntime } from './runtime';
 import type {
   GeneratedTournamentConfig,
@@ -287,11 +283,10 @@ export function generateTournament(
   // After a qualification table or a group stage the waterfall graph's own Qual or Groups routing decides
   // who advances, so "Advance to bracket" is derived from it (the highest routed rank), not read from the form.
   let waterfallGraph: OrderedWaterfallGraph | undefined;
-  // A Swiss feeds the graph the same way when the graph has a Qual line; with none it stays a Custom bracket with one entry round.
+  // A Swiss feeds the graph exactly as a qualification table does: its final standings are the graph's Qual source.
   const graphHasQualSource =
     schedule === 'waterfall-bracket' &&
-    (config.poolingPhase === 'qual-table' ||
-      (config.poolingPhase === 'swiss' && graphTextHasQualLine(graphText)));
+    (config.poolingPhase === 'qual-table' || config.poolingPhase === 'swiss');
   const graphHasGroupsSource = schedule === 'waterfall-bracket' && config.poolingPhase === 'group-stage';
   if (graphHasQualSource) {
     const resolved = resolveWaterfallGraph(graphText, {

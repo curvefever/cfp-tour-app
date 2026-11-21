@@ -208,14 +208,42 @@ describe('settingsRecapGroups', () => {
     expect(items['Custom bracket graph']).toBeDefined();
   });
 
-  it('reads the advancing count of a Swiss with a Qual line off its graph, and a Swiss without one from the form', () => {
+  it('reads the advancing count of a Swiss off its graph, with a Qual line or without one (the top N into the entry round)', () => {
     const setup = { scheduleLogic: 'waterfall-bracket', poolingPhase: 'swiss', qualAdv: '99' } as const;
     const withLine = itemsOf(settingsRecapGroups(stateOf({ ...setup, waterfallGraph: QUAL_GRAPH })));
     expect(withLine['Advance to bracket']).toBe('24, set by the custom bracket graph');
-    const withoutLine = itemsOf(
-      settingsRecapGroups(stateOf({ ...setup, waterfallGraph: QUAL_GRAPH.replace(/^Qual:.*$/m, '') })),
+    // One entry round of 16 seats and no Qual line: read as the top 16 into it.
+    const oneEntryRound = 'ROUNDS:\nR1 = 2x8\nFinal = 8 FINAL\n\nROUTES:\nR1.A: 1-4->Final\nR1.B: 1-4->Final';
+    const withoutLine = itemsOf(settingsRecapGroups(stateOf({ ...setup, waterfallGraph: oneEntryRound })));
+    expect(withoutLine['Advance to bracket']).toBe('16, set by the custom bracket graph');
+  });
+});
+
+describe('the recap of a Swiss into a Custom bracket graph with no Qual line', () => {
+  it('reads "Advance to bracket" off the graph: the top 4 into the entry round of 4 seats', () => {
+    const graph = [
+      'ROUNDS:',
+      'R6 = 2x2',
+      'QF = 2x2',
+      'Final = 2 FINAL',
+      '',
+      'ROUTES:',
+      'R6.A: 1-2->QF',
+      'R6.B: 1-2->QF',
+      'QF.A: 1->Final',
+      'QF.B: 1->Final',
+    ].join('\n');
+    const items = itemsOf(
+      settingsRecapGroups(
+        stateOf({
+          scheduleLogic: 'waterfall-bracket',
+          poolingPhase: 'swiss',
+          qualAdv: '9',
+          waterfallGraph: graph,
+        }),
+      ),
     );
-    expect(withoutLine['Advance to bracket']).toBe('99');
+    expect(items['Advance to bracket']).toBe('4, set by the custom bracket graph');
   });
 });
 

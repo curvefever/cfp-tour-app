@@ -5,6 +5,7 @@ import { scoredAlike } from '../../../domain/tournament/__tests__/qual-waterfall
 import {
   SWISS_LINELESS_GRAPH,
   atEntry,
+  storedBeforeSwissRouting,
   swiss,
   toSwissExit,
 } from '../../../domain/tournament/__tests__/swiss-source-fixtures';
@@ -38,8 +39,18 @@ describe('the running Admin graph of a Swiss with a Qual line', () => {
     expect(screen.getAllByText('Swiss standings').length).toBeGreaterThan(0);
   });
 
-  it('shows no such block for a Swiss with no Qual line', () => {
+  it('shows the block for a Swiss generated with a graph that has no Qual line: it is read as the top 8 into the entry round', () => {
     render(<RunningWaterfallPanel state={swiss(11, { qualAdv: '8' }, SWISS_LINELESS_GRAPH)} />);
+    expect(screen.getAllByText('Swiss standings').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Qualification table')).toBeNull();
+  });
+
+  it('shows no such block for a Swiss stored before the Qual source, which has no routing on its rounds', () => {
+    render(
+      <RunningWaterfallPanel
+        state={storedBeforeSwissRouting(swiss(11, { qualAdv: '8' }, SWISS_LINELESS_GRAPH))}
+      />,
+    );
     expect(screen.queryByText('Swiss standings')).toBeNull();
     expect(screen.queryByText('Qualification table')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Edit graph' }));
@@ -56,8 +67,18 @@ describe('the tie banners after a Swiss', () => {
     expect(screen.queryByText(/Qualification tie/)).toBeNull();
   });
 
-  it('keep "Qualification tie" when the Swiss has no Qual line', () => {
+  it('read "Swiss tie" for a Swiss generated with a graph that has no Qual line', () => {
     render(<TieBanners state={tiedAlike(swiss(16, { qualAdv: '8' }, SWISS_LINELESS_GRAPH))} />);
+    expect(screen.getByText(/Swiss tie/)).toBeTruthy();
+    expect(screen.queryByText(/Qualification tie/)).toBeNull();
+  });
+
+  it('keep "Qualification tie" for a Swiss stored before the Qual source', () => {
+    render(
+      <TieBanners
+        state={tiedAlike(storedBeforeSwissRouting(swiss(16, { qualAdv: '8' }, SWISS_LINELESS_GRAPH)))}
+      />,
+    );
     expect(screen.getByText(/Qualification tie/)).toBeTruthy();
     expect(screen.queryByText(/Swiss tie/)).toBeNull();
   });

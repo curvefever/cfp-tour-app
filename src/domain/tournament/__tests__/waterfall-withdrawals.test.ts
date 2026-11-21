@@ -12,6 +12,7 @@ import {
   playToQualificationExit,
   playerNames,
 } from './qual-waterfall';
+import { storedBeforeSwissRouting } from './swiss-source-fixtures';
 import { fixedIdSource, startedState } from './test-fixtures';
 
 /** The graph's bottom bands route on: R1's ranks 5-8 go to R3 instead of out. */
@@ -234,7 +235,7 @@ describe('fitWaterfallRound', () => {
   });
 });
 
-describe('Swiss into a waterfall without a Qual source', () => {
+describe('Swiss into a waterfall whose graph has no Qual line', () => {
   /** 16 head-to-head entry seats (8 rooms of 2), halving down to a 2-unit Final. */
   function entry16Graph(): string {
     const letters = 'ABCDEFGH'.split('');
@@ -271,8 +272,19 @@ describe('Swiss into a waterfall without a Qual source', () => {
     );
   }
 
-  it('draws the 16-seat entry round with 15 after withdrawals leave the Swiss field below the cut, instead of blocking', () => {
+  it('is read as the top 16 into the entry round, so withdrawals that leave the Swiss field below 16 block Next Round, as after a qualification table', () => {
     const start = swissStart(17);
+    const firstBracket = start.rounds.findIndex((round) => round.isWaterfall);
+    expect(start.rounds[firstBracket - 1].standingsRoutes).toEqual(Array(16).fill(firstBracket));
+    const played = playWithRemovals(start, 0, [0, 0], fromFullestRoom);
+    expect(played.outcome).toMatchObject({ kind: 'blocked', reason: 'too-few-units' });
+    expect('message' in played.outcome ? played.outcome.message : '').toContain(
+      'the Swiss standings rank 15',
+    );
+  });
+
+  it('a Swiss stored before the Qual source (no routing on its rounds) still draws the 16-seat entry round with 15, instead of blocking', () => {
+    const start = storedBeforeSwissRouting(swissStart(17));
     const firstBracket = start.rounds.findIndex((round) => round.isWaterfall);
     expect(start.rounds.slice(0, firstBracket).some((round) => round.isSwiss)).toBe(true);
     const played = playWithRemovals(start, 0, [0, 0], fromFullestRoom);

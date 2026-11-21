@@ -349,12 +349,12 @@ const PAIRS: Array<[CheckName, CheckName, Attempt?]> = [
   ],
   [
     'nonCountingRoundsNotANumber',
-    'graphBlankWithoutSource',
+    'pointsTableMissing',
     { count: 13, form: { ...ONE_V_ONE, poolingPhase: 'swiss', qualAdv: '4' } },
   ],
   [
     'nonCountingRoundsTooMany',
-    'graphBlankWithoutSource',
+    'pointsTableMissing',
     { count: 13, form: { ...ONE_V_ONE, poolingPhase: 'swiss', qualAdv: '4', swissRoundsOverride: '2' } },
   ],
   [
@@ -420,7 +420,8 @@ const PAIRS: Array<[CheckName, CheckName, Attempt?]> = [
  * - a format that is head to head and one that isn't: group stage and its size limits; double elimination and its
  *   Flex check; match results and double elimination's head-to-head check.
  * - branches of one if/else: the Qual-source graph, the Groups-source graph and the plain "Advance to bracket"
- *   checks; the per-group exit refusal (no Groups line) and the group-exit cut (`groupExit` set).
+ *   checks (a Swiss and a qualification table both have the Qual source, so the non-counting rounds, which only
+ *   those two have, are never broken together with the blank graph of no source); the per-group exit refusal (no Groups line) and the group-exit cut (`groupExit` set).
  * - one schedule logic each: double elimination, Kings Valley, shared-Final double elimination, single elimination.
  * - a derived graph: an upper and lower bracket's graph is always valid, so no graph refusal follows its plan.
  * - not reachable at all: the refusal "This game format has no room size" (every format has one, and

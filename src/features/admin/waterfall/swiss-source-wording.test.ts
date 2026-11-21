@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { standingsKindOfSetup } from '../../../domain/tournament/waterfall-numbering';
-import { graphTextHasQualLine } from '../../../domain/tournament/waterfall-bracket';
 import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import { cutoffTieHeading } from '../../bracket/cutoff-tie-heading';
 import { sourceName, standingsSourceName } from './waterfall-format';
@@ -12,15 +11,14 @@ describe('the Swiss as a source of a Custom bracket', () => {
   const swiss = (waterfallGraph: string) =>
     createDefaultSetup({ scheduleLogic: 'waterfall-bracket', poolingPhase: 'swiss', waterfallGraph });
 
-  it('a Swiss whose graph has a Qual line is a "qual" source, one without is none', () => {
+  it('a Swiss is a "qual" source whatever its graph text holds: a Qual line, none, or no graph yet', () => {
     expect(standingsKindOfSetup(swiss(WITH_LINE))).toBe('qual');
-    expect(standingsKindOfSetup(swiss(WITHOUT_LINE))).toBeNull();
-    expect(standingsKindOfSetup(swiss(''))).toBeNull();
+    expect(standingsKindOfSetup(swiss(WITHOUT_LINE))).toBe('qual');
+    expect(standingsKindOfSetup(swiss(''))).toBe('qual');
   });
 
-  it('a Groups line under a Swiss is not a Qual line', () => {
-    expect(graphTextHasQualLine(WITH_LINE.replace('Qual:', 'Groups:'))).toBe(false);
-    expect(standingsKindOfSetup(swiss(WITH_LINE.replace('Qual:', 'Groups:')))).toBeNull();
+  it('a Groups line under a Swiss does not change its source: the editor offers to turn it into a Qual line', () => {
+    expect(standingsKindOfSetup(swiss(WITH_LINE.replace('Qual:', 'Groups:')))).toBe('qual');
   });
 
   it('the other pooling phases are unchanged', () => {
