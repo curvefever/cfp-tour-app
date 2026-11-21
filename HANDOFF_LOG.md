@@ -22,7 +22,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Review (planner-reviewer, 50d7e5d).** Related tests 29 files / 624 pass; eslint, prettier, types clean. Mutation checks, each caught by the render or member-line tests: the single-game key without the member (2 fail), the per-game key without it (1), the member total back for every rule (1), the Final key without the defender (1), the room's labelled boxes back for Save your Buddy (2), the Final's labelled boxes back (1). One score per team still reaches `UnitScoreFields` with no member (`slots` empty), and the vacant "—" box keeps the box's own `ml-auto` position.
 
-**Full suite:** not run (no shared code: only `src/features/bracket/` changed). A push to `main` needs one new run: the last one (4fa13a3) predates this build.
+**Full suite:** passed on `237993b` before the push to `main` (13986 tests; the 2 failed files are the `.claude/worktrees/competent-goldwasser-20221a` copy's Playwright specs, which fail to load under vitest, as in the earlier runs).
 
 **Out of scope.** Moving the box of team rows to the right of the line (all team formats would change); Rankings' "🛡 Defender" marks and buttons; the ABS marks on the member line.
 
