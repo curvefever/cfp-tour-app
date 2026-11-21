@@ -1,7 +1,8 @@
 /**
  * The draw of a Custom bracket round from the units waiting for it (`pendingBracketSeeds`), in the order the rules apply:
  *  1. fed only by the pooling exit: drawn in standings order (`seedPoolByStanding`);
- *  2. seed lines: every room has two seats and every unit carries a seed: sorted by seed and snaked into the rooms, so
+ *  2. seed lines: every room has two seats (a short round keeps its fitted shape, the short room last) and every unit
+ *     carries a seed: sorted by seed and snaked into the rooms, so
  *     the bracket's lines are fixed (1 v 8, 2 v 7, ... and, a round later, the winner of room 1 v the winner of room 4);
  *  3. one scale: every unit carries a seed and the units come from more than one round: each source's tiers are shifted
  *     after the tiers of the sources with better seeds, then the balanced draw (`tieredBracketSeed`);
@@ -16,6 +17,11 @@ import type { PendingBracketSeed, RoundAssignment, TournamentState } from './typ
 type SeedingOverride = Parameters<typeof tieredBracketSeed>[0]['seedingOverride'];
 
 const SEED_LINE_ROOM_SIZE = 2;
+
+/** Rooms of two, or of two with the short room of a round fitted to a pool one unit short (a room of one). */
+function isSeedLineShape(roomSizes: number[]): boolean {
+  return roomSizes.includes(SEED_LINE_ROOM_SIZE) && roomSizes.every((size) => size <= SEED_LINE_ROOM_SIZE);
+}
 
 /** Every unit of the pool carries a seed (and the pool is not empty). */
 function everyUnitHasSeed(pool: PendingBracketSeed[]): boolean {
@@ -87,12 +93,7 @@ export function drawCustomBracketPool(options: {
         : {}),
     });
   }
-  if (
-    !seedingOverride &&
-    everyUnitHasSeed(pool) &&
-    roomSizes.length > 0 &&
-    roomSizes.every((size) => size === SEED_LINE_ROOM_SIZE)
-  ) {
+  if (!seedingOverride && everyUnitHasSeed(pool) && isSeedLineShape(roomSizes)) {
     return snakeSeed(
       [...pool].sort(bySeedLine).map(({ name, isLucky }) => ({ name, isLucky })),
       roomSizes,

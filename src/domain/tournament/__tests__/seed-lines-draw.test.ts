@@ -81,14 +81,21 @@ describe('Round 6 winners meet the qualifiers by fixed lines', () => {
     expect(roomNames(played, 'SF', 1).sort()).toEqual([first[1], fourth[1]].sort());
   });
 
-  it('a short Quarter-finals (Q5 withdrawn after the exit): drawn without a crash, every unit left seated', () => {
+  /** The Quarter-finals as pairs of Swiss places after the unit at `place` (1-based) withdrew following the exit. */
+  function quarterFinalsWithout(place: number): number[][] {
     const entered = pressed(atSwissExit());
     const order = exitOrder(entered);
-    const withdrawn = removeRosterUnit(entered, order[4]);
+    const withdrawn = removeRosterUnit(entered, order[place - 1]);
     const sent = pressed(favouritesWin(withdrawn, 'R6'));
-    const place = (name: string) => order.indexOf(name) + 1;
-    const rooms = QF_ROOMS.map((room) => roomNames(sent, 'QF', room).map(place));
-    expect(rooms.flat().sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 6, 7, 8]);
+    return QF_ROOMS.map((room) => roomNames(sent, 'QF', room).map((name) => order.indexOf(name) + 1));
+  }
+
+  it('a short Quarter-finals keeps the fitted shape and the lines of the seeds present: Q5 out leaves Q4 alone', () => {
+    expect(quarterFinalsWithout(5)).toEqual([[1, 8], [2, 7], [3, 6], [4]]);
+  });
+
+  it('a top seed out shifts the pairs below it: Q2 out gives Q1 v Q8, Q3 v Q7, Q4 v Q6 and Q5 alone', () => {
+    expect(quarterFinalsWithout(2)).toEqual([[1, 8], [3, 7], [4, 6], [5]]);
   });
 });
 
