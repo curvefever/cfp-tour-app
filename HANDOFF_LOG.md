@@ -6,6 +6,38 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Save your Buddy: only the defender's score is entered (done — 2026-11-21, on `test`, pushed up to `8710beb`; the close-out commit not pushed)
+
+**Context.** Organiser, 2026-11-21: "only the defender's score can be entered." Under Save your Buddy (`teamScoringRule: 'designated-player'`) a room showed one box per member, but the team score is only ever the defender's (`computeTeamScore`). The other members' boxes still got in the way: a room counted as scored only once every member slot held a value, every member key holding a 0 asked "absent or played?", and the presence and ABS marks read each member's own key. Plan: `plans/2026-11-21-save-your-buddy-defender-only.md` (approved 2026-11-21, built as three stages: domain, inputs, close-out).
+
+**The rule (decided).**
+- A seat takes one score per game, the defender's, under the defender's member key (`r{ri}-rm{room}-p{pos}[-g{n}]-m{defender}`, `game{n}-{team}-m{defender}` in the Final), as before. Stored tournaments read exactly as before, because the reading never looked at the other keys.
+- **Complete** = the defender's key holds a value in each game. A missing non-defender key blocks nothing.
+- **Absence**: only the defender's key is asked, once per seat. Answered "absent", **the team is absent**. Decided with the planner: a stored room whose three members were all marked absent stays absent, and one whose defender alone was marked (the others had scores) now also reads absent. No pinned standing in `old-tournaments.test.ts` moved.
+- **Presence**: when the defender's score is a score of play, every member on the roster counts as present; an absent team has none. The ABS marks under a team follow the same rule (`team-member-line.ts`: an absent defender marks all members ABS, a defender who played marks none). A non-defender can't be marked absent by hand (out of scope).
+- **Changing the defender** (`setTeamDefender`, from the round in play): a score or absence answer under the old defender's key moves to the new defender's slot, every game (the Final's `game{n}` keys likewise), unless the new slot already holds a score or an answer. The number typed was read from "the defender" in game, so it belongs to whoever is defender now.
+- **Inputs**: a room row and a Final row show one box per game, labelled with the defender's name and 🛡. The member line stays visible beside it, so the other members remain on view. Sum of members and One score per team are unchanged.
+
+**The change.**
+- `scoring.ts`: `scoredMemberSlots(state, teamKey, roundIndex, teamSize)` is the single switch (the defender's slot for designated-player, every slot otherwise); `getUnitScoreForGame` and `getFinalUnitScore` read a slot outside it as 0 and never count it missing.
+- `absences.ts`: `seatQuestions` asks only those slots; `membersPresentAtSeat` returns every existing member slot when the defender's key is a score of play (`existingMemberSlots`); `absentSeats` follows from `seatQuestions` unchanged. `playersInPlay` still tests the rule directly: it decides per-player weighting, which only Sum of members has.
+- `defender-move.ts` (new): `withDefenderKeysMoved`, called by `setTeamDefender` (`mutations.ts`). It moves nothing unless exactly one slot takes a score, the old slot holds something and the new slot holds nothing.
+- `RoomRow.tsx` (`MemberInputs`), `FinalRow.tsx` (`FinalScoreEntry`): the boxes of `scoredMemberSlots`; the member line shows unless every member has a box. `team-member-line.ts`: `memberAbsent` follows the scored slots.
+- `confirmations.ts` unchanged: Save your Buddy already confirms the whole team from any of its keys.
+
+**Tests.** New `__tests__/save-your-buddy-defender-only.test.ts` (15): `scoredMemberSlots`; a 3v3 room complete from the defenders' keys only (defender = slot 1), not complete when only a non-defender is typed, a two-game round, Sum of members still needing every member, the Final with 2 games; one question per seat, an absent defender makes the team absent, "played" keeps all members present (vacant slot excluded), a stored all-absent room stays absent; the defender change moves the score and the answer in every game, moves nothing when the new slot is filled, the seat is empty or the rule is another one, and moves the Final's keys; the confirmation from the defender's score alone. New `SaveYourBuddyInputs.render.test.tsx` (2): one box per team named after the defender with 🛡 and the member line, against three boxes under Sum of members. `team-member-line.test.ts` +1 (ABS follows the defender). Changed on purpose: `absences.test.ts`, "asks each member in Save your Buddy" became "asks only the defender's key". `vitest related`: 225 files, 6505 tests passed after stage 1, 29 files, 618 after stage 2; eslint, prettier and types clean. Awkward counts: the domain tests use rooms of two and three teams; the live check used 6 teams.
+
+**Live check (test site, 2026-11-21, throwaway "Buddy defender check (throwaway)", 3v3 Save your Buddy, 6 teams, Swiss).** Every seat had one box named "<defender> 🛡" with the member line beside it; two defenders' scores alone completed a room (0/3 to 1/3 with places and points); a 0 asked once (one pair "absent / played") and "absent" marked the whole team ABS, with its players unconfirmed in Rankings; changing Teal's defender after 110 was typed moved the box to Teal2 with the score kept, and the room completed after Red's score. The throwaway was deleted and its node reads null. The bar's text "pick who was absent; the others played" is the bar's generic wording, unchanged. Not covered: a bracket round of 3v3 Save your Buddy (the live check covered a Swiss round only).
+
+**Full suite:** left for the reviewer (`scoring.ts` is shared code).
+
+**Out of scope.** Marking a non-defender absent by hand (the One score per team ABSENT-panel marks); migrating or deleting the non-defender scores already stored; who the defender is by default (slot 0 until changed) and the Rankings defender buttons; a vacant defender slot (now a Gap in `docs/open-items.md`: the room counts as scored without a box to type in until another member is made defender); the bracket-round score entry the 2026-11-18 prod check couldn't verify by script.
+
+### Documentation
+`docs/rules.md` ("Team scoring", "Who is absent from a room", the confirmation sentence), `docs/views.md` (absence bars' ABS, score entry), `docs/open-items.md` (the work queue's Save your Buddy item, the new Gap), `HANDOFF.md` (code map, rules summary).
+
+---
+
 ## The layered bracket, written by the app (done — 2026-11-21, on `test`; pushed up to `59eaeda`, stage 9b and the close-out not pushed)
 
 ### Context and reasoning
