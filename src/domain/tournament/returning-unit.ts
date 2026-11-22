@@ -9,7 +9,7 @@
 import { clickConfirmation } from './confirmations';
 import { roomLetter } from './bracket';
 import { lineupMoveCandidates, moveUnitToRoom, roomHasScore } from './lineup-edit';
-import { absenceMarks, likelyAbsentees, unitsOfPlayer } from './likely-absentees';
+import { absenceMarks, holdsAbsentBye, likelyAbsentees, unitsOfPlayer } from './likely-absentees';
 import { unitDisplay } from './roster';
 import { roundInPlayOf } from './round-columns';
 import { roomChoiceCost } from './seeding';
@@ -114,7 +114,15 @@ export function clickConfirmationAndSeat(
   name: string,
 ): { state: TournamentState; notice: string | null } {
   const absentSince = absenceMarks(state).absent.get(name);
+  const heldByeBefore = holdsAbsentBye(state, name);
   const clicked = clickConfirmation(state, name);
+  // A bye taken while likely absent is a normal bye once the unit is back and the round is not sent on.
+  if (heldByeBefore && !holdsAbsentBye(clicked, name)) {
+    return {
+      state: clicked,
+      notice: `${unitDisplay(clicked, name).label} is back: the bye now counts as a normal bye.`,
+    };
+  }
   const seat = absentSince === undefined ? null : seatOf(clicked, name);
   // The round it was absent from is not a draw it could have been moved in.
   if (!seat || absentSince === undefined || seat.roundIndex <= absentSince)

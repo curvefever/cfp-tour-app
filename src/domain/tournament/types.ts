@@ -224,6 +224,8 @@ export interface StandingRoundResult {
   results?: MatchResultCode[];
   /** Per-match group standings only: a win counted because the opponent was absent, for a unit with no other counted match. */
   walkover?: boolean;
+  /** A bye taken while likely absent (`RoundAssignment.absentBye`): it earns no points. */
+  absentBye?: boolean;
 }
 
 export interface TournamentStanding {

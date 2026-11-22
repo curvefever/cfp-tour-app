@@ -231,6 +231,23 @@ describe('standingsExplanation', () => {
   });
 });
 
+describe('roundCells, a bye taken while likely absent', () => {
+  it('reads "Bye" with 0 points and says why, where a normal bye has no title', () => {
+    const flagged = { roundIndex: 1, score: null, rank: null, points: 0, bye: true, absentBye: true };
+    expect(roundCells(flagged)).toEqual({
+      score: 'Bye',
+      rank: '—',
+      points: '0',
+      title: 'Bye while likely absent: no points',
+    });
+    expect(roundCells({ ...flagged, points: 2, absentBye: undefined })).toEqual({
+      score: 'Bye',
+      rank: '—',
+      points: '2',
+    });
+  });
+});
+
 describe('roundCells', () => {
   it('reads the games won in a Best of N round, where a summed round reads its score', () => {
     const result = { roundIndex: 1, score: 2, rank: 1, points: 8, bye: false };

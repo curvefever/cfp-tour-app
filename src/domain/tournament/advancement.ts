@@ -880,6 +880,18 @@ export function walkoverOutcome(
   };
 }
 
+/** Whether the unit's bye in the round was taken while likely absent (`absenceVersion` 4): it earns nothing. */
+export function isAbsentBye(state: TournamentState, roundIndex: number, name: string): boolean {
+  return (state.assignments[roundIndex] ?? []).some(
+    (entry) => entry.name === name && entry.room === null && entry.absentBye === true,
+  );
+}
+
+/** The result of a bye taken while likely absent: no points, no score and no room share, a bye cell that says why. */
+function absentByeOutcome(roundIndex: number): RoundOutcome {
+  return { roundIndex, score: null, rank: null, points: 0, bye: true, share: null, absentBye: true };
+}
+
 /** A unit alone in its room (its opponent was removed or absent) wins the round: the winner's points of a room of 1. */
 const SOLO_WIN: WalkoverKind = { roomSize: 1, bye: true, walkover: false };
 
@@ -940,8 +952,12 @@ export function computeQualificationStandings(
       }
     }
     const { byes, lone } = walkoverNames(state, roundIndex, round);
-    for (const name of byes)
-      accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex, POOLING_BYE));
+    for (const name of byes) {
+      const outcome = isAbsentBye(state, roundIndex, name)
+        ? absentByeOutcome(roundIndex)
+        : walkoverOutcome(state, roundIndex, POOLING_BYE);
+      accumulators.get(name)?.rounds.push(outcome);
+    }
     for (const name of lone)
       accumulators.get(name)?.rounds.push(walkoverOutcome(state, roundIndex, SOLO_WIN));
   }

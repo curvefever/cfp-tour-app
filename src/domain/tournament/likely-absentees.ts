@@ -9,6 +9,7 @@
  * so it follows a rename and a team's members, and a later absence (a later round index) never reads an old mark.
  */
 import { absentInRoom, seatHasPlayed } from './absences';
+import { isRoundDone } from './round-columns';
 import { tracksLikelyAbsentees } from './rule-versions';
 import { buildTeamMap } from './roster';
 import type { TournamentState } from './types';
@@ -136,16 +137,51 @@ export function unitsOfPlayer(state: TournamentState, name: string): string[] {
   return teams.length ? teams.map(([unit]) => unit) : [name];
 }
 
+/** The rounds not sent on where the unit holds a bye taken while likely absent (`absentBye`). */
+function openAbsentByeRounds(state: TournamentState, unit: string): number[] {
+  return state.assignments.flatMap((assignments, roundIndex) =>
+    !isRoundDone(state, roundIndex) &&
+    assignments.some((entry) => entry.name === unit && entry.room === null && entry.absentBye === true)
+      ? [roundIndex]
+      : [],
+  );
+}
+
+/** Whether a unit of the player holds a bye taken while likely absent, in a round not sent on. */
+export function holdsAbsentBye(state: TournamentState, playerName: string): boolean {
+  return unitsOfPlayer(state, playerName).some((unit) => openAbsentByeRounds(state, unit).length > 0);
+}
+
+/** The state with the unit's `absentBye` flags taken away in the rounds not sent on: the bye is a normal bye. */
+function withoutAbsentBye(state: TournamentState, unit: string): TournamentState {
+  const rounds = openAbsentByeRounds(state, unit);
+  if (rounds.length === 0) return state;
+  return {
+    ...state,
+    assignments: state.assignments.map((assignments, roundIndex) =>
+      rounds.includes(roundIndex)
+        ? assignments.map((entry) => {
+            if (entry.name !== unit || entry.room !== null) return entry;
+            const { absentBye: _flag, ...normal } = entry;
+            return normal;
+          })
+        : assignments,
+    ),
+  };
+}
+
 /**
  * Marks a player back from the absence of its unit's latest round (a team is back once any member is). The same state
- * comes back when the unit is not likely absent, so there is nothing to answer.
+ * comes back when the unit is not likely absent, so there is nothing to answer. A bye the unit took while likely absent
+ * in a round not sent on becomes a normal bye (`absentBye` is deleted); after the round is sent on nothing changes.
  */
 export function markBack(state: TournamentState, playerName: string): TournamentState {
   if (!tracksLikelyAbsentees(state)) return state;
   for (const unit of unitsOfPlayer(state, playerName)) {
     const absenceRound = latestAbsenceRound(state, unit);
     if (absenceRound === null || isBackFrom(state, unit, absenceRound)) continue;
-    return { ...state, backFromAbsence: { ...state.backFromAbsence, [playerName]: absenceRound } };
+    const marked = { ...state, backFromAbsence: { ...state.backFromAbsence, [playerName]: absenceRound } };
+    return withoutAbsentBye(marked, unit);
   }
   return state;
 }

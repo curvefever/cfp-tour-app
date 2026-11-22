@@ -167,6 +167,7 @@ export interface RoundCells {
 }
 
 /** Why a round reads "W/O": the opponent did not turn up, and the unit has no other counted match. */
+const ABSENT_BYE_TITLE = 'Bye while likely absent: no points';
 const WALKOVER_TITLE = 'Opponent absent: counted as a win, no other match counted';
 
 /** What a counted round without a result of the unit's own was: a match void for it, or a bye (a group stage with per-match standings). */
@@ -203,7 +204,14 @@ export function roundCells(
   if (absent) return { score: 'ABS', rank: '—', points: '0' };
   if (!result && missed) return { score: missed === 'void' ? 'Void' : 'Bye', rank: '—', points: '—' };
   if (!result) return { score: '—', rank: '—', points: '—' };
-  if (result.bye) return { score: 'Bye', rank: '—', points: formatStandingValue(result.points) };
+  if (result.bye) {
+    return {
+      score: 'Bye',
+      rank: '—',
+      points: formatStandingValue(result.points),
+      ...(result.absentBye ? { title: ABSENT_BYE_TITLE } : {}),
+    };
+  }
   if (result.walkover) {
     return {
       score: 'W/O',
