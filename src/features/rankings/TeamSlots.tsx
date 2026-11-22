@@ -14,6 +14,7 @@ import { ConfirmToggle } from './ConfirmToggle';
 import { removeMemberWithNotice } from './member-removal-text';
 import type { ConfirmationView } from '../tournament/components/confirmation-view';
 import { ICON_BUTTON } from './tool-buttons';
+import { DefenderShield, ShieldShape } from '../tournament/components/DefenderShield';
 
 const SLOT_ROW = 'flex items-center justify-between gap-2 border-t border-surface-hover pt-1.5 text-xs';
 
@@ -137,7 +138,12 @@ export function TeamMemberRow({
       <div className={SLOT_ROW}>
         <span>
           {member.name}
-          {designated && defender === memberIndex ? ' 🛡 Defender' : ''}
+          {designated && defender === memberIndex ? (
+            <>
+              {' '}
+              <DefenderShield /> Defender
+            </>
+          ) : null}
         </span>
         <span className='flex gap-1'>
           <ConfirmToggle mark={confirmations.toggle(member.name)} name={member.name} />
@@ -149,7 +155,7 @@ export function TeamMemberRow({
               title='Make defender'
               onClick={() => app.updateState((current) => setTeamDefender(current, team.teamId, memberIndex))}
             >
-              🛡
+              <ShieldShape className='text-muted' />
             </Button>
           ) : null}
           <Button

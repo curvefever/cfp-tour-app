@@ -12,21 +12,23 @@ import {
   scoredTeamSize,
 } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
-import { joinMembers } from '../tournament/components/member-line';
+import { NO_BREAK_SPACE } from '../tournament/components/member-line';
 
-/** A member's name, with a shield after the designated defender's (Save your Buddy). */
-export function memberLabel(
+/** Whether the member in this slot is the team's designated defender in this round (Save your Buddy). */
+export function isDesignatedDefender(
   state: TournamentState,
   name: string,
   roundIndex: number,
   rawIndex: number,
-  memberName: string,
-) {
-  const defender =
+): boolean {
+  return (
     state.gamemodeConfig.teamScoringRule === 'designated-player' &&
-    getDefenderIndex(state, name, roundIndex) === rawIndex;
-  return `${memberName}${defender ? ' 🛡' : ''}`;
+    getDefenderIndex(state, name, roundIndex) === rawIndex
+  );
 }
+
+/** One member in the line under a team's name: the name, whether it gets the defender's shield, and what follows it (a score, "ABS", "absent"), with no-break spaces. */
+export type MemberPart = { name: string; defender: boolean; after: string };
 
 /** The sum of one member's scores over the games that count (a decided Best-of room leaves the rest out); null when the member has none. */
 function memberTotal(
@@ -85,35 +87,39 @@ function memberAbsent(
 }
 
 /**
- * The line under a team's name in a room: its members joined with " · " (`joinMembers`, which wraps only between members), the designated defender marked, and
+ * The members in the line under a team's name in a room (`TeamMembers` joins them with " · ", wrapping only between members): the designated defender marked, and
  * with each member's own score after the name when `seat` is given (the room is complete) and the team scoring
  * rule scores members one by one, or "ABS" for a member who was absent. One score per team scores one number per team,
  * and Save your Buddy one number from the defender, which the row shows as the team's score, so both show names only, and "absent" after a member the organiser marked by hand (`seat`, or `markSeat` before the room is complete).
  */
-export function teamMemberLine(
+export function teamMemberParts(
   state: TournamentState,
   name: string,
   roundIndex: number,
   seat: { room: number; position: number } | null = null,
   markSeat: { room: number; position: number } | null = seat,
-): string {
+): MemberPart[] {
   const info = unitDisplay(state, name);
-  if (!info.members?.length) return '';
+  if (!info.members?.length) return [];
   const team = buildTeamMap(state)[name];
   const teamSize = scoredTeamSize(state);
   // Save your Buddy: the defender's score is the team's, shown on the right of the row, not after the name.
   const everyMemberScored =
     teamSize !== undefined && scoredMemberSlots(state, name, roundIndex, teamSize).length === teamSize;
-  const members = info.members.map((member, index) => {
+  return info.members.map((member, index) => {
     const found = team?.members.findIndex((entry) => entry?.name === member) ?? -1;
     const rawIndex = found === -1 ? index : found;
-    const label = memberLabel(state, name, roundIndex, rawIndex, member);
+    const part = (after: string): MemberPart => ({
+      name: member.replaceAll(' ', NO_BREAK_SPACE),
+      defender: isDesignatedDefender(state, name, roundIndex, rawIndex),
+      after: after ? `${NO_BREAK_SPACE}${after}` : '',
+    });
     if (
       seat !== null &&
       teamSize !== undefined &&
       memberAbsent(state, roundIndex, seat, rawIndex, teamSize)
     ) {
-      return `${label} ABS`;
+      return part('ABS');
     }
     if (
       markSeat !== null &&
@@ -123,13 +129,12 @@ export function teamMemberLine(
         oneScoreTeamMemberKey(roundIndex, markSeat.room, markSeat.position, rawIndex),
       )
     ) {
-      return `${label} absent`;
+      return part('absent');
     }
     const total =
       seat !== null && teamSize !== undefined && everyMemberScored
         ? memberTotal(state, roundIndex, seat, rawIndex, teamSize)
         : null;
-    return total === null ? label : `${label} ${total}`;
+    return part(total === null ? '' : String(total));
   });
-  return joinMembers(members);
 }

@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { setRoundScore } from '../../domain/tournament/mutations';
 import { unneededGames } from '../../domain/tournament/match-format';
 import { scoreKey } from '../../domain/tournament/scoring';
@@ -6,7 +6,9 @@ import type { TournamentState } from '../../domain/tournament/types';
 import { CommitScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { unitScoreSummary } from './room-row-inputs';
-import { teamMemberLine } from './team-member-line';
+import { DefenderShield } from '../tournament/components/DefenderShield';
+import { MEMBER_SEPARATOR, NO_BREAK_SPACE } from '../tournament/components/member-line';
+import { isDesignatedDefender, teamMemberParts } from './team-member-line';
 
 /** A score box in a room row: compact, numbers right-aligned, a comfortable touch height on the phone. */
 export const compactScoreClass = 'h-8 w-16 shrink-0 px-2 text-right text-[15px] font-bold max-[700px]:h-11';
@@ -26,9 +28,52 @@ export function TeamMembers({
   /** Where the team sits, whether or not its room is complete: a member of a team with one score marked absent by hand shows after the name. */
   markSeat?: { room: number; position: number };
 }) {
-  const line = teamMemberLine(state, name, roundIndex, seat ?? null, markSeat ?? seat ?? null);
-  if (!line) return null;
-  return <span className='block wrap-break-word text-sm text-muted'>{line}</span>;
+  const parts = teamMemberParts(state, name, roundIndex, seat ?? null, markSeat ?? seat ?? null);
+  if (!parts.length) return null;
+  return (
+    <span className='block wrap-break-word text-sm text-muted'>
+      {parts.map((part, index) => (
+        <Fragment key={index}>
+          {index > 0 ? MEMBER_SEPARATOR : null}
+          {part.name}
+          {part.defender ? (
+            <>
+              {NO_BREAK_SPACE}
+              <DefenderShield />
+            </>
+          ) : null}
+          {part.after}
+        </Fragment>
+      ))}
+    </span>
+  );
+}
+
+/** A member's name above their score box, with the shield after the designated defender's (Save your Buddy). */
+export function MemberLabel({
+  state,
+  name,
+  roundIndex,
+  memberIndex,
+  memberName,
+}: {
+  state: TournamentState;
+  name: string;
+  roundIndex: number;
+  memberIndex: number;
+  memberName: string;
+}) {
+  return (
+    <span>
+      {memberName}
+      {isDesignatedDefender(state, name, roundIndex, memberIndex) ? (
+        <>
+          {' '}
+          <DefenderShield />
+        </>
+      ) : null}
+    </span>
+  );
 }
 
 export function BracketScoreInput({

@@ -11,6 +11,7 @@ import { type RowResult, roomRowClass, rowSurfaceClasses } from '../tournament/c
 import { ManualMarker } from './RowMarks';
 import {
   BracketScoreInput,
+  MemberLabel,
   NotNeededNote,
   TeamMembers,
   TeamScoreFields,
@@ -22,7 +23,6 @@ import { stickyEndClass, stickyLeadClass } from './game-columns';
 import type { GameColumn } from '../../domain/tournament/game-columns';
 import { roomGameScores, unitScoreSummary, winsBox, winsSoFar } from './room-row-inputs';
 import { ordinal } from '../../lib/ordinal';
-import { memberLabel } from './team-member-line';
 
 const markClassName = 'ml-0.5 px-1.5 py-px text-[0.6rem]';
 
@@ -205,7 +205,15 @@ function MemberInputs({ props, slots }: { props: RoomRowProps; slots: number[] }
         if (!member) {
           return <ScoreInput key={memberIndex} className={compactScoreClass} disabled placeholder='—' />;
         }
-        const label = <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>;
+        const label = (
+          <MemberLabel
+            memberIndex={memberIndex}
+            memberName={member.name}
+            name={name}
+            roundIndex={roundIndex}
+            state={state}
+          />
+        );
         if (games <= 1) {
           const key = scoreKey(roundIndex, room, position, null, memberIndex);
           return (

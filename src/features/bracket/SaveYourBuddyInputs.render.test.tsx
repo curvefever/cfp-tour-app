@@ -128,7 +128,8 @@ describe('the score boxes of a team row, as admin', () => {
     // The row shows each member once: the defender is on the member line, with the shield, and not again by the box.
     const row = rowOf(box);
     expect(row.textContent?.match(/T\d[a-c]/g)).toHaveLength(3);
-    expect(row.textContent?.match(/T\d[a-c]\s🛡/g)).toHaveLength(1);
+    expect(row.textContent?.match(/T\d[a-c]\sDefender/g)).toHaveLength(1);
+    expect(row.querySelectorAll('[role="img"][aria-label="Defender"]')).toHaveLength(1);
     expect(box?.parentElement?.textContent).toBe('');
   });
 
@@ -148,7 +149,7 @@ describe('the score boxes of a team row, as admin', () => {
     // A game's label is "G1": no member's name.
     expect(labels.map((label) => label.textContent)).toEqual(['G1', 'G2']);
     const row = rowOf(first);
-    expect(row.textContent?.match(/T\d[a-c]\s🛡/g)).toHaveLength(1);
+    expect(row.textContent?.match(/T\d[a-c]\sDefender/g)).toHaveLength(1);
     expect(row.textContent?.match(/T\d[a-c]/g)).toHaveLength(3);
   });
 
@@ -176,7 +177,7 @@ describe('the Final of a team format, as admin', () => {
     expect(boxes.map((box) => box.closest('label'))).toEqual([null, null]);
     const row = rowOf(boxes[0]);
     expect(row.textContent?.match(/T\d[a-c]/g)).toHaveLength(3);
-    expect(row.textContent?.match(/T\d[a-c]\s🛡/g)).toHaveLength(1);
+    expect(row.textContent?.match(/T\d[a-c]\sDefender/g)).toHaveLength(1);
   });
 
   it("writes the typed score on the defender's Final key", () => {

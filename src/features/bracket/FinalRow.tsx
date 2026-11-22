@@ -7,11 +7,10 @@ import { CommitScoreInput, ScoreInput, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { roomRowClass, rowSurfaceClasses } from '../tournament/components/result-row';
 import { ManualMarker } from './RowMarks';
-import { TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
+import { MemberLabel, TeamMembers, TeamScoreFields, compactScoreClass } from './ScoreFields';
 import type { GameColumn } from '../../domain/tournament/game-columns';
 import { stickyEndClass, stickyLeadClass } from './game-columns';
 import { GameCells } from './GameScores';
-import { memberLabel } from './team-member-line';
 
 /** The Final's score input for one unit that takes a single score per game. */
 function FinalUnitScoreInput({ state, scoreKey }: { state: TournamentState; scoreKey: string }) {
@@ -63,7 +62,13 @@ function FinalScoreEntry({
             const key = finalScoreKey(activeTab, name, memberIndex);
             return (
               <label key={key}>
-                <span>{memberLabel(state, name, roundIndex, memberIndex, member.name)}</span>
+                <MemberLabel
+                  memberIndex={memberIndex}
+                  memberName={member.name}
+                  name={name}
+                  roundIndex={roundIndex}
+                  state={state}
+                />
                 <CommitScoreInput
                   className={compactScoreClass}
                   min='0'

@@ -2,7 +2,7 @@
 export const NO_BREAK_SPACE = String.fromCharCode(0xa0);
 
 /** Between two team members: the dot stays with the member before it, so a wrapped line breaks after the dot. */
-const MEMBER_SEPARATOR = `${NO_BREAK_SPACE}· `;
+export const MEMBER_SEPARATOR = `${NO_BREAK_SPACE}· `;
 
 /**
  * A team's members on one line that wraps only between members: no-break spaces keep each member's name (and the

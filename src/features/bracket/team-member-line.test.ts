@@ -3,11 +3,18 @@ import { generateTournament } from '../../domain/tournament/generation';
 import { createTournamentRuntime } from '../../domain/tournament/runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
-import { NO_BREAK_SPACE } from '../tournament/components/member-line';
+import { MEMBER_SEPARATOR, NO_BREAK_SPACE } from '../tournament/components/member-line';
 import { answerAbsence, markOneScoreTeamMemberAbsent } from '../../domain/tournament/absences';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
-import { teamMemberLine } from './team-member-line';
+import { teamMemberParts } from './team-member-line';
 import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
+
+/** The member line as text, as `TeamMembers` draws it, with "🛡" for the defender's shield. */
+function teamMemberLine(...args: Parameters<typeof teamMemberParts>): string {
+  return teamMemberParts(...args)
+    .map((part) => `${part.name}${part.defender ? `${NO_BREAK_SPACE}🛡` : ''}${part.after}`)
+    .join(MEMBER_SEPARATOR);
+}
 
 /** The line with each no-break space shown as "_": a line may wrap only at the plain spaces left. */
 function shown(line: string): string {
