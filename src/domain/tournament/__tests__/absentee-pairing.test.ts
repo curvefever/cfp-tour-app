@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
+import { roomFinishOrder } from '../advancement';
 import { deriveRoomSize, getGameFormat } from '../formats';
 import { likelyAbsentees } from '../likely-absentees';
 import { pairsAbsenteesInRound } from '../seeding';
@@ -26,17 +27,22 @@ const FORMATS = [
 
 /** Round 1 scored, with `absent` answered absent in it: they are the likely absentees of round 2. */
 function afterRoundOne(state: TournamentState, absent: string[]): TournamentState {
-  let working = scoreRound(state, 0);
+  return afterRound(state, 0, absent);
+}
+
+/** The round in play scored, with `absent` answered absent in it. */
+function afterRound(state: TournamentState, roundIndex: number, absent: string[]): TournamentState {
+  let working = scoreRound(state, roundIndex);
   const keys: string[] = [];
   for (const unit of absent) {
-    const entries = (working.assignments[0] ?? []).filter((entry) => entry.room !== null);
+    const entries = (working.assignments[roundIndex] ?? []).filter((entry) => entry.room !== null);
     const entry = entries.find((candidate) => candidate.name === unit);
-    if (!entry || entry.room === null) throw new Error(`${unit} has no room in round 1`);
+    if (!entry || entry.room === null) throw new Error(`${unit} has no room in round ${roundIndex + 1}`);
     const position = entries.filter((other) => other.room === entry.room).indexOf(entry);
     const teamSize = scoredTeamSize(working);
-    const slots = teamSize ? scoredMemberSlots(working, unit, 0, teamSize) : [undefined];
+    const slots = teamSize ? scoredMemberSlots(working, unit, roundIndex, teamSize) : [undefined];
     for (const slot of slots) {
-      const key = scoreKey(0, entry.room, position, null, slot ?? null);
+      const key = scoreKey(roundIndex, entry.room, position, null, slot ?? null);
       working = { ...working, scores: { ...working.scores, [key]: 0 } };
       keys.push(key);
     }
@@ -270,6 +276,24 @@ describe.each(FORMATS)('a Swiss of $label, through Next Round', ({ setup }) => {
     expect(bye).toMatchObject({ room: null, absentBye: true });
     expect(absent.has(bye?.name as string)).toBe(true);
     expect(next.byes[1]).toEqual([bye?.name]);
+  });
+
+  it('pairs a unit that drops out in round 2 with another that does, whatever their score groups', () => {
+    const start = swiss(14, setup);
+    const scored = scoreRound(start, 0);
+    const winner = roomFinishOrder(scored, 0, 1)[0];
+    const roundTwo = pressed(scored);
+    const together = roomsOf(roundTwo.assignments[1]).find((room) => room.includes(winner)) ?? [];
+    const loser = [2, 3, 4, 5, 6, 7]
+      .map((room) => roomFinishOrder(scored, 0, room).at(-1) as string)
+      .find((name) => !together.includes(name)) as string;
+    const answered = afterRound(roundTwo, 1, [winner, loser]);
+    expect(likelyAbsentees(answered, 2)).toEqual(new Set([winner, loser]));
+    const roundThree = pressed(answered);
+    const rooms = roomsOf(roundThree.assignments[2]);
+    expect(rooms.some((room) => room.length === 2 && room.includes(winner) && room.includes(loser))).toBe(
+      true,
+    );
   });
 
   it('draws the same two rounds as before on a version 3 tournament', () => {
