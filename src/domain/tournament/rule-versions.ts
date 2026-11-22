@@ -49,6 +49,11 @@ export function tracksLikelyAbsentees(state: WithConfig): boolean {
   return (state.gamemodeConfig.absenceVersion ?? 0) >= 3;
 }
 
+/** `vacantSlotVersion` 1: a team slot vacated after it played keeps its stored scores in every round, and a vacant slot is never "missing". Earlier: a vacant slot reads 0 in every round, past rounds included. */
+export function keepsVacatedSlotScores(state: WithConfig): boolean {
+  return state.gamemodeConfig.vacantSlotVersion === 1;
+}
+
 /** `upperLowerVersion`: the Custom bracket is the built-in upper and lower bracket. It marks a format, not an earlier rule: without it the Custom bracket is the organiser's own graph. */
 export function isUpperLowerBracket(state: WithConfig): boolean {
   return Boolean(state.gamemodeConfig.upperLowerVersion);

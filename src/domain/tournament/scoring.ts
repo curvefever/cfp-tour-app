@@ -2,6 +2,7 @@ import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { buildTeamMap } from './roster';
 import { roundsInPlay } from './round-columns';
+import { keepsVacatedSlotScores } from './rule-versions';
 import type { ScoringSystemKey, TeamScoringRuleKey, TournamentRound, TournamentState } from './types';
 
 export function scoreOrDefault(
@@ -147,7 +148,8 @@ export function getUnitScoreForGame(
       values.push(0);
       continue;
     }
-    if (withdrawn) {
+    // A slot vacated after it played keeps its stored scores (`vacantSlotVersion`), as a team that left the roster does.
+    if (withdrawn || (keepsVacatedSlotScores(state) && !team?.members?.[memberIndex])) {
       values.push(
         scoreOrDefault(state.scores[scoreKey(roundIndex, room, position, game, memberIndex)], null) ?? 0,
       );
@@ -236,12 +238,13 @@ export function getFinalUnitScore(
       values.push(0);
       continue;
     }
-    // A team that has left the roster keeps the scores it played: read its slots from the stored keys.
-    if (team && !team.members?.[memberIndex]) {
+    // A team that has left the roster keeps the scores it played: read its slots from the stored keys. So does a slot
+    // vacated after it played (`vacantSlotVersion`); earlier a vacant slot read 0.
+    if (team && !team.members?.[memberIndex] && !keepsVacatedSlotScores(state)) {
       values.push(0);
       continue;
     }
-    if (!team) {
+    if (!team || !team.members?.[memberIndex]) {
       values.push(scoreOrDefault(state.finalScores[finalScoreKey(game, key, memberIndex)], null) ?? 0);
       continue;
     }

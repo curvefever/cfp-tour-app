@@ -369,6 +369,8 @@ export interface MaterializedGamemodeConfig {
   groupAverageVersion?: 2;
   /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 3; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`); 3 = version 2 plus likely absentees: the draws place a unit absent from its last round first, one per room, and the confirmation mark reads "?" until the organiser marks it back (`tracksLikelyAbsentees`, `likely-absentees.ts`). */
   absenceVersion?: 1 | 2 | 3;
+  /** 1 = a team slot vacated after it played keeps its stored scores in every round (`keepsVacatedSlotScores`, scoring.ts). Absent = a vacant slot reads 0 in every round, past rounds included. generation.ts writes 1; a stored tournament without it keeps its scores. */
+  vacantSlotVersion?: 1;
   drawPublication: DrawPublicationKey;
   lbQualifiers?: number;
   /** Organiser-supplied ordered WB elimination-round survivor-count targets (single-elimination / double-elimination-shared-final only). Replaces the automatic geometric-decay curve entirely when set. */

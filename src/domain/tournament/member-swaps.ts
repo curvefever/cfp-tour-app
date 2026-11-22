@@ -1,8 +1,9 @@
 import { unmarkOneScoreTeamMemberAbsent } from './absences';
 import { getGameFormat } from './formats';
-import { updateTeam } from './mutations';
+import { setTeamDefender, updateTeam } from './mutations';
 import { findUnit, findUnstorableNames, rosterNames, unstorableNamesMessage } from './roster';
-import { roundsInPlay } from './round-columns';
+import { roundInPlayOf, roundsInPlay } from './round-columns';
+import { getDefenderIndex } from './scoring';
 import type { TeamMember, TournamentState, TournamentTeam } from './types';
 
 /**
@@ -172,4 +173,33 @@ export function fillTeamSlot(
     ...filled,
     reserveIndividuals: filled.reserveIndividuals.filter((_, index) => index !== reserveIndex),
   };
+}
+
+/** What `removeTeamMember` answers: the state and who the defender is now (null when it did not move), or why the slot can't be emptied. */
+export type MemberRemoval = { state: TournamentState; newDefender: string | null } | string;
+
+/**
+ * The one place a team member is removed: the slot goes vacant (the scores typed under it stay stored, and are read
+ * again with \`vacantSlotVersion\`). Under Save your Buddy, when it was the team's defender for the round in play, the
+ * defender moves to the first filled slot (\`setTeamDefender\`: the score typed for the round in play moves with it)
+ * and its name is returned; a defender never sits on a vacant slot. With no member left, the slot is just emptied.
+ * Past rounds keep their own defender (\`defenderChanges\` is per round).
+ */
+export function removeTeamMember(state: TournamentState, teamId: string, memberIndex: number): MemberRemoval {
+  const team = teamOf(state, teamId);
+  if (!team) return "That team isn't in the tournament.";
+  if (!team.members[memberIndex]) return 'That slot is already vacant.';
+  const emptied = updateTeam(state, teamId, (entry) => ({
+    ...entry,
+    members: entry.members.map((member, index) => (index === memberIndex ? null : member)),
+  }));
+  if (state.gamemodeConfig.teamScoringRule !== 'designated-player')
+    return { state: emptied, newDefender: null };
+  if (getDefenderIndex(state, teamId, roundInPlayOf(state, teamId)) !== memberIndex) {
+    return { state: emptied, newDefender: null };
+  }
+  const remaining = teamOf(emptied, teamId)?.members ?? [];
+  const next = remaining.findIndex((member) => member !== null);
+  if (next === -1) return { state: emptied, newDefender: null };
+  return { state: setTeamDefender(emptied, teamId, next), newDefender: remaining[next]?.name ?? null };
 }
