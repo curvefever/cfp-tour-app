@@ -164,3 +164,33 @@ describe('a Save your Buddy finalist whose defender is removed before the Final 
     expect(getFinalUnitScore(typed, id, 1, null)).toBe(321);
   });
 });
+
+describe('Sum of members, a member removed after a Final game is scored', () => {
+  function finalWithGameOne() {
+    const final = playColumns(atEntry(swiss(13, SUM)));
+    const index = final.rounds.findIndex((round) => round.isFinal);
+    expect(final.rounds[index].numGames).toBeGreaterThan(1);
+    const id = final.assignments[index][0].name;
+    const finalScores = { ...final.finalScores };
+    [10, 20, 30].forEach((value, slot) => {
+      finalScores[finalScoreKey(1, id, slot)] = value;
+    });
+    return { state: { ...final, finalScores }, id };
+  }
+
+  it("keeps the removed member's score in game 1 with vacantSlotVersion", () => {
+    const { state, id } = finalWithGameOne();
+    expect(getFinalUnitScore(state, id, 1, null)).toBe(60);
+    const result = removeTeamMember(state, id, 1);
+    if (typeof result === 'string') throw new Error(result);
+    expect(getFinalUnitScore(result.state, id, 1, null)).toBe(60);
+  });
+
+  it('reads the earlier rule without the switch: the vacated slot counts 0', () => {
+    const { state, id } = finalWithGameOne();
+    const old = withoutVersion(state);
+    const result = removeTeamMember(old, id, 1);
+    if (typeof result === 'string') throw new Error(result);
+    expect(getFinalUnitScore(result.state, id, 1, null)).toBe(40);
+  });
+});
