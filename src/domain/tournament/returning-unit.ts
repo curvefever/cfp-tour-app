@@ -8,8 +8,21 @@
  */
 import { clickConfirmation } from './confirmations';
 import { roomLetter } from './bracket';
-import { lineupMoveCandidates, moveUnitToRoom, roomHasScore } from './lineup-edit';
-import { absenceMarks, holdsAbsentBye, likelyAbsentees, unitsOfPlayer } from './likely-absentees';
+import { lineupMoveCandidates, moveUnitToRoom, roomHasScore, type LineupEditResult } from './lineup-edit';
+import {
+  moveReturningUnitToMatch,
+  noMatchFreeNotice,
+  returnQuestion,
+  returningMoveOf,
+} from './returning-match';
+import { pairsAbsenteesInRound } from './seeding';
+import {
+  absenceMarks,
+  holdsAbsentBye,
+  likelyAbsentInRound,
+  likelyAbsentees,
+  unitsOfPlayer,
+} from './likely-absentees';
 import { unitDisplay } from './roster';
 import { roundInPlayOf } from './round-columns';
 import { roomChoiceCost } from './seeding';
@@ -95,6 +108,51 @@ export function seatReturningUnit(state: TournamentState, playerName: string): S
   return moved.ok ? { state: moved.state, outcome: 'moved', room: target } : stays();
 }
 
+/**
+ * The unit stays in a room it shares with another likely absentee (`absenceVersion` 4): a question when a real match is
+ * free (never moved alone), the "no real match is free" notice otherwise; null when it does not apply.
+ */
+function sharedRoomAnswer(
+  result: SeatResult,
+  marked: TournamentState,
+  seat: { unit: string; roundIndex: number; room: number },
+): { notice: string | null; question?: ReturnQuestion } | null {
+  if (result.outcome !== 'stays') return null;
+  const move = returningMoveOf(marked, seat.roundIndex, seat.unit);
+  if (move)
+    return {
+      notice: null,
+      question: { unit: seat.unit, roundIndex: seat.roundIndex, ...returnQuestion(marked, move) },
+    };
+  const round = marked.rounds[seat.roundIndex];
+  if (!round || !pairsAbsenteesInRound(marked, round, seat.roundIndex)) return null;
+  const partner = (marked.assignments[seat.roundIndex] ?? []).find(
+    (entry) => entry.room === seat.room && entry.name !== seat.unit,
+  );
+  const stillAbsent = likelyAbsentInRound(marked, seat.roundIndex, seat.room);
+  if (!partner || !stillAbsent.has(partner.name) || roomHasScore(marked, seat.roundIndex, seat.room))
+    return null;
+  return { notice: noMatchFreeNotice(marked, seat.unit, seat.room, partner.name) };
+}
+
+/** A question for the organiser (`returning-match.ts`): the text to ask, the words after a "no", and the unit to move. */
+export interface ReturnQuestion {
+  unit: string;
+  roundIndex: number;
+  question: string;
+  declined: string;
+}
+
+/**
+ * The domain function behind a "yes": the returning player's unit takes a real match (`returningMoveOf`), two seats
+ * trading places. A refusal says why, as the line-up tools do (a room got a score since the question was asked).
+ */
+export function moveReturningUnit(state: TournamentState, playerName: string): LineupEditResult {
+  const seat = seatOf(state, playerName);
+  if (!seat) return { ok: false, error: 'That unit has no room in the round in play.' };
+  return moveReturningUnitToMatch(state, seat.roundIndex, seat.unit);
+}
+
 /** What the organiser is told after the click: where the returning unit is now; null before the draw (the toggle turning ✓ is the feedback). */
 function returnNotice(state: TournamentState, unit: string, { outcome, room }: SeatResult): string | null {
   if (outcome === 'undrawn' || room === null) return null;
@@ -112,7 +170,7 @@ function returnNotice(state: TournamentState, unit: string, { outcome, room }: S
 export function clickConfirmationAndSeat(
   state: TournamentState,
   name: string,
-): { state: TournamentState; notice: string | null } {
+): { state: TournamentState; notice: string | null; question?: ReturnQuestion } {
   const absentSince = absenceMarks(state).absent.get(name);
   const heldByeBefore = holdsAbsentBye(state, name);
   const clicked = clickConfirmation(state, name);
@@ -128,5 +186,7 @@ export function clickConfirmationAndSeat(
   if (!seat || absentSince === undefined || seat.roundIndex <= absentSince)
     return { state: clicked, notice: null };
   const result = seatReturningUnit(clicked, name);
+  const shared = sharedRoomAnswer(result, clicked, seat);
+  if (shared) return { state: result.state, ...shared };
   return { state: result.state, notice: returnNotice(result.state, seat.unit, result) };
 }

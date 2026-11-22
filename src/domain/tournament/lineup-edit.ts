@@ -161,6 +161,7 @@ function manualEntries(current: RoundAssignment[], draft: RoundAssignment[]): Ro
       isLucky: before ? before.isLucky : false,
       // A unit already in the round keeps the seed it arrived with; one placed into it by hand has none.
       ...(before?.seed !== undefined ? { seed: before.seed } : {}),
+      ...(entry.absentBye ? { absentBye: true as const } : {}),
       ...(placedByHand ? { manual: true as const } : {}),
     };
   });
@@ -323,6 +324,55 @@ export function moveUnitToRoom(
   const from = current.find((entry) => entry.name === unit)?.room ?? room;
   const draft = current.map((entry) => (entry.name === unit ? { ...entry, room } : entry));
   return { ok: true, state: commitLineup(state, roundIndex, manualEntries(current, draft), [from, room]) };
+}
+
+/**
+ * Two units of a drawn round trade seats (a room, or the bye): nobody else moves, and the rooms touched lose their
+ * answers and tie decisions. Neither room may have a score. The bye's holder after the swap is the unit
+ * `absentByeFor` when it is given (a likely absentee: its bye earns no points), else a normal bye; `byes` and
+ * `poolingByeCounts` follow the bye.
+ */
+export function swapUnitSeats(
+  state: TournamentState,
+  roundIndex: number,
+  first: string,
+  second: string,
+  absentByeFor?: string,
+): LineupEditResult {
+  const round = state.rounds[roundIndex];
+  const current = state.assignments[roundIndex] ?? [];
+  const a = current.find((entry) => entry.name === first);
+  const b = current.find((entry) => entry.name === second);
+  if (!round || !a || !b) return { ok: false, error: 'A unit of the swap is not in this round.' };
+  const refusal = moveRoundRefusal(state, round);
+  if (refusal) return { ok: false, error: refusal };
+  const rooms = [a.room, b.room].filter((room): room is number => room !== null);
+  for (const room of rooms) {
+    if (roomHasScore(state, roundIndex, room))
+      return { ok: false, error: `Room ${room} already has scores.` };
+  }
+  const draft = current.map((entry) => {
+    const room = entry.name === first ? b.room : entry.name === second ? a.room : entry.room;
+    if (room !== null) return { ...entry, room };
+    const { absentBye: _flag, ...normal } = entry;
+    return entry.name === absentByeFor ? { ...normal, room, absentBye: true as const } : { ...normal, room };
+  });
+  const committed = commitLineup(state, roundIndex, manualEntries(current, draft), rooms);
+  const before = current.filter((entry) => entry.room === null).map((entry) => entry.name);
+  const after = draft.filter((entry) => entry.room === null).map((entry) => entry.name);
+  const counts = { ...committed.poolingByeCounts };
+  for (const name of before.filter((entry) => !after.includes(entry))) {
+    counts[name] = Math.max(0, (counts[name] ?? 0) - 1);
+  }
+  for (const name of after.filter((entry) => !before.includes(entry))) counts[name] = (counts[name] ?? 0) + 1;
+  return {
+    ok: true,
+    state: {
+      ...committed,
+      byes: committed.byes.map((names, index) => (index === roundIndex ? after : names)),
+      poolingByeCounts: counts,
+    },
+  };
 }
 
 /** The rooms a drawn unit may be in after a move: its own, and every room it can move to (`unitMoveProblem`). */
