@@ -2,6 +2,7 @@ import { ordinal } from '../../lib/ordinal';
 import { isLastGroupStageRound } from './advancement';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
+import { isWinsRound } from './match-format';
 import { drawCustomBracketPool, usesSeedLines } from './custom-bracket-draw';
 import { projectedSeeds } from './projected-seeds';
 import { roomPairKey, snakeSeed } from './seeding';
@@ -29,6 +30,8 @@ export interface RoundGameCount {
   upTo: boolean;
   /** True for a Best-of round: `games` is N of a Best of N, not a number of games all played. */
   bestOf?: true;
+  /** A WINS round: the wins each of its two units needs, the one from the earlier round first; `games` is the most games it can take. */
+  wins?: [number, number];
 }
 
 /**
@@ -37,7 +40,7 @@ export interface RoundGameCount {
  * destination tags that must not gain a game count.
  * The race Grand Final's `numGames` grows as games are opened, so it reports its maximum instead: one side one win
  * short of its target while the other reaches its own (drawn games ignored). A maximum of 1 is a plain "1 GAME".
- * A Best-of round reports N of its Best of N, flagged `bestOf`.
+ * A Best-of round reports N of its Best of N, flagged `bestOf`; a WINS round reports its two targets.
  */
 export function roundGameCount(
   state: Pick<TournamentState, 'rounds' | 'gamemodeConfig'>,
@@ -49,6 +52,10 @@ export function roundGameCount(
     const { wbTarget, lbTarget } = grandFinalTargets(state);
     const games = wbTarget + lbTarget - 1;
     return { games, upTo: games > 1 };
+  }
+  if (isWinsRound(round)) {
+    const [earlier, later] = [...round.winTargets].sort((first, second) => first.from - second.from);
+    return { games: round.numGames ?? 0, upTo: false, wins: [earlier.wins, later.wins] };
   }
   if (round.bestOf !== undefined) return { games: round.bestOf, upTo: false, bestOf: true };
   const games = round.numGames ?? 0;
@@ -281,13 +288,26 @@ export type ProjectedSlotLabel =
       sourceRoomCount: number;
       /** False where the real draw spreads the units over several rooms: only the place is shown. */
       roomKnown: boolean;
+      /** The wins this unit needs when the round it feeds plays uneven wins. */
+      winsNeeded?: number;
     }
-  | { kind: 'standings-rank'; rank: number }
+  | { kind: 'standings-rank'; rank: number; winsNeeded?: number }
   /** A unit the source round's "best of a place" will send on: which of the place's units is not known yet. */
   | { kind: 'best-place'; place: number; sourceRound: number; sourceLabel: string }
   | { kind: 'lucky' }
   | { kind: 'qualifier-cutoff' }
   | { kind: 'round-edge'; sourceRoundIndex: number; edge: 'advanced' | 'dropped'; label: string };
+
+/** " · needs 2 wins" after a slot that feeds an uneven-wins round; nothing for any other slot. */
+function needsWinsText(wins: number | undefined): string {
+  return wins === undefined ? '' : ` · needs ${wins} win${wins === 1 ? '' : 's'}`;
+}
+
+/** The wins the unit coming from `sourceIndex` needs in `target`, as the label fields: empty unless the target plays uneven wins. */
+function winsNeededFields(target: TournamentRound, sourceIndex: number): { winsNeeded?: number } {
+  const wins = target.winTargets?.find((entry) => entry.from === sourceIndex)?.wins;
+  return wins === undefined ? {} : { winsNeeded: wins };
+}
 
 export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
   switch (slot.kind) {
@@ -306,10 +326,10 @@ export function projectedSlotLabelText(slot: ProjectedSlotLabel): string {
       // columns misleading); the room letter only when the round has several rooms.
       const source =
         slot.sourceRoomCount > 1 ? `${slot.sourceLabel} · Room ${roomLetter(slot.room)}` : slot.sourceLabel;
-      return `${source}, Rank ${slot.rank}`;
+      return `${source}, Rank ${slot.rank}${needsWinsText(slot.winsNeeded)}`;
     }
     case 'standings-rank':
-      return `Qualification #${slot.rank}`;
+      return `Qualification #${slot.rank}${needsWinsText(slot.winsNeeded)}`;
     case 'best-place':
       return `★ Best ${ordinal(slot.place)}, ${slot.sourceLabel}`;
     case 'lucky':
@@ -704,7 +724,7 @@ export function projectFutureRoundSlots(
           (candidate) => candidate.edge === 'standings' && candidate.sourceIndex === sourceIndex,
         );
         for (const rank of standingsEdge && 'ranks' in standingsEdge ? standingsEdge.ranks : []) {
-          pool.push({ kind: 'standings-rank', rank });
+          pool.push({ kind: 'standings-rank', rank, ...winsNeededFields(round, sourceIndex) });
         }
         continue;
       }
@@ -738,6 +758,7 @@ export function projectFutureRoundSlots(
               sourceLabel,
               sourceRoomCount: source.rooms.length,
               roomKnown,
+              ...winsNeededFields(round, sourceIndex),
             };
             pool.push(slot);
             waterfallSourceIndex.set(slot, sourceIndex);

@@ -1,4 +1,5 @@
 import { unitDisplay } from '../../domain/tournament/roster';
+import { winsBoxTitle, winsText } from './room-row-inputs';
 import { setFinalScore } from '../../domain/tournament/mutations';
 import { finalScoreKey, scoredMemberSlots } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
@@ -95,6 +96,8 @@ export interface FinalRowProps {
   columns: GameColumn[];
   /** The cumulative score, or the games won in the race Grand Final or a Best of. */
   total: number;
+  /** The wins this finalist needs in a WINS Final: the total then reads "1/2". */
+  winsNeeded?: number;
   showsWins: boolean;
   /** The game being entered is not needed: a Best-of Final already decided. */
   entryNotNeeded: boolean;
@@ -136,9 +139,15 @@ export function FinalRow(props: FinalRowProps) {
         <GameCells columns={columns} scores={perGame} />
         <span
           className={cn('w-12 text-right text-[15px] font-extrabold', stickyEndClass)}
-          title={showsWins ? 'Games won' : 'Cumulative Final score'}
+          title={
+            props.winsNeeded !== undefined
+              ? winsBoxTitle(total, props.winsNeeded)
+              : showsWins
+                ? 'Games won'
+                : 'Cumulative Final score'
+          }
         >
-          {total}
+          {props.winsNeeded !== undefined ? winsText(total, props.winsNeeded) : total}
         </span>
       </div>
       {entryGame > 0 && entryAnonymous ? (

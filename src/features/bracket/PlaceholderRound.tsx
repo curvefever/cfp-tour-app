@@ -14,6 +14,7 @@ import { bracketRowBase, rowSurfaceClasses } from '../tournament/components/resu
 import { ByeCard } from './ByeCard';
 import { RoomFrame } from './RoomCard';
 import { type ExitLine, poolingExitLines, roomExitLines } from '../tournament/components/exit-lines';
+import { roundMatchTag } from '../tournament/components/match-format-tag';
 import { roomTitle } from '../tournament/components/room-title';
 
 /** One slot of a room that is not drawn yet: an empty dashed stripe, and what will fill it (or the unit already known). */
@@ -41,16 +42,18 @@ function SlotRow({ index, known, label }: { index: number; known: boolean; label
 function FutureRoom({
   children,
   lines,
+  matchTag,
   round,
   roomIndex,
 }: {
   children: ReactNode;
   lines: ExitLine[];
+  matchTag?: string;
   round: TournamentRound;
   roomIndex: number;
 }) {
   return (
-    <RoomFrame future lines={lines} title={roomTitle(round, roomIndex)}>
+    <RoomFrame future lines={lines} matchTag={matchTag} title={roomTitle(round, roomIndex)}>
       {children}
     </RoomFrame>
   );
@@ -111,7 +114,13 @@ export function PlaceholderRound({
     return (
       <>
         {round.rooms.map((_, roomIndex) => (
-          <FutureRoom key={roomIndex} lines={linesOf(roomIndex)} round={round} roomIndex={roomIndex}>
+          <FutureRoom
+            key={roomIndex}
+            lines={linesOf(roomIndex)}
+            matchTag={roundMatchTag(state, roundIndex)}
+            round={round}
+            roomIndex={roomIndex}
+          >
             {(byRoom.get(roomIndex + 1) ?? []).map(knownRow)}
           </FutureRoom>
         ))}
@@ -125,7 +134,13 @@ export function PlaceholderRound({
     return (
       <>
         {(round.matches ?? []).map((match, roomIndex) => (
-          <FutureRoom key={roomIndex} lines={linesOf(roomIndex)} round={round} roomIndex={roomIndex}>
+          <FutureRoom
+            key={roomIndex}
+            lines={linesOf(roomIndex)}
+            matchTag={roundMatchTag(state, roundIndex)}
+            round={round}
+            roomIndex={roomIndex}
+          >
             {match.pair.map(knownRow)}
           </FutureRoom>
         ))}
@@ -140,7 +155,13 @@ export function PlaceholderRound({
       {round.rooms.map((slots, roomIndex) => {
         const roomLabels = projected?.[roomIndex] ?? null;
         return (
-          <FutureRoom lines={linesOf(roomIndex)} key={roomIndex} round={round} roomIndex={roomIndex}>
+          <FutureRoom
+            key={roomIndex}
+            lines={linesOf(roomIndex)}
+            matchTag={roundMatchTag(state, roundIndex)}
+            round={round}
+            roomIndex={roomIndex}
+          >
             {Array.from({ length: slots }, (_, slot) => (
               <SlotRow
                 index={slot}

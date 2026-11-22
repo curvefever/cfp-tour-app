@@ -694,6 +694,19 @@ describe('roundGameCount', () => {
     expect(roundGameCount({ rounds: [], gamemodeConfig: {} }, 3)).toBeNull();
   });
 
+  it('reports a WINS round with its two targets, the earlier source round first', () => {
+    const wins = buildRound({
+      roundNum: 1,
+      isFinal: true,
+      numGames: 3,
+      winTargets: [
+        { from: 5, wins: 2 },
+        { from: 2, wins: 1 },
+      ],
+    });
+    expect(countOf(wins)).toEqual({ games: 3, upTo: false, wins: [1, 2] });
+  });
+
   it.each([1, 3])(
     'reports the race Grand Final maximum with default targets, whatever numGames is (%i)',
     (n) => {

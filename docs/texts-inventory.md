@@ -326,7 +326,7 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `{UP TO }{n} GAMES` | built | viewer | [ColumnTitleBar.tsx:7](src/features/tournament/components/ColumnTitleBar.tsx:7) |  |
+| `{UP TO }{n} GAMES`, `BEST OF {n}`, `UNEVEN WINS {a} · {b}` | built | viewer | [match-format-tag.ts:6](src/features/tournament/components/match-format-tag.ts:6) | The match format is a sky tag in the title bar (2026-11-22) and repeats small in each room card header of the round (`RoomFrame` `matchTag`). |
 | `Fold {title}` | built | viewer | [ColumnTitleBar.tsx:14](src/features/tournament/components/ColumnTitleBar.tsx:14) |  |
 | `NOW` | fixed | viewer | [ColumnTitleBar.tsx:64](src/features/tournament/components/ColumnTitleBar.tsx:64) |  |
 

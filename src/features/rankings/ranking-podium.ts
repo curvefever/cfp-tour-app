@@ -1,4 +1,5 @@
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
+import { isMatchRound } from '../../domain/tournament/match-format';
 import type { computeRankings } from '../../domain/tournament/rankings';
 import type { TournamentState } from '../../domain/tournament/types';
 import { destinationLabel } from '../tournament/components/exit-text';
@@ -43,9 +44,10 @@ function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
 
-/** "Final · 429 over 3 games" (just "Final · 429" for a single game); the race Grand Final and a Best-of Final count the games won. */
-function finalistLine(data: Rankings, roundName: string, total: number): string {
-  if (data.lastRound.bracket === 'grand-final' || data.lastRound.bestOf !== undefined)
+/** "Final · 429 over 3 games" (just "Final · 429" for a single game); the race Grand Final and a Best-of Final count the games won, a WINS Final "2 of 3 wins". */
+function finalistLine(data: Rankings, roundName: string, total: number, needed?: number): string {
+  if (needed !== undefined) return `${roundName} · ${total} of ${plural(needed, 'win')}`;
+  if (data.lastRound.bracket === 'grand-final' || isMatchRound(data.lastRound))
     return `${roundName} · ${plural(total, 'game')} won`;
   const games = data.lastRound.numGames ?? 1;
   return games === 1 ? `${roundName} · ${total}` : `${roundName} · ${total} over ${games} games`;
@@ -65,7 +67,7 @@ export function finalStanding(state: TournamentState, data: Rankings): FinalStan
       rank: unit.rank,
       label: unit.label,
       members: unit.members,
-      line: finalistLine(data, roundName, unit.total),
+      line: finalistLine(data, roundName, unit.total, unit.needed),
       where: finalistWhere(data.lastRi, unit, labels),
     })),
     ...data.eliminatedList.map((unit) => {

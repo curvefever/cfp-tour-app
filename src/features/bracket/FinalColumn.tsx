@@ -1,7 +1,7 @@
 import { finalsProgressState } from '../../domain/tournament/finals';
 import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { getGameFormat } from '../../domain/tournament/formats';
-import { unneededGames } from '../../domain/tournament/match-format';
+import { isMatchRound, unneededGames } from '../../domain/tournament/match-format';
 import { flagFinalGameAnonymous, unflagFinalGameAnonymous } from '../../domain/tournament/mutations';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { scoredTeamSize } from '../../domain/tournament/scoring';
@@ -12,6 +12,7 @@ import { GamesHeader } from './GameScores';
 import { FinalRow } from './FinalRow';
 import { RoomFrame } from './RoomCard';
 import { scrollableCardClass, scrollableRowsClass } from './game-columns';
+import { roundMatchTag } from '../tournament/components/match-format-tag';
 import { roomTitle } from '../tournament/components/room-title';
 
 /** The Grand Final race: who is ahead of whom, and who has won. */
@@ -106,7 +107,7 @@ export function FinalColumn({
   const teamMap = buildTeamMap(state);
   const games = round.numGames ?? 1;
   const columns = roomGameColumns(state, roundIndex, 1);
-  const showsWins = progress.isGrandFinal || round.bestOf !== undefined;
+  const showsWins = progress.isGrandFinal || isMatchRound(round);
   const notNeeded = unneededGames(state, roundIndex, 1);
   const activeTab = Math.min(tab, games);
   const anonymousGames = round.anonymousGames ?? [];
@@ -136,7 +137,7 @@ export function FinalColumn({
           notNeeded={notNeeded}
           onTabChange={onTabChange}
           tab={tab}
-          totalLabel={round.bestOf === undefined ? 'Total' : 'Wins'}
+          totalLabel={isMatchRound(round) ? 'Wins' : 'Total'}
         />
       ) : null}
       {entering ? (
@@ -161,7 +162,7 @@ export function FinalColumn({
           ) : null}
         </div>
       ) : null}
-      <RoomFrame title={roomTitle(round, 0)}>
+      <RoomFrame matchTag={roundMatchTag(state, roundIndex)} title={roomTitle(round, 0)}>
         <div className={scrollableCardClass}>
           <div className={scrollableRowsClass}>
             <GamesHeader columns={columns} label={showsWins ? 'WINS' : 'TOTAL'} points={false} />
@@ -188,6 +189,7 @@ export function FinalColumn({
                   teamSize={teamSize}
                   showsWins={showsWins}
                   total={showsWins ? unit.wins : unit.total}
+                  winsNeeded={unit.needed}
                 />
               );
             })}

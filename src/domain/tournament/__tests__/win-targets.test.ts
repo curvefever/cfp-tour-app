@@ -27,6 +27,7 @@ import {
   setWaterfallMatch,
 } from '../waterfall-draft';
 import { assignWaterfallSlots } from '../waterfall-draft';
+import { defaultWinsOf } from '../waterfall-draft-win-defaults';
 import { setWaterfallWins } from '../waterfall-draft-wins';
 import { buildAssignments, buildRound, oneRoomState } from './test-fixtures';
 
@@ -695,5 +696,28 @@ describe('the draft of a graph with WINS', () => {
     if (!draft.ok) throw new Error(draft.error);
     expect(draft.value.wins).toEqual({ Final: { Qual: 3 } });
     expect(serializeWaterfallDraft(draft.value)).toContain('Qual: 1->Final WINS 3, 2-3->Semi');
+  });
+});
+
+describe('the default the editor hints for a band into a WINS round', () => {
+  const draftOf = (source: string) => {
+    const parsed = parseWaterfallDraft(source);
+    if (!parsed.ok) throw new Error(parsed.error);
+    return parsed.value;
+  };
+
+  it('is 1 for the earlier column and 2 for the later one', () => {
+    const draft = draftOf(doubleElimination());
+    expect(defaultWinsOf(draft, 'Final', 'Semi A.0')).toBe(1);
+    expect(defaultWinsOf(draft, 'Final', 'Semi B.0')).toBe(2);
+  });
+
+  it('is unknown for a band that is not into the round, or when the two come from one column', () => {
+    const draft = draftOf(doubleElimination());
+    expect(defaultWinsOf(draft, 'Final', 'U2.0')).toBeNull();
+    const sameColumn = draftOf(
+      'ROUNDS:\nR1 = 2x2\nSemi A = 2\nSemi B = 2\nFinal = 2 FINAL WINS\n\nROUTES:\nR1.A: 1->Semi A, 2->Semi B\nR1.B: 1->Semi A, 2->Semi B\nSemi A: 1->Final\nSemi B: 1->Final',
+    );
+    expect(defaultWinsOf(sameColumn, 'Final', 'Semi A.0')).toBeNull();
   });
 });

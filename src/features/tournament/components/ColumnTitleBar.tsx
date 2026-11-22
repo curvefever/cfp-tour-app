@@ -1,20 +1,20 @@
 import type { ReactNode } from 'react';
 import { Badge, cn, columnTitleClassName } from '../../../components/ui';
 import type { RoundGameCount } from '../../../domain/tournament/bracket';
+import { gameCountText, isMatchFormatCount } from './match-format-tag';
 import type { RoundSettings } from '../../../domain/tournament/round-notes';
 import { RoundSettingsPopup } from '../../bracket/RoundSettingsPopup';
 import type { RoomsScored } from '../../bracket/still-playing';
 
-/** "1 GAME", "3 GAMES", "UP TO 4 GAMES" for the race Grand Final, or "BEST OF 3". */
-function gameCountText({ games, upTo, bestOf }: RoundGameCount): string {
-  if (bestOf) return `BEST OF ${games}`;
-  return `${upTo ? 'UP TO ' : ''}${games} ${games === 1 ? 'GAME' : 'GAMES'}`;
-}
-
-/** A small caps tag after a title bar's name: the game count, EXPECTED, NOT COUNTED. */
-function TitleTag({ children }: { children: ReactNode }) {
+/** A small caps tag after a title bar's name: the game count, EXPECTED, NOT COUNTED. The match format (a Best of N, uneven wins, summed games) is sky blue, so it stands out. */
+function TitleTag({ children, match = false }: { children: ReactNode; match?: boolean }) {
   return (
-    <span className='rounded-xs bg-foreground/10 px-1.75 py-0.75 text-[11px] leading-none font-extrabold text-cfp-text-soft'>
+    <span
+      className={cn(
+        'rounded-xs px-1.75 py-0.75 text-[11px] leading-none font-extrabold',
+        match ? 'bg-primary/16 text-cfp-sky' : 'bg-foreground/10 text-cfp-text-soft',
+      )}
+    >
       {children}
     </span>
   );
@@ -123,7 +123,9 @@ export function ColumnTitleBar({
         </Badge>
       ) : null}
       {done ? <DoneMark /> : null}
-      {gameCount ? <TitleTag>{gameCountText(gameCount)}</TitleTag> : null}
+      {gameCount ? (
+        <TitleTag match={isMatchFormatCount(gameCount)}>{gameCountText(gameCount)}</TitleTag>
+      ) : null}
       {expected ? <TitleTag>EXPECTED</TitleTag> : null}
       {notCounted ? <TitleTag>NOT COUNTED</TitleTag> : null}
       {badge}

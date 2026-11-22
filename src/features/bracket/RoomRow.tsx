@@ -20,7 +20,7 @@ import {
 import { GameCells } from './GameScores';
 import { stickyEndClass, stickyLeadClass } from './game-columns';
 import type { GameColumn } from '../../domain/tournament/game-columns';
-import { roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
+import { roomGameScores, unitScoreSummary, winsBox, winsSoFar } from './room-row-inputs';
 import { ordinal } from '../../lib/ordinal';
 import { memberLabel } from './team-member-line';
 
@@ -258,6 +258,8 @@ export function RoomRow(props: RoomRowProps) {
   const resultWidth = pointsColumn ? 'w-11.5' : gameColumns ? 'w-12' : undefined;
   // A Best-of match in progress shows the games won so far, in a lighter weight than a result.
   const playedSoFar = winsSoFar(state, roundIndex, room, position);
+  // An uneven-wins room shows "1/2" (won over needed) from the start, whatever the room's result is.
+  const unevenWins = winsBox(state, roundIndex, room, position);
   const scoreText = absent ? (
     <span
       className={cn(
@@ -266,6 +268,13 @@ export function RoomRow(props: RoomRowProps) {
       )}
     >
       ABS
+    </span>
+  ) : unevenWins ? (
+    <span
+      className={cn('ml-auto flex shrink-0 items-center justify-end text-[15px] font-extrabold', resultWidth)}
+      title={unevenWins.title}
+    >
+      {unevenWins.text}
     </span>
   ) : showResults ? (
     <span

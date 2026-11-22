@@ -16,7 +16,7 @@ import { roomRowResult } from './room-row-result';
 import { roomRows } from './room-rows';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
-import { isMatchRound, roomMatch } from './match-format';
+import { isMatchRound, isWinsRound, roomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore, isRoomScored, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import { roundDestinations } from './waterfall-best';
@@ -59,6 +59,8 @@ export interface ActiveRanking extends RankingDisplay {
 export interface FinalistRanking extends RankingDisplay {
   total: number;
   rank: number;
+  /** The wins this finalist needed, in a WINS Final (`total` is the wins it won); absent elsewhere. */
+  needed?: number;
 }
 
 export interface EliminatedRanking extends RankingDisplay {
@@ -118,12 +120,19 @@ interface FinalistValue {
   total: number;
   tiebreak?: number;
   score?: number;
+  needed?: number;
 }
 
 /** The finalists of a decided Best-of or WINS Final, best first: the value shown is the wins, the rank score (wins, or the wins still needed) orders them, the total score ranks the rest. */
 function bestOfFinalists(state: TournamentState, roundIndex: number): FinalistValue[] {
   return (roomMatch(state, roundIndex, 1)?.units ?? [])
-    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total, score: unit.rank.score }))
+    .map((unit) => ({
+      name: unit.name,
+      total: unit.wins,
+      tiebreak: unit.total,
+      score: unit.rank.score,
+      ...(isWinsRound(state.rounds[roundIndex]) ? { needed: unit.needed } : {}),
+    }))
     .sort((first, second) => compareRankScores(first, second));
 }
 

@@ -8,6 +8,8 @@ import { getGameFormat } from '../../domain/tournament/formats';
 import { type RoundExitRule } from '../../domain/tournament/room-exits';
 import { type buildTeamMap } from '../../domain/tournament/roster';
 import { roomRows } from '../../domain/tournament/room-rows';
+import { isMatchRound } from '../../domain/tournament/match-format';
+import { roundMatchTag } from '../tournament/components/match-format-tag';
 import { scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { cn, roomHeaderClassName } from '../../components/ui';
@@ -76,12 +78,15 @@ export function RoomFrame({
   children,
   future = false,
   lines = [],
+  matchTag,
   note,
   scrolls = false,
   title,
 }: {
   children: ReactNode;
   future?: boolean;
+  /** The round's match format ("BEST OF 3"), repeated small in the header; none for a round of one game. */
+  matchTag?: string;
   /** A line under the title: the places a ranking room decides. */
   note?: string;
   /** The rows have game columns: a phone scrolls them sideways inside the card, the names fixed on the left. */
@@ -99,6 +104,16 @@ export function RoomFrame({
         )}
       >
         <h3 className={roomHeaderClassName}>{title}</h3>
+        {matchTag ? (
+          <span
+            className={cn(
+              'ml-2 rounded-xs px-1.5 py-0.5 text-[10px] leading-none font-extrabold whitespace-nowrap',
+              future ? 'bg-foreground/10 text-cfp-text-soft' : 'bg-on-primary/20 text-on-primary',
+            )}
+          >
+            {matchTag}
+          </span>
+        ) : null}
         <span className='flex-1' />
         <ExitIcon label={`Where players go from ${title}`} lines={lines} />
       </div>
@@ -189,11 +204,17 @@ export function RoomCard({
   const gameColumns = roomShowsGameColumns(round, rowsEditable);
   const columns = gameColumns ? roomGameColumns(state, roundIndex, room) : [];
   return (
-    <RoomFrame lines={lines} note={placesNote} scrolls={gameColumns} title={title}>
+    <RoomFrame
+      lines={lines}
+      matchTag={roundMatchTag(state, roundIndex)}
+      note={placesNote}
+      scrolls={gameColumns}
+      title={title}
+    >
       {gameColumns ? (
         <GamesHeader
           columns={columns}
-          label={points ? 'SCORE' : round.bestOf !== undefined ? 'WINS' : 'TOTAL'}
+          label={points ? 'SCORE' : isMatchRound(round) ? 'WINS' : 'TOTAL'}
           points={Boolean(points)}
         />
       ) : points ? (

@@ -1,5 +1,5 @@
 import { bestPlaceChoice } from '../../domain/tournament/best-place';
-import { roomMatch, unneededGames } from '../../domain/tournament/match-format';
+import { isWinsRound, roomMatch, unneededGames } from '../../domain/tournament/match-format';
 import { getUnitScore, getUnitScoreForGame } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';
 
@@ -10,16 +10,46 @@ export function luckyLoserNames(state: TournamentState, roundIndex: number): str
   return state.luckyLosers[round.winnersTo ?? roundIndex + 1] ?? [];
 }
 
-/** What a unit's game boxes add up to: the summed total, or on a Best-of round the games it has won. */
+/** What a unit's game boxes add up to: the summed total, or on a Best-of round the games it has won (on a WINS round "1/2": won over needed). */
 export function unitScoreSummary(
   state: TournamentState,
   roundIndex: number,
   room: number,
   position: number,
-): { label: 'Total' | 'Wins'; value: number | null } {
+): { label: 'Total' | 'Wins'; value: number | string | null } {
   const match = roomMatch(state, roundIndex, room);
-  if (match) return { label: 'Wins', value: match.units[position]?.wins ?? 0 };
+  if (match) {
+    const unit = match.units[position];
+    const wins = unit?.wins ?? 0;
+    return {
+      label: 'Wins',
+      value: isWinsRound(state.rounds[roundIndex]) && unit ? winsText(wins, unit.needed) : wins,
+    };
+  }
   return { label: 'Total', value: getUnitScore(state, roundIndex, room, position, 0) };
+}
+
+/** "1/2": the games a unit has won over the games it needs, in a WINS round. */
+export function winsText(wins: number, needed: number): string {
+  return `${wins}/${needed}`;
+}
+
+/** The wins box of a WINS round's unit: "1/2" and its title "1 of 2 wins needed". Null outside a WINS round. */
+export function winsBox(
+  state: TournamentState,
+  roundIndex: number,
+  room: number,
+  position: number,
+): { text: string; title: string } | null {
+  if (!isWinsRound(state.rounds[roundIndex])) return null;
+  const unit = roomMatch(state, roundIndex, room)?.units[position];
+  if (!unit) return null;
+  return { text: winsText(unit.wins, unit.needed), title: winsBoxTitle(unit.wins, unit.needed) };
+}
+
+/** "1 of 2 wins needed". */
+export function winsBoxTitle(wins: number, needed: number): string {
+  return `${wins} of ${needed} wins needed`;
 }
 
 /** The games a Best-of unit has won so far; null outside a Best-of room and before any game counts. */

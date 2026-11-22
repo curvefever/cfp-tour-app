@@ -3,7 +3,14 @@ import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { oneRoomState } from '../../domain/tournament/__tests__/test-fixtures';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
-import { luckyLoserNames, roomGameScores, unitScoreSummary, winsSoFar } from './room-row-inputs';
+import {
+  luckyLoserNames,
+  roomGameScores,
+  unitScoreSummary,
+  winsBox,
+  winsBoxTitle,
+  winsSoFar,
+} from './room-row-inputs';
 import { ONE_SCORE_PER_TEAM } from '../../domain/tournament/formats';
 
 describe('luckyLoserNames', () => {
@@ -64,6 +71,52 @@ describe('on a Best-of room', () => {
     expect(winsSoFar(bestOfRoom([[10, 5]]), 0, 1, 1)).toBe(0);
     expect(winsSoFar(bestOfRoom([]), 0, 1, 0)).toBeNull();
     expect(winsSoFar(oneRoomState({ players: ['A', 'B'], scores: { 'r0-rm1-p0': 3 } }), 0, 1, 0)).toBeNull();
+  });
+});
+
+describe('on an uneven-wins room', () => {
+  function winsRoom(games: number[][]): TournamentState {
+    const scores: Record<string, number> = {};
+    games.forEach((row, game) =>
+      row.forEach((value, position) => {
+        scores[`r0-rm1-p${position}-g${game + 1}`] = value;
+      }),
+    );
+    const state = oneRoomState({
+      players: ['A', 'B'],
+      rounds: [
+        {
+          winTargets: [
+            { from: 0, wins: 1 },
+            { from: 1, wins: 2 },
+          ],
+          numGames: 2,
+          isWaterfall: true,
+        },
+        {},
+      ],
+      scores,
+    });
+    return {
+      ...state,
+      assignments: [
+        state.assignments[0].map((entry, position) => ({ ...entry, winsNeeded: position + 1 })),
+        state.assignments[1],
+      ],
+    };
+  }
+
+  it('reads the wins over the wins needed, from the first game', () => {
+    expect(winsBox(winsRoom([]), 0, 1, 0)).toEqual({ text: '0/1', title: '0 of 1 wins needed' });
+    expect(winsBox(winsRoom([]), 0, 1, 1)).toEqual({ text: '0/2', title: '0 of 2 wins needed' });
+    expect(winsBox(winsRoom([[3, 9]]), 0, 1, 1)).toEqual({ text: '1/2', title: '1 of 2 wins needed' });
+    expect(winsBox(winsRoom([[9, 3]]), 0, 1, 0)).toEqual({ text: '1/1', title: '1 of 1 wins needed' });
+  });
+
+  it('is no box outside a WINS room, and the summary reads "1/2"', () => {
+    expect(winsBox(oneRoomState({ players: ['A', 'B'] }), 0, 1, 0)).toBeNull();
+    expect(unitScoreSummary(winsRoom([[3, 9]]), 0, 1, 1)).toEqual({ label: 'Wins', value: '1/2' });
+    expect(winsBoxTitle(2, 3)).toBe('2 of 3 wins needed');
   });
 });
 

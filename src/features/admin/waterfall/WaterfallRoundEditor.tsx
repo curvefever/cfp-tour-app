@@ -1,5 +1,12 @@
 import { useState, type KeyboardEvent } from 'react';
-import { MAX_ROOMS_PER_ROUND, roomIndexToLetter } from '../../../domain/tournament/waterfall-bracket';
+import { MAX_WIN_TARGET, MIN_WIN_TARGET } from '../../../domain/tournament/match-format';
+import {
+  MAX_ROOMS_PER_ROUND,
+  QUAL_LABEL,
+  roomIndexToLetter,
+} from '../../../domain/tournament/waterfall-bracket';
+import { defaultWinsOf } from '../../../domain/tournament/waterfall-draft-win-defaults';
+import { typedWins, winsSourceKey } from '../../../domain/tournament/waterfall-draft-wins';
 import {
   groupRoomByDestination,
   groupRoomWithOut,
@@ -49,6 +56,8 @@ export interface RoundEditorActions {
   onSetMatch: (match: WaterfallMatch | null) => void;
   /** The round's "Best of a place", or null to take it away. */
   onSetBest: (best: WaterfallDraftBest | null) => void;
+  /** The wins the unit arriving by the band from `sourceKey` into the WINS round `destination` needs, or null for the default by column. */
+  onSetWins: (destination: string, sourceKey: string, wins: number | null) => void;
   onDelete: () => void;
   /** Shows more ranks in the qualification table (only offered while the head count isn't known). */
   onAddRanks?: () => void;
@@ -115,6 +124,7 @@ function ColumnField({
 }
 
 const DEFAULT_MATCH_VALUE = 'default';
+const UNEVEN_WINS: WaterfallMatch = { kind: 'wins' };
 const MATCH_CHOICES: WaterfallMatch[] = [
   { kind: 'games', games: 2 },
   { kind: 'games', games: 3 },
@@ -138,6 +148,11 @@ function matchLabel(match: WaterfallMatch): string {
   return match.games === 1 ? '1 game' : `${match.games} games, summed`;
 }
 
+/** Uneven wins is for a head-to-head match: one room of two. */
+function isOneRoomOfTwo(round: Pick<WaterfallDraftRound, 'roomSizes'>): boolean {
+  return round.roomSizes.length === 1 && round.roomSizes[0] === 2;
+}
+
 /** The round's match format: a select the organiser changes, or the same select disabled (a round that has started, or a read-only view). */
 function MatchField({
   round,
@@ -154,11 +169,12 @@ function MatchField({
       ? 'Finals format'
       : `Finals format (${finalsMatch.kind === 'games' ? gamesText(finalsMatch.games) : matchLabel(finalsMatch)})`;
   // A format typed into the graph text that the list doesn't offer (BO9, GAMES 1 on the Final) stays selectable.
+  const offered = isOneRoomOfTwo(round) ? [...MATCH_CHOICES, UNEVEN_WINS] : MATCH_CHOICES;
   const unlisted =
-    round.match !== null && !MATCH_CHOICES.some((choice) => matchValue(choice) === matchValue(round.match))
+    round.match !== null && !offered.some((choice) => matchValue(choice) === matchValue(round.match))
       ? round.match
       : null;
-  const choices = unlisted ? [...MATCH_CHOICES, unlisted] : MATCH_CHOICES;
+  const choices = unlisted ? [...offered, unlisted] : offered;
   return (
     <label className={cn(fieldLabelClass, 'w-52')}>
       Match
@@ -357,6 +373,56 @@ function SelectionToolbar({
   );
 }
 
+/** Whether the round called `label` plays uneven wins, so the bands into it carry the wins each unit needs. */
+function playsUnevenWins(draft: WaterfallDraft, label: string): boolean {
+  return draft.rounds.find((round) => round.label === label)?.match?.kind === 'wins';
+}
+
+/**
+ * The "Wins needed" box of a band into a WINS round: empty with the default by column as its hint, and typing writes
+ * `WINS n` on the band. Without `onSetWins` (a read-only editor) it only says what the unit needs.
+ */
+function WinsNeededBox({
+  draft,
+  destination,
+  sourceKey,
+  onSetWins,
+}: {
+  draft: WaterfallDraft;
+  destination: string;
+  sourceKey: string;
+  onSetWins?: RoundEditorActions['onSetWins'];
+}) {
+  const typed = typedWins(draft, destination, sourceKey);
+  const fallback = defaultWinsOf(draft, destination, sourceKey);
+  if (!onSetWins) {
+    return (
+      <span className='text-xs text-muted'>
+        Wins needed in {destination}: {typed ?? fallback ?? 'not set'}
+      </span>
+    );
+  }
+  return (
+    <label className='flex items-center gap-1.5 text-xs text-muted'>
+      Wins needed in {destination}
+      <Input
+        aria-label={`Wins needed in ${destination}, from ${sourceKey.replace(/\.\d+$/, '')}`}
+        className='w-24'
+        inputMode='numeric'
+        max={MAX_WIN_TARGET}
+        min={MIN_WIN_TARGET}
+        onChange={(event) => {
+          const wins = Number.parseInt(event.target.value, 10);
+          onSetWins(destination, sourceKey, Number.isNaN(wins) ? null : wins);
+        }}
+        placeholder={fallback === null ? 'type it' : `default: ${fallback}`}
+        type='number'
+        value={typed ?? ''}
+      />
+    </label>
+  );
+}
+
 function slotDescription(destination: string | null): string {
   return destination === null ? 'eliminated' : `to ${destination}`;
 }
@@ -367,6 +433,8 @@ function SlotGrid({
   slots,
   room,
   name,
+  sourceLabel,
+  onSetWins,
   summarizeOut,
   picked,
   onPickSlot,
@@ -377,6 +445,9 @@ function SlotGrid({
   slots: WaterfallSlotDestination[];
   room: number;
   name: string;
+  /** The round the slots belong to, or `Qual` for the standings: the source of the bands the wins boxes belong to. */
+  sourceLabel: string;
+  onSetWins?: RoundEditorActions['onSetWins'];
   /** What each rank is (a tooltip on its slot), rank 1 first. */
   slotTitles?: readonly string[];
   /** The rank the round's best of a place picks from: its slot carries a ★ and the line as its tooltip. */
@@ -395,6 +466,18 @@ function SlotGrid({
         <b>{name}</b>
         <span className='font-mono text-xs text-muted'>{summary || 'nothing routed yet'}</span>
       </div>
+      {groupRoomByDestination(slots)
+        .filter(({ destination, ranks }) => ranks.length === 1 && playsUnevenWins(draft, destination))
+        .map(({ destination }) => (
+          <div className='mb-1.5' key={destination}>
+            <WinsNeededBox
+              destination={destination}
+              draft={draft}
+              onSetWins={onSetWins}
+              sourceKey={winsSourceKey(sourceLabel, room)}
+            />
+          </div>
+        ))}
       <div className='flex flex-wrap gap-1.5'>
         {slots.map((destination, index) => {
           const rank = index + 1;
@@ -464,18 +547,22 @@ function RoomSlots({
   room,
   picked,
   onPickSlot,
+  onSetWins,
 }: {
   draft: WaterfallDraft;
   round: WaterfallDraftRound;
   room: number;
   picked: ReadonlySet<string>;
   onPickSlot?: RoundEditorActions['onPickSlot'];
+  onSetWins?: RoundEditorActions['onSetWins'];
 }) {
   return (
     <SlotGrid
       draft={draft}
       name={roomCountOf(round) > 1 ? `Room ${roomIndexToLetter(room + 1)}` : 'The room'}
       onPickSlot={onPickSlot}
+      onSetWins={onSetWins}
+      sourceLabel={round.label}
       picked={picked}
       room={room}
       slots={draft.routes[round.label]?.[room] ?? []}
@@ -537,6 +624,8 @@ export function QualificationTableEditor({
         name={name}
         slotTitles={rankLabels ?? undefined}
         onPickSlot={actions?.onPickSlot}
+        onSetWins={actions?.onSetWins}
+        sourceLabel={QUAL_LABEL}
         picked={picked}
         room={0}
         slots={slots}
@@ -648,6 +737,7 @@ export function WaterfallRoundEditor({
               draft={draft}
               key={room}
               onPickSlot={actions?.onPickSlot}
+              onSetWins={actions?.onSetWins}
               picked={picked}
               room={room}
               round={round}

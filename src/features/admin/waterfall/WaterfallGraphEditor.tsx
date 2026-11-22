@@ -33,6 +33,7 @@ import {
   type WaterfallSlotDestination,
 } from '../../../domain/tournament/waterfall-draft';
 import { WATERFALL_EXAMPLES } from '../../../domain/tournament/waterfall-examples';
+import { setWaterfallWins } from '../../../domain/tournament/waterfall-draft-wins';
 import { Alert, Button, ButtonRow } from '../../../components/ui';
 import {
   QualificationTableEditor,
@@ -274,6 +275,8 @@ function DraftEditor({
     onSetColumn: (column) => commit(setWaterfallColumn(draft, round.label, column)),
     onSetMatch: (match) => commit(setWaterfallMatch(draft, round.label, match)),
     onSetBest: (best) => commit(setWaterfallBest(draft, round.label, best)),
+    onSetWins: (destination, sourceKey, wins) =>
+      commit(setWaterfallWins(draft, destination, sourceKey, wins)),
     onAddRanks,
     onDelete: () => {
       const isDestination = (intake.incoming[round.label] ?? 0) > 0;

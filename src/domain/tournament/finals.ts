@@ -1,4 +1,4 @@
-import { roomMatch, type RoomMatch } from './match-format';
+import { isWinsRound, roomMatch, type RoomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -19,6 +19,8 @@ interface FinalsUnitProgress {
   perGame: Array<number | null>;
   total: number;
   wins: number;
+  /** The wins this unit needs, on a WINS Final; absent elsewhere. */
+  needed?: number;
 }
 
 interface FinalsProgressState {
@@ -169,8 +171,8 @@ export function finalsProgressState(
     ).reduce<number>((sum, score) => sum + (score ?? 0), 0);
     // A Best-of Final counts the games up to the decision: wins and total come from the match.
     if (match) {
-      const { wins, total } = match.units[position];
-      return { name: assignment.name, perGame, total, wins };
+      const { wins, total, needed } = match.units[position];
+      return { name: assignment.name, perGame, total, wins, ...(isWinsRound(round) ? { needed } : {}) };
     }
     let wins = 0;
     if (race) {
