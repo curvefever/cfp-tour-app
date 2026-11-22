@@ -133,7 +133,7 @@ describe('finalStanding', () => {
     ]);
   });
 
-  it('reads "1 of 1 wins" for a finalist who needed one win', () => {
+  it('reads "1 of 1 win" for a finalist who needed one win', () => {
     const state = finalState({ 'game1-P1': 300, 'game1-P2': 100 }, 2);
     const uneven = {
       ...state,
@@ -162,7 +162,7 @@ describe('finalStanding', () => {
       standingOf(uneven)
         .top.slice(0, 2)
         .map((card) => card.line),
-    ).toEqual(['Final · 1 of 1 wins', 'Final · 0 of 2 wins']);
+    ).toEqual(['Final · 1 of 1 win', 'Final · 0 of 2 wins']);
   });
 
   it('gives the first three again in order of place', () => {
