@@ -133,6 +133,38 @@ describe('finalStanding', () => {
     ]);
   });
 
+  it('reads "1 of 1 wins" for a finalist who needed one win', () => {
+    const state = finalState({ 'game1-P1': 300, 'game1-P2': 100 }, 2);
+    const uneven = {
+      ...state,
+      rounds: state.rounds.map((round) =>
+        round.isFinal
+          ? {
+              ...round,
+              rooms: [2],
+              players: 2,
+              winTargets: [
+                { from: 0, wins: 1 },
+                { from: 1, wins: 2 },
+              ],
+            }
+          : round,
+      ),
+      assignments: [
+        state.assignments[0],
+        [
+          { name: 'P1', room: 1, isLucky: false, winsNeeded: 1 },
+          { name: 'P2', room: 1, isLucky: false, winsNeeded: 2 },
+        ],
+      ],
+    };
+    expect(
+      standingOf(uneven)
+        .top.slice(0, 2)
+        .map((card) => card.line),
+    ).toEqual(['Final · 1 of 1 wins', 'Final · 0 of 2 wins']);
+  });
+
   it('gives the first three again in order of place', () => {
     const { top } = standingOf(finalState(threeGames, 3));
     expect(top.map((card) => [card.rank, card.label])).toEqual([
