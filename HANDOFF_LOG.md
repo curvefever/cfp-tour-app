@@ -6,6 +6,23 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## A solid shield for the Save your Buddy defender, with a "Defender" hover box (done — 2026-11-22, on `test` `7d57a73`)
+
+**Context.** The organiser found the 🛡 emoji hard to read and not obviously a defender mark, just before prod tour 1795369383748 (3v3 Save your Buddy). Asked for a clear shield shape, perhaps on a solid background, and a small "Defender" box on hover with no underline hinting at it. Three options were drawn (solid shield, solid shield with a white D, white shield on a round badge); the organiser chose the **solid shield**. Built directly by the planner-reviewer session (a small visual change, the tournament starting soon), not through the Implementer.
+
+**What changed.**
+- `DefenderShield.tsx` (`tournament/components/`): `ShieldShape`, a one-line-high SVG shield in the current colour, and `DefenderShield`, that shape in `text-cfp-brand` with a "Defender" box above it, shown on hover and on focus (the mark is focusable, so a tap shows it on a phone). It reads as `role='img'` "Defender".
+- `team-member-line.ts`: `teamMemberLine` (a string) became `teamMemberParts` (`{ name, defender, after }` per member) so the shield is drawn as a component; `memberLabel` became `isDesignatedDefender`. `TeamMembers` (`ScoreFields.tsx`) joins the parts with `MEMBER_SEPARATOR` (now exported from `member-line.ts`), a no-break space before the shield. A new `MemberLabel` puts the shield after a member's name above a score box (`RoomRow`, `FinalRow`).
+- Manage teams (`TeamSlots.tsx`): the shield before "Defender", and the "Make defender" button shows the shape in grey.
+
+**Testing.** Related tests (34 files, 659 tests) pass; `team-member-line.test.ts` rebuilds the line as text from the parts, and the Save your Buddy render test checks one "Defender" image per team row. Lint, format and types clean on the changed files. Live check on the test site (`7d57a73`, a throwaway 3v3 Save your Buddy run): the room lines and Manage teams show the blue shield, no emoji left; the "Defender" box shows on hover and on focus (what a tap gives on a phone), and the "Make defender" buttons show the grey shape.
+
+**Full suite:** passed on `7d57a73` (298 files, 7499 tests, none failed; run with `--exclude ".claude/**"`). It touches shared code (`src/features/tournament/`), so this run covers a push to `main`.
+
+**Out of scope.** The Rankings export picture and copied texts (they never showed a defender mark).
+
+---
+
 ## Likely absentees are paired together in head-to-head pooling rounds (done — 2026-11-22, on `test`; pushed up to `03b74f1`, the close-out commit not pushed)
 
 **Context.** Rooms of two kept their draw: `placeLikelyAbsentees` placed nobody when every room had two seats and `swissPair` knew nothing of absentees, so two likely absentees could each meet a present unit and hand out two free walkovers. It was to run on prod 1795339708847 (3v3, a Swiss of 5 rounds). Plan: `plans/2026-11-22-absentee-pairing.md`, three stages, each reviewed by the planner-reviewer session.

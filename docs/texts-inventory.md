@@ -547,7 +547,7 @@ The Bracket tab. Most sentences here are generated from the tournament's own set
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `{memberName}{ 🛡 / ∅}` | built | viewer | [team-member-line.ts:16](src/features/bracket/team-member-line.ts:16) |  |
+| `{memberName}{ shield / ∅}`, the shield's hover box `Defender` | built | viewer | [team-member-line.ts](src/features/bracket/team-member-line.ts), [DefenderShield.tsx](src/features/tournament/components/DefenderShield.tsx) |  |
 | `{label} {total}` | built | viewer | [team-member-line.ts:68](src/features/bracket/team-member-line.ts:68) |  |
 
 ### TieBanners.tsx — Tie-break banners
@@ -801,7 +801,7 @@ Rankings after the start, Players before it. The organiser tools at the bottom (
 | `— pick a reserve —` | fixed | admin | [RankingsRoster.tsx:433](src/features/rankings/RankingsRoster.tsx:433) |  |
 | `Name of the new/walk-up player filling this slot:` | fixed | admin | [RankingsRoster.tsx:446](src/features/rankings/RankingsRoster.tsx:446) |  |
 | `＋ New` | fixed | admin | [RankingsRoster.tsx:454](src/features/rankings/RankingsRoster.tsx:454) |  |
-| `🛡 Defender` | fixed | admin | [RankingsRoster.tsx:469](src/features/rankings/RankingsRoster.tsx:469) |  |
+| `{shield} Defender` | fixed | admin | [TeamSlots.tsx](src/features/rankings/TeamSlots.tsx) |  |
 | `Make {name} defender` | built | admin | [RankingsRoster.tsx:476](src/features/rankings/RankingsRoster.tsx:476) |  |
 | `Make defender` | fixed | admin | [RankingsRoster.tsx:479](src/features/rankings/RankingsRoster.tsx:479) |  |
 | `Rename {name}` | built | admin | [RankingsRoster.tsx:488](src/features/rankings/RankingsRoster.tsx:488) |  |
