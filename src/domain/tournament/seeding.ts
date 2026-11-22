@@ -403,7 +403,7 @@ export function seedFromPoolingExit(options: {
   return isGroupExit ? avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit) : seeded;
 }
 
-/** Whether a draw of this round puts the likely absentees together: `absenceVersion` 4, a pooling round of rooms of two (a Swiss pairs them itself) after the tournament's first. */
+/** Whether a draw of this round puts the likely absentees together: `absenceVersion` 4, a pooling round of rooms of two (a Swiss included) after the tournament's first. */
 export function pairsAbsenteesInRound(
   state: Pick<TournamentState, 'gamemodeConfig'>,
   round: TournamentRound,
@@ -413,9 +413,17 @@ export function pairsAbsenteesInRound(
     roundIndex > 0 &&
     pairsLikelyAbsentees(state) &&
     isPoolingRound(round) &&
-    !round.isSwiss &&
     round.rooms.every((size) => size <= 2)
   );
+}
+
+/** The same, for the room draw (`tieredSeed`): a Swiss round pairs them in `swissPair` and never reaches it. */
+function seedingPairsAbsentees(
+  state: Pick<TournamentState, 'gamemodeConfig'>,
+  round: TournamentRound,
+  roundIndex: number,
+): boolean {
+  return !round.isSwiss && pairsAbsenteesInRound(state, round, roundIndex);
 }
 
 export function selectPoolingBye(
@@ -979,7 +987,7 @@ export function tieredSeed(options: {
       roomHistory: state.roomHistory,
       seedingOverride,
       likelyAbsent: likelyAbsentees(state, targetRoundIndex),
-      pairAbsentees: pairsAbsenteesInRound(state, nextRound, targetRoundIndex),
+      pairAbsentees: seedingPairsAbsentees(state, nextRound, targetRoundIndex),
       isLuckyByName: new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)])),
       progress: () => semisApproachProgress(state.rounds, roundIndex),
       members: () => {

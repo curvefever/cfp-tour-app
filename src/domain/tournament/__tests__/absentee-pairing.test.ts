@@ -246,3 +246,37 @@ function started(state: TournamentState): TournamentState {
 function withoutSwiss(count: number): TournamentState {
   return started(generated(count, { gameFormat: 'individual-1v1', poolingPhase: 'qual-table' }));
 }
+
+describe.each(FORMATS)('a Swiss of $label, through Next Round', ({ setup }) => {
+  const roundTwo = (count: number, absentCount: number, version?: 3) => {
+    const start = swiss(count, setup);
+    const units = pickAbsent(start, absentCount);
+    const answered = afterRoundOne(start, units);
+    const state: TournamentState = version
+      ? { ...answered, gamemodeConfig: { ...answered.gamemodeConfig, absenceVersion: version } }
+      : answered;
+    return { next: pressed(state), absent: new Set(units), state };
+  };
+
+  it('gives round 2 of 14 with 3 absentees exactly one all-absent room, and the third a present opponent', () => {
+    const { next, absent } = roundTwo(14, 3);
+    expect(absentRooms(next.assignments[1], absent)).toHaveLength(1);
+    expect(mixedRooms(next.assignments[1], absent)).toHaveLength(1);
+  });
+
+  it('gives round 2 of 13 with 1 absentee to that absentee as an absentBye bye, in the stored assignments', () => {
+    const { next, absent } = roundTwo(13, 1);
+    const bye = byeOf(next.assignments[1]);
+    expect(bye).toMatchObject({ room: null, absentBye: true });
+    expect(absent.has(bye?.name as string)).toBe(true);
+    expect(next.byes[1]).toEqual([bye?.name]);
+  });
+
+  it('draws the same two rounds as before on a version 3 tournament', () => {
+    const three = roundTwo(14, 3, 3);
+    expect(roomsOf(three.next.assignments[1])).toEqual(roomsOf(draw(three.state, new Set()).seeded));
+    const odd = roundTwo(13, 1, 3);
+    expect(byeOf(odd.next.assignments[1])?.absentBye).toBeUndefined();
+    expect(byeOf(odd.next.assignments[1])?.name).toBe(byeOf(draw(odd.state, new Set()).seeded)?.name);
+  });
+});
