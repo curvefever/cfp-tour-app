@@ -5,12 +5,13 @@ import {
   slotFillRefusal,
   swapTeamMember,
 } from '../../domain/tournament/member-swaps';
-import { renameTeamMember, setTeamDefender, updateTeam } from '../../domain/tournament/mutations';
+import { renameTeamMember, setTeamDefender } from '../../domain/tournament/mutations';
 import type { TeamMember, TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Button, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';
 import { refuseUnstorableNames } from '../tournament/unstorable-names';
 import { ConfirmToggle } from './ConfirmToggle';
+import { removeMemberWithNotice } from './member-removal-text';
 import type { ConfirmationView } from '../tournament/components/confirmation-view';
 import { ICON_BUTTON } from './tool-buttons';
 
@@ -182,14 +183,18 @@ export function TeamMemberRow({
             variant='danger'
             onClick={() => {
               if (
-                window.confirm(`Remove "${member.name}" from team "${team.teamName}"? This cannot be undone.`)
+                !window.confirm(
+                  `Remove "${member.name}" from team "${team.teamName}"? This cannot be undone.`,
+                )
               )
-                app.updateState((current) =>
-                  updateTeam(current, team.teamId, (entry) => ({
-                    ...entry,
-                    members: entry.members.map((item, index) => (index === memberIndex ? null : item)),
-                  })),
-                );
+                return;
+              const removed = removeMemberWithNotice(app.state, team.teamId, memberIndex);
+              if ('refusal' in removed) {
+                window.alert(removed.refusal);
+                return;
+              }
+              app.updateState(removed.state);
+              if (removed.notice) window.alert(removed.notice);
             }}
           >
             ✕
