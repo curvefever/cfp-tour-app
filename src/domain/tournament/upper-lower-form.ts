@@ -48,8 +48,14 @@ export function upperLowerByHand(form: PersistedSetup, registered: number): Uppe
   const { plan, roomSize } = planned;
   return {
     ok: true,
-    text: upperLowerGraphText(plan.entry, roomSize, plan.firstRound, plan.source, plan.upper, (round) =>
-      tokenOf(round, form),
+    text: upperLowerGraphText(
+      plan.entry,
+      roomSize,
+      plan.firstRound,
+      plan.source,
+      plan.upper,
+      (round) => tokenOf(round, form),
+      plan.finalWins,
     ),
   };
 }

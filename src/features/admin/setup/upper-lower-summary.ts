@@ -2,6 +2,7 @@ import { getGameFormat } from '../../../domain/tournament/formats';
 import { groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup, PoolingPhaseKey } from '../../../domain/tournament/types';
 import { planUpperLowerFor } from '../../../domain/tournament/upper-lower-form';
+import type { UpperLowerFinalWins } from '../../../domain/tournament/upper-lower-wins';
 import {
   automaticRequest,
   upperLowerShape,
@@ -53,8 +54,12 @@ function roomsText(real: number[]): string {
 }
 
 /** Where the units of a round go: its first room's bands, the ranks no band covers (eliminated) named last. */
-function goesText(round: UpperLowerRound): string {
-  if (round.isFinal) return 'the title is decided here';
+function goesText(round: UpperLowerRound, finalWins: UpperLowerFinalWins | null): string {
+  if (round.isFinal) {
+    return finalWins
+      ? `the title is decided here: the upper finalist needs ${finalWins.upper}, the lower finalist ${finalWins.lower} ${finalWins.lower === 1 ? 'win' : 'wins'}`
+      : 'the title is decided here';
+  }
   if (round.isRanking) return 'placement match: everyone is out after it';
   const bands = round.rooms[0];
   const parts = bands.map((band) => `${ranksText(band)} → ${band.to}`);
@@ -84,7 +89,7 @@ export function upperLowerSummary(setup: PersistedSetup, registered: number | nu
     rounds: shape.rounds.map((round) => ({
       name: round.name,
       rooms: roomsText(round.real),
-      goes: goesText(round),
+      goes: goesText(round, plan.finalWins),
     })),
   };
 }

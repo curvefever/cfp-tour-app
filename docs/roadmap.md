@@ -43,7 +43,6 @@ The sections follow the same topics as `docs/open-items.md`: schedule structure,
 
 ## Custom bracket (waterfall)
 
-- **Uneven win targets in one match** — raised by the organiser 2026-10-30, not needed for the first Best-of build. A custom bracket can bring two units into a match where one must win e.g. 2 games and the other 3, as the double-elimination race Grand Final already does (`grandFinalWbTarget` / `grandFinalLbTarget`, `finals.ts`). To decide: a head start in wins (one side starts 1–0 in a first to 3) or a target per entrant, how the graph or the editor names it (per feeding source), and whether the race Grand Final then moves onto the same mechanism.
 - **Band boundaries in a waterfall graph carry very different stakes** — seen in tournament `1792339397443` (2026-10-22): its graph gave the top 8 of the qualification table a second life and ranks 9–16 a single one, so with equal strengths a top-8 team reached the Final about 7 times as often (about 44% against 6%), and 8th against 9th was decided by a tie-break difference of 0.00018 among four teams on 10 points. Inside a band the qualifying rank barely matters (#1 and #8 are drawn alike; see "rank-order seating inside a destination" in `docs/open-items.md`). Ideas, none requested: a playoff room for units tied at a band boundary, the graph editor showing each band's path to the Final, or advice to put boundaries where the standings are less often tied (more counted rounds).
 
 ## Scoring, ties and match formats

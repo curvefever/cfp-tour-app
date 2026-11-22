@@ -8,6 +8,7 @@
  * graph round of a Custom bracket changes through Edit graph.
  */
 import {
+  isWinsRound,
   matchFormatToken,
   parseMatchFormatToken,
   sameMatchFormat,
@@ -37,7 +38,12 @@ export interface StageMatchEntry extends MatchFormat {
   label: string;
   /** Every round of the stage is finished: its format can't change any more. */
   locked: boolean;
+  /** Why the stage can't change, when it isn't "finished": the Final plays uneven wins. */
+  lockedReason?: string;
 }
+
+/** The reason the live panel gives for the Final's stage when the Final plays uneven wins. */
+export const UNEVEN_FINAL_REASON = 'The Final plays uneven wins.';
 
 /** A round not finished yet, with the override it has. */
 export interface RoundMatchEntry {
@@ -88,15 +94,20 @@ function openIndexes(state: TournamentState): number[] {
 /** What can be changed now: the stages the schedule has and the rounds not finished yet. */
 export function stageMatchScope(state: TournamentState): StageMatchScope {
   const present = new Set(state.rounds.map(matchStage));
+  // A WINS Final has no stage (it plays its own targets), but its select stays, locked, with the reason.
+  const unevenFinal = state.rounds.some((round) => round.isFinal && isWinsRound(round));
+  if (unevenFinal) present.add('finals');
   const open = openIndexes(state);
   const stages = STAGES.filter((stage) => present.has(stage)).map((stage): StageMatchEntry => {
     const { games, bestOf } = stageFormat(stage, state.gamemodeConfig);
+    const unevenLock = unevenFinal && stage === 'finals';
     return {
       stage,
       label: stageLabel(stage, state),
       games,
       ...(bestOf === undefined ? {} : { bestOf }),
-      locked: !open.some((index) => matchStage(state.rounds[index]) === stage),
+      locked: unevenLock || !open.some((index) => matchStage(state.rounds[index]) === stage),
+      ...(unevenLock ? { lockedReason: UNEVEN_FINAL_REASON } : {}),
     };
   });
   if (stages.length === 0)

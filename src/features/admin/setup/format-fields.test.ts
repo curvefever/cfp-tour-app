@@ -124,6 +124,43 @@ function expected(...groups: FormatField[][]): FormatField[] {
   return [...new Set(groups.flat())].sort();
 }
 
+describe('the uneven-wins Finals format', () => {
+  const unevenFields = (choices: Partial<FormatChoices>) =>
+    fieldsOf(choices).filter((field) => field.startsWith('finalsUneven') || field.endsWith('Wins'));
+
+  it('is shown for an upper and lower bracket of a head-to-head format', () => {
+    for (const gameFormat of ['individual-1v1', 'team-2v2', 'team-4v4'] as const) {
+      expect(
+        unevenFields({ gameFormat, scheduleLogic: 'upper-lower', poolingPhase: 'swiss' }).sort(),
+      ).toEqual(['finalsLowerWins', 'finalsUnevenWins', 'finalsUpperWins']);
+    }
+  });
+
+  it('is hidden in FFA, in a multi-team format and in every other schedule logic', () => {
+    expect(
+      unevenFields({
+        gameFormat: 'ffa-individual',
+        scheduleLogic: 'upper-lower',
+        poolingPhase: 'qual-table',
+      }),
+    ).toEqual([]);
+    expect(
+      unevenFields({ gameFormat: 'team-2v2v2', scheduleLogic: 'upper-lower', poolingPhase: 'qual-table' }),
+    ).toEqual([]);
+    for (const scheduleLogic of [
+      'single-elimination',
+      'kings-valley',
+      'waterfall-bracket',
+      'layered',
+    ] as const) {
+      expect(
+        unevenFields({ gameFormat: 'individual-1v1', scheduleLogic, poolingPhase: 'swiss' }),
+        scheduleLogic,
+      ).toEqual([]);
+    }
+  });
+});
+
 describe('visibleFormatFields', () => {
   for (const [poolingPhase, byPooling] of Object.entries(BY_POOLING)) {
     for (const [scheduleLogic, byLogic] of Object.entries(BY_LOGIC)) {

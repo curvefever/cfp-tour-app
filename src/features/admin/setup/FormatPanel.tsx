@@ -22,11 +22,18 @@ import { EditingTag } from '../../presence/EditingTag';
 import { PresenceField } from '../../presence/PresenceField';
 import { useTournamentApp } from '../../tournament/TournamentProvider';
 import { groupExitIsTotal } from '../../../domain/tournament/group-exit';
+import { MAX_WIN_TARGET, MIN_WIN_TARGET } from '../../../domain/tournament/match-format';
+import {
+  DEFAULT_LOWER_WINS,
+  DEFAULT_UPPER_WINS,
+  UNEVEN_WINS_ON,
+} from '../../../domain/tournament/upper-lower-wins';
 import {
   DRAW_PUBLICATION_LABELS,
   GROUP_EXIT_LABELS,
   ROUND_ROBIN_LABELS,
   bracketStageLabel,
+  UNEVEN_WINS_VALUE,
   matchFromSelectValue,
   visibleFormatFields,
 } from './format-fields';
@@ -165,6 +172,24 @@ export function FormatPanel({
       ...(games === undefined ? {} : { [`${stage}Games`]: games }),
       [`${stage}BestOf`]: bestOf,
     });
+  }
+
+  /**
+   * The Finals format select. "Uneven wins" (an upper and lower bracket of a head-to-head format) sets
+   * `finalsUnevenWins` and leaves the games and Best of N as they were; any other format clears it and its two boxes.
+   */
+  function changeFinals(value: string) {
+    if (value === UNEVEN_WINS_VALUE) {
+      updateSetup((current) => ({ ...current, finalsUnevenWins: UNEVEN_WINS_ON }));
+      return;
+    }
+    updateSetup((current) => ({
+      ...current,
+      finalsUnevenWins: '',
+      finalsUpperWins: '',
+      finalsLowerWins: '',
+    }));
+    changeMatch('finals', value);
   }
 
   /** The format select of a stage before the Semis, where the schedule has one. */
@@ -434,6 +459,40 @@ export function FormatPanel({
             </PresenceField>
           </>
         ) : null}
+        {shown.has('finalsUnevenWins') && setup.finalsUnevenWins === UNEVEN_WINS_ON ? (
+          <>
+            <PresenceField htmlFor='cfg-finals-upper-wins' label='Upper finalist needs'>
+              <Input
+                id='cfg-finals-upper-wins'
+                type='number'
+                min={MIN_WIN_TARGET}
+                max={MAX_WIN_TARGET}
+                placeholder={String(DEFAULT_UPPER_WINS)}
+                value={setup.finalsUpperWins}
+                onChange={(e) => change('finalsUpperWins', e.target.value)}
+              />
+              <p className='text-xs text-muted'>
+                Game wins the finalist the upper side sends straight to the Final needs. Empty:{' '}
+                {DEFAULT_UPPER_WINS}.
+              </p>
+            </PresenceField>
+            <PresenceField htmlFor='cfg-finals-lower-wins' label='Lower finalist needs'>
+              <Input
+                id='cfg-finals-lower-wins'
+                type='number'
+                min={MIN_WIN_TARGET}
+                max={MAX_WIN_TARGET}
+                placeholder={String(DEFAULT_LOWER_WINS)}
+                value={setup.finalsLowerWins}
+                onChange={(e) => change('finalsLowerWins', e.target.value)}
+              />
+              <p className='text-xs text-muted'>
+                Game wins the winner of the last Semi-Final needs. Empty: {DEFAULT_LOWER_WINS}. Applies when
+                the schedule is generated.
+              </p>
+            </PresenceField>
+          </>
+        ) : null}
         {shown.has('upperLowerAdvance') ? (
           <PresenceField htmlFor='cfg-upper-lower-advance' label='Advance to bracket (optional)'>
             <Input
@@ -613,7 +672,12 @@ export function FormatPanel({
               bestOf={setup.finalsBestOf}
               games={setup.finalsGames}
               id='cfg-finals-games'
-              onChange={(value) => changeMatch('finals', value)}
+              onChange={changeFinals}
+              unevenWins={
+                shown.has('finalsUnevenWins')
+                  ? { chosen: setup.finalsUnevenWins === UNEVEN_WINS_ON }
+                  : undefined
+              }
             />
           </PresenceField>
         ) : (

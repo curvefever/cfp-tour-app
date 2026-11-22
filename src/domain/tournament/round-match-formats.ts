@@ -8,6 +8,7 @@
  */
 import {
   BEST_OF_VALUES,
+  isWinsRound,
   matchFormatFields,
   parseMatchFormatToken,
   stageMatchFields,
@@ -214,9 +215,11 @@ export function withMatchOverride(overridesText: string, name: string, token: st
 
 /**
  * The stage a round belongs to; null for a graph round of a Custom bracket and for the race Grand Final, which keep
- * their own format. A round of the built-in upper and lower bracket carries its stage (`graphMatchStage`), its Final included.
+ * their own format, and for a WINS round, which plays its own targets. A round of the built-in upper and lower bracket carries its stage (`graphMatchStage`), its Final included.
  */
 export function matchStage(round: TournamentRound): RoundStage | null {
+  // A WINS round plays the targets on its graph's bands, whatever stage it was marked with.
+  if (isWinsRound(round)) return null;
   if (round.isWaterfall) return round.graphMatchStage ?? null;
   if (round.bracket === 'grand-final') return null;
   if (round.isFinal) return 'finals';

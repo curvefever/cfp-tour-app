@@ -541,6 +541,11 @@ export interface PersistedSetup {
   upperLowerAdvance: string;
   /** "Upper rooms" of an upper and lower bracket: how many of the units that enter start in the upper rooms. '' = evenly (half). */
   upperLowerUpper: string;
+  /** The Finals format "Uneven wins" of an upper and lower bracket in a head-to-head format: 'yes' or ''. Beside the Finals Best-of fields, which keep what they were so switching back restores it. */
+  finalsUnevenWins: string;
+  /** Uneven wins: the wins the upper and the lower finalist need, each '' = the default (1 and 2). */
+  finalsUpperWins: string;
+  finalsLowerWins: string;
   /** The layered bracket's typed numbers, each '' = the app's own (`planLayered`): how many are expected to play, how many are in the bracket, the bracket rounds after the table, the levels (2 or 3) and the top level. */
   layeredExpected: string;
   layeredInBracket: string;

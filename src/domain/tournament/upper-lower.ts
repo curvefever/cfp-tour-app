@@ -2,6 +2,7 @@ import { parseAdvanceToBracket } from './bracket-entry';
 import { groupExitIsTotal } from './group-exit';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
+import { upperLowerFinalWins, type UpperLowerFinalWins, type UpperLowerWinsFields } from './upper-lower-wins';
 import type { PersistedSetup, RoomSize } from './types';
 import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
 
@@ -124,6 +125,12 @@ export interface UpperLowerBand {
   to: string | null;
 }
 
+/** The two rounds that send a finalist straight into the Final: the upper finalist's source (the earlier column) and the lower finalist's. */
+export interface UpperLowerFinalSources {
+  upper: string;
+  lower: string;
+}
+
 export interface UpperLowerRound {
   name: string;
   /** The seats per room as the graph declares them. */
@@ -144,6 +151,7 @@ export interface UpperLowerShape {
   /** Where the pooling standings go: ranks 1 to the upper total to the upper round, the rest to the lower round. */
   pooling: UpperLowerBand[];
   rounds: UpperLowerRound[];
+  finalSources: UpperLowerFinalSources;
 }
 
 const band = (first: number, last: number, to: string | null): UpperLowerBand => ({ first, last, to });
@@ -263,16 +271,24 @@ export function upperLowerShape(
     rounds: fourRooms
       ? fourRoomRounds(rooms, roomSize, firstRoundNumber)
       : twoRoomRounds(rooms, roomSize, firstRoundNumber),
+    // Two rooms: the Upper round sends its winner to the Final, the Semi-Final the other one. Four rooms: Semi-Final A and B.
+    finalSources: fourRooms
+      ? { upper: 'Semi-Final A', lower: 'Semi-Final B' }
+      : { upper: upperName, lower: 'Semi-Final' },
   };
 }
 
-function bandsText(bands: UpperLowerBand[]): string {
+/** `bandWins` is the value a band into the Final carries (uneven wins), written ` WINS n` after its destination. */
+function bandsText(bands: UpperLowerBand[], bandWins: number | null = null): string {
   return bands
-    .map(
-      (entry) => `${entry.first === entry.last ? entry.first : `${entry.first}-${entry.last}`}->${entry.to}`,
-    )
+    .map((entry) => {
+      const ranks = entry.first === entry.last ? entry.first : `${entry.first}-${entry.last}`;
+      return `${ranks}->${entry.to}${entry.to === FINAL_NAME && bandWins !== null ? ` WINS ${bandWins}` : ''}`;
+    })
     .join(', ');
 }
+
+const FINAL_NAME = 'Final';
 
 function roundLine(entry: UpperLowerRound, token: string): string {
   const seats =
@@ -280,19 +296,31 @@ function roundLine(entry: UpperLowerRound, token: string): string {
   return `${entry.name} = ${seats}${entry.isRanking ? ' RANKING' : ''}${entry.isFinal ? ' FINAL' : ''}${token ? ` ${token}` : ''}`;
 }
 
-function routeLines(entry: UpperLowerRound): string[] {
+function routeLines(entry: UpperLowerRound, bandWins: number | null): string[] {
   return entry.rooms.flatMap((bands, room) => {
     if (bands.length === 0) return [];
     const address = entry.rooms.length > 1 ? `${entry.name}.${roomIndexToLetter(room + 1)}` : entry.name;
-    return [`${address}: ${bandsText(bands)}`];
+    return [`${address}: ${bandsText(bands, bandWins)}`];
   });
+}
+
+/** The wins the bands out of this round into the Final carry: the upper finalist's source its number, the lower finalist's source its own; none elsewhere. */
+function winsOfSource(
+  entry: UpperLowerRound,
+  sources: UpperLowerFinalSources,
+  wins: UpperLowerFinalWins | null,
+): number | null {
+  if (!wins) return null;
+  if (entry.name === sources.upper) return wins.upper;
+  return entry.name === sources.lower ? wins.lower : null;
 }
 
 /**
  * The Custom bracket graph text (`ROUNDS:` / `ROUTES:`) that plays the shape. `source` is the pooling line that feeds
  * it: `Qual` after a qualification table or a Swiss, `Groups` after a group stage. The Custom bracket engine plays it.
  * `formatOf` gives the match format token of a round's ROUNDS line ("BO3", "GAMES 2", or none): the derived text has
- * none, the one "Adjust rounds by hand" writes carries the formats the Setup selects said.
+ * none, the one "Adjust rounds by hand" writes carries the formats the Setup selects said. `finalWins` (a head-to-head
+ * bracket with uneven wins, `upper-lower-wins.ts`) makes the Final `WINS` and gives the two bands into it their numbers.
  */
 export function upperLowerGraphText(
   entry: number,
@@ -301,15 +329,17 @@ export function upperLowerGraphText(
   source: StandingsSourceKind = 'qual',
   upperTotal: number | null = null,
   formatOf: (round: UpperLowerRound) => string = () => '',
+  finalWins: UpperLowerFinalWins | null = null,
 ): string {
   const shape = upperLowerShape(entry, roomSize, firstRoundNumber, upperTotal);
+  const tokenOf = (round: UpperLowerRound) => (finalWins && round.isFinal ? 'WINS' : formatOf(round));
   return [
     'ROUNDS:',
-    ...shape.rounds.map((entry) => roundLine(entry, formatOf(entry))),
+    ...shape.rounds.map((round) => roundLine(round, tokenOf(round))),
     '',
     'ROUTES:',
     `${source === 'groups' ? GROUPS_LABEL : QUAL_LABEL}: ${bandsText(shape.pooling)}`,
-    ...shape.rounds.flatMap(routeLines),
+    ...shape.rounds.flatMap((round) => routeLines(round, winsOfSource(round, shape.finalSources, finalWins))),
     '',
   ].join('\n');
 }
@@ -325,6 +355,7 @@ export type UpperLowerForm = Pick<
   | 'groupExit'
   | 'upperLowerAdvance'
   | 'upperLowerUpper'
+  | keyof UpperLowerWinsFields
   | 'qualAdv'
   | 'qualifiersPerGroup'
 >;
@@ -387,7 +418,15 @@ export function resolveUpperLowerEntry(
 }
 
 export type UpperLowerPlan =
-  | { ok: true; entry: number; upper: number | null; firstRound: number; source: StandingsSourceKind }
+  | {
+      ok: true;
+      entry: number;
+      upper: number | null;
+      firstRound: number;
+      source: StandingsSourceKind;
+      /** The Final's two targets when it plays uneven wins (head-to-head only), else null. */
+      finalWins: UpperLowerFinalWins | null;
+    }
   | { ok: false; message: string };
 
 /**
@@ -414,6 +453,8 @@ export function planUpperLower(
   if (!entry.ok) return entry;
   const upper = upperLowerUpper(entry.entry, form.upperLowerUpper, roomSize);
   if (!upper.ok) return upper;
+  const finalWins = upperLowerFinalWins(form, roomSize);
+  if (!finalWins.ok) return finalWins;
   const perGroup = !form.groupExit || form.groupExit === 'per-group';
   if (afterGroups && perGroup && entry.entry % groupCount !== 0) {
     return {
@@ -427,5 +468,6 @@ export function planUpperLower(
     upper: upper.upper,
     firstRound: roundsBeforeBracket(form, unitCount) + 1,
     source: afterGroups ? 'groups' : 'qual',
+    finalWins: finalWins.wins,
   };
 }

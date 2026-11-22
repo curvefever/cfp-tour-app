@@ -151,7 +151,15 @@ function upperLowerGraphFor(
   if (!plan.ok) return plan;
   return {
     ok: true,
-    text: upperLowerGraphText(plan.entry, roomSize, plan.firstRound, plan.source, plan.upper),
+    text: upperLowerGraphText(
+      plan.entry,
+      roomSize,
+      plan.firstRound,
+      plan.source,
+      plan.upper,
+      undefined,
+      plan.finalWins,
+    ),
   };
 }
 

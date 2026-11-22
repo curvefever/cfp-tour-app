@@ -352,10 +352,44 @@ describe('the recap against the Setup form', () => {
           !field.endsWith('BestOf') &&
           field !== 'matchResultPoints' &&
           field !== 'tieMargin' &&
-          field !== 'waterfallNumberedFrom',
+          field !== 'waterfallNumberedFrom' &&
+          !field.startsWith('finalsUneven') &&
+          field !== 'finalsUpperWins' &&
+          field !== 'finalsLowerWins',
       );
       expect(listed.flatMap((group) => group.items)).toHaveLength(shown.length);
     }
+  });
+});
+
+describe('the recap of an upper and lower bracket with an uneven-wins Final', () => {
+  const unevenOf = (settings: Partial<PersistedSetup>) =>
+    itemsOf(
+      settingsRecapGroups(
+        stateOf({
+          scheduleLogic: 'upper-lower',
+          poolingPhase: 'swiss',
+          gameFormat: 'individual-1v1',
+          oddCountStrategy: 'bye',
+          ...settings,
+        }),
+      ),
+    )['Finals format'];
+
+  it('words the Finals format as the two numbers, an empty box as its default', () => {
+    expect(unevenOf({ finalsUnevenWins: 'yes' })).toBe(
+      'Uneven wins: upper finalist needs 1, lower finalist needs 2',
+    );
+    expect(unevenOf({ finalsUnevenWins: 'yes', finalsUpperWins: '2', finalsLowerWins: '3' })).toBe(
+      'Uneven wins: upper finalist needs 2, lower finalist needs 3',
+    );
+  });
+
+  it('words the Finals format as before when the option is off, or in a format that has none', () => {
+    expect(unevenOf({ finalsGames: '3' })).toBe('3 games (sum)');
+    expect(
+      unevenOf({ finalsUnevenWins: 'yes', gameFormat: 'ffa-individual', poolingPhase: 'qual-table' }),
+    ).toBe('3 games (sum)');
   });
 });
 

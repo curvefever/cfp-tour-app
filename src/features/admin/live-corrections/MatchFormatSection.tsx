@@ -60,6 +60,7 @@ function StageSelect({
         id={`live-match-${entry.stage}`}
         onChange={onPick}
       />
+      {entry.lockedReason ? <p className='mt-1 text-xs text-muted'>{entry.lockedReason}</p> : null}
     </Field>
   );
 }

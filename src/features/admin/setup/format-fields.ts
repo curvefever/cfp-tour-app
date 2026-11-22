@@ -66,6 +66,9 @@ export function overrideTokenOf(value: string): string {
     : matchFormatToken({ games: Number(value) });
 }
 
+/** The value of the Finals format select's "Uneven wins" option. */
+export const UNEVEN_WINS_VALUE = 'wins';
+
 /** The Best of N the Semis and Finals format selects offer. */
 export const SETUP_BEST_OF = [3, 5, 7];
 
@@ -122,6 +125,8 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   // An upper and lower bracket has its own optional "Advance to bracket" after any pooling phase; left empty it reads the pooling setting (qualAdv, 24 by default, behind its placeholder).
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isAppWritten, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
+  // The Final's uneven wins: an upper and lower bracket of a head-to-head format, where the Final is two finalists.
+  add(isUpperLower && format?.idealRoomSize === 2, 'finalsUnevenWins', 'finalsUpperWins', 'finalsLowerWins');
   add(isLayered, 'layeredExpected', 'layeredInBracket', 'layeredRounds', 'layeredLevels', 'layeredTop');
   add(isLayered, 'layeredTopCounts', 'layeredSemiOthers');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');

@@ -1,10 +1,11 @@
 import { Select } from '../../../components/ui';
-import { SETUP_BEST_OF, gamesLabel, matchSelectValue } from './format-fields';
+import { SETUP_BEST_OF, UNEVEN_WINS_VALUE, gamesLabel, matchSelectValue } from './format-fields';
 
 /**
  * The Semis or Finals format: a number of summed games, or a Best of N. One select writes both settings
  * (`matchFromSelectValue`). With `inheritLabel`, a first option with that text stands for no format of its own
- * (the empty value), as a round override's select needs.
+ * (the empty value), as a round override's select needs. With `unevenWins` the select also offers "Uneven wins" (the
+ * value `wins`, shown while `chosen`): each finalist of the Final needs its own number of game wins.
  */
 export function MatchSelect({
   id,
@@ -13,6 +14,7 @@ export function MatchSelect({
   disabled,
   inheritLabel,
   maxBestOf,
+  unevenWins,
   onChange,
 }: {
   id: string;
@@ -22,13 +24,15 @@ export function MatchSelect({
   inheritLabel?: string;
   /** The largest Best of N on offer: a larger one is listed but cannot be picked. */
   maxBestOf?: number;
+  /** Offer "Uneven wins"; `chosen` is whether it is the setting now (the games and Best of N stay underneath). */
+  unevenWins?: { chosen: boolean };
   onChange: (value: string) => void;
 }) {
   return (
     <Select
       disabled={disabled}
       id={id}
-      value={matchSelectValue(games, bestOf)}
+      value={unevenWins?.chosen ? UNEVEN_WINS_VALUE : matchSelectValue(games, bestOf)}
       onChange={(e) => onChange(e.target.value)}
     >
       {inheritLabel === undefined ? null : <option value=''>{inheritLabel}</option>}
@@ -43,6 +47,7 @@ export function MatchSelect({
           {maxBestOf !== undefined && n > maxBestOf ? ' — not with match results' : ''}
         </option>
       ))}
+      {unevenWins ? <option value={UNEVEN_WINS_VALUE}>Uneven wins</option> : null}
     </Select>
   );
 }

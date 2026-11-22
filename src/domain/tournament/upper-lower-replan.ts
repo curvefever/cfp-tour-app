@@ -5,6 +5,7 @@ import { applyMatchFormats } from './round-match-formats';
 import { rosterKeys } from './roster';
 import type { RoomSize, TournamentState } from './types';
 import { resolveUpperLowerEntry, upperLowerEntry, upperLowerGraphText, upperLowerUpper } from './upper-lower';
+import { upperLowerFinalWins } from './upper-lower-wins';
 import { applyWaterfallGraphEdit } from './waterfall-live-edit';
 
 const sameOf = (before: TournamentState, after: TournamentState): boolean =>
@@ -62,6 +63,8 @@ function tryReplanUpperLower(state: TournamentState, strict = false): UpperLower
   const upper = upperLowerUpper(entry.entry, state.settings?.upperLowerUpper ?? '', roomSize);
   if (!upper.ok && strict) return upper;
   const source = state.cfg.poolingPhase === 'group-stage' ? 'groups' : 'qual';
+  // The Final's uneven wins stay as the settings snapshot has them; a typed number that can't be used reads as the default.
+  const finalWins = upperLowerFinalWins(state.settings, roomSize);
   const edited = applyWaterfallGraphEdit(
     state,
     upperLowerGraphText(
@@ -70,6 +73,8 @@ function tryReplanUpperLower(state: TournamentState, strict = false): UpperLower
       state.rounds[first].roundNum,
       source,
       upper.ok ? upper.upper : null,
+      undefined,
+      finalWins.ok ? finalWins.wins : null,
     ),
   );
   if (!edited.ok) return strict ? { ok: false, message: edited.error } : { ok: true, state };

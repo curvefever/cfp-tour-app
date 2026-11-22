@@ -19,6 +19,11 @@ import { parseMatchFormatToken } from '../../domain/tournament/match-format';
 import { waterfallGraphQualAdvance } from '../../domain/tournament/waterfall-draft';
 import { standingsKindOfSetup } from '../../domain/tournament/waterfall-numbering';
 import {
+  DEFAULT_LOWER_WINS,
+  DEFAULT_UPPER_WINS,
+  UNEVEN_WINS_ON,
+} from '../../domain/tournament/upper-lower-wins';
+import {
   DRAW_PUBLICATION_LABELS,
   GROUP_EXIT_LABELS,
   ROUND_ROBIN_LABELS,
@@ -62,7 +67,20 @@ type RecapField = Exclude<
   | 'matchResultPoints'
   | 'tieMargin'
   | 'waterfallNumberedFrom'
+  | 'finalsUnevenWins'
+  | 'finalsUpperWins'
+  | 'finalsLowerWins'
 >;
+
+/** The Finals format: the stage's games or Best of N, or in an upper and lower bracket of a head-to-head format with uneven wins "Uneven wins: upper finalist 1, lower finalist 2" (an empty box is its default, 1 and 2). */
+function finalsFormatText(settings: TournamentSettings): string {
+  if (settings.finalsUnevenWins === UNEVEN_WINS_ON && visibleFormatFields(settings).has('finalsUnevenWins')) {
+    const upper = orDefault(settings.finalsUpperWins, String(DEFAULT_UPPER_WINS));
+    const lower = orDefault(settings.finalsLowerWins, String(DEFAULT_LOWER_WINS));
+    return `Uneven wins: upper finalist needs ${upper}, lower finalist needs ${lower}`;
+  }
+  return matchOf(settings.finalsGames, settings.finalsBestOf);
+}
 
 /** "Match results: 3 / 2 / 1 / 0, tie margin 100" for a tournament scored by match results (its resolved settings), else the system's name. */
 function scoringText(
@@ -274,7 +292,7 @@ const RECAP: Record<RecapField, RecapEntry> = {
   finalsGames: {
     group: 'BRACKET',
     label: 'Finals format',
-    value: (settings) => matchOf(settings.finalsGames, settings.finalsBestOf),
+    value: (settings) => finalsFormatText(settings),
   },
   grandFinalWbTarget: {
     group: 'BRACKET',
