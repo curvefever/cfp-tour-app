@@ -407,7 +407,7 @@ function WinsNeededBox({
       Wins needed in {destination}
       <Input
         aria-label={`Wins needed in ${destination}, from ${sourceKey.replace(/\.\d+$/, '')}`}
-        className='w-24'
+        className='w-32'
         inputMode='numeric'
         max={MAX_WIN_TARGET}
         min={MIN_WIN_TARGET}
