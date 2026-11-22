@@ -129,6 +129,33 @@ describe('the question when a paired absentee comes back', () => {
     expect(moved.state.tieResolutions[`r1-rm${other}-s5`]).toEqual([unit]);
   });
 
+  it('offers no move to a returning unit that already faces a present opponent', () => {
+    // 13 with 2 absentees: the two share a room and a present unit holds the bye. Trade one absentee with a present unit
+    // of another room, so each absentee faces a present unit: a move for either would take it from a real match.
+    const { state, absent, sharing } = roundTwo(13, 2);
+    const [unit, other] = sharing;
+    const present = state.assignments[1].find((entry) => entry.room !== null && !absent.has(entry.name));
+    if (!present) throw new Error('no present unit');
+    const mixed: TournamentState = {
+      ...state,
+      assignments: state.assignments.map((round, index) =>
+        index !== 1
+          ? round
+          : round.map((entry) =>
+              entry.name === other
+                ? { ...entry, room: present.room }
+                : entry.name === present.name
+                  ? { ...entry, room: roomOf(state, other) ?? null }
+                  : entry,
+            ),
+      ),
+    };
+    const click = clickConfirmationAndSeat(mixed, unit);
+    expect(click.question).toBeUndefined();
+    expect(returningMoveOf(click.state, 1, unit)).toBeNull();
+    expect(roomsOf(click.state.assignments[1])).toEqual(roomsOf(mixed.assignments[1]));
+  });
+
   it('keeps the old outcome on a version 3 tournament: no question', () => {
     const { state, sharing } = roundTwo(14, 3);
     const [unit] = sharing;
