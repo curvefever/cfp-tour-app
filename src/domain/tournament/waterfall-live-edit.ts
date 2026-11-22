@@ -18,6 +18,7 @@ import { discardRoundDraws } from './redraw';
 import { plainRoundName } from './round-name';
 import { roundHasAnyScore } from './scoring';
 import { seedRoundFromPendingPool } from './transitions';
+import { sameWinTargets } from './win-stamps';
 import { routesTo } from './waterfall-steps';
 import { generatedConfig } from './generated-config';
 import { hasAppWrittenMark, withoutAppWrittenMark } from './rule-versions';
@@ -132,6 +133,11 @@ function withoutChangedBestDecisions(
     }
   }
   return kept;
+}
+
+/** A drawn round keeps the targets its units were stamped with: its sources are done, so a save can't ask for other ones. */
+function winsTargetsRefusal(round: TournamentRound): string {
+  return `Can't save: "${round.customLabel}" has already been drawn, so its uneven wins can't change.`;
 }
 
 /** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
@@ -344,6 +350,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     finalsGames,
     finalsBestOf,
   });
+  const winsChanged = reached.find(
+    (round, index) => !sameWinTargets(round.winTargets, materialized[index]?.winTargets),
+  );
+  if (winsChanged) return { ok: false, error: winsTargetsRefusal(winsChanged) };
   const standingsRoutes = waterfallStandingsRoutes(graph, entryRound.roundNum);
   // Reached rounds keep their own round object (scores, numGames,
   // anonymousGames, ... untouched) -- only their routing and the advancement

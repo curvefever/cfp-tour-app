@@ -98,13 +98,13 @@ export function matchFormatToken(match: MatchFormat): string {
 }
 
 /**
- * The match format a ROUNDS-line token text spells ("BO3", "GAMES 2", "WINS": any of the words in any case), or null
- * when the text is anything else, including a count out of range and a second word.
+ * The match format a stage setting or a round override spells ("BO3", "GAMES 2": either word in any case), or null when
+ * the text is anything else, including a count out of range, a second word, and "WINS": uneven wins is a round of a
+ * Custom bracket, its targets live on the graph's bands, so a stage or an override can't ask for it.
  */
 export function parseMatchFormatToken(text: string): MatchFormat | null {
   const words = text.trim().split(/\s+/);
   const keyword = words[0].toUpperCase();
-  if (keyword === 'WINS') return words.length === 1 ? { games: 1, wins: true } : null;
   const bestOf = /^BO(\d*)$/.exec(keyword);
   if (bestOf) {
     const count = Number.parseInt(bestOf[1], 10);

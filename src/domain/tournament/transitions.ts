@@ -21,6 +21,7 @@ import { nextPowerOf2AndRounds } from './double-elimination';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { lateJoinersOf } from './late-joiners';
 import { drawCustomBracketPool, drawFromPoolingExit } from './custom-bracket-draw';
+import { winsNeededByName, withWinsNeeded } from './win-stamps';
 import { likelyAbsentees } from './likely-absentees';
 import { applyMatchFormats } from './round-match-formats';
 import { seedFromGroupStageRound } from './pooling';
@@ -316,9 +317,10 @@ export function seedRoundFromPendingPool(
   for (const name of byeNames) {
     assignments.push({ name, room: null, isLucky: false });
   }
-  state.assignments[roundIndex] = seedOf
-    ? assignments.map((entry) => ({ ...entry, seed: seedOf.get(entry.name) as number }))
-    : assignments;
+  const winsOf = winsNeededByName(state.rounds[roundIndex], pool);
+  state.assignments[roundIndex] = assignments.map((entry) =>
+    withWinsNeeded(seedOf ? { ...entry, seed: seedOf.get(entry.name) } : entry, winsOf),
+  );
   state.roomHistory = recordRoomHistory(state.roomHistory, assignments, roundIndex);
   return null;
 }

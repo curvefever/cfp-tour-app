@@ -112,15 +112,19 @@ export function isFinalComplete(state: TournamentState): boolean {
   );
 }
 
+/** A finalist before ranking: the value shown (`total`), what ranks the finalist (`score`, which is `total` unless a WINS Final ranks by the wins still needed) and its tiebreak. */
+interface FinalistValue {
+  name: string;
+  total: number;
+  tiebreak?: number;
+  score?: number;
+}
+
 /** The finalists of a decided Best-of or WINS Final, best first: the value shown is the wins, the rank score (wins, or the wins still needed) orders them, the total score ranks the rest. */
-function bestOfFinalists(
-  state: TournamentState,
-  roundIndex: number,
-): Array<{ name: string; total: number; tiebreak: number }> {
+function bestOfFinalists(state: TournamentState, roundIndex: number): FinalistValue[] {
   return (roomMatch(state, roundIndex, 1)?.units ?? [])
-    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total, rank: unit.rank }))
-    .sort((first, second) => compareRankScores(first.rank, second.rank))
-    .map(({ name, total, tiebreak }) => ({ name, total, tiebreak }));
+    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total, score: unit.rank.score }))
+    .sort((first, second) => compareRankScores(first, second));
 }
 
 /** Where an eliminated unit stood in the table that decided its standings cut. */
@@ -500,7 +504,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const lastRound = state.rounds[lastRi];
   const lastAssignments = state.assignments[lastRi] ?? [];
   let active: Array<RoundAssignment & { ri?: number }> = [];
-  let finalistValues: Array<{ name: string; total: number; tiebreak?: number }> = [];
+  let finalistValues: FinalistValue[] = [];
   const finalComplete = isFinalComplete(state);
   if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
     const race = computeGrandFinalRaceState(state, lastRi, lastRound);
@@ -590,13 +594,14 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   });
 
   let finalRank = 0;
-  let previousTotal: number | null = null;
+  let previousScore: number | null = null;
   let previousTiebreak: number | undefined;
-  const rankedFinalists = finalistValues.map((entry, index) => {
+  const rankedFinalists = finalistValues.map(({ score: rankScore, ...entry }, index) => {
     if (lastRound.bracket === 'grand-final') return { ...entry, rank: index + 1 };
-    if (entry.total !== previousTotal || entry.tiebreak !== previousTiebreak) {
+    const score = rankScore ?? entry.total;
+    if (score !== previousScore || entry.tiebreak !== previousTiebreak) {
       finalRank = index + 1;
-      previousTotal = entry.total;
+      previousScore = score;
       previousTiebreak = entry.tiebreak;
     }
     return { ...entry, rank: finalRank };

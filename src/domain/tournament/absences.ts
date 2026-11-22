@@ -151,13 +151,15 @@ function seatQuestions(
   unit: string,
 ): AbsenceQuestion[] {
   const games = askedGames(state, roundIndex, room);
+  // Scores carry a game part whenever the round has several games, however few of them are asked (a match decided at game 1).
+  const severalGames = (state.rounds[roundIndex]?.numGames ?? 1) > 1;
   const teamSize = scoredTeamSize(state);
   const team = teamSize ? teamsOf(state)[unit] : undefined;
   const slots = teamSize ? scoredMemberSlots(state, unit, roundIndex, teamSize) : [];
   const questions: AbsenceQuestion[] = [];
   for (let game = 1; game <= games; game += 1) {
-    const gamePart = games > 1 ? game : null;
-    const seat = { roundIndex, room, position, unit, ...(games > 1 ? { game } : {}) };
+    const gamePart = severalGames ? game : null;
+    const seat = { roundIndex, room, position, unit, ...(severalGames ? { game } : {}) };
     if (!teamSize) {
       questions.push({ ...seat, key: scoreKey(roundIndex, room, position, gamePart) });
       continue;

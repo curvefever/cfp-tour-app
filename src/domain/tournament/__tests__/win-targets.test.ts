@@ -94,10 +94,11 @@ function finalTargets(graph: OrderedWaterfallGraph): Array<[string, number]> {
 }
 
 describe('the WINS match format token', () => {
-  it('is written and read like BO and GAMES', () => {
+  it('is written like BO and GAMES, and read only from a ROUNDS line, never as a stage or an override', () => {
     expect(matchFormatToken({ games: 1, wins: true })).toBe('WINS');
-    expect(parseMatchFormatToken('wins')).toEqual({ games: 1, wins: true });
+    expect(parseMatchFormatToken('wins')).toBeNull();
     expect(parseMatchFormatToken('WINS 2')).toBeNull();
+    expect(parseMatchFormatToken('bo3')).toEqual({ games: 1, bestOf: 3 });
   });
 
   it('knows a WINS round and counts the games its targets can need', () => {
