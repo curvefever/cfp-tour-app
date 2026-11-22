@@ -156,6 +156,8 @@ export interface RoundAssignment {
   isLucky?: boolean;
   /** Placed, moved or reinstated by the organiser via a line-up correction (lineup-edit.ts). Only ever written as `true`. */
   manual?: true;
+  /** A bye (`room: null`) taken by a likely absentee under `absenceVersion` 4: it earns no points and counts as a missed round until the unit is marked back before the round is sent on (which deletes the flag). */
+  absentBye?: true;
   /** The seed the unit arrived with in a Custom bracket round fed by a pooling phase (`PendingBracketSeed.seed`); its room's seed for the round it feeds. */
   seed?: number;
   /** The game wins this unit needs in a WINS round, taken from the round it came from (`TournamentRound.winTargets`). Absent in every other round. */
@@ -367,8 +369,8 @@ export interface MaterializedGamemodeConfig {
   layeredKeptPlay?: number;
   /** How a group stage ranks its groups. Absent = total points, a bye and a lone unit's walkover counted as wins; 2 = points per match played, with a bye or a match against an absent or removed unit not counted (group-standings.ts, `usesGroupAverages`). generation.ts writes 2; a stored tournament without it keeps its standings. */
   groupAverageVersion?: 2;
-  /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 3; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`); 3 = version 2 plus likely absentees: the draws place a unit absent from its last round first, one per room, and the confirmation mark reads "?" until the organiser marks it back (`tracksLikelyAbsentees`, `likely-absentees.ts`). */
-  absenceVersion?: 1 | 2 | 3;
+  /** Whether a typed score of 0 asks if the unit was absent (absences.ts). Absent = the earlier behaviour: no questions, no marks, no per-player weighting. generation.ts writes 3; a stored tournament without it keeps its scores. 1 = the same, with a Custom bracket room routing an absentee by its rank (below every present unit); 2 = an absentee of a Custom bracket room never takes a seat above the room's last place: it keeps its rank's seat only when that seat leads where the room's last place goes, else it is out (`routesAbsenteesByLastPlace`); 3 = version 2 plus likely absentees: the draws place a unit absent from its last round first, one per room, and the confirmation mark reads "?" until the organiser marks it back (`tracksLikelyAbsentees`, `likely-absentees.ts`); 4 = version 3 plus pairing: a head-to-head pooling draw after the tournament's first round puts the likely absentees in pairs together, and a leftover one takes the bye, worth no points while it is likely absent (`pairsLikelyAbsentees`). */
+  absenceVersion?: 1 | 2 | 3 | 4;
   /** 1 = a team slot vacated after it played keeps its stored scores in every round (`keepsVacatedSlotScores`, scoring.ts). Absent = a vacant slot reads 0 in every round, past rounds included. generation.ts writes 1; a stored tournament without it keeps its scores. */
   vacantSlotVersion?: 1;
   drawPublication: DrawPublicationKey;

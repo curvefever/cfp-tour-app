@@ -3,7 +3,8 @@ import { lateJoinersOf } from './late-joiners';
 import { likelyAbsentees } from './likely-absentees';
 import { lexicographicMinAssignment } from './cheapest-assignment';
 import type { GroupExitSelection } from './group-exit';
-import { hasSwissPooling } from './pooling';
+import { hasSwissPooling, isPoolingRound } from './pooling';
+import { pairsLikelyAbsentees } from './rule-versions';
 import {
   isFullFieldRound,
   smallerRoomSeatsBefore,
@@ -402,6 +403,21 @@ export function seedFromPoolingExit(options: {
   return isGroupExit ? avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit) : seeded;
 }
 
+/** Whether a draw of this round puts the likely absentees together: `absenceVersion` 4, a pooling round of rooms of two (a Swiss pairs them itself) after the tournament's first. */
+export function pairsAbsenteesInRound(
+  state: Pick<TournamentState, 'gamemodeConfig'>,
+  round: TournamentRound,
+  roundIndex: number,
+): boolean {
+  return (
+    roundIndex > 0 &&
+    pairsLikelyAbsentees(state) &&
+    isPoolingRound(round) &&
+    !round.isSwiss &&
+    round.rooms.every((size) => size <= 2)
+  );
+}
+
 export function selectPoolingBye(
   advancing: SeedCandidate[],
   counts: Record<string, number>,
@@ -700,19 +716,24 @@ export interface LikelyAbsenteePlacement {
  * less the absentees already placed. Each absentee goes to a room with the fewest absentees so far (never two in one
  * room while another has fewer), of those to the one with the largest expected size (none in a room that is already
  * the smaller one while a larger has none), then to the room the repeat pairs and balance of `weights` prefer, then to
- * the lowest room number. The others are drawn as usual into `seatsLeft`. Rooms of two (head to head) place nobody.
+ * the lowest room number. The others are drawn as usual into `seatsLeft`. Rooms of two (head to head) place nobody,
+ * unless `pairInRoomsOfTwo` (`absenceVersion` 4, a pooling round after the first): then the absentees are put in
+ * pairs into rooms of their own (`placeAbsenteePairs`).
  */
 export function placeLikelyAbsentees(
   members: WaveMember[],
   roomSizes: readonly number[],
   likelyAbsent: ReadonlySet<string>,
   weights: RoomChoiceWeights,
+  pairInRoomsOfTwo = false,
 ): LikelyAbsenteePlacement {
   const seatsLeft = [...roomSizes];
+  const headToHead = roomSizes.every((size) => size <= 2);
+  if (headToHead && pairInRoomsOfTwo && likelyAbsent.size > 0) {
+    return placeAbsenteePairs(members, roomSizes, likelyAbsent, weights);
+  }
   const absentees =
-    likelyAbsent.size === 0 || roomSizes.every((size) => size <= 2)
-      ? []
-      : members.filter((member) => likelyAbsent.has(member.name));
+    likelyAbsent.size === 0 || headToHead ? [] : members.filter((member) => likelyAbsent.has(member.name));
   const rooms = roomSizes.map((_, index) => index + 1);
   const absenteesIn = new Map<number, string[]>(rooms.map((room) => [room, []]));
   const balance = new Map<number, number>(rooms.map((room) => [room, 0]));
@@ -732,6 +753,36 @@ export function placeLikelyAbsentees(
     balance.set(room, (balance.get(room) ?? 0) + member.tierRank);
     seatsLeft[room - 1] -= 1;
     placed.push({ name: member.name, room });
+  }
+  const placedNames = new Set(placed.map(({ name }) => name));
+  return { placed, seatsLeft, rest: members.filter((member) => !placedNames.has(member.name)) };
+}
+
+/**
+ * Head-to-head rooms: the likely absentees (best tier first) go two to a room, in rooms of their own after the others,
+ * so no present unit meets one for a walkover. A partner is the best tier left that the unit has not met
+ * (`weights.roomHistory`), else the best tier left; a leftover absentee is drawn with the others.
+ */
+function placeAbsenteePairs(
+  members: WaveMember[],
+  roomSizes: readonly number[],
+  likelyAbsent: ReadonlySet<string>,
+  weights: RoomChoiceWeights,
+): LikelyAbsenteePlacement {
+  const left = members.filter((member) => likelyAbsent.has(member.name));
+  const placed: Array<{ name: string; room: number }> = [];
+  const seatsLeft = [...roomSizes];
+  let room = roomSizes.length;
+  while (left.length >= 2 && room >= 1) {
+    const [first, ...others] = left;
+    const partner =
+      others.find((other) => weights.roomHistory[roomPairKey(first.name, other.name)] === undefined) ??
+      others[0];
+    placed.push({ name: first.name, room }, { name: partner.name, room });
+    seatsLeft[room - 1] = 0;
+    left.splice(left.indexOf(partner), 1);
+    left.shift();
+    room -= 1;
   }
   const placedNames = new Set(placed.map(({ name }) => name));
   return { placed, seatsLeft, rest: members.filter((member) => !placedNames.has(member.name)) };
@@ -838,6 +889,8 @@ interface RoomDraw {
   seedingOverride?: SeedingOverride;
   /** The units likely to be absent: placed first, one to a room. */
   likelyAbsent: ReadonlySet<string>;
+  /** Head-to-head rooms: put the likely absentees in pairs into rooms of their own (`absenceVersion` 4, a pooling round after the first). */
+  pairAbsentees?: boolean;
   isLuckyByName: Map<string, boolean>;
   /** How far toward the terminal round the draw is, for the weights of an automatic draw. */
   progress: () => number;
@@ -877,7 +930,13 @@ function drawRooms(draw: RoomDraw): RoundAssignment[] {
   const members = draw.members();
   const weights = { roomHistory, targetRoundIndex, diversityWeight, balanceWeight };
   // The likely absentees go first, one to a room; everyone else is drawn into the seats that are left.
-  const { placed, seatsLeft, rest } = placeLikelyAbsentees(members, roomSizes, likelyAbsent, weights);
+  const { placed, seatsLeft, rest } = placeLikelyAbsentees(
+    members,
+    roomSizes,
+    likelyAbsent,
+    weights,
+    draw.pairAbsentees,
+  );
   const drawn = draw.fillRest(rest, seatsLeft, weights, members);
   return inPoolOrder(placed, drawn, members).map(({ name, room }) => ({
     name,
@@ -920,6 +979,7 @@ export function tieredSeed(options: {
       roomHistory: state.roomHistory,
       seedingOverride,
       likelyAbsent: likelyAbsentees(state, targetRoundIndex),
+      pairAbsentees: pairsAbsenteesInRound(state, nextRound, targetRoundIndex),
       isLuckyByName: new Map(advancing.map((entry) => [candidateName(entry), Boolean(entry.isLucky)])),
       progress: () => semisApproachProgress(state.rounds, roundIndex),
       members: () => {

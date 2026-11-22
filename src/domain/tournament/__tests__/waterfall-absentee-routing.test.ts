@@ -105,8 +105,8 @@ const indexOf = (state: TournamentState, label: string): number =>
   state.rounds.findIndex((round: TournamentRound) => round.customLabel === label);
 
 describe('a generated Custom bracket with absentees in a room', () => {
-  it('generation writes absenceVersion 3 (version 2 routing plus likely absentees)', () => {
-    expect(r1WithFiveAbsent().gamemodeConfig.absenceVersion).toBe(3);
+  it('generation writes absenceVersion 4 (version 3 plus the pairing of likely absentees)', () => {
+    expect(r1WithFiveAbsent().gamemodeConfig.absenceVersion).toBe(4);
   });
 
   it('Next Round is not blocked: Semi A arrives one short, Lower is full, the overflow absentee is out', () => {

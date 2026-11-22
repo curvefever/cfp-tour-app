@@ -155,17 +155,60 @@ function pairsSwappingRematches(plain: PlainPairing, met: Set<string>): Pair[] {
   return pairs;
 }
 
+/** The units of the field that are likely absent, in standings order. */
+function absenteesOf(field: RankedField, likelyAbsent: ReadonlySet<string>): string[] {
+  return field.ranked.filter((name) => likelyAbsent.has(name));
+}
+
+/** The pairs of `absentees` in standings order (1st v 2nd, 3rd v 4th), no pair that has met while one can be avoided: the first unit tries the next ones in order. */
+function absenteePairs(absentees: string[], met: Set<string>): Pair[] {
+  const pairs: Pair[] = [];
+  let steps = 0;
+  const search = (remaining: string[]): boolean => {
+    if (!remaining.length) return true;
+    steps += 1;
+    if (steps > MAX_SEARCH_STEPS) return false;
+    const [unit, ...others] = remaining;
+    for (const opponent of others) {
+      if (met.has(roomPairKey(unit, opponent))) continue;
+      pairs.push([unit, opponent]);
+      if (search(others.filter((name) => name !== opponent))) return true;
+      pairs.pop();
+    }
+    return false;
+  };
+  if (search(absentees)) return pairs;
+  // Every pairing has a rematch: the plain order, 1st v 2nd, 3rd v 4th.
+  return absentees.flatMap((name, index): Pair[] => (index % 2 === 0 ? [[name, absentees[index + 1]]] : []));
+}
+
+/** The field without `names`. */
+function without(field: RankedField, names: ReadonlySet<string>): RankedField {
+  return {
+    ...field,
+    ranked: field.ranked.filter((name) => !names.has(name)),
+    joiners: field.joiners.filter((name) => !names.has(name)),
+  };
+}
+
 /**
  * The draw of an adaptive Swiss round (head-to-head rooms of two). An odd field gives the bye first (the lowest ranked
  * unit with the fewest byes). The rest are grouped by standing points, best group first, and each group pairs its top
  * half against its bottom half; an odd group sends its lowest unit down to the next. No pair meets twice while a pairing
  * without a rematch exists. Rooms are numbered in pairing order, the bye comes last without a room.
+ *
+ * With `likelyAbsent` (`absenceVersion` 4, a round after the tournament's first) the likely absentees are kept apart
+ * from the present units: with an odd field and an odd number of them the last takes the bye (flagged `absentBye`),
+ * the others pair among themselves in standings order (a leftover one in an even field joins the normal pairing), the
+ * present units are paired as above over the field without them, and the absentee rooms come after the present ones.
  */
 export function swissPair(options: {
   activeNames: string[];
   throughRoundIndex: number;
   roomSize: RoomSize;
   state: TournamentState;
+  /** The likely absentees to pair together; empty when the round or the version rules it out. */
+  likelyAbsent?: ReadonlySet<string>;
 }): {
   seeded: RoundAssignment[];
   byeName: string | null;
@@ -179,22 +222,38 @@ export function swissPair(options: {
   }
   const field = rankedField(state, activeNames, throughRoundIndex);
   const poolingByeCounts = { ...state.poolingByeCounts };
-  let byeName: string | null = null;
-  if ((field.ranked.length + field.joiners.length) % 2 !== 0) {
-    byeName = pickBye(field, poolingByeCounts);
-    poolingByeCounts[byeName] = (poolingByeCounts[byeName] ?? 0) + 1;
-    field.ranked = field.ranked.filter((name) => name !== byeName);
-    field.joiners = field.joiners.filter((name) => name !== byeName);
-  }
-
-  const plain = plainPairing(withJoiners(scoreGroups(field), field.joiners));
   const met = metPairs(state, throughRoundIndex, (roundIndex) => Boolean(state.rounds[roundIndex]?.isSwiss));
-  const pairs = pairsWithoutRematch(plain, met) ?? pairsSwappingRematches(plain, met);
+  const absentees = absenteesOf(field, options.likelyAbsent ?? new Set<string>());
+  const oddField = (field.ranked.length + field.joiners.length) % 2 !== 0;
+  let byeName: string | null = null;
+  let absentBye = false;
+  if (oddField && absentees.length % 2 !== 0) {
+    byeName = absentees[absentees.length - 1];
+    absentBye = true;
+  } else if (oddField) {
+    byeName = pickBye(without(field, new Set(absentees)), poolingByeCounts);
+  }
+  if (byeName) poolingByeCounts[byeName] = (poolingByeCounts[byeName] ?? 0) + 1;
+  // The absentees that pair together: all but the bye-taker, and in an even field with an odd number, all but the last.
+  const waiting = absentees.filter((name) => name !== byeName);
+  const together = waiting.slice(0, waiting.length - (waiting.length % 2));
+  const taken = new Set([...together, ...(byeName ? [byeName] : [])]);
+  const presentField = without(field, taken);
 
-  const seeded: RoundAssignment[] = pairs.flatMap(([first, second], index) => [
+  const plain = plainPairing(withJoiners(scoreGroups(presentField), presentField.joiners));
+  const pairs = pairsWithoutRematch(plain, met) ?? pairsSwappingRematches(plain, met);
+  const allPairs = [...pairs, ...absenteePairs(together, met)];
+
+  const seeded: RoundAssignment[] = allPairs.flatMap(([first, second], index) => [
     { name: first, room: index + 1, isLucky: false },
     { name: second, room: index + 1, isLucky: false },
   ]);
-  if (byeName) seeded.push({ name: byeName, room: null, isLucky: false });
+  if (byeName)
+    seeded.push({
+      name: byeName,
+      room: null,
+      isLucky: false,
+      ...(absentBye ? { absentBye: true as const } : {}),
+    });
   return { seeded, byeName, poolingByeCounts };
 }

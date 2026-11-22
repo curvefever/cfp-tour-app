@@ -44,6 +44,11 @@ export function routesAbsenteesByLastPlace(state: WithConfig): boolean {
   return (state.gamemodeConfig.absenceVersion ?? 0) >= 2;
 }
 
+/** `absenceVersion` 4: a head-to-head pooling draw after the first round pairs the likely absentees together, and a leftover one takes a bye worth no points. Earlier (versions 1 to 3): the draws give each likely absentee a real opponent in a room of two. */
+export function pairsLikelyAbsentees(state: WithConfig): boolean {
+  return (state.gamemodeConfig.absenceVersion ?? 0) >= 4;
+}
+
 /** `absenceVersion` 3: the draws and the confirmation marks know who was absent last round. Earlier (versions 1 and 2): the draws and marks ignore who was absent last round. */
 export function tracksLikelyAbsentees(state: WithConfig): boolean {
   return (state.gamemodeConfig.absenceVersion ?? 0) >= 3;

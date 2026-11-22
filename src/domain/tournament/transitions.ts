@@ -31,6 +31,7 @@ import { plainRoundName } from './round-name';
 import { swissPair } from './swiss-pairing';
 import {
   avoidSameGroupInFirstBracketRound,
+  pairsAbsenteesInRound,
   recordRoomHistory,
   selectPoolingBye,
   sequentialSeed,
@@ -271,6 +272,24 @@ function fitKingsValleyTail(
 function poolSeeds(pool: PendingBracketSeed[]): Map<string, number> | null {
   if (pool.length === 0 || pool.some((entry) => entry.seed === undefined)) return null;
   return new Map(pool.map((entry) => [entry.name, entry.seed as number]));
+}
+
+/**
+ * The bye of a head-to-head pooling round (a qualification table, the warm-ups) when the likely absentees pair
+ * together (`pairsAbsenteesInRound`) and an odd number of them is left: the lowest ranked takes it, worth no points
+ * while it is likely absent (`absentBye`). Undefined otherwise: the bye is picked as usual.
+ */
+function absenteeBye(
+  state: TournamentState,
+  round: TournamentRound,
+  roundIndex: number,
+  advancing: SeedCandidate[],
+  idealRoomSize: number,
+): SeedCandidate | undefined {
+  if (idealRoomSize !== 2 || !pairsAbsenteesInRound(state, round, roundIndex)) return undefined;
+  const likely = likelyAbsentees(state, roundIndex);
+  const absentees = advancing.filter((entry) => likely.has(entry.name));
+  return absentees.length % 2 === 1 ? absentees[absentees.length - 1] : undefined;
 }
 
 /**
@@ -767,6 +786,9 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
       throughRoundIndex: roundIndex,
       roomSize,
       state,
+      likelyAbsent: pairsAbsenteesInRound(state, nextRound, roundIndex + 1)
+        ? likelyAbsentees(state, roundIndex + 1)
+        : undefined,
     });
     seeded = paired.seeded;
     state.poolingByeCounts = paired.poolingByeCounts;
@@ -806,6 +828,7 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
     }
     const { roomSize } = config;
     const newByes: SeedCandidate[] = [];
+    const absentByeNames = new Set<string>();
     const joiners = new Set(lateJoinersOf(state, roundIndex));
     if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {
       let needed = 0;
@@ -824,7 +847,10 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
           };
         }
         if (nextRound.isNoElim && needed === 1) {
-          const chosen = selectPoolingBye(byeCandidates(advancing, joiners), state.poolingByeCounts);
+          const absentBye = absenteeBye(state, nextRound, roundIndex + 1, advancing, roomSize.ideal);
+          const chosen =
+            absentBye ?? selectPoolingBye(byeCandidates(advancing, joiners), state.poolingByeCounts);
+          if (absentBye) absentByeNames.add(absentBye.name);
           if (chosen) {
             newByes.push(chosen);
             advancing = advancing.filter((entry) => entry !== chosen);
@@ -855,6 +881,7 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
           name: entry.name,
           room: null,
           isLucky: false,
+          ...(absentByeNames.has(entry.name) ? { absentBye: true as const } : {}),
         })),
       );
     }

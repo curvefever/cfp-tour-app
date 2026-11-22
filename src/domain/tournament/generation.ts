@@ -696,7 +696,7 @@ export function generateTournament(
     pointsVersion: 2,
     cutVersion: 2,
     groupAverageVersion: 2,
-    absenceVersion: 3,
+    absenceVersion: 4,
     vacantSlotVersion: 1,
     dependencyPlayVersion: 1,
     ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
