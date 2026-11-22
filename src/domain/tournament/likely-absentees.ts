@@ -10,7 +10,7 @@
  */
 import { absentInRoom, seatHasPlayed } from './absences';
 import { isRoundDone } from './round-columns';
-import { tracksLikelyAbsentees } from './rule-versions';
+import { pairsLikelyAbsentees, tracksLikelyAbsentees } from './rule-versions';
 import { buildTeamMap } from './roster';
 import type { TournamentState } from './types';
 
@@ -186,11 +186,35 @@ export function markBack(state: TournamentState, playerName: string): Tournament
   return state;
 }
 
-/** Takes a player's back mark away (the organiser's undo); the same state comes back when it has none. */
+/**
+ * The state with `absentBye` back on the unit's bye in each round not sent on where the unit is likely absent again: a
+ * likely absentee only holds a bye by the pairing rule (`absenceVersion` 4), so the flag is derivable, nothing is stored for it.
+ */
+function withAbsentBye(state: TournamentState, unit: string): TournamentState {
+  if (!pairsLikelyAbsentees(state)) return state;
+  return {
+    ...state,
+    assignments: state.assignments.map((assignments, roundIndex) =>
+      !isRoundDone(state, roundIndex) &&
+      assignments.some((entry) => entry.name === unit && entry.room === null && !entry.absentBye) &&
+      isLikelyAbsent(state, unit, roundIndex)
+        ? assignments.map((entry) =>
+            entry.name === unit && entry.room === null ? { ...entry, absentBye: true as const } : entry,
+          )
+        : assignments,
+    ),
+  };
+}
+
+/**
+ * Takes a player's back mark away (the organiser's undo); the same state comes back when it has none. A bye the unit
+ * holds in a round not sent on, which it is likely absent for again, is an absent bye again (no points).
+ */
 export function unmarkBack(state: TournamentState, playerName: string): TournamentState {
   if (state.backFromAbsence?.[playerName] === undefined) return state;
   const { [playerName]: _removed, ...rest } = state.backFromAbsence;
-  return { ...state, backFromAbsence: rest };
+  const unmarked = { ...state, backFromAbsence: rest };
+  return unitsOfPlayer(unmarked, playerName).reduce(withAbsentBye, unmarked);
 }
 
 /** A rename keeps the person, so their back mark follows the new spelling. */

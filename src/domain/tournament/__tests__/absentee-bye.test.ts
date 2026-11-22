@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeQualificationStandings } from '../advancement';
-import { holdsAbsentBye, markBack } from '../likely-absentees';
+import { holdsAbsentBye, markBack, unmarkBack } from '../likely-absentees';
 import { clickConfirmationAndSeat } from '../returning-unit';
 import type { TournamentState } from '../types';
 import { goBack } from '../waterfall-steps';
@@ -86,6 +86,25 @@ describe.each([
     const back = markBack(reopened, unit);
     expect(byeOf(back.assignments[1])?.absentBye).toBeUndefined();
     expect(resultOf(back, unit, 1)?.points).toBeGreaterThan(0);
+  });
+});
+
+describe('undoing a back mark before the round is sent on', () => {
+  it('puts the flag back on the bye: no points again', () => {
+    const { state, unit } = atByeRound(STANDARD);
+    const back = markBack(state, unit);
+    expect(resultOf(back, unit, 1)?.points).toBeGreaterThan(0);
+    const undone = unmarkBack(back, unit);
+    expect(byeOf(undone.assignments[1])).toMatchObject({ absentBye: true });
+    expect(resultOf(undone, unit, 1)).toMatchObject({ points: 0, absentBye: true });
+  });
+
+  it('leaves a bye of a round that was sent on as it was', () => {
+    const { state, unit } = atByeRound(STANDARD);
+    const sentOn = pressed(scoreRound(state, 1));
+    const undone = unmarkBack(markBack(sentOn, unit), unit);
+    expect(byeOf(undone.assignments[1])).toMatchObject({ absentBye: true });
+    expect(resultOf(undone, unit, 1)?.points).toBe(0);
   });
 });
 
