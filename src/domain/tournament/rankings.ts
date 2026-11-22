@@ -16,7 +16,7 @@ import { roomRowResult } from './room-row-result';
 import { roomRows } from './room-rows';
 import { computeGrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
-import { isBestOfRound, roomMatch } from './match-format';
+import { isMatchRound, roomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore, isRoomScored, tieResolutionList } from './scoring';
 import { rosterKeys, unitDisplay } from './roster';
 import { roundDestinations } from './waterfall-best';
@@ -101,7 +101,7 @@ export function isFinalComplete(state: TournamentState): boolean {
   if (!round?.isFinal) return false;
   if (round.bracket === 'grand-final')
     return Boolean(computeGrandFinalRaceState(state, lastRi, round)?.decided);
-  if (isBestOfRound(round)) return Boolean(roomMatch(state, lastRi, 1)?.complete);
+  if (isMatchRound(round)) return Boolean(roomMatch(state, lastRi, 1)?.complete);
   const games = Array.from({ length: round.numGames ?? 0 }, (_, index) => index + 1);
   const assignments = state.assignments[lastRi] ?? [];
   return (
@@ -112,19 +112,15 @@ export function isFinalComplete(state: TournamentState): boolean {
   );
 }
 
-/** The finalists of a decided Best-of Final, best first: the value shown is the wins, the total score ranks equal wins. */
+/** The finalists of a decided Best-of or WINS Final, best first: the value shown is the wins, the rank score (wins, or the wins still needed) orders them, the total score ranks the rest. */
 function bestOfFinalists(
   state: TournamentState,
   roundIndex: number,
 ): Array<{ name: string; total: number; tiebreak: number }> {
   return (roomMatch(state, roundIndex, 1)?.units ?? [])
-    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total }))
-    .sort((first, second) =>
-      compareRankScores(
-        { score: first.total, tiebreak: first.tiebreak },
-        { score: second.total, tiebreak: second.tiebreak },
-      ),
-    );
+    .map((unit) => ({ name: unit.name, total: unit.wins, tiebreak: unit.total, rank: unit.rank }))
+    .sort((first, second) => compareRankScores(first.rank, second.rank))
+    .map(({ name, total, tiebreak }) => ({ name, total, tiebreak }));
 }
 
 /** Where an eliminated unit stood in the table that decided its standings cut. */
@@ -523,7 +519,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     } else active = [...lastAssignments];
   } else if (lastRound.isFinal) {
     const games = lastRound.numGames ?? 0;
-    if (finalComplete && isBestOfRound(lastRound)) {
+    if (finalComplete && isMatchRound(lastRound)) {
       finalistValues = bestOfFinalists(state, lastRi);
     } else if (finalComplete) {
       finalistValues = lastAssignments

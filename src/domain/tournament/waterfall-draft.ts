@@ -14,6 +14,7 @@ import {
   ok,
   parseWaterfallGraph,
   roomIndexToLetter,
+  type RawWaterfallGraph,
   undeclaredDestinationMessage,
   undeclaredRoundMessage,
   type StandingsSourceKind,
@@ -31,7 +32,17 @@ import {
   type WaterfallDraftBests,
 } from './waterfall-draft-best';
 
+import {
+  renamedWins,
+  settleWins,
+  typedWins,
+  winsSourceKey,
+  withWins,
+  type WaterfallDraftWins,
+} from './waterfall-draft-wins';
+
 export type { WaterfallDraftBest } from './waterfall-draft-best';
+export type { WaterfallDraftWins } from './waterfall-draft-wins';
 
 /**
  * The waterfall editor's working copy of a graph. `PersistedSetup.waterfallGraph`
@@ -53,8 +64,9 @@ export type { WaterfallDraftBest } from './waterfall-draft-best';
  * edited like a room whose slots are the standings ranks.
  */
 
-/** A round's own match format; null = the default (one game, or the Finals format for the Final). */
-export type WaterfallMatch = { kind: 'games'; games: number } | { kind: 'best-of'; bestOf: number };
+/** A round's own match format; null = the default (one game, or the Finals format for the Final). 'wins' is uneven wins: the targets are on the bands (`WaterfallDraft.wins`). */
+export type WaterfallMatch =
+  { kind: 'games'; games: number } | { kind: 'best-of'; bestOf: number } | { kind: 'wins' };
 
 export interface WaterfallDraftRound {
   label: string;
@@ -82,6 +94,8 @@ export interface WaterfallDraft {
   qualRoutes: WaterfallSlotDestination[] | null;
   /** Each round's "Best of a place" line, by the round's label; absent when no round has one. */
   best?: WaterfallDraftBests;
+  /** The wins typed on the bands into a WINS round (a band with none takes the default by column); absent when none is typed. */
+  wins?: WaterfallDraftWins;
   /** Which line `qualRoutes` is: the Qual line (the default) or, after a group stage, the Groups line. */
   standingsKind?: StandingsSourceKind;
   /** The Qual line follows a Swiss, not a qualification table: only its wording differs ("Swiss standings"). */
@@ -313,7 +327,8 @@ export function parseWaterfallDraft(
   }
   const best = bestOfLines(raw.value.bestLines, byLower);
   if (!best.ok) return best;
-  const withBest = (draft: WaterfallDraft) => withBests(draft, best.value);
+  const typed = typedWinsOfLines(raw.value, byLower);
+  const withBest = (draft: WaterfallDraft) => withWins(withBests(draft, best.value), typed);
   if (!options.standingsSource || rounds.length === 0) {
     return ok(withBest({ rounds, routes, qualRoutes: null }));
   }
@@ -336,6 +351,31 @@ export function parseWaterfallDraft(
       ...(kind === 'qual' && options.afterSwiss ? { afterSwiss: true as const } : {}),
     }),
   );
+}
+
+/** The wins typed on the bands of a parsed graph, by destination and source. A band into a round the draft doesn't declare is left to the routing checks. */
+function typedWinsOfLines(
+  graph: Pick<RawWaterfallGraph, 'routeLines' | 'qualBands'>,
+  byLower: Map<string, WaterfallDraftRound>,
+): WaterfallDraftWins | undefined {
+  const typed: WaterfallDraftWins = {};
+  const note = (
+    bands: Array<{ destinationLabel: string; wins?: number }>,
+    key: (room: number) => string,
+    room: number,
+  ) => {
+    for (const band of bands) {
+      const destination = byLower.get(band.destinationLabel.toLowerCase())?.label;
+      if (band.wins === undefined || destination === undefined) continue;
+      typed[destination] = { ...typed[destination], [key(room)]: band.wins };
+    }
+  };
+  for (const line of graph.routeLines) {
+    const round = byLower.get(line.label.toLowerCase());
+    if (round) note(line.bands, (room) => winsSourceKey(round.label, room), (line.room ?? 1) - 1);
+  }
+  note(graph.qualBands ?? [], () => winsSourceKey(QUAL_LABEL, 0), 0);
+  return Object.keys(typed).length > 0 ? typed : undefined;
 }
 
 /** The BEST lines of a parsed graph by round; a round or destination the graph doesn't declare is refused as a route to it is. The engine's own checks judge the rest. */
@@ -398,6 +438,7 @@ export function groupRoomWithOut(
 
 /** A match format as the editor holds it: one of the two kinds. */
 function waterfallMatchOf(format: MatchFormat): WaterfallMatch {
+  if (format.wins) return { kind: 'wins' };
   return format.bestOf === undefined
     ? { kind: 'games', games: format.games }
     : { kind: 'best-of', bestOf: format.bestOf };
@@ -405,13 +446,14 @@ function waterfallMatchOf(format: MatchFormat): WaterfallMatch {
 
 /** The match format an editor choice stands for. */
 function matchFormatOf(match: WaterfallMatch): MatchFormat {
+  if (match.kind === 'wins') return { games: 1, wins: true };
   return match.kind === 'best-of' ? { games: 1, bestOf: match.bestOf } : { games: match.games };
 }
 
 /** The match format a parsed ROUNDS line asked for. */
-function matchOfLine(line: { bestOf?: number; games?: number }): WaterfallMatch | null {
-  if (line.bestOf === undefined && line.games === undefined) return null;
-  return waterfallMatchOf({ games: line.games ?? 1, bestOf: line.bestOf });
+function matchOfLine(line: { bestOf?: number; games?: number; wins?: true }): WaterfallMatch | null {
+  if (line.bestOf === undefined && line.games === undefined && !line.wins) return null;
+  return waterfallMatchOf({ games: line.games ?? 1, bestOf: line.bestOf, wins: line.wins });
 }
 
 /** The ROUNDS-line token of a match format, after a space: " BO3" or " GAMES 2" (empty for the default). */
@@ -419,11 +461,18 @@ function matchToken(match: WaterfallMatch | null): string {
   return match === null ? '' : ` ${matchFormatToken(matchFormatOf(match))}`;
 }
 
+/** The " WINS n" a band into a WINS round carries when its value is typed, else nothing. */
+function winsText(draft: Pick<WaterfallDraft, 'wins'>, destination: string, sourceKey: string): string {
+  const wins = typedWins(draft, destination, sourceKey);
+  return wins === undefined ? '' : ` WINS ${wins}`;
+}
+
 /** The ROUTES line of each room of a round that routes something. */
 function roomRouteLines(draft: WaterfallDraft, round: WaterfallDraftRound): string[] {
   return (draft.routes[round.label] ?? []).flatMap((room, roomIndex) => {
     const bands = groupRoomByDestination(room).map(
-      ({ destination, ranks }) => `${compressWaterfallRanks(ranks).join(',')}->${destination}`,
+      ({ destination, ranks }) =>
+        `${compressWaterfallRanks(ranks).join(',')}->${destination}${winsText(draft, destination, winsSourceKey(round.label, roomIndex))}`,
     );
     if (bands.length === 0) return [];
     const address =
@@ -442,7 +491,7 @@ export function serializeWaterfallDraft(draft: WaterfallDraft): string {
     ...roomRouteLines(draft, round),
     ...(draft.best?.[round.label] ? [bestLine(round.label, draft.best[round.label])] : []),
   ]);
-  const qualLines = draft.qualRoutes ? [qualRouteLine(draft.qualRoutes, draft.standingsKind ?? 'qual')] : [];
+  const qualLines = draft.qualRoutes ? [qualRouteLine(draft, draft.qualRoutes)] : [];
   return `ROUNDS:\n${roundLines.join('\n')}\n\nROUTES:\n${[...qualLines, ...routeLines].join('\n')}`.trimEnd();
 }
 
@@ -452,10 +501,11 @@ function standingsLineName(kind: StandingsSourceKind): string {
 }
 
 /** The Qual (or Groups) line: only the ranks sent on are written. An all-eliminated routing still writes a line, so it is never read as "no Qual line". */
-function qualRouteLine(qualRoutes: WaterfallSlotDestination[], kind: StandingsSourceKind): string {
-  const name = standingsLineName(kind);
+function qualRouteLine(draft: WaterfallDraft, qualRoutes: WaterfallSlotDestination[]): string {
+  const name = standingsLineName(draft.standingsKind ?? 'qual');
   const bands = groupRoomByDestination(qualRoutes.map(storedDestination)).map(
-    ({ destination, ranks }) => `${compressWaterfallRanks(ranks).join(',')}->${destination}`,
+    ({ destination, ranks }) =>
+      `${compressWaterfallRanks(ranks).join(',')}->${destination}${winsText(draft, destination, winsSourceKey(QUAL_LABEL, 0))}`,
   );
   return bands.length > 0
     ? `${name}: ${bands.join(', ')}`
@@ -479,6 +529,7 @@ function matchOfRound(
   round: TournamentRound,
   finalsMatch: WaterfallMatch | undefined,
 ): WaterfallMatch | null {
+  if (round.winTargets) return { kind: 'wins' };
   const own = waterfallMatchOf({ games: round.numGames ?? 1, bestOf: round.bestOf });
   if (!round.isFinal) return own.kind === 'games' && own.games === 1 ? null : own;
   if (finalsMatch === undefined) return own.kind === 'best-of' ? own : null;
@@ -521,9 +572,12 @@ export function waterfallDraftFromRounds(
           ),
         );
   }
-  const draft: WaterfallDraft = withBests<WaterfallDraft>(
-    { rounds: draftRounds, routes, qualRoutes: null },
-    bestsOfRounds(waterfallRounds, labelByIndex),
+  const draft: WaterfallDraft = withWins(
+    withBests<WaterfallDraft>(
+      { rounds: draftRounds, routes, qualRoutes: null },
+      bestsOfRounds(waterfallRounds, labelByIndex),
+    ),
+    typedWinsOfRounds(rounds),
   );
   const standingsRound = rounds.find((round) => round.standingsRoutes);
   const afterGroups = Boolean(standingsRound?.isGroupStage);
@@ -543,6 +597,38 @@ export function waterfallDraftFromRounds(
     ...(afterGroups ? { standingsKind: 'groups' as const } : {}),
     ...(afterSwiss ? { afterSwiss: true as const } : {}),
   };
+}
+
+/** The column a drawn round was played in: the pooling round before the bracket is column 0. */
+function columnOfRound(round: TournamentRound | undefined): number {
+  return round?.isWaterfall ? (round.waterfallColumn ?? 0) : 0;
+}
+
+/**
+ * The wins of the drawn WINS rounds that differ from the default by column, by destination and source: the defaults
+ * stay untyped, as they are in the graph text. A round holds both targets, so a target is typed when it isn't the
+ * default its source's column gives.
+ */
+function typedWinsOfRounds(rounds: TournamentRound[]): WaterfallDraftWins | undefined {
+  const typed: WaterfallDraftWins = {};
+  for (const round of rounds) {
+    const targets = round.winTargets;
+    if (!targets || !round.customLabel) continue;
+    const index = rounds.indexOf(round);
+    targets.forEach((target, position) => {
+      const column = columnOfRound(rounds[target.from]);
+      const other = columnOfRound(rounds[targets[1 - position].from]);
+      if (column !== other && target.wins === (column < other ? 1 : 2)) return;
+      const source = rounds[target.from];
+      const room = source?.waterfallRoutes?.findIndex((routes) => routes.includes(index)) ?? -1;
+      const key =
+        source?.isWaterfall && room >= 0
+          ? winsSourceKey(source.customLabel as string, room)
+          : winsSourceKey(QUAL_LABEL, 0);
+      typed[round.customLabel as string] = { ...typed[round.customLabel as string], [key]: target.wins };
+    });
+  }
+  return Object.keys(typed).length > 0 ? typed : undefined;
 }
 
 /** The BEST lines of the drawn rounds, the destination named by its label. */
@@ -753,9 +839,11 @@ export function removeWaterfallRound(draft: WaterfallDraft, label: string): Wate
       if (destination === label) room[index] = null;
     });
   }
-  return withBests(
-    { ...draft, rounds, routes, qualRoutes: unsetQualRoutesTo(draft.qualRoutes, label) },
-    bestsWithoutRound(draft.best, label),
+  return settleWins(
+    withBests(
+      { ...draft, rounds, routes, qualRoutes: unsetQualRoutesTo(draft.qualRoutes, label) },
+      bestsWithoutRound(draft.best, label),
+    ),
   );
 }
 
@@ -803,9 +891,12 @@ export function renameWaterfallRounds(
   const qualRoutes = draft.qualRoutes?.map((destination) =>
     destination === null ? null : renamed(destination),
   );
-  return withBests(
-    { ...draft, rounds, routes, qualRoutes: qualRoutes ?? null },
-    renamedBests(draft.best, renamed),
+  return withWins(
+    withBests(
+      { ...draft, rounds, routes, qualRoutes: qualRoutes ?? null },
+      renamedBests(draft.best, renamed),
+    ),
+    renamedWins(draft.wins, renamed),
   );
 }
 
@@ -842,7 +933,12 @@ export function renameWaterfallRound(
   const qualRoutes =
     draft.qualRoutes?.map((destination) => (destination === from ? to : destination)) ?? null;
   const renamed = (label: string) => (label === from ? to : label);
-  return ok(withBests({ ...draft, rounds, routes, qualRoutes }, renamedBests(draft.best, renamed)));
+  return ok(
+    withWins(
+      withBests({ ...draft, rounds, routes, qualRoutes }, renamedBests(draft.best, renamed)),
+      renamedWins(draft.wins, renamed),
+    ),
+  );
 }
 
 /** Gives a round the rooms `roomSizes` names (at most `MAX_ROOMS_PER_ROUND`, each from 1 to `MAX_WATERFALL_ROOM_SIZE`), keeping every slot that still exists. */
@@ -859,7 +955,7 @@ export function setWaterfallRoomSizes(
   );
   const resized = rounds.find((round) => round.label === label);
   const best = resized ? fittedBests(draft.best, label, resized.roomSizes) : draft.best;
-  return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
+  return settleWins(withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best));
 }
 
 /** Changes a round to `roomCount` rooms of `roomSize` each, keeping every slot that still exists. */
@@ -879,7 +975,7 @@ export function setWaterfallFinal(draft: WaterfallDraft, label: string, isFinal:
     return round.label === label && isFinal ? withoutRanking(marked) : marked;
   });
   const best = isFinal ? bestsWithoutOwnLine(draft.best, label) : draft.best;
-  return withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best);
+  return settleWins(withBests({ ...draft, rounds, routes: reshapeRoutes(rounds, draft.routes) }, best));
 }
 
 function withoutRanking(round: WaterfallDraftRound): WaterfallDraftRound {
@@ -899,13 +995,15 @@ export function setWaterfallRanking(
   });
   const routes = reshapeRoutes(rounds, draft.routes);
   const marked = rounds.find((round) => round.label === label);
-  return withBests(
-    {
-      ...draft,
-      rounds,
-      routes: isRanking && marked ? { ...routes, [label]: emptyRoutes(marked) } : routes,
-    },
-    isRanking ? bestsWithoutOwnLine(draft.best, label) : draft.best,
+  return settleWins(
+    withBests(
+      {
+        ...draft,
+        rounds,
+        routes: isRanking && marked ? { ...routes, [label]: emptyRoutes(marked) } : routes,
+      },
+      isRanking ? bestsWithoutOwnLine(draft.best, label) : draft.best,
+    ),
   );
 }
 
@@ -926,7 +1024,7 @@ export function setWaterfallMatch(
   match: WaterfallMatch | null,
 ): WaterfallDraft {
   const rounds = draft.rounds.map((round) => (round.label === label ? { ...round, match } : round));
-  return { ...draft, rounds };
+  return settleWins({ ...draft, rounds });
 }
 
 /** Gives a round its "Best of a place", or null to take it away. */
@@ -1090,7 +1188,7 @@ export function assignWaterfallSlots(
       routes[label][room][rank - 1] = storedDestination(destination);
     }
   }
-  return { ...draft, routes };
+  return settleWins({ ...draft, routes });
 }
 
 function assignQualSlots(
@@ -1108,5 +1206,5 @@ function assignQualSlots(
   for (const { rank } of slots) {
     if (rank >= 1 && rank <= qualRoutes.length) qualRoutes[rank - 1] = stored;
   }
-  return { ...draft, qualRoutes };
+  return settleWins({ ...draft, qualRoutes });
 }

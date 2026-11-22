@@ -1,5 +1,11 @@
 import { newRound } from './new-round';
-import { BEST_OF_VALUES, MAX_SUMMED_GAMES, matchFormatFields, matchFormatToken } from './match-format';
+import {
+  BEST_OF_VALUES,
+  MAX_SUMMED_GAMES,
+  matchFormatFields,
+  matchFormatToken,
+  type MatchFormat,
+} from './match-format';
 import { plainRoundName } from './round-name';
 import type {
   OrderedWaterfallGraph,
@@ -7,6 +13,7 @@ import type {
   TournamentRound,
   WaterfallBestRoute,
   WaterfallRoundSpec,
+  WinTarget,
 } from './types';
 import {
   absoluteBest,
@@ -21,6 +28,15 @@ import {
   type RawBestLine,
   type ResolvedBest,
 } from './waterfall-best';
+import {
+  WINS_STANDINGS_SOURCE,
+  checkWinsRounds,
+  resolveWinTargets,
+  splitWinsSuffix,
+  type ResolvedWinTarget,
+  type WinsBand,
+  type WinsRound,
+} from './waterfall-wins';
 
 /**
  * Waterfall / rank-band bracket phase (the Custom bracket). Entirely
@@ -45,7 +61,8 @@ import {
  *   Final = 8 FINAL
  *
  * After the size a ROUNDS line takes, in any order and each at most once, FINAL, RANKING, COLUMN <n>, and one
- * match format: BO<n> (best of n, odd from 3 to 9) or GAMES <n> (n games summed, 1 to 4).
+ * match format: BO<n> (best of n, odd from 3 to 9), GAMES <n> (n games summed, 1 to 4) or WINS (a round of one room
+ * of two whose units each need their own number of game wins, `waterfall-wins.ts`).
  *
  *   ROUTES:
  *   5.A: 1-4->SemiA, 5,8->6B, 6,7->6C
@@ -91,11 +108,15 @@ interface RawRoundLine {
   bestOf?: number;
   /** "GAMES 2": the round plays n games, summed (1-4). */
   games?: number;
+  /** "WINS": the round's two units each need their own number of game wins. */
+  wins?: true;
 }
 
-interface RawRouteBand {
+export interface RawRouteBand {
   rankTokens: string[];
   destinationLabel: string;
+  /** The "WINS <n>" typed after the destination: the wins the unit arriving by this band needs. */
+  wins?: number;
 }
 
 interface RawRouteLine {
@@ -285,19 +306,28 @@ function parseRoundLine(line: string): WaterfallParseResult<RawRoundLine> {
   return ok({ label, roomSizes, ...trailer.value });
 }
 
-type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games' | 'isRanking'> & {
+type RoundLineTrailer = Pick<RawRoundLine, 'bestOf' | 'games' | 'wins' | 'isRanking'> & {
   isFinal: boolean;
   column: number | null;
 };
 
 /** The match format already written on the line, as the organiser wrote it, for the "choose one" error. */
-function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games'>): string {
-  return matchFormatToken({ games: trailer.games ?? 1, bestOf: trailer.bestOf });
+function writtenMatchFormat(trailer: Pick<RoundLineTrailer, 'bestOf' | 'games' | 'wins'>): string {
+  const written: MatchFormat = { games: trailer.games ?? 1, bestOf: trailer.bestOf, wins: trailer.wins };
+  return matchFormatToken(written);
+}
+
+/** Whether the line already has a match format of another kind than `keyword`'s own (BO, GAMES or WINS). */
+function hasOtherMatchFormat(
+  trailer: Pick<RoundLineTrailer, 'bestOf' | 'games' | 'wins'>,
+  own: 'bestOf' | 'games' | 'wins',
+): boolean {
+  return (['bestOf', 'games', 'wins'] as const).some((kind) => kind !== own && trailer[kind] !== undefined);
 }
 
 /**
  * The tokens after a ROUNDS line's size, in any order, each at most once: "FINAL", "RANKING", "COLUMN <n>", and one match
- * format, "BO<n>" (best of n, odd from 3 to 9) or "GAMES <n>" (n games summed, 1 to 4).
+ * format, "BO<n>" (best of n, odd from 3 to 9), "GAMES <n>" (n games summed, 1 to 4) or "WINS" (uneven wins).
  */
 function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseResult<RoundLineTrailer> {
   const trailer: RoundLineTrailer = { isFinal: false, column: null };
@@ -331,12 +361,20 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
       }
       if (trailer.bestOf !== undefined)
         return err(`ROUNDS line for "${label}" repeats ${keyword} -- write it once.`);
-      if (trailer.games !== undefined) {
+      if (hasOtherMatchFormat(trailer, 'bestOf')) {
         return err(
           `ROUNDS line for "${label}" has both ${writtenMatchFormat(trailer)} and ${keyword} -- choose one match format.`,
         );
       }
       trailer.bestOf = bestOf;
+    } else if (keyword === 'WINS') {
+      if (trailer.wins) return err(`ROUNDS line for "${label}" repeats WINS -- write it once.`);
+      if (hasOtherMatchFormat(trailer, 'wins')) {
+        return err(
+          `ROUNDS line for "${label}" has both ${writtenMatchFormat(trailer)} and WINS -- choose one match format.`,
+        );
+      }
+      trailer.wins = true;
     } else if (keyword === 'GAMES') {
       const number = tokens[index + 1];
       const games = number !== undefined && /^\d+$/.test(number) ? Number.parseInt(number, 10) : 0;
@@ -347,7 +385,7 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
       }
       if (trailer.games !== undefined)
         return err(`ROUNDS line for "${label}" repeats GAMES -- write it once.`);
-      if (trailer.bestOf !== undefined) {
+      if (hasOtherMatchFormat(trailer, 'games')) {
         return err(
           `ROUNDS line for "${label}" has both ${writtenMatchFormat(trailer)} and GAMES ${games} -- choose one match format.`,
         );
@@ -356,7 +394,7 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
       index += 1;
     } else {
       return err(
-        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL", "RANKING", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size.`,
+        `ROUNDS line for "${label}" has an unexpected trailing token ("${tokens.slice(index).join(' ')}") -- only "FINAL", "RANKING", "COLUMN <number>", "BO<number>", "GAMES <number>" and "WINS" are allowed after the size.`,
       );
     }
   }
@@ -366,7 +404,7 @@ function parseRoundLineTrailer(label: string, tokens: string[]): WaterfallParseR
   return ok(trailer);
 }
 
-function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
+function parseRouteLine(line: string, declared: ReadonlySet<string>): WaterfallParseResult<RawRouteLine> {
   const colonIndex = line.indexOf(':');
   if (colonIndex === -1) {
     return err(`ROUTES line "${line}" is missing ":" -- expected "<round>: <ranks>-><destination>, ...".`);
@@ -417,8 +455,14 @@ function parseRouteLine(line: string): WaterfallParseResult<RawRouteLine> {
     if (!destPart) {
       return err(`ROUTES line for "${address}" has a band with no destination after "->".`);
     }
+    const destination = splitWinsSuffix(destPart, declared, address);
+    if (!destination.ok) return destination;
     pending.push(rankPart);
-    bands.push({ rankTokens: [...pending], destinationLabel: destPart });
+    bands.push({
+      rankTokens: [...pending],
+      destinationLabel: destination.value.label,
+      ...(destination.value.wins === undefined ? {} : { wins: destination.value.wins }),
+    });
     pending = [];
   }
   if (pending.length > 0) {
@@ -451,6 +495,7 @@ export function parseWaterfallGraph(
     roundLines.push(result.value);
   }
 
+  const declaredLabels = new Set(roundLines.map((round) => round.label.toLowerCase()));
   const routeLines: RawRouteLine[] = [];
   const bestLines: RawBestLine[] = [];
   let qualBands: RawRouteBand[] | null = null;
@@ -462,7 +507,7 @@ export function parseWaterfallGraph(
       bestLines.push(bestLine.value);
       continue;
     }
-    const result = parseRouteLine(line);
+    const result = parseRouteLine(line, declaredLabels);
     if (!result.ok) return result;
     const kind = sourceKindOfLabel(result.value.label);
     if (kind === null) {
@@ -852,6 +897,15 @@ export function validateAndOrderWaterfallGraph(
     }
   }
 
+  const winsRounds = winsRoundsOf(roundLines);
+  const winsBands = winsBandsOf(graph);
+  const winsChecked = checkWinsRounds(
+    winsRounds,
+    winsBands,
+    [...best.value.values()].map((line) => line.destinationKey),
+  );
+  if (!winsChecked.ok) return winsChecked;
+
   const fixedPrefixLower = (fixedPrefix ?? []).map((label) => label.toLowerCase());
   if (fixedPrefixLower.length > 0) {
     for (const [index, label] of fixedPrefixLower.entries()) {
@@ -1010,6 +1064,8 @@ export function validateAndOrderWaterfallGraph(
   );
   if (!columns.ok) return columns;
   const columnOf = new Map(topoOrder.map((label, index) => [label, columns.value[index]]));
+  const winTargets = resolveWinTargets(winsRounds, winsBands, columnOf);
+  if (!winTargets.ok) return winTargets;
   // Array.sort is stable: rounds of one column keep their order in the routing walk (today's order), except
   // that RANKING rounds come first, so the units they send out rank below the column's other eliminations.
   const isRankingRound = (label: string) => (roundByLabel.get(label) as RawRoundLine).isRanking === true;
@@ -1030,8 +1086,50 @@ export function validateAndOrderWaterfallGraph(
       roomBandsByLabel,
       qualLabels,
       best.value,
+      winTargets.value,
     ),
   );
+}
+
+/** The ROUNDS lines as `waterfall-wins.ts` reads them. */
+function winsRoundsOf(roundLines: RawRoundLine[]): WinsRound[] {
+  return roundLines.map((round) => ({
+    label: round.label,
+    roomSizes: round.roomSizes,
+    wins: round.wins === true,
+  }));
+}
+
+/** Every band of the graph that enters a round, with what `waterfall-wins.ts` checks of it. A band whose ranks can't be read counts none (the rank checks name it). */
+function winsBandsOf(graph: RawWaterfallGraph): WinsBand[] {
+  const ofBands = (
+    bands: RawRouteBand[],
+    source: Omit<WinsBand, 'destination' | 'ranks' | 'wins'>,
+  ): WinsBand[] =>
+    bands.map((band) => {
+      const ranks = expandRankTokens(band.rankTokens);
+      return {
+        ...source,
+        destination: band.destinationLabel.toLowerCase(),
+        ranks: ranks.ok ? ranks.value.length : 0,
+        wins: band.wins ?? null,
+      };
+    });
+  const standings = graph.qualBands
+    ? ofBands(graph.qualBands, {
+        sourceName: `The ${graph.standingsKind === 'groups' ? GROUPS_LABEL : QUAL_LABEL} line`,
+        source: WINS_STANDINGS_SOURCE,
+        room: 1,
+      })
+    : [];
+  const fromRounds = graph.routeLines.flatMap((line) =>
+    ofBands(line.bands, {
+      sourceName: `Round "${line.label}"`,
+      source: line.label.toLowerCase(),
+      room: line.room ?? 1,
+    }),
+  );
+  return [...standings, ...fromRounds];
 }
 
 /** For each round of the topological order, the positions of the rounds that route into it. */
@@ -1107,10 +1205,12 @@ function buildOrderedGraph(
   roomBandsByLabel: Map<string, string[][]>,
   qualLabels: string[] | null,
   best: Map<string, ResolvedBest>,
+  winTargets: Map<string, ResolvedWinTarget[]>,
 ): OrderedWaterfallGraph {
   const indexByLabel = new Map(topoOrder.map((label, index) => [label, index]));
   const rounds: WaterfallRoundSpec[] = topoOrder.map((label) => {
     const round = roundByLabel.get(label) as RawRoundLine;
+    const targets = winTargets.get(label);
     return {
       label: round.label,
       roomSizes: round.roomSizes,
@@ -1119,6 +1219,17 @@ function buildOrderedGraph(
       ...(round.column === null ? {} : { columnSet: true as const }),
       ...(round.bestOf === undefined ? {} : { bestOf: round.bestOf }),
       ...(round.games === undefined ? {} : { games: round.games }),
+      ...(targets
+        ? {
+            winTargets: targets.map((target) => ({
+              from:
+                target.source === WINS_STANDINGS_SOURCE
+                  ? ('qual' as const)
+                  : (indexByLabel.get(target.source) as number),
+              wins: target.wins,
+            })),
+          }
+        : {}),
     };
   });
   const routes: Array<Array<Array<number | 'eliminated'>>> = topoOrder.map((label) => {
@@ -1305,6 +1416,9 @@ export function waterfallBracketPhase(
       ...(roundSpec.columnSet ? { waterfallColumnSet: true as const } : {}),
       ...(roundSpec.isRanking ? { waterfallRanking: true as const } : {}),
       ...(best ? { waterfallBest: best } : {}),
+      ...(roundSpec.winTargets
+        ? { winTargets: absoluteWinTargets(roundSpec.winTargets, startRoundNum) }
+        : {}),
       waterfallRoutes: routesForRound.map((roomDestinations) =>
         roomDestinations.map((destination) =>
           destination === 'eliminated' ? 'eliminated' : startRoundNum - 1 + destination,
@@ -1313,6 +1427,20 @@ export function waterfallBracketPhase(
     });
   });
   return withShortEntryFitted(graph, declared);
+}
+
+/**
+ * A WINS round's targets with `from` as an absolute round index: a round of the graph is `startRoundNum - 1 + index`,
+ * the Qual or Groups line is the pooling round just before the bracket (the one holding `standingsRoutes`).
+ */
+function absoluteWinTargets(
+  targets: NonNullable<WaterfallRoundSpec['winTargets']>,
+  startRoundNum: number,
+): WinTarget[] {
+  return targets.map((target) => ({
+    from: target.from === 'qual' ? startRoundNum - 2 : startRoundNum - 1 + target.from,
+    wins: target.wins,
+  }));
 }
 
 /** True when a round fed only by the standings line is routed fewer units than it declares seats. */

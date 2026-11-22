@@ -1178,7 +1178,7 @@ describe('the COLUMN keyword in a ROUNDS line', () => {
     ['Semi A = 4 FINAL FINAL', 'repeats FINAL'],
     [
       'Semi A = 4 LAST',
-      'only "FINAL", "RANKING", "COLUMN <number>", "BO<number>" and "GAMES <number>" are allowed after the size',
+      'only "FINAL", "RANKING", "COLUMN <number>", "BO<number>", "GAMES <number>" and "WINS" are allowed after the size',
     ],
   ])('refuses "%s"', (line, message) => {
     expect(roundLine(line)).toContain(message);

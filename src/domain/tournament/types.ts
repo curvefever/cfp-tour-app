@@ -102,6 +102,8 @@ export interface TournamentRound {
   numGames?: number;
   /** Set only on a Best-of round (a waterfall round, or the Semis or Final of the other bracket formats): odd, 3-9. A room plays until a unit has won (bestOf + 1) / 2 games, and `numGames` holds the most games a room can need (`bestOfGameCount`). */
   bestOf?: number;
+  /** Set only on a WINS round (a Custom bracket round of one room of two): the wins each of its two arrivals needs, by the round the unit comes from. `bestOf` is unset and `numGames` is `a + b - 1`. */
+  winTargets?: WinTarget[];
   bracket?: BracketKey;
   winnersTo?: number | null;
   losersTo?: number | null;
@@ -142,6 +144,12 @@ export interface TournamentRound {
   fixedRoomAssignments?: RoundAssignment[];
 }
 
+/** The wins one arrival of a WINS round needs. `from` is the absolute index of the round the unit comes from (for a Qual or Groups band, the pooling round holding `standingsRoutes`). */
+export interface WinTarget {
+  from: number;
+  wins: number;
+}
+
 export interface RoundAssignment {
   name: string;
   room: number | null;
@@ -150,6 +158,8 @@ export interface RoundAssignment {
   manual?: true;
   /** The seed the unit arrived with in a Custom bracket round fed by a pooling phase (`PendingBracketSeed.seed`); its room's seed for the round it feeds. */
   seed?: number;
+  /** The game wins this unit needs in a WINS round, taken from the round it came from (`TournamentRound.winTargets`). Absent in every other round. */
+  winsNeeded?: number;
 }
 
 /**
@@ -292,6 +302,8 @@ export interface WaterfallRoundSpec {
   bestOf?: number;
   /** N games, summed (1-4), written GAMES <n> on the ROUNDS line. */
   games?: number;
+  /** WINS on the ROUNDS line: the room's two units each need their own number of game wins. The two targets, resolved (typed or by column); `from` is a round of the ordered graph, or 'qual' for the Qual or Groups line. */
+  winTargets?: Array<{ from: number | 'qual'; wins: number }>;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { isBestOfRound, roomMatch } from './match-format';
+import { roomMatch, type RoomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
@@ -143,6 +143,14 @@ export function isPlainFinalFullyScored(
   );
 }
 
+/** The Final's units best first by the match's rank scores; `units` is in the match's seat order. */
+function unitsByMatchRank(units: FinalsUnitProgress[], match: RoomMatch): FinalsUnitProgress[] {
+  return units
+    .map((unit, position) => ({ unit, rank: match.units[position].rank }))
+    .sort((first, second) => compareRankScores(first.rank, second.rank))
+    .map(({ unit }) => unit);
+}
+
 export function finalsProgressState(
   state: TournamentState,
   roundIndex: number,
@@ -193,16 +201,9 @@ export function finalsProgressState(
     const loser = race.winnerName === race.wbName ? race.lbName : race.wbName;
     order = [race.winnerName, loser];
   } else if (complete) {
-    order = [...units]
-      .sort((first, second) =>
-        isBestOfRound(round)
-          ? compareRankScores(
-              { score: first.wins, tiebreak: first.total },
-              { score: second.wins, tiebreak: second.total },
-            )
-          : second.total - first.total,
-      )
-      .map((unit) => unit.name);
+    order = (
+      match ? unitsByMatchRank(units, match) : [...units].sort((first, second) => second.total - first.total)
+    ).map((unit) => unit.name);
   } else {
     order = assignments.map((assignment) => assignment.name);
   }

@@ -126,12 +126,14 @@ const MATCH_CHOICES: WaterfallMatch[] = [
 
 function matchValue(match: WaterfallMatch | null): string {
   if (match === null) return DEFAULT_MATCH_VALUE;
+  if (match.kind === 'wins') return 'wins';
   return match.kind === 'best-of' ? `best-of-${match.bestOf}` : `games-${match.games}`;
 }
 
 const gamesText = (games: number) => (games === 1 ? '1 game' : `${games} games`);
 
 function matchLabel(match: WaterfallMatch): string {
+  if (match.kind === 'wins') return 'Uneven wins';
   if (match.kind === 'best-of') return `Best of ${match.bestOf}`;
   return match.games === 1 ? '1 game' : `${match.games} games, summed`;
 }
@@ -150,7 +152,7 @@ function MatchField({
     ? '1 game'
     : finalsMatch === undefined
       ? 'Finals format'
-      : `Finals format (${finalsMatch.kind === 'best-of' ? matchLabel(finalsMatch) : gamesText(finalsMatch.games)})`;
+      : `Finals format (${finalsMatch.kind === 'games' ? gamesText(finalsMatch.games) : matchLabel(finalsMatch)})`;
   // A format typed into the graph text that the list doesn't offer (BO9, GAMES 1 on the Final) stays selectable.
   const unlisted =
     round.match !== null && !MATCH_CHOICES.some((choice) => matchValue(choice) === matchValue(round.match))
