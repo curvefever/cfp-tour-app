@@ -16,7 +16,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **On production.** `origin/main` is at `ed7e32f` (checked 2026-11-23), so every build from "The layered bracket, written by the app" (2026-11-21) to "A solid shield for the Save your Buddy defender" (2026-11-22) is on production, though several of their headings below still say "on `test`, not pushed". Only two docs commits on `test` (`9e3aa52`, `e4cae13`, open items) are not on `main`.
 
-**Out of scope.** The entry "Best of N texts more visible" stays in `docs/open-items.md` as "Built, awaiting the organiser's look" until the organiser judges it.
+**Best of N texts more visible** (built 2026-11-22 with the uneven wins build: the match format as a sky tag in the column title bar, repeated small in each room card header): confirmed by the organiser on 2026-11-23 from a screens-fixture screenshot (16 players head to head, Best of 5, 1280 px), so its "Built, awaiting the organiser's look" entry leaves `docs/open-items.md`.
 
 ---
 
