@@ -6,6 +6,20 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Work queue tidied; what is on production (done — 2026-11-23, docs only)
+
+**Context.** The work queue in `docs/open-items.md` still held items marked "Done" (1: the ABS? mark, EXPECTED, Copy players; 2: cleanup parts 1B and 1C) and, in item 3, the layered bracket and the first Save your Buddy fix as "on `test`, not on production". Each already has its own entry below. A finished item now leaves the queue; its record is its log entry (the queue's header says so).
+
+**Organiser decisions (2026-11-23).** Save your Buddy has no issue left after the four fixes of 21–22 Nov, so its queue line goes. The layered bracket's Setup changes leave the queue too: they will be done with a full rework of the Setup screen ("badly needed"), now a To do in `docs/open-items.md`, not placed. The three entries raised on 2026-11-22 (the uneven wins boxes on the Final, a drawn round's format change before a score, the qualification phase in the viewer's preview) are not built; they stay open items, not in the queue.
+
+**The queue now.** 1: the schedule picture on Info; 2: cleanup part 2; 3: the rest of the rigidity audit's order; 4: the viewer polish bundle when an event needs it. The references to the old item numbers in `docs/open-items.md` and `docs/roadmap.md` follow.
+
+**On production.** `origin/main` is at `ed7e32f` (checked 2026-11-23), so every build from "The layered bracket, written by the app" (2026-11-21) to "A solid shield for the Save your Buddy defender" (2026-11-22) is on production, though several of their headings below still say "on `test`, not pushed". Only two docs commits on `test` (`9e3aa52`, `e4cae13`, open items) are not on `main`.
+
+**Out of scope.** The entry "Best of N texts more visible" stays in `docs/open-items.md` as "Built, awaiting the organiser's look" until the organiser judges it.
+
+---
+
 ## A solid shield for the Save your Buddy defender, with a "Defender" hover box (done — 2026-11-22, on `test` `7d57a73`)
 
 **Context.** The organiser found the 🛡 emoji hard to read and not obviously a defender mark, just before prod tour 1795369383748 (3v3 Save your Buddy). Asked for a clear shield shape, perhaps on a solid background, and a small "Defender" box on hover with no underline hinting at it. Three options were drawn (solid shield, solid shield with a white D, white shield on a round badge); the organiser chose the **solid shield**. Built directly by the planner-reviewer session (a small visual change, the tournament starting soon), not through the Implementer.
