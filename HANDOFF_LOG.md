@@ -6,6 +6,27 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Audit of the first Swiss on production (done — 2026-11-23, read only, docs only)
+
+**Context.** Tournament `1795369383748` (2026-11-22, production): 3v3 Save your Buddy, 13 registered, Prince's of Germany absent in round 1, sat out round 2 on the absent bye, then removed; 12 teams played a Swiss of 6 rounds under match results (Win 3, Tie Win 2, Tie Loss 1, Loss 0, tie margin 15), then a hand-written Custom bracket (Round 7 Upper and Lower, Semi A, Round 8, Round 9, Semi B, a Final with uneven wins; SSMCTS won). The organiser asked how the Swiss went: in particular whether line game and 🚜 had an easy path and Waky's Angels a hard one, judged by real skill rather than recorded results. Read through the anonymous REST read only; never opened in the app. No decision taken: the organiser wants to talk before any plan.
+
+**The organiser's tiers** (2026-11-23): 1–3 barca, ACC, SSMCTS; 4 Waky's Angels; 5–7 Keep Off The Creep (KOTC), 🚜, Big Rusty Zombies (BRZ); 8–9 line game, Tortoise; 10 pudding; 11–12 Boozing, holy trinity. They fit the results: of 33 games between different tiers the higher tier won 29. The upsets: line game beat 🚜 (round 4), Boozing beat pudding (4), Waky's beat barca (6), pudding beat line game (6).
+
+**What happened.**
+- Pairing worked as built: score groups, no rematch in 6 rounds; the absentee drew no second walkover.
+- **Bye and forfeit.** 🚜's round 1 bye earned a Tie Win (2); pudding's win over the absent team a Win (3). The community agreed 🚜 should have 3; with no way to add a point, the organiser routed `Qual: 1-3,5->Round 7 Upper, 4,6-8->Round 7 Lower`, so 🚜 (12 with the point, above Waky's by room share) went Upper and Waky's (12) Lower. Without that point the table's top 4 were exactly the organiser's top 4.
+- **Schedules** (average tier of the Swiss opponents, lower is harder): SSMCTS 4.75, ACC 5.00, barca 5.17, KOTC 5.75, Waky's 5.83, BRZ 6.17, line game 6.67, 🚜 7.30 (bye, one top-4 opponent), Tortoise 7.58, Boozing 7.67, pudding 7.90 (forfeit win), holy trinity 8.08. Hard paths: KOTC (finished 9th) and Waky's; easy: 🚜 and pudding (8th). line game met two of the top three, so not the easiest; its 9 points came from holy trinity, Tortoise and an upset over 🚜.
+- **Round count.** Standings stopped after 4 rounds: Upper barca, ACC, line game, SSMCTS (Waky's 7th, 8th with 🚜's point); after 5: barca, ACC, BRZ, SSMCTS (with the point BRZ, 🚜; Waky's 6th–7th); after 6: ACC, barca, SSMCTS, Waky's (with the point 🚜 instead of Waky's). The rank distance to the tiers was 20, 20 and 12 (20, 22, 14 with the point): the 6 rounds were needed. Places 8–9 after 6 were still off: pudding 8th, KOTC 9th.
+- **Tie-breaks against the tiers.** On 12 points (with 🚜's point): room share put 🚜 above Waky's (wrong), Buchholz, median Buchholz and Sonneborn-Berger put Waky's first (right). On 9 points: room share BRZ, line game, pudding (right); Buchholz (55 v 54) and Sonneborn-Berger put line game above BRZ (wrong); head to head (pudding beat line game) wrong too. On 6: all agree (KOTC). On 15 (ACC, barca, same tier): room share ACC, Sonneborn-Berger and head to head barca. A strength rating fitted on the Swiss games' scores (least squares on the log of each game's score ratio, a light pull to the average) gave exactly the tiers after 6 rounds, not after 3, 4 or 5; with about 6–15 games a team its error is about ±0.11 on a scale where the field spans −0.58 to +0.45.
+- **Pairing gaps.** Rounds 2 to 5 were the closest pairings possible without a rematch (largest gap 3 points). Round 6 was not: as played, barca (15) v Waky's (9), ACC (12) v BRZ (9), SSMCTS (9) v KOTC (6), line game (9) v pudding (6), 🚜 (8) v Boozing (4), Tortoise v holy trinity; sum of squared points gaps 80. `pairsWithoutRematch` takes the first rematch-free pairing from the top down: ACC took BRZ, so SSMCTS and line game, who had met, both dropped. The closest rematch-free pairing (54) had ACC v line game and BRZ v SSMCTS; barca v Waky's was forced. With one rematch, barca v ACC (round 3), the round had no gap above 3 (18) and paired line game v Waky's. In rounds 4 and 5 a rematch would only have moved pairs at the bottom.
+- **Bracket rematches.** 5 of the 9 bracket matches repeated a Swiss match (ACC v SSMCTS three times, the last in the Final), as the strict draw after a Swiss allows.
+
+**Recorded as** open items: the bye and forfeit values, no points adjustment by hand, the Swiss tie-break, the closest pairing, a rematch to close a big gap, skill seeds (Idea); the round count in the roadmap's Swiss entry.
+
+**Out of scope.** No replay of the alternative pairings' results (unknowable); no simulation yet (the seeding simulation could compare pairing rules, tie-breaks and round counts on known skills).
+
+---
+
 ## Work queue tidied; what is on production (done — 2026-11-23, docs only)
 
 **Context.** The work queue in `docs/open-items.md` still held items marked "Done" (1: the ABS? mark, EXPECTED, Copy players; 2: cleanup parts 1B and 1C) and, in item 3, the layered bracket and the first Save your Buddy fix as "on `test`, not on production". Each already has its own entry below. A finished item now leaves the queue; its record is its log entry (the queue's header says so).
