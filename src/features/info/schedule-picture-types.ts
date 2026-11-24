@@ -47,3 +47,9 @@ export interface SchedulePictureModel {
   pooling: PicturePooling | null;
   cards: PictureCard[];
 }
+
+/** How the format counts what plays in a room: teams or players, and whether a room of two is a match. */
+export interface PictureUnits {
+  team: boolean;
+  headToHead: boolean;
+}

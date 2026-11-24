@@ -2,6 +2,7 @@ import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { declaredSchedule } from '../../domain/tournament/declared-schedule';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { roundExitRule, type RoundExitRule } from '../../domain/tournament/room-exits';
+import { isHeadToHeadRoom } from '../../domain/tournament/upper-lower-wins';
 import { roundColumn } from '../../domain/tournament/round-columns';
 import type { TournamentState } from '../../domain/tournament/types';
 import { unitCountLabel } from '../tournaments/tournaments-list';
@@ -11,7 +12,7 @@ import { isPoolingRule, poolingPicture } from './schedule-picture-pooling';
 import { roundPicture, type RoundPicture } from './schedule-picture-round';
 import { assignRows, type RowEntity, type RowFeed } from './schedule-picture-rows';
 import type { Route } from './schedule-picture-routes';
-import type { PictureCard, PictureTone, SchedulePictureModel } from './schedule-picture-types';
+import type { PictureCard, PictureTone, PictureUnits, SchedulePictureModel } from './schedule-picture-types';
 
 /** The pooling block's column, before the first column of the bracket. */
 const POOLING_COLUMN = -1;
@@ -77,15 +78,16 @@ function cardOf(
   column: number,
   row: number,
   tone: PictureTone,
-  team: boolean,
+  units: PictureUnits,
 ): PictureCard {
   const rooms = roomCount(rounds);
   return {
     name: mergedName(rounds.map((round) => round.label)),
     tone,
-    tag: rooms > 1 ? `×${rooms}` : null,
-    sub: subLine(rounds, team),
-    groups: cardGroups(rounds, team),
+    // A head-to-head card counts its matches in the sub line.
+    tag: rooms > 1 && !units.headToHead ? `×${rooms}` : null,
+    sub: subLine(rounds, units.team, units.headToHead),
+    groups: cardGroups(rounds, units.team),
     column,
     row,
     rounds: rounds.map((round) => round.index),
@@ -104,7 +106,10 @@ export function schedulePictureModel(
   if (state.rounds.length === 0) return null;
   const declared = declaredSchedule(state);
   const labels = bracketRoundLabels(declared);
-  const team = getGameFormat(state.gameFormat)?.unitLabelPlural === 'Teams';
+  const units: PictureUnits = {
+    team: getGameFormat(state.gameFormat)?.unitLabelPlural === 'Teams',
+    headToHead: state.gamemodeConfig.roomSize ? isHeadToHeadRoom(state.gamemodeConfig.roomSize) : false,
+  };
   const rules: RoundExitRule[] = state.rounds.map((_, index) => roundExitRule(declared, index));
   const indices = rules.map((_, index) => index);
   const pooling = indices.filter((index) => isPoolingRule(rules[index]));
@@ -115,7 +120,7 @@ export function schedulePictureModel(
     declared,
     pooling,
     pooling.map((index) => rules[index]),
-    team,
+    units,
   );
   const columns = columnsOf(declared, bracket);
   const rounds = bracket.map((index) =>
@@ -151,7 +156,7 @@ export function schedulePictureModel(
         rowEntities[entity].column,
         rows[entity],
         headerTone(members.flatMap((round) => feeds.get(round.index) ?? [])),
-        team,
+        units,
       ),
     ),
   };

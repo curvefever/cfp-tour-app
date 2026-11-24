@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeading, cn } from '../../components/ui';
 import { bracketLogicOf } from '../../domain/tournament/app-written-bracket';
 import { ColumnTitleBar } from '../tournament/components/ColumnTitleBar';
@@ -6,6 +6,8 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { scheduledParts, tournamentFormatLine, type ScheduledParts } from '../tournaments/tournament-info';
 import { RulesText } from './RulesText';
+import { SchedulePicture } from './SchedulePicture';
+import { schedulePictureModel } from './schedule-picture-model';
 import { ScreenshotGallery } from './ScreenshotGallery';
 
 const GENERAL_RULES_URL = 'https://info.curvefever.pro/tournaments/tournament-rules';
@@ -81,6 +83,11 @@ export function InfoView() {
     scheduleLogic: bracketLogicOf(state),
   };
   const title = useTournamentTitle();
+  const formatLine = tournamentFormatLine(format);
+  const schedule = useMemo(
+    () => schedulePictureModel(state, { title, formatLine }),
+    [state, title, formatLine],
+  );
   const rulesText = state.info?.rulesText.trim() ?? '';
   const imageIds = state.info?.screenshots ?? [];
   return (
@@ -93,8 +100,14 @@ export function InfoView() {
       />
       <section aria-label='When and what' className='flex flex-wrap gap-3.5'>
         <WhenCard scheduledAt={scheduledAt} />
-        <FormatCard line={tournamentFormatLine(format)} />
+        <FormatCard line={formatLine} />
       </section>
+      {schedule ? (
+        <section aria-label='Schedule' className='flex flex-col gap-3'>
+          <ColumnTitleBar title='Schedule' />
+          <SchedulePicture model={schedule} />
+        </section>
+      ) : null}
       {state.tournamentId && imageIds.length ? (
         <section className='flex flex-col gap-3'>
           <ColumnTitleBar title='Information' />

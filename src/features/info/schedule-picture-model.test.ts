@@ -169,7 +169,7 @@ describe('other formats', () => {
       }),
     );
     const winners = cardNamed(model, 'WB Round 3');
-    expect(winners).toMatchObject({ tag: '×8', sub: '2p each · 1 game' });
+    expect(winners).toMatchObject({ tag: null, sub: '8 matches · 1 game' });
     expect(winners.groups[0].blocks).toEqual([
       { tones: ['green'], lines: ['1st → WB Round 4'] },
       { tones: ['purple'], lines: ['2nd → LB Round 3'] },

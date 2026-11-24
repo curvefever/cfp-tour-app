@@ -32,14 +32,16 @@ export function roomCount(rounds: readonly RoundPicture[]): number {
   return rounds.reduce((sum, round) => sum + round.rooms.length, 0);
 }
 
-/** The sub line of a card: the room sizes and the match format; with room labels, the format alone. */
-export function subLine(rounds: readonly RoundPicture[], team: boolean): string {
+/**
+ * The sub line of a card: the room sizes and the match format; with room labels, the format alone. In a head-to-head
+ * format a room is a match, so the sizes read "8 matches".
+ */
+export function subLine(rounds: readonly RoundPicture[], team: boolean, headToHead: boolean): string {
   const [first] = rounds;
   if (first.groups.length > 1) return first.format;
   const rooms = rounds.flatMap((round) => round.rooms);
-  const sizes = rooms.length
-    ? sizesText(rooms, team)
-    : matchesText(rounds.reduce((sum, round) => sum + round.matches, 0));
+  const matches = headToHead ? rooms.length : rounds.reduce((sum, round) => sum + round.matches, 0);
+  const sizes = rooms.length && !headToHead ? sizesText(rooms, team) : matchesText(matches);
   return `${sizes} · ${first.format}`;
 }
 

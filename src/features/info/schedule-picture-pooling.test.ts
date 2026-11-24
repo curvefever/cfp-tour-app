@@ -67,7 +67,7 @@ describe('the pooling block of the other phases', () => {
     const state = generated(11, { ...GROUPS, poolingPhase: 'swiss', qualAdv: '4' });
     const pooling = modelOf(state).pooling;
     expect(pooling?.title).toBe('Swiss');
-    expect(pooling?.lines[1]).toBe('5 rooms · 2p each');
+    expect(pooling?.lines).toEqual(['Rounds 1–4 · 1 game each', '5 matches a round', 'Every round counts']);
     expect(afterLast(state)).toEqual([
       ['green', '1st–4th → Semis'],
       ['red', '5th–last out'],
@@ -97,7 +97,13 @@ describe('the pooling block of the other phases', () => {
       '2nd (each group of 4) 1–2 spots',
       'rest out',
     ]);
-    expect(blocks.map((block) => block.tones[0])).toEqual(['green', 'green', 'neutral', 'neutral', 'red']);
+    expect(blocks.map((block) => block.tones.join('/'))).toEqual([
+      'green',
+      'green',
+      'green/red',
+      'green/red',
+      'red',
+    ]);
   });
 
   it('a group stage that sends an even split: one line for the direct places', () => {

@@ -13,7 +13,7 @@ import { roundGamesText } from '../tournament/components/round-games-text';
 import { toneOfResult } from './schedule-picture-bands';
 import type { Route } from './schedule-picture-routes';
 import { matchesText, placesText, sizesText } from './schedule-picture-text';
-import type { PictureBlock, PicturePooling, PictureTone } from './schedule-picture-types';
+import type { PictureBlock, PicturePooling, PictureTone, PictureUnits } from './schedule-picture-types';
 
 type Labels = ReturnType<typeof bracketRoundLabels>;
 type CutoffRule = Extract<RoundExitRule, { kind: 'standings-cutoff' }>;
@@ -65,7 +65,7 @@ function isCounted(state: TournamentState, index: number, rule: RoundExitRule): 
 }
 
 /** "4 rooms · 8p and 7p", "Groups of 5, 4, 4 · 6 matches a round": how the first pooling round is laid out. */
-function layoutLine(state: TournamentState, index: number, team: boolean): string {
+function layoutLine(state: TournamentState, index: number, units: PictureUnits): string {
   const round = state.rounds[index];
   const matches = round.matches?.length ? `${matchesText(round.matches.length)} a round` : null;
   if (round.isGroupStage && state.groups.length) {
@@ -73,7 +73,8 @@ function layoutLine(state: TournamentState, index: number, team: boolean): strin
     return [text.charAt(0).toUpperCase() + text.slice(1), matches].filter(Boolean).join(' · ');
   }
   if (matches) return matches;
-  return `${round.rooms.length} ${round.rooms.length === 1 ? 'room' : 'rooms'} · ${sizesText(round.rooms, team)}`;
+  if (units.headToHead) return `${matchesText(round.rooms.length)} a round`;
+  return `${round.rooms.length} ${round.rooms.length === 1 ? 'room' : 'rooms'} · ${sizesText(round.rooms, units.team)}`;
 }
 
 /** "Every round counts", "Round 1 not counted", "Not counted" (a warm-up). */
@@ -95,14 +96,14 @@ function plainLines(
   declared: TournamentState,
   indices: number[],
   rules: RoundExitRule[],
-  team: boolean,
+  units: PictureUnits,
 ): string[] {
   const labels = bracketRoundLabels(state);
   const games = indices.map((index) => gamesOf(declared, index));
   const sameGames = games.every((text) => text === games[0]);
   const rounds = roundsText(indices.map((index) => labels[index].roundNumber));
   const first = sameGames ? `${rounds} · ${games[0]}${indices.length > 1 ? ' each' : ''}` : rounds;
-  const lines = [first, layoutLine(state, indices[0], team), countedLine(state, indices, rules, labels)];
+  const lines = [first, layoutLine(state, indices[0], units), countedLine(state, indices, rules, labels)];
   const settings = roundSettingsByRound(state);
   indices.forEach((index, at) => {
     const text = [sameGames ? '' : games[at], noteLine(settings[index]?.note ?? '')]
@@ -143,10 +144,14 @@ function simpleCut(state: TournamentState, rule: CutoffRule, labels: Labels): Cu
   const goes = (count: number): Route[] => [{ to: rule.destination, tone: 'green', count }];
   if (rule.perGroup && groupExitIsTotal(state.cfg)) {
     const lines = groupExitLines(groupExitShapeOf(state), destination, 'green');
-    const tone = (line: { tone: string | null }): PictureTone =>
-      line.tone === 'green' || line.tone === 'red' ? line.tone : 'neutral';
+    // A place only some of whose units go on (dashed) is two-tone, green over red, like a lucky place.
+    const tones = (tone: string | null): PictureTone[] =>
+      tone === 'dashed' ? ['green', 'red'] : [tone === 'green' || tone === 'red' ? tone : 'neutral'];
     return {
-      blocks: lines.map((line) => plain(tone(line), `${line.places} ${line.where}`.trim())),
+      blocks: lines.map((line) => ({
+        tones: tones(line.tone),
+        lines: [`${line.places} ${line.where}`.trim()],
+      })),
       routes: goes(rule.advancing),
     };
   }
@@ -196,7 +201,7 @@ export function poolingPicture(
   declared: TournamentState,
   indices: number[],
   rules: RoundExitRule[],
-  team: boolean,
+  units: PictureUnits,
 ): PoolingPicture | null {
   if (indices.length === 0) return null;
   const last = indices.length - 1;
@@ -204,7 +209,7 @@ export function poolingPicture(
   return {
     block: {
       title: POOLING_PHASE_WORDS[state.cfg.poolingPhase ?? 'none']?.list ?? 'Warm-up',
-      lines: plainLines(state, declared, indices, rules, team),
+      lines: plainLines(state, declared, indices, rules, units),
       afterLast: cut.blocks,
     },
     routes: cut.routes,
