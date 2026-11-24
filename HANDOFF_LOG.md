@@ -6,6 +6,18 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The schedule picture opens from the FORMAT card (done — 2026-11-24, on `test` `f186f98`, not pushed)
+
+**Context.** After seeing the schedule picture as a SCHEDULE section on Info, the organiser found the page "information-heavy enough" and asked for a way in that adds no clutter. Mockups of the Info top row (a third card, a thumbnail strip in FORMAT, a link only) led to the FORMAT card; a crop of the real picture "does not look good", so the card carries a generic bracket drawing instead, drawn in four formats (wide strip, compact two-sided, one-sided, icon). The organiser chose the one-sided tree to the right of the text (read left to right like the Bracket tab), a window over the page rather than an expansion in place, and the wording "Preview the whole schedule" ("See" was deceptive). Current state: `docs/views.md`, Info.
+
+**Built.** The SCHEDULE section is gone; with rounds the whole FORMAT card is a button (format line, the drawing `BracketIllustration.tsx` to the right, under the line on a phone, "Preview the whole schedule →"), without rounds the old plain card. The click opens `SchedulePreviewWindow.tsx`: the picture at its own size, scrolling both ways (the screenshots' `FullSizeImage` shrinks to fit, unreadable for a wide schedule). The Escape listener both windows use is one hook, `useCloseOnEscape`. The drawing's slots and lines are the brand blue at 45% and 80% (no token held the mockup's mid-blue).
+
+**Testing.** Render tests as viewer and admin: the button and its window, Close and Escape, no section, no button before rounds, no error without a canvas; the screens run saves the open window of `layered-31` at 1280 and 390 px (44 px Close on a phone). Reviewer: related tests (649) pass; mutations of the Escape key and of the card's switch each failed a test; lint, format and types clean. Full suite: not run (no shared code).
+
+**Out of scope.** A thumbnail of the real schedule in the card (rejected); any change to the picture itself.
+
+---
+
 ## The schedule picture on Info (done — 2026-11-24, on `test` `b3d73b4`, `d8f7428`, `b2e13d8`, pushed up to `daa2cc1`; not on `main`)
 
 **Context.** Work queue item 1 (roadmap "A schedule picture on Info", raised 2026-11-20): a picture of the whole schedule that the organiser can copy to discuss a format outside the app. The form (room cards per column, the Bracket's exit colours, destinations written out) was chosen on 2026-11-20 over flow graphs, line maps, river bands and seat dots. Split session: planner/reviewer and implementer. Current state: `docs/views.md`, "The schedule picture".
