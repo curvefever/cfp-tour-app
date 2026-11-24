@@ -6,6 +6,32 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The schedule picture on Info (done — 2026-11-24, on `test` `b3d73b4`, `d8f7428`, `b2e13d8`, not pushed)
+
+**Context.** Work queue item 1 (roadmap "A schedule picture on Info", raised 2026-11-20): a picture of the whole schedule that the organiser can copy to discuss a format outside the app. The form (room cards per column, the Bracket's exit colours, destinations written out) was chosen on 2026-11-20 over flow graphs, line maps, river bands and seat dots. Split session: planner/reviewer and implementer. Current state: `docs/views.md`, "The schedule picture".
+
+**Organiser's decisions (2026-11-24).**
+- **Colours** are the Bracket's exit colours, one colour per round; the header of a round fed by two columns takes the earliest column's colour.
+- **Rows.** Rows by header colour alone were rejected: at 31 players they dropped Round 5 - Lower to a third row, breaking the lower path ("the lower rounds are directly in the continuation of each other"). Rows by the main feeder alone put Semi-Final B under the lower rounds at 43 ("Semi B is a major round and belongs on the top row"). The rule kept: a card fed by the pooling block takes its band's order ("pooling order wins": a middle qualification band sending straight to the Final is an edge case); the Final and the rounds that send to it on top; otherwise the main feeder's row (a tie: higher), a drop counting one row lower, so a double elimination's losers rounds run along their own row; rounds that only play for places last in their column. The 20 November mockup's bracket comes out as drawn under it.
+- **Formats:** all of them, from the one exit description the Bracket uses (`roundExitRule`); Kings Valley and double elimination come out wide, accepted.
+- **Pooling block** as redrawn: "Qualification table", rounds and games, rooms and sizes, which rounds count, each round's note, "After the last round" and the bands.
+
+**Lower-stakes calls (open to correction).** Rooms that exit alike are one group, the last band compared as "to last" ("5th–last out" over rooms of 8 and 7); rounds of one column with the same exits are one card ("Round 6 · B, C"), whatever their header colours (merged tone from all their feeds, rows assigned after merging); the major rounds are placed before the others, so a tie can't hand Semi-Final A's row to another round; a lucky place and a best of a place are two-line blocks with a two-tone stripe ("the best one", "the other" / "the others"), as are a group exit's chance lines; head-to-head rooms read as matches ("8 matches · best of 3", no ×n tag); "8p" in individual formats, "4 teams" in team formats; a double elimination has one column per round (no stored column); different pooling formats go in each round's note line; the pooling block's fixed lines never wrap, only notes do; the picture reads the schedule with no line-up (`declaredSchedule`), so a removal never changes it; the match-format wording is shared with the Setup preview (`roundGamesText`); `groupExitLines` is exported for the pooling block. LB Round 6 of a double elimination sits on the top row with the Grand Final (it feeds the Final, like Semi-Final B).
+
+**Built, in stages.**
+1. `b3d73b4`: the model (`schedule-picture-model.ts` and its parts: bands, routes, groups, merge, header tone, rows, pooling).
+2. `d8f7428`: layout (`schedule-picture-layout.ts`, pure, measured by the canvas), drawing (`schedule-picture-draw.ts`, scale 2, fonts loaded first), `SchedulePicture.tsx` (an `<img>` from a blob URL, redrawn only when the model's text changes) and the SCHEDULE section on Info.
+3. `b2e13d8`: the organiser's three row answers and pooling lines that never wrap.
+
+**Testing.** Layered bracket at 31, 37, 43 and 53 (every round in one card, places covered with no gap or overlap, tones equal to the Bracket's exit lines, rows), the mockup's bracket as graph text, upper and lower 37, a Custom bracket 37, single elimination 37 with lucky losers, double elimination 1v1 16, Kings Valley 31, group stages (per group, fair-cut and even-split totals), a Swiss, warm-ups; a removal leaves the picture unchanged; layout (no overlap, rows as tall as their tallest card, text never cut); render tests (no picture without rounds or without a canvas). The reviewer's 11 mutations (row passes, tie, drop row, ranking last, earliest column, declared schedule, "to last", row height, URL revoke, head-to-head tag, two-tone chance lines) each failed a test. Fixture screenshots (`pnpm run test:screens`) of eight tournaments at 1280 and 390 px were seen by the organiser. Lint, format and types clean on every changed file. Full suite: passed on `b2e13d8` (14,291 tests; the only two failing files were the Playwright specs of the `.claude/worktrees` copy, which vitest picked up despite `--exclude ".claude/**"`).
+
+**Out of scope.** A typed head count before any roster (roadmap, "A schedule picture for a typed head count"); Copy or Download buttons and a full-size view; round notes on bracket cards; light-look colours; the drawn line-up, the round in play or results on the picture.
+
+### Documentation
+`docs/views.md` (Info, "The schedule picture"), `HANDOFF.md` code map, `docs/roadmap.md` (the entry moved here; the typed head count stays as its own entry), `docs/open-items.md` (work queue renumbered).
+
+---
+
 ## Audit of the first Swiss on production (done — 2026-11-23, read only, docs only)
 
 **Context.** Tournament `1795369383748` (2026-11-22, production): 3v3 Save your Buddy, 13 registered, Prince's of Germany absent in round 1, sat out round 2 on the absent bye, then removed; 12 teams played a Swiss of 6 rounds under match results (Win 3, Tie Win 2, Tie Loss 1, Loss 0, tie margin 15), then a hand-written Custom bracket (Round 7 Upper and Lower, Semi A, Round 8, Round 9, Semi B, a Final with uneven wins; SSMCTS won). The organiser asked how the Swiss went: in particular whether line game and 🚜 had an easy path and Waky's Angels a hard one, judged by real skill rather than recorded results. Read through the anonymous REST read only; never opened in the app. No decision taken: the organiser wants to talk before any plan.
