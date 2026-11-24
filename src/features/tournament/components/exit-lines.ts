@@ -156,7 +156,7 @@ function spotRange(minSpots: number, maxSpots: number): string {
  * A group stage that sends a total: the direct places of each group size, then the chance places (even split: the
  * best of one place across the groups; fair cut: per size, the places and how many spots they have), then the rest out.
  */
-function groupExitLines(
+export function groupExitLines(
   shape: GroupExitShape,
   destination: string,
   directTone: StripeTone | null,

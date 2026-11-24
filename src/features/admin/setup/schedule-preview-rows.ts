@@ -9,6 +9,7 @@ import { groupExitShapeOf } from '../../../domain/tournament/group-exit';
 import { hasFairCutVersion } from '../../../domain/tournament/rule-versions';
 import type { TournamentRound, TournamentState } from '../../../domain/tournament/types';
 import { groupExitClause, groupSizesText } from '../../tournament/components/group-exit-text';
+import { roundGamesText } from '../../tournament/components/round-games-text';
 import { plural } from './plural';
 
 export interface SchedulePreviewRow {
@@ -26,9 +27,7 @@ function metaOf(state: TournamentState, round: TournamentRound, index: number): 
       : plural(round.matches?.length ?? 0, 'match', 'matches'),
   ];
   const games = roundGameCount(state, index);
-  if (games?.wins) parts.push(`uneven wins ${games.wins.join(' · ')}`);
-  else if (games?.bestOf) parts.push(`best of ${games.games}`);
-  else if (games) parts.push(`${games.upTo ? 'up to ' : ''}${plural(games.games, 'game')}`);
+  if (games) parts.push(roundGamesText(games));
   return parts.join(' · ');
 }
 
