@@ -90,28 +90,29 @@ function countedLine(
   return `${roundsText(skipped.map((index) => labels[index].roundNumber))} not counted`;
 }
 
-/** The lines of the block under its title: the rounds and their games, the rooms, which rounds count, the round notes. */
+/** The lines of the block under its title: the rounds and their games, the layout, which rounds count; and the round notes apart. */
 function plainLines(
   state: TournamentState,
   declared: TournamentState,
   indices: number[],
   rules: RoundExitRule[],
   units: PictureUnits,
-): string[] {
+): Pick<PicturePooling, 'lines' | 'notes'> {
   const labels = bracketRoundLabels(state);
   const games = indices.map((index) => gamesOf(declared, index));
   const sameGames = games.every((text) => text === games[0]);
   const rounds = roundsText(indices.map((index) => labels[index].roundNumber));
   const first = sameGames ? `${rounds} · ${games[0]}${indices.length > 1 ? ' each' : ''}` : rounds;
   const lines = [first, layoutLine(state, indices[0], units), countedLine(state, indices, rules, labels)];
+  const notes: string[] = [];
   const settings = roundSettingsByRound(state);
   indices.forEach((index, at) => {
     const text = [sameGames ? '' : games[at], noteLine(settings[index]?.note ?? '')]
       .filter(Boolean)
       .join(' · ');
-    if (text) lines.push(`Round ${labels[index].roundNumber}: ${text}`);
+    if (text) notes.push(`Round ${labels[index].roundNumber}: ${text}`);
   });
-  return lines;
+  return { lines, notes };
 }
 
 /** The tone of a standings destination: the Bracket's exit colour of its group in the table's routes. */
@@ -209,7 +210,7 @@ export function poolingPicture(
   return {
     block: {
       title: POOLING_PHASE_WORDS[state.cfg.poolingPhase ?? 'none']?.list ?? 'Warm-up',
-      lines: plainLines(state, declared, indices, rules, units),
+      ...plainLines(state, declared, indices, rules, units),
       afterLast: cut.blocks,
     },
     routes: cut.routes,

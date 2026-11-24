@@ -9,6 +9,8 @@ export interface Route {
   to: number;
   tone: PictureTone;
   count: number;
+  /** The players go down to the losers' side (a `drop` band, or the drop half of a lucky place). */
+  drop?: true;
 }
 
 type PerRoomRule = Extract<RoundExitRule, { kind: 'per-room' }>;
@@ -41,19 +43,19 @@ export function roundRoutes(
   rule: PerRoomRule,
 ): Route[] {
   const routes = new Map<string, Route>();
-  const add = (to: number, tone: PictureTone, count: number) => {
+  const add = (to: number, tone: PictureTone, count: number, drop = false) => {
     if (count <= 0) return;
-    const key = `${to}|${tone}`;
+    const key = `${to}|${tone}|${drop}`;
     const known = routes.get(key);
     if (known) known.count += count;
-    else routes.set(key, { to, tone, count });
+    else routes.set(key, { to, tone, count, ...(drop ? { drop: true as const } : {}) });
   };
   const luckyRooms = luckyRoomsAt(rule.rooms);
   const counted = new Set<string>();
   for (const bands of rule.rooms) {
     for (const band of bands) {
       if (band.kind === 'advance') add(band.destination, toneOfResult(advanceResult(band)), width(band));
-      else if (band.kind === 'drop') add(band.destination, 'purple', width(band));
+      else if (band.kind === 'drop') add(band.destination, 'purple', width(band), true);
       else if (band.kind === 'promote') add(roundIndex + 1, 'green', width(band));
       else if (band.kind === 'stay') add(roundIndex + 1, 'yellow', width(band));
       else if (band.kind === 'demote') add(roundIndex + 1, 'orange', width(band));
@@ -63,7 +65,7 @@ export function roundRoutes(
         counted.add(key);
         add(luckyDestinationOf(round, roundIndex, bands), 'green', band.spots);
         if (band.otherwise !== 'eliminate')
-          add(band.otherwise.drop, 'purple', luckyRooms(band.rank) - band.spots);
+          add(band.otherwise.drop, 'purple', luckyRooms(band.rank) - band.spots, true);
       } else if (band.kind === 'best-place') {
         if (counted.has('best')) continue;
         counted.add('best');

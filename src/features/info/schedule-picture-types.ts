@@ -36,8 +36,10 @@ export interface PictureCard {
 /** The rounds before the bracket: their wording and the places that go through, as the last pooling round routes them. */
 export interface PicturePooling {
   title: string;
-  /** The plain lines under the title: rounds and games, rooms, which rounds count, the round notes. */
+  /** The lines under the title that are never wrapped: rounds and games, the layout, which rounds count. */
   lines: string[];
+  /** One line per round that has a note (or its own format): wrapped to the block's width. */
+  notes: string[];
   /** The blocks under "After the last round". */
   afterLast: PictureBlock[];
 }

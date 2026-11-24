@@ -38,18 +38,15 @@ describe('the pooling block of a qualification table', () => {
     ]);
   });
 
-  it('one line per round that has a note, after the round it belongs to', () => {
+  it('one note line per round that has a note, apart from the fixed lines', () => {
     const state = generated(37, { scheduleLogic: 'single-elimination', qualAdv: '16' });
     const noted = {
       ...state,
       info: { ...state.info!, roundNotes: { 'Round 2': 'Same lobby **settings**\nas round 1' } },
     };
-    expect(modelOf(noted).pooling?.lines).toEqual([
-      'Rounds 1–3 · 1 game each',
-      '5 rooms · 8p and 7p',
-      'Every round counts',
-      'Round 2: Same lobby settings as round 1',
-    ]);
+    const pooling = modelOf(noted).pooling;
+    expect(pooling?.lines).toEqual(['Rounds 1–3 · 1 game each', '5 rooms · 8p and 7p', 'Every round counts']);
+    expect(pooling?.notes).toEqual(['Round 2: Same lobby settings as round 1']);
   });
 });
 

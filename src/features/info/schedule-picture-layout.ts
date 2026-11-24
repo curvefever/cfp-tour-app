@@ -115,14 +115,15 @@ function blockNeeds(blocks: readonly PictureBlock[], measure: Measure): number[]
   return blocks.flatMap((block) => block.lines.map((line) => TEXT_X + measure(line, 'block') + CARD_PAD_X));
 }
 
-/** The width the pooling block needs for what it never wraps: its title, its blocks and its longest words. */
+/** The width the pooling block needs for what it never wraps: its title, its fixed lines, its blocks, and the longest word of a note. */
 function poolingNeeds(pooling: PicturePooling, measure: Measure): number {
-  const words = pooling.lines.flatMap((line) => line.split(' ')).map((word) => measure(word, 'poolingLine'));
+  const fixed = pooling.lines.map((line) => measure(line, 'poolingLine'));
+  const words = pooling.notes.flatMap((note) => note.split(' ')).map((word) => measure(word, 'poolingLine'));
   return Math.max(
     measure(pooling.title, 'cardName') + 2 * CARD_PAD_X,
     measure(AFTER_LAST, 'poolingBold') + 2 * CARD_PAD_X,
     ...blockNeeds(pooling.afterLast, measure),
-    ...words.map((width) => width + 2 * CARD_PAD_X),
+    ...[...fixed, ...words].map((width) => width + 2 * CARD_PAD_X),
   );
 }
 
@@ -235,8 +236,13 @@ function layoutPooling(
     },
   ];
   let top = y + CARD_HEADER_HEIGHT + POOLING_GAP;
-  for (const line of pooling.lines) {
-    for (const wrapped of wrapLine(measure, 'poolingLine', line, width - 2 * CARD_PAD_X)) {
+  // The fixed lines are never wrapped (the card width fits them); only a round's note wraps.
+  const lines = [
+    ...pooling.lines.map((line) => [line]),
+    ...pooling.notes.map((note) => wrapLine(measure, 'poolingLine', note, width - 2 * CARD_PAD_X)),
+  ];
+  for (const wrappedLines of lines) {
+    for (const wrapped of wrappedLines) {
       texts.push({
         text: wrapped,
         x: x + CARD_PAD_X,

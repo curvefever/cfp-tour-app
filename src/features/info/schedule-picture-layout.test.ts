@@ -112,7 +112,7 @@ describe('the pooling block and the canvas', () => {
     const model = modelOf(built(31));
     const long = {
       ...model.pooling!,
-      lines: [...model.pooling!.lines, ...Array(12).fill('Round 2: a long note about the lobby')],
+      notes: Array(12).fill('Round 2: a long note about the lobby'),
     };
     const plain = layoutOf(model);
     const tall = layoutOf({ ...model, pooling: long });
@@ -121,6 +121,27 @@ describe('the pooling block and the canvas', () => {
     expect(tall.height).toBeGreaterThan(plain.height);
     const lowest = Math.max(...plain.cards.map((card) => bottom(card.box)));
     expect(plain.height).toBe(Math.max(lowest, bottom(plain.pooling!.box)) + 20);
+  });
+
+  it('widens the cards for a fixed line of the pooling block and never wraps it, while a note wraps', () => {
+    const model = modelOf(built(31));
+    const fixed = 'Groups of 5, 4, 4 · 6 matches a round';
+    const pooling = {
+      ...model.pooling!,
+      lines: [fixed, ...model.pooling!.lines.slice(1)],
+      notes: [`Round 2: ${'word '.repeat(30)}`.trim()],
+    };
+    const layout = layoutOf({ ...model, pooling });
+    expect(fixed.length * 7).toBeGreaterThan(150);
+    expect(layout.cardWidth).toBe(fixed.length * 7 + 20);
+    const texts = layout.pooling!.texts.map((text) => text.text);
+    expect(texts).toContain(fixed);
+    expect(
+      texts.filter((text) => text.startsWith('Round 2') || text.startsWith('word')).length,
+    ).toBeGreaterThan(1);
+    expect(
+      layout.pooling!.texts.slice(1).every((text) => measure(text.text, text.font) + 20 <= layout.cardWidth),
+    ).toBe(true);
   });
 
   it('widens the cards for a long line instead of cutting it', () => {

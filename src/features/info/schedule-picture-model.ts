@@ -65,9 +65,10 @@ function rowFeeds(entities: readonly RoundPicture[][]): RowFeed[] {
     for (const route of rounds.flatMap((round) => round.routes)) {
       const to = entityOf.get(route.to);
       if (to === undefined || to === from) continue;
-      const known = feeds.get(`${from}|${to}`);
+      const key = `${from}|${to}|${route.drop === true}`;
+      const known = feeds.get(key);
       if (known) known.count += route.count;
-      else feeds.set(`${from}|${to}`, { from, to, count: route.count });
+      else feeds.set(key, { from, to, count: route.count, ...(route.drop ? { drop: true } : {}) });
     }
   });
   return [...feeds.values()];
@@ -139,6 +140,7 @@ export function schedulePictureModel(
   const rowEntities: RowEntity[] = entities.map((members) => ({
     column: columns.get(members[0].index) ?? 0,
     isFinal: members.some((round) => declared.rounds[round.index].isFinal),
+    ranking: members.every((round) => declared.rounds[round.index].waterfallRanking === true),
     poolingOrder: poolingOrderOf(members),
   }));
   const rows = assignRows(rowEntities, rowFeeds(entities));
