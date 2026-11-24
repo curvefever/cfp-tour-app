@@ -46,7 +46,7 @@ export function SchedulePicture({ model }: { model: SchedulePictureModel }) {
 
   if (!shown) return null;
   return (
-    <div className='overflow-x-auto rounded-xs'>
+    <div className='max-h-[80vh] overflow-auto rounded-xs'>
       <img
         alt={`The schedule of ${model.header.title}: every round, its rooms and where each place goes`}
         className='block h-auto max-w-none'

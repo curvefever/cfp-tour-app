@@ -196,6 +196,18 @@ async function expectPhoneInfo(page: Page, fixture: FixtureTournament): Promise<
   }
 }
 
+/** The FORMAT card of Info opens the schedule picture in a window: saved with the picture drawn, closed by Close. */
+async function captureSchedulePreview(page: Page, fixtureId: string, width: number): Promise<void> {
+  await page.getByRole('button', { name: /Preview the whole schedule/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Schedule' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('img', { name: /^The schedule of/ })).toBeVisible();
+  if (width < 701) await expectTapTarget(dialog.getByRole('button', { name: 'Close' }));
+  await page.screenshot({ path: `${OUTPUT_DIR}/${fixtureId}/schedule-window-${width}.png` });
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+}
+
 /** The Standings tab on a phone: a row tapped open, then the explanation unfolded. */
 async function capturePhoneStandings(page: Page, fixtureId: string): Promise<void> {
   const rows = page.locator('#st-content').getByRole('button', { expanded: false });
@@ -353,6 +365,8 @@ test.describe('screenshots of the viewer tabs', () => {
           await capture(page, fixture.id, fileName(tab, String(width)));
           if (width === WIDTHS[1]) await expectNoSmallControls(page);
           if (tab === 'Info' && width === WIDTHS[1]) await expectPhoneInfo(page, fixture);
+          if (tab === 'Info' && fixture.id === 'layered-31')
+            await captureSchedulePreview(page, fixture.id, width);
           if ((tab === 'Rankings' || tab === 'Players') && width === WIDTHS[1]) {
             await expectNoSidewaysPageScroll(page, width);
             await expectPodiumStacked(page);

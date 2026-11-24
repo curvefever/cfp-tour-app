@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup } from '@testing-library/react';
+import { cleanup, fireEvent, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { fixtureTournaments } from '../../../e2e/screens/fixtures';
 import { renderApp, settle } from '../../test-support/test-app';
@@ -48,25 +48,56 @@ const fixture = (id: string) => {
   return found;
 };
 
-describe('the Schedule section of Info', () => {
-  it.each(['viewer', 'admin'] as const)('is there as a %s once the schedule has rounds', async (role) => {
-    const view = renderApp(fixture('ffa37-quarters'), { role, tab: 'info' });
+const PREVIEW = /Preview the whole schedule/;
+
+describe('the FORMAT card of Info', () => {
+  it.each(['viewer', 'admin'] as const)(
+    'is a button that opens the schedule window, as a %s',
+    async (role) => {
+      const view = renderApp(fixture('ffa37-quarters'), { role, tab: 'info' });
+      await settle();
+      const button = view.getByRole('button', { name: PREVIEW });
+      expect(button.textContent).toContain('Format');
+      expect(view.queryByRole('dialog')).toBeNull();
+
+      fireEvent.click(button);
+      const dialog = view.getByRole('dialog');
+      expect(within(dialog).getByText('Schedule')).not.toBeNull();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Close' }));
+      expect(view.queryByRole('dialog')).toBeNull();
+    },
+  );
+
+  it('closes the window with Escape', async () => {
+    const view = renderApp(fixture('ffa37-quarters'), { role: 'viewer', tab: 'info' });
     await settle();
-    expect(view.queryByRole('region', { name: 'Schedule' })).not.toBeNull();
-    expect(view.queryByText('Schedule')).not.toBeNull();
+    fireEvent.click(view.getByRole('button', { name: PREVIEW }));
+    expect(view.queryByRole('dialog')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(view.queryByRole('dialog')).toBeNull();
   });
 
-  it('is not there before any round exists', async () => {
-    const view = renderApp(fixture('upcoming-info'), { role: 'viewer', tab: 'info' });
-    await settle();
-    expect(view.queryByRole('region', { name: 'Schedule' })).toBeNull();
-  });
-
-  it('does not crash where there is no canvas: no picture, no error', async () => {
+  it('has no Schedule section any more', async () => {
     const view = renderApp(fixture('layered-31'), { role: 'viewer', tab: 'info' });
     await settle();
-    expect(view.queryByRole('region', { name: 'Schedule' })).not.toBeNull();
-    expect(view.container.querySelector('img[alt^="The schedule"]')).toBeNull();
+    expect(view.queryByRole('region', { name: 'Schedule' })).toBeNull();
+    expect(view.queryByText('Schedule')).toBeNull();
+  });
+
+  it('is a plain card before any round exists: no button, no link', async () => {
+    const view = renderApp(fixture('upcoming-info'), { role: 'viewer', tab: 'info' });
+    await settle();
+    expect(view.queryByRole('button', { name: PREVIEW })).toBeNull();
+    expect(view.queryByText(PREVIEW)).toBeNull();
+    expect(view.getByText('Format')).not.toBeNull();
+  });
+
+  it('does not crash where there is no canvas: the window opens empty, with no error', async () => {
+    const view = renderApp(fixture('layered-31'), { role: 'viewer', tab: 'info' });
+    await settle();
+    fireEvent.click(view.getByRole('button', { name: PREVIEW }));
+    await settle();
+    expect(view.container.ownerDocument.querySelector('img[alt^="The schedule"]')).toBeNull();
     expect(consoleError).not.toHaveBeenCalled();
   });
 });

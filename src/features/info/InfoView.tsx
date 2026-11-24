@@ -6,8 +6,10 @@ import { useTournamentApp } from '../tournament/TournamentProvider';
 import { useTournamentTitle } from '../tournament/useTournamentTitle';
 import { scheduledParts, tournamentFormatLine, type ScheduledParts } from '../tournaments/tournament-info';
 import { RulesText } from './RulesText';
-import { SchedulePicture } from './SchedulePicture';
+import { BracketIllustration } from './BracketIllustration';
+import { SchedulePreviewWindow } from './SchedulePreviewWindow';
 import { schedulePictureModel } from './schedule-picture-model';
+import type { SchedulePictureModel } from './schedule-picture-types';
 import { ScreenshotGallery } from './ScreenshotGallery';
 
 const GENERAL_RULES_URL = 'https://info.curvefever.pro/tournaments/tournament-rules';
@@ -63,12 +65,40 @@ function WhenCard({ scheduledAt }: { scheduledAt: number | null }) {
   );
 }
 
-function FormatCard({ line }: { line: string }) {
+/** The format line, in a card of its own while there is no schedule to preview. */
+function PlainFormatCard({ line }: { line: string }) {
   return (
     <div className={`${CARD} flex flex-1 basis-80 flex-col gap-1.5 px-5 py-4.5`}>
       <div className={CARD_LABEL}>Format</div>
       <div className='text-[22px] leading-tight font-extrabold'>{line}</div>
     </div>
+  );
+}
+
+/**
+ * The format line, and once the schedule has rounds the whole card is the way to the schedule picture: a link line
+ * and a generic bracket drawing (to the right of the text, under the format line on a phone) open it in a window.
+ */
+function FormatCard({ line, schedule }: { line: string; schedule: SchedulePictureModel | null }) {
+  const [open, setOpen] = useState(false);
+  if (!schedule) return <PlainFormatCard line={line} />;
+  return (
+    <>
+      <button
+        className={cn(
+          CARD,
+          'grid flex-1 basis-80 cursor-pointer grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1.5 px-5 py-4.5 text-left hover:outline-cfp-brand focus-visible:outline-cfp-brand max-[700px]:grid-cols-1 max-[700px]:items-start',
+        )}
+        onClick={() => setOpen(true)}
+        type='button'
+      >
+        <span className={`${CARD_LABEL} col-start-1`}>Format</span>
+        <span className='col-start-1 text-[22px] leading-tight font-extrabold'>{line}</span>
+        <BracketIllustration className='col-start-2 row-span-3 row-start-1 max-[700px]:col-start-1 max-[700px]:row-span-1 max-[700px]:row-start-auto max-[700px]:my-1' />
+        <span className='col-start-1 text-base font-bold text-cfp-sky'>Preview the whole schedule →</span>
+      </button>
+      {open ? <SchedulePreviewWindow model={schedule} onClose={() => setOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -100,14 +130,8 @@ export function InfoView() {
       />
       <section aria-label='When and what' className='flex flex-wrap gap-3.5'>
         <WhenCard scheduledAt={scheduledAt} />
-        <FormatCard line={formatLine} />
+        <FormatCard line={formatLine} schedule={schedule} />
       </section>
-      {schedule ? (
-        <section aria-label='Schedule' className='flex flex-col gap-3'>
-          <ColumnTitleBar title='Schedule' />
-          <SchedulePicture model={schedule} />
-        </section>
-      ) : null}
       {state.tournamentId && imageIds.length ? (
         <section className='flex flex-col gap-3'>
           <ColumnTitleBar title='Information' />
