@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## The schedule picture on Info (done — 2026-11-24, on `test` `b3d73b4`, `d8f7428`, `b2e13d8`, not pushed)
+## The schedule picture on Info (done — 2026-11-24, on `test` `b3d73b4`, `d8f7428`, `b2e13d8`, pushed up to `daa2cc1`; not on `main`)
 
 **Context.** Work queue item 1 (roadmap "A schedule picture on Info", raised 2026-11-20): a picture of the whole schedule that the organiser can copy to discuss a format outside the app. The form (room cards per column, the Bracket's exit colours, destinations written out) was chosen on 2026-11-20 over flow graphs, line maps, river bands and seat dots. Split session: planner/reviewer and implementer. Current state: `docs/views.md`, "The schedule picture".
 
