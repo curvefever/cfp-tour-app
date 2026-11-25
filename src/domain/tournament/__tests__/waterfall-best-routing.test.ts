@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence, unitsAwaitingAnswer } from '../absences';
-import { getAllTies, hasPendingTies, invalidateStaleTieResolutions, isTieResolved } from '../advancement';
+import { getAllTies, hasPendingTies, isTieResolved } from '../advancement';
+import { invalidateStaleTieResolutions } from '../room-ties';
 import { bestPlaceChoice, bestPlaceTieKey } from '../best-place';
 import { routeWaterfallRound } from '../bracket-replay';
 import { expectedRounds } from '../expected-draw';

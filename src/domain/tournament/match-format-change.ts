@@ -3,7 +3,7 @@
  * are replaced and the scores already typed are read under the new format. Nothing typed is lost: the games stay,
  * only the keys of a round that grows from one game to several move to game 1 (and back).
  */
-import { invalidateStaleTieResolutions } from './advancement';
+import { invalidateStaleTieResolutions } from './room-ties';
 import { isOneScorePerTeam } from './formats';
 import { occupiedRooms, parseScoreKey, roundKeyPrefix, scoreKey } from './scoring';
 import type { RoundMatchFields } from './match-format';

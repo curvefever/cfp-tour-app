@@ -9,7 +9,7 @@
  *
  * The Final and the grand final are left out: their 0s are never asked.
  */
-import { invalidateStaleTieResolutions } from './advancement';
+import { invalidateStaleTieResolutions } from './room-ties';
 import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { routesAbsenteesByLastPlace, usesAbsences } from './rule-versions';

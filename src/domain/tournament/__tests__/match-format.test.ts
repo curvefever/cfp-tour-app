@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence, absentInRoom, pendingAbsenceQuestions } from '../absences';
-import { detectTieBreaks, invalidateStaleTieResolutions } from '../advancement';
+import { detectTieBreaks, invalidateStaleTieResolutions } from '../room-ties';
 import { roomFinishOrder, scoreRoom } from '../room-results';
 import { bestOfGameCount, isBestOfRound, roomMatch, winsNeeded } from '../match-format';
 import { flagFinalGameAnonymous, removeRosterUnit } from '../mutations';

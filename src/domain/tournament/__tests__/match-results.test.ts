@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeGroupStandings, detectTieBreaks, hasPendingTies } from '../advancement';
+import { computeGroupStandings, hasPendingTies } from '../advancement';
+import { detectTieBreaks } from '../room-ties';
 import { generateTournament } from '../generation';
 import {
   type MatchResultPoints,

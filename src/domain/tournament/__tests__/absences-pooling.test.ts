@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
-import { computeQualificationStandings, detectTieBreaks } from '../advancement';
+import { computeQualificationStandings } from '../advancement';
+import { detectTieBreaks } from '../room-ties';
 import {
   presentUnitCount,
   relativeRoomShare,

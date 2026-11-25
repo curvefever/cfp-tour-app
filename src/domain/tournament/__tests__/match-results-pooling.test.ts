@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeQualificationStandings, detectTieBreaks } from '../advancement';
+import { computeQualificationStandings } from '../advancement';
+import { detectTieBreaks } from '../room-ties';
 import { generateTournament } from '../generation';
 import { matchResultsAllowed } from '../match-results';
 import { removeRosterUnit } from '../mutations';

@@ -1,4 +1,5 @@
-import { detectTieBreaks, pendingTieNames } from '../../domain/tournament/advancement';
+import { pendingTieNames } from '../../domain/tournament/advancement';
+import { detectTieBreaks } from '../../domain/tournament/room-ties';
 import { type ProjectedSlotLabel, bracketRoundLabels } from '../../domain/tournament/bracket';
 import type { ExpectedRound } from '../../domain/tournament/expected-draw';
 import { usesGroupAverages } from '../../domain/tournament/rule-versions';

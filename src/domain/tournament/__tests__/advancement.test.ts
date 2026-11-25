@@ -8,15 +8,14 @@ import {
   applyQualCutoffOrder,
   computeStandingsCutoffAdvancing,
   getAllTies,
-  detectTieBreaks,
   doubleEliminationComputeAdvancement,
   hasPendingTies,
-  invalidateStaleTieResolutions,
   isTieResolved,
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
 } from '../advancement';
+import { detectTieBreaks, invalidateStaleTieResolutions } from '../room-ties';
 import { isUncontestedRoom, roomPointsByPlace } from '../room-results';
 import { isLastStandingsRound } from '../cutoff-rounds';
 import { sameStanding, samePoints } from '../standing-compare';

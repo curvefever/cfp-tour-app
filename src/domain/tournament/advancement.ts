@@ -1,6 +1,6 @@
 import { joinWithAnd } from '../../lib/join-with-and';
-import { absentInRoom, unitsAwaitingAnswer } from './absences';
-import { type BestPlaceTie, bestPlaceTie, bestPlaceTieKey } from './best-place';
+import { absentInRoom } from './absences';
+import { type BestPlaceTie, bestPlaceTie } from './best-place';
 import { fairCutAdvancement, usesFairCut } from './fair-cut';
 import {
   GROUP_EXIT_TIE_KEY,
@@ -22,19 +22,14 @@ import {
 import { usesGroupAverages } from './rule-versions';
 import { kingsValleyRoundMoves } from './kings-valley';
 import { levelRuns } from './level-runs';
-import { matchResultSettings } from './match-results';
 import { lateJoinersOf } from './late-joiners';
 import {
   comparableRoomTotal,
   comparableScore,
-  compareRankScores,
-  groupByScore,
   isRoomScored,
   orderRoomByScore,
   orderRoomWithPlaces,
   readTieResolution,
-  roomKeyPrefix,
-  roomTieKey,
   tieResolutionList,
 } from './scoring';
 import { rosterKeys } from './roster';
@@ -58,6 +53,7 @@ import {
   type WalkoverKind,
   walkoverOutcome,
 } from './room-results';
+import { detectTieBreaks, type RoomTieCluster } from './room-ties';
 
 /** What the results decide: lucky losers, the collected ties, the cut-off and band ties, the group exit, the standings tables, who advances and the advancement tiers. */
 
@@ -65,12 +61,6 @@ interface LuckyLoserCandidate {
   name: string;
   /** Score relative to the room average (1 = average), so rooms of different sizes compare fairly. */
   share: number;
-}
-
-interface RoomTieCluster {
-  players: ScoredUnit[];
-  rm: number;
-  score: number;
 }
 
 interface CutoffTieCluster {
@@ -100,29 +90,6 @@ function pickLuckyLosers(candidates: LuckyLoserCandidate[], luckyCount: number):
     .map((candidate) => candidate.name);
 }
 
-export function detectTieBreaks(
-  roundIndex: number,
-  round: TournamentRound,
-  state: TournamentState,
-): Record<string, RoomTieCluster> {
-  if (round.isFinal) return {};
-  // Equal scores are a defined result under match results (a Tie), and the place in the room feeds no points: no room tie.
-  if ((round.isGroupStage || round.isQual || round.isSwiss) && matchResultSettings(state)) return {};
-  const ties: Record<string, RoomTieCluster> = {};
-  for (let room = 1; room <= round.rooms.length; room += 1) {
-    const scored = scoreRoom(state, roundIndex, room, null).sort(compareRankScores);
-    const awaiting = unitsAwaitingAnswer(state, roundIndex, room);
-    for (const cluster of groupByScore(scored)) {
-      if (cluster.length < 2) continue;
-      // Units at 0 may have been absent: a tie there waits for the bar's answers.
-      if (cluster[0].score === 0 && cluster.some((entry) => awaiting.has(entry.name))) continue;
-      const key = roomTieKey(roundIndex, room, cluster[0]);
-      ties[key] = { players: cluster, rm: room, score: cluster[0].score };
-    }
-  }
-  return ties;
-}
-
 export function isTieResolved(
   key: string,
   cluster:
@@ -138,11 +105,6 @@ export function isTieResolved(
 }
 
 type TournamentTieCluster = RoomTieCluster | CutoffTieCluster | BestPlaceTie;
-
-/** What a stored tie decision is checked against: the units that are tied now. */
-interface TiedUnits {
-  players: ReadonlyArray<{ name: string }>;
-}
 
 /**
  * Recomputes the live cumulative tables before a last-pooling-round cutoff is
@@ -219,49 +181,6 @@ export function hasPendingColumnTies(state: TournamentState): boolean {
   return Object.entries(getAllColumnTies(state)).some(
     ([key, cluster]) => !isTieResolved(key, cluster, state),
   );
-}
-
-/** A shared place holds only while the recorded names are exactly the tied units. */
-function coversCluster(recorded: string[], cluster: TiedUnits): boolean {
-  const names = new Set(recorded);
-  return names.size === cluster.players.length && cluster.players.every((player) => names.has(player.name));
-}
-
-/**
- * Drop room tie decisions whose recorded names no longer belong to the same
- * score cluster.
- */
-export function invalidateStaleTieResolutions(
-  state: TournamentState,
-  roundIndex: number,
-  room: number,
-): TournamentState {
-  const round = state.rounds[roundIndex];
-  if (!round) return state;
-  const currentTies: Record<string, TiedUnits> = detectTieBreaks(roundIndex, round, state);
-  const bestTie = bestPlaceTie(state, roundIndex);
-  if (bestTie) currentTies[bestTie.key] = bestTie;
-  const prefix = roomKeyPrefix(roundIndex, room);
-  const bestKey = bestPlaceTieKey(roundIndex);
-  const tieResolutions = { ...state.tieResolutions };
-  let changed = false;
-  for (const key of Object.keys(tieResolutions)) {
-    if (!key.startsWith(prefix) && key !== bestKey) continue;
-    if (!decisionHolds(state, key, currentTies[key])) {
-      delete tieResolutions[key];
-      changed = true;
-    }
-  }
-  return changed ? { ...state, tieResolutions } : state;
-}
-
-/** Whether a stored decision still names only units of the cluster, and a shared place still covers all of it. */
-function decisionHolds(state: TournamentState, key: string, cluster: TiedUnits | undefined): boolean {
-  if (!cluster) return false;
-  const { ranked, shared } = readTieResolution(state, key);
-  const named = [...ranked, ...shared];
-  const inCluster = named.every((name) => cluster.players.some((player) => player.name === name));
-  return inCluster && (shared.length === 0 || coversCluster(named, cluster));
 }
 
 /** Tie-resolution key of the cluster that holds the last routed qualification rank (the single cut-off without a Qual source). */

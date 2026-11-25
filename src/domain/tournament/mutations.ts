@@ -1,4 +1,5 @@
-import { detectTieBreaks, invalidateStaleTieResolutions, isTieResolved } from './advancement';
+import { isTieResolved } from './advancement';
+import { detectTieBreaks, invalidateStaleTieResolutions } from './room-ties';
 import {
   hasPlayedAnyMatch,
   isUnitAbsentFromRoom,
