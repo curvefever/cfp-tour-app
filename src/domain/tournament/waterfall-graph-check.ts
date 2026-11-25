@@ -29,8 +29,8 @@ import { checkWinsRounds, resolveWinTargets, type WinsBand, type WinsRound } fro
 /**
  * The checks of a Custom bracket graph. `validateAndOrderWaterfallGraph` refuses a parsed graph that breaks a rule,
  * with the message of the first check it fails, and otherwise returns the ordered graph (`waterfall-graph-order.ts`).
- * The checks run in the order of the code, which is not the order of the rule numbers in its comments;
- * `waterfall-validator-order.test.ts` pins it.
+ * It is a chain of steps that each stop at their own refusal. The checks run in the order of those steps, which is not
+ * the order of the rule numbers in their comments; `waterfall-validator-order.test.ts` pins it.
  */
 
 /** What a rank of the line is called in messages. */
@@ -627,35 +627,10 @@ function checkRoundsSendOn(checked: CheckedAfterRouteWalk): WaterfallParseResult
   return ok(checked);
 }
 
-export function validateAndOrderWaterfallGraph(
-  graph: RawWaterfallGraph,
-  options: CheckOptions,
-): WaterfallParseResult<OrderedWaterfallGraph> {
-  const sized = checkSourceLineAndRoomSizes({ graph, options });
-  if (!sized.ok) return sized;
-  const withFinal = checkOneFinal(sized.value);
-  if (!withFinal.ok) return withFinal;
-  const routed = groupRouteLines(withFinal.value);
-  if (!routed.ok) return routed;
-  const banded = readRoomBands(routed.value);
-  if (!banded.ok) return banded;
-  const edged = readEdges(banded.value);
-  if (!edged.ok) return edged;
-  const fed = readStandingsSource(edged.value);
-  if (!fed.ok) return fed;
-  const winsRead = checkWinsBands(fed.value);
-  if (!winsRead.ok) return winsRead;
-  const prefixed = checkFixedPrefix(winsRead.value);
-  if (!prefixed.ok) return prefixed;
-  const walked = walkRoutes(prefixed.value);
-  if (!walked.ok) return walked;
-  const sending = checkRoundsSendOn(walked.value);
-  if (!sending.ok) return sending;
-  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel } =
-    sending.value;
-  const { qualLabels, entryLabel, winsRounds, winsBands, fixedPrefixLower, topoOrder } = sending.value;
-  const { roundLines } = graph;
-  const { roomSize, entrantCount } = options;
+function checkDeclaredTotals(checked: CheckedAfterRouteWalk): WaterfallParseResult<CheckedAfterRouteWalk> {
+  const { roundLines } = checked.graph;
+  const { roomSize } = checked.options;
+  const { labels, roomBandsByLabel, totalByLabel, qualLabels, entryLabel, best } = checked;
 
   // Rule 7: every round's declared total (except the entry round of a graph
   // with no Qual source) must exactly equal what routes into it, checked
@@ -687,6 +662,12 @@ export function validateAndOrderWaterfallGraph(
       );
     }
   }
+  return ok(checked);
+}
+
+function checkHeadCount(checked: CheckedAfterRouteWalk): WaterfallParseResult<CheckedAfterRouteWalk> {
+  const { entrantCount } = checked.options;
+  const { kind, roundByLabel, totalByLabel, qualLabels, entryLabel } = checked;
 
   // Rule 9: the real head count must cover what the graph takes in. Without
   // a Qual source the entry round's declared total must match it exactly;
@@ -706,6 +687,13 @@ export function validateAndOrderWaterfallGraph(
       );
     }
   }
+  return ok(checked);
+}
+
+/** The columns, the play order and the win targets of a graph that passed every check, as the ordered graph. */
+function orderCheckedGraph(checked: CheckedAfterRouteWalk): WaterfallParseResult<OrderedWaterfallGraph> {
+  const { options, roundByLabel, roomBandsByLabel, destinationsByLabel, best } = checked;
+  const { qualLabels, winsRounds, winsBands, fixedPrefixLower, topoOrder } = checked;
 
   // Columns, then the play order: the fixed prefix as given, the other rounds column by column
   // (the routing walk's order within a column) -- still a valid topological order, since a round's column is
@@ -746,4 +734,35 @@ export function validateAndOrderWaterfallGraph(
       winTargets.value,
     ),
   );
+}
+
+export function validateAndOrderWaterfallGraph(
+  graph: RawWaterfallGraph,
+  options: CheckOptions,
+): WaterfallParseResult<OrderedWaterfallGraph> {
+  const sized = checkSourceLineAndRoomSizes({ graph, options });
+  if (!sized.ok) return sized;
+  const withFinal = checkOneFinal(sized.value);
+  if (!withFinal.ok) return withFinal;
+  const routed = groupRouteLines(withFinal.value);
+  if (!routed.ok) return routed;
+  const banded = readRoomBands(routed.value);
+  if (!banded.ok) return banded;
+  const edged = readEdges(banded.value);
+  if (!edged.ok) return edged;
+  const fed = readStandingsSource(edged.value);
+  if (!fed.ok) return fed;
+  const winsRead = checkWinsBands(fed.value);
+  if (!winsRead.ok) return winsRead;
+  const prefixed = checkFixedPrefix(winsRead.value);
+  if (!prefixed.ok) return prefixed;
+  const walked = walkRoutes(prefixed.value);
+  if (!walked.ok) return walked;
+  const sending = checkRoundsSendOn(walked.value);
+  if (!sending.ok) return sending;
+  const totalled = checkDeclaredTotals(sending.value);
+  if (!totalled.ok) return totalled;
+  const counted = checkHeadCount(totalled.value);
+  if (!counted.ok) return counted;
+  return orderCheckedGraph(counted.value);
 }
