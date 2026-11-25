@@ -6,6 +6,51 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2D: `advancement.ts` in five files, and the absence answers in their own (done — 2026-11-25, on `test`, not pushed)
+
+**Context.** The fourth piece of cleanup part 2. `advancement.ts` was 1,372 lines and held eight jobs. Five files imported it and it imported each of them, so `absences`, `advancement`, `best-place`, `fair-cut`, `group-exit` and `group-standings` were one import loop group (cleanup audit C2-1, `plans/2026-11-10-cleanup-audit-findings.md`). Plan: `plans/2026-11-25-cleanup-part-2d-advancement.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `cb31968`. Behaviour does not change: code moved, nothing rewritten.
+
+**The files** (all in `src/domain/tournament/`; lines of code without blanks and comments, imports included):
+- `standing-compare.ts` (25): the equality tolerance, `sameRoomShare`, `samePoints`, `rankingPoints`, `sameStanding`, `compareStandings`.
+- `cutoff-rounds.ts` (16): `isLastStandingsRound`, `isLastGroupStageRound`, `isStandingsCutoffRound`. They read only the shape of the rounds and belong to neither the standings nor a room.
+- `room-results.ts` (160): one room's results, nineteen declarations, among them `scoreRoom`, `roomPointsByPlace`, `relativeRoomShare`, the unit counts, `walkoverOutcome` and `playedOutcomes`.
+- `room-ties.ts` (68): `RoomTieCluster`, `detectTieBreaks`, `invalidateStaleTieResolutions` and their private helpers.
+- `absence-answers.ts` (52), out of `absences.ts`: `answerAbsence`, `clearAbsenceAnswer`, `unmarkOneScoreTeamMemberAbsent` and the private `invalidateTiesOfKeys`: the edits that re-check ties.
+- `advancement.ts` (919, 1,028 lines in all): the lucky-loser helpers, the collected ties, the cut-off and band ties, the group exit, the standings tables, who advances and the advancement tiers.
+- `absences.ts` (383): reads the answers and makes the other edits.
+
+Importers are updated, with no re-export and no rename. Newly exported, needed by the cut: `roomOutcomes` (the tables call it), `RoomTieCluster` (the collected ties use its type) and `answerOf` (`clearAbsenceAnswer` calls it). `pointsForSharedPlace` stayed private. One of the eight files of `scripts/seeding-simulation` that import `advancement.ts` needed an update, `elimination.ts`.
+
+**Import loops** (`src/domain`). madge lists one path per loop, so its count does not give the size of a loop group: it rose at stage 3 while the group shrank. The groups are worked out from `madge --json`. The four pairs, which this pass does not touch (`match-format` with `scoring`, `seeding` with `smaller-room-seats`, `bracket` with `projected-seeds`, `waterfall-draft` with `waterfall-draft-wins`), are there throughout.
+
+| After | madge lists | Loop group besides the four pairs |
+|---|---|---|
+| start | 9 | six files: `absences`, `advancement`, `best-place`, `fair-cut`, `group-exit`, `group-standings` |
+| stage 1 | 8 | the same six (`group-exit` no longer imports `advancement.ts`, and reaches it through `fair-cut`) |
+| stage 2 | 5 | seven: those six and `room-results` |
+| stage 3 | 7 | four: `absences`, `best-place`, `room-results`, `room-ties` |
+| stage 4 | 4 | none |
+
+The group could break only in stages 3 and 4: `absences.ts` imported `advancement.ts` until stage 3, and then `room-ties.ts` until stage 4. A room's ties need the absences, and answering an absence needs the ties, so the answers had to leave `absences.ts`.
+
+**Choices.**
+- The plan listed three functions to leave `absences.ts` and missed a caller among those that stayed: `unmarkOneScoreTeamMemberAbsent` is one call to `clearAbsenceAnswer`. Left behind, it would have made `absences.ts` import `absence-answers.ts`, a new loop. It moved too. The mark/unmark pair is split on purpose: `markOneScoreTeamMemberAbsent` never touches ties, and moving it would have meant exporting three private helpers (`unitsOfRoom`, `teamsOf`, `roundAsks`).
+- `isTieResolved` stayed in `advancement.ts`: its parameter type names the cut-off tie cluster.
+- The private helpers of the standings tables stayed with the tables.
+
+**Method.** Two uncommitted scripts on the TypeScript parser: one cuts top-level declarations with their comments, one points named imports at the new file; `prettier --write` ran on code files only. The plan asked for no harness. A syntax-tree comparison over the whole pass: the 145 top-level declarations of the old `advancement.ts` and `absences.ts` are each in one of the seven files with identical code and comments, `export` aside, and no export is lost. Comments changed: the file headers, a sentence added to the header of `absences.ts` that points to `absence-answers.ts`, the comment above the room-result imports in `best-place.ts`, and one file name in `types.ts`. In `docs/rules.md`, three file names follow the moves; a fourth, the file of `usesAbsences` (`rule-versions.ts`), was already wrong before this pass and is corrected.
+
+**Testing.** No test added or removed and no assertion changed: the test and test-support files changed in their import lines only. Per stage: eslint (it has no config for `scripts/`), `prettier --check` and the type check clean; `vitest related` on the stage's files, 251 files with 6,708 tests, all passed (after the one comment in `types.ts` at stage 1, its own related run: 46 files with 833 tests). No live check or e2e (the plan lists none).
+
+**The reviewer's mutations.** `compareStandings` ignoring room share: 20 tests in 7 files failed. `pointsForSharedPlace` returning the first place's points: 15 tests in 5 files. `decisionHolds` always true: 8 tests in 5 files. `answerAbsence` not re-checking ties: caught, by 1 test in 1 file only. `clearAbsenceAnswer` not re-checking ties: **not caught**, all 184 related files passed.
+
+**Found, not changed.**
+- A test gap with no pin, there before this pass, in code the pass moved without changing: no test proves that taking an answer back (`clearAbsenceAnswer`) re-checks the tie decisions. As the reviewer reads it, this matters when a unit back at 0 joins a tie at 0: a shared-place decision then no longer covers the whole cluster. No test is added in this pass.
+
+**Out of scope.** The cut-off and band ties and the group exit (jobs 4 and 5 of C2-1) stay in `advancement.ts`, as do the tables, who advances and the tiers (jobs 6 to 8); a later "cut-off ties" file needs no further loop work and is not planned. Renames, `roomOutcomes` among them. C2-3 (the score key written by hand), the round-name duplicates and `joinWithAnd`. The four loop pairs (2E removes `seeding` with `smaller-room-seats`; the others are not planned). A push to `test` or `main` is decided after the final review, with the organiser.
+
+---
+
 ## Cleanup part 2C: Next Round as a switchboard, one file per format, Previous in its own file (done — 2026-11-25, on `test`, not pushed)
 
 **Context.** The third piece of cleanup part 2. `transitions.ts` held six jobs: the shared tools, and the advance of double elimination, of Kings Valley, of a Custom bracket played by columns, of a pooling exit through the standings, and of a round of no format of its own, the last written straight into `advanceRound` for about 160 lines with five cases for the kind of round that comes next (cleanup audit C2-2, `plans/2026-11-10-cleanup-audit-findings.md`). It and `waterfall-steps.ts` imported each other (C2-2, S0-3), and Previous for every format sat in `waterfall-steps.ts`, a file named for the Custom bracket (C2-8). Plan: `plans/2026-11-25-cleanup-part-2c-next-round.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `189ebf5`. Behaviour does not change: no message, check, check order or stored field, and every refusal hands back the state it handed back before.
