@@ -58,8 +58,14 @@ export interface PlanAfterBracketShape extends PlanAfterPoolingSettings {
   graphHasGroupsSource: boolean;
 }
 
+export interface PlanAfterPoolingRounds extends PlanAfterBracketShape {
+  qualRounds: number;
+  swissRounds: number;
+  nonCountingRounds: number;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterBracketShape;
+export type TournamentPlan = PlanAfterPoolingRounds;

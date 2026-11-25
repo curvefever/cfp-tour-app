@@ -1,9 +1,8 @@
 import { resolveBracketEntryCount } from './bracket-entry';
 import { emptySchedule } from './empty-schedule';
 import { parseEliminationTargets } from './elimination-targets';
-import { QUALIFICATION_ROUNDS, computeSwissRoundCount, seedFromGroupStageRound } from './pooling';
+import { seedFromGroupStageRound } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
-import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
@@ -44,22 +43,6 @@ function kingsValleyTooLargeMessage(input: {
   return `Kings Valley can take at most ${input.limit} ${input.unitPlural} into the ladder in ${input.formatLabel}: it has to reach the Final within ${MAX_KINGS_VALLEY_ROUNDS} rounds, and ${input.entrants} would enter. ${fix}`;
 }
 
-function resolvePoolingRoundsOverride(
-  raw: string,
-  defaultValue: number,
-  label: string,
-): { ok: true; value: number } | { ok: false; error: string } {
-  const parsedValue = parsePoolingRoundsOverride(raw);
-  if (parsedValue === undefined) return { ok: true, value: defaultValue };
-  if (parsedValue === null) {
-    return {
-      ok: false,
-      error: `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`,
-    };
-  }
-  return { ok: true, value: parsedValue };
-}
-
 export function generateTournament(
   current: TournamentState,
   form: GenerationForm,
@@ -70,46 +53,8 @@ export function generateTournament(
   const { format, chosen, schedule, floorMin, unitPlural } = planned.plan;
   const { matchConfig, config, oddCountStrategy, roomSize, graphText, layeredPlay } = planned.plan;
   const { graphHasQualSource, graphHasGroupsSource } = planned.plan;
+  const { qualRounds, swissRounds, nonCountingRounds } = planned.plan;
   let { waterfallGraph } = planned.plan;
-
-  // Total pooling-phase round count for Qualification Table / Swiss --
-  // normally derived (a fixed constant / a function of entrant count), but
-  // each is independently overridable pre-start.
-  let qualRounds = QUALIFICATION_ROUNDS;
-  if (config.poolingPhase === 'qual-table') {
-    const resolved = resolvePoolingRoundsOverride(form.qualRoundsOverride, qualRounds, 'Qualification Table');
-    if (!resolved.ok) return generationError(resolved.error);
-    qualRounds = resolved.value;
-  }
-  let swissRounds = computeSwissRoundCount(config.n);
-  if (config.poolingPhase === 'swiss') {
-    const resolved = resolvePoolingRoundsOverride(form.swissRoundsOverride, swissRounds, 'Swiss');
-    if (!resolved.ok) return generationError(resolved.error);
-    swissRounds = resolved.value;
-  }
-
-  // "Non-counting" leading rounds are only meaningful where a cumulative
-  // standings table exists at all -- Qualification Table and Swiss (they
-  // share computeQualificationStandings). Group Stage has its own separate
-  // per-group standings/qualification mechanism and was deliberately left
-  // out of this feature's scope.
-  let nonCountingRounds = 0;
-  if (config.poolingPhase === 'qual-table' || config.poolingPhase === 'swiss') {
-    const rawNonCountingRounds = Number.parseInt(form.nonCountingRounds || '0', 10);
-    if (!Number.isFinite(rawNonCountingRounds) || rawNonCountingRounds < 0) {
-      return generationError(
-        `Non-counting rounds must be a non-negative whole number — got "${form.nonCountingRounds}".`,
-      );
-    }
-    const totalPoolingRounds = config.poolingPhase === 'qual-table' ? qualRounds : swissRounds;
-    if (rawNonCountingRounds >= totalPoolingRounds) {
-      const phaseName = config.poolingPhase === 'qual-table' ? 'Qualification Table' : 'Swiss';
-      return generationError(
-        `Non-counting rounds (${rawNonCountingRounds}) must leave at least one round that counts — this ${phaseName} phase has ${totalPoolingRounds} round${totalPoolingRounds === 1 ? '' : 's'} total.`,
-      );
-    }
-    nonCountingRounds = rawNonCountingRounds;
-  }
 
   // The number of units that will actually enter the bracket phase (see
   // bracket-entry.ts; Group Stage derives it independently of config.qualAdv,

@@ -2,6 +2,8 @@ import { getGameFormat, deriveRoomSize } from './formats';
 import { groupExitRefusal } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf } from './group-settings';
 import { layeredGateRefusal } from './layered-form';
+import { QUALIFICATION_ROUNDS, computeSwissRoundCount } from './pooling';
+import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { matchFormatConfig } from './round-match-formats';
 import { planBracketShape } from './generation-plan-shape';
@@ -9,6 +11,8 @@ import { getMinimumBracketUnits } from './schedule-generation';
 import {
   type GenerationConfig,
   type GenerationForm,
+  type PlanAfterBracketShape,
+  type PlanAfterPoolingRounds,
   type PlanAfterPoolingSettings,
   type PlanAfterRoster,
   type Planned,
@@ -29,6 +33,22 @@ export function registeredBelowFloorMessage(
   const reason =
     schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${roomSize.min})` : '';
   return `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`;
+}
+
+function resolvePoolingRoundsOverride(
+  raw: string,
+  defaultValue: number,
+  label: string,
+): { ok: true; value: number } | { ok: false; error: string } {
+  const parsedValue = parsePoolingRoundsOverride(raw);
+  if (parsedValue === undefined) return { ok: true, value: defaultValue };
+  if (parsedValue === null) {
+    return {
+      ok: false,
+      error: `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`,
+    };
+  }
+  return { ok: true, value: parsedValue };
 }
 
 /** The roster, the game format, the minimum head count and the layered gate. */
@@ -133,11 +153,62 @@ function planPoolingSettings(form: GenerationForm, plan: PlanAfterRoster): Plann
   return { ok: true, plan: { ...plan, matchConfig, config } };
 }
 
+/** The round counts of a qualification table and a Swiss, and the leading rounds that don't count. */
+function planPoolingRounds(
+  form: GenerationForm,
+  plan: PlanAfterBracketShape,
+): Planned<PlanAfterPoolingRounds> {
+  const { config } = plan;
+
+  // Total pooling-phase round count for Qualification Table / Swiss --
+  // normally derived (a fixed constant / a function of entrant count), but
+  // each is independently overridable pre-start.
+  let qualRounds = QUALIFICATION_ROUNDS;
+  if (config.poolingPhase === 'qual-table') {
+    const resolved = resolvePoolingRoundsOverride(form.qualRoundsOverride, qualRounds, 'Qualification Table');
+    if (!resolved.ok) return refuse(resolved.error);
+    qualRounds = resolved.value;
+  }
+  let swissRounds = computeSwissRoundCount(config.n);
+  if (config.poolingPhase === 'swiss') {
+    const resolved = resolvePoolingRoundsOverride(form.swissRoundsOverride, swissRounds, 'Swiss');
+    if (!resolved.ok) return refuse(resolved.error);
+    swissRounds = resolved.value;
+  }
+
+  // "Non-counting" leading rounds are only meaningful where a cumulative
+  // standings table exists at all -- Qualification Table and Swiss (they
+  // share computeQualificationStandings). Group Stage has its own separate
+  // per-group standings/qualification mechanism and was deliberately left
+  // out of this feature's scope.
+  let nonCountingRounds = 0;
+  if (config.poolingPhase === 'qual-table' || config.poolingPhase === 'swiss') {
+    const rawNonCountingRounds = Number.parseInt(form.nonCountingRounds || '0', 10);
+    if (!Number.isFinite(rawNonCountingRounds) || rawNonCountingRounds < 0) {
+      return refuse(
+        `Non-counting rounds must be a non-negative whole number — got "${form.nonCountingRounds}".`,
+      );
+    }
+    const totalPoolingRounds = config.poolingPhase === 'qual-table' ? qualRounds : swissRounds;
+    if (rawNonCountingRounds >= totalPoolingRounds) {
+      const phaseName = config.poolingPhase === 'qual-table' ? 'Qualification Table' : 'Swiss';
+      return refuse(
+        `Non-counting rounds (${rawNonCountingRounds}) must leave at least one round that counts — this ${phaseName} phase has ${totalPoolingRounds} round${totalPoolingRounds === 1 ? '' : 's'} total.`,
+      );
+    }
+    nonCountingRounds = rawNonCountingRounds;
+  }
+
+  return { ok: true, plan: { ...plan, qualRounds, swissRounds, nonCountingRounds } };
+}
+
 /** Everything a tournament is worked out as before a round is built, or why it can't be. No side effect. */
 export function planTournament(form: GenerationForm, current: TournamentState): Planned<TournamentPlan> {
   const roster = planRoster(form, current);
   if (!roster.ok) return roster;
   const pooling = planPoolingSettings(form, roster.plan);
   if (!pooling.ok) return pooling;
-  return planBracketShape(form, pooling.plan);
+  const shape = planBracketShape(form, pooling.plan);
+  if (!shape.ok) return shape;
+  return planPoolingRounds(form, shape.plan);
 }
