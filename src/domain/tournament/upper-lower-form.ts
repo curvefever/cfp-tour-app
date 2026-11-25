@@ -1,5 +1,5 @@
 import { deriveRoomSize, getGameFormat, unitLabelPluralLower } from './formats';
-import { registeredBelowFloorMessage } from './generation';
+import { registeredBelowFloorMessage } from './generation-plan';
 import { matchFormatToken, parseMatchFormatToken } from './match-format';
 import { matchFormatConfig, parseMatchOverrides, stageFormat } from './round-match-formats';
 import type { PersistedSetup, RoomSize } from './types';

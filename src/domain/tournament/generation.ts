@@ -1,19 +1,21 @@
 import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
 import { emptySchedule } from './empty-schedule';
 import { parseEliminationTargets } from './elimination-targets';
-import { getGameFormat, deriveRoomSize, resolveOddCountStrategy } from './formats';
+import { deriveRoomSize, resolveOddCountStrategy } from './formats';
 import { QUALIFICATION_ROUNDS, computeSwissRoundCount, seedFromGroupStageRound } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { groupExitRefusal, groupsLineExit } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
-import { layeredGateRefusal, layeredGraphFor } from './layered-form';
+import { layeredGraphFor } from './layered-form';
 import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { validateRoomCap } from './room-distribution';
-import { rosterFitsFormat, rosterKeys } from './roster';
+import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
 import { defaultSemisSize } from './single-elimination';
 import { buildScheduleRounds, getMinimumBracketUnits } from './schedule-generation';
+import { planTournament } from './generation-plan';
+import type { GenerationForm } from './generation-plan-types';
 import {
   type MatchResultPoints,
   matchResultsAllowed,
@@ -29,7 +31,6 @@ import type {
   GeneratedTournamentConfig,
   MaterializedGamemodeConfig,
   OrderedWaterfallGraph,
-  PersistedSetup,
   RoomSize,
   ScheduleLogicKey,
   TournamentState,
@@ -38,11 +39,6 @@ import type {
 /** What generation works with: the stored `cfg` plus the settings it reads here and keeps in `gamemodeConfig` only. */
 type GenerationConfig = GeneratedTournamentConfig &
   Pick<MaterializedGamemodeConfig, 'scoring' | 'drawPublication' | 'finalsGames' | 'semisGames'>;
-
-interface GenerationForm extends PersistedSetup {
-  /** A setting kept out of PersistedSetup, the stored shape of the Setup form. */
-  lbQualifiers?: string;
-}
 
 type GenerateTournamentResult =
   { status: 'generated'; state: TournamentState } | { status: 'invalid'; message: string };
@@ -163,55 +159,14 @@ function upperLowerGraphFor(
   };
 }
 
-/** Why too few units are registered for a schedule logic (its floor, `getMinimumBracketUnits`), or null. */
-export function registeredBelowFloorMessage(
-  schedule: ScheduleLogicKey,
-  roomSize: RoomSize,
-  unitPlural: string,
-  unitCount: number,
-): string | null {
-  const floorMin = getMinimumBracketUnits(schedule, roomSize);
-  if (unitCount >= floorMin) return null;
-  const reason =
-    schedule === 'single-elimination' ? ` (Semis needs 2 rooms of at least ${roomSize.min})` : '';
-  return `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`;
-}
-
 export function generateTournament(
   current: TournamentState,
   form: GenerationForm,
   runtime: TournamentRuntime,
 ): GenerateTournamentResult {
-  if (current.confirmedCount === null || current.confirmedCount === undefined) {
-    return generationError(
-      'Load a roster first — click "Load roster & reserves" before generating a schedule.',
-    );
-  }
-  // The roster is the count of record: `confirmedCount` is only set when a roster is loaded, so a unit
-  // added or removed since then makes it stale.
-  const unitCount = rosterKeys(current.players).length;
-  const format = getGameFormat(form.gameFormat);
-  if (!format) return generationError('This game format is not available yet.');
-  if (!rosterFitsFormat(current, form.gameFormat)) {
-    return generationError(
-      'The roster was loaded for a different game format — click "Load roster & reserves" again before generating.',
-    );
-  }
-  // An upper and lower bracket or a layered bracket is generated as a Custom bracket over a graph the app derives; the
-  // choice is kept in the form (and so in the settings snapshot) and on the config (`upperLowerVersion`,
-  // `layeredVersion`), never in `state.scheduleLogic`.
-  const chosen = form.scheduleLogic;
-  const schedule = chosen === 'upper-lower' || chosen === 'layered' ? 'waterfall-bracket' : chosen;
-  if (!format.defaultRoomSize && !format.idealRoomSize) {
-    return generationError('This game format has no room size.');
-  }
-  const formatRoomSize = deriveRoomSize(format);
-  const floorMin = getMinimumBracketUnits(chosen, formatRoomSize);
-  const unitPlural = format.unitLabelPlural.toLowerCase();
-  const belowFloor = registeredBelowFloorMessage(chosen, formatRoomSize, unitPlural, unitCount);
-  if (belowFloor) return generationError(belowFloor);
-  const layeredGate = chosen === 'layered' ? layeredGateRefusal(form) : null;
-  if (layeredGate) return generationError(layeredGate);
+  const planned = planTournament(form, current);
+  if (!planned.ok) return generationError(planned.message);
+  const { unitCount, format, chosen, schedule, formatRoomSize, floorMin, unitPlural } = planned.plan;
 
   // A setting whose Setup field is hidden is ignored: the form keeps its stale
   // value (so switching back restores it) but generation uses the default.
