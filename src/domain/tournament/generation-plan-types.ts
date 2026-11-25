@@ -75,8 +75,25 @@ export interface PlanAfterScoring extends PlanAfterBracketEntry {
   matchResults: { points: MatchResultPoints; tieMargin: number } | undefined;
 }
 
+export interface PlanAfterSizeOverrides extends PlanAfterScoring {
+  /** The typed Semis size, or null for the default. */
+  semisOverride: number | null;
+  finalOverride: number | null;
+  semisDefault: number;
+}
+
+export interface PlanAfterFinalTargets extends PlanAfterSizeOverrides {
+  grandFinalWbTarget: number;
+  grandFinalLbTarget: number;
+  /** The Final size the shared Final's two kinds of qualifiers add up to. */
+  prospectiveFinalSize: number;
+  /** Shared-Final double elimination only, as `winnersQualifiers` is. */
+  lbQualifiers: number | undefined;
+  winnersQualifiers: number | undefined;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterScoring;
+export type TournamentPlan = PlanAfterFinalTargets;

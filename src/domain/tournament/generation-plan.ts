@@ -6,6 +6,7 @@ import { QUALIFICATION_ROUNDS, computeSwissRoundCount } from './pooling';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { matchFormatConfig } from './round-match-formats';
+import { planFinalTargets, planSizeOverrides } from './generation-plan-bracket';
 import { checkFormatGates } from './generation-plan-gates';
 import { planScoring } from './generation-plan-scoring';
 import { planBracketEntry, planBracketShape } from './generation-plan-shape';
@@ -218,5 +219,9 @@ export function planTournament(form: GenerationForm, current: TournamentState): 
   if (!entry.ok) return entry;
   const scoring = planScoring(form, entry.plan);
   if (!scoring.ok) return scoring;
-  return checkFormatGates(scoring.plan);
+  const gates = checkFormatGates(scoring.plan);
+  if (!gates.ok) return gates;
+  const sizes = planSizeOverrides(form, gates.plan);
+  if (!sizes.ok) return sizes;
+  return planFinalTargets(form, sizes.plan);
 }
