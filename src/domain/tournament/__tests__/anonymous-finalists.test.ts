@@ -7,7 +7,7 @@ import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { AnonymousFinalist, TournamentState } from '../types';
 import { withFinalistAliasesForLineup } from '../anonymous-finalists';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { expectConsistent } from './consistency';
 import { atEntry, STRATEGIES, pressed, playDependency } from './dependency-play-fixtures';
 import { generated, buildAssignments, buildRound } from './test-fixtures';

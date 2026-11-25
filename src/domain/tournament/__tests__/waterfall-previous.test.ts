@@ -4,7 +4,8 @@ import { drawnAheadStatus } from '../redraw';
 import { isRoundDone, previousColumnStart, roundsInPlay, usesDependencyPlay } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import type { TournamentState } from '../types';
-import { canGoBack, goBack, isRoundScored } from '../waterfall-steps';
+import { canGoBack, goBack } from '../go-back';
+import { isRoundScored } from '../waterfall-steps';
 import {
   CASES,
   STRATEGIES,

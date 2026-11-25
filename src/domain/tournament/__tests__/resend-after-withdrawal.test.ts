@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { roundsInPlay } from '../round-columns';
 import type { TournamentState } from '../types';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { expectConsistent, removeChecked, renameChecked, swapChecked } from './consistency';
 import { pressed, resolveEveryTie, scoreRound } from './dependency-play-fixtures';
 import {

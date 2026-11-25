@@ -6,7 +6,7 @@ import { scoreRooms } from '../../domain/tournament/__tests__/fair-cut-fixtures'
 import { generated } from '../../domain/tournament/__tests__/test-fixtures';
 import { isRoundReached } from '../../domain/tournament/round-columns';
 import type { TournamentState } from '../../domain/tournament/types';
-import { goBack } from '../../domain/tournament/waterfall-steps';
+import { goBack } from '../../domain/tournament/go-back';
 import { roomRowsOnPage, unfoldEverything } from '../../test-support/bracket-rows';
 import { renderApp } from '../../test-support/test-app';
 

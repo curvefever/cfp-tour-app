@@ -5,7 +5,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../../src/doma
 import { removeRosterUnit, withLoadedRoster } from '../../src/domain/tournament/mutations';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import { currentColumn, roundColumn, roundsInPlay } from '../../src/domain/tournament/round-columns';
-import { goBack } from '../../src/domain/tournament/waterfall-steps';
+import { goBack } from '../../src/domain/tournament/go-back';
 import { UPPER_LOWER_GRAPH } from '../../src/domain/tournament/__tests__/upper-lower-graph';
 import { WATERFALL_EXAMPLES } from '../../src/domain/tournament/waterfall-examples';
 import type {

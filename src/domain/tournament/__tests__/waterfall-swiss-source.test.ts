@@ -6,7 +6,7 @@ import { computeRankings } from '../rankings';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { swissRoutesItsStandings } from '../pooling';
 import { rosterKeys } from '../roster';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';

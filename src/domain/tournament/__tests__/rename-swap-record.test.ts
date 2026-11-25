@@ -10,7 +10,7 @@ import { createDefaultSetup } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import { upperLowerEntry, upperLowerGraphText } from '../upper-lower';
 import type { TournamentState } from '../types';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { pressed, resolveEveryTie, scoreRound } from './dependency-play-fixtures';
 import { buildState, scoreCurrentRound } from './play-through';
 import { renameChecked as renameIndividual, swapChecked as swapIndividual } from './consistency';

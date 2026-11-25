@@ -15,7 +15,8 @@ import { computeRankings } from '../rankings';
 import { currentColumn, isRoundDone, roundsInPlay, undrawnRounds } from '../round-columns';
 import { scoreKeysForPosition, unscoredRooms } from '../scoring';
 import type { TournamentState } from '../types';
-import { finishedRoundsInPlay, goBack, isRoundScored } from '../waterfall-steps';
+import { goBack } from '../go-back';
+import { finishedRoundsInPlay, isRoundScored } from '../waterfall-steps';
 import {
   CASES,
   STRATEGIES,

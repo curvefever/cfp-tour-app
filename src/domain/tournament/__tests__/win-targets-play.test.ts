@@ -9,7 +9,7 @@ import { parseMatchOverrides } from '../round-match-formats';
 import { finalScoreKey, scoredMemberSlots, scoredTeamSize } from '../scoring';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import {
   STRATEGIES,
   indexOf,

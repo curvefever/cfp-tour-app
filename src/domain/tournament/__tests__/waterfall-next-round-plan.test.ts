@@ -3,7 +3,8 @@ import { roundsInPlay } from '../round-columns';
 import { finalScoreKey } from '../scoring';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';
-import { finishedRoundsInPlay, goBack, isRoundScored, nextRoundPlan } from '../waterfall-steps';
+import { goBack } from '../go-back';
+import { finishedRoundsInPlay, isRoundScored, nextRoundPlan } from '../waterfall-steps';
 import {
   CASES,
   STRATEGIES,

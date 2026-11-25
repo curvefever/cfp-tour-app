@@ -3,7 +3,7 @@ import { computeQualificationStandings } from '../advancement';
 import { holdsAbsentBye, markBack, unmarkBack } from '../likely-absentees';
 import { clickConfirmationAndSeat } from '../returning-unit';
 import type { TournamentState } from '../types';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { afterRoundOne, byeOf, pickAbsent } from './absentee-fixtures';
 import { pressed, scoreRound } from './dependency-play-fixtures';
 import { swiss } from './swiss-source-fixtures';

@@ -3,7 +3,7 @@ import { roundsInPlay, undrawnRounds, usesDependencyPlay } from '../round-column
 import type { TournamentState } from '../types';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
-import { goBack } from '../waterfall-steps';
+import { goBack } from '../go-back';
 import { atEntry, indexOf, indexes, onlyFinalInPlay, pressed, scoreRound } from './dependency-play-fixtures';
 import { withDependencyPlay } from './qual-waterfall';
 import { UPPER_LOWER_GRAPH } from './upper-lower-graph';
