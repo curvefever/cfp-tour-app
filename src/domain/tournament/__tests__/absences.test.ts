@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   absentInRoom,
-  answerAbsence,
-  clearAbsenceAnswer,
   hasBlockingAbsenceQuestions,
   isMarkedAbsent,
   isMemberMarkedAbsent,
@@ -10,9 +8,9 @@ import {
   markOneScoreTeamMemberAbsent,
   pendingAbsenceQuestions,
   playersInPlay,
-  unmarkOneScoreTeamMemberAbsent,
   withoutRoundAbsences,
 } from '../absences';
+import { answerAbsence, clearAbsenceAnswer, unmarkOneScoreTeamMemberAbsent } from '../absence-answers';
 import { usesAbsences } from '../rule-versions';
 import { buildAdvancementTiers } from '../advancement';
 import { setRoundScore, swapIndividual, swapTeam } from '../mutations';

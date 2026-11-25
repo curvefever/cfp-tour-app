@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { absentInRoom, absenteeLeavesCustomBracket, answerAbsence } from '../../domain/tournament/absences';
+import { absentInRoom, absenteeLeavesCustomBracket } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import { bestPlaceChoice } from '../../domain/tournament/best-place';
 import { bracketFollowStatus, bracketRoundLabels } from '../../domain/tournament/bracket';
 import { computeRankings } from '../../domain/tournament/rankings';

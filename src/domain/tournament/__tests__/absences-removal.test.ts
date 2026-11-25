@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { absentInRoom, answerAbsence, pendingAbsenceQuestions, withSeatsShiftedUp } from '../absences';
+import { absentInRoom, pendingAbsenceQuestions, withSeatsShiftedUp } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import type { TournamentState } from '../types';
 import { removeChecked as removeRosterUnit } from './consistency';

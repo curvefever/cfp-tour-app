@@ -1,4 +1,4 @@
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

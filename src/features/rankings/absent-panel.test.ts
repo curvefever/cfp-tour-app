@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  answerAbsence,
-  markOneScoreTeamMemberAbsent,
-  oneScoreTeamMemberKey,
-} from '../../domain/tournament/absences';
+import { markOneScoreTeamMemberAbsent, oneScoreTeamMemberKey } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import {
   removeRosterUnit,
   renameIndividual,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { getAllTies } from '../advancement';
 import { removeRosterUnit } from '../mutations';
 import { isRoundDone, roundsInPlay } from '../round-columns';

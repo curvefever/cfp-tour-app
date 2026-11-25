@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { moveUnitToRoom } from '../lineup-edit';
 import { markBack } from '../likely-absentees';

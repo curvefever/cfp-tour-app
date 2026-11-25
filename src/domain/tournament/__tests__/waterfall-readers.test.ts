@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerAbsence,
-  clearAbsenceAnswer,
   hasBlockingAbsenceQuestions,
   hasBlockingAbsenceQuestionsInRound,
   pendingAbsenceQuestions,
   unitsAwaitingAnswer,
   zeroScoresInPlay,
 } from '../absences';
+import { answerAbsence, clearAbsenceAnswer } from '../absence-answers';
 import { getAllColumnTies, hasPendingColumnTies } from '../advancement';
 import { bracketFollowStatus, bracketRoundDefaultCollapsed, projectFutureRoundSlots } from '../bracket';
 import { expectedRounds } from '../expected-draw';

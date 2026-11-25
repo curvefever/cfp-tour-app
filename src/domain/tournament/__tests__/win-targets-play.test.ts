@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { roomFinishOrder } from '../room-results';
-import { answerAbsence, absentInRoom, pendingAbsenceQuestions } from '../absences';
+import { absentInRoom, pendingAbsenceQuestions } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { roomMatch, winsGameCount } from '../match-format';
 import { renameIndividualResult } from '../mutations';

@@ -1,4 +1,4 @@
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { generateTournament } from '../generation';
 import { addWalkUpIndividual } from '../mutations';
 import { rosterKeys } from '../roster';

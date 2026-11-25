@@ -13,7 +13,7 @@ import { createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';
 import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { indexOf } from './dependency-play-fixtures';
 import { atEntry, swiss } from './swiss-source-fixtures';
 import { buildRound, oneRoomState } from './test-fixtures';

@@ -1,4 +1,5 @@
-import { answerAbsence, pendingAbsenceQuestions } from '../absences';
+import { pendingAbsenceQuestions } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { getGameFormat } from '../formats';
 import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';

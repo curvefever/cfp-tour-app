@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { computeQualificationStandings } from '../advancement';
 import { detectTieBreaks } from '../room-ties';
 import {

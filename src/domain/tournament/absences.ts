@@ -8,8 +8,9 @@
  * the member key (which has no score): only display code reads it (`isMemberMarkedAbsent`).
  *
  * The Final and the grand final are left out: their 0s are never asked.
+ *
+ * Answering a question and taking an answer back are in `absence-answers.ts`: they re-check the tie decisions.
  */
-import { invalidateStaleTieResolutions } from './room-ties';
 import { getGameFormat, isOneScorePerTeam } from './formats';
 import { roomMatch } from './match-format';
 import { routesAbsenteesByLastPlace, usesAbsences } from './rule-versions';
@@ -19,7 +20,6 @@ import {
   getFinalUnitScore,
   getUnitScore,
   occupiedRooms,
-  parseScoreKey,
   roomKeyPrefix,
   roundKeyPrefix,
   scoredMemberSlots,
@@ -77,7 +77,7 @@ function roundAsks(round: TournamentRound | undefined): round is TournamentRound
 }
 
 /** The answer given for a key (stored tournaments from before the field existed have none). */
-function answerOf(state: Pick<TournamentState, 'absences'>, key: string): AbsenceAnswer | undefined {
+export function answerOf(state: Pick<TournamentState, 'absences'>, key: string): AbsenceAnswer | undefined {
   return (state.absences as TournamentState['absences'] | undefined)?.[key];
 }
 
@@ -420,53 +420,12 @@ export function hasBlockingAbsenceQuestionsInRound(state: TournamentState, round
   );
 }
 
-/** An answer changes who is in a room's ties: the decisions of the rooms it touches are checked again. */
-function invalidateTiesOfKeys(state: TournamentState, keys: string[]): TournamentState {
-  const rooms = new Map<string, [number, number]>();
-  for (const key of keys) {
-    const parsed = parseScoreKey(key);
-    if (parsed) rooms.set(`${parsed.roundIndex}:${parsed.room}`, [parsed.roundIndex, parsed.room]);
-  }
-  let next = state;
-  for (const [roundIndex, room] of rooms.values()) {
-    next = invalidateStaleTieResolutions(next, roundIndex, room);
-  }
-  return next;
-}
-
-/** Answers the given keys. Keys that are not a score of 0 in the rounds in play are ignored. */
-export function answerAbsence(
-  state: TournamentState,
-  keys: string[],
-  answer: AbsenceAnswer,
-): TournamentState {
-  const askable = new Set(
-    zeroScoresInPlay(state).flatMap((room) => room.questions.map((question) => question.key)),
-  );
-  const answered = keys.filter((key) => askable.has(key));
-  if (!answered.length) return state;
-  const next = {
-    ...state,
-    absences: { ...state.absences, ...Object.fromEntries(answered.map((key) => [key, answer])) },
-  };
-  return invalidateTiesOfKeys(next, answered);
-}
-
 /** The answers without one key's: a changed score drops the answer given to the earlier one. */
 export function withoutAbsenceAnswer(
   absences: TournamentState['absences'] | undefined,
   key: string,
 ): TournamentState['absences'] {
   return withoutAbsences(absences, (candidate) => candidate === key);
-}
-
-/** Takes an answer back (the panel's undo), so the question is asked again. Only in the rounds in play. */
-export function clearAbsenceAnswer(state: TournamentState, key: string): TournamentState {
-  const roundIndex = parseScoreKey(key)?.roundIndex ?? null;
-  if (answerOf(state, key) === undefined || roundIndex === null || !isCurrentRound(state, roundIndex)) {
-    return state;
-  }
-  return invalidateTiesOfKeys({ ...state, absences: withoutAbsenceAnswer(state.absences, key) }, [key]);
 }
 
 /** Marks a member of a team with one score absent by hand (display only). Ignored unless the member exists in the rounds in play. */
@@ -489,17 +448,6 @@ export function markOneScoreTeamMemberAbsent(
       [oneScoreTeamMemberKey(roundIndex, room, position, memberIndex)]: 'absent',
     },
   };
-}
-
-/** Takes the hand mark of a member of a team with one score back. */
-export function unmarkOneScoreTeamMemberAbsent(
-  state: TournamentState,
-  roundIndex: number,
-  room: number,
-  position: number,
-  memberIndex: number,
-): TournamentState {
-  return clearAbsenceAnswer(state, oneScoreTeamMemberKey(roundIndex, room, position, memberIndex));
 }
 
 /** Tolerates a state cached before the field existed. */

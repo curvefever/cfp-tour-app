@@ -2,7 +2,7 @@
 import { cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { afterRound1, teamsAfterRound1 } from '../../domain/tournament/__tests__/absentee-bracket-fixture';
-import { answerAbsence } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import { markBack } from '../../domain/tournament/likely-absentees';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';

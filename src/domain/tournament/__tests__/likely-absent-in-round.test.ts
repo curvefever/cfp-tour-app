@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, absentInRoom } from '../absences';
+import { absentInRoom } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { likelyAbsentInRound, markBack } from '../likely-absentees';
 import type { TournamentState } from '../types';
 import { afterRound1, teamsAfterRound1 } from './absentee-bracket-fixture';

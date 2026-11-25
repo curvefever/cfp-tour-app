@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGroupStandings } from '../advancement';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { groupSeats } from '../group-standings';
 import { isLikelyAbsent } from '../likely-absentees';
 import { deriveRoomSize, getGameFormat } from '../formats';

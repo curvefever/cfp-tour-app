@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  absentInRoom,
-  answerAbsence,
-  hasPlayedAnyMatch,
-  membersPresentAtSeat,
-  pendingAbsenceQuestions,
-} from '../absences';
+import { absentInRoom, hasPlayedAnyMatch, membersPresentAtSeat, pendingAbsenceQuestions } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { scoredPlayers } from '../confirmations';
 import { setTeamDefender } from '../mutations';
 import { getFinalUnitScore, getUnitScore, isRoomScored, scoredMemberSlots } from '../scoring';

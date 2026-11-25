@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import { orderedQualificationTable } from '../../domain/tournament/advancement';
 import { firstEliminationIndex, generate, SE_FFA } from '../../domain/tournament/__tests__/fair-cut-fixtures';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';

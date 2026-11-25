@@ -1,4 +1,4 @@
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
 import { splitAdvancement } from '../room-distribution';
 import type { TournamentState } from '../types';

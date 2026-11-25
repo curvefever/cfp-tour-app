@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import { markBack } from '../../domain/tournament/likely-absentees';
 import { swapIndividual } from '../../domain/tournament/mutations';
 import { currentColumn } from '../../domain/tournament/round-columns';

@@ -1,4 +1,4 @@
-import { answerAbsence } from '../../domain/tournament/absences';
+import { answerAbsence } from '../../domain/tournament/absence-answers';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Button, ButtonRow, cn } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';

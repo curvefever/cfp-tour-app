@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, markOneScoreTeamMemberAbsent } from '../absences';
+import { markOneScoreTeamMemberAbsent } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { removeRosterUnit, swapIndividual } from '../mutations';
 import { playersWhoPlayed } from '../players-who-played';

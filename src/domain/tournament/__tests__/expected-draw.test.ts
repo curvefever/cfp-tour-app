@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, hasBlockingAbsenceQuestionsInRound } from '../absences';
+import { hasBlockingAbsenceQuestionsInRound } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { getAllTies, hasPendingTies } from '../advancement';
 import { expectedRounds, type ExpectedRound } from '../expected-draw';
 import { isOneScorePerTeam, ONE_SCORE_PER_TEAM } from '../formats';

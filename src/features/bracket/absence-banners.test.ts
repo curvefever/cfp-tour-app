@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, clearAbsenceAnswer } from '../../domain/tournament/absences';
+import { answerAbsence, clearAbsenceAnswer } from '../../domain/tournament/absence-answers';
 import { generate, playedRound } from '../../domain/tournament/__tests__/fair-cut-fixtures';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';

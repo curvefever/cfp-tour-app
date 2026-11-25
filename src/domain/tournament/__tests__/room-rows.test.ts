@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { roomRows } from '../room-rows';
 import { SHARED_TIE_MARK } from '../scoring';
 import type { TournamentState } from '../types';

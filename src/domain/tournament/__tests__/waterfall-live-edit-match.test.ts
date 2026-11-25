@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, markOneScoreTeamMemberAbsent, oneScoreTeamMemberKey } from '../absences';
+import { markOneScoreTeamMemberAbsent, oneScoreTeamMemberKey } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { roomFinishOrder } from '../room-results';
 import { generateTournament } from '../generation';
 import { roomMatch } from '../match-format';

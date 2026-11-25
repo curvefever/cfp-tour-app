@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { answerAbsence, zeroScoresInPlay } from '../absences';
+import { zeroScoresInPlay } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { computeRankings } from '../rankings';
 import { generateTournament } from '../generation';
 import { isRoundDone } from '../round-columns';

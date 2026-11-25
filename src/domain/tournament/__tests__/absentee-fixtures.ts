@@ -1,4 +1,4 @@
-import { answerAbsence } from '../absences';
+import { answerAbsence } from '../absence-answers';
 import { scoreKey, scoredMemberSlots, scoredTeamSize } from '../scoring';
 import type { RoundAssignment, TournamentState } from '../types';
 import { scoreRound } from './dependency-play-fixtures';
