@@ -3,9 +3,9 @@ import { seedFromGroupStageRound } from './pooling';
 import { validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { randomSeed, recordRoomHistory } from './seeding';
-import { buildScheduleRounds } from './schedule-generation';
+import { buildScheduleRounds, type ScheduleRounds } from './schedule-generation';
 import { planTournament } from './generation-plan';
-import type { GenerationForm } from './generation-plan-types';
+import type { GenerationForm, TournamentPlan } from './generation-plan-types';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { settingsFromForm } from './tournament-settings';
 import type { TournamentRuntime } from './runtime';
@@ -18,16 +18,9 @@ function generationError(message: string): GenerateTournamentResult {
   return { status: 'invalid', message };
 }
 
-export function generateTournament(
-  current: TournamentState,
-  form: GenerationForm,
-  runtime: TournamentRuntime,
-): GenerateTournamentResult {
-  const planned = planTournament(form, current);
-  if (!planned.ok) return generationError(planned.message);
-  const { format, schedule, config, gamemodeConfig, matchResults } = planned.plan;
-
-  const roster = rosterKeys(current.players);
+/** The rounds of the plan for this roster, or why they can't be played. */
+function buildRounds(plan: TournamentPlan, roster: string[]): ScheduleRounds {
+  const { schedule, config, gamemodeConfig, format, matchResults } = plan;
   const progression = buildScheduleRounds({
     bracketPhase: schedule,
     poolingPhase: config.poolingPhase,
@@ -35,19 +28,36 @@ export function generateTournament(
     format: gamemodeConfig,
     roster,
   });
-  if (!progression.ok) return generationError(progression.error);
+  if (!progression.ok) return progression;
   const roomCapError = validateRoomCap(progression.rounds, format);
-  if (roomCapError) return generationError(roomCapError);
+  if (roomCapError) return { ok: false, error: roomCapError };
   if (matchResults) {
     const longMatch = progression.rounds.find(
       (round) => (round.isGroupStage || round.isQual || round.isSwiss) && (round.bestOf ?? 0) > 3,
     );
     if (longMatch) {
-      return generationError(
-        `Match results scoring can't score a Best of ${longMatch.bestOf} ${longMatch.isGroupStage ? 'group' : 'pooling'} round yet — use a Best of 3, summed games, or another scoring system.`,
-      );
+      return {
+        ok: false,
+        error: `Match results scoring can't score a Best of ${longMatch.bestOf} ${longMatch.isGroupStage ? 'group' : 'pooling'} round yet — use a Best of 3, summed games, or another scoring system.`,
+      };
     }
   }
+
+  return progression;
+}
+
+export function generateTournament(
+  current: TournamentState,
+  form: GenerationForm,
+  runtime: TournamentRuntime,
+): GenerateTournamentResult {
+  const planned = planTournament(form, current);
+  if (!planned.ok) return generationError(planned.message);
+  const { schedule, config, gamemodeConfig } = planned.plan;
+
+  const roster = rosterKeys(current.players);
+  const progression = buildRounds(planned.plan, roster);
+  if (!progression.ok) return generationError(progression.error);
 
   const groups = progression.groups;
   const groupStandings = Object.fromEntries(
