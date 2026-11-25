@@ -109,7 +109,7 @@ function planPoolingSettings(form: GenerationForm, plan: PlanAfterRoster): Plann
   const config: GenerationConfig = {
     n: unitCount,
     poolingPhase: form.poolingPhase,
-    qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
+    qualAdv: unitCount, // placeholder; `planBracketShape` validates and overwrites it when poolingPhase !== 'none'
     groupSize: settings.groupSize,
     roundRobinMode: form.roundRobinMode,
     qualifiersPerGroup: settings.qualifiersPerGroup,
@@ -145,7 +145,7 @@ function planPoolingSettings(form: GenerationForm, plan: PlanAfterRoster): Plann
         `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
       );
     }
-    // A Groups line decides how many go through, so the form's qualifiers per group wait for it (below).
+    // A Groups line decides how many go through, so the form's qualifiers per group wait for it (`planBracketShape`).
     if (config.groupExit === undefined && schedule !== 'waterfall-bracket') {
       const refusal = groupExitRefusal(
         config.n,
