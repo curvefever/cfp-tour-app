@@ -8,7 +8,7 @@ import { likelyAbsentees } from './likely-absentees';
 import { rosterKeys } from './roster';
 import { applyMatchFormats } from './round-match-formats';
 import { layeredKeptPlayOf, layeredPlayOf, withLayeredKept, withLayeredPlay } from './rule-versions';
-import { MISSING_ROOM_SIZE_MESSAGE } from './transitions';
+import { MISSING_ROOM_SIZE_MESSAGE } from './round-advance-tools';
 import type { TournamentSettings, TournamentState } from './types';
 import { applyWaterfallGraphEdit } from './waterfall-live-edit';
 

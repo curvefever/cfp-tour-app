@@ -22,7 +22,7 @@ import {
   reserveWindowAtCurrentRound,
   seedRoundFromPendingPool,
   type RoundAdvanceResult,
-} from './transitions';
+} from './round-advance-tools';
 import type { PendingBracketSeed, TournamentRound, TournamentState, WaterfallStep } from './types';
 import { roundDestinations } from './waterfall-best';
 

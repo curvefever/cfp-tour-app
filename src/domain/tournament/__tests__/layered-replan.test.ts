@@ -11,7 +11,7 @@ import {
 import { planLayeredFor, planLayeredForUncached, type LayeredForm } from '../layered-form';
 import { addWalkUpIndividual, removeRosterUnit } from '../mutations';
 import { layeredKeptPlayOf, layeredPlayOf } from '../rule-versions';
-import { MISSING_ROOM_SIZE_MESSAGE } from '../transitions';
+import { MISSING_ROOM_SIZE_MESSAGE } from '../round-advance-tools';
 import type { TournamentState } from '../types';
 import { applyHandGraphEdit } from '../waterfall-live-edit';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
