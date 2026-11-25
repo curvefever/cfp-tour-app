@@ -63,7 +63,7 @@ export function fitKingsValleyTail(
   // re-fit's nextRound, so a stuck field re-planned mid-ladder doesn't get a
   // fresh MAX_KINGS_VALLEY_ROUNDS budget it already partly spent. Always
   // found by construction at both call sites (advanceKingsValley and the
-  // first-hop branch only run once a Kings Valley round already exists at or
+  // `seatFirstKingsValleyRound` only run once a Kings Valley round already exists at or
   // before nextIndex); the fallback is a last-resort defensive default.
   const firstKvIndex = state.rounds.findIndex((round) => round.isKingsValley);
   const capStartRoundNum = state.rounds[firstKvIndex]?.roundNum ?? nextRound.roundNum;

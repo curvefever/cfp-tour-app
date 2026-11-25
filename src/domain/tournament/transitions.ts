@@ -25,7 +25,7 @@ import {
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
-import type { RoundAssignment, TournamentRound, TournamentState } from './types';
+import type { RoomSize, RoundAssignment, TournamentRound, TournamentState } from './types';
 import { generatedConfig } from './generated-config';
 import { currentColumn, nextColumnStart, usesDependencyPlay } from './round-columns';
 import {
@@ -143,7 +143,7 @@ function finishOrdinaryRound(
   result: Advancement,
   seeded: RoundAssignment[],
 ): RoundAdvanceResult {
-  // Set after every branch above, including the Kings Valley one -- its own
+  // Set after the next round is seated, whatever its kind, the first Kings Valley one included -- its own
   // fitKingsValleyTail can rebuild state.luckyLosers wholesale when it
   // re-fits the tail, which would otherwise clobber an earlier write here.
   if (result.luckyNames !== null) {
@@ -153,6 +153,214 @@ function finishOrdinaryRound(
   state.assignments[state.curRound] = seeded;
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   return { status: 'advanced', state };
+}
+
+/** What seating the next round of an ordinary advance works with. */
+interface NextSeating {
+  /** The state the press was given, which some refusals hand back. */
+  input: TournamentState;
+  /** The working copy, which the other refusals hand back. */
+  state: TournamentState;
+  roundIndex: number;
+  /** The round played. */
+  round: TournamentRound;
+  nextRound: TournamentRound;
+  /** Who goes on (`whoGoesOn`). */
+  advancing: SeedCandidate[];
+  groupExit: Advancement['groupExit'];
+}
+
+type Refusal = Extract<RoundAdvanceResult, { status: 'blocked' }>;
+
+/** The next round's line-up, or why it can't be seated. */
+type Seating = { ok: true; seeded: RoundAssignment[] } | { ok: false; refusal: Refusal };
+
+/** Who is left to seat and who sits the next round out with a bye, or why a bye can't be given. */
+type ByeChoice =
+  | { ok: true; advancing: SeedCandidate[]; newByes: SeedCandidate[]; absentByeNames: ReadonlySet<string> }
+  | { ok: false; refusal: Refusal };
+
+function seatFixedDraw({ state, roundIndex }: NextSeating, fixedDraw: RoundAssignment[]): Seating {
+  // The whole schedule for this round was already decided at generation
+  // time (fixed-draws.ts) -- roomHistory/poolingByeCounts for it were
+  // already folded in there too (see generation.ts), so no
+  // recordRoomHistory call here, unlike a round drawn from who goes on
+  // (`seatAndAppendByes`).
+  const seeded = fixedDraw.map((entry) => ({ ...entry }));
+  state.byes[roundIndex + 1] = seeded.filter((entry) => entry.room === null).map((entry) => entry.name);
+  return { ok: true, seeded };
+}
+
+function seatGroupRound({ state, roundIndex, nextRound }: NextSeating): Seating {
+  const seeded = seedFromGroupStageRound(nextRound);
+  state.byes[roundIndex + 1] = [...(nextRound.groupByes ?? [])];
+  return { ok: true, seeded };
+}
+
+function seatSwissRound({ state, roundIndex, nextRound, advancing }: NextSeating): Seating {
+  const config = generatedConfig(state);
+  if (!config) {
+    return {
+      ok: false,
+      refusal: {
+        status: 'blocked',
+        reason: 'missing-room-size',
+        message: MISSING_ROOM_SIZE_MESSAGE,
+        state,
+      },
+    };
+  }
+  const { roomSize } = config;
+  const paired = swissPair({
+    activeNames: advancing.map((entry) => entry.name),
+    throughRoundIndex: roundIndex,
+    roomSize,
+    state,
+    likelyAbsent: pairsAbsenteesInRound(state, nextRound, roundIndex + 1)
+      ? likelyAbsentees(state, roundIndex + 1)
+      : undefined,
+  });
+  const seeded = paired.seeded;
+  state.poolingByeCounts = paired.poolingByeCounts;
+  state.byes[roundIndex + 1] = paired.byeName ? [paired.byeName] : [];
+  return { ok: true, seeded };
+}
+
+function seatFirstKingsValleyRound(seating: NextSeating): Seating {
+  const { input, state, roundIndex, round, advancing, groupExit } = seating;
+  // Kings Valley's room sizes are fixed at generation time (distributeRooms()
+  // over the shrinking survivor count, no byes), so the units are seated into
+  // them exactly with sequentialSeed, as advanceKingsValley does for every
+  // later hop; this is the hop into the first Kings Valley round. A removal
+  // during pooling (or a reserve added while this round's window is open) can
+  // leave a survivor count that differs from the plan, and mutations.ts's
+  // rebuildFutureRounds re-plans with state.cfg.qualAdv, not the real number
+  // reaching the cutoff. So fitKingsValleyTail re-plans the whole ladder
+  // (Final included) to the real count first.
+  // The reshape at a roster change (rebuildFutureRounds) is a preview, so the Bracket shows the room sizes ahead:
+  // it may fail or be skipped, and a removal is never blocked by it. Next Round fits each round to the units that
+  // really arrive, and that is the rule.
+  const fitFailure = fitKingsValleyTail(state, roundIndex + 1, advancing.length);
+  if (fitFailure) return { ok: false, refusal: { status: 'blocked', ...fitFailure, state: input } };
+  const fittedNextRound = state.rounds[roundIndex + 1];
+  let seeded = sequentialSeed(
+    advancing.map((entry) => entry.name),
+    fittedNextRound.rooms,
+  );
+  if (round.isGroupStage) {
+    seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, groupExit);
+  }
+  return { ok: true, seeded };
+}
+
+/**
+ * The byes the next round gives, taken out of who is left to seat. A bye of a no-elimination round is counted
+ * on the working copy.
+ */
+function chooseByes(seating: NextSeating, roomSize: RoomSize): ByeChoice {
+  const { state, roundIndex, nextRound } = seating;
+  let { advancing } = seating;
+  const newByes: SeedCandidate[] = [];
+  const absentByeNames = new Set<string>();
+  const joiners = new Set(lateJoinersOf(state, roundIndex));
+  if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {
+    let needed = 0;
+    if (nextRound.bracketPhaseFirstRound) {
+      needed = nextPowerOf2AndRounds(advancing.length).bracketSize - advancing.length;
+    } else if (advancing.length % roomSize.ideal !== 0) {
+      needed = 1;
+    }
+    if (needed > 0) {
+      if (nextRound.isFinal) {
+        return {
+          ok: false,
+          refusal: {
+            status: 'blocked',
+            reason: 'malformed-final',
+            message: malformedOrdinaryFinalMessage(advancing.length),
+            state,
+          },
+        };
+      }
+      if (nextRound.isNoElim && needed === 1) {
+        const absentBye = absenteeBye(state, nextRound, roundIndex + 1, advancing, roomSize.ideal);
+        const chosen =
+          absentBye ?? selectPoolingBye(byeCandidates(advancing, joiners), state.poolingByeCounts);
+        if (absentBye) absentByeNames.add(absentBye.name);
+        if (chosen) {
+          newByes.push(chosen);
+          advancing = advancing.filter((entry) => entry !== chosen);
+          state.poolingByeCounts[chosen.name] = (state.poolingByeCounts[chosen.name] ?? 0) + 1;
+        }
+      } else {
+        const taken = byeCandidates(advancing, joiners).slice(0, needed);
+        newByes.push(...taken);
+        advancing = advancing.filter((entry) => !taken.includes(entry));
+      }
+    }
+  }
+  return { ok: true, advancing, newByes, absentByeNames };
+}
+
+/** Fits the next round to who is left to seat, draws it, and adds the units with a bye to its line-up. */
+function seatAndAppendByes(
+  { input, state, roundIndex, round, nextRound, groupExit }: NextSeating,
+  { advancing, newByes, absentByeNames }: Extract<ByeChoice, { ok: true }>,
+): Seating {
+  // A hand-authored waterfall graph keeps its room count and routes: fewer arrivals than it
+  // declares are drawn short (fitWaterfallRoundAt, not distributeRooms), more block.
+  const fitFailure = nextRound.isWaterfall
+    ? fitWaterfallRoundAt(state, roundIndex + 1, advancing.length)
+    : fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
+  if (fitFailure) return { ok: false, refusal: { status: 'blocked', ...fitFailure, state: input } };
+  const seedOptions = { state, roundIndex, advancing, seedingOverride: round.seedingOverride };
+  const seeded = isStandingsCutoffRound(state, roundIndex)
+    ? seedFromPoolingExit({ ...seedOptions, groupExit })
+    : tieredSeed(seedOptions).seeded;
+  state.roomHistory = recordRoomHistory(state.roomHistory, seeded, roundIndex + 1);
+  if (newByes.length) {
+    state.byes[roundIndex + 1] = newByes.map((entry) => entry.name);
+    seeded.push(
+      ...newByes.map((entry) => ({
+        name: entry.name,
+        room: null,
+        isLucky: false,
+        ...(absentByeNames.has(entry.name) ? { absentBye: true as const } : {}),
+      })),
+    );
+  }
+  return { ok: true, seeded };
+}
+
+/** A round of no special kind: its byes are chosen, then it is fitted to who is left and drawn. */
+function seatSeededRound(seating: NextSeating): Seating {
+  const { state } = seating;
+  const config = generatedConfig(state);
+  if (!config) {
+    return {
+      ok: false,
+      refusal: {
+        status: 'blocked',
+        reason: 'missing-room-size',
+        message: MISSING_ROOM_SIZE_MESSAGE,
+        state,
+      },
+    };
+  }
+  const { roomSize } = config;
+  const byes = chooseByes(seating, roomSize);
+  if (!byes.ok) return byes;
+  return seatAndAppendByes(seating, byes);
+}
+
+/** Seats the next round the way its kind asks for. */
+function seatNextRound(seating: NextSeating): Seating {
+  const { nextRound } = seating;
+  if (nextRound.fixedRoomAssignments) return seatFixedDraw(seating, nextRound.fixedRoomAssignments);
+  if (nextRound.isGroupStage) return seatGroupRound(seating);
+  if (nextRound.isSwiss) return seatSwissRound(seating);
+  if (nextRound.isKingsValley) return seatFirstKingsValleyRound(seating);
+  return seatSeededRound(seating);
 }
 
 /**
@@ -167,138 +375,11 @@ function advanceOrdinaryRound(
   round: TournamentRound,
   nextRound: TournamentRound,
 ): RoundAdvanceResult {
-  const { state, result, advancing: arriving } = whoGoesOn(base, roundIndex, round);
-  let advancing = arriving;
-
-  let seeded: RoundAssignment[];
-  if (nextRound.fixedRoomAssignments) {
-    // The whole schedule for this round was already decided at generation
-    // time (fixed-draws.ts) -- roomHistory/poolingByeCounts for it were
-    // already folded in there too (see generation.ts), so no
-    // recordRoomHistory call here, unlike every branch below.
-    seeded = nextRound.fixedRoomAssignments.map((entry) => ({ ...entry }));
-    state.byes[roundIndex + 1] = seeded.filter((entry) => entry.room === null).map((entry) => entry.name);
-  } else if (nextRound.isGroupStage) {
-    seeded = seedFromGroupStageRound(nextRound);
-    state.byes[roundIndex + 1] = [...(nextRound.groupByes ?? [])];
-  } else if (nextRound.isSwiss) {
-    const config = generatedConfig(state);
-    if (!config) {
-      return {
-        status: 'blocked',
-        reason: 'missing-room-size',
-        message: MISSING_ROOM_SIZE_MESSAGE,
-        state,
-      };
-    }
-    const { roomSize } = config;
-    const paired = swissPair({
-      activeNames: advancing.map((entry) => entry.name),
-      throughRoundIndex: roundIndex,
-      roomSize,
-      state,
-      likelyAbsent: pairsAbsenteesInRound(state, nextRound, roundIndex + 1)
-        ? likelyAbsentees(state, roundIndex + 1)
-        : undefined,
-    });
-    seeded = paired.seeded;
-    state.poolingByeCounts = paired.poolingByeCounts;
-    state.byes[roundIndex + 1] = paired.byeName ? [paired.byeName] : [];
-  } else if (nextRound.isKingsValley) {
-    // Kings Valley's room sizes are fixed at generation time (distributeRooms()
-    // over the shrinking survivor count, no byes), so the units are seated into
-    // them exactly with sequentialSeed, as advanceKingsValley does for every
-    // later hop; this is the hop into the first Kings Valley round. A removal
-    // during pooling (or a reserve added while this round's window is open) can
-    // leave a survivor count that differs from the plan, and mutations.ts's
-    // rebuildFutureRounds re-plans with state.cfg.qualAdv, not the real number
-    // reaching the cutoff. So fitKingsValleyTail re-plans the whole ladder
-    // (Final included) to the real count first.
-    // The reshape at a roster change (rebuildFutureRounds) is a preview, so the Bracket shows the room sizes ahead:
-    // it may fail or be skipped, and a removal is never blocked by it. Next Round fits each round to the units that
-    // really arrive, and that is the rule.
-    const fitFailure = fitKingsValleyTail(state, roundIndex + 1, advancing.length);
-    if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
-    const fittedNextRound = state.rounds[roundIndex + 1];
-    seeded = sequentialSeed(
-      advancing.map((entry) => entry.name),
-      fittedNextRound.rooms,
-    );
-    if (round.isGroupStage) {
-      seeded = avoidSameGroupInFirstBracketRound(seeded, state.groups, result.groupExit);
-    }
-  } else {
-    const config = generatedConfig(state);
-    if (!config) {
-      return {
-        status: 'blocked',
-        reason: 'missing-room-size',
-        message: MISSING_ROOM_SIZE_MESSAGE,
-        state,
-      };
-    }
-    const { roomSize } = config;
-    const newByes: SeedCandidate[] = [];
-    const absentByeNames = new Set<string>();
-    const joiners = new Set(lateJoinersOf(state, roundIndex));
-    if (state.gamemodeConfig.oddCountStrategy === 'bye' && !nextRound.isWaterfall) {
-      let needed = 0;
-      if (nextRound.bracketPhaseFirstRound) {
-        needed = nextPowerOf2AndRounds(advancing.length).bracketSize - advancing.length;
-      } else if (advancing.length % roomSize.ideal !== 0) {
-        needed = 1;
-      }
-      if (needed > 0) {
-        if (nextRound.isFinal) {
-          return {
-            status: 'blocked',
-            reason: 'malformed-final',
-            message: malformedOrdinaryFinalMessage(advancing.length),
-            state,
-          };
-        }
-        if (nextRound.isNoElim && needed === 1) {
-          const absentBye = absenteeBye(state, nextRound, roundIndex + 1, advancing, roomSize.ideal);
-          const chosen =
-            absentBye ?? selectPoolingBye(byeCandidates(advancing, joiners), state.poolingByeCounts);
-          if (absentBye) absentByeNames.add(absentBye.name);
-          if (chosen) {
-            newByes.push(chosen);
-            advancing = advancing.filter((entry) => entry !== chosen);
-            state.poolingByeCounts[chosen.name] = (state.poolingByeCounts[chosen.name] ?? 0) + 1;
-          }
-        } else {
-          const taken = byeCandidates(advancing, joiners).slice(0, needed);
-          newByes.push(...taken);
-          advancing = advancing.filter((entry) => !taken.includes(entry));
-        }
-      }
-    }
-    // A hand-authored waterfall graph keeps its room count and routes: fewer arrivals than it
-    // declares are drawn short (fitWaterfallRoundAt, not distributeRooms), more block.
-    const fitFailure = nextRound.isWaterfall
-      ? fitWaterfallRoundAt(state, roundIndex + 1, advancing.length)
-      : fitNextRound(state, roundIndex + 1, advancing.length, newByes.length);
-    if (fitFailure) return { status: 'blocked', ...fitFailure, state: input };
-    const seedOptions = { state, roundIndex, advancing, seedingOverride: round.seedingOverride };
-    seeded = isStandingsCutoffRound(state, roundIndex)
-      ? seedFromPoolingExit({ ...seedOptions, groupExit: result.groupExit })
-      : tieredSeed(seedOptions).seeded;
-    state.roomHistory = recordRoomHistory(state.roomHistory, seeded, roundIndex + 1);
-    if (newByes.length) {
-      state.byes[roundIndex + 1] = newByes.map((entry) => entry.name);
-      seeded.push(
-        ...newByes.map((entry) => ({
-          name: entry.name,
-          room: null,
-          isLucky: false,
-          ...(absentByeNames.has(entry.name) ? { absentBye: true as const } : {}),
-        })),
-      );
-    }
-  }
-
-  return finishOrdinaryRound(state, roundIndex, result, seeded);
+  const { state, result, advancing } = whoGoesOn(base, roundIndex, round);
+  const { groupExit } = result;
+  const seating = seatNextRound({ input, state, roundIndex, round, nextRound, advancing, groupExit });
+  if (!seating.ok) return seating.refusal;
+  return finishOrdinaryRound(state, roundIndex, result, seating.seeded);
 }
 
 /**
