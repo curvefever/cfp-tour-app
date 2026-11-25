@@ -1,8 +1,10 @@
+import { parseEliminationTargets } from './elimination-targets';
 import { wholeNumber } from './round-match-formats';
 import { getMinimumBracketUnits } from './schedule-generation';
 import { defaultSemisSize } from './single-elimination';
 import {
   type GenerationForm,
+  type PlanAfterEliminationOverrides,
   type PlanAfterFinalTargets,
   type PlanAfterScoring,
   type PlanAfterSizeOverrides,
@@ -142,4 +144,63 @@ export function planFinalTargets(
       winnersQualifiers,
     },
   };
+}
+
+/** The typed survivor counts of the elimination rounds, and the reseed mode of each. */
+export function planEliminationOverrides(
+  form: GenerationForm,
+  plan: PlanAfterFinalTargets,
+): Planned<PlanAfterEliminationOverrides> {
+  const { schedule, config, bracketEntryCount, unitPlural, semisOverride, semisDefault } = plan;
+  const { winnersQualifiers, prospectiveFinalSize, lbQualifiers } = plan;
+
+  // Elimination round-target override: an ordered list of exact survivor
+  // counts, replacing the automatic geometric-decay curve entirely for the
+  // WB elimination rounds leading into Semis (single-elimination) / the
+  // shared Final (double-elimination-shared-final). Its own length is the
+  // round-count override for these two formats -- no separate field needed.
+  const usesEliminationTargetOverrides =
+    schedule === 'single-elimination' || schedule === 'double-elimination-shared-final';
+  const parsedTargets = parseEliminationTargets(form.eliminationRoundTargets, {
+    schedule,
+    bracketEntryCount,
+    entryLabel:
+      config.poolingPhase !== 'none' ? 'number advancing to the bracket' : `registered ${unitPlural}`,
+    semisSize: semisOverride || semisDefault,
+    winnersQualifiers: winnersQualifiers ?? 0,
+    finalSize: prospectiveFinalSize,
+    lbQualifiers: lbQualifiers ?? 0,
+  });
+  if (!parsedTargets.ok) return refuse(parsedTargets.error);
+  const explicitTargets = parsedTargets.values;
+
+  // Elimination seeding-weight override: an ordered list of fixed reseed
+  // modes, index-aligned with eliminationRoundTargets -- only meaningful
+  // once that list pins down which round is which, since round identity
+  // doesn't exist before generation otherwise.
+  let explicitSeedingOverrides: Array<'diversity' | 'balance' | 'random' | undefined> | undefined;
+  if (form.eliminationSeedingOverrides.trim() && usesEliminationTargetOverrides) {
+    if (!explicitTargets) {
+      return refuse(
+        'Elimination seeding overrides require elimination round targets to also be set — seeding-override positions are addressed by that same ordered round list.',
+      );
+    }
+    const parts = form.eliminationSeedingOverrides.split(',').map((part) => part.trim());
+    if (parts.length !== explicitTargets.length) {
+      return refuse(
+        `Elimination seeding overrides (${parts.length} entries) must have exactly as many entries as elimination round targets (${explicitTargets.length}) — leave an entry blank to keep that round's reseed automatic.`,
+      );
+    }
+    const validModes = new Set(['', 'diversity', 'balance', 'random']);
+    if (parts.some((part) => !validModes.has(part))) {
+      return refuse(
+        `Each elimination seeding override must be blank (automatic), "diversity", "balance", or "random" — got "${form.eliminationSeedingOverrides}".`,
+      );
+    }
+    explicitSeedingOverrides = parts.map((part) =>
+      part === '' ? undefined : (part as 'diversity' | 'balance' | 'random'),
+    );
+  }
+
+  return { ok: true, plan: { ...plan, explicitTargets, explicitSeedingOverrides } };
 }

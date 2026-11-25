@@ -92,8 +92,14 @@ export interface PlanAfterFinalTargets extends PlanAfterSizeOverrides {
   winnersQualifiers: number | undefined;
 }
 
+export interface PlanAfterEliminationOverrides extends PlanAfterFinalTargets {
+  explicitTargets: number[] | undefined;
+  /** One reseed mode per target, undefined where that round's reseed stays automatic. */
+  explicitSeedingOverrides: Array<'diversity' | 'balance' | 'random' | undefined> | undefined;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterFinalTargets;
+export type TournamentPlan = PlanAfterEliminationOverrides;
