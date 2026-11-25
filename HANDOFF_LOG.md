@@ -6,6 +6,65 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2B: the Custom bracket graph in four files, its checks as a chain (done — 2026-11-25, on `test`, not pushed)
+
+**Context.** The second piece of cleanup part 2. `waterfall-bracket.ts` was the largest file of the engine, with several jobs (cleanup audit C3-3, `plans/2026-11-10-cleanup-audit-findings.md`), and `validateAndOrderWaterfallGraph` in it was one function of 339 lines (C3-1). The rigidity audit marked the seam (M3, `plans/2026-11-14-rigidity-audit-findings.md`): read the text, check a graph, order the rounds and number the columns. Plan: `plans/2026-11-25-cleanup-part-2-rest.md`, "Rules for every pass" and "2B". Behaviour does not change: no message, check, check order or stored field. Blocks were moved, not rewritten.
+
+**The files** (all in `src/domain/tournament/`; lines of code without blanks and comments, imports included):
+- `waterfall-graph-text.ts` (399): the grammar comment, the raw shape the parser reads, the labels and constants, `ok` and `err`, the two "undeclared" messages, the room letters, the parser with `parseWaterfallGraph`, and `expandRankTokens`.
+- `waterfall-graph-check.ts` (464 with the validator as one function, 606 as a chain): `validateAndOrderWaterfallGraph`, its rule functions and the helpers only it uses, with `SOURCE_RANK` (still private).
+- `waterfall-graph-order.ts` (166): `winsRoundsOf`, `winsBandsOf`, `topoFeeders`, `WaterfallColumnInput`, `assignWaterfallColumns`, `buildOrderedGraph`.
+- `waterfall-bracket.ts` (176): what a running tournament reads and the builder `waterfallBracketPhase`, under a new header.
+- `waterfall-parse-result.ts` (1): `WaterfallParseResult<T>`, importing nothing.
+
+The text and check files are over the plan's limit of about 350 lines; the reviewer accepted both, and neither is cut further. The importers (40 files of the old one at the start) are updated, with no re-export. New exports, needed by the cut: `RawRoundLine`, `RawRouteLine`, `SOURCE_LINE` (text); `winsRoundsOf`, `winsBandsOf`, `topoFeeders`, `buildOrderedGraph` (order); `removeSeatsFromLastRooms` (it stays beside `fitWaterfallRound` in `waterfall-bracket.ts`, and the check file imports it; the builder file does not import the check file). Three comments that pointed at moved content in the old file name its new file (`types.ts`, two; `waterfall-live-edit.test.ts`, one), as do the headers of `waterfall-best.ts` and `waterfall-wins.ts`.
+
+**The chain.** `validateAndOrderWaterfallGraph` is the list of its steps, each of which returns at once on a refusal. The steps run in the order the checks ran before, which is not the order of the rule numbers:
+1. `checkSourceLineAndRoomSizes`: the graph's Qual or Groups line against the pooling phase, then rule 1.
+2. `checkOneFinal`: rule 2.
+3. `groupRouteLines`: the ROUTES lines by round, and the undeclared round.
+4. `readRoomBands`: rules 3 to 5, round by round, with `singleRoomBands`, `severalRoomBands` and `checkBandDestinations`.
+5. `readEdges`: the edges, then the BEST lines (`resolveBestLines` stays here, after rules 3 to 5 and before the Qual line), the totals and the in-degrees.
+6. `readStandingsSource`: the Qual or Groups line or the entry round, and a round nothing feeds.
+7. `checkWinsBands`: the WINS rounds (named apart from `checkWinsRounds`, which it calls).
+8. `checkFixedPrefix`: a live edit's played rounds.
+9. `walkRoutes`: rules 6 and 8, Kahn's order.
+10. `checkRoundsSendOn`: rule 10.
+11. `checkDeclaredTotals`: rule 7.
+12. `checkHeadCount`: rule 9.
+13. `orderCheckedGraph`: the columns, the play order, the win targets and `buildOrderedGraph`.
+
+The chain is 30 lines of code and no function of the file is over 40.
+
+**The context.** One private interface per step that reads something, each extending the one before (`CheckInput` {graph, options}, then `CheckedAfterRoomSizes`, `...RouteLines`, `...RoomBands`, `...Edges`, `...StandingsSource`, `...Wins`, `...FixedPrefix`, `...RouteWalk`). No field is optional to satisfy the type checker and no `as` cast is added (13 casts and 6 non-null assertions before and after). The options' inline type is the private interface `CheckOptions`; the signature is the same. Steps 2, 10, 11 and 12 only check: each takes and returns the same type, as `checkFormatGates` does in 2A. So the types do not hold the order of 10 to 12, nor stop one of these four steps from being gutted: only the tests do.
+
+**Differences from the plan.**
+- `WaterfallParseResult<T>` is in a file of its own, not in the text file. The plan expected the loops of `waterfall-bracket.ts` with `waterfall-best.ts` and `waterfall-wins.ts` to go once the type moved to the text file. But the parser, which also moves there, calls `parseBestLine` and `splitWinsSuffix`, so with the type beside it both loops would only have changed partner. Found before any file was moved; the reviewer chose the separate file.
+- The plan said only the check file would import `waterfall-best.ts` and `waterfall-wins.ts`. The text, order and builder files use them too; none of that makes a loop.
+- Where the chain is not a pure move: each step takes what it reads out of the context at its top; the context holds the BEST map itself, so `best.value` reads `best`; step 4 is split where the code already branched on the number of rooms (the `if`/`else` is a choice between `singleRoomBands` and `severalRoomBands`, each building and returning its own destinations, and `checkBandDestinations` works out the round's key again); the comment on rules 6 and 8 moved from above the edges to `walkRoutes`, which it describes.
+
+**Commits** (`test`): `763e24b` (the text and result type files), `fc87532` (the order file), `be71c15` (the check file); `f632dd1`, `0aadc40`, `40390f0`, `44e8c7e`, `abecd1c` (the chain: steps 1 to 3, 4 and 5, 6 to 8, 9 and 10, 11 to 13).
+
+**How "no change" was checked.**
+- A temporary spec, never committed, recorded the whole result of `parseWaterfallGraph` and `validateAndOrderWaterfallGraph` (the ordered graph or the message) on `ab08644`, and compared every later run with it, key order and case order included: 11,242 cases (81 parse records and 11,161 validations; 3,762 ordered graphs and 162 distinct refusals). The graphs, 81 of them: the two examples; the app's own upper and lower and layered texts at 31, 37, 43 and 53; three BEST graphs; and every graph written out in full in a test file of the engine. Each was validated at two room sizes (the app's graphs at the FFA one), at no head count, its first round's total, its own counts, and 31, 37, 43 and 53; with no fixed prefix, its first round as one, and that with fixed columns; and with no standings source, a qualification table and a group stage. Ten of the validations are one refusal each for steps 1 to 4, 6 to 8 and 10 to 12. The BEST graphs were added before any code changed, because the first record held no accepted graph with a BEST line.
+- For the file moves, a script over the syntax tree: all 60 top-level declarations of the old file appear exactly once in the five files, with the same code and doc comments, the added `export` aside.
+- For the chain, a comparison of the file's lines before and after, indentation ignored: the only lines gone are the ones the differences above explain, two import lines and a header sentence.
+
+**Testing.** After each commit: the temporary spec, eslint and prettier on the changed files, types (no errors) and `vitest related` on them (the temporary spec among them): the file moves 255, 253 and 255 test files (6,848, 6,782 and 6,848 tests), each chain commit 233 files (6,495 tests). No test was added or changed beyond import lines and one comment. No live check and no smoke e2e (the plan lists none). Awkward counts: 31, 37, 43 and 53, as above.
+
+**The reviewer's mutation checks** on the chain, with the temporary spec back in place; it caught each one, and so did committed tests: rules 10 and 7 swapped (3 failures in `waterfall-validator-order.test.ts`); `checkHeadCount` skipped (5); `checkOneFinal` skipped (7); the fixed prefix ignored (15 in `vitest related`, `waterfall-bracket`, `waterfall-live-edit` and the order test among them). Steps 5 and 6 cannot be swapped: the types refuse it. Before the chain, a one-character change to a message failed the temporary spec.
+
+**Import loops** (`pnpm dlx madge --circular --extensions ts src/domain`): 12 on `ab08644`, 10 after the first file move and on `abecd1c`. The two gone are `waterfall-bracket.ts` with `waterfall-best.ts` and with `waterfall-wins.ts`; the other ten are the same.
+
+**Found, not changed.**
+- The checks key every map by the round's name in lower case, so the lower-casing is repeated and the lookups need forced types. Turning the names into positions once (C3-1's other suggestion) is a rewrite.
+- Rule 7 walks the rooms' destinations again beside the deduplicated edges: one needs "does an edge exist", the other a count per rank.
+- `readStandingsSource` adds the standings line's edges to `inDegree` in place, the map `readEdges` built, so that step changes a map its input holds.
+
+**Out of scope.** The draft parser's repeated checks (C3-4, `waterfall-draft.ts`); the app writing its own bracket as text and parsing it back (G6); naming every problem of a graph, not only the first (G7); any message wording; cutting `waterfall-draft.ts`.
+
+---
+
 ## Cleanup part 2A: generation cut into plan, build and start (done — 2026-11-25, on `test`, not pushed)
 
 **Context.** The first piece of cleanup part 2. `generateTournament` was about 640 lines doing thirteen jobs through about thirty loose variables (cleanup audit C1-1, `plans/2026-11-10-cleanup-audit-findings.md`). The rigidity audit marked how to cut it (M1, `plans/2026-11-14-rigidity-audit-findings.md`): plan the numbers (no names, no side effect), build the rounds and start the tournament, with one plan object passed between them. Plan: `plans/2026-11-25-cleanup-part-2a-generation.md`. Behaviour does not change: no message, check, check order or stored field. Blocks were moved, not rewritten.
