@@ -17,7 +17,8 @@ import {
   undeclaredRoundMessage,
   type StandingsSourceKind,
 } from './waterfall-graph-text';
-import { declaredWaterfallRooms, assignWaterfallColumns } from './waterfall-bracket';
+import { declaredWaterfallRooms } from './waterfall-bracket';
+import { assignWaterfallColumns } from './waterfall-graph-order';
 import type { WaterfallParseResult } from './waterfall-parse-result';
 import {
   bestLine,
