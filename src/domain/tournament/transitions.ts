@@ -97,18 +97,18 @@ function malformedOrdinaryFinalMessage(actual: number): string {
   return `Can't advance to the Final — an odd number of teams (${actual}) would be heading into it, which can't form a clean head-to-head match. This usually means a team was removed mid-tournament; check Manage Teams before advancing.`;
 }
 
-/**
- * Next Round of a round of no format of its own. `base` is the state to advance (the standings refreshed, a stale
- * draw ahead thrown away) and is what gets copied; `input` is the state the press was given. A refusal hands back
- * the working copy or `input`, depending on where it happens.
- */
-function advanceOrdinaryRound(
-  input: TournamentState,
-  base: TournamentState,
-  roundIndex: number,
-  round: TournamentRound,
-  nextRound: TournamentRound,
-): RoundAdvanceResult {
+type Advancement = ReturnType<typeof roomBasedComputeAdvancement>;
+
+interface UnitsGoingOn {
+  /** The working copy the rest of the advance writes to. */
+  state: TournamentState;
+  result: Advancement;
+  /** In seeding order, each unit once: the byes of the round played first, late joiners last. */
+  advancing: SeedCandidate[];
+}
+
+/** The units of the round played that go on, on a copy of `base` with the standings the cut was read from. */
+function whoGoesOn(base: TournamentState, roundIndex: number, round: TournamentRound): UnitsGoingOn {
   const state = cloneForTransition(base);
   const result = roomBasedComputeAdvancement(state, roundIndex);
   if (result.qualTable) state.qualTable = result.qualTable;
@@ -133,6 +133,42 @@ function advanceOrdinaryRound(
     advancing = withLateJoiners(advancing, lateJoinersOf(state, roundIndex));
   }
   advancing = uniqueKeepingLast(advancing);
+  return { state, result, advancing };
+}
+
+/** The end of an ordinary advance, the next round seated: its lucky losers, its line-up and `curRound` on it. */
+function finishOrdinaryRound(
+  state: TournamentState,
+  roundIndex: number,
+  result: Advancement,
+  seeded: RoundAssignment[],
+): RoundAdvanceResult {
+  // Set after every branch above, including the Kings Valley one -- its own
+  // fitKingsValleyTail can rebuild state.luckyLosers wholesale when it
+  // re-fits the tail, which would otherwise clobber an earlier write here.
+  if (result.luckyNames !== null) {
+    state.luckyLosers[roundIndex + 1] = result.luckyNames;
+  }
+  state.curRound += 1;
+  state.assignments[state.curRound] = seeded;
+  state.reserveOpen = reserveWindowAtCurrentRound(state);
+  return { status: 'advanced', state };
+}
+
+/**
+ * Next Round of a round of no format of its own. `base` is the state to advance (the standings refreshed, a stale
+ * draw ahead thrown away) and is what gets copied; `input` is the state the press was given. A refusal hands back
+ * the working copy or `input`, depending on where it happens.
+ */
+function advanceOrdinaryRound(
+  input: TournamentState,
+  base: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+  nextRound: TournamentRound,
+): RoundAdvanceResult {
+  const { state, result, advancing: arriving } = whoGoesOn(base, roundIndex, round);
+  let advancing = arriving;
 
   let seeded: RoundAssignment[];
   if (nextRound.fixedRoomAssignments) {
@@ -262,16 +298,7 @@ function advanceOrdinaryRound(
     }
   }
 
-  // Set after every branch above, including the Kings Valley one -- its own
-  // fitKingsValleyTail can rebuild state.luckyLosers wholesale when it
-  // re-fits the tail, which would otherwise clobber an earlier write here.
-  if (result.luckyNames !== null) {
-    state.luckyLosers[roundIndex + 1] = result.luckyNames;
-  }
-  state.curRound += 1;
-  state.assignments[state.curRound] = seeded;
-  state.reserveOpen = reserveWindowAtCurrentRound(state);
-  return { status: 'advanced', state };
+  return finishOrdinaryRound(state, roundIndex, result, seeded);
 }
 
 /**
