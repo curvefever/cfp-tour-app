@@ -1,5 +1,5 @@
 import type { OrderedWaterfallGraph, RoomSize } from './types';
-import { addBestEdges, applyBestSeats, resolveBestLines } from './waterfall-best';
+import { addBestEdges, applyBestSeats, resolveBestLines, type ResolvedBest } from './waterfall-best';
 import { removeSeatsFromLastRooms } from './waterfall-bracket';
 import {
   assignWaterfallColumns,
@@ -203,6 +203,21 @@ interface CheckedAfterRouteLines extends CheckedAfterRoomSizes {
   routesByLabel: Map<string, RawRouteLine[]>;
 }
 
+interface CheckedAfterRoomBands extends CheckedAfterRouteLines {
+  /** Per round and room, the destination label of every rank; the Final has none. */
+  roomBandsByLabel: Map<string, string[][]>;
+}
+
+interface CheckedAfterEdges extends CheckedAfterRoomBands {
+  /** The rounds each round routes into, the BEST lines' among them. */
+  destinationsByLabel: Map<string, Set<string>>;
+  best: Map<string, ResolvedBest>;
+  labels: string[];
+  totalByLabel: Map<string, number>;
+  /** How many rounds route into each round; the next step adds the standings line to it. */
+  inDegree: Map<string, number>;
+}
+
 /** The line the graph has against the one the tournament wants, then rule 1. */
 function checkSourceLineAndRoomSizes(input: CheckInput): WaterfallParseResult<CheckedAfterRoomSizes> {
   const { graph, options } = input;
@@ -260,19 +275,92 @@ function groupRouteLines(checked: CheckedAfterRoomSizes): WaterfallParseResult<C
   return ok({ ...checked, routesByLabel });
 }
 
-export function validateAndOrderWaterfallGraph(
-  graph: RawWaterfallGraph,
-  options: CheckOptions,
-): WaterfallParseResult<OrderedWaterfallGraph> {
-  const sized = checkSourceLineAndRoomSizes({ graph, options });
-  if (!sized.ok) return sized;
-  const withFinal = checkOneFinal(sized.value);
-  if (!withFinal.ok) return withFinal;
-  const routed = groupRouteLines(withFinal.value);
-  if (!routed.ok) return routed;
-  const { kind, roundByLabel, routesByLabel } = routed.value;
-  const { roundLines } = graph;
-  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
+/** Rule 3 for a round of one room, with its bands (rule 4): the destination label of every rank. */
+function singleRoomBands(round: RawRoundLine, routes: RawRouteLine[]): WaterfallParseResult<string[][]> {
+  const roomDestinations: string[][] = new Array(1);
+  if (routes.length > 1) {
+    return err(
+      `Round "${round.label}" has more than one ROUTES line -- it has only 1 room, combine them into one.`,
+    );
+  }
+  if (routes.length === 0) {
+    roomDestinations[0] = allEliminated(round.roomSizes[0]);
+  } else {
+    if (routes[0].room !== null) {
+      return err(
+        `Round "${round.label}" has only 1 room -- address it as "${round.label}", not "${round.label}.${roomIndexToLetter(routes[0].room)}".`,
+      );
+    }
+    const built = buildRoomDestinations(round.label, round.roomSizes[0], routes[0].bands);
+    if (!built.ok) return built;
+    roomDestinations[0] = built.value;
+  }
+  return ok(roomDestinations);
+}
+
+/** Rule 3 for a round of several rooms, with their bands (rule 4): per room, the destination label of every rank. */
+function severalRoomBands(round: RawRoundLine, routes: RawRouteLine[]): WaterfallParseResult<string[][]> {
+  const roomCount = round.roomSizes.length;
+  const roomDestinations: string[][] = new Array(roomCount);
+  const seenRooms = new Set<number>();
+  for (const route of routes) {
+    if (route.room === null) {
+      return err(
+        `Round "${round.label}" has ${roomCount} rooms -- address each one as "${round.label}.A", "${round.label}.B", etc.`,
+      );
+    }
+    if (route.room < 1 || route.room > roomCount) {
+      return err(
+        `Round "${round.label}" only has ${roomCount} room(s) -- "${round.label}.${roomIndexToLetter(route.room)}" is out of range.`,
+      );
+    }
+    if (seenRooms.has(route.room)) {
+      return err(
+        `Round "${round.label}.${roomIndexToLetter(route.room)}" has more than one ROUTES line -- combine them into one.`,
+      );
+    }
+    seenRooms.add(route.room);
+    const built = buildRoomDestinations(
+      `${round.label}.${roomIndexToLetter(route.room)}`,
+      round.roomSizes[route.room - 1],
+      route.bands,
+    );
+    if (!built.ok) return built;
+    roomDestinations[route.room - 1] = built.value;
+  }
+  for (let room = 1; room <= roomCount; room += 1) {
+    if (!seenRooms.has(room)) roomDestinations[room - 1] = allEliminated(round.roomSizes[room - 1]);
+  }
+  return ok(roomDestinations);
+}
+
+/** Rule 5: every destination is a declared round, and not the round itself. */
+function checkBandDestinations(
+  round: RawRoundLine,
+  roomDestinations: string[][],
+  roundByLabel: Map<string, RawRoundLine>,
+): WaterfallParseResult<null> {
+  const key = round.label.toLowerCase();
+  for (const destinations of roomDestinations) {
+    for (const destinationLabel of destinations) {
+      const destKey = destinationLabel.toLowerCase();
+      if (destKey === ELIMINATED) continue;
+      if (!roundByLabel.has(destKey)) {
+        return err(undeclaredDestinationMessage(`Round "${round.label}"`, destinationLabel));
+      }
+      if (destKey === key) {
+        return err(
+          `Round "${round.label}" routes to itself -- a band's destination must be a different round.`,
+        );
+      }
+    }
+  }
+  return ok(null);
+}
+
+function readRoomBands(checked: CheckedAfterRouteLines): WaterfallParseResult<CheckedAfterRoomBands> {
+  const { roundLines } = checked.graph;
+  const { roundByLabel, routesByLabel } = checked;
 
   // Rule 3 + overlap check (rule 4; uncovered ranks are eliminated) + destination existence/self-loop (rule 5):
   // resolve every round's per-room destination-label arrays.
@@ -288,73 +376,20 @@ export function validateAndOrderWaterfallGraph(
       }
       continue;
     }
-    const roomCount = round.roomSizes.length;
-    const roomDestinations: string[][] = new Array(roomCount);
-    if (roomCount === 1) {
-      if (routes.length > 1) {
-        return err(
-          `Round "${round.label}" has more than one ROUTES line -- it has only 1 room, combine them into one.`,
-        );
-      }
-      if (routes.length === 0) {
-        roomDestinations[0] = allEliminated(round.roomSizes[0]);
-      } else {
-        if (routes[0].room !== null) {
-          return err(
-            `Round "${round.label}" has only 1 room -- address it as "${round.label}", not "${round.label}.${roomIndexToLetter(routes[0].room)}".`,
-          );
-        }
-        const built = buildRoomDestinations(round.label, round.roomSizes[0], routes[0].bands);
-        if (!built.ok) return built;
-        roomDestinations[0] = built.value;
-      }
-    } else {
-      const seenRooms = new Set<number>();
-      for (const route of routes) {
-        if (route.room === null) {
-          return err(
-            `Round "${round.label}" has ${roomCount} rooms -- address each one as "${round.label}.A", "${round.label}.B", etc.`,
-          );
-        }
-        if (route.room < 1 || route.room > roomCount) {
-          return err(
-            `Round "${round.label}" only has ${roomCount} room(s) -- "${round.label}.${roomIndexToLetter(route.room)}" is out of range.`,
-          );
-        }
-        if (seenRooms.has(route.room)) {
-          return err(
-            `Round "${round.label}.${roomIndexToLetter(route.room)}" has more than one ROUTES line -- combine them into one.`,
-          );
-        }
-        seenRooms.add(route.room);
-        const built = buildRoomDestinations(
-          `${round.label}.${roomIndexToLetter(route.room)}`,
-          round.roomSizes[route.room - 1],
-          route.bands,
-        );
-        if (!built.ok) return built;
-        roomDestinations[route.room - 1] = built.value;
-      }
-      for (let room = 1; room <= roomCount; room += 1) {
-        if (!seenRooms.has(room)) roomDestinations[room - 1] = allEliminated(round.roomSizes[room - 1]);
-      }
-    }
-    for (const destinations of roomDestinations) {
-      for (const destinationLabel of destinations) {
-        const destKey = destinationLabel.toLowerCase();
-        if (destKey === ELIMINATED) continue;
-        if (!roundByLabel.has(destKey)) {
-          return err(undeclaredDestinationMessage(`Round "${round.label}"`, destinationLabel));
-        }
-        if (destKey === key) {
-          return err(
-            `Round "${round.label}" routes to itself -- a band's destination must be a different round.`,
-          );
-        }
-      }
-    }
-    roomBandsByLabel.set(key, roomDestinations);
+    const rooms =
+      round.roomSizes.length === 1 ? singleRoomBands(round, routes) : severalRoomBands(round, routes);
+    if (!rooms.ok) return rooms;
+    const destinationsChecked = checkBandDestinations(round, rooms.value, roundByLabel);
+    if (!destinationsChecked.ok) return destinationsChecked;
+    roomBandsByLabel.set(key, rooms.value);
   }
+  return ok({ ...checked, roomBandsByLabel });
+}
+
+/** The edges between the rounds, the BEST lines' among them, with each round's seats and in-degree. */
+function readEdges(checked: CheckedAfterRoomBands): WaterfallParseResult<CheckedAfterEdges> {
+  const { graph, roundByLabel, roomBandsByLabel } = checked;
+  const { roundLines } = graph;
 
   // Rule 6 (DAG) + rule 8 (reachability), via Kahn's algorithm. Without a
   // Qual source it also proves, as a byproduct, that there is exactly one
@@ -396,6 +431,27 @@ export function validateAndOrderWaterfallGraph(
       inDegree.set(destination, (inDegree.get(destination) ?? 0) + 1);
     }
   }
+  return ok({ ...checked, destinationsByLabel, best: best.value, labels, totalByLabel, inDegree });
+}
+
+export function validateAndOrderWaterfallGraph(
+  graph: RawWaterfallGraph,
+  options: CheckOptions,
+): WaterfallParseResult<OrderedWaterfallGraph> {
+  const sized = checkSourceLineAndRoomSizes({ graph, options });
+  if (!sized.ok) return sized;
+  const withFinal = checkOneFinal(sized.value);
+  if (!withFinal.ok) return withFinal;
+  const routed = groupRouteLines(withFinal.value);
+  if (!routed.ok) return routed;
+  const banded = readRoomBands(routed.value);
+  if (!banded.ok) return banded;
+  const edged = readEdges(banded.value);
+  if (!edged.ok) return edged;
+  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel, inDegree } =
+    edged.value;
+  const { roundLines } = graph;
+  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
 
   // The Qual source: the Qual line as written, or, for a qualification-table
   // graph without one, the older "everyone entering the bracket goes to the
@@ -434,7 +490,7 @@ export function validateAndOrderWaterfallGraph(
   const winsChecked = checkWinsRounds(
     winsRounds,
     winsBands,
-    [...best.value.values()].map((line) => line.destinationKey),
+    [...best.values()].map((line) => line.destinationKey),
   );
   if (!winsChecked.ok) return winsChecked;
 
@@ -518,7 +574,7 @@ export function validateAndOrderWaterfallGraph(
   for (const round of roundLines) {
     const rooms = roomBandsByLabel.get(round.label.toLowerCase()) ?? [];
     const sendsNobody =
-      !best.value.has(round.label.toLowerCase()) &&
+      !best.has(round.label.toLowerCase()) &&
       rooms.every((destinations) => nonEliminatedLabels(destinations).length === 0);
     if (round.isRanking && !sendsNobody) {
       return err(
@@ -547,7 +603,7 @@ export function validateAndOrderWaterfallGraph(
   for (const destKey of incomingLabels) {
     incomingCountByLabel.set(destKey, (incomingCountByLabel.get(destKey) ?? 0) + 1);
   }
-  applyBestSeats(incomingCountByLabel, best.value);
+  applyBestSeats(incomingCountByLabel, best);
   const lineIncomingByLabel = countByLabel(nonEliminatedLabels(qualLabels ?? []));
   for (const round of roundLines) {
     const key = round.label.toLowerCase();
@@ -617,7 +673,7 @@ export function validateAndOrderWaterfallGraph(
       roundByLabel,
       roomBandsByLabel,
       qualLabels,
-      best.value,
+      best,
       winTargets.value,
     ),
   );
