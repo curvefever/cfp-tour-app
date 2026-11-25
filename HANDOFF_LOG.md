@@ -6,6 +6,49 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2A: generation cut into plan, build and start (done — 2026-11-25, on `test`, not pushed)
+
+**Context.** The first piece of cleanup part 2. `generateTournament` was about 640 lines doing thirteen jobs through about thirty loose variables (cleanup audit C1-1, `plans/2026-11-10-cleanup-audit-findings.md`). The rigidity audit marked how to cut it (M1, `plans/2026-11-14-rigidity-audit-findings.md`): plan the numbers (no names, no side effect), build the rounds and start the tournament, with one plan object passed between them. Plan: `plans/2026-11-25-cleanup-part-2a-generation.md`. Behaviour does not change: no message, check, check order or stored field. Blocks were moved, not rewritten.
+
+**The shape** (all in `src/domain/tournament/`):
+- `generation.ts`: `generateTournament` is plan, refuse or go on; build, refuse or go on; start. `buildRounds` (`buildScheduleRounds`, `validateRoomCap`, the match-results check on the rounds) answers with the `ScheduleRounds` type.
+- `generation-plan.ts`: `planTournament(form, current)`, which chains the steps; the roster, pooling settings and pooling round counts steps; `registeredBelowFloorMessage`.
+- `generation-plan-shape.ts`: `planBracketShape` (room size, odd-count strategy, the typed or derived graph, "Advance to bracket") and `planBracketEntry`.
+- `generation-plan-scoring.ts`: `planScoring` (Custom points table, match results).
+- `generation-plan-gates.ts`: `checkFormatGates` (what each format and odd-count strategy allows; refuses and adds nothing).
+- `generation-plan-bracket.ts`: `planSizeOverrides`, `planFinalTargets`, `planEliminationOverrides`, `planStoredSettings` (`gamemodeConfig`).
+- `generation-plan-types.ts`: `GenerationForm`, `GenerationConfig`, `Planned<T>`, `refuse`, the plan types. A file of its own so the step files need nothing from `generation-plan.ts`.
+- `generation-start.ts`: `startTournament` (group standings, the stored `cfg`, the starting state, the finalist aliases) and `drawFirstRound` (the draw of round 1).
+
+**The plan object.** One type per step, each extending the one before (`PlanAfterRoster` ... `PlanAfterStoredSettings`); `TournamentPlan` is the last. No field is optional or `any` to satisfy the type checker, and no `as` cast is added. `planTournament` takes no runtime and changes nothing it is given: `planBracketShape` works on a copy of `config`, because "Advance to bracket" (or the Groups line) overwrites the `qualAdv` placeholder there. That block is the only one that writes `qualAdv` (the plan file also names the entry-count step; that one reassigns the graph). `graphText` and the two `graphHas...` flags are in the plan because `planBracketEntry` reads them.
+
+**Differences from the plan and from M1.**
+- `gamemodeConfig` is the last step of the plan, not part of "start" as M1 had it: `buildScheduleRounds` reads it, so it exists before the rounds. It holds numbers only.
+- `startTournament(plan, progression, current, form, runtime)` also takes the form: the state stores `form.gameFormat` and the settings snapshot, and passing the form keeps the plan numbers only.
+- `registeredBelowFloorMessage` moved to `generation-plan.ts` (in `generation.ts` it would have made an import circle); `upper-lower-form.ts`, its one other importer, follows. No re-export.
+- Two files more than the plan's layout (scoring and gates), so each new file stays under 300 lines.
+- Two moved comments that said "below" about code now in another file name `planBracketShape` (`cdfefd7`).
+
+**Commits** (`test`): `fa9e5f7`, `f600fb1`, `4021b31`, `017faf9` (the roster, pooling settings, bracket shape and pooling rounds steps); `b315aeb`, `ff1ee87`, `9e5e0eb`, `11566a3`, `3171662`, `91c79ba` (entry count, scoring, gates, overrides, elimination overrides, stored settings); `c2f5321` (`buildRounds`), `fb57c12` (`startTournament`), `cdfefd7` (the two comments).
+
+**How "no change" was checked.** A temporary spec, never committed and deleted after the last code commit, called `generateTournament` with the tests' seeded runtime and compared the result, and the state and form after the call, as text, so key order and keys holding `undefined` counted. The baseline was written on `2a40fd4`. 32 cases, 25 that generate and 7 refusals: FFA qualification table into single elimination at 31, 37, 43 and 53, with a Semis override, a Final override, and a round-count override with a non-counting round; 1v1 Swiss at 31 and 53, and with its override; 1v1 group stage at 37 (per group and fair cut); Kings Valley at 53; Custom bracket after a qualification table (37), after a group stage (43) and with no pooling (31); upper and lower at 43; layered at 53; double elimination 1v1 at 31 with warm-ups; shared-Final FFA at 37 with LB qualifiers; 2v2v2v2 at 31 teams; 4v4 at 37 teams with a points table, and with match results; elimination targets with seeding overrides at 43; fixed draw publication at 37; the refusals of Kings Valley over its limit, no roster, group size, "Advance to bracket" below the floor, a rising points table, LB qualifiers and the seeding override count. One case (the 4v4 points table) first held a team scoring rule that does not exist; it was corrected and recorded again on the original code. The refusal pairs are pinned by `generation-check-order.test.ts`, unchanged.
+
+**Testing.** After each step: the spec and the five generation test files. At the end of each stage: eslint, prettier, types and `vitest related` on the changed files (at `cdfefd7`: 227 files, 6334 tests, the 32 temporary ones among them; 0 type errors). No test was added or changed. No live check and no smoke e2e (the plan lists none). Awkward counts: 31, 37, 43 and 53, as above. The reviewer's mutation checks on the five generation test files each failed a test: the stale `config` returned by `planBracketShape` (30 failures), the non-counting rounds dropped (2), the Kings Valley head-to-head gate off (5), the stored Semis size ignoring its override (1), the round 1 bye branch skipped (5), the long-match check off (1).
+
+**Import circles** (`pnpm dlx madge --circular --extensions ts src/domain`). In the repo: 12 at `91c79ba` (before the build and start stage) and 12 at `cdfefd7`, the same list. On `git archive` copies of `src/domain`: 15 at `2a40fd4`, `91c79ba` and `cdfefd7`, the same list; a bare copy resolves fewer imports (9 warnings), so 15 and 12 are not comparable. No circle holds a generation file. The 9 the plan quotes from part 1C was not reproduced.
+
+**Full suite:** to be recorded by the reviewer.
+
+**Found, not changed.**
+- `planRoster` computes the floor (`floorMin`), then `registeredBelowFloorMessage` asks `getMinimumBracketUnits` again with the same arguments.
+- `checkFormatGates` builds the same list of alternative odd-count strategies twice.
+- `eliminationEntryCount` (`checkFormatGates`) and `overrideEntryCount` (`planSizeOverrides`) only rename `bracketEntryCount`.
+- `rosterKeys(current.players)` is read twice, in `generateTournament` for `buildRounds` and in `startTournament`.
+
+**Out of scope.** The "worked out or typed" flag per number of the decisions display (added by the build that shows it, on this plan object); the other long functions and files with many jobs; one function that gives the rounds in all three places (C3b-2), beyond `buildRounds` taking the plan; settings stored twice (C1-2); moving the round 1 draw out of generation (C1-10); any wording, check, stored field or test assertion.
+
+---
+
 ## The schedule picture opens from the FORMAT card (done — 2026-11-24, `f186f98`, on `main` with the schedule picture build)
 
 **Context.** After seeing the schedule picture as a SCHEDULE section on Info, the organiser found the page "information-heavy enough" and asked for a way in that adds no clutter. Mockups of the Info top row (a third card, a thumbnail strip in FORMAT, a link only) led to the FORMAT card; a crop of the real picture "does not look good", so the card carries a generic bracket drawing instead, drawn in four formats (wide strip, compact two-sided, one-sided, icon). The organiser chose the one-sided tree to the right of the text (read left to right like the Bracket tab), a window over the page rather than an expansion in place, and the wording "Preview the whole schedule" ("See" was deceptive). Current state: `docs/views.md`, Info.
