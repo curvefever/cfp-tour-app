@@ -26,10 +26,10 @@ import type { PendingBracketSeed, TournamentRound, TournamentState } from './typ
 import {
   declaredWaterfallRooms,
   fitWaterfallRound,
-  validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
   waterfallStandingsRoutes,
 } from './waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from './waterfall-graph-check';
 import { parseWaterfallGraph } from './waterfall-graph-text';
 
 /**

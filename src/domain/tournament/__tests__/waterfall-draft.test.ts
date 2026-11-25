@@ -5,7 +5,8 @@ import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { RoomSize } from '../types';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
+import { waterfallBracketPhase } from '../waterfall-bracket';
 import { pressNextRound, scoreCurrentRound } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import {

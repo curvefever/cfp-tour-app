@@ -7,7 +7,7 @@ import { createDefaultSetup, createDefaultTournamentState } from '../state-defau
 import type { TournamentState, TournamentTeam } from '../types';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { pressNextRound, scoreCurrentRound } from './play-through';
 import { startedState } from './test-fixtures';
 

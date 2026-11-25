@@ -21,7 +21,7 @@ import type { TournamentState, TournamentTeam } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { pressNextRound, scoreCurrentRound } from './play-through';
 import { buildRound, startedState } from './test-fixtures';
 

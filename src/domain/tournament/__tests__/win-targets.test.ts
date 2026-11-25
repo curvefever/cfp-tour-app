@@ -16,7 +16,8 @@ import { computeRankings, isFinalComplete } from '../rankings';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { OrderedWaterfallGraph, RoomSize, RoundAssignment, TournamentState } from '../types';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
+import { waterfallBracketPhase } from '../waterfall-bracket';
 import {
   parseWaterfallDraft,
   renameWaterfallRound,

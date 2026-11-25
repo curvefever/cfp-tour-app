@@ -9,7 +9,7 @@ import { createDefaultSetup } from '../state-defaults';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 
 describe('parseAdvanceToBracket', () => {
   it.each([

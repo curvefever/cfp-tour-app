@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { RoomSize, TournamentRound } from '../types';
 import { roundDestinations } from '../waterfall-best';
-import { advancingSeats, validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
+import { advancingSeats, waterfallBracketPhase } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
 import { buildQualWaterfall } from './qual-waterfall';
 

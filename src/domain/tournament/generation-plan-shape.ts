@@ -5,7 +5,7 @@ import { groupSizesOf } from './group-settings';
 import { layeredGraphFor } from './layered-form';
 import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { parseWaterfallGraph } from './waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from './waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from './waterfall-graph-check';
 import {
   type GenerationForm,
   type PlanAfterBracketEntry,

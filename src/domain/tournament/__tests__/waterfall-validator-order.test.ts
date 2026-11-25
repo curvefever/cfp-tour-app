@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoomSize } from '../types';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 
 /**
  * Which refusal the organiser sees when a Custom bracket graph breaks two rules is the order of the checks in

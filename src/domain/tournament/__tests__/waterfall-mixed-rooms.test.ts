@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { RoomSize, TournamentRound } from '../types';
 import { bestMoves } from '../waterfall-best';
-import { advancingSeats, fitWaterfallRound, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { advancingSeats, fitWaterfallRound } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
 import {
   assignWaterfallSlots,

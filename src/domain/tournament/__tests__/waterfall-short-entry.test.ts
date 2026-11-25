@@ -3,7 +3,7 @@ import { computeRankings } from '../rankings';
 import { roundsInPlay } from '../round-columns';
 import type { RoomSize, TournamentState } from '../types';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { canGoBack, goBack, isRoundScored } from '../waterfall-steps';
 import {

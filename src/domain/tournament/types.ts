@@ -381,7 +381,7 @@ export interface MaterializedGamemodeConfig {
   explicitTargets?: number[];
   /** Organiser-supplied fixed reseed mode per WB elimination round, index-aligned with explicitTargets. Only valid alongside explicitTargets -- see generation.ts. */
   explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
-  /** The organiser's parsed/validated waterfall routing graph (waterfall-bracket.ts), only present when bracketPhase === 'waterfall-bracket'. Consumed once by waterfallBracketPhase() at generation time -- every round's own rank-band routing lives on TournamentRound.waterfallRoutes after that, so nothing downstream reads this back off state. */
+  /** The organiser's parsed/validated waterfall routing graph (waterfall-graph-check.ts), only present when bracketPhase === 'waterfall-bracket'. Consumed once by waterfallBracketPhase() at generation time -- every round's own rank-band routing lives on TournamentRound.waterfallRoutes after that, so nothing downstream reads this back off state. */
   graph?: OrderedWaterfallGraph;
   bracketPhase: ScheduleLogicKey;
   finalsGames: number;

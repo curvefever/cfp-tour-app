@@ -7,7 +7,7 @@ import {
   QUAL_LABEL,
   type StandingsSourceKind,
 } from '../../../domain/tournament/waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../../../domain/tournament/waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../../../domain/tournament/waterfall-graph-check';
 import {
   addWaterfallRound,
   assignWaterfallSlots,

@@ -11,7 +11,7 @@ import {
   type UpperLowerRound,
 } from '../upper-lower';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
-import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 
 const roomOf = (key: string): RoomSize => deriveRoomSize(getGameFormat(key as never) as never);
 const FFA = roomOf('ffa-individual');
