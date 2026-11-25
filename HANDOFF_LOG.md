@@ -45,6 +45,8 @@ A syntax-tree comparison after stage 1 found all 35 top-level declarations of th
 
 **Testing.** No test added or removed and no assertion changed. Import lines only: `groups-line.test.ts`, `layered-replan.test.ts`, twelve domain tests of Previous, `AnonymousFinalists.render.test.tsx`, `RoomCardOrdered.render.test.tsx` and `e2e/screens/fixtures.ts` (type-checked and linted, not run). Per commit that moved or cut code: eslint, `prettier --check` and the type check clean; `vitest related` between 182 files with 5,278 tests and 199 files with 5,697 tests, all passed. The commit of four comment pointers had eslint, `prettier --check` and the harness. No live check or e2e (the plan lists none).
 
+**Full suite**: passed on `8aaa6d6` (7,604 tests in 311 files, worktree copies excluded). Reviewer: lint, `prettier --check` and types clean over the 32 changed code files.
+
 **The reviewer's mutations.** Ties and absence checks swapped in the switchboard: caught by tests. Lucky losers written before the seating: caught by the harness only, and invisible today (below). Late joiners put before the round's byes: equivalent, because `lateJoinersOf` leaves out the units with a bye. The Swiss refusal handing back `input`: caught by the harness only (C2-7: no caller reads it, so it is not pinned). Previous without the finalist names (`goBack` skipping `withFinalistAliasesForLineup`): caught by tests.
 
 **Found, not changed.**
