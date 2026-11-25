@@ -1,3 +1,4 @@
+import type { MatchResultPoints } from './match-results';
 import type { matchFormatConfig } from './round-match-formats';
 import type {
   GameFormatDefinition,
@@ -69,8 +70,13 @@ export interface PlanAfterBracketEntry extends PlanAfterPoolingRounds {
   bracketEntryCount: number;
 }
 
+export interface PlanAfterScoring extends PlanAfterBracketEntry {
+  positionalPointsTable: number[] | undefined;
+  matchResults: { points: MatchResultPoints; tieMargin: number } | undefined;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterBracketEntry;
+export type TournamentPlan = PlanAfterScoring;
