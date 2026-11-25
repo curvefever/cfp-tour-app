@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  compareStandings,
   computeGroupStandings,
   getAllTies,
   hasPendingTies,
   roomBasedComputeAdvancement,
-  sameStanding,
 } from '../advancement';
+import { compareStandings, sameStanding } from '../standing-compare';
 import { type GroupMatchPoints, groupSeats, sameGroupStanding, withHeadToHead } from '../group-standings';
 import { usesGroupAverages } from '../rule-versions';
 import { removeRosterUnit } from '../mutations';

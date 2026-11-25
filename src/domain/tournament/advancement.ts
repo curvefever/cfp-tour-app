@@ -46,44 +46,10 @@ import { rosterKeys } from './roster';
 import { plainRoundName } from './round-name';
 import type { StandingRoundResult, TournamentRound, TournamentStanding, TournamentState } from './types';
 import { isCurrentRound, isRoundDone, roundsInPlay } from './round-columns';
+import { isLastGroupStageRound, isLastStandingsRound, isStandingsCutoffRound } from './cutoff-rounds';
+import { compareStandings, rankingPoints, sameStanding } from './standing-compare';
 
-/** Room shares and points closer than this count as equal (floating-point ratios and sums of shared-place averages). */
-const EQUALITY_TOLERANCE = 1e-9;
-
-/** Equal within the tolerance; a missing value is null and equals only another null. */
-function sameWithinTolerance(first: number | null, second: number | null): boolean {
-  if (first === null || second === null) return first === second;
-  return Math.abs(first - second) < EQUALITY_TOLERANCE;
-}
-
-/** Room shares are equal; a missing share (a snapshot that did not record it) is null and equals only another null. */
-export const sameRoomShare = sameWithinTolerance;
-
-/** Points totals are equal (a shared place can make a total fractional); a missing total (nothing played) is null and equals only another null. */
-export const samePoints = sameWithinTolerance;
-
-/** The one value standings are ranked by: points per match in a group stage with per-match standings, the points total everywhere else. Null until the unit has a result. */
-export function rankingPoints(standing: TournamentStanding): number | null {
-  return standing.averagePoints ?? standing.totalFP;
-}
-
-/** Equal standing points and equal average room share: the only case where two units share a rank or form a cut-off tie. A missing share (a snapshot that did not record it) counts as null. */
-export function sameStanding(first: TournamentStanding, second: TournamentStanding): boolean {
-  if (!samePoints(rankingPoints(first), rankingPoints(second))) return false;
-  return sameRoomShare(first.roomShare ?? null, second.roomShare ?? null);
-}
-
-/** Best-first order: unplayed (null points) last, then more points, then higher average room share. Both scoring systems are higher-is-better sums, and every table downstream of materializeStandings()'s own sort assumes an already-sorted, best-first table. */
-export function compareStandings(first: TournamentStanding, second: TournamentStanding): number {
-  const firstPoints = rankingPoints(first);
-  const secondPoints = rankingPoints(second);
-  if (firstPoints === null && secondPoints === null) return 0;
-  if (firstPoints === null) return 1;
-  if (secondPoints === null) return -1;
-  if (!samePoints(firstPoints, secondPoints)) return secondPoints - firstPoints;
-  if (sameStanding(first, second)) return 0;
-  return (second.roomShare ?? 0) - (first.roomShare ?? 0);
-}
+/** What the results decide: lucky losers, the collected ties, the cut-off and band ties, the group exit, the standings tables, who advances and the advancement tiers. */
 
 export interface ScoredUnit {
   name: string;
@@ -143,31 +109,6 @@ export function scoreRoom(
 export function roomFinishOrder(state: TournamentState, roundIndex: number, room: number): string[] {
   const present = orderRoomByScore(scoreRoom(state, roundIndex, room, 0), roundIndex, room, state);
   return [...present.map((entry) => entry.name), ...absentInRoom(state, roundIndex, room)];
-}
-
-export function isLastStandingsRound(state: TournamentState, roundIndex: number): boolean {
-  const round = state.rounds[roundIndex];
-  const nextRound = state.rounds[roundIndex + 1];
-  return Boolean(
-    state.cfg.poolingPhase !== 'none' &&
-    (round?.isQual || round?.isSwiss) &&
-    !(nextRound?.isQual || nextRound?.isSwiss),
-  );
-}
-
-/** The last Group Stage round: a group round that no group round follows. */
-export function isLastGroupStageRound(rounds: readonly TournamentRound[], roundIndex: number): boolean {
-  return Boolean(rounds[roundIndex]?.isGroupStage && !rounds[roundIndex + 1]?.isGroupStage);
-}
-
-/**
- * True for a round whose advancement is decided by cumulative standings, not
- * per room: the last Qualification Table/Swiss round or the last Group Stage
- * round. Shared by the display (computeStandingsCutoffAdvancing) and the
- * transition, so the two can never disagree about which round is a cut-off.
- */
-export function isStandingsCutoffRound(state: TournamentState, roundIndex: number): boolean {
-  return isLastStandingsRound(state, roundIndex) || isLastGroupStageRound(state.rounds, roundIndex);
 }
 
 /** A room's best non-advancing unit and its share relative to the room average; an all-zero room offers none. */

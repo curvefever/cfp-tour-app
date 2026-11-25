@@ -8,20 +8,19 @@ import {
   applyQualCutoffOrder,
   computeStandingsCutoffAdvancing,
   getAllTies,
-  sameStanding,
   detectTieBreaks,
   doubleEliminationComputeAdvancement,
   hasPendingTies,
   invalidateStaleTieResolutions,
-  isLastStandingsRound,
   isUncontestedRoom,
   isTieResolved,
-  samePoints,
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
   roomPointsByPlace,
 } from '../advancement';
+import { isLastStandingsRound } from '../cutoff-rounds';
+import { sameStanding, samePoints } from '../standing-compare';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, resolveTournamentTie, setRoundScore, shareTiedPoints } from '../mutations';
 import { roundExitRule } from '../room-exits';

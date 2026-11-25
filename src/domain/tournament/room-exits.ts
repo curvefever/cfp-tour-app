@@ -1,4 +1,5 @@
-import { isStandingsCutoffRound, isUncontestedRoom } from './advancement';
+import { isUncontestedRoom } from './advancement';
+import { isStandingsCutoffRound } from './cutoff-rounds';
 import { roundExitGroups } from './exit-groups';
 import { groupExitIsTotal } from './group-exit';
 import { roundFairCutShape, usesFairCut, type FairCutGroup } from './fair-cut';

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeQualificationStandings, rankingPoints, samePoints } from '../advancement';
+import { computeQualificationStandings } from '../advancement';
+import { rankingPoints, samePoints } from '../standing-compare';
 import { previousColumnStart } from '../round-columns';
 import { rosterKeys } from '../roster';
 import { roomPairKey } from '../seeding';

@@ -241,7 +241,7 @@ export interface TournamentStanding {
   rounds?: StandingRoundResult[];
   /** Group stage with `groupAverageVersion` 2 only: the counted matches (a no-show's 0 included; byes and matches void for the unit are not). */
   matches?: number;
-  /** Group stage with `groupAverageVersion` 2 only: `totalFP` ÷ `matches`, set once the unit has a counted match. Groups are ranked by it (`rankingPoints`, advancement.ts). */
+  /** Group stage with `groupAverageVersion` 2 only: `totalFP` ÷ `matches`, set once the unit has a counted match. Groups are ranked by it (`rankingPoints`, standing-compare.ts). */
   averagePoints?: number;
   /** Group stage with `groupAverageVersion` 2 only, on a unit level with others on points per match: the points it took from its matches against those units (a mini-table, group-standings.ts). The first tie-break, before the room share; units still level after both are the organiser's to place. */
   headToHead?: number;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { computeStandingsCutoffAdvancing, isStandingsCutoffRound } from '../advancement';
+import { computeStandingsCutoffAdvancing } from '../advancement';
+import { isStandingsCutoffRound } from '../cutoff-rounds';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';

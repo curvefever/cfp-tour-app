@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildAdvancementTiers, isStandingsCutoffRound } from '../advancement';
+import { buildAdvancementTiers } from '../advancement';
+import { isStandingsCutoffRound } from '../cutoff-rounds';
 import { removeRosterUnit } from '../mutations';
 import {
   isFullFieldRound,

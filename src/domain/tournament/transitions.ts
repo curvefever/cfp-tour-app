@@ -1,11 +1,7 @@
 import { hasBlockingAbsenceQuestions, PENDING_ABSENCES_MESSAGE } from './absences';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
-import {
-  hasPendingColumnTies,
-  isStandingsCutoffRound,
-  refreshRoundStandings,
-  roomBasedComputeAdvancement,
-} from './advancement';
+import { hasPendingColumnTies, refreshRoundStandings, roomBasedComputeAdvancement } from './advancement';
+import { isStandingsCutoffRound } from './cutoff-rounds';
 import { advanceFromStandings, advanceWaterfallBracket } from './waterfall-advance';
 import { advanceKingsValley, fitKingsValleyTail } from './kings-valley-advance';
 import { advanceDoubleElimination } from './double-elimination-advance';

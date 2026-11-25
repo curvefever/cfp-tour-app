@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildAdvancementTiers,
-  computeQualificationStandings,
-  rankingPoints,
-  samePoints,
-} from '../advancement';
+import { buildAdvancementTiers, computeQualificationStandings } from '../advancement';
+import { rankingPoints, samePoints } from '../standing-compare';
 import { generateTournament } from '../generation';
 import { lateJoinersOf } from '../late-joiners';
 import {

@@ -1,6 +1,6 @@
 import { joinWithAnd } from '../../lib/join-with-and';
 import { ordinal } from '../../lib/ordinal';
-import { compareStandings, rankingPoints, sameStanding } from './advancement';
+import { compareStandings, rankingPoints, sameStanding } from './standing-compare';
 import { fairCutShape, type FairCutChancePlace } from './fair-cut';
 import { groupSizesOf } from './group-settings';
 import { tieResolutionList } from './scoring';

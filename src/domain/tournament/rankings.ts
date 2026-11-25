@@ -1,15 +1,13 @@
 import { absentInRoom } from './absences';
 import {
-  compareStandings,
-  isStandingsCutoffRound,
   isUncontestedRoom,
   isWalkoverRoom,
   pendingTieNames,
   relativeRoomShare,
-  sameRoomShare,
-  sameStanding,
   scoreRoom,
 } from './advancement';
+import { isStandingsCutoffRound } from './cutoff-rounds';
+import { compareStandings, sameRoomShare, sameStanding } from './standing-compare';
 import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './standings-display';
 import { type RoomExitBand, roundExitRule } from './room-exits';
 import { roomRowResult } from './room-row-result';

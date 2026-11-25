@@ -1,4 +1,5 @@
-import { computeQualificationStandings, rankingPoints, samePoints } from './advancement';
+import { computeQualificationStandings } from './advancement';
+import { rankingPoints, samePoints } from './standing-compare';
 import { lateJoinersOf } from './late-joiners';
 import { levelRuns } from './level-runs';
 import { metPairs, roomPairKey } from './seeding';

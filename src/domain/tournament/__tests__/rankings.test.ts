@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { compareStandings, isStandingsCutoffRound, orderedQualificationTable } from '../advancement';
+import { orderedQualificationTable } from '../advancement';
+import { isStandingsCutoffRound } from '../cutoff-rounds';
+import { compareStandings } from '../standing-compare';
 import { addWalkUpIndividual } from '../mutations';
 import { computeRankings, isFinalComplete, tournamentWinners } from '../rankings';
 import { describeStandings } from '../standings-display';

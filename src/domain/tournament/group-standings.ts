@@ -4,12 +4,10 @@ import {
   type RoundOutcome,
   type WalkoverKind,
   walkoverOutcome,
-  rankingPoints,
   playedOutcomes,
   roundHasBegun,
-  sameRoomShare,
-  samePoints,
 } from './advancement';
+import { rankingPoints, sameRoomShare, samePoints } from './standing-compare';
 import { levelRuns } from './level-runs';
 import { swapChain } from './swap-chain';
 import type { TournamentStanding, TournamentState } from './types';

@@ -1,5 +1,6 @@
 import { absentInRoom } from './absences';
-import { isStandingsCutoffRound, presentUnitCount, relativeRoomShare, scoreRoom } from './advancement';
+import { presentUnitCount, relativeRoomShare, scoreRoom } from './advancement';
+import { isStandingsCutoffRound } from './cutoff-rounds';
 import { hasFairCutVersion } from './rule-versions';
 import { comparableRoomTotal, orderRoomByScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';

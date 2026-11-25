@@ -1,5 +1,5 @@
 import { ordinal } from '../../lib/ordinal';
-import { isLastGroupStageRound } from './advancement';
+import { isLastGroupStageRound } from './cutoff-rounds';
 import { fairCutShape, fairCutSurvivors, roundCoversFairCut } from './fair-cut';
 import { grandFinalTargets } from './finals';
 import { isWinsRound } from './match-format';

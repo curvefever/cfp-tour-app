@@ -1,4 +1,5 @@
-import { buildAdvancementTiers, exitOrderTiers, isStandingsCutoffRound } from './advancement';
+import { buildAdvancementTiers, exitOrderTiers } from './advancement';
+import { isStandingsCutoffRound } from './cutoff-rounds';
 import { lateJoinersOf } from './late-joiners';
 import { likelyAbsentees } from './likely-absentees';
 import { lexicographicMinAssignment } from './cheapest-assignment';
