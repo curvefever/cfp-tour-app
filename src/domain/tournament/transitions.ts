@@ -39,6 +39,13 @@ import {
 } from './round-advance-tools';
 import { advanceDependencyPlay, withPressesResumed } from './waterfall-steps';
 
+/**
+ * Next Round. `advanceTournamentRound` is the entry point; `advanceRound` makes the checks every format shares and
+ * hands the press to its format (`double-elimination-advance.ts`, `kings-valley-advance.ts`,
+ * `waterfall-advance.ts`, `waterfall-steps.ts` for dependency play). The ordinary round, of no format of its own,
+ * is advanced here.
+ */
+
 function uniqueKeepingLast(candidates: SeedCandidate[]): SeedCandidate[] {
   const seen = new Set<string>();
   const output: SeedCandidate[] = [];
@@ -91,66 +98,17 @@ function malformedOrdinaryFinalMessage(actual: number): string {
 }
 
 /**
- * Advances the tournament to its next round: the result carries the new state,
- * or why nothing happened. UI effects (alert, render, persistence and sync)
- * belong to the caller.
+ * Next Round of a round of no format of its own. `base` is the state to advance (the standings refreshed, a stale
+ * draw ahead thrown away) and is what gets copied; `input` is the state the press was given. A refusal hands back
+ * the working copy or `input`, depending on where it happens.
  */
-export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
-  const result = advanceRound(input);
-  return result.status === 'advanced'
-    ? { ...result, state: withFinalistAliasesForLineup(result.state) }
-    : result;
-}
-
-function advanceRound(input: TournamentState): RoundAdvanceResult {
-  if (usesDependencyPlay(input)) return advanceDependencyPlay(input);
-  const roundIndex = input.curRound;
-  const round = input.rounds[roundIndex];
-  const nextRound = input.rounds[nextColumnStart(input)];
-  if (!round || !nextRound) {
-    return { status: 'noop', reason: 'last-round', state: input };
-  }
-
-  const column = currentColumn(input);
-  let prepared = input;
-  for (let index = column.start; index <= column.end; index += 1) {
-    prepared = refreshRoundStandings(prepared, index);
-  }
-  if (hasPendingColumnTies(prepared)) {
-    return {
-      status: 'blocked',
-      reason: 'pending-ties',
-      message: PENDING_TIES_MESSAGE,
-      state: prepared,
-    };
-  }
-  if (hasBlockingAbsenceQuestions(prepared)) {
-    return {
-      status: 'blocked',
-      reason: 'pending-absences',
-      message: PENDING_ABSENCES_MESSAGE,
-      state: prepared,
-    };
-  }
-  const drawnAhead = drawnAheadStatus(prepared, roundIndex);
-  if (drawnAhead === 'locked') {
-    const state = withPressesResumed({ ...prepared, curRound: nextColumnStart(prepared) });
-    return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
-  }
-  const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;
-  if (round.bracket) {
-    return advanceDoubleElimination(base, roundIndex, round);
-  }
-  if (round.isKingsValley) {
-    return advanceKingsValley(base, roundIndex);
-  }
-  if (round.isWaterfall) {
-    return advanceWaterfallBracket(base);
-  }
-  if (round.standingsRoutes) {
-    return advanceFromStandings(base, roundIndex, round);
-  }
-
+function advanceOrdinaryRound(
+  input: TournamentState,
+  base: TournamentState,
+  roundIndex: number,
+  round: TournamentRound,
+  nextRound: TournamentRound,
+): RoundAdvanceResult {
   const state = cloneForTransition(base);
   const result = roomBasedComputeAdvancement(state, roundIndex);
   if (result.qualTable) state.qualTable = result.qualTable;
@@ -314,4 +272,68 @@ function advanceRound(input: TournamentState): RoundAdvanceResult {
   state.assignments[state.curRound] = seeded;
   state.reserveOpen = reserveWindowAtCurrentRound(state);
   return { status: 'advanced', state };
+}
+
+/**
+ * Advances the tournament to its next round: the result carries the new state,
+ * or why nothing happened. UI effects (alert, render, persistence and sync)
+ * belong to the caller.
+ */
+export function advanceTournamentRound(input: TournamentState): RoundAdvanceResult {
+  const result = advanceRound(input);
+  return result.status === 'advanced'
+    ? { ...result, state: withFinalistAliasesForLineup(result.state) }
+    : result;
+}
+
+function advanceRound(input: TournamentState): RoundAdvanceResult {
+  if (usesDependencyPlay(input)) return advanceDependencyPlay(input);
+  const roundIndex = input.curRound;
+  const round = input.rounds[roundIndex];
+  const nextRound = input.rounds[nextColumnStart(input)];
+  if (!round || !nextRound) {
+    return { status: 'noop', reason: 'last-round', state: input };
+  }
+
+  const column = currentColumn(input);
+  let prepared = input;
+  for (let index = column.start; index <= column.end; index += 1) {
+    prepared = refreshRoundStandings(prepared, index);
+  }
+  if (hasPendingColumnTies(prepared)) {
+    return {
+      status: 'blocked',
+      reason: 'pending-ties',
+      message: PENDING_TIES_MESSAGE,
+      state: prepared,
+    };
+  }
+  if (hasBlockingAbsenceQuestions(prepared)) {
+    return {
+      status: 'blocked',
+      reason: 'pending-absences',
+      message: PENDING_ABSENCES_MESSAGE,
+      state: prepared,
+    };
+  }
+  const drawnAhead = drawnAheadStatus(prepared, roundIndex);
+  if (drawnAhead === 'locked') {
+    const state = withPressesResumed({ ...prepared, curRound: nextColumnStart(prepared) });
+    return { status: 'advanced', state: { ...state, reserveOpen: reserveWindowAtCurrentRound(state) } };
+  }
+  const base = drawnAhead === 'redraw' ? discardDrawsAfter(prepared, roundIndex) : prepared;
+  if (round.bracket) {
+    return advanceDoubleElimination(base, roundIndex, round);
+  }
+  if (round.isKingsValley) {
+    return advanceKingsValley(base, roundIndex);
+  }
+  if (round.isWaterfall) {
+    return advanceWaterfallBracket(base);
+  }
+  if (round.standingsRoutes) {
+    return advanceFromStandings(base, roundIndex, round);
+  }
+
+  return advanceOrdinaryRound(input, base, roundIndex, round, nextRound);
 }
