@@ -4,7 +4,7 @@ import {
   MAX_ROOMS_PER_ROUND,
   QUAL_LABEL,
   roomIndexToLetter,
-} from '../../../domain/tournament/waterfall-bracket';
+} from '../../../domain/tournament/waterfall-graph-text';
 import { defaultWinsOf } from '../../../domain/tournament/waterfall-draft-win-defaults';
 import { typedWins, winsSourceKey } from '../../../domain/tournament/waterfall-draft-wins';
 import {

@@ -4,7 +4,12 @@ import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
 import { upperLowerFinalWins, type UpperLowerFinalWins, type UpperLowerWinsFields } from './upper-lower-wins';
 import type { PersistedSetup, RoomSize } from './types';
-import { GROUPS_LABEL, QUAL_LABEL, roomIndexToLetter, type StandingsSourceKind } from './waterfall-bracket';
+import {
+  GROUPS_LABEL,
+  QUAL_LABEL,
+  roomIndexToLetter,
+  type StandingsSourceKind,
+} from './waterfall-graph-text';
 
 /**
  * The built-in upper and lower bracket (`docs/rules.md`, "Upper and lower bracket"): after a pooling phase the units

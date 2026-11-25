@@ -8,11 +8,8 @@ import { isRoomScored, orderRoomWithPlaces } from '../scoring';
 import { finalsProgressState } from '../finals';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
-import {
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-  waterfallBracketPhase,
-} from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
+import { validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
 import type { TournamentState } from '../types';
 import { buildAssignments, buildRound, oneRoomState } from './test-fixtures';
 

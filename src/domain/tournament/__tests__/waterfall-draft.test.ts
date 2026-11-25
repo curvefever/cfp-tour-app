@@ -4,11 +4,8 @@ import { removeRosterUnit } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { RoomSize } from '../types';
-import {
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-  waterfallBracketPhase,
-} from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
+import { validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
 import { pressNextRound, scoreCurrentRound } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';
 import {

@@ -7,7 +7,7 @@ import {
   type WaterfallIntake,
   type WaterfallStartedColumns,
 } from '../../../domain/tournament/waterfall-draft';
-import { QUAL_LABEL } from '../../../domain/tournament/waterfall-bracket';
+import { QUAL_LABEL } from '../../../domain/tournament/waterfall-graph-text';
 import { cn } from '../../../components/ui/cn';
 import { destinationColor, roomSizesLabel, roundIntakeBadge, standingsSourceName } from './waterfall-format';
 

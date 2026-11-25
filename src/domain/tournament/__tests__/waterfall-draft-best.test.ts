@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RoomSize } from '../types';
-import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
+import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 import {
   bestDestinationChoices,
   parseWaterfallDraft,

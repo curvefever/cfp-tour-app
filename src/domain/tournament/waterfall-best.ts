@@ -1,13 +1,13 @@
 import { ordinal } from '../../lib/ordinal';
 import type { TournamentRound, WaterfallBestRoute } from './types';
-import type { WaterfallParseResult } from './waterfall-bracket';
+import type { WaterfallParseResult } from './waterfall-parse-result';
 
 /**
  * The BEST line of a Custom bracket round, "R4.BEST: 1 OF 6->R5": the best n of the rooms' k-th places go to a
  * later round, and the rest of that place follow the rooms' own lines. This file reads the line, checks it against
  * the rest of the graph (one small function per refusal), counts the seats it moves, and answers "where does this
- * round send units" for the code that follows routes. It imports only types from `waterfall-bracket.ts`, so the two
- * files do not import each other.
+ * round send units" for the code that follows routes. Of the other graph files it imports only the result type
+ * (`waterfall-parse-result.ts`), so the files that call it never form an import loop with it.
  */
 
 /** A BEST line as written: the round it belongs to, how many go, from which place, and to which round. */

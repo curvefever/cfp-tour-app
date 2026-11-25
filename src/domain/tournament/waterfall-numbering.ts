@@ -1,6 +1,6 @@
 import { roundsBeforeBracket } from './pooling-rounds';
 import type { PersistedSetup } from './types';
-import type { StandingsSourceKind } from './waterfall-bracket';
+import type { StandingsSourceKind } from './waterfall-graph-text';
 import {
   defaultNameShift,
   hasDefaultRoundNames,

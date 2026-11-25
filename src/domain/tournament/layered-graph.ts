@@ -1,6 +1,6 @@
 import type { LayeredPlan } from './layered-plan';
 import type { BracketRound, EntryLevel, LevelName, LevelRound } from './layered-search';
-import { QUAL_LABEL, roomIndexToLetter } from './waterfall-bracket';
+import { QUAL_LABEL, roomIndexToLetter } from './waterfall-graph-text';
 
 /**
  * The layered bracket as Custom bracket graph text (`ROUNDS:` / `ROUTES:`), the form the Custom bracket engine plays

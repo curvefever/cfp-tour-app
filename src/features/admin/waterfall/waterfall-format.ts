@@ -3,7 +3,7 @@ import {
   ELIMINATED,
   QUAL_LABEL,
   type StandingsSourceKind,
-} from '../../../domain/tournament/waterfall-bracket';
+} from '../../../domain/tournament/waterfall-graph-text';
 import {
   compressWaterfallRanks,
   seatsOf,

@@ -1,4 +1,4 @@
-import { QUAL_LABEL } from './waterfall-bracket';
+import { QUAL_LABEL } from './waterfall-graph-text';
 import type { WaterfallDraft } from './waterfall-draft';
 
 /**

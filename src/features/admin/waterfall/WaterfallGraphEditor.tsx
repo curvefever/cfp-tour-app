@@ -5,9 +5,9 @@ import {
   normalizeRoundLabel,
   parseWaterfallGraph,
   QUAL_LABEL,
-  validateAndOrderWaterfallGraph,
   type StandingsSourceKind,
-} from '../../../domain/tournament/waterfall-bracket';
+} from '../../../domain/tournament/waterfall-graph-text';
+import { validateAndOrderWaterfallGraph } from '../../../domain/tournament/waterfall-bracket';
 import {
   addWaterfallRound,
   assignWaterfallSlots,

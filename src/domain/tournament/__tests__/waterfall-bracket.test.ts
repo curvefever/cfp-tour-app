@@ -5,12 +5,12 @@ import { advanceTournamentRound } from '../transitions';
 import {
   absenteeDestination,
   fitWaterfallRound,
-  parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
   waterfallDestination,
   waterfallStandingsRoutes,
 } from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
 import { buildAssignments, buildRound } from './test-fixtures';
 import type { OrderedWaterfallGraph, RoomSize } from '../types';
 

@@ -7,7 +7,7 @@ import {
   sameRoundFormat,
 } from '../match-format';
 import { storesGames } from '../round-match-formats';
-import { parseWaterfallGraph } from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
 
 describe('parseMatchFormatToken and matchFormatToken', () => {
   it('reads a Best of N or summed games, either word in any case, and nothing else', () => {

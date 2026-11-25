@@ -22,7 +22,7 @@ function names(count: number): string[] {
   return Array.from({ length: count }, (_, index) => `P${index + 1}`);
 }
 
-// The docstring's own worked example (waterfall-bracket.ts): a genuine
+// The docstring's own worked example (waterfall-graph-text.ts): a genuine
 // skip-ahead (5.A ranks 1-4 -> SemiA) and non-contiguous bands (5.C: 1,4 / 2,3).
 const SPREADSHEET_GRAPH = `
 ROUNDS:

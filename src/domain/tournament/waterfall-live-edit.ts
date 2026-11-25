@@ -26,11 +26,11 @@ import type { PendingBracketSeed, TournamentRound, TournamentState } from './typ
 import {
   declaredWaterfallRooms,
   fitWaterfallRound,
-  parseWaterfallGraph,
   validateAndOrderWaterfallGraph,
   waterfallBracketPhase,
   waterfallStandingsRoutes,
 } from './waterfall-bracket';
+import { parseWaterfallGraph } from './waterfall-graph-text';
 
 /**
  * Applying an edited waterfall graph to a running tournament: any round's

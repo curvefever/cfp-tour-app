@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { computeRankings } from '../rankings';
 import { roundsInPlay } from '../round-columns';
 import type { RoomSize, TournamentState } from '../types';
-import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
+import { validateAndOrderWaterfallGraph } from '../waterfall-bracket';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { canGoBack, goBack, isRoundScored } from '../waterfall-steps';
 import {

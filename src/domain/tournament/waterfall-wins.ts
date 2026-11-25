@@ -1,5 +1,5 @@
 import { MAX_WIN_TARGET, MIN_WIN_TARGET } from './match-format';
-import type { WaterfallParseResult } from './waterfall-bracket';
+import type { WaterfallParseResult } from './waterfall-parse-result';
 
 /**
  * Uneven wins in the Custom bracket (WINS): a round of one room of two whose units each race to their own number of
@@ -8,8 +8,8 @@ import type { WaterfallParseResult } from './waterfall-bracket';
  * the earlier column needs 1, the one from the later column 2 (a Qual or Groups arrival is column 0).
  *
  * This file reads a band's `WINS <n>` text, checks the bands against the round (one small function per refusal) and
- * works out the two targets. It imports only types from `waterfall-bracket.ts`, so the two files do not import each
- * other. Labels are lower case, as the validator keys its rounds.
+ * works out the two targets. Of the other graph files it imports only the result type (`waterfall-parse-result.ts`),
+ * so the files that call it never form an import loop with it. Labels are lower case, as the validator keys its rounds.
  */
 
 /** The key of the Qual or Groups line as the source of a band. */

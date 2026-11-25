@@ -15,11 +15,8 @@ import { flagFinalGameAnonymous } from '../mutations';
 import { computeRankings, isFinalComplete } from '../rankings';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { OrderedWaterfallGraph, RoomSize, RoundAssignment, TournamentState } from '../types';
-import {
-  parseWaterfallGraph,
-  validateAndOrderWaterfallGraph,
-  waterfallBracketPhase,
-} from '../waterfall-bracket';
+import { parseWaterfallGraph } from '../waterfall-graph-text';
+import { validateAndOrderWaterfallGraph, waterfallBracketPhase } from '../waterfall-bracket';
 import {
   parseWaterfallDraft,
   renameWaterfallRound,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { swissRoutesItsStandings } from '../../../domain/tournament/pooling';
 import { rosterKeys } from '../../../domain/tournament/roster';
 import type { TournamentState } from '../../../domain/tournament/types';
-import type { StandingsSourceKind } from '../../../domain/tournament/waterfall-bracket';
+import type { StandingsSourceKind } from '../../../domain/tournament/waterfall-graph-text';
 import {
   finalsMatchOf,
   serializeWaterfallDraft,

@@ -6,8 +6,6 @@ import {
   MAX_ROOMS_PER_ROUND,
   GROUPS_LABEL,
   QUAL_LABEL,
-  declaredWaterfallRooms,
-  assignWaterfallColumns,
   err,
   expandRankTokens,
   normalizeRoundLabel,
@@ -18,8 +16,9 @@ import {
   undeclaredDestinationMessage,
   undeclaredRoundMessage,
   type StandingsSourceKind,
-  type WaterfallParseResult,
-} from './waterfall-bracket';
+} from './waterfall-graph-text';
+import { declaredWaterfallRooms, assignWaterfallColumns } from './waterfall-bracket';
+import type { WaterfallParseResult } from './waterfall-parse-result';
 import {
   bestLine,
   bestsWithoutOwnLine,
