@@ -6,7 +6,7 @@ import { QUALIFICATION_ROUNDS, computeSwissRoundCount } from './pooling';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { matchFormatConfig } from './round-match-formats';
-import { planBracketShape } from './generation-plan-shape';
+import { planBracketEntry, planBracketShape } from './generation-plan-shape';
 import { getMinimumBracketUnits } from './schedule-generation';
 import {
   type GenerationConfig,
@@ -210,5 +210,7 @@ export function planTournament(form: GenerationForm, current: TournamentState): 
   if (!pooling.ok) return pooling;
   const shape = planBracketShape(form, pooling.plan);
   if (!shape.ok) return shape;
-  return planPoolingRounds(form, shape.plan);
+  const poolingRounds = planPoolingRounds(form, shape.plan);
+  if (!poolingRounds.ok) return poolingRounds;
+  return planBracketEntry(poolingRounds.plan);
 }

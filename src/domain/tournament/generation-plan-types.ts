@@ -64,8 +64,13 @@ export interface PlanAfterPoolingRounds extends PlanAfterBracketShape {
   nonCountingRounds: number;
 }
 
+export interface PlanAfterBracketEntry extends PlanAfterPoolingRounds {
+  /** The units that enter the bracket phase: what every later check on the field's size reads. */
+  bracketEntryCount: number;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterPoolingRounds;
+export type TournamentPlan = PlanAfterBracketEntry;

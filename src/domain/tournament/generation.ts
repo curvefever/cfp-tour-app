@@ -1,4 +1,3 @@
-import { resolveBracketEntryCount } from './bracket-entry';
 import { emptySchedule } from './empty-schedule';
 import { parseEliminationTargets } from './elimination-targets';
 import { seedFromGroupStageRound } from './pooling';
@@ -9,7 +8,6 @@ import { randomSeed, recordRoomHistory } from './seeding';
 import { defaultSemisSize } from './single-elimination';
 import { buildScheduleRounds, getMinimumBracketUnits } from './schedule-generation';
 import { planTournament } from './generation-plan';
-import { resolveWaterfallGraph } from './generation-plan-shape';
 import type { GenerationForm } from './generation-plan-types';
 import {
   type MatchResultPoints,
@@ -50,41 +48,23 @@ export function generateTournament(
 ): GenerateTournamentResult {
   const planned = planTournament(form, current);
   if (!planned.ok) return generationError(planned.message);
-  const { format, chosen, schedule, floorMin, unitPlural } = planned.plan;
-  const { matchConfig, config, oddCountStrategy, roomSize, graphText, layeredPlay } = planned.plan;
-  const { graphHasQualSource, graphHasGroupsSource } = planned.plan;
-  const { qualRounds, swissRounds, nonCountingRounds } = planned.plan;
-  let { waterfallGraph } = planned.plan;
-
-  // The number of units that will actually enter the bracket phase (see
-  // bracket-entry.ts; Group Stage derives it independently of config.qualAdv,
-  // matching groupStagePoolingPhase's own seedTotal formula). Every validation
-  // below that needs the real entrant count should use this, not
-  // config.qualAdv, which is meaningless for Group Stage.
-  // With a Qual source only the routed (non-eliminated) ranks enter the bracket.
-  const bracketEntryCount = waterfallGraph?.qualRoutes
-    ? waterfallGraph.qualRoutes.filter((destination) => destination !== 'eliminated').length
-    : resolveBracketEntryCount({
-        poolingPhase: config.poolingPhase,
-        confirmedCount: config.n,
-        qualAdv: config.qualAdv,
-        groupSize: config.groupSize,
-        qualifiersPerGroup: config.qualifiersPerGroup,
-        groupExit: config.groupExit,
-      });
-
-  // Waterfall's whole schedule is the organiser's own hand-authored graph. Without a Qual source,
-  // rule 9 checks the graph's declared entry total against bracketEntryCount, the real
-  // post-pooling entrant count computed just above -- not config.qualAdv, which is meaningless
-  // for Group Stage.
-  if (schedule === 'waterfall-bracket' && !graphHasQualSource && !graphHasGroupsSource) {
-    const resolved = resolveWaterfallGraph(graphText, {
-      roomSize,
-      entrantCount: bracketEntryCount,
-    });
-    if (!resolved.ok) return generationError(resolved.message);
-    waterfallGraph = resolved.graph;
-  }
+  const {
+    format,
+    chosen,
+    schedule,
+    floorMin,
+    unitPlural,
+    matchConfig,
+    config,
+    oddCountStrategy,
+    roomSize,
+    layeredPlay,
+    qualRounds,
+    swissRounds,
+    nonCountingRounds,
+    bracketEntryCount,
+    waterfallGraph,
+  } = planned.plan;
 
   let positionalPointsTable: number[] | undefined;
   if (config.scoring === 'positional-points') {

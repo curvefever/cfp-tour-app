@@ -1,4 +1,4 @@
-import { clampAdvanceToBracket, parseAdvanceToBracket } from './bracket-entry';
+import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
 import { deriveRoomSize, resolveOddCountStrategy } from './formats';
 import { groupExitRefusal, groupsLineExit } from './group-exit';
 import { groupSizesOf } from './group-settings';
@@ -7,7 +7,9 @@ import { planUpperLower, upperLowerGraphText } from './upper-lower';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from './waterfall-bracket';
 import {
   type GenerationForm,
+  type PlanAfterBracketEntry,
   type PlanAfterBracketShape,
+  type PlanAfterPoolingRounds,
   type PlanAfterPoolingSettings,
   type Planned,
   refuse,
@@ -20,7 +22,7 @@ import type { GeneratedTournamentConfig, OrderedWaterfallGraph, RoomSize, Schedu
  * malformed-input case uses. Lenient parse so a graph that is still being built (rounds but no
  * routes yet) reaches the validator, whose messages say what is missing.
  */
-export function resolveWaterfallGraph(
+function resolveWaterfallGraph(
   graphText: string,
   options: Parameters<typeof validateAndOrderWaterfallGraph>[1],
 ): { ok: true; graph: OrderedWaterfallGraph } | { ok: false; message: string } {
@@ -194,4 +196,45 @@ export function planBracketShape(
       graphHasGroupsSource,
     },
   };
+}
+
+/**
+ * How many units enter the bracket phase, and the graph of a Custom bracket that no standings feed, checked against
+ * that number.
+ */
+export function planBracketEntry(plan: PlanAfterPoolingRounds): Planned<PlanAfterBracketEntry> {
+  const { config, schedule, roomSize, graphText, graphHasQualSource, graphHasGroupsSource } = plan;
+  let { waterfallGraph } = plan;
+
+  // The number of units that will actually enter the bracket phase (see
+  // bracket-entry.ts; Group Stage derives it independently of config.qualAdv,
+  // matching groupStagePoolingPhase's own seedTotal formula). Every validation
+  // below that needs the real entrant count should use this, not
+  // config.qualAdv, which is meaningless for Group Stage.
+  // With a Qual source only the routed (non-eliminated) ranks enter the bracket.
+  const bracketEntryCount = waterfallGraph?.qualRoutes
+    ? waterfallGraph.qualRoutes.filter((destination) => destination !== 'eliminated').length
+    : resolveBracketEntryCount({
+        poolingPhase: config.poolingPhase,
+        confirmedCount: config.n,
+        qualAdv: config.qualAdv,
+        groupSize: config.groupSize,
+        qualifiersPerGroup: config.qualifiersPerGroup,
+        groupExit: config.groupExit,
+      });
+
+  // Waterfall's whole schedule is the organiser's own hand-authored graph. Without a Qual source,
+  // rule 9 checks the graph's declared entry total against bracketEntryCount, the real
+  // post-pooling entrant count computed just above -- not config.qualAdv, which is meaningless
+  // for Group Stage.
+  if (schedule === 'waterfall-bracket' && !graphHasQualSource && !graphHasGroupsSource) {
+    const resolved = resolveWaterfallGraph(graphText, {
+      roomSize,
+      entrantCount: bracketEntryCount,
+    });
+    if (!resolved.ok) return refuse(resolved.message);
+    waterfallGraph = resolved.graph;
+  }
+
+  return { ok: true, plan: { ...plan, bracketEntryCount, waterfallGraph } };
 }
