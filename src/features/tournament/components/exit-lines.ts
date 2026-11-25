@@ -1,4 +1,4 @@
-import { roomPointsByPlace } from '../../../domain/tournament/advancement';
+import { roomPointsByPlace } from '../../../domain/tournament/room-results';
 import { bracketRoundLabels, roomLetter } from '../../../domain/tournament/bracket';
 import type { GroupExitShape } from '../../../domain/tournament/group-exit';
 import { matchResultSettings } from '../../../domain/tournament/match-results';

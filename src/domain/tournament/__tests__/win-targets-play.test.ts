@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roomFinishOrder } from '../advancement';
+import { roomFinishOrder } from '../room-results';
 import { answerAbsence, absentInRoom, pendingAbsenceQuestions } from '../absences';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { roomMatch, winsGameCount } from '../match-format';

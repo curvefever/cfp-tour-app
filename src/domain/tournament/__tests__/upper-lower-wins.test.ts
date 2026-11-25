@@ -16,7 +16,7 @@ import { indexOf, playColumns } from './dependency-play-fixtures';
 import { generatedState, rosterFor, testRuntime } from './test-fixtures';
 import { atEntry } from './swiss-source-fixtures';
 import { withoutDependencyPlay } from './qual-waterfall';
-import { roomFinishOrder } from '../advancement';
+import { roomFinishOrder } from '../room-results';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
 

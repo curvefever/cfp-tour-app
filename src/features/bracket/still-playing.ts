@@ -1,4 +1,4 @@
-import { isUncontestedRoom } from '../../domain/tournament/advancement';
+import { isUncontestedRoom } from '../../domain/tournament/room-results';
 import { roomLetter } from '../../domain/tournament/bracket';
 import { isRoomScored, occupiedRooms } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';

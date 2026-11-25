@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { roomFinishOrder } from '../advancement';
+import { roomFinishOrder } from '../room-results';
 import { deriveRoomSize, getGameFormat } from '../formats';
 import { likelyAbsentees } from '../likely-absentees';
 import { pairsAbsenteesInRound } from '../seeding';

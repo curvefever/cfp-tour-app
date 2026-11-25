@@ -1,4 +1,4 @@
-import { largestRoomSize, roomPointsByPlace } from '../../../domain/tournament/advancement';
+import { largestRoomSize, roomPointsByPlace } from '../../../domain/tournament/room-results';
 import { rankingPoints } from '../../../domain/tournament/standing-compare';
 import { usesGroupAverages, usesScaledPoints } from '../../../domain/tournament/rule-versions';
 import { getGameFormat } from '../../../domain/tournament/formats';

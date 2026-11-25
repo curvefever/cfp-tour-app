@@ -1,7 +1,7 @@
 import { unitsAwaitingAnswer } from './absences';
-// Room-result helpers only (job 2 of the cleanup audit's C2-1 split of advancement.ts): the present units of a room,
-// a unit's share of its room's average, and the equality of two shares.
-import { relativeRoomShare, scoreRoom } from './advancement';
+// Room-result helpers only: the present units of a room, a unit's share of its room's average, and the equality of
+// two shares.
+import { relativeRoomShare, scoreRoom } from './room-results';
 import { sameRoomShare } from './standing-compare';
 import { comparableRoomTotal, isRoomScored, orderRoomWithPlaces, readTieResolution } from './scoring';
 import type { TournamentRound, TournamentState } from './types';

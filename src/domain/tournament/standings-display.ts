@@ -11,9 +11,9 @@ import {
   isQualCutoffKey,
   isTieResolved,
   qualStandingsRoutes,
-  isUncontestedRoom,
   rankStandings,
 } from './advancement';
+import { isUncontestedRoom } from './room-results';
 import {
   type GroupRoundMisses,
   type GroupSeats,

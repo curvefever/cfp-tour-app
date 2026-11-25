@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { isUncontestedRoom } from '../../domain/tournament/advancement';
+import { isUncontestedRoom } from '../../domain/tournament/room-results';
 import { groupSeats } from '../../domain/tournament/group-standings';
 import { usesGroupAverages } from '../../domain/tournament/rule-versions';
 import { type bracketRoundLabels } from '../../domain/tournament/bracket';

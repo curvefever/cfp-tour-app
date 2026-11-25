@@ -1,11 +1,6 @@
 import { absentInRoom } from './absences';
-import {
-  isUncontestedRoom,
-  isWalkoverRoom,
-  pendingTieNames,
-  relativeRoomShare,
-  scoreRoom,
-} from './advancement';
+import { pendingTieNames } from './advancement';
+import { isUncontestedRoom, isWalkoverRoom, relativeRoomShare, scoreRoom } from './room-results';
 import { isStandingsCutoffRound } from './cutoff-rounds';
 import { compareStandings, sameRoomShare, sameStanding } from './standing-compare';
 import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './standings-display';

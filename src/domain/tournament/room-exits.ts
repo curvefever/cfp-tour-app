@@ -1,4 +1,4 @@
-import { isUncontestedRoom } from './advancement';
+import { isUncontestedRoom } from './room-results';
 import { isStandingsCutoffRound } from './cutoff-rounds';
 import { roundExitGroups } from './exit-groups';
 import { groupExitIsTotal } from './group-exit';

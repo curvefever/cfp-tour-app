@@ -1,4 +1,5 @@
-import { relativeRoomShare, roomBasedComputeAdvancement } from '../../src/domain/tournament/advancement';
+import { roomBasedComputeAdvancement } from '../../src/domain/tournament/advancement';
+import { relativeRoomShare } from '../../src/domain/tournament/room-results';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import type { TournamentState } from '../../src/domain/tournament/types';
 import { shareBeaten } from './calibrate';

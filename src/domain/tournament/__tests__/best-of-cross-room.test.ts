@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAdvancementTiers,
   computeQualificationStandings,
-  relativeRoomShare,
   roomBasedComputeAdvancement,
-  roomFinishOrder,
-  roomPointsByPlace,
 } from '../advancement';
+import { relativeRoomShare, roomFinishOrder, roomPointsByPlace } from '../room-results';
 import { fairCutAdvancement, sizePools } from '../fair-cut';
 import { stageMatchFields } from '../match-format';
 import { computeRankings } from '../rankings';

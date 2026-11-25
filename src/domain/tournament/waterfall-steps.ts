@@ -1,5 +1,6 @@
 import { hasBlockingAbsenceQuestionsInRound, PENDING_ABSENCES_MESSAGE } from './absences';
-import { hasPendingTies, isUncontestedRoom } from './advancement';
+import { hasPendingTies } from './advancement';
+import { isUncontestedRoom } from './room-results';
 import { routeWaterfallRound } from './bracket-replay';
 import {
   isRoundDone,

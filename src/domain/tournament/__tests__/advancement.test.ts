@@ -12,13 +12,12 @@ import {
   doubleEliminationComputeAdvancement,
   hasPendingTies,
   invalidateStaleTieResolutions,
-  isUncontestedRoom,
   isTieResolved,
   kingsValleyComputeAdvancement,
   rankStandings,
   roomBasedComputeAdvancement,
-  roomPointsByPlace,
 } from '../advancement';
+import { isUncontestedRoom, roomPointsByPlace } from '../room-results';
 import { isLastStandingsRound } from '../cutoff-rounds';
 import { sameStanding, samePoints } from '../standing-compare';
 import { generateTournament } from '../generation';

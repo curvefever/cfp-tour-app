@@ -1,14 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absences';
+import { computeQualificationStandings, detectTieBreaks } from '../advancement';
 import {
-  computeQualificationStandings,
-  detectTieBreaks,
   presentUnitCount,
   relativeRoomShare,
   roomFinishOrder,
   roomPointsByPlace,
   scoreRoom,
-} from '../advancement';
+} from '../room-results';
 import { resolveTournamentTie } from '../mutations';
 import { isRoomScored } from '../scoring';
 import { describeStandings } from '../standings-display';

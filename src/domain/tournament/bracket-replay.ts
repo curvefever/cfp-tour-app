@@ -7,8 +7,8 @@ import {
   doubleEliminationComputeAdvancement,
   orderedGroupExit,
   orderedQualificationTable,
-  roomUnitCount,
 } from './advancement';
+import { roomUnitCount } from './room-results';
 import { rosterKeys } from './roster';
 import { swapChain } from './swap-chain';
 import type { PendingBracketSeed, TournamentRound, TournamentStanding, TournamentState } from './types';

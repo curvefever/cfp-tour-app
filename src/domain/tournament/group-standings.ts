@@ -6,7 +6,7 @@ import {
   walkoverOutcome,
   playedOutcomes,
   roundHasBegun,
-} from './advancement';
+} from './room-results';
 import { rankingPoints, sameRoomShare, samePoints } from './standing-compare';
 import { levelRuns } from './level-runs';
 import { swapChain } from './swap-chain';

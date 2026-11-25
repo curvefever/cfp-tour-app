@@ -4,8 +4,8 @@ import {
   buildAdvancementTiers,
   doubleEliminationComputeAdvancement,
   kingsValleyComputeAdvancement,
-  roomFinishOrder,
 } from '../advancement';
+import { roomFinishOrder } from '../room-results';
 import { routeWaterfallRound } from '../bracket-replay';
 import { fairCutAdvancement, roundLineUps, sizePools } from '../fair-cut';
 import { removeRosterUnit } from '../mutations';
