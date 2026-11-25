@@ -42,6 +42,8 @@ The group could break only in stages 3 and 4: `absences.ts` imported `advancemen
 
 **Testing.** No test added or removed and no assertion changed: the test and test-support files changed in their import lines only. Per stage: eslint (it has no config for `scripts/`), `prettier --check` and the type check clean; `vitest related` on the stage's files, 251 files with 6,708 tests, all passed (after the one comment in `types.ts` at stage 1, its own related run: 46 files with 833 tests). No live check or e2e (the plan lists none).
 
+**Full suite**: passed on `14d36fd` (7,604 tests in 311 files, worktree copies excluded). Reviewer: eslint, `prettier --check` and types clean over the 81 changed code files.
+
 **The reviewer's mutations.** `compareStandings` ignoring room share: 20 tests in 7 files failed. `pointsForSharedPlace` returning the first place's points: 15 tests in 5 files. `decisionHolds` always true: 8 tests in 5 files. `answerAbsence` not re-checking ties: caught, by 1 test in 1 file only. `clearAbsenceAnswer` not re-checking ties: **not caught**, all 184 related files passed.
 
 **Found, not changed.**
