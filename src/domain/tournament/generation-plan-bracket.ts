@@ -10,7 +10,9 @@ import {
   type PlanAfterSizeOverrides,
   type Planned,
   refuse,
+  type TournamentPlan,
 } from './generation-plan-types';
+import type { MaterializedGamemodeConfig } from './types';
 
 /** The Semis and Final size overrides with the default Semis size, and the field a double elimination needs. */
 export function planSizeOverrides(
@@ -203,4 +205,49 @@ export function planEliminationOverrides(
   }
 
   return { ok: true, plan: { ...plan, explicitTargets, explicitSeedingOverrides } };
+}
+
+/** The stored settings (`gamemodeConfig`), numbers only: the rounds are built from them. */
+export function planStoredSettings(
+  form: GenerationForm,
+  plan: PlanAfterEliminationOverrides,
+): Planned<TournamentPlan> {
+  const { format, chosen, schedule, matchConfig, config, oddCountStrategy, roomSize, layeredPlay } = plan;
+  const { qualRounds, swissRounds, nonCountingRounds, waterfallGraph } = plan;
+  const { positionalPointsTable, matchResults, semisOverride, finalOverride, semisDefault } = plan;
+  const { grandFinalWbTarget, grandFinalLbTarget, lbQualifiers } = plan;
+  const { explicitTargets, explicitSeedingOverrides } = plan;
+
+  const gamemodeConfig: MaterializedGamemodeConfig = {
+    qualRounds,
+    swissRounds,
+    nonCountingRounds,
+    teamScoringRule: format.teamSize ? form.teamScoringRule || 'sum-members' : 'sum-members',
+    ...(oddCountStrategy ? { oddCountStrategy } : {}),
+    roomSize,
+    semisSize: semisOverride || semisDefault,
+    finalSize: finalOverride || roomSize.ideal,
+    scoring: config.scoring,
+    ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
+    ...(matchResults ? { matchResultPoints: matchResults.points, tieMargin: matchResults.tieMargin } : {}),
+    pointsVersion: 2,
+    cutVersion: 2,
+    groupAverageVersion: 2,
+    absenceVersion: 4,
+    vacantSlotVersion: 1,
+    dependencyPlayVersion: 1,
+    ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
+    ...(layeredPlay !== undefined ? { layeredVersion: 1 as const, layeredPlay } : {}),
+    drawPublication: config.drawPublication,
+    ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
+    ...(explicitTargets !== undefined ? { explicitTargets } : {}),
+    ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
+    ...(waterfallGraph !== undefined ? { graph: waterfallGraph } : {}),
+    bracketPhase: schedule,
+    ...matchConfig,
+    grandFinalWbTarget,
+    grandFinalLbTarget,
+  };
+
+  return { ok: true, plan: { ...plan, gamemodeConfig } };
 }

@@ -98,8 +98,12 @@ export interface PlanAfterEliminationOverrides extends PlanAfterFinalTargets {
   explicitSeedingOverrides: Array<'diversity' | 'balance' | 'random' | undefined> | undefined;
 }
 
+export interface PlanAfterStoredSettings extends PlanAfterEliminationOverrides {
+  gamemodeConfig: MaterializedGamemodeConfig;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterEliminationOverrides;
+export type TournamentPlan = PlanAfterStoredSettings;

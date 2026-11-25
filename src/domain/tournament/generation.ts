@@ -9,7 +9,7 @@ import type { GenerationForm } from './generation-plan-types';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
 import { settingsFromForm } from './tournament-settings';
 import type { TournamentRuntime } from './runtime';
-import type { MaterializedGamemodeConfig, TournamentState } from './types';
+import type { TournamentState } from './types';
 
 type GenerateTournamentResult =
   { status: 'generated'; state: TournamentState } | { status: 'invalid'; message: string };
@@ -25,61 +25,8 @@ export function generateTournament(
 ): GenerateTournamentResult {
   const planned = planTournament(form, current);
   if (!planned.ok) return generationError(planned.message);
-  const {
-    format,
-    chosen,
-    schedule,
-    matchConfig,
-    config,
-    oddCountStrategy,
-    roomSize,
-    layeredPlay,
-    qualRounds,
-    swissRounds,
-    nonCountingRounds,
-    waterfallGraph,
-    positionalPointsTable,
-    matchResults,
-    semisOverride,
-    finalOverride,
-    semisDefault,
-    grandFinalWbTarget,
-    grandFinalLbTarget,
-    lbQualifiers,
-    explicitTargets,
-    explicitSeedingOverrides,
-  } = planned.plan;
+  const { format, schedule, config, gamemodeConfig, matchResults } = planned.plan;
 
-  const gamemodeConfig: MaterializedGamemodeConfig = {
-    qualRounds,
-    swissRounds,
-    nonCountingRounds,
-    teamScoringRule: format.teamSize ? form.teamScoringRule || 'sum-members' : 'sum-members',
-    ...(oddCountStrategy ? { oddCountStrategy } : {}),
-    roomSize,
-    semisSize: semisOverride || semisDefault,
-    finalSize: finalOverride || roomSize.ideal,
-    scoring: config.scoring,
-    ...(positionalPointsTable !== undefined ? { positionalPointsTable } : {}),
-    ...(matchResults ? { matchResultPoints: matchResults.points, tieMargin: matchResults.tieMargin } : {}),
-    pointsVersion: 2,
-    cutVersion: 2,
-    groupAverageVersion: 2,
-    absenceVersion: 4,
-    vacantSlotVersion: 1,
-    dependencyPlayVersion: 1,
-    ...(chosen === 'upper-lower' ? { upperLowerVersion: 1 as const } : {}),
-    ...(layeredPlay !== undefined ? { layeredVersion: 1 as const, layeredPlay } : {}),
-    drawPublication: config.drawPublication,
-    ...(lbQualifiers !== undefined ? { lbQualifiers } : {}),
-    ...(explicitTargets !== undefined ? { explicitTargets } : {}),
-    ...(explicitSeedingOverrides !== undefined ? { explicitSeedingOverrides } : {}),
-    ...(waterfallGraph !== undefined ? { graph: waterfallGraph } : {}),
-    bracketPhase: schedule,
-    ...matchConfig,
-    grandFinalWbTarget,
-    grandFinalLbTarget,
-  };
   const roster = rosterKeys(current.players);
   const progression = buildScheduleRounds({
     bracketPhase: schedule,
