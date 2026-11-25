@@ -24,7 +24,7 @@ import {
   type StandingsSourceKind,
 } from './waterfall-graph-text';
 import type { WaterfallParseResult } from './waterfall-parse-result';
-import { checkWinsRounds, resolveWinTargets } from './waterfall-wins';
+import { checkWinsRounds, resolveWinTargets, type WinsBand, type WinsRound } from './waterfall-wins';
 
 /**
  * The checks of a Custom bracket graph. `validateAndOrderWaterfallGraph` refuses a parsed graph that breaks a rule,
@@ -216,6 +216,25 @@ interface CheckedAfterEdges extends CheckedAfterRoomBands {
   totalByLabel: Map<string, number>;
   /** How many rounds route into each round; the next step adds the standings line to it. */
   inDegree: Map<string, number>;
+}
+
+interface CheckedAfterStandingsSource extends CheckedAfterEdges {
+  /** Per rank of the standings line, its destination label; null without a standings source. */
+  qualLabels: string[] | null;
+  /** The one round nothing routes into, set only without a standings source. */
+  entryLabel: string | null;
+  /** The rounds the standings line sends to. */
+  qualDestinations: Set<string>;
+}
+
+interface CheckedAfterWins extends CheckedAfterStandingsSource {
+  winsRounds: WinsRound[];
+  winsBands: WinsBand[];
+}
+
+interface CheckedAfterFixedPrefix extends CheckedAfterWins {
+  /** The played rounds a live edit keeps first, in play order; empty otherwise. */
+  fixedPrefixLower: string[];
 }
 
 /** The line the graph has against the one the tournament wants, then rule 1. */
@@ -434,24 +453,10 @@ function readEdges(checked: CheckedAfterRoomBands): WaterfallParseResult<Checked
   return ok({ ...checked, destinationsByLabel, best: best.value, labels, totalByLabel, inDegree });
 }
 
-export function validateAndOrderWaterfallGraph(
-  graph: RawWaterfallGraph,
-  options: CheckOptions,
-): WaterfallParseResult<OrderedWaterfallGraph> {
-  const sized = checkSourceLineAndRoomSizes({ graph, options });
-  if (!sized.ok) return sized;
-  const withFinal = checkOneFinal(sized.value);
-  if (!withFinal.ok) return withFinal;
-  const routed = groupRouteLines(withFinal.value);
-  if (!routed.ok) return routed;
-  const banded = readRoomBands(routed.value);
-  if (!banded.ok) return banded;
-  const edged = readEdges(banded.value);
-  if (!edged.ok) return edged;
-  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel, inDegree } =
-    edged.value;
-  const { roundLines } = graph;
-  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
+/** The Qual or Groups line, or the entry round: what feeds the first rounds. Adds the line's edges to `inDegree`. */
+function readStandingsSource(checked: CheckedAfterEdges): WaterfallParseResult<CheckedAfterStandingsSource> {
+  const { graph, kind, roundByLabel, labels, totalByLabel, inDegree } = checked;
+  const { standingsSource } = checked.options;
 
   // The Qual source: the Qual line as written, or, for a qualification-table
   // graph without one, the older "everyone entering the bracket goes to the
@@ -484,6 +489,13 @@ export function validateAndOrderWaterfallGraph(
       );
     }
   }
+  return ok({ ...checked, qualLabels, entryLabel, qualDestinations });
+}
+
+/** The checks of the WINS rounds (`waterfall-wins.ts`). */
+function checkWinsBands(checked: CheckedAfterStandingsSource): WaterfallParseResult<CheckedAfterWins> {
+  const { graph, best } = checked;
+  const { roundLines } = graph;
 
   const winsRounds = winsRoundsOf(roundLines);
   const winsBands = winsBandsOf(graph);
@@ -493,6 +505,13 @@ export function validateAndOrderWaterfallGraph(
     [...best.values()].map((line) => line.destinationKey),
   );
   if (!winsChecked.ok) return winsChecked;
+  return ok({ ...checked, winsRounds, winsBands });
+}
+
+/** A live edit's played rounds are still declared and depend only on rounds played before them. */
+function checkFixedPrefix(checked: CheckedAfterWins): WaterfallParseResult<CheckedAfterFixedPrefix> {
+  const { roundByLabel, destinationsByLabel, entryLabel } = checked;
+  const { fixedPrefix } = checked.options;
 
   const fixedPrefixLower = (fixedPrefix ?? []).map((label) => label.toLowerCase());
   if (fixedPrefixLower.length > 0) {
@@ -532,6 +551,35 @@ export function validateAndOrderWaterfallGraph(
       }
     }
   }
+  return ok({ ...checked, fixedPrefixLower });
+}
+
+export function validateAndOrderWaterfallGraph(
+  graph: RawWaterfallGraph,
+  options: CheckOptions,
+): WaterfallParseResult<OrderedWaterfallGraph> {
+  const sized = checkSourceLineAndRoomSizes({ graph, options });
+  if (!sized.ok) return sized;
+  const withFinal = checkOneFinal(sized.value);
+  if (!withFinal.ok) return withFinal;
+  const routed = groupRouteLines(withFinal.value);
+  if (!routed.ok) return routed;
+  const banded = readRoomBands(routed.value);
+  if (!banded.ok) return banded;
+  const edged = readEdges(banded.value);
+  if (!edged.ok) return edged;
+  const fed = readStandingsSource(edged.value);
+  if (!fed.ok) return fed;
+  const winsRead = checkWinsBands(fed.value);
+  if (!winsRead.ok) return winsRead;
+  const prefixed = checkFixedPrefix(winsRead.value);
+  if (!prefixed.ok) return prefixed;
+  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel, inDegree } =
+    prefixed.value;
+  const { qualLabels, entryLabel, qualDestinations, winsRounds, winsBands, fixedPrefixLower } =
+    prefixed.value;
+  const { roundLines } = graph;
+  const { roomSize, entrantCount } = options;
 
   // Standard Kahn, seeded with the fixedPrefix (in that exact order) or just
   // the entry round, then every other round that only the Qual source feeds
