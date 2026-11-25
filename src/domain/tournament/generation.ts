@@ -5,7 +5,7 @@ import { deriveRoomSize, resolveOddCountStrategy } from './formats';
 import { QUALIFICATION_ROUNDS, computeSwissRoundCount, seedFromGroupStageRound } from './pooling';
 import { MAX_KINGS_VALLEY_ROUNDS, kingsValleyMaxEntrants } from './kings-valley';
 import { groupExitRefusal, groupsLineExit } from './group-exit';
-import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
+import { groupSizesOf } from './group-settings';
 import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
 import { layeredGraphFor } from './layered-form';
 import { planUpperLower, upperLowerGraphText } from './upper-lower';
@@ -23,7 +23,7 @@ import {
   resolveTieMargin,
 } from './match-results';
 import { withFinalistAliasesForLineup } from './anonymous-finalists';
-import { matchFormatConfig, wholeNumber } from './round-match-formats';
+import { wholeNumber } from './round-match-formats';
 import { settingsFromForm } from './tournament-settings';
 import { parseWaterfallGraph, validateAndOrderWaterfallGraph } from './waterfall-bracket';
 import type { TournamentRuntime } from './runtime';
@@ -35,10 +35,6 @@ import type {
   ScheduleLogicKey,
   TournamentState,
 } from './types';
-
-/** What generation works with: the stored `cfg` plus the settings it reads here and keeps in `gamemodeConfig` only. */
-type GenerationConfig = GeneratedTournamentConfig &
-  Pick<MaterializedGamemodeConfig, 'scoring' | 'drawPublication' | 'finalsGames' | 'semisGames'>;
 
 type GenerateTournamentResult =
   { status: 'generated'; state: TournamentState } | { status: 'invalid'; message: string };
@@ -167,64 +163,8 @@ export function generateTournament(
   const planned = planTournament(form, current);
   if (!planned.ok) return generationError(planned.message);
   const { unitCount, format, chosen, schedule, formatRoomSize, floorMin, unitPlural } = planned.plan;
+  const { matchConfig, config } = planned.plan;
 
-  // A setting whose Setup field is hidden is ignored: the form keeps its stale
-  // value (so switching back restores it) but generation uses the default.
-  const scoringVisible = form.poolingPhase !== 'none';
-  const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
-  const matchConfig = matchFormatConfig(form, chosen);
-  const settings = groupSettingsOf(form);
-  const config: GenerationConfig = {
-    n: unitCount,
-    poolingPhase: form.poolingPhase,
-    qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
-    groupSize: settings.groupSize,
-    roundRobinMode: form.roundRobinMode,
-    qualifiersPerGroup: settings.qualifiersPerGroup,
-    ...(form.poolingPhase === 'group-stage' && form.groupExit && form.groupExit !== 'per-group'
-      ? { groupExit: form.groupExit }
-      : {}),
-    scoring: scoringVisible ? form.scoring || 'fairpoints' : 'fairpoints',
-    drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
-    finalsGames: matchConfig.finalsGames,
-    semisGames: matchConfig.semisGames,
-    // Hidden along with their selects: the Final of a race double elimination has its own win targets, only single elimination has a Semis format.
-    finalsBestOf: matchConfig.finalsBestOf,
-    semisBestOf: matchConfig.semisBestOf,
-  };
-  if (config.poolingPhase === 'swiss' && format.idealRoomSize !== 2) {
-    return generationError(
-      `Swiss isn't available for ${format.label} — Swiss pairing only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
-    );
-  }
-  if (config.poolingPhase === 'group-stage') {
-    if (format.idealRoomSize !== 2) {
-      return generationError(
-        `Group Stage isn't available for ${format.label} — round-robin scheduling only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
-      );
-    }
-    if (config.groupSize < GROUP_SIZE_BOUNDS.min) {
-      return generationError(
-        `Group size must be at least ${GROUP_SIZE_BOUNDS.min} — round-robin below that is degenerate. Got ${config.groupSize}.`,
-      );
-    }
-    if (config.groupSize > GROUP_SIZE_BOUNDS.max) {
-      return generationError(
-        `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
-      );
-    }
-    // A Groups line decides how many go through, so the form's qualifiers per group wait for it (below).
-    if (config.groupExit === undefined && schedule !== 'waterfall-bracket') {
-      const refusal = groupExitRefusal(
-        config.n,
-        config.groupSize,
-        'per-group',
-        config.qualifiersPerGroup,
-        unitPlural,
-      );
-      if (refusal) return generationError(refusal);
-    }
-  }
   const oddCountStrategy = resolveOddCountStrategy(format, form.oddCountStrategy);
   const roomSize = deriveRoomSize(format, oddCountStrategy);
 

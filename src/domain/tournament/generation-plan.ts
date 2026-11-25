@@ -1,9 +1,14 @@
 import { getGameFormat, deriveRoomSize } from './formats';
+import { groupExitRefusal } from './group-exit';
+import { GROUP_SIZE_BOUNDS, groupSettingsOf } from './group-settings';
 import { layeredGateRefusal } from './layered-form';
 import { rosterFitsFormat, rosterKeys } from './roster';
+import { matchFormatConfig } from './round-match-formats';
 import { getMinimumBracketUnits } from './schedule-generation';
 import {
+  type GenerationConfig,
   type GenerationForm,
+  type PlanAfterPoolingSettings,
   type PlanAfterRoster,
   type Planned,
   refuse,
@@ -62,7 +67,74 @@ function planRoster(form: GenerationForm, current: TournamentState): Planned<Pla
   };
 }
 
+/** The settings of the pooling phase (`config`) and the match formats, with the Swiss and group-stage checks. */
+function planPoolingSettings(form: GenerationForm, plan: PlanAfterRoster): Planned<PlanAfterPoolingSettings> {
+  const { unitCount, format, chosen, schedule, unitPlural } = plan;
+
+  // A setting whose Setup field is hidden is ignored: the form keeps its stale
+  // value (so switching back restores it) but generation uses the default.
+  const scoringVisible = form.poolingPhase !== 'none';
+  const drawPublicationVisible = form.poolingPhase === 'qual-table' || form.poolingPhase === 'swiss';
+  const matchConfig = matchFormatConfig(form, chosen);
+  const settings = groupSettingsOf(form);
+  const config: GenerationConfig = {
+    n: unitCount,
+    poolingPhase: form.poolingPhase,
+    qualAdv: unitCount, // placeholder; validated/overwritten below when poolingPhase !== 'none'
+    groupSize: settings.groupSize,
+    roundRobinMode: form.roundRobinMode,
+    qualifiersPerGroup: settings.qualifiersPerGroup,
+    ...(form.poolingPhase === 'group-stage' && form.groupExit && form.groupExit !== 'per-group'
+      ? { groupExit: form.groupExit }
+      : {}),
+    scoring: scoringVisible ? form.scoring || 'fairpoints' : 'fairpoints',
+    drawPublication: drawPublicationVisible ? form.drawPublication || 'adaptive' : 'adaptive',
+    finalsGames: matchConfig.finalsGames,
+    semisGames: matchConfig.semisGames,
+    // Hidden along with their selects: the Final of a race double elimination has its own win targets, only single elimination has a Semis format.
+    finalsBestOf: matchConfig.finalsBestOf,
+    semisBestOf: matchConfig.semisBestOf,
+  };
+  if (config.poolingPhase === 'swiss' && format.idealRoomSize !== 2) {
+    return refuse(
+      `Swiss isn't available for ${format.label} — Swiss pairing only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
+    );
+  }
+  if (config.poolingPhase === 'group-stage') {
+    if (format.idealRoomSize !== 2) {
+      return refuse(
+        `Group Stage isn't available for ${format.label} — round-robin scheduling only works for head-to-head formats (exactly 2 units per room), not ${unitPlural} sharing a room.`,
+      );
+    }
+    if (config.groupSize < GROUP_SIZE_BOUNDS.min) {
+      return refuse(
+        `Group size must be at least ${GROUP_SIZE_BOUNDS.min} — round-robin below that is degenerate. Got ${config.groupSize}.`,
+      );
+    }
+    if (config.groupSize > GROUP_SIZE_BOUNDS.max) {
+      return refuse(
+        `Group size can't exceed ${GROUP_SIZE_BOUNDS.max} — round-robin above that produces too many rounds. Got ${config.groupSize}.`,
+      );
+    }
+    // A Groups line decides how many go through, so the form's qualifiers per group wait for it (below).
+    if (config.groupExit === undefined && schedule !== 'waterfall-bracket') {
+      const refusal = groupExitRefusal(
+        config.n,
+        config.groupSize,
+        'per-group',
+        config.qualifiersPerGroup,
+        unitPlural,
+      );
+      if (refusal) return refuse(refusal);
+    }
+  }
+
+  return { ok: true, plan: { ...plan, matchConfig, config } };
+}
+
 /** Everything a tournament is worked out as before a round is built, or why it can't be. No side effect. */
 export function planTournament(form: GenerationForm, current: TournamentState): Planned<TournamentPlan> {
-  return planRoster(form, current);
+  const roster = planRoster(form, current);
+  if (!roster.ok) return roster;
+  return planPoolingSettings(form, roster.plan);
 }
