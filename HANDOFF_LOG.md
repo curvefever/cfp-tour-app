@@ -37,7 +37,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Import circles** (`pnpm dlx madge --circular --extensions ts src/domain`). In the repo: 12 at `91c79ba` (before the build and start stage) and 12 at `cdfefd7`, the same list. On `git archive` copies of `src/domain`: 15 at `2a40fd4`, `91c79ba` and `cdfefd7`, the same list; a bare copy resolves fewer imports (9 warnings), so 15 and 12 are not comparable. No circle holds a generation file. The 9 the plan quotes from part 1C was not reproduced.
 
-**Full suite:** to be recorded by the reviewer.
+**Full suite:** passed on `cdfefd7` (311 files, 7,604 tests, worktree copies excluded with `--exclude "**/.claude/**"`; `eb1bbcc` and this line are docs only). Reviewer final checks: eslint, prettier and types clean over the nine changed source files.
 
 **Found, not changed.**
 - `planRoster` computes the floor (`floorMin`), then `registeredBelowFloorMessage` asks `getMinimumBracketUnits` again with the same arguments.
