@@ -56,6 +56,8 @@ The chain is 30 lines of code and no function of the file is over 40.
 
 **Import loops** (`pnpm dlx madge --circular --extensions ts src/domain`): 12 on `ab08644`, 10 after the first file move and on `abecd1c`. The two gone are `waterfall-bracket.ts` with `waterfall-best.ts` and with `waterfall-wins.ts`; the other ten are the same.
 
+**Full suite:** passed on `abecd1c` except two render tests outside this pass (311 files, 7,602 of 7,604 tests, worktree copies excluded with `--exclude "**/.claude/**"`; `6f3c60f` and this line are docs only). The two that failed, `SessionExpired.render.test.tsx` ("keeps an expired tab on the tab it was on when it signs in again", a flake already seen in big runs) and `CopyPlayers.render.test.tsx` ("shows the list in a read-only box where the clipboard is refused"), each passed twice when run alone; the pass changes no file under `features/auth/` or `features/rankings/`. Reviewer final checks: eslint, prettier and types clean over the 38 changed source files.
+
 **Found, not changed.**
 - The checks key every map by the round's name in lower case, so the lower-casing is repeated and the lookups need forced types. Turning the names into positions once (C3-1's other suggestion) is a rewrite.
 - Rule 7 walks the rooms' destinations again beside the deduplicated edges: one needs "does an edge exist", the other a count per rank.
