@@ -6,6 +6,57 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2C: Next Round as a switchboard, one file per format, Previous in its own file (done — 2026-11-25, on `test`, not pushed)
+
+**Context.** The third piece of cleanup part 2. `transitions.ts` held six jobs: the shared tools, and the advance of double elimination, of Kings Valley, of a Custom bracket played by columns, of a pooling exit through the standings, and of a round of no format of its own, the last written straight into `advanceRound` for about 160 lines with five cases for the kind of round that comes next (cleanup audit C2-2, `plans/2026-11-10-cleanup-audit-findings.md`). It and `waterfall-steps.ts` imported each other (C2-2, S0-3), and Previous for every format sat in `waterfall-steps.ts`, a file named for the Custom bracket (C2-8). Plan: `plans/2026-11-25-cleanup-part-2c-next-round.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `189ebf5`. Behaviour does not change: no message, check, check order or stored field, and every refusal hands back the state it handed back before.
+
+**The files** (all in `src/domain/tournament/`; lines of code without blanks and comments, imports included):
+- `round-advance-tools.ts` (178): what more than one way of advancing uses: `PENDING_TIES_MESSAGE`, the result and reason types, `cloneForTransition`, `reserveWindowAtCurrentRound`, `RoundFitFailure`, `fitNextRound`, `MISSING_ROOM_SIZE_MESSAGE`, `poolSeeds`, `seedRoundFromPendingPool`, `malformedWaterfallRoundMessage`, `fitWaterfallRoundAt`, `mergeAdditions`.
+- `double-elimination-advance.ts` (110): `finalizeDoubleEliminationRound` to `advanceDoubleElimination`.
+- `kings-valley-advance.ts` (64): `malformedKingsValleyFinalMessage`, `fitKingsValleyTail` (the ordinary path uses it too), `advanceKingsValley`.
+- `waterfall-advance.ts` (111): `standingsPhaseOf`, `standingsShortfallMessage`, `enterNextWaterfallColumn`, `advanceWaterfallBracket`, `drawWaterfallRoundAhead`, `standingsExitOf`, `advanceFromStandings`.
+- `transitions.ts` (349): `advanceTournamentRound`, `advanceRound` as the switchboard (51 lines), the ordinary advance and the helpers only it uses.
+- `waterfall-steps.ts` (157): dependency play only, with `withRoundInPlay` (now exported) and `withPressesResumed`: they set the state as a press leaves it, which is dependency play.
+- `go-back.ts` (83): `lastOpenStep`, `firstBracketRound`, `canGoBack`, `undoLastStep`, `replayExplainsUndo`, `reopenStep`, `goBack`, `stepBack`.
+
+Importers are updated, with no re-export and no rename. Newly exported, needed by the cut: `fitNextRound`, `fitKingsValleyTail`, `advanceDoubleElimination`, `advanceKingsValley`, `advanceWaterfallBracket`, `advanceFromStandings`, `withRoundInPlay`. The imports run one way: `transitions.ts` → `waterfall-steps.ts` → `round-advance-tools.ts`, and `go-back.ts` → `waterfall-steps.ts`; no new file imports `transitions.ts`. `transitions.ts` is just under the plan's limit of about 350 lines; the reviewer asked for no further split.
+
+**Two changes from the outline in the rest plan, both on purpose.** `uniqueKeepingLast`, `withLateJoiners`, `byeCandidates` and `absenteeBye` stayed with the ordinary path, not in the tools file: nothing else uses them. The Custom bracket by columns and the exit through the standings share one file, because `advanceFromStandings` ends in `enterNextWaterfallColumn`.
+
+**The ordinary advance.** `advanceOrdinaryRound(input, base, roundIndex, round, nextRound)` is a chain of three steps: `whoGoesOn` (the working copy, the cut, the standings it was read from, the byes of the round played put in front, then the late joiners, each unit once), `seatNextRound`, and `finishOrdinaryRound` (lucky losers, `curRound`, the line-up, the reserve window). `seatNextRound` picks, in the order of before: `seatFixedDraw`, `seatGroupRound`, `seatSwissRound`, `seatFirstKingsValleyRound`, else `seatSeededRound`: the room size check, then `chooseByes` and `seatAndAppendByes`, cut where the bye block ends. The kind functions share one argument object, `NextSeating`, and each takes from it what it uses, so the moved blocks keep their names.
+
+**The result type.** Every kind function returns `Seating = { ok: true; seeded } | { ok: false; refusal }`, the two that never refuse too, where `refusal` is a blocked `RoundAdvanceResult`; `chooseByes` returns `ByeChoice` the same way. The caller returns a refusal at once. No `as` cast, non-null assertion or field made optional for the type checker was added. Inside the moved blocks the only edits are: `seeded` is a local of its function; a refusal is wrapped, with the same reason, message and state; `result.groupExit` is `groupExit`; the fixed draw reads the list the dispatch passes in. Three comments that pointed at the old shape were reworded ("every branch below", "every branch above", "the first-hop branch"); the first was also inexact before, as the group and Swiss branches record no room history either. Four comments in other files now name the file a function moved to.
+
+**The refusal state, kept as it was** (C2-7, not tidied). In the ordinary advance:
+
+| Refusal | `state` handed back |
+|---|---|
+| next round is Swiss, no room size | the working copy (`qualTable` and `groupStandings` already written) |
+| first Kings Valley round, `fitKingsValleyTail` fails | `input`: `advanceRound`'s own argument, before the standings refresh |
+| the rest, no room size | the working copy |
+| the rest, a bye needed before a Final (`malformed-final`) | the working copy |
+| the rest, `fitWaterfallRoundAt` or `fitNextRound` fails | `input` |
+
+The other formats are passed `base` and return their own argument on refusal, as before.
+
+**Method and proof of no change.** An uncommitted harness, its baseline written on `189ebf5`: 19 tournaments played to the end, 2,091 Next Round calls and 145 Previous calls, 2,255 recorded entries. An entry holds the status, reason and message, whether the state handed back is the one pressed, whether the argument stayed untouched, and a hash of the whole result. Each tournament was built again on every run, with the date faked and `Math.random` seeded (two of the fixtures fix only the ids). The tournaments: FFA qualification table 37; 1v1 Swiss 31; 1v1 group stage 43; Kings Valley 53, once with 8 units removed while pooling; a Custom bracket after a table, 37, with a Qual line and with an entry round, each by columns and in dependency play; a Custom bracket with no pooling, 16; upper and lower 43; layered 53; double elimination 1v1 31; shared-Final double elimination FFA 37; 4v4 with match results, 37 teams; fixed draws at 37, FFA and 1v1 with byes; byes at 31 with no pooling, and after a table with a late joiner. Previous ran at each tournament's second press, plain and with the drawn round scored, and as a walk back from the end. Refusals: a tie and an absence question at a table cut and at a standings exit, a standings shortfall, and at every press states made wrong on purpose, one thing each (no room size, later rounds widened or narrowed, one-seat Finals, an extra bye, one or three seats left in play), which reached every row of the table above. The harness matched all 2,255 entries after every commit that moved or cut code, and was deleted with its baseline at the end of stage 3.
+
+A syntax-tree comparison after stage 1 found all 35 top-level declarations of the old `transitions.ts` with identical code and comments, `export` aside. After stage 3, 22 of the 23 of the old `waterfall-steps.ts` compared equal; the other differed only by the new file header above it. Import loops (madge on `src/domain`): 10 before, 9 after the first commit and at the end; the one between `transitions.ts` and `waterfall-steps.ts` is gone and there is no new one.
+
+**Testing.** No test added or removed and no assertion changed. Import lines only: `groups-line.test.ts`, `layered-replan.test.ts`, twelve domain tests of Previous, `AnonymousFinalists.render.test.tsx`, `RoomCardOrdered.render.test.tsx` and `e2e/screens/fixtures.ts` (type-checked and linted, not run). Per commit that moved or cut code: eslint, `prettier --check` and the type check clean; `vitest related` between 182 files with 5,278 tests and 199 files with 5,697 tests, all passed. The commit of four comment pointers had eslint, `prettier --check` and the harness. No live check or e2e (the plan lists none).
+
+**The reviewer's mutations.** Ties and absence checks swapped in the switchboard: caught by tests. Lucky losers written before the seating: caught by the harness only, and invisible today (below). Late joiners put before the round's byes: equivalent, because `lateJoinersOf` leaves out the units with a bye. The Swiss refusal handing back `input`: caught by the harness only (C2-7: no caller reads it, so it is not pinned). Previous without the finalist names (`goBack` skipping `withFinalistAliasesForLineup`): caught by tests.
+
+**Found, not changed.**
+- The missing-room-size refusal is written three times in the ordinary advance (C2-5).
+- A refusal hands back one of three states (C2-7).
+- The fixed draw and the group round repeat what `generation.ts` does for round 1 (C2-6, C1-10).
+- The lucky losers are written after the next round is seated, as `fitKingsValleyTail` would otherwise clobber them; today no path into the first Kings Valley round has lucky losers, so the order is kept but not pinned. The round before it is the standings cut (no lucky names) or a warm-up that cuts nobody (an empty list).
+
+**Out of scope.** C2-5 (stored settings typed "anything may be missing"), C2-6 (small repeats), C2-7 (one refusal state), C2-9 (the hand-kept list of what to copy), C1-10 (the round 1 draw out of generation); any message wording, reorder or rename of an exported function. A push to `test` or `main` is decided after the final review, with the organiser.
+
+---
+
 ## Cleanup part 2B: the Custom bracket graph in four files, its checks as a chain (done — 2026-11-25, on `test`, not pushed)
 
 **Context.** The second piece of cleanup part 2. `waterfall-bracket.ts` was the largest file of the engine, with several jobs (cleanup audit C3-3, `plans/2026-11-10-cleanup-audit-findings.md`), and `validateAndOrderWaterfallGraph` in it was one function of 339 lines (C3-1). The rigidity audit marked the seam (M3, `plans/2026-11-14-rigidity-audit-findings.md`): read the text, check a graph, order the rounds and number the columns. Plan: `plans/2026-11-25-cleanup-part-2-rest.md`, "Rules for every pass" and "2B". Behaviour does not change: no message, check, check order or stored field. Blocks were moved, not rewritten.
