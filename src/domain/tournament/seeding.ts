@@ -1061,7 +1061,7 @@ export function doubleEliminationApproachProgress(
 
 /**
  * Seeds double-elimination's WB/LB routing
- * (finalizeDoubleEliminationRound, transitions.ts) -- structurally a thin
+ * (finalizeDoubleEliminationRound, double-elimination-advance.ts) -- structurally a thin
  * sibling of tieredSeed, not a variant that re-derives tiers: `pool` already
  * carries each entry's tierRank/pct, tagged at push time by
  * advanceDoubleElimination (see the tagging note there and on

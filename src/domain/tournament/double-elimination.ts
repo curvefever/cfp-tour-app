@@ -18,7 +18,7 @@ export interface SharedFinalDoubleEliminationConfig extends RaceDoubleEliminatio
   lbQualifiers: number;
   /** Organiser-supplied ordered WB survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
   explicitTargets?: number[];
-  /** Organiser-supplied fixed reseed mode per WB round, index-aligned with explicitTargets -- only ever applied to a WB round's own continuation into the next WB round (transitions.ts), never an LB-bound drop. */
+  /** Organiser-supplied fixed reseed mode per WB round, index-aligned with explicitTargets -- only ever applied to a WB round's own continuation into the next WB round (double-elimination-advance.ts), never an LB-bound drop. */
   explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
 }
 

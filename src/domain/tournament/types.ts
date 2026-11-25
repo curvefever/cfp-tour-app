@@ -182,7 +182,7 @@ export interface AnonymousFinalist {
  * it is assigned to a physical room.
  * `tierRank` and `pct` (the score relative to the room average, 1 = average; the
  * in-tier order only) are tagged once, at the moment this entry is pushed onto
- * `pendingBracketSeeds` (see `advanceDoubleElimination` in transitions.ts) --
+ * `pendingBracketSeeds` (see `advanceDoubleElimination` in double-elimination-advance.ts) --
  * the same room-rank-position signal `buildAdvancementTiers` derives for the
  * generic reseeding path, captured here because a target round's pool can
  * accumulate from more than one source round, by which point there is no

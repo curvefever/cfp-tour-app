@@ -164,7 +164,7 @@ function finalRound(roundNum: number, players: number): TournamentRound {
  *
  * `capStartRoundNum` anchors the MAX_KINGS_VALLEY_ROUNDS cap -- defaults to
  * `startRoundNum`, but a mid-tournament re-fit (fitKingsValleyTail,
- * transitions.ts) passes the FIRST Kings Valley round's own roundNum instead,
+ * kings-valley-advance.ts) passes the FIRST Kings Valley round's own roundNum instead,
  * so re-planning the tail from a later round doesn't hand a stuck field a
  * fresh 14-round budget it already partly spent.
  */
