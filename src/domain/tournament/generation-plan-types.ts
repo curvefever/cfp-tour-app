@@ -3,6 +3,8 @@ import type {
   GameFormatDefinition,
   GeneratedTournamentConfig,
   MaterializedGamemodeConfig,
+  OddCountStrategyKey,
+  OrderedWaterfallGraph,
   PersistedSetup,
   RoomSize,
   ScheduleLogicKey,
@@ -42,8 +44,22 @@ export interface PlanAfterPoolingSettings extends PlanAfterRoster {
   config: GenerationConfig;
 }
 
+export interface PlanAfterBracketShape extends PlanAfterPoolingSettings {
+  oddCountStrategy: OddCountStrategyKey | undefined;
+  roomSize: RoomSize;
+  /** The Custom bracket text to build from: the form's, or the one derived from the head count. */
+  graphText: string;
+  /** The number who play a layered bracket's plan was made for. */
+  layeredPlay: number | undefined;
+  waterfallGraph: OrderedWaterfallGraph | undefined;
+  /** The graph is fed by the final standings of a qualification table or a Swiss. */
+  graphHasQualSource: boolean;
+  /** The graph is fed by the group exit order. */
+  graphHasGroupsSource: boolean;
+}
+
 /**
  * The numbers of a tournament, worked out from the Setup form and the loaded roster before any round is built: no
  * names. Each step of `planTournament` reads the plan so far and returns it with its own fields added.
  */
-export type TournamentPlan = PlanAfterPoolingSettings;
+export type TournamentPlan = PlanAfterBracketShape;

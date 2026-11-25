@@ -4,6 +4,7 @@ import { GROUP_SIZE_BOUNDS, groupSettingsOf } from './group-settings';
 import { layeredGateRefusal } from './layered-form';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { matchFormatConfig } from './round-match-formats';
+import { planBracketShape } from './generation-plan-shape';
 import { getMinimumBracketUnits } from './schedule-generation';
 import {
   type GenerationConfig,
@@ -136,5 +137,7 @@ function planPoolingSettings(form: GenerationForm, plan: PlanAfterRoster): Plann
 export function planTournament(form: GenerationForm, current: TournamentState): Planned<TournamentPlan> {
   const roster = planRoster(form, current);
   if (!roster.ok) return roster;
-  return planPoolingSettings(form, roster.plan);
+  const pooling = planPoolingSettings(form, roster.plan);
+  if (!pooling.ok) return pooling;
+  return planBracketShape(form, pooling.plan);
 }
