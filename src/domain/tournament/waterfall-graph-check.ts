@@ -154,40 +154,60 @@ function arrivesShort(declared: number[], arriving: number, minimumRoom: number)
   return removeSeatsFromLastRooms(declared, missing).every((size) => size >= minimumRoom);
 }
 
-export function validateAndOrderWaterfallGraph(
-  graph: RawWaterfallGraph,
-  options: {
-    roomSize: RoomSize;
-    /**
-     * Left out while it isn't known yet (no roster loaded); rule 9 is then skipped. Without a Qual
-     * source it is the number entering the bracket phase; with `standingsSource` it is the registered
-     * head count the qualification table is ranked from.
-     */
-    entrantCount?: number;
-    /**
-     * True when the graph is fed by a qualification table or a group stage: the Qual (or, with
-     * `standingsKind: 'groups'`, the Groups) line is allowed (a graph without one is read as
-     * `Qual: 1-<entry round total> -> <entry round>`), and every declared round must be fed by it or
-     * another round. False: a Qual or Groups line is an error.
-     */
-    standingsSource?: boolean;
-    /** Which line feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
-    standingsKind?: StandingsSourceKind;
-    /**
-     * Round labels, in play order, that the returned order must start with
-     * exactly (a live edit's already-reached rounds, which can't be
-     * reordered). Without it, the play order is derived purely from the
-     * routing, as normal.
-     */
-    fixedPrefix?: string[];
-    /** Index-aligned with `fixedPrefix`: the column each of those rounds already has. Without it they are placed like any other round. */
-    fixedColumns?: number[];
-    /** The first column an unreached round may use (a live edit: the columns before it have started). Default 1. */
-    firstOpenColumn?: number;
-  },
-): WaterfallParseResult<OrderedWaterfallGraph> {
-  const { roundLines, routeLines } = graph;
-  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
+interface CheckOptions {
+  roomSize: RoomSize;
+  /**
+   * Left out while it isn't known yet (no roster loaded); rule 9 is then skipped. Without a Qual
+   * source it is the number entering the bracket phase; with `standingsSource` it is the registered
+   * head count the qualification table is ranked from.
+   */
+  entrantCount?: number;
+  /**
+   * True when the graph is fed by a qualification table or a group stage: the Qual (or, with
+   * `standingsKind: 'groups'`, the Groups) line is allowed (a graph without one is read as
+   * `Qual: 1-<entry round total> -> <entry round>`), and every declared round must be fed by it or
+   * another round. False: a Qual or Groups line is an error.
+   */
+  standingsSource?: boolean;
+  /** Which line feeds the graph when `standingsSource` is set: 'qual' (the default) or 'groups'. */
+  standingsKind?: StandingsSourceKind;
+  /**
+   * Round labels, in play order, that the returned order must start with
+   * exactly (a live edit's already-reached rounds, which can't be
+   * reordered). Without it, the play order is derived purely from the
+   * routing, as normal.
+   */
+  fixedPrefix?: string[];
+  /** Index-aligned with `fixedPrefix`: the column each of those rounds already has. Without it they are placed like any other round. */
+  fixedColumns?: number[];
+  /** The first column an unreached round may use (a live edit: the columns before it have started). Default 1. */
+  firstOpenColumn?: number;
+}
+
+/**
+ * What the checks start from. Each step below returns the context with what it read added, or the refusal. A step that
+ * only checks returns the context it was given. Keys of the maps are round names in lower case.
+ */
+interface CheckInput {
+  graph: RawWaterfallGraph;
+  options: CheckOptions;
+}
+
+interface CheckedAfterRoomSizes extends CheckInput {
+  /** Which line may feed the graph, null when it has no standings source. */
+  kind: StandingsSourceKind | null;
+  roundByLabel: Map<string, RawRoundLine>;
+}
+
+interface CheckedAfterRouteLines extends CheckedAfterRoomSizes {
+  routesByLabel: Map<string, RawRouteLine[]>;
+}
+
+/** The line the graph has against the one the tournament wants, then rule 1. */
+function checkSourceLineAndRoomSizes(input: CheckInput): WaterfallParseResult<CheckedAfterRoomSizes> {
+  const { graph, options } = input;
+  const { roundLines } = graph;
+  const { roomSize, standingsSource } = options;
   const kind: StandingsSourceKind | null = standingsSource ? (options.standingsKind ?? 'qual') : null;
 
   if (graph.standingsKind !== null && graph.standingsKind !== kind) {
@@ -206,6 +226,11 @@ export function validateAndOrderWaterfallGraph(
   }
 
   const roundByLabel = new Map(roundLines.map((round) => [round.label.toLowerCase(), round]));
+  return ok({ ...input, kind, roundByLabel });
+}
+
+function checkOneFinal(checked: CheckedAfterRoomSizes): WaterfallParseResult<CheckedAfterRoomSizes> {
+  const { roundLines } = checked.graph;
 
   // Rule 2: exactly one FINAL round, with no outgoing line.
   const finalRounds = roundLines.filter((round) => round.isFinal);
@@ -217,6 +242,12 @@ export function validateAndOrderWaterfallGraph(
       `More than one round is marked FINAL (${finalRounds.map((round) => round.label).join(', ')}) -- exactly one is allowed.`,
     );
   }
+  return ok(checked);
+}
+
+function groupRouteLines(checked: CheckedAfterRoomSizes): WaterfallParseResult<CheckedAfterRouteLines> {
+  const { routeLines } = checked.graph;
+  const { roundByLabel } = checked;
 
   const routesByLabel = new Map<string, RawRouteLine[]>();
   for (const route of routeLines) {
@@ -226,6 +257,22 @@ export function validateAndOrderWaterfallGraph(
     }
     routesByLabel.set(key, [...(routesByLabel.get(key) ?? []), route]);
   }
+  return ok({ ...checked, routesByLabel });
+}
+
+export function validateAndOrderWaterfallGraph(
+  graph: RawWaterfallGraph,
+  options: CheckOptions,
+): WaterfallParseResult<OrderedWaterfallGraph> {
+  const sized = checkSourceLineAndRoomSizes({ graph, options });
+  if (!sized.ok) return sized;
+  const withFinal = checkOneFinal(sized.value);
+  if (!withFinal.ok) return withFinal;
+  const routed = groupRouteLines(withFinal.value);
+  if (!routed.ok) return routed;
+  const { kind, roundByLabel, routesByLabel } = routed.value;
+  const { roundLines } = graph;
+  const { roomSize, entrantCount, fixedPrefix, standingsSource } = options;
 
   // Rule 3 + overlap check (rule 4; uncovered ranks are eliminated) + destination existence/self-loop (rule 5):
   // resolve every round's per-room destination-label arrays.
