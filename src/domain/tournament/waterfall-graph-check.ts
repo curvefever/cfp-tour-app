@@ -237,6 +237,11 @@ interface CheckedAfterFixedPrefix extends CheckedAfterWins {
   fixedPrefixLower: string[];
 }
 
+interface CheckedAfterRouteWalk extends CheckedAfterFixedPrefix {
+  /** Every round, each after the rounds that route into it, the played ones first. */
+  topoOrder: string[];
+}
+
 /** The line the graph has against the one the tournament wants, then rule 1. */
 function checkSourceLineAndRoomSizes(input: CheckInput): WaterfallParseResult<CheckedAfterRoomSizes> {
   const { graph, options } = input;
@@ -410,13 +415,6 @@ function readEdges(checked: CheckedAfterRoomBands): WaterfallParseResult<Checked
   const { graph, roundByLabel, roomBandsByLabel } = checked;
   const { roundLines } = graph;
 
-  // Rule 6 (DAG) + rule 8 (reachability), via Kahn's algorithm. Without a
-  // Qual source it also proves, as a byproduct, that there is exactly one
-  // round with no incoming routes (the entry round) and that every other
-  // round is reachable from it: a second in-degree-0 round would make the
-  // initial queue hold more than one label, and a cycle would leave some
-  // rounds never reaching in-degree 0. With a Qual source, Qual is the
-  // source instead, so every declared round just needs something feeding it.
   const destinationsByLabel = new Map<string, Set<string>>();
   for (const round of roundLines) {
     const key = round.label.toLowerCase();
@@ -554,32 +552,17 @@ function checkFixedPrefix(checked: CheckedAfterWins): WaterfallParseResult<Check
   return ok({ ...checked, fixedPrefixLower });
 }
 
-export function validateAndOrderWaterfallGraph(
-  graph: RawWaterfallGraph,
-  options: CheckOptions,
-): WaterfallParseResult<OrderedWaterfallGraph> {
-  const sized = checkSourceLineAndRoomSizes({ graph, options });
-  if (!sized.ok) return sized;
-  const withFinal = checkOneFinal(sized.value);
-  if (!withFinal.ok) return withFinal;
-  const routed = groupRouteLines(withFinal.value);
-  if (!routed.ok) return routed;
-  const banded = readRoomBands(routed.value);
-  if (!banded.ok) return banded;
-  const edged = readEdges(banded.value);
-  if (!edged.ok) return edged;
-  const fed = readStandingsSource(edged.value);
-  if (!fed.ok) return fed;
-  const winsRead = checkWinsBands(fed.value);
-  if (!winsRead.ok) return winsRead;
-  const prefixed = checkFixedPrefix(winsRead.value);
-  if (!prefixed.ok) return prefixed;
-  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel, inDegree } =
-    prefixed.value;
-  const { qualLabels, entryLabel, qualDestinations, winsRounds, winsBands, fixedPrefixLower } =
-    prefixed.value;
-  const { roundLines } = graph;
-  const { roomSize, entrantCount } = options;
+function walkRoutes(checked: CheckedAfterFixedPrefix): WaterfallParseResult<CheckedAfterRouteWalk> {
+  const { roundByLabel, destinationsByLabel, labels, inDegree } = checked;
+  const { entryLabel, qualDestinations, fixedPrefixLower } = checked;
+
+  // Rule 6 (DAG) + rule 8 (reachability), via Kahn's algorithm. Without a
+  // Qual source it also proves, as a byproduct, that there is exactly one
+  // round with no incoming routes (the entry round) and that every other
+  // round is reachable from it: a second in-degree-0 round would make the
+  // initial queue hold more than one label, and a cycle would leave some
+  // rounds never reaching in-degree 0. With a Qual source, Qual is the
+  // source instead, so every declared round just needs something feeding it.
 
   // Standard Kahn, seeded with the fixedPrefix (in that exact order) or just
   // the entry round, then every other round that only the Qual source feeds
@@ -614,6 +597,12 @@ export function validateAndOrderWaterfallGraph(
       `The routing table has a cycle involving: ${stuck.map((label) => roundByLabel.get(label)!.label).join(', ')}.`,
     );
   }
+  return ok({ ...checked, topoOrder });
+}
+
+function checkRoundsSendOn(checked: CheckedAfterRouteWalk): WaterfallParseResult<CheckedAfterRouteWalk> {
+  const { roundLines } = checked.graph;
+  const { roomBandsByLabel, best } = checked;
 
   // Rule 10: a non-Final round must send at least one rank on, so a round
   // whose route was forgotten (every rank eliminated) fails loudly, and a
@@ -635,6 +624,38 @@ export function validateAndOrderWaterfallGraph(
       );
     }
   }
+  return ok(checked);
+}
+
+export function validateAndOrderWaterfallGraph(
+  graph: RawWaterfallGraph,
+  options: CheckOptions,
+): WaterfallParseResult<OrderedWaterfallGraph> {
+  const sized = checkSourceLineAndRoomSizes({ graph, options });
+  if (!sized.ok) return sized;
+  const withFinal = checkOneFinal(sized.value);
+  if (!withFinal.ok) return withFinal;
+  const routed = groupRouteLines(withFinal.value);
+  if (!routed.ok) return routed;
+  const banded = readRoomBands(routed.value);
+  if (!banded.ok) return banded;
+  const edged = readEdges(banded.value);
+  if (!edged.ok) return edged;
+  const fed = readStandingsSource(edged.value);
+  if (!fed.ok) return fed;
+  const winsRead = checkWinsBands(fed.value);
+  if (!winsRead.ok) return winsRead;
+  const prefixed = checkFixedPrefix(winsRead.value);
+  if (!prefixed.ok) return prefixed;
+  const walked = walkRoutes(prefixed.value);
+  if (!walked.ok) return walked;
+  const sending = checkRoundsSendOn(walked.value);
+  if (!sending.ok) return sending;
+  const { kind, roundByLabel, roomBandsByLabel, destinationsByLabel, best, labels, totalByLabel } =
+    sending.value;
+  const { qualLabels, entryLabel, winsRounds, winsBands, fixedPrefixLower, topoOrder } = sending.value;
+  const { roundLines } = graph;
+  const { roomSize, entrantCount } = options;
 
   // Rule 7: every round's declared total (except the entry round of a graph
   // with no Qual source) must exactly equal what routes into it, checked
