@@ -5,7 +5,8 @@ import {
   undrawnRounds,
   usesDependencyPlay,
 } from './round-columns';
-import { advanceTournamentRound, drawWaterfallRoundAhead } from './transitions';
+import { advanceTournamentRound } from './transitions';
+import { drawWaterfallRoundAhead } from './waterfall-advance';
 import {
   doneAfterPress,
   finishedRoundsInPlay,
