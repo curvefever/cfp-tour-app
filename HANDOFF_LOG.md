@@ -46,7 +46,7 @@ The group of stage 3 was an in-between state: the pooling exit draw was still in
 
 **Out of scope.** C4b-2: `fillFixedRooms` in `fixed-draws.ts` is a copy of `fillRoomsByWaves`. C4b-3: `tieredSeed` and `tieredBracketSeed` share a middle; joining them changes code rather than moves it, so it is a later pass of its own. Renames. 2E-2, `mutations.ts`. A push to `test` or `main` is decided after the final review, with the organiser.
 
-**Full suite**:
+**Full suite**: passed on `b9cb629`: 311 files, 7,604 tests (`pnpm exec vitest run --exclude "**/.claude/**"`, a worktree being present). Final review: eslint, `prettier --check` and the type check clean over the 46 code files of the pass.
 
 ---
 
