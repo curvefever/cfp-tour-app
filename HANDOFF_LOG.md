@@ -33,7 +33,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** C4-3: a unit's name is written in seventeen places. Renames, `mutations.test.ts` among them. The order of the reserve checks. A push to `test` or `main` is decided after the final review, with the organiser.
 
-**Full suite**:
+**Full suite**: passed on `06b1a6a`: 311 files, 7,604 tests (`pnpm exec vitest run --exclude "**/.claude/**"`, a worktree being present). Final review: eslint, `prettier --check` and the type check clean over the 101 code files of the pass.
 
 ---
 
