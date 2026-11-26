@@ -4,12 +4,12 @@ import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import {
   placeLikelyAbsentees,
-  roomPairKey,
   seedFromPoolingExit,
   seedPoolByStanding,
   tieredBracketSeed,
   tieredSeed,
 } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { PendingBracketSeed, TournamentState } from '../types';

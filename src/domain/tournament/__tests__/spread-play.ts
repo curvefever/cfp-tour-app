@@ -2,7 +2,7 @@ import { buildAdvancementTiers } from '../advancement';
 import { getGameFormat } from '../formats';
 import { addWalkUpIndividual, addWalkUpTeam } from '../mutations';
 import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
-import { recordRoomHistory } from '../seeding';
+import { recordRoomHistory } from '../room-history';
 import { advanceTournamentRound } from '../transitions';
 import type { RoundAssignment, TournamentState } from '../types';
 import { buildState, type SweepConfig } from './play-through';

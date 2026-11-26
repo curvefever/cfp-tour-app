@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recordRoomHistory } from '../seeding';
+import { recordRoomHistory } from '../room-history';
 import type { RoundAssignment, TournamentState } from '../types';
 import { withEarlierPointsRule } from './play-through';
 import { buildQualWaterfall } from './qual-waterfall';

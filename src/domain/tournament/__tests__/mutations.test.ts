@@ -27,7 +27,7 @@ import { computeRankings } from '../rankings';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { isConfirmed, setConfirmed } from '../confirmations';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { settingsFromForm } from '../tournament-settings';
 import type { TournamentRound, TournamentState, TournamentTeam } from '../types';

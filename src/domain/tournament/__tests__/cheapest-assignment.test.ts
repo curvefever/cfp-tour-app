@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lexicographicMinAssignment } from '../cheapest-assignment';
-import { assignWaveToRooms, roomPairKey, type WaveMember } from '../seeding';
+import { assignWaveToRooms, type WaveMember } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { permutationsOf, referenceAssignWaveToRooms, referenceCost } from './cheapest-assignment-reference';
 
 type WaveOptions = Parameters<typeof assignWaveToRooms>[4];

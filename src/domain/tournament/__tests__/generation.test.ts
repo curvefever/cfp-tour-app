@@ -5,7 +5,7 @@ import { addReserveUnit, setFinalScore } from '../mutations';
 import { computeSwissRoundCount } from '../pooling';
 import { computeRankings } from '../rankings';
 import { getMinimumBracketUnits } from '../schedule-generation';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { createTournamentRuntime } from '../runtime';
 import { applyTournamentSettings } from '../tournament-settings';

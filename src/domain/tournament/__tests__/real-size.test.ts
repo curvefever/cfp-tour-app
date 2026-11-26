@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';

@@ -4,7 +4,7 @@ import { generateTournament } from '../generation';
 import { removeRosterUnit } from '../mutations';
 import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentState } from '../types';
 import { scoreCurrentRound, scoreThenPress } from './play-through';

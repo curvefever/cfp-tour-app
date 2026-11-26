@@ -1,6 +1,6 @@
 import { computeQualificationStandings } from '../../src/domain/tournament/advancement';
 import { unitDisplay } from '../../src/domain/tournament/roster';
-import { recordRoomHistory, roomPairKey } from '../../src/domain/tournament/seeding';
+import { recordRoomHistory, roomPairKey } from '../../src/domain/tournament/room-history';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';
 import { unmarshalFromFirebase } from '../../src/features/sync/firebase-marshal';
 import { normalizeLiveTournamentState } from '../../src/lib/persistence/live-state';

@@ -419,7 +419,7 @@ export interface TournamentState {
   luckyLosers: string[][];
   byes: string[][];
   poolingByeCounts: Record<string, number>;
-  /** Canonical pair-key (seeding.ts's roomPairKey) -> round index of that pair's most recent shared room. Written only by the ordinary room-based reseed path (tieredSeed/recordRoomHistory), read for round-to-round rematch avoidance. */
+  /** Canonical pair-key (room-history.ts's roomPairKey) -> round index of that pair's most recent shared room. Written only by the ordinary room-based reseed path (tieredSeed/recordRoomHistory), read for round-to-round rematch avoidance. */
   roomHistory: Record<string, number>;
   pendingBracketSeeds: Record<string, PendingBracketSeed[]>;
   qualTable: TournamentStanding[];

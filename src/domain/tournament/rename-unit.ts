@@ -1,4 +1,4 @@
-import { roomPairKey } from './seeding';
+import { roomPairKey } from './room-history';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
 type Rename = (name: string) => string;

@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable, selectGroupExit } from '../advancement';
 import { isFedOnlyByStandings } from '../bracket-replay';
-import {
-  avoidMetPairsNearRank,
-  roomPairKey,
-  seedFromPoolingExit,
-  seedPoolByStanding,
-  snakeSeed,
-  tieredSeed,
-} from '../seeding';
+import { seedFromPoolingExit, seedPoolByStanding, snakeSeed, tieredSeed } from '../seeding';
+import { avoidMetPairsNearRank, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';
 import { buildState, pressNextRound, scoreCurrentRound, type SweepConfig } from './play-through';

@@ -1,7 +1,7 @@
 import { withoutRoundAbsences } from './absences';
 import { recordedUnits, replayBracketPools, sameNames } from './bracket-replay';
 import { roundHasAnyScore, roundKeyPrefix } from './scoring';
-import { rewindRoomHistory } from './seeding';
+import { rewindRoomHistory } from './room-history';
 import { lastAssignedRound, roundColumn } from './round-columns';
 import type { TournamentRound, TournamentState } from './types';
 

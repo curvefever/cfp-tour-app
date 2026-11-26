@@ -4,7 +4,7 @@ import { splitAdvancement, validateRoomCap } from './room-distribution';
 import { rosterKeys } from './roster';
 import { roomKeyPrefix, roundHasAnyScore, roundKeyPrefix } from './scoring';
 import { isPoolingRound } from './pooling';
-import { recordRoomHistory, rewindRoomHistory } from './seeding';
+import { recordRoomHistory, rewindRoomHistory } from './room-history';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 import { advancingSeats, declaredWaterfallRooms } from './waterfall-bracket';
 

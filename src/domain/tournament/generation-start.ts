@@ -5,7 +5,8 @@ import { seedFromGroupStageRound } from './pooling';
 import { rosterKeys } from './roster';
 import type { TournamentRuntime } from './runtime';
 import type { ScheduleRounds } from './schedule-generation';
-import { randomSeed, recordRoomHistory } from './seeding';
+import { randomSeed } from './seeding';
+import { recordRoomHistory } from './room-history';
 import { settingsFromForm } from './tournament-settings';
 import type { TournamentState } from './types';
 

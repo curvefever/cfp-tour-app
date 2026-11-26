@@ -4,7 +4,7 @@ import { ONE_SCORE_PER_TEAM } from '../formats';
 import { moveUnitToRoom } from '../lineup-edit';
 import { markBack } from '../likely-absentees';
 import { clickConfirmationAndSeat, seatReturningUnit } from '../returning-unit';
-import { recordRoomHistory, roomPairKey } from '../seeding';
+import { recordRoomHistory, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentRound, TournamentState } from '../types';
 import { afterRound1 } from './absentee-bracket-fixture';

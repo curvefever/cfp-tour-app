@@ -6,7 +6,8 @@ import {
 } from '../double-elimination';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, swapIndividual } from '../mutations';
-import { roomPairKey, snakeSeed, tieredBracketSeed, tieredSeed } from '../seeding';
+import { snakeSeed, tieredBracketSeed, tieredSeed } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { parseWaterfallGraph } from '../waterfall-graph-text';
 import { validateAndOrderWaterfallGraph } from '../waterfall-graph-check';
 import { waterfallBracketPhase } from '../waterfall-bracket';

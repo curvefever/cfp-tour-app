@@ -1,6 +1,6 @@
 import { computeQualificationStandings } from '../../src/domain/tournament/advancement';
 import { standardPoints } from '../../src/domain/tournament/scoring';
-import { roomPairKey } from '../../src/domain/tournament/seeding';
+import { roomPairKey } from '../../src/domain/tournament/room-history';
 import { smallerRoomSeatsBefore, splitForSmallerRooms } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';
 

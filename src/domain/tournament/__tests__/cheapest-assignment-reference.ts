@@ -1,4 +1,5 @@
-import { recencyWeight, roomPairKey, type WaveMember } from '../seeding';
+import { recencyWeight, type WaveMember } from '../seeding';
+import { roomPairKey } from '../room-history';
 
 /**
  * Test-only copy of the original exhaustive assignWaveToRooms (every

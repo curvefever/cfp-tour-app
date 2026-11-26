@@ -3,7 +3,7 @@ import { orderedQualificationTable } from '../advancement';
 import { generateTournament } from '../generation';
 import { removeRosterUnit, swapIndividual } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';

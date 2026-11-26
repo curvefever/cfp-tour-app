@@ -2,7 +2,7 @@ import { computeQualificationStandings } from './advancement';
 import { rankingPoints, samePoints } from './standing-compare';
 import { lateJoinersOf } from './late-joiners';
 import { levelRuns } from './level-runs';
-import { metPairs, roomPairKey } from './seeding';
+import { metPairs, roomPairKey } from './room-history';
 import type { RoomSize, RoundAssignment, TournamentState } from './types';
 
 /** The most steps the rematch-free search may take before the plain pairing is used instead. */

@@ -14,13 +14,13 @@ import { swissPair } from './swiss-pairing';
 import {
   avoidSameGroupInFirstBracketRound,
   pairsAbsenteesInRound,
-  recordRoomHistory,
   selectPoolingBye,
   sequentialSeed,
   seedFromPoolingExit,
   tieredSeed,
   type SeedCandidate,
 } from './seeding';
+import { recordRoomHistory } from './room-history';
 import type { RoomSize, RoundAssignment, TournamentRound, TournamentState } from './types';
 import { generatedConfig } from './generated-config';
 import { currentColumn, nextColumnStart, usesDependencyPlay } from './round-columns';

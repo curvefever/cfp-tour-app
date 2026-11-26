@@ -5,7 +5,8 @@ import { grandFinalTargets } from './finals';
 import { isWinsRound } from './match-format';
 import { drawCustomBracketPool, usesSeedLines } from './custom-bracket-draw';
 import { projectedSeeds } from './projected-seeds';
-import { roomPairKey, snakeSeed } from './seeding';
+import { snakeSeed } from './seeding';
+import { roomPairKey } from './room-history';
 import { hasFairCutVersion } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
 import {

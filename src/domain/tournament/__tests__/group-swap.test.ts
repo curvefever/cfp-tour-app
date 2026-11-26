@@ -4,7 +4,7 @@ import { generateTournament } from '../generation';
 import { groupSwapClears, groupSwapWindow, swapBetweenGroups } from '../group-swap';
 import { resetTournamentState } from '../mutations';
 import { createTournamentRuntime } from '../runtime';
-import { roomPairKey } from '../seeding';
+import { roomPairKey } from '../room-history';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';

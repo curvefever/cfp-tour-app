@@ -5,10 +5,7 @@ import {
   doubleEliminationApproachProgress,
   randomSeed,
   recencyWeight,
-  recordRoomHistory,
-  rewindRoomHistory,
   RECENCY_REPEAT_WEIGHT_K,
-  roomPairKey,
   selectPoolingBye,
   semisApproachProgress,
   sequentialSeed,
@@ -17,6 +14,7 @@ import {
   tieredSeed,
   type GroupExitOrder,
 } from '../seeding';
+import { recordRoomHistory, rewindRoomHistory, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound, sequenceRandom } from './test-fixtures';
 import type { RoundAssignment, TournamentGroup } from '../types';

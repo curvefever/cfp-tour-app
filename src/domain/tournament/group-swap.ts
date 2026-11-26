@@ -1,6 +1,6 @@
 import { refreshRoundStandings } from './advancement';
 import { roomKeyPrefix } from './scoring';
-import { recordRoomHistory, rewindRoomHistory } from './seeding';
+import { recordRoomHistory, rewindRoomHistory } from './room-history';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
 /**
