@@ -6,6 +6,50 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2E-1: `seeding.ts` in five files (done — 2026-11-26, on `test`, not pushed)
+
+**Context.** The first half of part 2E of the cleanup. `seeding.ts` was 1,118 lines and held the simple seeders, the room history, the wave fill, the room draw and the draws out of a pooling phase (cleanup audit C4b-1, `plans/2026-11-10-cleanup-audit-findings.md`). It and `smaller-room-seats.ts` imported each other, for the one type `WaveMember`. Plan: `plans/2026-11-25-cleanup-part-2e-seeding-mutations.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `e6253fc`. Behaviour does not change: code moved, nothing rewritten. The second half, 2E-2 (`mutations.ts`), is a build of its own.
+
+**The files** (all in `src/domain/tournament/`; lines of code without blanks and comments, imports included):
+- `seeding.ts` (158, 194 lines in all): the snake, sequential and random seeders, `SeedCandidate`, and keeping group mates apart (`avoidSameGroupInFirstBracketRound`). It imports only types.
+- `room-history.ts` (113): `roomPairKey`, `recordRoomHistory`, `rewindRoomHistory`, `metPairs`, `avoidMetPairsNearRank`.
+- `wave-fill.ts` (179): the repeat weight, what a room choice costs, one wave's assignment, the likely absentees placed first, and `fillRoomsByWaves`.
+- `wave-draw.ts` (296): the priority weights and the seeding overrides, `drawRooms`, `tieredSeed`, `tieredBracketSeed`, the two taper measures, and `pairsAbsenteesInRound`.
+- `pooling-exit-draw.ts` (104): `seedPoolByStanding`, `seedFromPoolingExit`, the separation after the exit, the snake around the likely absentees, and `selectPoolingBye`.
+
+Importers are updated, with no re-export and no rename. Newly exported, needed by the cut: `candidateName` (`wave-draw.ts` reads it) and `inPoolOrder` (`wave-draw.ts` and `pooling-exit-draw.ts` read it). 46 code files changed over the pass: 21 production files, 21 tests and test helpers, and 4 files of `scripts/seeding-simulation`.
+
+**Import loops** (`src/domain`). The groups are from `node plans/tools/scc.cjs src/domain`, which prints the sets of files that import each other. madge was not run: the implementer's session refused the command, and the reviewer agreed to use `scc.cjs`.
+
+| After | Groups | Which |
+|---|---|---|
+| start | 4 | `match-format` with `scoring`, `seeding` with `smaller-room-seats`, `bracket` with `projected-seeds`, `waterfall-draft` with `waterfall-draft-wins` |
+| stage 1 | 4 | the same |
+| stage 2 | 3 | `seeding` with `smaller-room-seats` is gone |
+| stage 3 | 4 | those three and `seeding` with `wave-draw` |
+| stage 4 | 3 | `seeding` with `wave-draw` is gone |
+
+The group of stage 3 was an in-between state: the pooling exit draw was still in `seeding.ts` and called `tieredSeed`, while `wave-draw.ts` read `candidateName` from `seeding.ts`.
+
+**Choices.**
+- The recent opponents (`metPairs`, `avoidMetPairsNearRank`) went with the room history. They read only `roomPairKey`, and a file of those two alone would be too thin.
+- `pairsAbsenteesInRound` went into `wave-draw.ts`: it is an exported reader that `tieredSeed` uses through `seedingPairsAbsentees`. Its other importers follow it.
+- `wave-fill.ts` imports nothing from `types.ts`, though the plan's table listed it.
+
+**Method.** Each stage cut its blocks out of `seeding.ts` by line number, comments with their declarations, in source order. An uncommitted script split each named import by the names that had moved; `prettier --write` ran on code files only. No harness. Per stage the removed blocks and the new file's body were equal, blank lines ignored, `export` aside. Over the whole pass, leaving out imports, blank lines and `export`, the lines of the five files are those of the old `seeding.ts` plus the four new file headers. Comments changed: the headers of the four new files, and the file name in a comment of `bracket.ts`, two of `types.ts` and one of `single-elimination.ts`. In `docs/`, the file names in `seeding.md` and `open-items.md` follow the moves.
+
+**Testing.** No test added, moved or removed and no assertion changed: the test, test-support and script files changed in their import lines only. Per stage: eslint (it has no config for `scripts/`), `prettier --check` and the type check of the whole project (which covers `scripts/`) clean; `vitest related` on the stage's files, worktree copies excluded, all passed: stage 1, 6,595 tests in 244 files; stage 2, 6,529 in 242; stage 3, 6,629 in 245; stage 4, 6,521 in 241. No live check or e2e (the plan lists none).
+
+**The reviewer's mutations.** `roomPairKey` ignoring order: caught, in `swiss-pairing.test.ts`. `recencyWeight` returning 0: 6 failures in the seeding, cheapest-assignment and likely-absentee draw tests. `lerp` returning its start: **not caught**, all 241 related files passed. `separateAfterExit` returning its input: 4 failures in `pooling-exit-seeding.test.ts`.
+
+**Test gaps.** The taper of the draw is unpinned: no test fixes the diversity and balance weights between their warm-up and Semis values (`drawRooms`, `wave-draw.ts`), so a `lerp` mutation survives. The gap was there before this pass, in code the pass moved without changing. No test is added in this pass.
+
+**Out of scope.** C4b-2: `fillFixedRooms` in `fixed-draws.ts` is a copy of `fillRoomsByWaves`. C4b-3: `tieredSeed` and `tieredBracketSeed` share a middle; joining them changes code rather than moves it, so it is a later pass of its own. Renames. 2E-2, `mutations.ts`. A push to `test` or `main` is decided after the final review, with the organiser.
+
+**Full suite**:
+
+---
+
 ## Cleanup part 2D: `advancement.ts` in five files, and the absence answers in their own (done — 2026-11-25, on `test`, not pushed)
 
 **Context.** The fourth piece of cleanup part 2. `advancement.ts` was 1,372 lines and held eight jobs. Five files imported it and it imported each of them, so `absences`, `advancement`, `best-place`, `fair-cut`, `group-exit` and `group-standings` were one import loop group (cleanup audit C2-1, `plans/2026-11-10-cleanup-audit-findings.md`). Plan: `plans/2026-11-25-cleanup-part-2d-advancement.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `cb31968`. Behaviour does not change: code moved, nothing rewritten.

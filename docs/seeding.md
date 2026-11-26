@@ -1,6 +1,6 @@
 # Room seeding
 
-How units land in rooms from round to round (`src/domain/tournament/seeding.ts`, plus `fixed-draws.ts`). Read when a task touches transitions between rounds, reseeding, or Bracket's future-round projections, or when explaining "how did this player end up in this room". Build history and reasoning: search `HANDOFF_LOG.md` for "Diversity + rematch-aware room reseeding" and the entries named below.
+How units land in rooms from round to round. The code is in `src/domain/tournament/`: `wave-draw.ts` (the room draw: `tieredSeed`, `tieredBracketSeed`), `wave-fill.ts` (the wave fill, the likely absentees, the repeat weight), `pooling-exit-draw.ts` (the draws out of a pooling phase and the pooling bye), `room-history.ts` (who has shared a room, the met pairs and their parting), `seeding.ts` (the snake, sequential and random seeders, and group mates apart) and `fixed-draws.ts`. Read when a task touches transitions between rounds, reseeding, or Bracket's future-round projections, or when explaining "how did this player end up in this room". Build history and reasoning: search `HANDOFF_LOG.md` for "Diversity + rematch-aware room reseeding" and the entries named below.
 
 ## Which mechanism runs where
 | Mechanism | Used for |
