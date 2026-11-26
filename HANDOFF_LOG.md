@@ -6,6 +6,37 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2E-2: `mutations.ts` in seven files named after their jobs (done — 2026-11-26, on `test`, not pushed)
+
+**Context.** The second half of part 2E of the cleanup. `mutations.ts` was 1,120 lines and held score typing and tie picks, the roster edits, the resets, the re-planning of future rounds, unit removal, the swaps and the reserves. Its name said nothing about any of them (cleanup audit C4-1, `plans/2026-11-10-cleanup-audit-findings.md`), so no part keeps it. 92 files imported it, most of them tests. Plan: `plans/2026-11-25-cleanup-part-2e-seeding-mutations.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `e8e296c`. Behaviour does not change: code moved, nothing rewritten.
+
+**The files** (all in `src/domain/tournament/`; lines of code without blanks and comments, imports included):
+- `score-edits.ts` (131, 165 lines in all): `setRoundScore`, `setFinalScore`, the anonymous Final's games and finalists, `resolveTournamentTie`, `shareTiedPoints`.
+- `roster-edits.ts` (108): `RosterEditRefusal`, `RosterEditResult`, `refused`, renaming a player (`renameIndividual`, `renameIndividualResult`), `updateTeam`, `renameTeamMember`, `setTeamDefender`.
+- `tournament-resets.ts` (43): `withLoadedRoster`, `resetRoster`, `withoutDrawnSchedule`, `resetTournamentState`.
+- `replan-future-rounds.ts` (69): `rebuildFutureRounds`, `refitFuturePoolingRounds`, `replanFutureRounds`.
+- `unit-removal.ts` (179): `removeRosterUnit` and the removal from the room in play, the withdrawal record (`recordWithdrawal`), the patch of the published future rounds (`patchPublishedFutureRounds`) and the absence a swap hands on (`inheritedAbsentRound`).
+- `unit-swaps.ts` (163): the replacement of a unit wherever it is in play, `swapWindowOpen`, `swapIndividual`, `swapTeam` and their `…Result` forms.
+- `reserves.ts` (213): `addReserveUnit`, the walk-ups, the bench and its reasons (`BenchReason`, `benchReasonOf`), `missedCountedRounds`, `removeReserveUnit`.
+
+`mutations.ts` is deleted. Importers are updated, with no re-export and no rename. `member-swaps.ts` already existed, hence the name `unit-swaps.ts`. Newly exported, needed by the cut: `refused`, `rebuildFutureRounds`, `refitFuturePoolingRounds`, `replanFutureRounds`, `recordWithdrawal`, `patchPublishedFutureRounds` and `inheritedAbsentRound`. 102 code files changed over the pass, the deleted and the new ones included: 23 production files, 78 tests and test helpers, and `e2e/screens/fixtures.ts`. No file of `scripts/` needed a change.
+
+**Imports among the new files** go one way: `unit-removal` imports `replan-future-rounds`; `unit-swaps` imports `unit-removal` and `roster-edits`; `reserves` imports `unit-swaps` (`swapWindowOpen`) and `replan-future-rounds`. `score-edits`, `roster-edits`, `tournament-resets` and `replan-future-rounds` import none of the seven. `node plans/tools/scc.cjs src/domain` gave the same three groups after each stage (`match-format` with `scoring`, `bracket` with `projected-seeds`, `waterfall-draft` with `waterfall-draft-wins`), none with a new file. madge was not run (see "Cleanup part 2E-1").
+
+**Method.** As in 2E-1: each stage cut its blocks by line number, comments with their declarations, in source order; an uncommitted script split each named import by the names that had moved; `prettier --write` ran on code files only. No harness. Per stage the removed blocks and the new file's body were equal, blank lines ignored, `export` aside. Over the whole pass, leaving out imports, blank lines and `export`, the lines of the seven files are those of the old `mutations.ts` plus the seven new file headers. Comments changed: those headers, and the file name in a comment of `fixed-draws.ts`, `transitions.ts` and `transitions.test.ts`. In `docs/`, the file names in `rules.md` and `open-items.md` follow the moves.
+
+**Testing.** No test added, moved or removed and no assertion changed: apart from that one comment, the test, test-support and e2e files changed in their import lines only. `mutations.test.ts` keeps its name. Per stage: eslint, `prettier --check` and the type check of the whole project clean; `vitest related` on the stage's files, worktree copies excluded, all passed: stage 6, 5,556 tests in 197 files; stage 7, 5,500 in 195; stage 8, 6,343 in 228; stage 9, 5,369 in 186. No live check, e2e or screenshot run (the plan lists none).
+
+**The reviewer's mutations.** `isValidNonNegativeInteger` accepting -1: **not caught**, all 110 related files (3,155 tests) passed. `refused` dropping its reason: 21 failures, `roster-edit-results.test.ts` among them. `replanFutureRounds` returning its input: 26 failures, in the `expected-draw-removal`, `late-joiners` and `UpperLowerLiveFields` tests among others. `swapWindowOpen` always true: 14 failures in the `member-swaps` and `mutations` tests, the single-elimination cases of 31 and 37 among them.
+
+**Test gaps.** Nothing tests that a negative room or Final score is refused, so a mutation of `isValidNonNegativeInteger` that accepts -1 survives. The gap was there before this pass, in code the pass moved without changing. The risk is low: the score input in `ScoreFields.tsx` has `min='0'`. No test is added in this pass.
+
+**Out of scope.** C4-3: a unit's name is written in seventeen places. Renames, `mutations.test.ts` among them. The order of the reserve checks. A push to `test` or `main` is decided after the final review, with the organiser.
+
+**Full suite**:
+
+---
+
 ## Cleanup part 2E-1: `seeding.ts` in five files (done — 2026-11-26, on `test`, not pushed)
 
 **Context.** The first half of part 2E of the cleanup. `seeding.ts` was 1,118 lines and held the simple seeders, the room history, the wave fill, the room draw and the draws out of a pooling phase (cleanup audit C4b-1, `plans/2026-11-10-cleanup-audit-findings.md`). It and `smaller-room-seats.ts` imported each other, for the one type `WaveMember`. Plan: `plans/2026-11-25-cleanup-part-2e-seeding-mutations.md`, with "Rules for every pass" of `plans/2026-11-25-cleanup-part-2-rest.md`; starting point `e6253fc`. Behaviour does not change: code moved, nothing rewritten. The second half, 2E-2 (`mutations.ts`), is a build of its own.
