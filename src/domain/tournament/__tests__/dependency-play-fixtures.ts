@@ -2,7 +2,7 @@ import { expect } from 'vitest';
 import { getAllTies } from '../advancement';
 import { computeRankings } from '../rankings';
 import { rosterKeys } from '../roster';
-import { resolveTournamentTie } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { scoreKeysForPosition } from '../scoring';
 import { roundsInPlay } from '../round-columns';
 import type { TournamentState } from '../types';

@@ -5,7 +5,7 @@ import {
   finalsProgressState,
   progressGrandFinalRace,
 } from '../finals';
-import { flagFinalGameAnonymous } from '../mutations';
+import { flagFinalGameAnonymous } from '../score-edits';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound } from './test-fixtures';
 

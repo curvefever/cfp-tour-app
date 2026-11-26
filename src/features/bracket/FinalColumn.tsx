@@ -2,7 +2,7 @@ import { finalsProgressState } from '../../domain/tournament/finals';
 import { roomGameColumns } from '../../domain/tournament/game-columns';
 import { getGameFormat } from '../../domain/tournament/formats';
 import { isMatchRound, unneededGames } from '../../domain/tournament/match-format';
-import { flagFinalGameAnonymous, unflagFinalGameAnonymous } from '../../domain/tournament/mutations';
+import { flagFinalGameAnonymous, unflagFinalGameAnonymous } from '../../domain/tournament/score-edits';
 import { buildTeamMap, unitDisplay } from '../../domain/tournament/roster';
 import { scoredTeamSize } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';

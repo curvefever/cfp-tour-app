@@ -6,21 +6,23 @@ import {
   addReserveUnit,
   addWalkUpIndividual,
   addWalkUpTeam,
-  connectAnonymousFinalist,
-  flagFinalGameAnonymous,
   renameTeamMember,
   resetRoster,
   resetTournamentState,
-  resolveTournamentTie,
-  setFinalScore,
-  setRoundScore,
-  shareTiedPoints,
   swapWindowOpen,
-  unflagFinalGameAnonymous,
   updateTeam,
   withLoadedRoster,
   withoutDrawnSchedule,
 } from '../mutations';
+import {
+  connectAnonymousFinalist,
+  flagFinalGameAnonymous,
+  resolveTournamentTie,
+  setFinalScore,
+  setRoundScore,
+  shareTiedPoints,
+  unflagFinalGameAnonymous,
+} from '../score-edits';
 import { fillTeamSlot } from '../member-swaps';
 import { marshalForFirebase, unmarshalFromFirebase } from '../../../features/sync/firebase-marshal';
 import { computeRankings } from '../rankings';

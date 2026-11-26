@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bestPlaceTieKey } from '../best-place';
-import { resolveTournamentTie } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { nextRoundPlan } from '../waterfall-steps';
 import { A, B, C, EXAMPLE, graphText, namesIn, scoreRooms, seatOf } from './best-place-fixtures';

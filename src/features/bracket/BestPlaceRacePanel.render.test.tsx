@@ -2,7 +2,7 @@
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { bestPlaceTieKey } from '../../domain/tournament/best-place';
-import { resolveTournamentTie } from '../../domain/tournament/mutations';
+import { resolveTournamentTie } from '../../domain/tournament/score-edits';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import {

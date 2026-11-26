@@ -1,6 +1,6 @@
 import { unitDisplay } from '../../domain/tournament/roster';
 import { winsBoxTitle, winsText } from './room-row-inputs';
-import { setFinalScore } from '../../domain/tournament/mutations';
+import { setFinalScore } from '../../domain/tournament/score-edits';
 import { finalScoreKey, scoredMemberSlots } from '../../domain/tournament/scoring';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { CommitScoreInput, ScoreInput, cn } from '../../components/ui';

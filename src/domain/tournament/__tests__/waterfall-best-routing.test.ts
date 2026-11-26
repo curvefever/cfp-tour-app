@@ -6,7 +6,7 @@ import { invalidateStaleTieResolutions } from '../room-ties';
 import { bestPlaceChoice, bestPlaceTieKey } from '../best-place';
 import { routeWaterfallRound } from '../bracket-replay';
 import { expectedRounds } from '../expected-draw';
-import { resolveTournamentTie } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { createDefaultTournamentState } from '../state-defaults';
 import { scoreKeysForPosition } from '../scoring';
 import type { TournamentState } from '../types';

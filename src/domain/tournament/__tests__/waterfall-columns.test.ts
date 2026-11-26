@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getAllColumnTies, getAllTies, hasPendingColumnTies, refreshRoundStandings } from '../advancement';
-import { removeRosterUnit, resolveTournamentTie, setTeamDefender, swapIndividual } from '../mutations';
+import { removeRosterUnit, setTeamDefender, swapIndividual } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { computeRankings } from '../rankings';
 import { drawnAheadStatus } from '../redraw';
 import { currentColumn, roundInPlayOf } from '../round-columns';

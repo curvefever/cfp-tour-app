@@ -9,7 +9,7 @@ import {
   type StandingsDisplayTable,
   tableRoundIndexes,
 } from '../standings-display';
-import { resolveTournamentTie } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';

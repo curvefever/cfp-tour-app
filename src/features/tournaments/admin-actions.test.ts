@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
-import { setFinalScore } from '../../domain/tournament/mutations';
+import { setFinalScore } from '../../domain/tournament/score-edits';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import type { TournamentState } from '../../domain/tournament/types';
 import {

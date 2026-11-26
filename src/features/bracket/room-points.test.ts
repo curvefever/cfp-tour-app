@@ -4,7 +4,8 @@ import {
   scoreCurrentRound,
   withEarlierPointsRule,
 } from '../../domain/tournament/__tests__/play-through';
-import { shareTiedPoints, swapTeam } from '../../domain/tournament/mutations';
+import { swapTeam } from '../../domain/tournament/mutations';
+import { shareTiedPoints } from '../../domain/tournament/score-edits';
 import { describeStandings } from '../../domain/tournament/standings-display';
 import { scoreKeysForPosition } from '../../domain/tournament/scoring';
 import type { PersistedSetup, TournamentState } from '../../domain/tournament/types';

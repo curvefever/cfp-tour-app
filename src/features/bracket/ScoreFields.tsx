@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from 'react';
-import { setRoundScore } from '../../domain/tournament/mutations';
+import { setRoundScore } from '../../domain/tournament/score-edits';
 import { unneededGames } from '../../domain/tournament/match-format';
 import { scoreKey } from '../../domain/tournament/scoring';
 import type { TournamentState } from '../../domain/tournament/types';

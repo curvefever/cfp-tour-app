@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { flagFinalGameAnonymous, renameIndividual, resetTournamentState } from '../mutations';
+import { renameIndividual, resetTournamentState } from '../mutations';
+import { flagFinalGameAnonymous } from '../score-edits';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
 import { roundsInPlay } from '../round-columns';

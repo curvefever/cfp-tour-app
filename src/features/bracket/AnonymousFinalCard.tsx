@@ -1,5 +1,5 @@
 import { anonymousFinalsProgressState, isPlainFinalFullyScored } from '../../domain/tournament/finals';
-import { connectAnonymousFinalist, setFinalScore } from '../../domain/tournament/mutations';
+import { connectAnonymousFinalist, setFinalScore } from '../../domain/tournament/score-edits';
 import { unitDisplay } from '../../domain/tournament/roster';
 import type { TournamentRound, TournamentState } from '../../domain/tournament/types';
 import { Button, CommitScoreInput, cn } from '../../components/ui';

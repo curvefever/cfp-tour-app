@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { fixtureTournaments, loadedState } from '../../../e2e/screens/fixtures';
 import { getAllColumnTies } from '../../domain/tournament/advancement';
 import { withEarlierGroupRule, withEarlierPointsRule } from '../../domain/tournament/__tests__/play-through';
-import { shareTiedPoints } from '../../domain/tournament/mutations';
+import { shareTiedPoints } from '../../domain/tournament/score-edits';
 import {
   describeStandings,
   tableRoundIndexes,

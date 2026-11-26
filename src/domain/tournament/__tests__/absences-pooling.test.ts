@@ -9,7 +9,7 @@ import {
   roomPointsByPlace,
   scoreRoom,
 } from '../room-results';
-import { resolveTournamentTie } from '../mutations';
+import { resolveTournamentTie } from '../score-edits';
 import { isRoomScored } from '../scoring';
 import { describeStandings } from '../standings-display';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';

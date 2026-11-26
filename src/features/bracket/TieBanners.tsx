@@ -1,6 +1,6 @@
 import { getAllColumnTies, isTieResolved, qualTieBoundaryText } from '../../domain/tournament/advancement';
 import { bracketRoundLabels, roomLetter } from '../../domain/tournament/bracket';
-import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/mutations';
+import { resolveTournamentTie, shareTiedPoints } from '../../domain/tournament/score-edits';
 import { GROUP_EXIT_TIE_KEY } from '../../domain/tournament/group-exit';
 import { isPoolingRound, swissRoutesItsStandings } from '../../domain/tournament/pooling';
 import { unitDisplay } from '../../domain/tournament/roster';

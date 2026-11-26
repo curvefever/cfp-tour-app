@@ -7,7 +7,7 @@ import {
   STRATEGIES,
 } from '../../domain/tournament/__tests__/dependency-play-fixtures';
 import { UPPER_LOWER_GRAPH } from '../../domain/tournament/__tests__/upper-lower-graph';
-import { flagFinalGameAnonymous } from '../../domain/tournament/mutations';
+import { flagFinalGameAnonymous } from '../../domain/tournament/score-edits';
 import type { TournamentState } from '../../domain/tournament/types';
 import { goBack } from '../../domain/tournament/go-back';
 import { renderApp } from '../../test-support/test-app';

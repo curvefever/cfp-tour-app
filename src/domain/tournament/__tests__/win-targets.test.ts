@@ -11,7 +11,7 @@ import {
   unneededGames,
   winsGameCount,
 } from '../match-format';
-import { flagFinalGameAnonymous } from '../mutations';
+import { flagFinalGameAnonymous } from '../score-edits';
 import { computeRankings, isFinalComplete } from '../rankings';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { OrderedWaterfallGraph, RoomSize, RoundAssignment, TournamentState } from '../types';

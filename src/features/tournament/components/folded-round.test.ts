@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../../../domain/tournament/absence-answers';
 import { buildState, scoreCurrentRound } from '../../../domain/tournament/__tests__/play-through';
-import { removeRosterUnit, shareTiedPoints } from '../../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../../domain/tournament/mutations';
+import { shareTiedPoints } from '../../../domain/tournament/score-edits';
 import { advanceTournamentRound } from '../../../domain/tournament/transitions';
 import type { TournamentState } from '../../../domain/tournament/types';
 import { liveTournament } from '../../../domain/tournament/__tests__/qual-waterfall';
