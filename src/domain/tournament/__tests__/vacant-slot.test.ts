@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { removeTeamMember } from '../member-swaps';
-import { setTeamDefender } from '../mutations';
+import { setTeamDefender } from '../roster-edits';
 import { roomOfUnit } from './vacant-slot-fixtures';
 import { findUnit } from '../roster';
 import { roundsInPlay } from '../round-columns';

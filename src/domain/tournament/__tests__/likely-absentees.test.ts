@@ -8,13 +8,9 @@ import {
   unmarkBack,
 } from '../likely-absentees';
 import { ONE_SCORE_PER_TEAM } from '../formats';
-import {
-  renameIndividual,
-  renameTeamMember,
-  resetRoster,
-  resetTournamentState,
-  swapIndividual,
-} from '../mutations';
+import { swapIndividual } from '../mutations';
+import { resetRoster, resetTournamentState } from '../tournament-resets';
+import { renameIndividual, renameTeamMember } from '../roster-edits';
 import type { TournamentState } from '../types';
 import { oneRoomState, teamOf } from './test-fixtures';
 

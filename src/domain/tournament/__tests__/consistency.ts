@@ -1,5 +1,6 @@
 import { getGameFormat } from '../formats';
-import { removeRosterUnit, renameIndividual, swapIndividual, swapTeam } from '../mutations';
+import { removeRosterUnit, swapIndividual, swapTeam } from '../mutations';
+import { renameIndividual } from '../roster-edits';
 import { rosterKeys } from '../roster';
 import { roundsInPlay } from '../round-columns';
 import { SHARED_TIE_MARK } from '../scoring';

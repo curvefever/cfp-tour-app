@@ -1,9 +1,5 @@
 import { invalidateStaleTieResolutions } from './room-ties';
 import { hasPlayedAnyMatch, isUnitAbsentFromRoom, withoutSeatAbsences, withSeatsShiftedUp } from './absences';
-import { moveConfirmation } from './confirmations';
-import { withDefenderKeysMoved } from './defender-move';
-import { emptySchedule } from './empty-schedule';
-import { moveBackMark } from './likely-absentees';
 import { generatedConfig } from './generated-config';
 import { patchFutureFixedDrawRounds, rebuildFixedDrawHistory } from './fixed-draws';
 import { replanUpperLower } from './upper-lower-replan';
@@ -13,8 +9,7 @@ import { groupSettingsOfCfg } from './group-settings';
 import { refitPoolingRound } from './pooling';
 import { regenerateForRoster } from './pre-start-roster';
 import { computeRankings } from './rankings';
-import { withFinalistAliasesForLineup } from './anonymous-finalists';
-import { renameInSchedule } from './rename-unit';
+import { refused, type RosterEditResult } from './roster-edits';
 import { validateRoomCap } from './room-distribution';
 import { roundInPlayOf } from './round-columns';
 import {
@@ -31,68 +26,8 @@ import {
 } from './roster';
 import { createTournamentRuntime, type TournamentRuntime } from './runtime';
 import { buildScheduleRounds } from './schedule-generation';
-import { getDefenderIndex, scoredTeamSize, scoreKeysForPosition } from './scoring';
-import type { GameFormatKey, TournamentRound, TournamentState, TournamentTeam, WithdrawnUnit } from './types';
-
-/** Why a rename or a swap of a roster unit is refused, the first of its checks that failed. */
-export type RosterEditRefusal =
-  | 'empty-name'
-  | 'same-name'
-  | 'duplicate-name'
-  | 'withdrawn-name'
-  | 'unstorable-name'
-  | 'swap-closed'
-  | 'not-in-play'
-  | 'not-a-team-format';
-
-/** "Done, with the new state", or the reason it was refused (the state is then not changed). */
-export type RosterEditResult =
-  { status: 'done'; state: TournamentState } | { status: 'refused'; reason: RosterEditRefusal };
-
-const refused = (reason: RosterEditRefusal): RosterEditResult => ({ status: 'refused', reason });
-
-export function renameIndividual(state: TournamentState, oldName: string, newName: string): TournamentState {
-  const result = renameIndividualResult(state, oldName, newName);
-  return result.status === 'done' ? result.state : state;
-}
-
-export function renameIndividualResult(
-  state: TournamentState,
-  oldName: string,
-  newName: string,
-): RosterEditResult {
-  const trimmed = newName.trim();
-  if (!trimmed) return refused('empty-name');
-  if (trimmed === oldName) return refused('same-name');
-  if (findUnit(state.players, trimmed) !== undefined || findUnit(state.reserves, trimmed) !== undefined) {
-    return refused('duplicate-name');
-  }
-  if (isWithdrawnName(state, trimmed)) return refused('withdrawn-name');
-  if (findUnstorableNames([trimmed]).length) return refused('unstorable-name');
-  const rename = (name: string) => (name === oldName ? trimmed : name);
-  const finalScores: TournamentState['finalScores'] = {};
-  for (const [key, score] of Object.entries(state.finalScores)) {
-    const match = key.match(/^(game\d+)-(.*)$/u);
-    finalScores[match?.[2] === oldName ? `${match[1]}-${trimmed}` : key] = score;
-  }
-  const renamed: TournamentState = {
-    ...state,
-    players: (state.players as string[]).map(rename),
-    reserves: (state.reserves as string[]).map(rename),
-    ...renameInSchedule(state, rename),
-    tieResolutions: Object.fromEntries(
-      Object.entries(state.tieResolutions).map(([key, value]) => [
-        key,
-        Array.isArray(value) ? value.map(rename) : rename(value),
-      ]),
-    ),
-    finalScores,
-  };
-  return {
-    status: 'done',
-    state: moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed),
-  };
-}
+import { scoredTeamSize, scoreKeysForPosition } from './scoring';
+import type { TournamentRound, TournamentState, TournamentTeam, WithdrawnUnit } from './types';
 
 function rebuildFutureRounds(state: TournamentState): TournamentState | null {
   const round = state.rounds[state.curRound];
@@ -833,119 +768,4 @@ export function swapTeamResult(
   }
   if (findUnstorableNames(teamNames(replacement)).length) return refused('unstorable-name');
   return swapUnit(state, oldTeamId, replacement);
-}
-
-export function updateTeam(
-  state: TournamentState,
-  teamId: string,
-  updater: (team: TournamentTeam) => TournamentTeam,
-): TournamentState {
-  let refused = false;
-  const players = (state.players as TournamentTeam[]).map((team) => {
-    if (team.teamId !== teamId) return team;
-    const updated = updater({ ...team, members: [...team.members] });
-    // Only names the update introduced: a name stored before names were checked doesn't lock its team.
-    const added = teamNames(updated).filter((name) => !teamNames(team).includes(name));
-    refused = findUnstorableNames(added).length > 0;
-    return updated;
-  });
-  return refused ? state : { ...state, players };
-}
-
-/** Renames one team member; their confirmation follows the new spelling. */
-export function renameTeamMember(
-  state: TournamentState,
-  teamId: string,
-  memberIndex: number,
-  newName: string,
-): TournamentState {
-  const trimmed = newName.trim();
-  const team = findUnit(state.players, teamId);
-  const oldName = typeof team === 'object' ? team.members[memberIndex]?.name : undefined;
-  if (!oldName || !trimmed || trimmed === oldName) return state;
-  const renamed = updateTeam(state, teamId, (entry) => ({
-    ...entry,
-    members: entry.members.map((item, index) =>
-      index === memberIndex && item ? { ...item, name: trimmed } : item,
-    ),
-  }));
-  return renamed === state
-    ? state
-    : moveBackMark(moveConfirmation(renamed, oldName, trimmed), oldName, trimmed);
-}
-
-export function setTeamDefender(state: TournamentState, teamId: string, memberIdx: number): TournamentState {
-  const changes = (state.defenderChanges[teamId] ?? []).map((entry) => ({ ...entry }));
-  const round = roundInPlayOf(state, teamId);
-  const previous = getDefenderIndex(state, teamId, round);
-  const existing = changes.find((entry) => entry.round === round);
-  if (existing) existing.memberIdx = memberIdx;
-  else changes.push({ round, memberIdx });
-  return {
-    ...withDefenderKeysMoved(state, teamId, round, previous, memberIdx),
-    defenderChanges: { ...state.defenderChanges, [teamId]: changes },
-  };
-}
-
-/** Stores a loaded roster together with the format it was parsed for, so the two never disagree. */
-export function withLoadedRoster(
-  state: TournamentState,
-  gameFormat: GameFormatKey,
-  loaded: Pick<TournamentState, 'players' | 'reserves' | 'reserveIndividuals'>,
-): TournamentState {
-  return {
-    ...state,
-    gameFormat,
-    players: loaded.players,
-    reserves: loaded.reserves,
-    reserveIndividuals: loaded.reserveIndividuals,
-    confirmedCount: loaded.players.length,
-  };
-}
-
-/**
- * Clears just the registered roster (players/reserves/individual reserves)
- * plus anything derived from it that would otherwise go stale -- the
- * generated schedule preview, if "Generate Schedule" was already clicked
- * pre-start. Deliberately preserves title/gameFormat/scheduleLogic/cfg (the
- * Setup configuration itself) -- the complement of resetTournamentState()
- * below, which preserves the roster but clears live progress.
- */
-export function resetRoster(state: TournamentState): TournamentState {
-  const { settings: _settings, ...rest } = withoutDrawnSchedule(state);
-  return {
-    ...rest,
-    players: [],
-    reserves: [],
-    reserveIndividuals: [],
-    confirmations: {},
-    confirmedCount: null,
-    withdrawnUnits: [],
-    reserveOpen: true,
-  };
-}
-
-/**
- * Clears everything a generated schedule put in the state (`emptySchedule`: the rounds, who is seated where,
- * standings, scores, the room history), keeping the roster, the Setup (`cfg`, the settings snapshot), the
- * withdrawals and the confirmations. A state with nothing generated yet.
- */
-export function withoutDrawnSchedule(state: TournamentState): TournamentState {
-  return { ...state, ...emptySchedule() };
-}
-
-/**
- * Back to a draft: the schedule as generated, with no play in it. Keeps the generated rounds, the groups and the
- * `gamemodeConfig` (the schedule itself) and the room history, and the roster as `withoutDrawnSchedule` does; it also
- * clears the withdrawals and opens the reserve again. The draw of round 1 goes (`assignments` is empty).
- */
-export function resetTournamentState(state: TournamentState): TournamentState {
-  const {
-    rounds: _rounds,
-    groups: _groups,
-    roomHistory: _roomHistory,
-    gamemodeConfig: _gamemodeConfig,
-    ...play
-  } = emptySchedule();
-  return withFinalistAliasesForLineup({ ...state, ...play, withdrawnUnits: [], reserveOpen: true });
 }

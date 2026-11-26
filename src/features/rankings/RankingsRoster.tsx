@@ -12,15 +12,13 @@ import {
   addWalkUpTeam,
   removeReserveUnit,
   removeRosterUnit,
-  renameIndividual,
   swapIndividualResult,
   swapTeamResult,
   swapWindowOpen,
-  updateTeam,
   type ReserveAddOptions,
   type ReserveAddResult,
-  type RosterEditResult,
 } from '../../domain/tournament/mutations';
+import { renameIndividual, updateTeam, type RosterEditResult } from '../../domain/tournament/roster-edits';
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';
 import {
   findUnit,

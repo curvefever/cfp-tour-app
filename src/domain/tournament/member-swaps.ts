@@ -1,6 +1,6 @@
 import { unmarkOneScoreTeamMemberAbsent } from './absence-answers';
 import { getGameFormat } from './formats';
-import { setTeamDefender, updateTeam } from './mutations';
+import { setTeamDefender, updateTeam } from './roster-edits';
 import { findUnit, findUnstorableNames, rosterNames, unstorableNamesMessage } from './roster';
 import { roundInPlayOf, roundsInPlay } from './round-columns';
 import { getDefenderIndex } from './scoring';

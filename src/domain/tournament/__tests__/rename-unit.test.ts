@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renameIndividual } from '../mutations';
+import { renameIndividual } from '../roster-edits';
 import { expectOthersUnchanged } from './consistency';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentStanding } from '../types';

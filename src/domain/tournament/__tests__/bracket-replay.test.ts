@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { replayBracketPools } from '../bracket-replay';
-import { removeRosterUnit, renameIndividual, swapIndividual } from '../mutations';
+import { removeRosterUnit, swapIndividual } from '../mutations';
+import { renameIndividual } from '../roster-edits';
 import { currentColumn } from '../round-columns';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';

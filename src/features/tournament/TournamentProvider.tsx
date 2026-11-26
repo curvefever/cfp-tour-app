@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { resetTournamentState } from '../../domain/tournament/mutations';
+import { resetTournamentState } from '../../domain/tournament/tournament-resets';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime, type TournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';

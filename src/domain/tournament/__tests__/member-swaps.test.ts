@@ -9,7 +9,8 @@ import {
   slotFillRefusal,
   swapTeamMember,
 } from '../member-swaps';
-import { setTeamDefender, swapWindowOpen } from '../mutations';
+import { swapWindowOpen } from '../mutations';
+import { setTeamDefender } from '../roster-edits';
 import { getDefenderIndex } from '../scoring';
 import { describeStandings } from '../standings-display';
 import type { TeamMember, TournamentState, TournamentTeam } from '../types';

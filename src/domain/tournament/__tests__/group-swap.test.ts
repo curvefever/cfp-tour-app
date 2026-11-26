@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeGroupStandings } from '../advancement';
 import { generateTournament } from '../generation';
 import { groupSwapClears, groupSwapWindow, swapBetweenGroups } from '../group-swap';
-import { resetTournamentState } from '../mutations';
+import { resetTournamentState } from '../tournament-resets';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../room-history';
 import { scoreKeysForPosition } from '../scoring';

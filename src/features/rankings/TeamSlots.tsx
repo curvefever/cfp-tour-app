@@ -5,7 +5,7 @@ import {
   slotFillRefusal,
   swapTeamMember,
 } from '../../domain/tournament/member-swaps';
-import { renameTeamMember, setTeamDefender } from '../../domain/tournament/mutations';
+import { renameTeamMember, setTeamDefender } from '../../domain/tournament/roster-edits';
 import type { TeamMember, TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { Button, Select } from '../../components/ui';
 import { useTournamentApp } from '../tournament/TournamentProvider';

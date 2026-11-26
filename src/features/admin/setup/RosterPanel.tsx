@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { resetRoster } from '../../../domain/tournament/mutations';
+import { resetRoster } from '../../../domain/tournament/tournament-resets';
 import { reloadRosterBeforeStart } from '../../../domain/tournament/pre-start-edits';
 import {
   parseIndividualLines,

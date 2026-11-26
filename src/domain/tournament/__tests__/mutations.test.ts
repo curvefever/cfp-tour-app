@@ -2,18 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { projectFutureRoundSlots } from '../bracket';
 import { rebuildFixedDrawHistory } from '../fixed-draws';
 import { generateTournament } from '../generation';
+import { addReserveUnit, addWalkUpIndividual, addWalkUpTeam, swapWindowOpen } from '../mutations';
 import {
-  addReserveUnit,
-  addWalkUpIndividual,
-  addWalkUpTeam,
-  renameTeamMember,
   resetRoster,
   resetTournamentState,
-  swapWindowOpen,
-  updateTeam,
   withLoadedRoster,
   withoutDrawnSchedule,
-} from '../mutations';
+} from '../tournament-resets';
+import { renameTeamMember, updateTeam } from '../roster-edits';
 import {
   connectAnonymousFinalist,
   flagFinalGameAnonymous,

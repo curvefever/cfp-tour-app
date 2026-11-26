@@ -4,7 +4,7 @@ import { absentInRoom, pendingAbsenceQuestions } from '../absences';
 import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { roomMatch, winsGameCount } from '../match-format';
-import { renameIndividualResult } from '../mutations';
+import { renameIndividualResult } from '../roster-edits';
 import { computeRankings, isFinalComplete } from '../rankings';
 import { parseMatchOverrides } from '../round-match-formats';
 import { finalScoreKey, scoredMemberSlots, scoredTeamSize } from '../scoring';

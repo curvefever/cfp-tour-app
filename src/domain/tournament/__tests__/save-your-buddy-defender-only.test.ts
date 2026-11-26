@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { absentInRoom, hasPlayedAnyMatch, membersPresentAtSeat, pendingAbsenceQuestions } from '../absences';
 import { answerAbsence } from '../absence-answers';
 import { scoredPlayers } from '../confirmations';
-import { setTeamDefender } from '../mutations';
+import { setTeamDefender } from '../roster-edits';
 import { getFinalUnitScore, getUnitScore, isRoomScored, scoredMemberSlots } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';

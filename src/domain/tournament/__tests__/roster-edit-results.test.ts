@@ -1,15 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   removeRosterUnit,
-  renameIndividual,
-  renameIndividualResult,
   swapIndividual,
   swapIndividualResult,
   swapTeam,
   swapTeamResult,
   swapWindowOpen,
-  type RosterEditRefusal,
 } from '../mutations';
+import { renameIndividual, renameIndividualResult, type RosterEditRefusal } from '../roster-edits';
 import type { TournamentState, TournamentTeam } from '../types';
 import { pressNextRound, scoreCurrentRound } from './play-through';
 import { generated } from './test-fixtures';
