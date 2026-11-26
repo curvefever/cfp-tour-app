@@ -6,7 +6,7 @@ import { lateJoinersOf } from '../../src/domain/tournament/late-joiners';
 import {
   BALANCE_PRIORITY_WEIGHT_AT_WARMUP,
   DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP,
-} from '../../src/domain/tournament/seeding';
+} from '../../src/domain/tournament/wave-draw';
 import { assignWaveToRooms, type WaveMember } from '../../src/domain/tournament/wave-fill';
 import {
   smallerRoomSeatsBefore,

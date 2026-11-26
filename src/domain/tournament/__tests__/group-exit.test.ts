@@ -15,7 +15,7 @@ import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { cutTieMarks, describeStandings } from '../standings-display';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
-import { tieredSeed } from '../seeding';
+import { tieredSeed } from '../wave-draw';
 import { advanceTournamentRound } from '../transitions';
 import type {
   GeneratedTournamentConfig,

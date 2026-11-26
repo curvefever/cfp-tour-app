@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable, selectGroupExit } from '../advancement';
 import { isFedOnlyByStandings } from '../bracket-replay';
-import { seedFromPoolingExit, seedPoolByStanding, snakeSeed, tieredSeed } from '../seeding';
+import { seedFromPoolingExit, seedPoolByStanding, snakeSeed } from '../seeding';
+import { tieredSeed } from '../wave-draw';
 import { avoidMetPairsNearRank, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { RoundAssignment, TournamentGroup, TournamentState } from '../types';

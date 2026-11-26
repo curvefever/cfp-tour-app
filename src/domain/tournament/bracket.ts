@@ -643,7 +643,7 @@ function fairCutSlotPlan(
  * below) rather than chopped sequentially -- together this spreads same-source-room
  * candidates across different target rooms AND spreads every target room's own
  * contents across the full range of ranks, matching in spirit (though not exactly)
- * what the real transition's tiered/diversity-aware seeding (tieredSeed, seeding.ts)
+ * what the real transition's tiered/diversity-aware seeding (tieredSeed, wave-draw.ts)
  * actually tends to do, instead of a room-major ordering's worst-case collapse into
  * "every room carries straight over unchanged," or a tier-major pool's own worst-case
  * collapse into "the first room is nothing but the top rank(s)" once naively chopped.

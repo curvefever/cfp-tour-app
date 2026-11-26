@@ -15,7 +15,7 @@ import {
   returnQuestion,
   returningMoveOf,
 } from './returning-match';
-import { pairsAbsenteesInRound } from './seeding';
+import { pairsAbsenteesInRound } from './wave-draw';
 import {
   absenceMarks,
   holdsAbsentBye,

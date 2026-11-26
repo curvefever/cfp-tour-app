@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { tieredBracketSeed, tieredSeed, type SeedingOverride } from '../seeding';
+import { tieredBracketSeed, tieredSeed, type SeedingOverride } from '../wave-draw';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { PendingBracketSeed, RoundAssignment } from '../types';
 import { buildRound } from './test-fixtures';

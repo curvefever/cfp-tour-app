@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { roomFinishOrder } from '../room-results';
 import { deriveRoomSize, getGameFormat } from '../formats';
 import { likelyAbsentees } from '../likely-absentees';
-import { pairsAbsenteesInRound } from '../seeding';
+import { pairsAbsenteesInRound } from '../wave-draw';
 import { swissPair } from '../swiss-pairing';
 import type { RoundAssignment, TournamentState } from '../types';
 import { pressed, scoreRound } from './dependency-play-fixtures';

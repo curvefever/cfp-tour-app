@@ -10,7 +10,8 @@
  *     override): the balanced draw on the tiers as they are.
  */
 import { selectGroupExit } from './advancement';
-import { seedPoolByStanding, snakeSeed, tieredBracketSeed } from './seeding';
+import { seedPoolByStanding, snakeSeed } from './seeding';
+import { tieredBracketSeed } from './wave-draw';
 import type { PendingBracketSeed, RoundAssignment, TournamentRound, TournamentState } from './types';
 
 type SeedingOverride = Parameters<typeof tieredBracketSeed>[0]['seedingOverride'];

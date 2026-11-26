@@ -12,7 +12,7 @@ export interface SingleEliminationConfig {
   finalSize: number;
   /** Organiser-supplied ordered survivor-count targets, replacing the automatic geometric-decay curve entirely when set. Pre-validated by the caller (generation.ts). */
   explicitTargets?: number[];
-  /** Organiser-supplied fixed reseed mode per elimination round, index-aligned with explicitTargets. Stamped onto each round's own seedingOverride field (types.ts) -- see transitions.ts/seeding.ts for how it's consumed. */
+  /** Organiser-supplied fixed reseed mode per elimination round, index-aligned with explicitTargets. Stamped onto each round's own seedingOverride field (types.ts) -- see transitions.ts/wave-draw.ts for how it's consumed. */
   explicitSeedingOverrides?: Array<'diversity' | 'balance' | 'random' | undefined>;
 }
 

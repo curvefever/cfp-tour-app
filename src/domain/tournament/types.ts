@@ -138,7 +138,7 @@ export interface TournamentRound {
   graphMatchStage?: 'bracket' | 'semis' | 'finals';
   /** 1-indexed game numbers of this round (only ever meaningful on the Final) scored under a temporary placeholder name -- see TournamentState.anonymousFinalists. */
   anonymousGames?: number[];
-  /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, seeding.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
+  /** Organiser-supplied fixed reseed mode for THIS round's own advancement into the next round, overriding the automatic diversity/balance taper (tieredSeed/tieredBracketSeed, wave-draw.ts). WB elimination rounds only (single-elimination / double-elimination-shared-final's WB-to-WB transitions) -- see generation.ts's eliminationSeedingOverrides. */
   seedingOverride?: 'diversity' | 'balance' | 'random';
   /** This qual-table/Swiss round's real player-to-room assignment, computed once at generation time (fixed-draws.ts) instead of live via tieredSeed/swissPair -- only set when gamemodeConfig.drawPublication === 'fixed'. Mirrors matches/groupByes' role for group-stage rounds: state.assignments[roundIndex] stays empty until this round is actually reached (see transitions.ts), so this is the source of truth for a not-yet-played fixed round's content. */
   fixedRoomAssignments?: RoundAssignment[];

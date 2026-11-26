@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { replayBracketPools } from '../bracket-replay';
 import { moveUnitToRoom } from '../lineup-edit';
 import { removeRosterUnit } from '../mutations';
-import { tieredBracketSeed } from '../seeding';
+import { tieredBracketSeed } from '../wave-draw';
 import type { TournamentState } from '../types';
 import { pressNextRound } from './play-through';
 import { buildQualWaterfall, playToQualificationExit } from './qual-waterfall';

@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   avoidSameGroupInFirstBracketRound,
-  doubleEliminationApproachProgress,
   randomSeed,
   selectPoolingBye,
-  semisApproachProgress,
   sequentialSeed,
   snakeSeed,
-  tieredBracketSeed,
-  tieredSeed,
   type GroupExitOrder,
 } from '../seeding';
+import {
+  doubleEliminationApproachProgress,
+  semisApproachProgress,
+  tieredBracketSeed,
+  tieredSeed,
+} from '../wave-draw';
 import { assignWaveToRooms, recencyWeight, RECENCY_REPEAT_WEIGHT_K } from '../wave-fill';
 import { recordRoomHistory, rewindRoomHistory, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';

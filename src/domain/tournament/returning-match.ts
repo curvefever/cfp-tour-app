@@ -12,7 +12,7 @@
 import { roomLetter } from './bracket';
 import { swapUnitSeats, roomHasScore, type LineupEditResult } from './lineup-edit';
 import { likelyAbsentInRound } from './likely-absentees';
-import { pairsAbsenteesInRound } from './seeding';
+import { pairsAbsenteesInRound } from './wave-draw';
 import { unitDisplay } from './roster';
 import type { TournamentState } from './types';
 
