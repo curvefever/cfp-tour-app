@@ -2,13 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absence-answers';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
-import {
-  placeLikelyAbsentees,
-  seedFromPoolingExit,
-  seedPoolByStanding,
-  tieredBracketSeed,
-  tieredSeed,
-} from '../seeding';
+import { seedFromPoolingExit, seedPoolByStanding, tieredBracketSeed, tieredSeed } from '../seeding';
+import { placeLikelyAbsentees } from '../wave-fill';
 import { roomPairKey } from '../room-history';
 import { smallerRoomSeatsBefore } from '../smaller-room-seats';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

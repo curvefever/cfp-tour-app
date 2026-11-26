@@ -1,5 +1,6 @@
 import { circleMethodSchedule } from './pooling';
-import { fillRoomsByWaves, selectPoolingBye, type WaveMember } from './seeding';
+import { selectPoolingBye } from './seeding';
+import { fillRoomsByWaves, type WaveMember } from './wave-fill';
 import { recordRoomHistory } from './room-history';
 import {
   countSmallerRoomSeats,

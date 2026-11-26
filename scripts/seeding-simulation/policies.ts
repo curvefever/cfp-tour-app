@@ -1,6 +1,6 @@
 import { computeQualificationStandings } from '../../src/domain/tournament/advancement';
 import { isCountedPoolingRound } from '../../src/domain/tournament/pooling';
-import { assignWaveToRooms, type WaveMember } from '../../src/domain/tournament/seeding';
+import { assignWaveToRooms, type WaveMember } from '../../src/domain/tournament/wave-fill';
 import { recordRoomHistory, rewindRoomHistory } from '../../src/domain/tournament/room-history';
 import { smallerRoomSeatsBefore, splitForSmallerRooms } from '../../src/domain/tournament/smaller-room-seats';
 import type { RoundAssignment, TournamentState } from '../../src/domain/tournament/types';

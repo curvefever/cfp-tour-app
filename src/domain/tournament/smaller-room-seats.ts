@@ -1,6 +1,6 @@
 import { absentInRoom } from './absences';
 import { isPoolingRound } from './pooling';
-import type { WaveMember } from './seeding';
+import type { WaveMember } from './wave-fill';
 import type { RoundAssignment, TournamentRound, TournamentState } from './types';
 
 /**

@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  assignWaveToRooms,
   avoidSameGroupInFirstBracketRound,
   doubleEliminationApproachProgress,
   randomSeed,
-  recencyWeight,
-  RECENCY_REPEAT_WEIGHT_K,
   selectPoolingBye,
   semisApproachProgress,
   sequentialSeed,
@@ -14,6 +11,7 @@ import {
   tieredSeed,
   type GroupExitOrder,
 } from '../seeding';
+import { assignWaveToRooms, recencyWeight, RECENCY_REPEAT_WEIGHT_K } from '../wave-fill';
 import { recordRoomHistory, rewindRoomHistory, roomPairKey } from '../room-history';
 import { createDefaultTournamentState } from '../state-defaults';
 import { buildRound, sequenceRandom } from './test-fixtures';

@@ -4,11 +4,10 @@ import {
 } from '../../src/domain/tournament/advancement';
 import { lateJoinersOf } from '../../src/domain/tournament/late-joiners';
 import {
-  assignWaveToRooms,
   BALANCE_PRIORITY_WEIGHT_AT_WARMUP,
   DIVERSITY_PRIORITY_WEIGHT_AT_WARMUP,
-  type WaveMember,
 } from '../../src/domain/tournament/seeding';
+import { assignWaveToRooms, type WaveMember } from '../../src/domain/tournament/wave-fill';
 import {
   smallerRoomSeatsBefore,
   spreadsSmallerRoomSeats,

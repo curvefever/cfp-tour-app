@@ -25,7 +25,7 @@ import {
 } from './likely-absentees';
 import { unitDisplay } from './roster';
 import { roundInPlayOf } from './round-columns';
-import { roomChoiceCost } from './seeding';
+import { roomChoiceCost } from './wave-fill';
 import type { TournamentState } from './types';
 
 /** `moved` to another room, `stays` in its room (nothing better, or nowhere to go), `scored` its room has scores, `undrawn` it has no room yet. */

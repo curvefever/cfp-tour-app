@@ -1,4 +1,4 @@
-import { recencyWeight, type WaveMember } from '../seeding';
+import { recencyWeight, type WaveMember } from '../wave-fill';
 import { roomPairKey } from '../room-history';
 
 /**
