@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { finalsProgressState } from '../finals';
 import { generateTournament } from '../generation';
-import { addReserveUnit } from '../mutations';
+import { addReserveUnit } from '../reserves';
 import { setFinalScore } from '../score-edits';
 import { computeSwissRoundCount } from '../pooling';
 import { computeRankings } from '../rankings';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { swapIndividual, swapWindowOpen } from '../mutations';
+import { swapIndividual, swapWindowOpen } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { renameIndividual } from '../roster-edits';
 import { discardDrawsAfter, drawnAheadStatus } from '../redraw';

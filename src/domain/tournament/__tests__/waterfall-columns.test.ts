@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getAllColumnTies, getAllTies, hasPendingColumnTies, refreshRoundStandings } from '../advancement';
-import { swapIndividual } from '../mutations';
+import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { setTeamDefender } from '../roster-edits';
 import { resolveTournamentTie } from '../score-edits';

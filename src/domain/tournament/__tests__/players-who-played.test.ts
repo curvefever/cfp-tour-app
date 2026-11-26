@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { markOneScoreTeamMemberAbsent } from '../absences';
 import { answerAbsence } from '../absence-answers';
 import { ONE_SCORE_PER_TEAM } from '../formats';
-import { swapIndividual } from '../mutations';
+import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { playersWhoPlayed } from '../players-who-played';
 import type { TournamentState, TournamentTeam } from '../types';

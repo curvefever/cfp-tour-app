@@ -1,5 +1,5 @@
 import { getGameFormat } from '../../domain/tournament/formats';
-import { benchReasonOf, type BenchReason } from '../../domain/tournament/mutations';
+import { benchReasonOf, type BenchReason } from '../../domain/tournament/reserves';
 import type { TournamentState } from '../../domain/tournament/types';
 
 /** Where a walk-up can't join, as the bench message says it. */

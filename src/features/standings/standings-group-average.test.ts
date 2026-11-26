@@ -5,7 +5,7 @@ import {
   scoreCurrentRound,
   withEarlierGroupRule,
 } from '../../domain/tournament/__tests__/play-through';
-import { swapIndividual } from '../../domain/tournament/mutations';
+import { swapIndividual } from '../../domain/tournament/unit-swaps';
 import {
   describeStandings,
   tableRoundIndexes,

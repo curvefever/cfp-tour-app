@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { projectFutureRoundSlots } from '../bracket';
 import { rebuildFixedDrawHistory } from '../fixed-draws';
 import { generateTournament } from '../generation';
-import { addReserveUnit, addWalkUpIndividual, addWalkUpTeam, swapWindowOpen } from '../mutations';
+import { swapWindowOpen } from '../unit-swaps';
+import { addReserveUnit, addWalkUpIndividual, addWalkUpTeam } from '../reserves';
 import {
   resetRoster,
   resetTournamentState,

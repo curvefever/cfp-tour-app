@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { lineupEditScope, moveUnitToRoom } from '../lineup-edit';
 import { inheritedAbsences } from '../likely-absentees';
-import { addReserveUnit, benchReasonOf } from '../mutations';
+import { addReserveUnit, benchReasonOf } from '../reserves';
 import { setTeamDefender } from '../roster-edits';
 import type { TournamentState } from '../types';
 import { generated } from './test-fixtures';

@@ -13,7 +13,7 @@ import {
 import { answerAbsence, clearAbsenceAnswer, unmarkOneScoreTeamMemberAbsent } from '../absence-answers';
 import { usesAbsences } from '../rule-versions';
 import { buildAdvancementTiers } from '../advancement';
-import { swapIndividual, swapTeam } from '../mutations';
+import { swapIndividual, swapTeam } from '../unit-swaps';
 import { setRoundScore } from '../score-edits';
 import { discardDrawsAfter } from '../redraw';
 import { previousColumnStart } from '../round-columns';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { replayBracketPools } from '../bracket-replay';
-import { swapIndividual } from '../mutations';
+import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { renameIndividual } from '../roster-edits';
 import { currentColumn } from '../round-columns';

@@ -9,7 +9,7 @@ import {
 } from '../../domain/tournament/__tests__/qual-waterfall';
 import { buildRound } from '../../domain/tournament/__tests__/test-fixtures';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
-import { addWalkUpIndividual } from '../../domain/tournament/mutations';
+import { addWalkUpIndividual } from '../../domain/tournament/reserves';
 import { shareTiedPoints } from '../../domain/tournament/score-edits';
 import { computeRankings } from '../../domain/tournament/rankings';
 import { createDefaultTournamentState } from '../../domain/tournament/state-defaults';

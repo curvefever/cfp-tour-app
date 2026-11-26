@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { markOneScoreTeamMemberAbsent } from '../../domain/tournament/absences';
 import { answerAbsence, unmarkOneScoreTeamMemberAbsent } from '../../domain/tournament/absence-answers';
-import { swapWindowOpen } from '../../domain/tournament/mutations';
+import { swapWindowOpen } from '../../domain/tournament/unit-swaps';
 import { findUnit } from '../../domain/tournament/roster';
 import type { TournamentState } from '../../domain/tournament/types';
 import { Badge, Button, Select } from '../../components/ui';

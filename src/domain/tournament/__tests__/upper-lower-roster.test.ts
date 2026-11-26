@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { bracketBoxes } from '../bracket';
 import { generateTournament } from '../generation';
 import { groupRoundMisses, groupSeats } from '../group-standings';
-import { addWalkUpIndividual } from '../mutations';
+import { addWalkUpIndividual } from '../reserves';
 import { removeRosterUnit } from '../unit-removal';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

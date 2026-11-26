@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../../domain/tournament/absence-answers';
 import { markBack } from '../../domain/tournament/likely-absentees';
-import { swapIndividual } from '../../domain/tournament/mutations';
+import { swapIndividual } from '../../domain/tournament/unit-swaps';
 import { currentColumn } from '../../domain/tournament/round-columns';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { TournamentState } from '../../domain/tournament/types';

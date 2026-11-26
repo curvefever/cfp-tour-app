@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { buildQualWaterfall } from '../../domain/tournament/__tests__/qual-waterfall';
-import { addWalkUpIndividual, addWalkUpTeam, benchReasonOf } from '../../domain/tournament/mutations';
+import { addWalkUpIndividual, addWalkUpTeam, benchReasonOf } from '../../domain/tournament/reserves';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';
 import type { PersistedSetup, TournamentState, TournamentTeam } from '../../domain/tournament/types';
 import { benchedMessage, reserveAddHint } from './reserve-hint';

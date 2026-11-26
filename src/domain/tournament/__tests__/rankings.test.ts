@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable } from '../advancement';
 import { isStandingsCutoffRound } from '../cutoff-rounds';
 import { compareStandings } from '../standing-compare';
-import { addWalkUpIndividual } from '../mutations';
+import { addWalkUpIndividual } from '../reserves';
 import { computeRankings, isFinalComplete, tournamentWinners } from '../rankings';
 import { describeStandings } from '../standings-display';
 import { createDefaultTournamentState } from '../state-defaults';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { computeGroupStandings, computeQualificationStandings } from '../advancement';
 import { isUnitAbsentFromRoom } from '../absences';
 import { ONE_SCORE_PER_TEAM } from '../formats';
-import { swapTeam } from '../mutations';
+import { swapTeam } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { getUnitScore, scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';

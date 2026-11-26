@@ -1,6 +1,6 @@
 import { buildAdvancementTiers } from '../advancement';
 import { getGameFormat } from '../formats';
-import { addWalkUpIndividual, addWalkUpTeam } from '../mutations';
+import { addWalkUpIndividual, addWalkUpTeam } from '../reserves';
 import { scoredTeamSize, scoreKeysForPosition } from '../scoring';
 import { recordRoomHistory } from '../room-history';
 import { advanceTournamentRound } from '../transitions';

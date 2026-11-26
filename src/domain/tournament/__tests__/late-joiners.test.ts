@@ -3,15 +3,14 @@ import { buildAdvancementTiers, computeQualificationStandings } from '../advance
 import { rankingPoints, samePoints } from '../standing-compare';
 import { generateTournament } from '../generation';
 import { lateJoinersOf } from '../late-joiners';
+import { swapIndividual, swapTeam } from '../unit-swaps';
 import {
   addReserveUnit,
   addWalkUpIndividual,
   addWalkUpTeam,
   missedCountedRounds,
-  swapIndividual,
-  swapTeam,
   type ReserveAddResult,
-} from '../mutations';
+} from '../reserves';
 import { removeRosterUnit } from '../unit-removal';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';

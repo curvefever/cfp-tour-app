@@ -6,17 +6,15 @@ import {
   removeReserveIndividual,
   reserveIndividualRefusal,
 } from '../../domain/tournament/member-swaps';
+import { swapIndividualResult, swapTeamResult, swapWindowOpen } from '../../domain/tournament/unit-swaps';
 import {
   addReserveUnit,
   addWalkUpIndividual,
   addWalkUpTeam,
   removeReserveUnit,
-  swapIndividualResult,
-  swapTeamResult,
-  swapWindowOpen,
   type ReserveAddOptions,
   type ReserveAddResult,
-} from '../../domain/tournament/mutations';
+} from '../../domain/tournament/reserves';
 import { removeRosterUnit } from '../../domain/tournament/unit-removal';
 import { renameIndividual, updateTeam, type RosterEditResult } from '../../domain/tournament/roster-edits';
 import { removeUnitBeforeStart } from '../../domain/tournament/pre-start-edits';

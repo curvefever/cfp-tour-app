@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addWalkUpIndividual } from '../mutations';
+import { addWalkUpIndividual } from '../reserves';
 import { removeRosterUnit } from '../unit-removal';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';

@@ -5,7 +5,7 @@ import {
   sharedFinalDoubleEliminationBracketPhase,
 } from '../double-elimination';
 import { generateTournament } from '../generation';
-import { swapIndividual } from '../mutations';
+import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { snakeSeed } from '../seeding';
 import { tieredBracketSeed, tieredSeed } from '../wave-draw';

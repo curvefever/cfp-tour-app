@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { orderedQualificationTable } from '../advancement';
 import { generateTournament } from '../generation';
-import { swapIndividual } from '../mutations';
+import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../room-history';

@@ -1,6 +1,6 @@
 import { answerAbsence } from '../absence-answers';
 import { generateTournament } from '../generation';
-import { addWalkUpIndividual } from '../mutations';
+import { addWalkUpIndividual } from '../reserves';
 import { rosterKeys } from '../roster';
 import { planLayered, type LayeredInput, type LayeredPlan } from '../layered-plan';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
