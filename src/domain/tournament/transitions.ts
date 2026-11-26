@@ -11,13 +11,8 @@ import { likelyAbsentees } from './likely-absentees';
 import { seedFromGroupStageRound } from './pooling';
 import { discardDrawsAfter, drawnAheadStatus } from './redraw';
 import { swissPair } from './swiss-pairing';
-import {
-  avoidSameGroupInFirstBracketRound,
-  selectPoolingBye,
-  sequentialSeed,
-  seedFromPoolingExit,
-  type SeedCandidate,
-} from './seeding';
+import { avoidSameGroupInFirstBracketRound, sequentialSeed, type SeedCandidate } from './seeding';
+import { selectPoolingBye, seedFromPoolingExit } from './pooling-exit-draw';
 import { pairsAbsenteesInRound, tieredSeed } from './wave-draw';
 import { recordRoomHistory } from './room-history';
 import type { RoomSize, RoundAssignment, TournamentRound, TournamentState } from './types';

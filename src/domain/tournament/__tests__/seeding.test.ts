@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   avoidSameGroupInFirstBracketRound,
   randomSeed,
-  selectPoolingBye,
   sequentialSeed,
   snakeSeed,
   type GroupExitOrder,
 } from '../seeding';
+import { selectPoolingBye } from '../pooling-exit-draw';
 import {
   doubleEliminationApproachProgress,
   semisApproachProgress,

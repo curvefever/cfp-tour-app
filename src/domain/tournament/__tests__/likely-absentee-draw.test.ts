@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absence-answers';
 import { generateTournament } from '../generation';
 import { createTournamentRuntime } from '../runtime';
-import { seedFromPoolingExit, seedPoolByStanding } from '../seeding';
+import { seedFromPoolingExit, seedPoolByStanding } from '../pooling-exit-draw';
 import { tieredBracketSeed, tieredSeed } from '../wave-draw';
 import { placeLikelyAbsentees } from '../wave-fill';
 import { roomPairKey } from '../room-history';
