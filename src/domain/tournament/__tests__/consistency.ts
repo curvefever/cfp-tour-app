@@ -1,5 +1,6 @@
 import { getGameFormat } from '../formats';
-import { removeRosterUnit, swapIndividual, swapTeam } from '../mutations';
+import { swapIndividual, swapTeam } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { renameIndividual } from '../roster-edits';
 import { rosterKeys } from '../roster';
 import { roundsInPlay } from '../round-columns';

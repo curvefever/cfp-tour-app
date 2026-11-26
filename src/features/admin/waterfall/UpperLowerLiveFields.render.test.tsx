@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { playToBracketEntry } from '../../../domain/tournament/__tests__/dependency-play-fixtures';
 import { rosterFor, testRuntime } from '../../../domain/tournament/__tests__/test-fixtures';
 import { generateTournament } from '../../../domain/tournament/generation';
-import { removeRosterUnit } from '../../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../../domain/tournament/unit-removal';
 import { rosterKeys } from '../../../domain/tournament/roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
 import type { TournamentState } from '../../../domain/tournament/types';

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { removeRosterUnit } from '../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../domain/tournament/unit-removal';
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { settingsFromForm } from '../../domain/tournament/tournament-settings';
 import { advanceTournamentRound } from '../../domain/tournament/transitions';

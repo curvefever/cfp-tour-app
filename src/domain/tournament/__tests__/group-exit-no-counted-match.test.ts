@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGroupStandings, getAllTies, hasPendingTies, selectGroupExit } from '../advancement';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { scoreKeysForPosition } from '../scoring';
 import { describeStandings } from '../standings-display';
 import type { TournamentStanding, TournamentState } from '../types';

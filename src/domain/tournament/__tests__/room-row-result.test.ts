@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildState, scoreCurrentRound } from '../__tests__/play-through';
 import { buildQualWaterfall } from '../__tests__/qual-waterfall';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { roundExitRule, type RoomExitBand, type RoundExitRule } from '../room-exits';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';

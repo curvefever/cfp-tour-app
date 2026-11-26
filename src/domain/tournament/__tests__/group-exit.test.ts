@@ -10,7 +10,7 @@ import {
   type GroupExitShape,
 } from '../group-exit';
 import { groupSizesOf } from '../group-settings';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { resolveTournamentTie } from '../score-edits';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';

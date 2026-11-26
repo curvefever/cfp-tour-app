@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeGroupStandings, computeQualificationStandings } from '../advancement';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createDefaultSetup } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { buildState, pressNextRound, scoreCurrentRound } from './play-through';

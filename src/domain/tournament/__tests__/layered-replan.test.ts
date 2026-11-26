@@ -9,7 +9,8 @@ import {
   type LayeredPlanCheck,
 } from '../layered-replan';
 import { planLayeredFor, planLayeredForUncached, type LayeredForm } from '../layered-form';
-import { addWalkUpIndividual, removeRosterUnit } from '../mutations';
+import { addWalkUpIndividual } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { layeredKeptPlayOf, layeredPlayOf } from '../rule-versions';
 import { MISSING_ROOM_SIZE_MESSAGE } from '../round-advance-tools';
 import type { TournamentState } from '../types';

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { markOneScoreTeamMemberAbsent, oneScoreTeamMemberKey } from '../../domain/tournament/absences';
 import { answerAbsence } from '../../domain/tournament/absence-answers';
-import { removeRosterUnit, swapIndividual } from '../../domain/tournament/mutations';
+import { swapIndividual } from '../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../domain/tournament/unit-removal';
 import { renameIndividual } from '../../domain/tournament/roster-edits';
 import { setRoundScore } from '../../domain/tournament/score-edits';
 import { oneRoomState, teamOf } from '../../domain/tournament/__tests__/test-fixtures';

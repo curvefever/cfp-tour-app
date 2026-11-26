@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  removeRosterUnit,
-  swapIndividual,
-  swapIndividualResult,
-  swapTeam,
-  swapTeamResult,
-  swapWindowOpen,
-} from '../mutations';
+import { swapIndividual, swapIndividualResult, swapTeam, swapTeamResult, swapWindowOpen } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { renameIndividual, renameIndividualResult, type RosterEditRefusal } from '../roster-edits';
 import type { TournamentState, TournamentTeam } from '../types';
 import { pressNextRound, scoreCurrentRound } from './play-through';

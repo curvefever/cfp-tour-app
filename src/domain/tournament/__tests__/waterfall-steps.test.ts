@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { answerAbsence } from '../absence-answers';
 import { getAllTies } from '../advancement';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { isRoundDone, roundsInPlay } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';
 import { advanceTournamentRound } from '../transitions';

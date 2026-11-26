@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bracketRoundLabels } from '../../domain/tournament/bracket';
 import { declaredSchedule } from '../../domain/tournament/declared-schedule';
-import { removeRosterUnit } from '../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../domain/tournament/unit-removal';
 import { roundExitRule } from '../../domain/tournament/room-exits';
 import type { TournamentState } from '../../domain/tournament/types';
 import { built } from '../../domain/tournament/__tests__/layered-test-support';

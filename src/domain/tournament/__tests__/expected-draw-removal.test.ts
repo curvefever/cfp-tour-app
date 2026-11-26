@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { expectedRounds } from '../expected-draw';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { pressed, resolveEveryTie, scoreRound } from './dependency-play-fixtures';

@@ -4,7 +4,7 @@ import { answerAbsence } from '../absence-answers';
 import { getAllTies, hasPendingTies } from '../advancement';
 import { expectedRounds, type ExpectedRound } from '../expected-draw';
 import { isOneScorePerTeam, ONE_SCORE_PER_TEAM } from '../formats';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { roomPairKey } from '../room-history';
 import { currentColumn, nextColumnStart, roundColumn } from '../round-columns';
 import { scoreKeysForPosition, scoredTeamSize } from '../scoring';

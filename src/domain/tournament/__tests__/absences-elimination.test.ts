@@ -8,7 +8,7 @@ import {
 import { roomFinishOrder } from '../room-results';
 import { routeWaterfallRound } from '../bracket-replay';
 import { fairCutAdvancement, roundLineUps, sizePools } from '../fair-cut';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { computeRankings } from '../rankings';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';

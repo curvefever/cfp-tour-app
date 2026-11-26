@@ -223,7 +223,7 @@ function seatFirstKingsValleyRound(seating: NextSeating): Seating {
   // them exactly with sequentialSeed, as advanceKingsValley does for every
   // later hop; this is the hop into the first Kings Valley round. A removal
   // during pooling (or a reserve added while this round's window is open) can
-  // leave a survivor count that differs from the plan, and mutations.ts's
+  // leave a survivor count that differs from the plan, and replan-future-rounds.ts's
   // rebuildFutureRounds re-plans with state.cfg.qualAdv, not the real number
   // reaching the cutoff. So fitKingsValleyTail re-plans the whole ladder
   // (Final included) to the real count first.

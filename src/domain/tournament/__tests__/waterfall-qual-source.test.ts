@@ -7,7 +7,8 @@ import {
   qualTieBoundaryText,
   refreshRoundStandings,
 } from '../advancement';
-import { addReserveUnit, removeRosterUnit } from '../mutations';
+import { addReserveUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { resolveTournamentTie } from '../score-edits';
 import { distributeRooms } from '../room-distribution';
 import { scoreKeysForPosition } from '../scoring';

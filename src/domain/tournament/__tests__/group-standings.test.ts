@@ -8,7 +8,7 @@ import {
 import { compareStandings, sameStanding } from '../standing-compare';
 import { type GroupMatchPoints, groupSeats, sameGroupStanding, withHeadToHead } from '../group-standings';
 import { usesGroupAverages } from '../rule-versions';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultTournamentState } from '../state-defaults';
 import type { TournamentStanding, TournamentState, WithdrawnUnit } from '../types';

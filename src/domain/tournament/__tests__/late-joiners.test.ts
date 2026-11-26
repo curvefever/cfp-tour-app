@@ -8,11 +8,11 @@ import {
   addWalkUpIndividual,
   addWalkUpTeam,
   missedCountedRounds,
-  removeRosterUnit,
   swapIndividual,
   swapTeam,
   type ReserveAddResult,
 } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { distributeRooms } from '../room-distribution';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

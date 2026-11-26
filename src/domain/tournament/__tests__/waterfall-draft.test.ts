@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { RoomSize } from '../types';

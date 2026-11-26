@@ -2,7 +2,7 @@ import { generateTournament } from '../../src/domain/tournament/generation';
 import { createTournamentRuntime } from '../../src/domain/tournament/runtime';
 import { scoreKeysForPosition } from '../../src/domain/tournament/scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../../src/domain/tournament/state-defaults';
-import { removeRosterUnit } from '../../src/domain/tournament/mutations';
+import { removeRosterUnit } from '../../src/domain/tournament/unit-removal';
 import { withLoadedRoster } from '../../src/domain/tournament/tournament-resets';
 import { advanceTournamentRound } from '../../src/domain/tournament/transitions';
 import { currentColumn, roundColumn, roundsInPlay } from '../../src/domain/tournament/round-columns';

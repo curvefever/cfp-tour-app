@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { generateTournament } from '../generation';
 import { deriveRoomSize, getGameFormat } from '../formats';
 import { roomMatch } from '../match-format';

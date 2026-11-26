@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getAllTies } from '../advancement';
 import { ONE_SCORE_PER_TEAM } from '../formats';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { computeRankings } from '../rankings';
 import { advanceTournamentRound } from '../transitions';
 import type { TournamentState } from '../types';

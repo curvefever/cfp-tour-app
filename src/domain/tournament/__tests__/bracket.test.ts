@@ -11,7 +11,7 @@ import {
   roundGameCount,
 } from '../bracket';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createTournamentRuntime } from '../runtime';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentRound, TournamentState } from '../types';

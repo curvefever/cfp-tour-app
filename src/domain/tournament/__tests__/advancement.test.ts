@@ -20,7 +20,7 @@ import { isUncontestedRoom, roomPointsByPlace } from '../room-results';
 import { isLastStandingsRound } from '../cutoff-rounds';
 import { sameStanding, samePoints } from '../standing-compare';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { resolveTournamentTie, setRoundScore, shareTiedPoints } from '../score-edits';
 import { roundExitRule } from '../room-exits';
 import { scoreKeysForPosition } from '../scoring';

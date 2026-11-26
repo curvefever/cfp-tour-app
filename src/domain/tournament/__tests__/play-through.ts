@@ -2,7 +2,7 @@ import { pendingAbsenceQuestions } from '../absences';
 import { answerAbsence } from '../absence-answers';
 import { getGameFormat } from '../formats';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createTournamentRuntime } from '../runtime';
 import { currentColumn } from '../round-columns';
 import { scoreKeysForPosition } from '../scoring';

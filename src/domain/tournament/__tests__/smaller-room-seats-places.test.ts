@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildAdvancementTiers } from '../advancement';
 import { isStandingsCutoffRound } from '../cutoff-rounds';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import {
   isFullFieldRound,
   seatsPerTier,

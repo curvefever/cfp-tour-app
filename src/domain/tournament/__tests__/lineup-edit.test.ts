@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyLineupEdit, lineupEditScope } from '../lineup-edit';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { computeRankings } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
 import { roomPairKey } from '../room-history';

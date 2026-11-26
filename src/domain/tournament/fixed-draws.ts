@@ -199,7 +199,7 @@ function relabelFixedRound(round: TournamentRound, oldKey: string, newKey: strin
 /**
  * Keeps the already-published future rounds of a fixed-draw tournament in
  * step with a roster change (the fixed-draw counterpart of
- * patchFutureGroupStageRounds, mutations.ts). Only rounds after `curRound`
+ * patchFutureGroupStageRounds, unit-removal.ts). Only rounds after `curRound`
  * are touched: the current round is handled by the mutation itself and past
  * rounds are history. Rounds that don't change are returned as-is.
  *

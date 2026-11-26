@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { exitBandAtRank, roundExitRule, type RoomExitBand } from '../room-exits';
 import { getUnitScore, orderRoomByScore } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

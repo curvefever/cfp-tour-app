@@ -3,7 +3,7 @@ import { computeQualificationStandings } from '../advancement';
 import { detectTieBreaks } from '../room-ties';
 import { generateTournament } from '../generation';
 import { matchResultsAllowed } from '../match-results';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { createTournamentRuntime } from '../runtime';
 import { scoreKeysForPosition } from '../scoring';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';

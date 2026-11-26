@@ -4,7 +4,7 @@ import { answerAbsence } from '../absence-answers';
 import { detectTieBreaks, invalidateStaleTieResolutions } from '../room-ties';
 import { roomFinishOrder, scoreRoom } from '../room-results';
 import { bestOfGameCount, isBestOfRound, roomMatch, winsNeeded } from '../match-format';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { flagFinalGameAnonymous } from '../score-edits';
 import { computeRankings, isFinalComplete } from '../rankings';
 import { isRoomScored, orderRoomWithPlaces } from '../scoring';

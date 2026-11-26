@@ -5,7 +5,8 @@ import {
   sharedFinalDoubleEliminationBracketPhase,
 } from '../double-elimination';
 import { generateTournament } from '../generation';
-import { removeRosterUnit, swapIndividual } from '../mutations';
+import { swapIndividual } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { snakeSeed } from '../seeding';
 import { tieredBracketSeed, tieredSeed } from '../wave-draw';
 import { roomPairKey } from '../room-history';
@@ -1668,7 +1669,7 @@ describe('advanceTournamentRound — Kings Valley tail re-fit (Stage 2)', () => 
   });
 
   it('team-3v3v3, a removal during the last qualification round is folded into the first-hop seed into Kings Valley', () => {
-    // Qual-table rounds ARE isNoElim, so mutations.ts's own
+    // Qual-table rounds ARE isNoElim, so replan-future-rounds.ts's own
     // rebuildFutureRounds does fire here (via removeRosterUnit) and does
     // re-plan this round's shape -- but it re-plans using the still-stale
     // state.cfg.qualAdv (17, never updated by the removal), not the real

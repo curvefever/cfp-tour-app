@@ -4,7 +4,7 @@ import { generateTournament } from '../generation';
 import { layeredGateRefusal, LAYERED_FORMATS, LAYERED_POOLING_PHASES } from '../layered-form';
 import { planLayered } from '../layered-plan';
 import { layeredPlayOf } from '../rule-versions';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { applyStageMatchEdit } from '../stage-match-edit';

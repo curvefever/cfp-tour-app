@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addWalkUpIndividual, removeRosterUnit } from '../mutations';
+import { addWalkUpIndividual } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import type { TournamentState } from '../types';
 import { applyWaterfallGraphEdit } from '../waterfall-live-edit';
 import { generated } from './test-fixtures';

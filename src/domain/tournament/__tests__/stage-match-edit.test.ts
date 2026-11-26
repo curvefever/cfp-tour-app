@@ -3,7 +3,7 @@ import { generateTournament } from '../generation';
 import { bestOfGameCount, roomMatch } from '../match-format';
 import { isFinalComplete } from '../rankings';
 import { createTournamentRuntime } from '../runtime';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { applyStageMatchEdit, stageMatchScope } from '../stage-match-edit';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import { advanceTournamentRound } from '../transitions';

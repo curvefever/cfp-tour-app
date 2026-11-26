@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { removeRosterUnit } from '../../domain/tournament/mutations';
+import { removeRosterUnit } from '../../domain/tournament/unit-removal';
 import { pressNextRound, scoreCurrentRound } from '../../domain/tournament/__tests__/play-through';
 import { generated, testRuntime } from '../../domain/tournament/__tests__/test-fixtures';
 import type { TournamentState, TournamentTeam } from '../../domain/tournament/types';

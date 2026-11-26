@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ONE_SCORE_PER_TEAM } from '../formats';
 import { bestOfGameCount } from '../match-format';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { refitPoolingRound } from '../pooling';
 import {
   applyMatchFormats,

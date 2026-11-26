@@ -10,7 +10,7 @@ import { projectFutureRoundSlots } from '../bracket';
 import { isFedOnlyByStandings } from '../bracket-replay';
 import { expectedRounds } from '../expected-draw';
 import { generateTournament } from '../generation';
-import { removeRosterUnit } from '../mutations';
+import { removeRosterUnit } from '../unit-removal';
 import { resolveTournamentTie } from '../score-edits';
 import { cutTieMarks, describeStandings } from '../standings-display';
 import { createTournamentRuntime } from '../runtime';
