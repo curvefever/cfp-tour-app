@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getGameFormat } from '../../../domain/tournament/formats';
-import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
+import { createDefaultSetup, newTournamentSetup } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import {
   isHeadToHead,
@@ -9,6 +9,7 @@ import {
   reconcileScheduleLogicForFormat,
   setupAfterFormatChange,
   setupAfterOddCountChange,
+  setupAfterPoolingChange,
   setupAfterScoringChange,
 } from './format-change-rules';
 
@@ -81,16 +82,21 @@ describe('setupAfterFormatChange', () => {
     });
   });
 
-  it.each(['swiss', 'group-stage'] as const)('1v1 with %s to FFA drops the pooling phase', (poolingPhase) => {
-    const start = form({ ...ONE_V_ONE, poolingPhase, scoring: 'match-results' });
-    expect(toFormat(start, 'ffa-individual')).toEqual({
-      ...start,
-      gameFormat: 'ffa-individual',
-      oddCountStrategy: '',
-      poolingPhase: 'none',
-      scoring: 'fairpoints',
-    });
-  });
+  it.each(['swiss', 'group-stage'] as const)(
+    '1v1 with %s to FFA takes a qualification table with its usual values',
+    (poolingPhase) => {
+      const start = form({ ...ONE_V_ONE, poolingPhase, scoring: 'match-results' });
+      expect(toFormat(start, 'ffa-individual')).toEqual({
+        ...start,
+        gameFormat: 'ffa-individual',
+        oddCountStrategy: '',
+        poolingPhase: 'qual-table',
+        qualRoundsOverride: '4',
+        nonCountingRounds: '1',
+        scoring: 'fairpoints',
+      });
+    },
+  );
 
   it.each([
     [ONE_V_ONE, 'double-elimination', 'ffa-individual'],
@@ -122,9 +128,85 @@ describe('setupAfterFormatChange', () => {
       ...start,
       gameFormat: 'ffa-individual',
       oddCountStrategy: '',
-      poolingPhase: 'none',
+      poolingPhase: 'qual-table',
+      qualRoundsOverride: '4',
+      nonCountingRounds: '1',
       scoring: 'match-results',
     });
+  });
+});
+
+/** The pooling phase and the three fields its usual values write. */
+const poolingFields = (setup: PersistedSetup) => ({
+  poolingPhase: setup.poolingPhase,
+  qualRounds: setup.qualRoundsOverride,
+  swissRounds: setup.swissRoundsOverride,
+  nonCounting: setup.nonCountingRounds,
+});
+
+describe('the pooling phase across the head-to-head line, from a new tournament', () => {
+  const oneVOne = toFormat(newTournamentSetup(), 'individual-1v1');
+
+  it('FFA to 1v1: a Swiss of 5 rounds, all counted', () => {
+    expect(poolingFields(oneVOne)).toMatchObject({
+      poolingPhase: 'swiss',
+      swissRounds: '5',
+      nonCounting: '0',
+    });
+    expect(oneVOne.qualAdv).toBe('');
+  });
+
+  it('and back to FFA: a qualification table of 4 rounds, the first not counted', () => {
+    expect(poolingFields(toFormat(oneVOne, 'ffa-individual'))).toMatchObject({
+      poolingPhase: 'qual-table',
+      qualRounds: '4',
+      nonCounting: '1',
+    });
+  });
+
+  it('a 1v1 Group Stage stays one in 2v2, with the fields untouched', () => {
+    const start = form({ ...ONE_V_ONE, poolingPhase: 'group-stage', nonCountingRounds: '2' });
+    expect(poolingFields(toFormat(start, 'team-2v2'))).toEqual(poolingFields(start));
+  });
+
+  it('a qualification table stays one between two head-to-head formats', () => {
+    const start = form({ ...ONE_V_ONE, poolingPhase: 'qual-table', qualRoundsOverride: '7' });
+    expect(poolingFields(toFormat(start, 'team-2v2'))).toEqual(poolingFields(start));
+  });
+
+  it('no pooling phase stays none', () => {
+    expect(toFormat(form(), 'individual-1v1').poolingPhase).toBe('none');
+    expect(toFormat(form(ONE_V_ONE), 'ffa-individual').poolingPhase).toBe('none');
+  });
+});
+
+describe('setupAfterPoolingChange', () => {
+  it('puts in the usual values of each phase chosen, over what was typed', () => {
+    const typed = form({ ...ONE_V_ONE, qualRoundsOverride: '7', nonCountingRounds: '3' });
+    const table = setupAfterPoolingChange(typed, 'qual-table');
+    expect(table).toEqual({
+      ...typed,
+      poolingPhase: 'qual-table',
+      qualRoundsOverride: '4',
+      nonCountingRounds: '1',
+    });
+    const swiss = setupAfterPoolingChange({ ...table, qualRoundsOverride: '6' }, 'swiss');
+    expect(poolingFields(swiss)).toMatchObject({ swissRounds: '5', nonCounting: '0' });
+    expect(poolingFields(setupAfterPoolingChange(swiss, 'qual-table'))).toMatchObject({
+      qualRounds: '4',
+      nonCounting: '1',
+    });
+  });
+
+  it.each(['none', 'group-stage'] as const)('%s changes the phase alone', (poolingPhase) => {
+    const start = form({ ...ONE_V_ONE, poolingPhase: 'swiss', swissRoundsOverride: '6' });
+    expect(setupAfterPoolingChange(start, poolingPhase)).toEqual({ ...start, poolingPhase });
+  });
+
+  it('drops Match results where the phase cannot score them', () => {
+    const start = form({ ...ONE_V_ONE, poolingPhase: 'group-stage', scoring: 'match-results' });
+    expect(setupAfterPoolingChange(start, 'swiss').scoring).toBe('match-results');
+    expect(setupAfterPoolingChange(start, 'none').scoring).toBe('fairpoints');
   });
 });
 

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import type { TournamentRuntime } from '../../domain/tournament/runtime';
-import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
+import {
+  createDefaultSetup,
+  createDefaultTournamentState,
+  newTournamentSetup,
+} from '../../domain/tournament/state-defaults';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';
 import { loadLiveEnvelope, saveExited } from '../../lib/persistence/storage';
 import type { useAuth } from '../auth/AuthProvider';
@@ -152,7 +156,7 @@ export function useTournamentNavigation({
           data: {
             tournamentId,
             state: { ...createDefaultTournamentState(), tournamentId },
-            setup: createDefaultSetup(),
+            setup: newTournamentSetup(),
             testRun,
           },
         });

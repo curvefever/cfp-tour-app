@@ -1,3 +1,4 @@
+import { scoringForPooling } from './match-results';
 import type { PersistedSetup, TournamentInfo, TournamentLifecycle, TournamentState } from './types';
 
 export function createDefaultTournamentState(overrides: Partial<TournamentState> = {}): TournamentState {
@@ -39,6 +40,16 @@ export function createDefaultTournamentState(overrides: Partial<TournamentState>
   };
 }
 
+/** What choosing a qualification table puts in: 4 rounds, the first not counted. */
+export const USUAL_QUAL_TABLE_VALUES = { qualRoundsOverride: '4', nonCountingRounds: '1' } as const;
+
+/** What choosing a Swiss puts in: 5 rounds, all counted. */
+export const USUAL_SWISS_VALUES = { swissRoundsOverride: '5', nonCountingRounds: '0' } as const;
+
+/**
+ * Every field of the Setup form at its plain default. It also fills the keys a stored setup or a stored tournament's
+ * settings lack, so a change here changes tournaments that exist; a new tournament starts from `newTournamentSetup`.
+ */
 export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): PersistedSetup {
   return {
     scheduleLogic: 'single-elimination',
@@ -94,6 +105,23 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     reserves: '',
     reserveIndividuals: '',
     ...overrides,
+  };
+}
+
+/**
+ * The Setup form of a brand-new tournament only: the organiser's usual choices, a qualification table of 4 rounds with
+ * the first not counted, and "Advance to bracket" left to the app. `createDefaultSetup` stays what fills the keys
+ * missing from stored data.
+ */
+export function newTournamentSetup(): PersistedSetup {
+  const defaults = createDefaultSetup();
+  const { scoring, gameFormat, oddCountStrategy } = defaults;
+  return {
+    ...defaults,
+    poolingPhase: 'qual-table',
+    qualAdv: '',
+    ...USUAL_QUAL_TABLE_VALUES,
+    scoring: scoringForPooling(scoring, 'qual-table', gameFormat, oddCountStrategy),
   };
 }
 

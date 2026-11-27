@@ -1,6 +1,6 @@
 import { bracketEntryCountFromSetup } from '../../../domain/tournament/bracket-entry';
 import { deriveRoomSize, getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
-import { computeSwissRoundCount, QUALIFICATION_ROUNDS } from '../../../domain/tournament/pooling';
+import { roundsBeforeBracket } from '../../../domain/tournament/pooling-rounds';
 import { getMinimumBracketUnits } from '../../../domain/tournament/schedule-generation';
 import { groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import { standingsKindOfSetup } from '../../../domain/tournament/waterfall-numbering';
@@ -11,12 +11,11 @@ import type { PersistedSetup, TournamentState } from '../../../domain/tournament
 export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQualifiers: string) {
   const format = getGameFormat(setup.gameFormat);
   const isGroup = setup.poolingPhase === 'group-stage';
+  // The rounds "Non-counting rounds" counts from, an override included: only a table and a Swiss have that field.
   const totalPoolingRounds =
-    setup.poolingPhase === 'qual-table'
-      ? QUALIFICATION_ROUNDS
-      : setup.poolingPhase === 'swiss'
-        ? computeSwissRoundCount(state.confirmedCount ?? 0)
-        : 0;
+    setup.poolingPhase === 'qual-table' || setup.poolingPhase === 'swiss'
+      ? roundsBeforeBracket(setup, state.confirmedCount ?? 0)
+      : 0;
   const isSingle = setup.scheduleLogic === 'single-elimination';
   const isRace = setup.scheduleLogic === 'double-elimination';
   const isShared = setup.scheduleLogic === 'double-elimination-shared-final';

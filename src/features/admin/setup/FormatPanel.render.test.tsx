@@ -66,16 +66,21 @@ describe('a change of the game format', () => {
     });
   });
 
-  it.each(['swiss', 'group-stage'] as const)('1v1 with %s to FFA drops the pooling phase', (poolingPhase) => {
-    const start = form({ ...ONE_V_ONE, poolingPhase, scoring: 'match-results' });
-    expect(choose(start, 'cfg-game-format', 'ffa')).toEqual({
-      ...start,
-      gameFormat: 'ffa-individual',
-      oddCountStrategy: '',
-      poolingPhase: 'none',
-      scoring: 'fairpoints',
-    });
-  });
+  it.each(['swiss', 'group-stage'] as const)(
+    '1v1 with %s to FFA takes a qualification table with its usual values',
+    (poolingPhase) => {
+      const start = form({ ...ONE_V_ONE, poolingPhase, scoring: 'match-results' });
+      expect(choose(start, 'cfg-game-format', 'ffa')).toEqual({
+        ...start,
+        gameFormat: 'ffa-individual',
+        oddCountStrategy: '',
+        poolingPhase: 'qual-table',
+        qualRoundsOverride: '4',
+        nonCountingRounds: '1',
+        scoring: 'fairpoints',
+      });
+    },
+  );
 
   it('1v1 with a Swiss to FFA keeps a custom points table', () => {
     const start = form({ ...ONE_V_ONE, poolingPhase: 'swiss', scoring: 'positional-points' });
@@ -83,7 +88,9 @@ describe('a change of the game format', () => {
       ...start,
       gameFormat: 'ffa-individual',
       oddCountStrategy: '',
-      poolingPhase: 'none',
+      poolingPhase: 'qual-table',
+      qualRoundsOverride: '4',
+      nonCountingRounds: '1',
     });
   });
 
@@ -151,6 +158,18 @@ describe('a change of the game format', () => {
   it('with Match results, keeps a typed tie margin', () => {
     const start = form({ ...MATCH_RESULTS, tieMargin: '55' });
     expect(choose(start, 'cfg-team-size', '4')).toEqual({ ...start, gameFormat: 'team-4v4' });
+  });
+});
+
+describe('a change of the pooling phase', () => {
+  it('choosing Swiss puts in 5 rounds, all counted', () => {
+    const start = form({ ...ONE_V_ONE, poolingPhase: 'qual-table', nonCountingRounds: '1' });
+    expect(choose(start, 'cfg-pooling-phase', 'swiss')).toEqual({
+      ...start,
+      poolingPhase: 'swiss',
+      swissRoundsOverride: '5',
+      nonCountingRounds: '0',
+    });
   });
 });
 

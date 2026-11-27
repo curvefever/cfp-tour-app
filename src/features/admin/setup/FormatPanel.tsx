@@ -9,11 +9,7 @@ import {
 } from '../../../domain/tournament/formats';
 import { clampAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
 import { parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry-default';
-import {
-  defaultTieMargin,
-  matchResultsAllowed,
-  scoringForPooling,
-} from '../../../domain/tournament/match-results';
+import { defaultTieMargin, matchResultsAllowed } from '../../../domain/tournament/match-results';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup } from '../../../domain/tournament/types';
@@ -42,6 +38,7 @@ import {
   isHeadToHead,
   isRaceCompatible,
   setupAfterFormatChange,
+  setupAfterPoolingChange,
   setupAfterOddCountChange,
   setupAfterScoringChange,
 } from './format-change-rules';
@@ -251,16 +248,7 @@ export function FormatPanel({
             value={setup.poolingPhase}
             onChange={(e) => {
               const poolingPhase = e.target.value as PersistedSetup['poolingPhase'];
-              updateSetup((current) => ({
-                ...current,
-                poolingPhase,
-                scoring: scoringForPooling(
-                  current.scoring,
-                  poolingPhase,
-                  current.gameFormat,
-                  current.oddCountStrategy,
-                ),
-              }));
+              updateSetup((current) => setupAfterPoolingChange(current, poolingPhase));
             }}
           >
             {poolingPhaseOptions.map((option) => (
