@@ -157,6 +157,121 @@ function sharedWinnersRounds(
   return winners;
 }
 
+/** Retargets the previous losers round with lever 1's target and returns it; `undefined` when there is none. */
+function retargetEarlierLosersRound(
+  losers: SharedLosersRound[],
+  pendingDrop: number,
+  config: SharedFinalDoubleEliminationConfig,
+): number | undefined {
+  const previous = losers[losers.length - 1];
+  const earlierTarget = previous && seatableEarlierLosersTarget(previous, pendingDrop, config);
+  if (earlierTarget !== undefined) {
+    retargetLosersRound(previous, earlierTarget);
+  }
+  return earlierTarget;
+}
+
+/** Lever 2: whether the pending drops may wait for the next winners round's, so one losers round takes both. */
+function canDeferToNextWinnersRound(
+  pendingFrom: number[],
+  winnersIndex: number,
+  winners: SharedWinnersRound[],
+): boolean {
+  return pendingFrom.length < MAX_WB_ROUNDS_BEFORE_LB && winnersIndex < winners.length - 1;
+}
+
+/**
+ * Rebuilds winners round `winnersIndex` with lever 3's target, and the round after it to match, writing both into
+ * `winners` by index. Returns the pending drop count after the change, the same as before when there is no target.
+ */
+function retargetWinnersRound({
+  winners,
+  winnersIndex,
+  players,
+  pendingDrop,
+  config,
+}: {
+  winners: SharedWinnersRound[];
+  winnersIndex: number;
+  players: number;
+  pendingDrop: number;
+  config: SharedFinalDoubleEliminationConfig;
+}): number {
+  const target = seatableWinnersTarget(
+    winners,
+    winnersIndex,
+    players - winners[winnersIndex].dropCount,
+    config,
+  );
+  if (target !== undefined) {
+    const round = winners[winnersIndex];
+    winners[winnersIndex] = buildSharedWinnersRound(round.players, target, config);
+    winners[winnersIndex + 1] = buildSharedWinnersRound(target, winners[winnersIndex + 1].advTotal, config);
+    pendingDrop += winners[winnersIndex].dropCount - round.dropCount;
+  }
+  return pendingDrop;
+}
+
+/**
+ * For a losers round the rooms can't seat, tries the three levers in order. Returns `'defer'` when the round waits for
+ * the next winners round, else the losers survivors and the pending drops after whichever lever applied, if any.
+ */
+function applySeatingLevers({
+  winners,
+  winnersIndex,
+  losers,
+  losersSurvivors,
+  pendingDrop,
+  pendingFrom,
+  players,
+  config,
+}: {
+  winners: SharedWinnersRound[];
+  winnersIndex: number;
+  losers: SharedLosersRound[];
+  losersSurvivors: number;
+  pendingDrop: number;
+  pendingFrom: number[];
+  players: number;
+  config: SharedFinalDoubleEliminationConfig;
+}): 'defer' | { losersSurvivors: number; pendingDrop: number } {
+  const earlierTarget = retargetEarlierLosersRound(losers, pendingDrop, config);
+  if (earlierTarget !== undefined) {
+    losersSurvivors = earlierTarget;
+  } else if (canDeferToNextWinnersRound(pendingFrom, winnersIndex, winners)) {
+    return 'defer';
+  } else if (!config.explicitTargets && winnersIndex < winners.length - 1) {
+    pendingDrop = retargetWinnersRound({ winners, winnersIndex, players, pendingDrop, config });
+  }
+  return { losersSurvivors, pendingDrop };
+}
+
+/**
+ * How many survive a losers round of `players`: the computed target, or the forced cut once the drops have waited as
+ * long as they may. `null` when no losers round is played yet.
+ */
+function losersSurvivorTarget(
+  players: number,
+  pendingFromCount: number,
+  roundsLeft: number,
+  config: SharedFinalDoubleEliminationConfig,
+): number | null {
+  const rawTargets = computeTargets(players, config.lbQualifiers, roundsLeft, config.roomSize);
+  let survivorTarget = Math.min(rawTargets[0], players);
+  if (survivorTarget === players) {
+    if (pendingFromCount < MAX_WB_ROUNDS_BEFORE_LB) return null;
+    const forcedTarget = forcedLosersSurvivorTarget(
+      players,
+      config.lbQualifiers,
+      roundsLeft,
+      config.roomSize,
+    );
+    if (forcedTarget === players) return null;
+    survivorTarget = forcedTarget;
+  }
+  return survivorTarget;
+}
+
 /**
  * The losers bracket, planned along the winners rounds: where each losers round falls, how many survive it, and which
  * losers round takes each winners round's drops. It changes `winners` in place: lever 3 rebuilds a winners round and the
@@ -185,48 +300,23 @@ function planSharedLosersRounds(
       continue;
     }
     if (!isSeatable(players, config.roomSize)) {
-      const previous = losers[losers.length - 1];
-      const earlierTarget = previous && seatableEarlierLosersTarget(previous, pendingDrop, config);
-      const canDefer = pendingFrom.length < MAX_WB_ROUNDS_BEFORE_LB && winnersIndex < winners.length - 1;
-      if (earlierTarget !== undefined) {
-        retargetLosersRound(previous, earlierTarget);
-        losersSurvivors = earlierTarget;
-      } else if (canDefer) {
-        continue;
-      } else if (!config.explicitTargets && winnersIndex < winners.length - 1) {
-        const target = seatableWinnersTarget(
-          winners,
-          winnersIndex,
-          players - winners[winnersIndex].dropCount,
-          config,
-        );
-        if (target !== undefined) {
-          const round = winners[winnersIndex];
-          winners[winnersIndex] = buildSharedWinnersRound(round.players, target, config);
-          winners[winnersIndex + 1] = buildSharedWinnersRound(
-            target,
-            winners[winnersIndex + 1].advTotal,
-            config,
-          );
-          pendingDrop += winners[winnersIndex].dropCount - round.dropCount;
-        }
-      }
+      const seating = applySeatingLevers({
+        winners,
+        winnersIndex,
+        losers,
+        losersSurvivors,
+        pendingDrop,
+        pendingFrom,
+        players,
+        config,
+      });
+      if (seating === 'defer') continue;
+      ({ losersSurvivors, pendingDrop } = seating);
       players = losersSurvivors + pendingDrop;
     }
     const roundsLeft = winners.length - winnersIndex;
-    const rawTargets = computeTargets(players, config.lbQualifiers, roundsLeft, config.roomSize);
-    let survivorTarget = Math.min(rawTargets[0], players);
-    if (survivorTarget === players) {
-      if (pendingFrom.length < MAX_WB_ROUNDS_BEFORE_LB) continue;
-      const forcedTarget = forcedLosersSurvivorTarget(
-        players,
-        config.lbQualifiers,
-        roundsLeft,
-        config.roomSize,
-      );
-      if (forcedTarget === players) continue;
-      survivorTarget = forcedTarget;
-    }
+    const survivorTarget = losersSurvivorTarget(players, pendingFrom.length, roundsLeft, config);
+    if (survivorTarget === null) continue;
 
     const distribution = distributeRoomsWithBye(players, config.roomSize, config.oddCountStrategy);
     losers.push({
