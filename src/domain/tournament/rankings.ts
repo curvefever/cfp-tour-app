@@ -471,14 +471,13 @@ function rankingPhases(state: TournamentState, lastRi: number): RankingPhases {
   };
 }
 
-export function computeRankings(state: TournamentState): TournamentRankings | null {
-  if (!state.rounds.length || !state.assignments.length) return null;
-  const lastRi = lastAssignedRound(state);
-  if (lastRi === -1) return null;
-
+/** Who is out: every unit eliminated so far with the round that eliminated it, and those a round still in play has put out. */
+function eliminationsSoFar(
+  state: TournamentState,
+  phases: RankingPhases,
+): { eliminated: Map<string, RoundElimination>; outNow: Set<string> } {
   // The rounds in play: a unit in any of them is eliminated only once it is certainly out (outInPlay), and has no
   // rank number until its round is advanced. A round of a reopened press is read from where its units were sent.
-  const phases = rankingPhases(state, lastRi);
   const eliminated = new Map<string, RoundElimination>();
   for (const roundIndex of phases.past) {
     if (state.rounds[roundIndex].isFinal) continue;
@@ -502,6 +501,16 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       outNow.add(name);
     }
   }
+  return { eliminated, outNow };
+}
+
+export function computeRankings(state: TournamentState): TournamentRankings | null {
+  if (!state.rounds.length || !state.assignments.length) return null;
+  const lastRi = lastAssignedRound(state);
+  if (lastRi === -1) return null;
+
+  const phases = rankingPhases(state, lastRi);
+  const { eliminated, outNow } = eliminationsSoFar(state, phases);
 
   const lastRound = state.rounds[lastRi];
   const lastAssignments = state.assignments[lastRi] ?? [];
