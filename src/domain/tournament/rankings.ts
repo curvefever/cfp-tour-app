@@ -670,6 +670,41 @@ function rankEliminated({
   return rankedEliminated;
 }
 
+/** The finalists with their ranks: level finalists share one, except in the race Grand Final, which has a winner. */
+function rankFinalists(
+  finalistValues: FinalistValue[],
+  lastRound: TournamentRound,
+): Array<Omit<FinalistValue, 'score'> & { rank: number }> {
+  let finalRank = 0;
+  let previousScore: number | null = null;
+  let previousTiebreak: number | undefined;
+  const rankedFinalists = finalistValues.map(({ score: rankScore, ...entry }, index) => {
+    if (lastRound.bracket === 'grand-final') return { ...entry, rank: index + 1 };
+    const score = rankScore ?? entry.total;
+    if (score !== previousScore || entry.tiebreak !== previousTiebreak) {
+      finalRank = index + 1;
+      previousScore = score;
+      previousTiebreak = entry.tiebreak;
+    }
+    return { ...entry, rank: finalRank };
+  });
+  return rankedFinalists;
+}
+
+/** Each unit's place in the pooling standings (in its group's table for a Group Stage), by name. */
+function poolRanksOf(
+  standings: StandingsDisplay | null,
+): Map<string, NonNullable<ActiveRanking['poolRank']>> {
+  const poolRanks = new Map<string, { rank: number; fp: number | null; groupLabel?: string }>();
+  for (const table of standings?.tables ?? []) {
+    for (const entry of table.entries) {
+      if (entry.rank !== null)
+        poolRanks.set(entry.name, { rank: entry.rank, fp: entry.totalFP, groupLabel: table.groupLabel });
+    }
+  }
+  return poolRanks;
+}
+
 export function computeRankings(state: TournamentState): TournamentRankings | null {
   if (!state.rounds.length || !state.assignments.length) return null;
   const lastRi = lastAssignedRound(state);
@@ -700,27 +735,8 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     phases,
   });
 
-  let finalRank = 0;
-  let previousScore: number | null = null;
-  let previousTiebreak: number | undefined;
-  const rankedFinalists = finalistValues.map(({ score: rankScore, ...entry }, index) => {
-    if (lastRound.bracket === 'grand-final') return { ...entry, rank: index + 1 };
-    const score = rankScore ?? entry.total;
-    if (score !== previousScore || entry.tiebreak !== previousTiebreak) {
-      finalRank = index + 1;
-      previousScore = score;
-      previousTiebreak = entry.tiebreak;
-    }
-    return { ...entry, rank: finalRank };
-  });
-
-  const poolRanks = new Map<string, { rank: number; fp: number | null; groupLabel?: string }>();
-  for (const table of standings?.tables ?? []) {
-    for (const entry of table.entries) {
-      if (entry.rank !== null)
-        poolRanks.set(entry.name, { rank: entry.rank, fp: entry.totalFP, groupLabel: table.groupLabel });
-    }
-  }
+  const rankedFinalists = rankFinalists(finalistValues, lastRound);
+  const poolRanks = poolRanksOf(standings);
 
   const display = (name: string): RankingDisplay => ({
     name,
