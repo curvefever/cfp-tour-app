@@ -2,7 +2,7 @@ import { isWinsRound, roomMatch, type RoomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore } from './scoring';
 import type { TournamentRound, TournamentState } from './types';
 
-interface GrandFinalRaceState {
+export interface GrandFinalRaceState {
   wbName: string;
   lbName: string;
   wbWins: number;

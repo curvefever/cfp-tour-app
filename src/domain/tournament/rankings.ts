@@ -7,7 +7,7 @@ import { describeStandings, isStandingsRowOut, type StandingsDisplay } from './s
 import { type RoomExitBand, roundExitRule } from './room-exits';
 import { roomRowResult } from './room-row-result';
 import { roomRows } from './room-rows';
-import { computeGrandFinalRaceState } from './finals';
+import { computeGrandFinalRaceState, type GrandFinalRaceState } from './finals';
 import { lateJoinersOf } from './late-joiners';
 import { isMatchRound, isWinsRound, roomMatch } from './match-format';
 import { compareRankScores, getFinalUnitScore, isRoomScored, tieResolutionList } from './scoring';
@@ -504,6 +504,79 @@ function eliminationsSoFar(
   return { eliminated, outNow };
 }
 
+/** The two finalists of a decided race Grand Final, the winner first: the value shown is the games each won. */
+function raceFinalists(race: GrandFinalRaceState): FinalistValue[] {
+  const loser = race.winnerName === race.wbName ? race.lbName : race.wbName;
+  return [
+    {
+      name: race.winnerName as string,
+      total: race.winnerName === race.wbName ? race.wbWins : race.lbWins,
+    },
+    {
+      name: loser,
+      total: race.winnerName === race.wbName ? race.lbWins : race.wbWins,
+    },
+  ];
+}
+
+/** The finalists of a complete plain Final, best first: the value shown is the score over all its games. */
+function plainFinalTotals(
+  state: TournamentState,
+  lastAssignments: RoundAssignment[],
+  games: number,
+): FinalistValue[] {
+  return lastAssignments
+    .map((assignment) => ({
+      name: assignment.name,
+      total: Array.from({ length: games }, (_, index) => index + 1).reduce(
+        (sum, game) => sum + (getFinalUnitScore(state, assignment.name, game, 0) ?? 0),
+        0,
+      ),
+    }))
+    .sort((first, second) => second.total - first.total);
+}
+
+/**
+ * The ranked finalists once the Final is complete; otherwise the seats still being played, the Final's own or those
+ * of the rounds in play. One of the two is always empty.
+ */
+function finalistsOrSeats({
+  state,
+  lastRi,
+  lastRound,
+  phases,
+  finalComplete,
+}: {
+  state: TournamentState;
+  lastRi: number;
+  lastRound: TournamentRound;
+  phases: RankingPhases;
+  finalComplete: boolean;
+}): { active: Array<RoundAssignment & { ri?: number }>; finalistValues: FinalistValue[] } {
+  const lastAssignments = state.assignments[lastRi] ?? [];
+  let active: Array<RoundAssignment & { ri?: number }> = [];
+  let finalistValues: FinalistValue[] = [];
+  if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
+    const race = computeGrandFinalRaceState(state, lastRi, lastRound);
+    if (race?.decided) {
+      finalistValues = raceFinalists(race);
+    } else active = [...lastAssignments];
+  } else if (lastRound.isFinal) {
+    const games = lastRound.numGames ?? 0;
+    if (finalComplete && isMatchRound(lastRound)) {
+      finalistValues = bestOfFinalists(state, lastRi);
+    } else if (finalComplete) {
+      finalistValues = plainFinalTotals(state, lastAssignments, games);
+    } else active = [...lastAssignments];
+  } else {
+    const seats = phases.inPlay.flatMap((roundIndex) =>
+      (state.assignments[roundIndex] ?? []).map((entry) => ({ ...entry, ri: roundIndex })),
+    );
+    active = usesDependencyPlay(state) ? latestSeats(seats) : seats;
+  }
+  return { active, finalistValues };
+}
+
 export function computeRankings(state: TournamentState): TournamentRankings | null {
   if (!state.rounds.length || !state.assignments.length) return null;
   const lastRi = lastAssignedRound(state);
@@ -513,46 +586,15 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
   const { eliminated, outNow } = eliminationsSoFar(state, phases);
 
   const lastRound = state.rounds[lastRi];
-  const lastAssignments = state.assignments[lastRi] ?? [];
-  let active: Array<RoundAssignment & { ri?: number }> = [];
-  let finalistValues: FinalistValue[] = [];
   const finalComplete = isFinalComplete(state);
-  if (lastRound.isFinal && lastRound.bracket === 'grand-final') {
-    const race = computeGrandFinalRaceState(state, lastRi, lastRound);
-    if (race?.decided) {
-      const loser = race.winnerName === race.wbName ? race.lbName : race.wbName;
-      finalistValues = [
-        {
-          name: race.winnerName as string,
-          total: race.winnerName === race.wbName ? race.wbWins : race.lbWins,
-        },
-        {
-          name: loser,
-          total: race.winnerName === race.wbName ? race.lbWins : race.wbWins,
-        },
-      ];
-    } else active = [...lastAssignments];
-  } else if (lastRound.isFinal) {
-    const games = lastRound.numGames ?? 0;
-    if (finalComplete && isMatchRound(lastRound)) {
-      finalistValues = bestOfFinalists(state, lastRi);
-    } else if (finalComplete) {
-      finalistValues = lastAssignments
-        .map((assignment) => ({
-          name: assignment.name,
-          total: Array.from({ length: games }, (_, index) => index + 1).reduce(
-            (sum, game) => sum + (getFinalUnitScore(state, assignment.name, game, 0) ?? 0),
-            0,
-          ),
-        }))
-        .sort((first, second) => second.total - first.total);
-    } else active = [...lastAssignments];
-  } else {
-    const seats = phases.inPlay.flatMap((roundIndex) =>
-      (state.assignments[roundIndex] ?? []).map((entry) => ({ ...entry, ri: roundIndex })),
-    );
-    active = usesDependencyPlay(state) ? latestSeats(seats) : seats;
-  }
+  const { active: seats, finalistValues } = finalistsOrSeats({
+    state,
+    lastRi,
+    lastRound,
+    phases,
+    finalComplete,
+  });
+  let active = seats;
 
   // A removed/swapped-out unit's old name can still linger in a round that
   // was fully pre-generated before the withdrawal (e.g. group-stage's whole
