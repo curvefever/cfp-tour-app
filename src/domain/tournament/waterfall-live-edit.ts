@@ -250,26 +250,21 @@ function readEditedGraph(base: EditBase, text: string): WaterfallParseResult<Ord
   return validated;
 }
 
-export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
-  const read = readEditBase(state);
-  if (!read.ok) return read;
-  const base = read.value;
-  const { firstWaterfallIndex, finalsGames, finalsBestOf, entryRound, entrantCount } = base;
-  const { qualIndex, standingsSource, standingsKind, reachedCount, reached, writeColumns } = base;
+/** The edited graph as rounds: every bracket round as the save would have it. */
+interface BracketRounds {
+  /** The graph's rounds as generation would write them. */
+  materialized: TournamentRound[];
+  standingsRoutes: TournamentRound['standingsRoutes'];
+  /** What the tournament gets: the reached rounds rerouted, the rest new. */
+  newBracketRounds: TournamentRound[];
+}
 
-  const edited = readEditedGraph(base, text);
-  if (!edited.ok) return edited;
-  const graph = edited.value;
-
-  const shapeRefusal = lockedShapeRefusal({
-    state,
-    reached,
-    graph,
-    firstWaterfallIndex,
-    finalsGames,
-    finalsBestOf,
-  });
-  if (shapeRefusal) return { ok: false, error: shapeRefusal };
+/** The bracket rounds of the edited graph, or why a drawn round can't take its new win targets. */
+function buildBracketRounds(
+  base: EditBase,
+  graph: OrderedWaterfallGraph,
+): WaterfallParseResult<BracketRounds> {
+  const { finalsGames, finalsBestOf, entryRound, entrantCount, reached, writeColumns } = base;
 
   const materialized = waterfallBracketPhase(graph.qualRoutes?.length ?? entrantCount, entryRound.roundNum, {
     graph,
@@ -291,6 +286,16 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     return single;
   });
 
+  return { ok: true, value: { materialized, standingsRoutes, newBracketRounds } };
+}
+
+/** In dependency play, why the new routing would feed a drawn round from one not done. Null when it doesn't. */
+function dependencyLateFeederRefusal(
+  state: TournamentState,
+  newBracketRounds: TournamentRound[],
+  firstWaterfallIndex: number,
+  reached: TournamentRound[],
+): string | null {
   if (usesDependencyPlay(state)) {
     const refusal = lateFeederRefusal(
       state,
@@ -298,8 +303,38 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
       firstWaterfallIndex,
       reached.length,
     );
-    if (refusal) return { ok: false, error: refusal };
+    if (refusal) return refusal;
   }
+  return null;
+}
+
+export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
+  const read = readEditBase(state);
+  if (!read.ok) return read;
+  const base = read.value;
+  const { firstWaterfallIndex, finalsGames, finalsBestOf } = base;
+  const { qualIndex, standingsSource, standingsKind, reachedCount, reached } = base;
+
+  const edited = readEditedGraph(base, text);
+  if (!edited.ok) return edited;
+  const graph = edited.value;
+
+  const shapeRefusal = lockedShapeRefusal({
+    state,
+    reached,
+    graph,
+    firstWaterfallIndex,
+    finalsGames,
+    finalsBestOf,
+  });
+  if (shapeRefusal) return { ok: false, error: shapeRefusal };
+
+  const built = buildBracketRounds(base, graph);
+  if (!built.ok) return built;
+  const { materialized, standingsRoutes, newBracketRounds } = built.value;
+
+  const lateRefusal = dependencyLateFeederRefusal(state, newBracketRounds, firstWaterfallIndex, reached);
+  if (lateRefusal) return { ok: false, error: lateRefusal };
 
   const keptLength = firstWaterfallIndex + reached.length;
   const tailLength = newBracketRounds.length - reached.length;
