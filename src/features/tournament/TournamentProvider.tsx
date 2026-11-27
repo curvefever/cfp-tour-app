@@ -15,14 +15,10 @@ import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/to
 import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
 import {
   loadLiveEnvelope,
-  readExited,
-  readLastView,
   saveBracketFollow,
   saveExited,
   saveLastView,
   saveLiveEnvelope,
-  type ExitedMemory,
-  type LastView,
 } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
 import { displayAccess } from './display-access';
@@ -47,6 +43,9 @@ import { stateDescription, type TournamentSummary } from '../tournaments/tournam
 import { useTournamentIndex, type TournamentIndexState } from '../tournaments/useTournamentIndex';
 import { landingTab, resolveVisit } from '../tournaments/visit';
 import { loadedPhase } from '../shell/tabs';
+import { useBrowserSave } from './useBrowserSave';
+import { useTournamentStore } from './useTournamentStore';
+import { useVisitMemory } from './useVisitMemory';
 
 declare global {
   interface Window {
@@ -122,15 +121,14 @@ export const TournamentContext = createContext<TournamentAppContext | null>(null
 export function TournamentProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
   const runtime = useMemo(() => createTournamentRuntime(), []);
-  const [state, setState] = useState(createDefaultTournamentState);
-  const [setup, setSetup] = useState(createDefaultSetup);
-  const [activeTab, setActiveTabState] = useState<ActiveTab>('tournaments');
-  const [hydrated, setHydrated] = useState(false);
   const [visitResolved, setVisitResolved] = useState(false);
   const [visitNotice, setVisitNotice] = useState<string | null>(null);
   const tournaments = useTournamentIndex();
   const tournamentsRef = useRef(tournaments);
   tournamentsRef.current = tournaments;
+  const { hydrated, initialUrlId, memory } = useVisitMemory();
+  const { state, setState, setup, setSetup, activeTab, setActiveTabState, stateRef, setupRef, activeTabRef } =
+    useTournamentStore();
   // The sign-in decides saving and sync; the display reads `access`, which the spectator view can turn into a viewer's.
   const signedInViewer = !auth.canAdmin;
   const [spectatorView, setSpectatorView] = useState(false);
@@ -138,43 +136,7 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
   const sync = useRef<SyncCoordinator | null>(null);
   const setupSync = useRef<SetupSync | null>(null);
-  const stateRef = useRef(state);
-  const setupRef = useRef(setup);
-  const activeTabRef = useRef(activeTab);
-  const isViewerRef = useRef(signedInViewer);
-  const initialUrlId = useRef<string | null>(null);
-  const memory = useRef<{ lastView: LastView | null; exited: ExitedMemory | null }>({
-    lastView: null,
-    exited: null,
-  });
-  stateRef.current = state;
-  setupRef.current = setup;
-  activeTabRef.current = activeTab;
-  isViewerRef.current = signedInViewer;
-
-  useEffect(() => {
-    initialUrlId.current = new URLSearchParams(window.location.search).get('t');
-    memory.current = {
-      lastView: readLastView(window.localStorage),
-      exited: readExited(window.localStorage),
-    };
-    setHydrated(true);
-  }, []);
-
-  const persist = useCallback(
-    (nextState: TournamentState, nextSetup: PersistedSetup, nextTab: ActiveTab, viewer = signedInViewer) => {
-      if (typeof window === 'undefined') return;
-      const result = saveLiveEnvelope(
-        window.localStorage,
-        { T: nextState, setup: nextSetup, activeTab: nextTab },
-        { isViewer: viewer },
-      );
-      if (result.status === 'failed') {
-        console.warn('Could not save tournament state', result.error);
-      }
-    },
-    [signedInViewer],
-  );
+  const { persist, isViewerRef } = useBrowserSave(signedInViewer);
 
   useEffect(() => {
     if (!hydrated) return;
