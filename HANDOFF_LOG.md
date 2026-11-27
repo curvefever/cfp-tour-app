@@ -6,6 +6,63 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Defaults that follow the organiser's practice (done — 2026-11-28, on `test`, not `main`)
+
+**Context.** Rigidity audit, work queue item 1a. A new tournament started with no pooling phase and "Advance to bracket" 24 whatever the field. Plan `plans/2026-11-27-practice-defaults.md`, built in a split session. Commits: `a6e1672` (stage 1), `4590a68` (1b), `f12ea31` (2), `186df92` (3), `9cc3929` (docs), `a8e4d5f` (wording).
+
+**The organiser's answers, 2026-11-27.**
+1. A new tournament starts with a qualification table of 4 rounds, the first not counted, for every format whose rooms hold 3 or more units.
+2. A head-to-head format starts with a Swiss of 5 rounds, all counted. A Swiss never gets an uncounted first round by default.
+3. "Advance to bracket" no longer defaults to 24. Left empty, it is worked out from the field with the layered bracket's rule: 75-85% of those expected to play (9 in 10 of those registered), a count that fills equal rooms (the ideal size first, then one smaller, and so on); for head-to-head single elimination and the race double elimination, a power of two first. A typed number overrides it.
+
+**The organiser's answers, 2026-11-28** (wording).
+4. The pooling dropdown's table option reads "Qualification table", with nothing after it (it said "R1/R2/R3 feed cumulative table" while a new tournament has 4 rounds). The Swiss option is unchanged.
+5. Under an empty field, a number outside 75-85% reads "Empty: 12, the nearest the bracket can seat to 80% of the 13 expected to play (9 in 10 of 14 registered)." A number in the range keeps "75-85% of".
+
+**The planner's decisions.**
+- Stored tournaments don't change. `createDefaultSetup()` and the engine's rules for an empty override (3 table rounds, a Swiss's rounds from the field) are read again from stored settings while a tournament runs. So a new tournament gets its defaults as values in its Setup form (`newTournamentSetup()`); they show in "Advanced round overrides" and "Non-counting rounds" until the "decisions next to the overrides" build makes them the app's own.
+- Choosing a pooling phase puts in that phase's usual values, over what was typed. A game-format change switches the pooling phase only across the head-to-head line.
+- The bracket number is worked out at generation from the head count then. It follows the pre-start redraw; while pooling runs it stays in `cfg.qualAdv`, except for the upper and lower bracket's own re-plan.
+- **A corrected premise.** The plan said generation had always refused an empty value, so no stored tournament had one. An empty `qualAdv` was refused only for single/double/shared/KV after pooling; it was accepted with no pooling and with standings-fed graphs.
+- **Upper and lower, option B** (stage 1b). Taken literally, stage 1 made this bracket refuse the worked-out number at, for example, FFA 29, 31, 53 and 61: `upperLowerEntry` rounds down only a request at or above the head count, and refuses a lower one it can't seat. For the worked-out number only, the pick is now made among the counts the bracket can seat. The rule as built: the room classes among the seated counts in 75-85%; else the seated count closest to 80%, then the larger. A typed number is refused as before.
+
+**Parts, each testable alone.**
+1. `bracket-entry-default.ts`: the rule (`practiceBracketEntry`), the one reader of the form's `qualAdv` (`requestedBracketEntry`), `expectedToPlay` (shared with the layered bracket), and `parseAdvanceToBracket`, moved here so no import loop forms with `bracket-entry.ts`.
+2. 1b: the optional list of seated counts, passed by `automaticRequest`. A group stage's total under upper and lower takes the same path; a per-group exit is unchanged.
+3. `newTournamentSetup()` (its constants in `state-defaults.ts`, since the domain can't import from features), `setupAfterPoolingChange` and the switches in `setupAfterFormatChange`. `renderedPoolingPhase` keeps its role: the scoring is judged by what the phase shown at the click switches to, else by the form's phase. "Non-counting rounds" takes its maximum from the typed round override.
+4. `bracket-entry-text.ts` (placeholder, hint, and `entrySeatingOf`, which the group exit help reads too), the recap's "(automatic)", and the two wordings.
+
+**Awkward counts** (pinned in tests; registered → advance).
+
+| Case | Registered → advance |
+| --- | --- |
+| FFA (rooms of 6-8), single elimination | 31 → 21, 37 → 28, 43 → 32, 53 → 40 |
+| 1v1, single elimination | 31 → 22, 37 → 26, 43 → 32, 53 → 38 |
+| 2v2v2v2 | 25 → 18 (6 rooms of 3) |
+| FFA, small fields | 14 → 12 (the floor), 12 → 12, 10 → 10 |
+| Upper and lower, FFA | 14 → 12, 17 → 12, 29 → 24, 31 → 24, 37 → 28, 43 → 32, 53 → 32, 61 → 32 |
+| Upper and lower, 1v1 Swiss | 9 → 8, 13 → 8, 31 → 8 |
+
+**Testing.** Per stage: eslint, `prettier --check` and the type check (whole project, no errors) clean on the changed files; `vitest related` on them: stage 1, 235 files, 6,708 tests; 1b, 233 files, 6,657, and the 41 re-plan tests on their own; stage 2, 258 files, 6,876; stage 3, 40 files, 770; the wording commit, 281 files, 7,443. All passed (in stages 2 and 3 after fixing the tests of the first run: old expectations the plan changes, and new tests with a wrong expectation). New test files: `bracket-entry-default.test.ts`, `state-defaults.test.ts`, `setup-derived.test.ts`, `bracket-entry-text.test.ts`. Changed expectations: an empty "Advance to bracket" generates where it was refused; 1v1 with a Swiss or a group stage changed to FFA takes the table with its usual values where it dropped to "None".
+
+Review, per stage (Planner-Reviewer): every production hunk read, the covering files passed, and mutations (a) to (m) were each caught by a test.
+
+**Live check** (test site on `186df92`, built-in browser already signed in; a new throwaway Test run, "Practice defaults live check (throwaway)", `1795823525127`). A new tournament showed the qualification table, 4 rounds under Advanced round overrides, Non-counting 1, "Advance to bracket" empty with "automatic" and the waiting line. 1v1 gave a Swiss of 5 with Non-counting 0; back to FFA the table, 4 and 1 (Non-counting's maximum 3). With 37 names: "automatic: 28" and "Empty: 28, 75-85% of the 33 expected to play (9 in 10 of 37 registered), in 4 rooms of 7."; after a reload the field was still empty. Generated: 4 qualification rounds, then Round 5 with 4 rooms of 7 (28 places, on the Bracket too). Started: the recap read "Advance to bracket 28 (automatic)", Non-counting 1, Qualification rounds 4. No console errors seen. Sent back to draft (its `window.confirm` answered by script, `docs/platform.md`, "Live checks by script") and left as a draft. The two wordings of answers 4 and 5 are newer than that build: checked in render tests (`FormatPanel.render.test.tsx`), not live.
+
+**Pushes.** The plan said no push. `a6e1672` to `186df92` were pushed to `test` before the final review, for the live check; the commits after it were not pushed by the implementer.
+
+**Full suite:** (reviewer).
+
+**Out of scope / known effects.**
+- Known effect: a stored upper and lower tournament, bracket not entered, with both `qualAdv` and `upperLowerAdvance` cleared by hand. It now asks for the worked-out number instead of everyone who fits. No stored data was looked at.
+- The engine's empty-field rules and `createDefaultSetup()`.
+- Planning the bracket number again when the head count moves during pooling (queue item 1e), outside the upper and lower bracket's existing re-plan.
+- The decisions shown beside the overrides (1b of the queue), the room-size policy (1c), the Setup rework.
+- The layered bracket's size rule (it shares only `expectedToPlay`), a Custom bracket's graph-derived count, a group stage's per-group defaults, Kings Valley's limits, games per stage.
+- `docs/texts-inventory.md` still lists the old dropdown wording: it is a snapshot and is not kept in step.
+
+---
+
 ## Cleanup part 2H-2: TournamentProvider as one hook per job (done — 2026-11-27, on `test`, not `main`)
 
 **Context.** The second half of the last pass of cleanup part 2. `TournamentProvider` held the whole app state in one component: ten effects, about fifteen callbacks and nine refs (cleanup audit C8-1). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `e0fac6f` (the provider itself unchanged since `3a539e3`). Behaviour does not change. Commits: `78f7c73` (stage 4), `3635566` (5), `4e534f0` (6), `ba13015` (7), `c0105be` (8) and its revert `e35de3e`.
