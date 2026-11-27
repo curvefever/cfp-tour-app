@@ -6,6 +6,41 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2H-2: TournamentProvider as one hook per job (done — 2026-11-27, on `test`, not pushed)
+
+**Context.** The second half of the last pass of cleanup part 2. `TournamentProvider` held the whole app state in one component: ten effects, about fifteen callbacks and nine refs (cleanup audit C8-1). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `e0fac6f` (the provider itself unchanged since `3a539e3`). Behaviour does not change. Commits: `78f7c73` (stage 4), `3635566` (5), `4e534f0` (6), `ba13015` (7), `c0105be` (8) and its revert `e35de3e`.
+
+**The shape.** The provider calls one hook per job and builds the context value as before: the same fields and `useMemo` dependencies. New files in `src/features/tournament/`, in call order:
+- `useVisitMemory`: `hydrated`, the id in the address and the remembered visit.
+- `useTournamentStore`: the state, the Setup form, the active tab and their refs.
+- `useBrowserSave`: `persist` and `isViewerRef`.
+- `useTournamentSync`: the two coordinators, their effects, `syncStatus`, `flushPending`.
+- `useAddressBar`: the address and the last view.
+- `useStoreUpdates`: `setActiveTab`, `updateState`, `updateSetup`.
+- (the provider calls `useFlushAfterSignInAgain` here, as before)
+- `useTournamentNavigation`: `adoptTournament`, the first visit, load, unload, open, exit, create.
+- `useStatusActions`: `patchTowards`, start, back to draft, the status actions; `STATUS_CALLS` and `StatusAction` moved there.
+- `useAdminLock`: the spectator view, `access`, entering and locking the admin view.
+
+`useAuth()`, `useTournamentIndex()` and `tournamentsRef` stay first in the provider. `visitResolved` and `visitNotice` stay declared there too: `useAddressBar` reads `visitResolved` before the navigation hook is called. `errorText` has two users, and a hook importing it from the provider would make an import loop, so it is in `error-text.ts`, now exported.
+
+**Effect order** (React runs effects in the order they are declared; the same before and after): 1 hydration (`useVisitMemory`) · 2 sync coordinator, 3 Setup coordinator, 4 sync configure, 5 Setup sync configure, 6 sync's current state (`useTournamentSync`) · 7 address, 8 last view (`useAddressBar`) · 9 `useFlushAfterSignInAgain` · 10 first visit (`useTournamentNavigation`) · 11 spectator view (`useAdminLock`). `useAuth` and `useTournamentIndex` still come before all of them.
+
+**The seams.** Bodies are the former lines word for word; every dependency list is unchanged (the lint setup has no hooks rule, so a value that became a parameter is listed or left out as before). Refs are passed as refs. A hook with more than four inputs takes one object with the former names.
+
+**Stage 8, built and reverted.** It moved saving and sending out of the functions passed to `setState` and `setSetup`: work out the next value from the ref, set the ref, then set, save and send. Reverted in review under the plan's "if in doubt, reverted": see the first line under "Found, not changed".
+
+**Lengths** (all lines / code lines): `TournamentProvider.tsx` 529 / 472 → 217 / 187 (the component 368 → 134 code lines). `useVisitMemory.ts` 26 / 19, `useTournamentStore.ts` 31 / 25, `useBrowserSave.ts` 29 / 22, `useTournamentSync.ts` 123 / 109, `useAddressBar.ts` 25 / 21, `useStoreUpdates.ts` 62 / 57, `useTournamentNavigation.ts` 169 / 155, `useStatusActions.ts` 102 / 90, `useAdminLock.ts` 34 / 25, `error-text.ts` 4 / 3.
+
+**Testing.** No test added (by plan) or changed. Per stage (4 to 8): eslint, `prettier --check` and the type check clean on the changed files; `vitest related` on them (worktree copies excluded): 45 files, 787 tests passed, each time. After the revert, whose code is identical to `ba13015`, the same run had 783 pass and 4 time out at 5 s, while a mutation check of the review was running in the same checkout; the two files holding those 4 then passed alone, 12 of 12. Import loop check after each stage: 0 groups on `src/features`, the 3 known domain groups on `src`. Stages 5 to 7 were also checked by script: every former code line of the provider is in the new files, apart from `errorText` gaining `export`.
+
+**Found, not changed.**
+- `updateState` and `updateSetup` save in the browser and send to the database inside the function passed to React's setter, which React may run twice. Harmless today: the app has no StrictMode and no transitions. Stage 8 (`c0105be`, reverted by `e35de3e`) worked out the next value from `stateRef` / `setupRef` instead. But every render writes the rendered state back into those refs: if a remote update has set the ref and React renders the provider for a click before applying it, the ref holds the older state until it is applied, and an update made in that gap would build on it and send old values over another admin's change. React's own update queue has no such gap. The gap is narrow and was not shown to be reachable, but could not be ruled out, and there was nothing to gain today. It also changed which browser save lands last when one event changes both the state and the form. Moving the side effects out needs a design that keeps React's queue order against a pending remote update.
+
+**Out of scope.** The provider's own limits noted by the audit (C8-2, C8-3), new provider tests, and every behaviour change. With this entry cleanup part 2 is built.
+
+---
+
 ## Cleanup part 2H-1: the Setup format rules out of FormatPanel (done — 2026-11-27, on `test`, not pushed)
 
 **Context.** The first half of the eighth and last pass of cleanup part 2. What a change of the game format, the odd-count strategy or the scoring system does to the other settings was written inside handlers of the `FormatPanel` component, and no test rendered the panel on its own (cleanup audit C6-1, the rules only). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `3a539e3`. Behaviour does not change. Commits: `b7180d1` (stage 0, the render tests alone), `a09dbb8` (1, the rules as pure functions), `4430513` (2, the repeated expressions).
@@ -15,6 +50,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 **Stage 1.** New `format-change-rules.ts`: `reconcileScheduleLogicForFormat` (moved with its comment, the two callers' names in it updated), `setupAfterOddCountChange`, `setupAfterScoringChange`, `setupAfterFormatChange`. `FormatPanel` keeps its three handler names, each one `updateSetup` line. Two values were read from the rendered form, not from the form being changed, and still are: they are explicit parameters, `renderedHeadToHead` and `renderedPoolingPhase`. `format-change-rules.test.ts` (26 tests) covers the four functions, with one case for each of the two parameters where the rendered value differs from the form's.
 
 **Stage 2.** `isHeadToHead`, `isRaceCompatible` and `leavesHeadToHeadPooling`, only where the expression was identical. In `admin/setup/`: `idealRoomSize === 2` and `!== 2` went from 9 places (8 in `FormatPanel`, 1 in `format-fields.ts`) to the one in `isHeadToHead`; "race compatible" from 3 written out to `isRaceCompatible` (2 calls) plus `setupAfterOddCountChange`, which gets only the rendered yes or no and so keeps `renderedHeadToHead && value !== 'flex'`; "leaves head-to-head pooling" from 2 written out to 2 calls.
+
+**Added after review** (`aca829c`, tests only): no test failed when `isRaceCompatible` ignored Flex, so `format-change-rules.test.ts` now tests the three helpers directly (33 tests).
 
 **Lengths** (all lines / code lines): `FormatPanel.tsx` 858 / 820 → 793 / 769. `format-change-rules.ts`: 120 / 86.
 

@@ -1567,14 +1567,14 @@ Header tabs, connection banners, sign-in dialog, account menu, page title and th
 | --- | --- | --- | --- | --- |
 | `Live sync unavailable — Firebase failed to initialize` | fixed | both | [firebase-client.ts:45](src/features/sync/firebase-client.ts:45) |  |
 
-### TournamentProvider.tsx — Error text shown in admin alerts
+### useStatusActions.ts, error-text.ts — Error text shown in admin alerts
 
 | Text | Kind | Who | Where | Note |
 | --- | --- | --- | --- | --- |
-| `Something went wrong. Try again.` | fixed | both | [TournamentProvider.tsx:110](src/features/tournament/TournamentProvider.tsx:110) |  |
-| `There is no tournament to start.` | fixed | both | [TournamentProvider.tsx:390](src/features/tournament/TournamentProvider.tsx:390) |  |
-| `There is no tournament to reset.` | fixed | both | [TournamentProvider.tsx:406](src/features/tournament/TournamentProvider.tsx:406) |  |
-| `There is no tournament to change.` | fixed | both | [TournamentProvider.tsx:422](src/features/tournament/TournamentProvider.tsx:422) |  |
+| `Something went wrong. Try again.` | fixed | both | [error-text.ts:3](src/features/tournament/error-text.ts:3) |  |
+| `There is no tournament to start.` | fixed | both | [useStatusActions.ts:55](src/features/tournament/useStatusActions.ts:55) |  |
+| `There is no tournament to reset.` | fixed | both | [useStatusActions.ts:71](src/features/tournament/useStatusActions.ts:71) |  |
+| `There is no tournament to change.` | fixed | both | [useStatusActions.ts:87](src/features/tournament/useStatusActions.ts:87) |  |
 
 ### useTournamentTitle.ts — Fallback name for a tournament without a title
 
@@ -1666,6 +1666,8 @@ Developer-facing only (logs, validation errors a viewer cannot trigger, environm
 | [tournament-write.shared.ts](src/features/sync/tournament-write.shared.ts) | "Invalid tournament patch / setup field …" validation errors |
 | [tournament-lifecycle.shared.ts](src/features/tournaments/tournament-lifecycle.shared.ts) | "Invalid setup / tournament / test-run mark" validation errors |
 | [tournament-summary.ts](src/features/tournaments/tournament-summary.ts) | "Invalid tournament summary" validation errors |
-| [TournamentProvider.tsx](src/features/tournament/TournamentProvider.tsx) | "Could not save tournament state / the Setup form" (console warnings only); "useTournamentApp requires TournamentProvider." |
+| [useBrowserSave.ts](src/features/tournament/useBrowserSave.ts) | "Could not save tournament state" (console warning only) |
+| [useTournamentSync.ts](src/features/tournament/useTournamentSync.ts) | "Could not save the Setup form" (console warning only) |
+| [TournamentProvider.tsx](src/features/tournament/TournamentProvider.tsx) | "useTournamentApp requires TournamentProvider." |
 | [AuthProvider.tsx](src/features/auth/AuthProvider.tsx) | `useAuth must be used inside AuthProvider.`; cookie strings |
 
