@@ -3,7 +3,7 @@ import { bestPlaceTieKey } from './best-place';
 import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
-import { matchFormatFields, sameRoundFormat } from './match-format';
+import { sameRoundFormat } from './match-format';
 import { changeRoundMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
 import { isRoundDone, isRoundReached, usesDependencyPlay } from './round-columns';
@@ -11,17 +11,24 @@ import { roundHasAnyScore } from './scoring';
 import { sameWinTargets } from './win-stamps';
 import { generatedConfig } from './generated-config';
 import { hasAppWrittenMark, withoutAppWrittenMark } from './rule-versions';
-import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
-import {
-  declaredWaterfallRooms,
-  fitWaterfallRound,
-  waterfallBracketPhase,
-  waterfallStandingsRoutes,
-} from './waterfall-bracket';
+import type {
+  OrderedWaterfallGraph,
+  PendingBracketSeed,
+  RoomSize,
+  TournamentRound,
+  TournamentState,
+} from './types';
+import { fitWaterfallRound, waterfallBracketPhase, waterfallStandingsRoutes } from './waterfall-bracket';
 import { validateAndOrderWaterfallGraph } from './waterfall-graph-check';
-import { parseWaterfallGraph } from './waterfall-graph-text';
-import { lateFeederRefusal, startedRounds, winsTargetsRefusal } from './waterfall-live-edit-locks';
+import { parseWaterfallGraph, type StandingsSourceKind } from './waterfall-graph-text';
+import {
+  lateFeederRefusal,
+  lockedShapeRefusal,
+  startedRounds,
+  winsTargetsRefusal,
+} from './waterfall-live-edit-locks';
 import { advancesReplayed, redrawRounds } from './waterfall-live-edit-replay';
+import type { WaterfallParseResult } from './waterfall-parse-result';
 
 /**
  * Applying an edited waterfall graph to a running tournament: any round's
@@ -142,7 +149,27 @@ function poolingBefore(state: TournamentState, firstWaterfallIndex: number): Tou
   return state.rounds.slice(0, firstWaterfallIndex);
 }
 
-export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
+/** What a save reads from the running tournament before it reads the edited text. */
+interface EditBase {
+  firstWaterfallIndex: number;
+  finalsGames: number;
+  finalsBestOf: number | undefined;
+  roomSize: RoomSize;
+  entryRound: TournamentRound;
+  qualIndex: number;
+  standingsSource: boolean;
+  standingsKind: StandingsSourceKind;
+  entrantCount: number;
+  reachedCount: number;
+  reached: TournamentRound[];
+  fixedPrefix: string[];
+  columnsStored: boolean;
+  writeColumns: boolean;
+  fixedColumns: number[] | undefined;
+}
+
+/** The tournament a save starts from, or why it has no graph to edit as it stands. */
+function readEditBase(state: TournamentState): WaterfallParseResult<EditBase> {
   const firstWaterfallIndex = state.rounds.findIndex((round) => round.isWaterfall);
   if (firstWaterfallIndex === -1) {
     return { ok: false, error: 'This tournament has no custom bracket phase to edit.' };
@@ -175,6 +202,33 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     ? fixedRounds.map((round) => round.waterfallColumn as number)
     : undefined;
 
+  return {
+    ok: true,
+    value: {
+      firstWaterfallIndex,
+      finalsGames,
+      finalsBestOf,
+      roomSize,
+      entryRound,
+      qualIndex,
+      standingsSource,
+      standingsKind,
+      entrantCount,
+      reachedCount,
+      reached,
+      fixedPrefix,
+      columnsStored,
+      writeColumns,
+      fixedColumns,
+    },
+  };
+}
+
+/** The edited text parsed and checked against what has already started: the ordered graph, or why it can't be saved. */
+function readEditedGraph(base: EditBase, text: string): WaterfallParseResult<OrderedWaterfallGraph> {
+  const { roomSize, entrantCount, standingsSource, standingsKind } = base;
+  const { reachedCount, fixedPrefix, columnsStored, fixedColumns } = base;
+
   const parsed = parseWaterfallGraph(text);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   if (reachedCount > 0 && !columnsStored && parsed.value.roundLines.some((line) => line.column !== null)) {
@@ -193,40 +247,29 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     standingsSource,
     standingsKind,
   });
-  if (!validated.ok) return { ok: false, error: validated.error };
-  const graph = validated.value;
+  return validated;
+}
 
-  // Locked shape: a reached round keeps its label, room count, room size and
-  // Final flag -- fixedPrefix already forces graph.rounds[0..reached.length)
-  // to be these rounds in order, so this only needs to compare shape, not
-  // identity.
-  for (const [index, oldRound] of reached.entries()) {
-    const spec = graph.rounds[index];
-    // A round drawn short (a withdrawal) is compared by the shape the graph declared for it.
-    const declaredRooms = declaredWaterfallRooms(oldRound);
-    const sameShape =
-      spec &&
-      spec.label === oldRound.customLabel &&
-      spec.roomSizes.length === declaredRooms.length &&
-      spec.roomSizes[0] === declaredRooms[0] &&
-      spec.isFinal === oldRound.isFinal;
-    if (!sameShape) {
-      return {
-        ok: false,
-        error: `Can't save: "${oldRound.customLabel}" has already started, so its room count, room size and Final flag can't change. Only its routing can.`,
-      };
-    }
-    // The round in play may change its match format (its scores are read again under the new one); a finished one may not.
-    if (
-      isRoundDone(state, firstWaterfallIndex + index) &&
-      !sameRoundFormat(oldRound, matchFormatFields(spec, finalsGames, finalsBestOf))
-    ) {
-      return {
-        ok: false,
-        error: `Can't save: "${oldRound.customLabel}" is finished, so its match format can't change.`,
-      };
-    }
-  }
+export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
+  const read = readEditBase(state);
+  if (!read.ok) return read;
+  const base = read.value;
+  const { firstWaterfallIndex, finalsGames, finalsBestOf, entryRound, entrantCount } = base;
+  const { qualIndex, standingsSource, standingsKind, reachedCount, reached, writeColumns } = base;
+
+  const edited = readEditedGraph(base, text);
+  if (!edited.ok) return edited;
+  const graph = edited.value;
+
+  const shapeRefusal = lockedShapeRefusal({
+    state,
+    reached,
+    graph,
+    firstWaterfallIndex,
+    finalsGames,
+    finalsBestOf,
+  });
+  if (shapeRefusal) return { ok: false, error: shapeRefusal };
 
   const materialized = waterfallBracketPhase(graph.qualRoutes?.length ?? entrantCount, entryRound.roundNum, {
     graph,

@@ -6,13 +6,16 @@ import {
   currentColumn,
   usesDependencyPlay,
 } from './round-columns';
+import { matchFormatFields, sameRoundFormat } from './match-format';
 import { plainRoundName } from './round-name';
 import { routesTo } from './waterfall-steps';
-import type { TournamentRound, TournamentState } from './types';
+import type { OrderedWaterfallGraph, TournamentRound, TournamentState } from './types';
+import { declaredWaterfallRooms } from './waterfall-bracket';
 
 /**
  * What a save of an edited waterfall graph may not change once the bracket has started: which rounds count as
- * started, the uneven wins of a drawn round, and a drawn round fed by a round that is not done.
+ * started, the shape and match format of those rounds, the uneven wins of a drawn round, and a drawn round fed by a
+ * round that is not done.
  */
 
 /** A drawn round keeps the targets its units were stamped with: its sources are done, so a save can't ask for other ones. */
@@ -77,6 +80,52 @@ export function lateFeederRefusal(
     );
     if (source !== -1) {
       return `Can't save: "${plainRoundName(rounds[source])}" is not done yet, so it can't feed "${plainRoundName(rounds[index])}", which is already drawn.`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Locked shape: a reached round keeps its label, room count, room size and
+ * Final flag -- the fixedPrefix readEditedGraph validates against already
+ * forces graph.rounds[0..reached.length) to be these rounds in order, so
+ * this only needs to compare shape, not identity.
+ * Null when every reached round is kept as it must be.
+ */
+export function lockedShapeRefusal({
+  state,
+  reached,
+  graph,
+  firstWaterfallIndex,
+  finalsGames,
+  finalsBestOf,
+}: {
+  state: TournamentState;
+  reached: TournamentRound[];
+  graph: OrderedWaterfallGraph;
+  firstWaterfallIndex: number;
+  finalsGames: number;
+  finalsBestOf: number | undefined;
+}): string | null {
+  for (const [index, oldRound] of reached.entries()) {
+    const spec = graph.rounds[index];
+    // A round drawn short (a withdrawal) is compared by the shape the graph declared for it.
+    const declaredRooms = declaredWaterfallRooms(oldRound);
+    const sameShape =
+      spec &&
+      spec.label === oldRound.customLabel &&
+      spec.roomSizes.length === declaredRooms.length &&
+      spec.roomSizes[0] === declaredRooms[0] &&
+      spec.isFinal === oldRound.isFinal;
+    if (!sameShape) {
+      return `Can't save: "${oldRound.customLabel}" has already started, so its room count, room size and Final flag can't change. Only its routing can.`;
+    }
+    // The round in play may change its match format (its scores are read again under the new one); a finished one may not.
+    if (
+      isRoundDone(state, firstWaterfallIndex + index) &&
+      !sameRoundFormat(oldRound, matchFormatFields(spec, finalsGames, finalsBestOf))
+    ) {
+      return `Can't save: "${oldRound.customLabel}" is finished, so its match format can't change.`;
     }
   }
   return null;
