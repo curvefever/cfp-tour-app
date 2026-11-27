@@ -385,6 +385,8 @@ type PredecessorEdge =
   | { sourceIndex: number; edge: 'standings'; ranks: number[] }
   | { sourceIndex: number; edge: 'best' };
 
+type WaterfallEdge = Extract<PredecessorEdge, { edge: 'waterfall' }>;
+
 /**
  * A waterfall round can feed a target from more than one of its own rooms
  * (an N-way convergence, not just 2 named winners/losers sides), and a
@@ -627,6 +629,95 @@ function fairCutSlotPlan(
   return { directPerRoom, lucky: Math.max(0, lucky) };
 }
 
+/** One feeder of a target round, as the projection reads it. */
+interface Feeder {
+  source: TournamentRound;
+  sourceIndex: number;
+  sourceLabel: string;
+  sourceRound: number;
+  /** Whether a slot can name the room it comes from (the target has one room). */
+  roomKnown: boolean;
+}
+
+/** The slots of the pooling standings a Qual line routes to the target: one per standings place. */
+function standingsSlots(
+  round: TournamentRound,
+  { sourceIndex, ranks }: Extract<PredecessorEdge, { edge: 'standings' }>,
+): ProjectedSlotLabel[] {
+  const slots: ProjectedSlotLabel[] = [];
+  for (const rank of ranks) {
+    slots.push({ kind: 'standings-rank', rank, ...winsNeededFields(round, sourceIndex) });
+  }
+  return slots;
+}
+
+/**
+ * The slots a Custom bracket source's rooms send the target, for all of its rooms at once. Each slot is entered in
+ * `waterfallSourceIndex`, which the stand-in draw and the projected seeds read.
+ */
+function waterfallSlots({
+  feeder,
+  round,
+  targetIndex,
+  predecessors,
+  waterfallSourceIndex,
+}: {
+  feeder: Feeder;
+  round: TournamentRound;
+  targetIndex: number;
+  predecessors: PredecessorEdge[];
+  waterfallSourceIndex: Map<ProjectedSlotLabel, number>;
+}): ProjectedSlotLabel[] {
+  const { source, sourceIndex, sourceLabel, sourceRound, roomKnown } = feeder;
+  // Several of this source's own rooms can each contribute their own
+  // (possibly non-contiguous) rank list to this same target -- handled
+  // once per source round (not once per predecessor entry), walking
+  // ranks outer/rooms inner across ALL of that source's contributing
+  // rooms together, so the tier-major convention (every room's own
+  // rank 1, then every room's own rank 2, ...) still holds even though
+  // no single room's contribution spans a uniform 1..advPerRoom range.
+  const edgesForSource = predecessors.filter(
+    (candidate): candidate is WaterfallEdge =>
+      candidate.edge === 'waterfall' && candidate.sourceIndex === sourceIndex,
+  );
+  const maxRank = Math.max(0, ...edgesForSource.flatMap((candidate) => candidate.ranks));
+  const slots: ProjectedSlotLabel[] = [];
+  for (let rank = 1; rank <= maxRank; rank += 1) {
+    const sending = edgesForSource.filter((candidate) => candidate.ranks.includes(rank));
+    const left = sending.slice(0, sending.length - bestUnitsLeaving(source, rank, targetIndex));
+    for (const candidate of left) {
+      const slot: ProjectedSlotLabel = {
+        kind: 'waterfall-rank',
+        room: candidate.room,
+        rank,
+        sourceRound,
+        sourceLabel,
+        sourceRoomCount: source.rooms.length,
+        roomKnown,
+        ...winsNeededFields(round, sourceIndex),
+      };
+      slots.push(slot);
+      waterfallSourceIndex.set(slot, sourceIndex);
+    }
+  }
+  return slots;
+}
+
+/** The slots of the units a winners-bracket source drops to the target. */
+function droppedSlots(feeder: Feeder): ProjectedSlotLabel[] {
+  const { source, sourceIndex, sourceLabel } = feeder;
+  const slots: ProjectedSlotLabel[] = [];
+  for (let i = 0; i < losersSideCount(source); i += 1) {
+    slots.push({
+      kind: 'round-edge',
+      sourceRoundIndex: sourceIndex,
+      edge: 'dropped',
+      label: `Dropped from ${sourceLabel}`,
+    });
+  }
+  return slots;
+}
+
 /**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
@@ -716,17 +807,14 @@ export function projectFutureRoundSlots(
     const roomKnown = round.rooms.length === 1;
     const pool: ProjectedSlotLabel[] = [];
     const resolvedWaterfallSources = new Set<number>();
-    for (const { sourceIndex, edge } of predecessors) {
+    for (const predecessor of predecessors) {
+      const { sourceIndex, edge } = predecessor;
       const source = rounds[sourceIndex];
       const sourceLabel = labels[sourceIndex]?.label ?? `Round ${source.roundNum}`;
       const sourceRound = labels[sourceIndex]?.roundNumber ?? source.roundNum;
-      if (edge === 'standings') {
-        const standingsEdge = predecessors.find(
-          (candidate) => candidate.edge === 'standings' && candidate.sourceIndex === sourceIndex,
-        );
-        for (const rank of standingsEdge && 'ranks' in standingsEdge ? standingsEdge.ranks : []) {
-          pool.push({ kind: 'standings-rank', rank, ...winsNeededFields(round, sourceIndex) });
-        }
+      const feeder: Feeder = { source, sourceIndex, sourceLabel, sourceRound, roomKnown };
+      if (predecessor.edge === 'standings') {
+        pool.push(...standingsSlots(round, predecessor));
         continue;
       }
       if (edge === 'best') {
@@ -734,48 +822,13 @@ export function projectFutureRoundSlots(
         continue;
       }
       if (edge === 'waterfall') {
-        // Several of this source's own rooms can each contribute their own
-        // (possibly non-contiguous) rank list to this same target -- handled
-        // once per source round (not once per predecessor entry), walking
-        // ranks outer/rooms inner across ALL of that source's contributing
-        // rooms together, so the tier-major convention (every room's own
-        // rank 1, then every room's own rank 2, ...) still holds even though
-        // no single room's contribution spans a uniform 1..advPerRoom range.
         if (resolvedWaterfallSources.has(sourceIndex)) continue;
         resolvedWaterfallSources.add(sourceIndex);
-        const edgesForSource = predecessors.filter(
-          (candidate) => candidate.edge === 'waterfall' && candidate.sourceIndex === sourceIndex,
-        ) as Array<{ sourceIndex: number; edge: 'waterfall'; room: number; ranks: number[] }>;
-        const maxRank = Math.max(0, ...edgesForSource.flatMap((candidate) => candidate.ranks));
-        for (let rank = 1; rank <= maxRank; rank += 1) {
-          const sending = edgesForSource.filter((candidate) => candidate.ranks.includes(rank));
-          const left = sending.slice(0, sending.length - bestUnitsLeaving(source, rank, targetIndex));
-          for (const candidate of left) {
-            const slot: ProjectedSlotLabel = {
-              kind: 'waterfall-rank',
-              room: candidate.room,
-              rank,
-              sourceRound,
-              sourceLabel,
-              sourceRoomCount: source.rooms.length,
-              roomKnown,
-              ...winsNeededFields(round, sourceIndex),
-            };
-            pool.push(slot);
-            waterfallSourceIndex.set(slot, sourceIndex);
-          }
-        }
+        pool.push(...waterfallSlots({ feeder, round, targetIndex, predecessors, waterfallSourceIndex }));
         continue;
       }
       if (edge === 'losers') {
-        for (let i = 0; i < losersSideCount(source); i += 1) {
-          pool.push({
-            kind: 'round-edge',
-            sourceRoundIndex: sourceIndex,
-            edge: 'dropped',
-            label: `Dropped from ${sourceLabel}`,
-          });
-        }
+        pool.push(...droppedSlots(feeder));
         continue;
       }
       if (source.bracket === 'losers') {
