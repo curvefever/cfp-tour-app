@@ -7,7 +7,8 @@ import {
   getGameFormat,
   resolveOddCountStrategy,
 } from '../../../domain/tournament/formats';
-import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
+import { clampAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
+import { parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry-default';
 import {
   defaultTieMargin,
   matchResultsAllowed,

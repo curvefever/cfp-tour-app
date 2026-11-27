@@ -1,3 +1,4 @@
+import { expectedToPlay } from './bracket-entry-default';
 import {
   compareKeys,
   topKey,
@@ -590,7 +591,7 @@ function planWithin(input: LayeredInput, diagnose: boolean): LayeredResult {
   const play =
     typed?.play !== undefined
       ? yours(typed.play)
-      : app(Math.round((9 * registered) / 10), `9 in 10 of the ${registered} registered`);
+      : app(expectedToPlay(registered), `9 in 10 of the ${registered} registered`);
   const refusal = typedRefusal(input, play.value);
   if (refusal) return { ok: false, message: refusal };
 

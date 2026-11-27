@@ -90,13 +90,13 @@ describe('generateTournament -- validation failures', () => {
     }
   });
 
-  it('rejects an empty "Advance to bracket" value instead of silently defaulting to 24', () => {
+  it('works an empty "Advance to bracket" out from the field instead of defaulting to 24', () => {
     const state = createDefaultTournamentState({ confirmedCount: 20, players: names(20) });
     const form = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '' });
     const result = generateTournament(state, form, createTournamentRuntime());
-    expect(result.status).toBe('invalid');
-    if (result.status === 'invalid') {
-      expect(result.message).toContain('Advance to bracket');
+    expect(result.status).toBe('generated');
+    if (result.status === 'generated') {
+      expect(result.state.cfg.qualAdv).toBe(14);
     }
   });
 

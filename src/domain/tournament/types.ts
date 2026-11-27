@@ -543,7 +543,7 @@ export interface PersistedSetup {
   waterfallGraph: string;
   /** The number the default round names ("Round 4") of `waterfallGraph` are numbered from: the first round after the pooling rounds. '' = not numbered (a graph saved before this was kept): its names are never renumbered. */
   waterfallNumberedFrom: string;
-  /** "Advance to bracket" of an upper and lower bracket: how many of the pooling phase's units enter it. '' = automatic (everyone who fits). A field of its own because `qualAdv` defaults to 24. */
+  /** "Advance to bracket" of an upper and lower bracket: how many of the pooling phase's units enter it. '' = automatic: what the pooling setting asks for. A field of its own, apart from `qualAdv`. */
   upperLowerAdvance: string;
   /** "Upper rooms" of an upper and lower bracket: how many of the units that enter start in the upper rooms. '' = evenly (half). */
   upperLowerUpper: string;

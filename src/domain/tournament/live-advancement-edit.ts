@@ -1,5 +1,5 @@
 import { isQualCutoffKey } from './advancement';
-import { parseAdvanceToBracket } from './bracket-entry';
+import { parseAdvanceToBracket } from './bracket-entry-default';
 import { parseEliminationTargets } from './elimination-targets';
 import { getGameFormat } from './formats';
 import { fitRoundToPool, splitAdvancement, validateRoomCap } from './room-distribution';

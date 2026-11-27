@@ -38,6 +38,7 @@ export function setupDerived(setup: PersistedSetup, state: TournamentState, lbQu
         setup,
         state.confirmedCount,
         getMinimumBracketUnits('waterfall-bracket', derivedRoomSize),
+        derivedRoomSize,
       );
   const derivedAdvance = waterfallStandingsKind
     ? waterfallGraphQualAdvance(setup.waterfallGraph, waterfallStandingsKind)

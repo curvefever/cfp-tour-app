@@ -1,4 +1,5 @@
-import { clampAdvanceToBracket, parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
+import { clampAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
+import { parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry-default';
 import { groupExitIsTotal, groupExitRefusal, groupExitShape } from '../../../domain/tournament/group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup } from '../../../domain/tournament/types';

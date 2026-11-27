@@ -1,4 +1,5 @@
-import { clampAdvanceToBracket, parseAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
+import { clampAdvanceToBracket, resolveBracketEntryCount } from './bracket-entry';
+import { requestedBracketEntry } from './bracket-entry-default';
 import { deriveRoomSize, resolveOddCountStrategy } from './formats';
 import { groupExitRefusal, groupsLineExit } from './group-exit';
 import { groupSizesOf } from './group-settings';
@@ -159,7 +160,7 @@ export function planBracketShape(
     const refusal = deriveGroupExitFromLine(config, waterfallGraph.qualRoutes?.length ?? 0, unitPlural);
     if (refusal) return refuse(refusal);
   } else if (config.poolingPhase !== 'none') {
-    const requestedQualAdv = parseAdvanceToBracket(form.qualAdv);
+    const requestedQualAdv = requestedBracketEntry(form, config.n, formatRoomSize);
     if (requestedQualAdv === null) {
       return refuse(`Advance to bracket must be a positive whole number — got "${form.qualAdv}".`);
     }

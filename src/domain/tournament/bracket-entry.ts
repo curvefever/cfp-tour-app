@@ -1,17 +1,12 @@
+import { requestedBracketEntry } from './bracket-entry-default';
 import { groupExitIsTotal, groupExitRefusal } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from './group-settings';
-import type { GroupExitMode, PersistedSetup, PoolingPhaseKey } from './types';
+import type { GroupExitMode, PersistedSetup, PoolingPhaseKey, RoomSize } from './types';
 
 /**
  * How many units actually enter the bracket phase. Generation and the Setup
  * screen both need this number, so it lives here once.
  */
-
-/** "Advance to bracket" as typed in Setup; null unless it starts with a positive whole number. */
-export function parseAdvanceToBracket(raw: string): number | null {
-  const value = Number.parseInt(raw, 10);
-  return Number.isFinite(value) && value >= 1 ? value : null;
-}
 
 /** A request above the number of registered units means everyone advances. */
 export function clampAdvanceToBracket(requested: number, confirmedCount: number): number {
@@ -45,9 +40,13 @@ export function resolveBracketEntryCount(input: {
  * field that generation would reject.
  */
 export function bracketEntryCountFromSetup(
-  setup: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'groupSize' | 'qualifiersPerGroup' | 'groupExit'>,
+  setup: Pick<
+    PersistedSetup,
+    'poolingPhase' | 'scheduleLogic' | 'qualAdv' | 'groupSize' | 'qualifiersPerGroup' | 'groupExit'
+  >,
   confirmedCount: number | null | undefined,
   floor: number,
+  roomSize: RoomSize,
 ): number | null {
   if (!confirmedCount || confirmedCount < floor) return null;
   const { groupSize, qualifiersPerGroup } = groupSettingsOf(setup);
@@ -63,7 +62,7 @@ export function bracketEntryCountFromSetup(
   }
   let qualAdv = confirmedCount;
   if (setup.poolingPhase !== 'none') {
-    const requested = parseAdvanceToBracket(setup.qualAdv);
+    const requested = requestedBracketEntry(setup, confirmedCount, roomSize);
     if (requested === null) return null;
     qualAdv = clampAdvanceToBracket(requested, confirmedCount);
   }

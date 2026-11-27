@@ -1,4 +1,4 @@
-import { parseAdvanceToBracket } from './bracket-entry';
+import { parseAdvanceToBracket, requestedBracketEntry } from './bracket-entry-default';
 import { groupExitIsTotal } from './group-exit';
 import { groupSettingsOf, groupSizesOf } from './group-settings';
 import { roundsBeforeBracket } from './pooling-rounds';
@@ -367,7 +367,7 @@ export type UpperLowerForm = Pick<
 
 /** What the pooling setting asks for when "Advance to bracket" of the upper and lower bracket is left empty. */
 export interface AutomaticRequest {
-  /** The number asked for; null when the setting is no number (everyone who fits enters). */
+  /** The number asked for; null when the typed setting is no number (everyone who fits enters). */
   request: number | null;
   /** Set when the number is the exit of a group stage that sends so many per group: the words say where it came from. */
   perGroup?: { groups: number; qualifiers: number };
@@ -375,15 +375,22 @@ export interface AutomaticRequest {
 
 /**
  * The automatic request of the upper and lower bracket: the pooling setting, as the other bracket styles read it.
- * After a qualification table or a Swiss it is the form's "Advance to bracket" (`qualAdv`); after a group stage the
- * exit of the group settings: groups times the qualifiers per group, or the total of an Even split or a Fair cut
- * (which is `qualAdv`). One reader for generation, the Setup panel and the running Admin's re-work.
+ * After a qualification table or a Swiss it is the form's "Advance to bracket" (`qualAdv`; left empty, the number the
+ * app works out for this head count); after a group stage the exit of the group settings: groups times the qualifiers
+ * per group, or the total of an Even split or a Fair cut (which is that same `qualAdv`). One reader for generation,
+ * the Setup panel and the running Admin's re-work.
  */
 export function automaticRequest(
   form: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit'>,
   groupCount: number,
+  unitCount: number,
+  roomSize: RoomSize,
 ): AutomaticRequest {
-  const total = parseAdvanceToBracket(form.qualAdv);
+  const total = requestedBracketEntry(
+    { qualAdv: form.qualAdv, scheduleLogic: 'upper-lower' },
+    unitCount,
+    roomSize,
+  );
   if (form.poolingPhase !== 'group-stage' || groupExitIsTotal(form)) return { request: total };
   const { qualifiersPerGroup: qualifiers } = groupSettingsOf(form);
   return { request: groupCount * qualifiers, perGroup: { groups: groupCount, qualifiers } };
@@ -409,7 +416,7 @@ export function resolveUpperLowerEntry(
     return refusal(`Advance to bracket must be a positive whole number — got "${form.upperLowerAdvance}".`);
   }
   if (typed) return upperLowerEntry(unitCount, requested, roomSize);
-  const automatic = automaticRequest(form, groupCount);
+  const automatic = automaticRequest(form, groupCount, unitCount, roomSize);
   const entry = upperLowerEntry(unitCount, automatic.request, roomSize);
   const allowed = upperLowerEntries(roomSize);
   const { request, perGroup } = automatic;

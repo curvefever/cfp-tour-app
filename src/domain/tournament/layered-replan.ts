@@ -1,4 +1,5 @@
 import { layeredReplannable, markAppWrittenStages } from './app-written-bracket';
+import { expectedToPlay } from './bracket-entry-default';
 import { generatedConfig } from './generated-config';
 import { layeredGraphText } from './layered-graph';
 import { planLayeredFor, type LayeredForm } from './layered-form';
@@ -57,7 +58,7 @@ export function layeredPlayNow(state: TournamentState): number {
   const first = state.rounds.findIndex((round) => round.isWaterfall);
   if (state.curRound === 0 || first === -1) {
     const typed = Number(state.settings?.layeredExpected ?? '');
-    return Number.isInteger(typed) && typed > 0 ? typed : Math.round((9 * roster.length) / 10);
+    return Number.isInteger(typed) && typed > 0 ? typed : expectedToPlay(roster.length);
   }
   const inRoster = new Set(roster);
   const absent = [...likelyAbsentees(state, first)].filter((unit) => inRoster.has(unit));

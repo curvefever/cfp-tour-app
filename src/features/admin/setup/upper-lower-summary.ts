@@ -1,4 +1,4 @@
-import { getGameFormat } from '../../../domain/tournament/formats';
+import { deriveRoomSize, getGameFormat } from '../../../domain/tournament/formats';
 import { groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup, PoolingPhaseKey } from '../../../domain/tournament/types';
 import { planUpperLowerFor } from '../../../domain/tournament/upper-lower-form';
@@ -12,16 +12,21 @@ import {
 
 /**
  * The placeholder of the upper and lower "Advance to bracket" field: the number the pooling setting asks for when the
- * field is left empty (`automaticRequest`), so nothing comes from a hidden value. "automatic" while a group stage
- * waits for a roster, or when the setting is no number.
+ * field is left empty (`automaticRequest`), so nothing comes from a hidden value. "automatic" while the number waits
+ * for a roster (a group stage, or an empty "Advance to bracket"), or when the setting is no number.
  */
 export function upperLowerAutomaticPlaceholder(
-  setup: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit' | 'groupSize'>,
+  setup: Pick<
+    PersistedSetup,
+    'gameFormat' | 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit' | 'groupSize'
+  >,
   registered: number | null,
 ): string {
-  if (setup.poolingPhase === 'group-stage' && registered === null) return 'automatic';
+  const format = getGameFormat(setup.gameFormat);
+  const waitsForRoster = setup.poolingPhase === 'group-stage' || !setup.qualAdv.trim();
+  if (!format || (registered === null && waitsForRoster)) return 'automatic';
   const groupCount = groupSizesOf(registered ?? 0, groupSettingsOf(setup).groupSize).length;
-  const { request } = automaticRequest(setup, groupCount);
+  const { request } = automaticRequest(setup, groupCount, registered ?? 0, deriveRoomSize(format));
   return request === null ? 'automatic' : `automatic: ${request}`;
 }
 

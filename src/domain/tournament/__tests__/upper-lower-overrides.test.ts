@@ -5,6 +5,7 @@ import { rosterKeys } from '../roster';
 import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
 import type { TournamentState } from '../types';
 import { bracketLogicOf } from '../app-written-bracket';
+import { automaticRequest } from '../upper-lower';
 import { planUpperLowerFor, upperLowerByHand } from '../upper-lower-form';
 import { applyUpperLowerFields } from '../upper-lower-replan';
 import { finalsMatchOf, serializeWaterfallDraft, waterfallDraftFromRounds } from '../waterfall-draft';
@@ -18,6 +19,8 @@ import {
 import { rosterFor, startedState, testRuntime } from './test-fixtures';
 
 type Setup = Parameters<typeof createDefaultSetup>[0];
+
+const FFA_ROOM = { min: 6, max: 8, ideal: 8 };
 
 /** FFA: "Advance to bracket" 32 asks for everyone who fits (the automatic entry reads the pooling setting, default 24). */
 const QUAL = { gameFormat: 'ffa-individual', poolingPhase: 'qual-table', qualAdv: '32' } as const;
@@ -285,6 +288,12 @@ describe('the automatic entry follows the pooling setting', () => {
         'Advance to bracket (20) has no upper and lower bracket: use 16 or 24.',
       );
     }
+  });
+
+  it('FFA at 37 with an empty Advance to bracket: asks for the 28 worked out from the field, and 28 enter', () => {
+    const empty = { ...FFA, qualAdv: '' };
+    expect(automaticRequest(createDefaultSetup(empty), 0, 37, FFA_ROOM).request).toBe(28);
+    expect(entering(37, empty)).toBe(28);
   });
 
   it('a typed upper and lower field still wins over the pooling setting', () => {

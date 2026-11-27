@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   bracketEntryCountFromSetup,
   clampAdvanceToBracket,
-  parseAdvanceToBracket,
   resolveBracketEntryCount,
 } from '../bracket-entry';
+import { parseAdvanceToBracket } from '../bracket-entry-default';
 import { createDefaultSetup } from '../state-defaults';
 import { parseWaterfallDraft, serializeWaterfallDraft } from '../waterfall-draft';
 import { WATERFALL_EXAMPLES } from '../waterfall-examples';
@@ -62,46 +62,58 @@ describe('resolveBracketEntryCount', () => {
 });
 
 describe('bracketEntryCountFromSetup', () => {
+  const ROOM = { min: 6, max: 8, ideal: 8 };
   const setup = (overrides: Parameters<typeof createDefaultSetup>[0]) => createDefaultSetup(overrides);
 
   it('is unknown until a roster is loaded', () => {
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), null, 1)).toBeNull();
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), undefined, 1)).toBeNull();
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), 0, 1)).toBeNull();
+    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), null, 1, ROOM)).toBeNull();
+    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), undefined, 1, ROOM)).toBeNull();
+    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none' }), 0, 1, ROOM)).toBeNull();
   });
 
   it('matches the reported configuration: 24 players, qualification table, 16 advance', () => {
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'qual-table', qualAdv: '16' }), 24, 1)).toBe(16);
+    expect(
+      bracketEntryCountFromSetup(setup({ poolingPhase: 'qual-table', qualAdv: '16' }), 24, 1, ROOM),
+    ).toBe(16);
   });
 
   it('clamps an advance count larger than the roster', () => {
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'swiss', qualAdv: '99' }), 24, 1)).toBe(24);
+    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'swiss', qualAdv: '99' }), 24, 1, ROOM)).toBe(24);
   });
 
   it('is everyone with no pooling phase, whatever "advance" says', () => {
-    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none', qualAdv: '' }), 31, 1)).toBe(31);
+    expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'none', qualAdv: '' }), 31, 1, ROOM)).toBe(31);
+  });
+
+  it('works an empty "advance" out from the head count, and from nothing else', () => {
+    // 24 registered: 22 expected to play, so 17 or 18; 18 is three rooms of 6.
+    const empty = setup({ poolingPhase: 'qual-table', qualAdv: '' });
+    expect(bracketEntryCountFromSetup(empty, 24, 1, ROOM)).toBe(18);
+    expect(bracketEntryCountFromSetup(empty, null, 1, ROOM)).toBeNull();
   });
 
   it('is unknown while "advance" is not a positive whole number', () => {
-    for (const qualAdv of ['', '0', 'x']) {
-      expect(bracketEntryCountFromSetup(setup({ poolingPhase: 'qual-table', qualAdv }), 24, 1)).toBeNull();
+    for (const qualAdv of ['0', 'x']) {
+      expect(
+        bracketEntryCountFromSetup(setup({ poolingPhase: 'qual-table', qualAdv }), 24, 1, ROOM),
+      ).toBeNull();
     }
   });
 
   it('follows Group Stage settings, and is unknown when generation would reject them', () => {
     const groups = { poolingPhase: 'group-stage' as const, qualAdv: '8' };
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '2' }), 16, 1),
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '2' }), 16, 1, ROOM),
     ).toBe(8);
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '2', qualifiersPerGroup: '1' }), 16, 1),
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '2', qualifiersPerGroup: '1' }), 16, 1, ROOM),
     ).toBeNull();
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '6', qualifiersPerGroup: '1' }), 16, 1),
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '6', qualifiersPerGroup: '1' }), 16, 1, ROOM),
     ).toBeNull();
     // Every unit of the smallest group may go on (generation accepts it): the groups then only decide who starts where.
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '4' }), 16, 1),
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '4', qualifiersPerGroup: '4' }), 16, 1, ROOM),
     ).toBe(16);
   });
 
@@ -112,11 +124,11 @@ describe('bracketEntryCountFromSetup', () => {
       groupSize: '4',
       qualifiersPerGroup: '3',
     };
-    expect(bracketEntryCountFromSetup(setup(groups), 15, 1)).toBe(12);
-    expect(bracketEntryCountFromSetup(setup(groups), 16, 1)).toBe(12);
-    expect(bracketEntryCountFromSetup(setup(groups), 13, 1)).toBe(9);
+    expect(bracketEntryCountFromSetup(setup(groups), 15, 1, ROOM)).toBe(12);
+    expect(bracketEntryCountFromSetup(setup(groups), 16, 1, ROOM)).toBe(12);
+    expect(bracketEntryCountFromSetup(setup(groups), 13, 1, ROOM)).toBe(9);
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '5', qualifiersPerGroup: '4' }), 11, 1),
+      bracketEntryCountFromSetup(setup({ ...groups, groupSize: '5', qualifiersPerGroup: '4' }), 11, 1, ROOM),
     ).toBeNull();
   });
 
@@ -127,15 +139,20 @@ describe('bracketEntryCountFromSetup', () => {
       groupSize: '4',
       qualifiersPerGroup: '2',
     };
-    expect(bracketEntryCountFromSetup(setup({ ...groups, groupExit: 'fair-cut' }), 13, 1)).toBe(8);
+    expect(bracketEntryCountFromSetup(setup({ ...groups, groupExit: 'fair-cut' }), 13, 1, ROOM)).toBe(8);
     expect(
-      bracketEntryCountFromSetup(setup({ ...groups, groupExit: 'fair-cut', qualifiersPerGroup: '9' }), 13, 1),
+      bracketEntryCountFromSetup(
+        setup({ ...groups, groupExit: 'fair-cut', qualifiersPerGroup: '9' }),
+        13,
+        1,
+        ROOM,
+      ),
     ).toBe(8);
     const withoutField = { ...setup(groups), groupExit: undefined } as unknown as ReturnType<
       typeof createDefaultSetup
     >;
-    expect(bracketEntryCountFromSetup(withoutField, 13, 1)).toBe(6);
-    expect(bracketEntryCountFromSetup({ ...withoutField, qualifiersPerGroup: '9' }, 13, 1)).toBeNull();
+    expect(bracketEntryCountFromSetup(withoutField, 13, 1, ROOM)).toBe(6);
+    expect(bracketEntryCountFromSetup({ ...withoutField, qualifiersPerGroup: '9' }, 13, 1, ROOM)).toBeNull();
   });
 });
 
