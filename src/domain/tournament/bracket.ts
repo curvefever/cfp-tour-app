@@ -718,6 +718,98 @@ function droppedSlots(feeder: Feeder): ProjectedSlotLabel[] {
   return slots;
 }
 
+/** The slots of the units a losers-bracket source sends on to the target. */
+function advancedSlots(feeder: Feeder): ProjectedSlotLabel[] {
+  const { source, sourceIndex, sourceLabel } = feeder;
+  const slots: ProjectedSlotLabel[] = [];
+  for (let i = 0; i < winnersSideCount(source); i += 1) {
+    slots.push({
+      kind: 'round-edge',
+      sourceRoundIndex: sourceIndex,
+      edge: 'advanced',
+      label: `Advanced from ${sourceLabel}`,
+    });
+  }
+  return slots;
+}
+
+/** The slots of a source that cuts nobody: one per seat of each of its rooms. */
+function noElimSlots(
+  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
+  feeder: Feeder,
+): ProjectedSlotLabel[] {
+  const { sourceIndex, sourceLabel, sourceRound, roomKnown } = feeder;
+  // Nobody is cut, but everyone's rank within their own room still
+  // carries forward (roomBasedComputeAdvancement ranks a no-elim
+  // room's occupants by score before handing the whole room on) --
+  // project every position of every room using that room's own size,
+  // rather than treating a no-elim round as unknowable. Room sizes can
+  // differ (e.g. [8,8,7,7,7]), so this must be computed per room, not
+  // from a single round-wide advPerRoom the way every other room-based
+  // round already is. Tier-major (rank outer, room inner) -- see
+  // projectFutureRoundSlots' doc comment for why.
+  const sourceRoomSizes = seatedRoomSizes(state, sourceIndex);
+  const maxRoomSize = Math.max(0, ...sourceRoomSizes);
+  const slots: ProjectedSlotLabel[] = [];
+  for (let rank = 1; rank <= maxRoomSize; rank += 1) {
+    for (let room = 1; room <= sourceRoomSizes.length; room += 1) {
+      const roomSize = sourceRoomSizes[room - 1];
+      if (rank > roomSize) continue;
+      slots.push({
+        kind: 'room-rank',
+        room,
+        rank,
+        advPerRoom: roomSize,
+        sourceRound,
+        sourceLabel,
+        roomKnown,
+      });
+    }
+  }
+  return slots;
+}
+
+/** The slots of a source cut by the fair cut: its places per room, then the target's lucky losers. */
+function fairCutSlots(
+  state: ColumnState & Partial<Pick<TournamentState, 'assignments'>>,
+  feeder: Feeder,
+): ProjectedSlotLabel[] {
+  const { source, sourceIndex, sourceLabel, sourceRound, roomKnown } = feeder;
+  // The fair cut: each room size sends its own number of places on, the rest of the target are lucky losers.
+  const { directPerRoom, lucky } = fairCutSlotPlan(source, seatedRoomSizes(state, sourceIndex));
+  const slots: ProjectedSlotLabel[] = [];
+  for (let rank = 1; rank <= Math.max(0, ...directPerRoom); rank += 1) {
+    for (const [index, direct] of directPerRoom.entries()) {
+      if (rank <= direct)
+        slots.push({
+          kind: 'room-rank',
+          room: index + 1,
+          rank,
+          advPerRoom: direct,
+          sourceRound,
+          sourceLabel,
+          roomKnown,
+        });
+    }
+  }
+  for (let i = 0; i < lucky; i += 1) slots.push({ kind: 'lucky' });
+  return slots;
+}
+
+/** The slots of a source cut the earlier way: the same number of places from every room, then its lucky losers. */
+function cutRoundSlots(feeder: Feeder): ProjectedSlotLabel[] {
+  const { source, sourceLabel, sourceRound, roomKnown } = feeder;
+  const slots: ProjectedSlotLabel[] = [];
+  const advPerRoom = source.advPerRoom ?? 0;
+  // Tier-major (rank outer, room inner) -- see projectFutureRoundSlots' doc comment.
+  for (let rank = 1; rank <= advPerRoom; rank += 1) {
+    for (let room = 1; room <= source.rooms.length; room += 1)
+      slots.push({ kind: 'room-rank', room, rank, advPerRoom, sourceRound, sourceLabel, roomKnown });
+  }
+  for (let i = 0; i < source.luckyCount; i += 1) slots.push({ kind: 'lucky' });
+  return slots;
+}
+
 /**
  * Structural, score-independent projection of where each future round's slots will
  * likely come from. Computed once per render over the whole rounds array. A no-elim
@@ -727,11 +819,11 @@ function droppedSlots(feeder: Feeder): ProjectedSlotLabel[] {
  * whole room on, so the same room-rank shape applies, just with every position filled
  * instead of a top-N cut.
  *
- * Both the no-elim branch and the ordinary cutting-round branch below build their
+ * Both noElimSlots and cutRoundSlots build their
  * room-rank tokens tier-major (every room's own rank-1 finisher, then every room's
  * own rank-2, ...) rather than room-major, and the pool is then distributed across
- * target rooms tier-by-tier with a rotating round-robin (see distributeTierMajorPool
- * below) rather than chopped sequentially -- together this spreads same-source-room
+ * target rooms tier-by-tier with a rotating round-robin (see distributeTierMajorPool)
+ * rather than chopped sequentially -- together this spreads same-source-room
  * candidates across different target rooms AND spreads every target room's own
  * contents across the full range of ranks, matching in spirit (though not exactly)
  * what the real transition's tiered/diversity-aware seeding (tieredSeed, wave-draw.ts)
@@ -832,72 +924,18 @@ export function projectFutureRoundSlots(
         continue;
       }
       if (source.bracket === 'losers') {
-        for (let i = 0; i < winnersSideCount(source); i += 1) {
-          pool.push({
-            kind: 'round-edge',
-            sourceRoundIndex: sourceIndex,
-            edge: 'advanced',
-            label: `Advanced from ${sourceLabel}`,
-          });
-        }
+        pool.push(...advancedSlots(feeder));
         continue;
       }
       if (source.isNoElim) {
-        // Nobody is cut, but everyone's rank within their own room still
-        // carries forward (roomBasedComputeAdvancement ranks a no-elim
-        // room's occupants by score before handing the whole room on) --
-        // project every position of every room using that room's own size,
-        // rather than treating a no-elim round as unknowable. Room sizes can
-        // differ (e.g. [8,8,7,7,7]), so this must be computed per room, not
-        // from a single round-wide advPerRoom the way every other room-based
-        // round already is. Tier-major (rank outer, room inner) -- see the
-        // function doc comment above for why.
-        const sourceRoomSizes = seatedRoomSizes(state, sourceIndex);
-        const maxRoomSize = Math.max(0, ...sourceRoomSizes);
-        for (let rank = 1; rank <= maxRoomSize; rank += 1) {
-          for (let room = 1; room <= sourceRoomSizes.length; room += 1) {
-            const roomSize = sourceRoomSizes[room - 1];
-            if (rank > roomSize) continue;
-            pool.push({
-              kind: 'room-rank',
-              room,
-              rank,
-              advPerRoom: roomSize,
-              sourceRound,
-              sourceLabel,
-              roomKnown,
-            });
-          }
-        }
+        pool.push(...noElimSlots(state, feeder));
         continue;
       }
       if (hasFairCutVersion(state) && roundCoversFairCut(source)) {
-        // The fair cut: each room size sends its own number of places on, the rest of the target are lucky losers.
-        const { directPerRoom, lucky } = fairCutSlotPlan(source, seatedRoomSizes(state, sourceIndex));
-        for (let rank = 1; rank <= Math.max(0, ...directPerRoom); rank += 1) {
-          for (const [index, direct] of directPerRoom.entries()) {
-            if (rank <= direct)
-              pool.push({
-                kind: 'room-rank',
-                room: index + 1,
-                rank,
-                advPerRoom: direct,
-                sourceRound,
-                sourceLabel,
-                roomKnown,
-              });
-          }
-        }
-        for (let i = 0; i < lucky; i += 1) pool.push({ kind: 'lucky' });
+        pool.push(...fairCutSlots(state, feeder));
         continue;
       }
-      const advPerRoom = source.advPerRoom ?? 0;
-      // Tier-major (rank outer, room inner) -- see the function doc comment above.
-      for (let rank = 1; rank <= advPerRoom; rank += 1) {
-        for (let room = 1; room <= source.rooms.length; room += 1)
-          pool.push({ kind: 'room-rank', room, rank, advPerRoom, sourceRound, sourceLabel, roomKnown });
-      }
-      for (let i = 0; i < source.luckyCount; i += 1) pool.push({ kind: 'lucky' });
+      pool.push(...cutRoundSlots(feeder));
     }
 
     const expected = round.rooms.reduce((total, size) => total + size, 0);
