@@ -577,31 +577,34 @@ function finalistsOrSeats({
   return { active, finalistValues };
 }
 
-export function computeRankings(state: TournamentState): TournamentRankings | null {
-  if (!state.rounds.length || !state.assignments.length) return null;
-  const lastRi = lastAssignedRound(state);
-  if (lastRi === -1) return null;
-
-  const phases = rankingPhases(state, lastRi);
-  const { eliminated, outNow } = eliminationsSoFar(state, phases);
-
-  const lastRound = state.rounds[lastRi];
-  const finalComplete = isFinalComplete(state);
-  const { active: seats, finalistValues } = finalistsOrSeats({
-    state,
-    lastRi,
-    lastRound,
-    phases,
-    finalComplete,
-  });
-  let active = seats;
-
+/**
+ * Who is still in the tournament: the seats of units still on the roster and not out, and the units waiting to be
+ * drawn into a round, in a pending pool or as late joiners.
+ */
+function stillInOrWaiting({
+  state,
+  lastRi,
+  seats,
+  outNow,
+  phases,
+  finalComplete,
+}: {
+  state: TournamentState;
+  lastRi: number;
+  seats: Array<RoundAssignment & { ri?: number }>;
+  outNow: ReadonlySet<string>;
+  phases: RankingPhases;
+  finalComplete: boolean;
+}): {
+  active: Array<RoundAssignment & { ri?: number }>;
+  waiting: Array<{ name: string; isLucky: boolean; waitingFor: number; joining?: true }>;
+} {
   // A removed/swapped-out unit's old name can still linger in a round that
   // was fully pre-generated before the withdrawal (e.g. group-stage's whole
   // schedule is built upfront) -- exclude anyone no longer on the roster so
   // they never appear as "still in tournament".
   const rosterSet = new Set(rosterKeys(state.players));
-  active = active.filter((entry) => rosterSet.has(entry.name) && !outNow.has(entry.name));
+  const active = seats.filter((entry) => rosterSet.has(entry.name) && !outNow.has(entry.name));
   const pooled = finalComplete ? [] : waitingUnits(state, phases.isNotDrawn, rosterSet, active);
   const waiting = [
     ...pooled,
@@ -609,10 +612,29 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       ? undrawnJoiners(state, new Set(pooled.map(({ name }) => name)))
       : []),
   ];
+  return { active, waiting };
+}
 
+/** The eliminated units in ranking order, each with its rank: every unit neither still in or waiting nor a finalist. */
+function rankEliminated({
+  state,
+  active,
+  waiting,
+  finalistValues,
+  standings,
+  eliminated,
+  phases,
+}: {
+  state: TournamentState;
+  active: RoundAssignment[];
+  waiting: Array<{ name: string }>;
+  finalistValues: FinalistValue[];
+  standings: StandingsDisplay | null;
+  eliminated: ReadonlyMap<string, RoundElimination>;
+  phases: RankingPhases;
+}): Array<Omit<EliminatedRanking, 'label' | 'members' | 'poolRank'>> {
   const activeNames = new Set([...active.map(({ name }) => name), ...waiting.map(({ name }) => name)]);
   const finalistNames = new Set(finalistValues.map(({ name }) => name));
-  const standings = describeStandings(state);
   const placements = cutPlacements(state, standings);
   const perGroup = Boolean(standings?.perGroup);
   const eliminatedValues: EliminatedEntry[] = rosterKeys(state.players)
@@ -644,6 +666,38 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
       absent: Boolean(entry.absent),
       atCut: Boolean(entry.cut),
     };
+  });
+  return rankedEliminated;
+}
+
+export function computeRankings(state: TournamentState): TournamentRankings | null {
+  if (!state.rounds.length || !state.assignments.length) return null;
+  const lastRi = lastAssignedRound(state);
+  if (lastRi === -1) return null;
+
+  const phases = rankingPhases(state, lastRi);
+  const { eliminated, outNow } = eliminationsSoFar(state, phases);
+
+  const lastRound = state.rounds[lastRi];
+  const finalComplete = isFinalComplete(state);
+  const { active: seats, finalistValues } = finalistsOrSeats({
+    state,
+    lastRi,
+    lastRound,
+    phases,
+    finalComplete,
+  });
+  const { active, waiting } = stillInOrWaiting({ state, lastRi, seats, outNow, phases, finalComplete });
+
+  const standings = describeStandings(state);
+  const rankedEliminated = rankEliminated({
+    state,
+    active,
+    waiting,
+    finalistValues,
+    standings,
+    eliminated,
+    phases,
   });
 
   let finalRank = 0;
