@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   nextPowerOf2AndRounds,
   raceDoubleEliminationBracketPhase,
-  sharedFinalDoubleEliminationBracketPhase,
   type RaceDoubleEliminationConfig,
-  type SharedFinalDoubleEliminationConfig,
 } from '../double-elimination';
+import {
+  sharedFinalDoubleEliminationBracketPhase,
+  type SharedFinalDoubleEliminationConfig,
+} from '../double-elimination-shared-final';
 import { isSeatable } from '../room-distribution';
 import type { RoomSize, TournamentRound } from '../types';
 

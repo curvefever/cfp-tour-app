@@ -8,11 +8,11 @@ import {
   type PoolingFormatConfig,
   type PoolingPhaseResult,
 } from './pooling';
+import { raceDoubleEliminationBracketPhase } from './double-elimination';
 import {
-  raceDoubleEliminationBracketPhase,
   sharedFinalDoubleEliminationBracketPhase,
   type SharedFinalDoubleEliminationConfig,
-} from './double-elimination';
+} from './double-elimination-shared-final';
 import { kingsValleyBracketPhase } from './kings-valley';
 import { markAppWrittenStages } from './app-written-bracket';
 import { singleEliminationBracketPhase, type SingleEliminationConfig } from './single-elimination';

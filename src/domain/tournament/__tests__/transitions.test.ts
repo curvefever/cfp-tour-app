@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { advanceTournamentRound } from '../transitions';
-import {
-  raceDoubleEliminationBracketPhase,
-  sharedFinalDoubleEliminationBracketPhase,
-} from '../double-elimination';
+import { raceDoubleEliminationBracketPhase } from '../double-elimination';
+import { sharedFinalDoubleEliminationBracketPhase } from '../double-elimination-shared-final';
 import { generateTournament } from '../generation';
 import { swapIndividual } from '../unit-swaps';
 import { removeRosterUnit } from '../unit-removal';
