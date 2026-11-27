@@ -47,6 +47,9 @@ interface RaceBracketProjection {
   advTotal: number;
 }
 
+/** A losers round before it has its player and advance counts. */
+type RaceLosersRound = { rooms: number[]; byeCount: number };
+
 type RaceSequenceEntry = { type: 'wb'; wbIndex: number } | { type: 'lb'; lbIndex: number } | { type: 'gf' };
 
 export function findNextPosition<T>(
@@ -61,30 +64,13 @@ export function toRoundIndex(startRoundNum: number, sequencePosition: number | n
   return sequencePosition === null || sequencePosition === -1 ? null : startRoundNum - 1 + sequencePosition;
 }
 
-/** Builds a head-to-head double-elimination bracket with a grand final. */
-export function raceDoubleEliminationBracketPhase(
+/** The winners bracket: every round's rooms and byes, from the whole field down to one. */
+function raceWinnersRounds(
   seedTotal: number,
-  startRoundNum: number,
+  shape: BracketPowerShape,
   config: RaceDoubleEliminationConfig,
-): TournamentRound[] {
-  if (config.roomSize.ideal !== 2) {
-    throw new Error(
-      `doubleEliminationBracketPhase requires a head-to-head room shape (roomSize.ideal === 2) — got ${config.roomSize.ideal}.`,
-    );
-  }
-  if (config.oddCountStrategy === 'flex') {
-    throw new Error(
-      'doubleEliminationBracketPhase does not support the "flex" odd-count strategy — a 3-unit room is not double elimination. Use "none" or "bye" instead.',
-    );
-  }
-
-  const shape = nextPowerOf2AndRounds(seedTotal);
+): RaceBracketProjection[] {
   const winnersRoundCount = shape.numRounds;
-  if (winnersRoundCount < 2) {
-    throw new Error(
-      `doubleEliminationBracketPhase requires at least 2 winners-bracket rounds — got seedTotal ${seedTotal}.`,
-    );
-  }
 
   const winners: RaceBracketProjection[] = [];
   let total = seedTotal;
@@ -97,11 +83,17 @@ export function raceDoubleEliminationBracketPhase(
     winners.push({ ...distribution, players: total, advTotal });
     total = advTotal;
   }
+  return winners;
+}
 
-  const losers: Array<{
-    rooms: number[];
-    byeCount: number;
-  }> = [];
+/** The losers bracket: a round for the first drop, two for each middle winners round, one for the last. */
+function raceLosersRounds(
+  winners: RaceBracketProjection[],
+  config: RaceDoubleEliminationConfig,
+): RaceLosersRound[] {
+  const winnersRoundCount = winners.length;
+
+  const losers: RaceLosersRound[] = [];
   let losersSurvivors = 0;
   for (let index = 0; index < winnersRoundCount; index += 1) {
     const dropCount = winners[index].rooms.length;
@@ -126,7 +118,11 @@ export function raceDoubleEliminationBracketPhase(
       );
     }
   }
+  return losers;
+}
 
+/** The order the rounds are played in: each winners round, then the losers rounds it feeds; the Grand Final last. */
+function raceOrderOfPlay(winnersRoundCount: number): RaceSequenceEntry[] {
   const sequence: RaceSequenceEntry[] = [];
   let losersIndex = 0;
   for (let index = 0; index < winnersRoundCount; index += 1) {
@@ -138,7 +134,23 @@ export function raceDoubleEliminationBracketPhase(
     }
   }
   sequence.push({ type: 'gf' });
+  return sequence;
+}
 
+/** The order of play as the tournament's rounds, each pointing to where its winners and losers go. */
+function raceRoundsFromOrder({
+  sequence,
+  winners,
+  losers,
+  startRoundNum,
+  winnersRoundCount,
+}: {
+  sequence: RaceSequenceEntry[];
+  winners: RaceBracketProjection[];
+  losers: RaceLosersRound[];
+  startRoundNum: number;
+  winnersRoundCount: number;
+}): TournamentRound[] {
   const grandFinalPosition = sequence.length - 1;
 
   return sequence.map((entry, position): TournamentRound => {
@@ -185,4 +197,35 @@ export function raceDoubleEliminationBracketPhase(
       ...(isWinners && entry.wbIndex === 0 ? { bracketPhaseFirstRound: true } : {}),
     });
   });
+}
+
+/** Builds a head-to-head double-elimination bracket with a grand final. */
+export function raceDoubleEliminationBracketPhase(
+  seedTotal: number,
+  startRoundNum: number,
+  config: RaceDoubleEliminationConfig,
+): TournamentRound[] {
+  if (config.roomSize.ideal !== 2) {
+    throw new Error(
+      `doubleEliminationBracketPhase requires a head-to-head room shape (roomSize.ideal === 2) — got ${config.roomSize.ideal}.`,
+    );
+  }
+  if (config.oddCountStrategy === 'flex') {
+    throw new Error(
+      'doubleEliminationBracketPhase does not support the "flex" odd-count strategy — a 3-unit room is not double elimination. Use "none" or "bye" instead.',
+    );
+  }
+
+  const shape = nextPowerOf2AndRounds(seedTotal);
+  const winnersRoundCount = shape.numRounds;
+  if (winnersRoundCount < 2) {
+    throw new Error(
+      `doubleEliminationBracketPhase requires at least 2 winners-bracket rounds — got seedTotal ${seedTotal}.`,
+    );
+  }
+
+  const winners = raceWinnersRounds(seedTotal, shape, config);
+  const losers = raceLosersRounds(winners, config);
+  const sequence = raceOrderOfPlay(winnersRoundCount);
+  return raceRoundsFromOrder({ sequence, winners, losers, startRoundNum, winnersRoundCount });
 }
