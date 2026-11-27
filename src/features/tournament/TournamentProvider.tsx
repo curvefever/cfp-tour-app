@@ -12,21 +12,12 @@ import { resetTournamentState } from '../../domain/tournament/tournament-resets'
 import { createDefaultSetup, createDefaultTournamentState } from '../../domain/tournament/state-defaults';
 import { createTournamentRuntime, type TournamentRuntime } from '../../domain/tournament/runtime';
 import type { ActiveTab, PersistedSetup, TournamentState } from '../../domain/tournament/types';
-import { normalizeLiveTournamentState } from '../../lib/persistence/live-state';
-import {
-  loadLiveEnvelope,
-  saveBracketFollow,
-  saveExited,
-  saveLastView,
-  saveLiveEnvelope,
-} from '../../lib/persistence/storage';
+import { loadLiveEnvelope, saveBracketFollow, saveExited } from '../../lib/persistence/storage';
 import { useAuth } from '../auth/AuthProvider';
 import { displayAccess } from './display-access';
 import { useFlushAfterSignInAgain } from '../auth/useFlushAfterSignInAgain';
-import { getFirebaseSetupTransport, getFirebaseSyncTransport } from '../sync/firebase-client';
 import { getTourEnvironment } from '../sync/firebase-paths';
-import { SyncCoordinator, withoutServerOwned, type SyncStatus, type SyncTransport } from '../sync/live-sync';
-import { SetupSync } from '../sync/setup-sync';
+import { withoutServerOwned, type SyncStatus } from '../sync/live-sync';
 import { buildTournamentPatch } from '../sync/tournament-patch';
 import {
   createTournament,
@@ -39,19 +30,16 @@ import {
   unpublishTournament,
 } from '../tournaments/tournament-lifecycle.server-fns';
 import { tournamentPhase, type TournamentAction } from '../tournaments/tournament-lifecycle';
-import { stateDescription, type TournamentSummary } from '../tournaments/tournament-summary';
+import type { TournamentSummary } from '../tournaments/tournament-summary';
 import { useTournamentIndex, type TournamentIndexState } from '../tournaments/useTournamentIndex';
 import { landingTab, resolveVisit } from '../tournaments/visit';
 import { loadedPhase } from '../shell/tabs';
+import { useAddressBar } from './useAddressBar';
 import { useBrowserSave } from './useBrowserSave';
+import { useStoreUpdates } from './useStoreUpdates';
+import { useTournamentSync } from './useTournamentSync';
 import { useTournamentStore } from './useTournamentStore';
 import { useVisitMemory } from './useVisitMemory';
-
-declare global {
-  interface Window {
-    __CURVE_TOUR_SYNC_TRANSPORT__?: SyncTransport;
-  }
-}
 
 export interface TournamentAppContext {
   state: TournamentState;
@@ -133,117 +121,32 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
   const signedInViewer = !auth.canAdmin;
   const [spectatorView, setSpectatorView] = useState(false);
   const access = displayAccess(auth.canAdmin, spectatorView);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ kind: 'idle' });
-  const sync = useRef<SyncCoordinator | null>(null);
-  const setupSync = useRef<SetupSync | null>(null);
   const { persist, isViewerRef } = useBrowserSave(signedInViewer);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const coordinator = new SyncCoordinator(stateRef.current, {
-      transport: window.__CURVE_TOUR_SYNC_TRANSPORT__ ?? getFirebaseSyncTransport(),
-      onStatus: setSyncStatus,
-      describe: stateDescription,
-      onRemote(remote) {
-        const next = normalizeLiveTournamentState(remote, runtime.ids);
-        stateRef.current = next;
-        setState(next);
-        saveLiveEnvelope(
-          window.localStorage,
-          { T: next, setup: setupRef.current, activeTab: activeTabRef.current },
-          { isViewer: isViewerRef.current },
-        );
-      },
-    });
-    sync.current = coordinator;
-    return () => {
-      coordinator.dispose();
-      if (sync.current === coordinator) sync.current = null;
-    };
-  }, [hydrated, runtime]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    const setupCoordinator = new SetupSync(setupRef.current, {
-      transport: getFirebaseSetupTransport(),
-      onRemote(remote) {
-        setupRef.current = remote;
-        setSetup(remote);
-        saveLiveEnvelope(
-          window.localStorage,
-          { T: stateRef.current, setup: remote, activeTab: activeTabRef.current },
-          { isViewer: isViewerRef.current },
-        );
-      },
-      onError: (message) => console.warn('Could not save the Setup form', message),
-    });
-    setupSync.current = setupCoordinator;
-    return () => {
-      setupCoordinator.dispose();
-      if (setupSync.current === setupCoordinator) setupSync.current = null;
-    };
-  }, [hydrated]);
-
-  useEffect(() => {
-    if (!hydrated || !sync.current) return;
-    sync.current.configure(auth.canAdmin ? 'writer' : 'viewer', state.tournamentId);
-  }, [auth.canAdmin, hydrated, state.tournamentId]);
-
-  useEffect(() => {
-    if (!hydrated || !setupSync.current) return;
-    setupSync.current.configure(auth.canAdmin ? state.tournamentId : null);
-  }, [auth.canAdmin, hydrated, state.tournamentId]);
-
-  useEffect(() => {
-    sync.current?.setCurrent(state);
-  }, [state]);
-
-  // The tournament in the address is the one that is loaded, for everyone, so a reload and a shared link keep it.
-  useEffect(() => {
-    if (!hydrated || !visitResolved) return;
-    const url = state.tournamentId
-      ? `${window.location.pathname}?t=${encodeURIComponent(state.tournamentId)}`
-      : window.location.pathname;
-    window.history.replaceState(null, '', url);
-  }, [hydrated, state.tournamentId, visitResolved]);
-
-  useEffect(() => {
-    if (!hydrated || !visitResolved || !state.tournamentId) return;
-    saveLastView(window.localStorage, { tournamentId: state.tournamentId, tab: activeTab });
-  }, [activeTab, hydrated, state.tournamentId, visitResolved]);
-
-  const setActiveTab = useCallback(
-    (tab: ActiveTab) => {
-      setActiveTabState(tab);
-      persist(state, setup, tab);
-    },
-    [persist, setup, state],
-  );
-  const updateState = useCallback(
-    (updater: TournamentState | ((current: TournamentState) => TournamentState)) => {
-      setState((current) => {
-        const next = typeof updater === 'function' ? updater(current) : updater;
-        persist(next, setup, activeTab);
-        sync.current?.updateLocal(current, next);
-        return next;
-      });
-    },
-    [activeTab, persist, setup],
-  );
-  const updateSetup = useCallback(
-    (updater: PersistedSetup | ((current: PersistedSetup) => PersistedSetup)) => {
-      setSetup((current) => {
-        const next = typeof updater === 'function' ? updater(current) : updater;
-        persist(state, next, activeTab);
-        setupSync.current?.updateLocal(current, next);
-        return next;
-      });
-    },
-    [activeTab, persist, state],
-  );
-  const flushPending = useCallback(async () => {
-    await Promise.all([sync.current?.flush(), setupSync.current?.flush()]);
-  }, []);
+  const { syncStatus, sync, setupSync, flushPending } = useTournamentSync({
+    auth,
+    hydrated,
+    runtime,
+    state,
+    setState,
+    setSetup,
+    stateRef,
+    setupRef,
+    activeTabRef,
+    isViewerRef,
+  });
+  useAddressBar(hydrated, visitResolved, state, activeTab);
+  const { setActiveTab, updateState, updateSetup } = useStoreUpdates({
+    setActiveTabState,
+    setState,
+    setSetup,
+    persist,
+    state,
+    setup,
+    activeTab,
+    sync,
+    setupSync,
+  });
 
   // Signing in again after an expired session sends what the tab kept meanwhile, without another keystroke.
   useFlushAfterSignInAgain(auth.sessionExpired, auth.canAdmin, () => void flushPending());
