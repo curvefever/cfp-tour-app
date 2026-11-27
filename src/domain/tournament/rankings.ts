@@ -588,6 +588,7 @@ function stillInOrWaiting({
   outNow,
   phases,
   finalComplete,
+  roster,
 }: {
   state: TournamentState;
   lastRi: number;
@@ -595,6 +596,7 @@ function stillInOrWaiting({
   outNow: ReadonlySet<string>;
   phases: RankingPhases;
   finalComplete: boolean;
+  roster: string[];
 }): {
   active: Array<RoundAssignment & { ri?: number }>;
   waiting: Array<{ name: string; isLucky: boolean; waitingFor: number; joining?: true }>;
@@ -603,7 +605,7 @@ function stillInOrWaiting({
   // was fully pre-generated before the withdrawal (e.g. group-stage's whole
   // schedule is built upfront) -- exclude anyone no longer on the roster so
   // they never appear as "still in tournament".
-  const rosterSet = new Set(rosterKeys(state.players));
+  const rosterSet = new Set(roster);
   const active = seats.filter((entry) => rosterSet.has(entry.name) && !outNow.has(entry.name));
   const pooled = finalComplete ? [] : waitingUnits(state, phases.isNotDrawn, rosterSet, active);
   const waiting = [
@@ -624,6 +626,7 @@ function rankEliminated({
   standings,
   eliminated,
   phases,
+  roster,
 }: {
   state: TournamentState;
   active: RoundAssignment[];
@@ -632,12 +635,13 @@ function rankEliminated({
   standings: StandingsDisplay | null;
   eliminated: ReadonlyMap<string, RoundElimination>;
   phases: RankingPhases;
+  roster: string[];
 }): Array<Omit<EliminatedRanking, 'label' | 'members' | 'poolRank'>> {
   const activeNames = new Set([...active.map(({ name }) => name), ...waiting.map(({ name }) => name)]);
   const finalistNames = new Set(finalistValues.map(({ name }) => name));
   const placements = cutPlacements(state, standings);
   const perGroup = Boolean(standings?.perGroup);
-  const eliminatedValues: EliminatedEntry[] = rosterKeys(state.players)
+  const eliminatedValues: EliminatedEntry[] = roster
     .filter((name) => !activeNames.has(name) && !finalistNames.has(name))
     .flatMap((name) => {
       const info = eliminated.get(name);
@@ -650,7 +654,7 @@ function rankEliminated({
     .sort(compareEliminated(perGroup));
 
   // Eliminated units always rank below every unit that is not eliminated (still active, in the Final, finalists).
-  const offset = rosterKeys(state.players).length - eliminatedValues.length;
+  const offset = roster.length - eliminatedValues.length;
   let rank = 0;
   const rankedEliminated = eliminatedValues.map((entry, index) => {
     const previous = eliminatedValues[index - 1];
@@ -722,7 +726,16 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     phases,
     finalComplete,
   });
-  const { active, waiting } = stillInOrWaiting({ state, lastRi, seats, outNow, phases, finalComplete });
+  const roster = rosterKeys(state.players);
+  const { active, waiting } = stillInOrWaiting({
+    state,
+    lastRi,
+    seats,
+    outNow,
+    phases,
+    finalComplete,
+    roster,
+  });
 
   const standings = describeStandings(state);
   const rankedEliminated = rankEliminated({
@@ -733,6 +746,7 @@ export function computeRankings(state: TournamentState): TournamentRankings | nu
     standings,
     eliminated,
     phases,
+    roster,
   });
 
   const rankedFinalists = rankFinalists(finalistValues, lastRound);
