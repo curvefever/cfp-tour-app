@@ -51,7 +51,9 @@ Review, per stage (Planner-Reviewer): every production hunk read, the covering f
 
 **Pushes.** The plan said no push. `a6e1672` to `186df92` were pushed to `test` before the final review, for the live check; the commits after it were not pushed by the implementer.
 
-**Full suite:** (reviewer).
+**Final review (planner/reviewer).** Every stage reviewed with its mutation checks (a)-(m), all caught. Over the 31 source files the build changed: eslint and `prettier --check` clean, type check 0 errors. No e2e (the plan lists none).
+
+**Full suite:** passed on `67fbd47` (317 files, 7,722 tests; `.claude/**` excluded, a worktree exists).
 
 **Out of scope / known effects.**
 - Known effect: a stored upper and lower tournament, bracket not entered, with both `qualAdv` and `upperLowerAdvance` cleared by hand. It now asks for the worked-out number instead of everyone who fits. No stored data was looked at.
