@@ -6,20 +6,9 @@ import { unitLabelPluralLower } from './formats';
 import { matchFormatFields, sameRoundFormat } from './match-format';
 import { changeRoundMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
-import {
-  currentColumn,
-  isRoundDone,
-  isRoundReached,
-  reopenedRounds,
-  roundColumn,
-  usesDependencyPlay,
-} from './round-columns';
-import { discardRoundDraws } from './redraw';
-import { plainRoundName } from './round-name';
+import { isRoundDone, isRoundReached, usesDependencyPlay } from './round-columns';
 import { roundHasAnyScore } from './scoring';
-import { seedRoundFromPendingPool } from './round-advance-tools';
 import { sameWinTargets } from './win-stamps';
-import { routesTo } from './waterfall-steps';
 import { generatedConfig } from './generated-config';
 import { hasAppWrittenMark, withoutAppWrittenMark } from './rule-versions';
 import type { PendingBracketSeed, TournamentRound, TournamentState } from './types';
@@ -31,6 +20,8 @@ import {
 } from './waterfall-bracket';
 import { validateAndOrderWaterfallGraph } from './waterfall-graph-check';
 import { parseWaterfallGraph } from './waterfall-graph-text';
+import { lateFeederRefusal, startedRounds, winsTargetsRefusal } from './waterfall-live-edit-locks';
+import { advancesReplayed, redrawRounds } from './waterfall-live-edit-replay';
 
 /**
  * Applying an edited waterfall graph to a running tournament: any round's
@@ -135,11 +126,6 @@ function withoutChangedBestDecisions(
   return kept;
 }
 
-/** A drawn round keeps the targets its units were stamped with: its sources are done, so a save can't ask for other ones. */
-function winsTargetsRefusal(round: TournamentRound): string {
-  return `Can't save: "${round.customLabel}" has already been drawn, so its uneven wins can't change.`;
-}
-
 /** A reached round with the edited routing; one drawn short keeps its real shape and recounts the ranks it still sends on. */
 function rerouted(reachedRound: TournamentRound, spec: TournamentRound): TournamentRound {
   const next = withBestOf(
@@ -151,112 +137,9 @@ function rerouted(reachedRound: TournamentRound, spec: TournamentRound): Tournam
   return 'error' in fitted ? next : fitted;
 }
 
-/**
- * Re-draws the rounds of the current column whose line-up the edit changed, from the replayed pools.
- * Each one is cleared first (`discardRoundDraws`: draw, byes, tie resolutions, absences, room history), then drawn
- * again in order. Every index has a line-up when it is given: a round is listed only when its recorded line-up
- * differs from the replayed pool, and a round drawn with nobody has nothing to undo.
- */
-function redrawRounds(
-  state: TournamentState,
-  indices: number[],
-  replayPools: Map<number, PendingBracketSeed[]>,
-): { state: TournamentState } | { error: string } {
-  // The pool is this caller's step (`discardRoundDraws` leaves it): the replayed one. A Custom bracket round never
-  // counts a pooling bye, so the pooling-bye counts `discardRoundDraws` can undo are not touched here.
-  let working: TournamentState = {
-    ...discardRoundDraws(state, indices),
-    pendingBracketSeeds: {
-      ...state.pendingBracketSeeds,
-      ...Object.fromEntries(indices.map((index) => [index, replayPools.get(index) ?? []])),
-    },
-  };
-  for (const index of indices) {
-    // The pool may be short of the round's declared seats (a withdrawal): draw it short, as an advance would.
-    const fitted = fitWaterfallRound(working.rounds[index], (replayPools.get(index) ?? []).length);
-    if ('error' in fitted) return { error: fitted.error };
-    working = {
-      ...working,
-      rounds: working.rounds.map((round, position) => (position === index ? fitted : round)),
-    };
-    const failure = seedRoundFromPendingPool(working, index);
-    // The pool now fits the round exactly; this is a defensive fallback.
-    if (failure) return { error: failure.message };
-  }
-  return { state: working };
-}
-
-/** The rounds a save treats as already started. `drawn` are drawn (they keep their round and draw); `fixed` also holds the undrawn rounds of a column that has started, whose label and column stay. */
-interface StartedRounds {
-  drawn: number;
-  fixed: number;
-}
-
-/**
- * Which rounds of the bracket have started. Column play: the column in play and every one before it, whole. Dependency
- * play: the drawn rounds are a prefix of the bracket's rounds in the common shape, and a column with any drawn round
- * counts whole. Other shapes, and a reopened press, are refused: the save can't tell which draws its replay would keep.
- */
-function startedRounds(
-  state: TournamentState,
-  firstWaterfallIndex: number,
-): StartedRounds | { error: string } {
-  if (!usesDependencyPlay(state)) {
-    const count =
-      state.curRound < firstWaterfallIndex ? 0 : currentColumn(state).end - firstWaterfallIndex + 1;
-    return { drawn: count, fixed: count };
-  }
-  const label = (index: number) => plainRoundName(state.rounds[index]);
-  const reopened = reopenedRounds(state);
-  if (reopened.length > 0) {
-    const names = reopened.map((index) => `"${label(index)}"`).join(', ');
-    return {
-      error: `Can't save while ${names} ${reopened.length > 1 ? 'are' : 'is'} reopened with Previous: press Next Round to send ${reopened.length > 1 ? 'them' : 'it'} on again first.`,
-    };
-  }
-  const bracket = state.rounds.map((_, index) => index).filter((index) => index >= firstWaterfallIndex);
-  const reached = bracket.filter((index) => isRoundReached(state, index));
-  const gap = bracket.find((index, offset) => offset < reached.length && !isRoundReached(state, index));
-  if (gap !== undefined) {
-    const later = reached.find((index) => index > gap) as number;
-    return {
-      error: `Can't save yet: "${label(gap)}" has not been drawn, but "${label(later)}" has. Play on until "${label(gap)}" is drawn, then save the graph.`,
-    };
-  }
-  const last = firstWaterfallIndex + reached.length - 1;
-  return {
-    drawn: reached.length,
-    fixed: roundColumn(state.rounds, last).end - firstWaterfallIndex + 1,
-  };
-}
-
-/** A drawn round can't take units from a round that is not done: its draw would be missing them. Null when it doesn't. */
-function lateFeederRefusal(
-  state: TournamentState,
-  rounds: TournamentRound[],
-  firstWaterfallIndex: number,
-  drawn: number,
-): string | null {
-  for (let index = firstWaterfallIndex; index < firstWaterfallIndex + drawn; index += 1) {
-    const source = rounds.findIndex(
-      (round, candidate) => routesTo(round, index) && !isRoundDone(state, candidate),
-    );
-    if (source !== -1) {
-      return `Can't save: "${plainRoundName(rounds[source])}" is not done yet, so it can't feed "${plainRoundName(rounds[index])}", which is already drawn.`;
-    }
-  }
-  return null;
-}
-
 /** The pooling rounds before the bracket, as they stand. */
 function poolingBefore(state: TournamentState, firstWaterfallIndex: number): TournamentRound[] {
   return state.rounds.slice(0, firstWaterfallIndex);
-}
-
-/** The advances the replay of a save repeats: the rounds before the column in play, or in dependency play the set of rounds done. */
-function advancesReplayed(state: TournamentState): number | ReadonlySet<number> {
-  if (!usesDependencyPlay(state)) return currentColumn(state).start;
-  return new Set(state.rounds.flatMap((_, index) => (isRoundDone(state, index) ? [index] : [])));
 }
 
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
