@@ -308,12 +308,110 @@ function dependencyLateFeederRefusal(
   return null;
 }
 
+/** The round lists of the edited tournament: what is reached stays as it is, every later round starts empty. */
+function roundLists(state: TournamentState, base: EditBase, built: BracketRounds) {
+  const { firstWaterfallIndex, qualIndex, reached } = base;
+  const { standingsRoutes, newBracketRounds } = built;
+
+  const keptLength = firstWaterfallIndex + reached.length;
+  const tailLength = newBracketRounds.length - reached.length;
+  const poolingRounds = state.rounds
+    .slice(0, firstWaterfallIndex)
+    .map((round, index) => (index === qualIndex && standingsRoutes ? { ...round, standingsRoutes } : round));
+  const rounds = [...poolingRounds, ...newBracketRounds];
+  const assignments = [
+    ...state.assignments.slice(0, keptLength),
+    ...Array.from({ length: tailLength }, (): TournamentState['assignments'][number] => []),
+  ];
+  const byes = [
+    ...state.byes.slice(0, keptLength),
+    ...Array.from({ length: tailLength }, (): string[] => []),
+  ];
+  const luckyLosers = [
+    ...state.luckyLosers.slice(0, keptLength),
+    ...Array.from({ length: tailLength }, (): string[] => []),
+  ];
+
+  return { keptLength, tailLength, poolingRounds, rounds, assignments, byes, luckyLosers };
+}
+
+/** The pooling exit's settings as the edited Qual or Groups line implies them, or why that line can't be saved. */
+function editedExit(
+  state: TournamentState,
+  base: EditBase,
+  graph: OrderedWaterfallGraph,
+): WaterfallParseResult<TournamentState['cfg']> {
+  const { standingsSource, standingsKind, qualIndex, reachedCount } = base;
+
+  const sentOn = graph.qualRoutes?.length;
+  let cfg: TournamentState['cfg'] = { ...state.cfg, qualAdv: sentOn ?? state.cfg.qualAdv };
+  if (standingsSource && standingsKind === 'groups' && sentOn !== undefined) {
+    const settings = groupsLineSettings(state, sentOn, state.rounds[qualIndex], reachedCount > 0);
+    if (!settings.ok) return settings;
+    cfg = settings.cfg;
+  }
+  return { ok: true, value: cfg };
+}
+
+/** The tie decisions the edited tournament keeps. */
+function keptTieDecisions(
+  state: TournamentState,
+  base: EditBase,
+  edit: {
+    cfg: TournamentState['cfg'];
+    rounds: TournamentRound[];
+    standingsRoutes: TournamentRound['standingsRoutes'];
+  },
+): TournamentState['tieResolutions'] {
+  const { firstWaterfallIndex, qualIndex, standingsSource, standingsKind, reachedCount, reached } = base;
+  const { cfg, rounds, standingsRoutes } = edit;
+
+  // A tie resolution made for the old cut lines can't be trusted for new ones, but once the bracket is
+  // entered the draw already used them, so they stay.
+  const routingChanged =
+    JSON.stringify(state.rounds[qualIndex]?.standingsRoutes) !== JSON.stringify(standingsRoutes);
+  const exitChanged =
+    cfg.qualAdv !== state.cfg.qualAdv || cfg.qualifiersPerGroup !== state.cfg.qualifiersPerGroup;
+  const dropStaleTies = standingsSource && routingChanged && reachedCount === 0;
+  const isStale = (key: string) =>
+    standingsKind === 'groups' ? isGroupExitTieKey(key, exitChanged) : isQualCutoffKey(key);
+  const tieResolutions = withoutChangedBestDecisions(
+    dropStaleTies
+      ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isStale(key)))
+      : state.tieResolutions,
+    state.rounds,
+    rounds,
+    firstWaterfallIndex + reached.length,
+  );
+  return tieResolutions;
+}
+
+/** The edited tournament as the replay reads it: the new rounds and settings, the pools and draws not yet redone. */
+function editedDraft(
+  state: TournamentState,
+  base: EditBase,
+  edit: Pick<TournamentState, 'cfg' | 'rounds' | 'assignments' | 'byes' | 'luckyLosers' | 'tieResolutions'>,
+): TournamentState {
+  const { reachedCount } = base;
+  const { cfg, rounds, assignments, byes, luckyLosers, tieResolutions } = edit;
+
+  return {
+    ...state,
+    ...(reachedCount === 0 && state.waterfallSteps?.length ? { waterfallSteps: [] } : {}),
+    cfg,
+    rounds,
+    assignments,
+    byes,
+    luckyLosers,
+    tieResolutions,
+  };
+}
+
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const read = readEditBase(state);
   if (!read.ok) return read;
   const base = read.value;
-  const { firstWaterfallIndex, finalsGames, finalsBestOf } = base;
-  const { qualIndex, standingsSource, standingsKind, reachedCount, reached } = base;
+  const { firstWaterfallIndex, finalsGames, finalsBestOf, standingsSource, reached } = base;
 
   const edited = readEditedGraph(base, text);
   if (!edited.ok) return edited;
@@ -336,59 +434,15 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const lateRefusal = dependencyLateFeederRefusal(state, newBracketRounds, firstWaterfallIndex, reached);
   if (lateRefusal) return { ok: false, error: lateRefusal };
 
-  const keptLength = firstWaterfallIndex + reached.length;
-  const tailLength = newBracketRounds.length - reached.length;
-  const poolingRounds = state.rounds
-    .slice(0, firstWaterfallIndex)
-    .map((round, index) => (index === qualIndex && standingsRoutes ? { ...round, standingsRoutes } : round));
-  const rounds = [...poolingRounds, ...newBracketRounds];
-  const assignments = [
-    ...state.assignments.slice(0, keptLength),
-    ...Array.from({ length: tailLength }, (): TournamentState['assignments'][number] => []),
-  ];
-  const byes = [
-    ...state.byes.slice(0, keptLength),
-    ...Array.from({ length: tailLength }, (): string[] => []),
-  ];
-  const luckyLosers = [
-    ...state.luckyLosers.slice(0, keptLength),
-    ...Array.from({ length: tailLength }, (): string[] => []),
-  ];
+  const lists = roundLists(state, base, built.value);
+  const { keptLength, rounds } = lists;
 
-  const sentOn = graph.qualRoutes?.length;
-  let cfg: TournamentState['cfg'] = { ...state.cfg, qualAdv: sentOn ?? state.cfg.qualAdv };
-  if (standingsSource && standingsKind === 'groups' && sentOn !== undefined) {
-    const settings = groupsLineSettings(state, sentOn, state.rounds[qualIndex], reachedCount > 0);
-    if (!settings.ok) return settings;
-    cfg = settings.cfg;
-  }
-  // A tie resolution made for the old cut lines can't be trusted for new ones, but once the bracket is
-  // entered the draw already used them, so they stay.
-  const routingChanged =
-    JSON.stringify(state.rounds[qualIndex]?.standingsRoutes) !== JSON.stringify(standingsRoutes);
-  const exitChanged =
-    cfg.qualAdv !== state.cfg.qualAdv || cfg.qualifiersPerGroup !== state.cfg.qualifiersPerGroup;
-  const dropStaleTies = standingsSource && routingChanged && reachedCount === 0;
-  const isStale = (key: string) =>
-    standingsKind === 'groups' ? isGroupExitTieKey(key, exitChanged) : isQualCutoffKey(key);
-  const tieResolutions = withoutChangedBestDecisions(
-    dropStaleTies
-      ? Object.fromEntries(Object.entries(state.tieResolutions).filter(([key]) => !isStale(key)))
-      : state.tieResolutions,
-    state.rounds,
-    rounds,
-    firstWaterfallIndex + reached.length,
-  );
-  let working: TournamentState = {
-    ...state,
-    ...(reachedCount === 0 && state.waterfallSteps?.length ? { waterfallSteps: [] } : {}),
-    cfg,
-    rounds,
-    assignments,
-    byes,
-    luckyLosers,
-    tieResolutions,
-  };
+  const exit = editedExit(state, base, graph);
+  if (!exit.ok) return exit;
+  const cfg = exit.value;
+
+  const tieResolutions = keptTieDecisions(state, base, { cfg, rounds, standingsRoutes });
+  let working = editedDraft(state, base, { ...lists, cfg, tieResolutions });
 
   // Replay every advance of the rounds done (in column play: every round before the current column) under the new
   // routing, accumulating per-destination pools exactly as advanceTournamentRound would across a
