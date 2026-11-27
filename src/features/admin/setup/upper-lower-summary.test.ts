@@ -115,6 +115,24 @@ describe('the Setup panel of an upper and lower bracket', () => {
     expect(upperLowerAutomaticPlaceholder({ ...groups, groupExit: 'per-group' }, null)).toBe('automatic');
   });
 
+  it('the placeholder of an empty Flex 1v1 form names the number that enters: the odd-count strategy adds no rooms', () => {
+    // An upper and lower bracket is seated by the format's own rooms of 2 (4 or 8 enter), never by Flex rooms of 3.
+    const flex = form({
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'swiss',
+      oddCountStrategy: 'flex',
+      qualAdv: '',
+    });
+    expect(upperLowerAutomaticPlaceholder(flex, 13)).toBe('automatic: 8');
+    expect(readyOf(upperLowerSummary(flex, 13)).heading).toMatch(/^8 of 13 enter/);
+    const result = generateTournament(
+      createDefaultTournamentState({ confirmedCount: 13, players: rosterFor('individual-1v1', 13) }),
+      flex,
+      testRuntime(),
+    );
+    expect(result.status === 'generated' ? result.state.cfg.qualAdv : result).toBe(8);
+  });
+
   it('follows "Advance to bracket"', () => {
     expect(readyOf(upperLowerSummary(form({ upperLowerAdvance: '28' }), 31)).heading).toBe(
       '28 of 31 enter (3 out in the qualification table): upper 7, 7 · lower 7, 7',

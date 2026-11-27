@@ -296,6 +296,31 @@ describe('the automatic entry follows the pooling setting', () => {
     expect(entering(37, empty)).toBe(28);
   });
 
+  it.each([
+    [14, 12],
+    [17, 12],
+    [29, 24],
+    [31, 24],
+    [37, 28],
+    [43, 32],
+    [53, 32],
+    [61, 32],
+  ])('FFA at %i with an empty Advance to bracket: %i enter, never a refusal', (count, enter) => {
+    expect(entering(count, { ...FFA, qualAdv: '' })).toBe(enter);
+  });
+
+  it('1v1 Swiss at 9, 13 and 31 with an empty Advance to bracket: 8 enter, never a refusal', () => {
+    const swiss = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', oddCountStrategy: 'bye' } as const;
+    expect([9, 13, 31].map((count) => entering(count, { ...swiss, qualAdv: '' }))).toEqual([8, 8, 8]);
+  });
+
+  it('a Group Stage total left empty is picked the same way, and a per-group exit is not', () => {
+    expect(entering(12, { ...GROUPS, groupExit: 'fair-cut', qualAdv: '' })).toBe(8);
+    expect(entering(12, { ...GROUPS, groupExit: 'per-group', qualAdv: '' })).toBe(
+      entering(12, { ...GROUPS, groupExit: 'per-group', qualAdv: '24' }),
+    );
+  });
+
   it('a typed upper and lower field still wins over the pooling setting', () => {
     expect(entering(37, { ...FFA, qualAdv: '20', upperLowerAdvance: '28' })).toBe(28);
     expect(entering(37, { ...FFA, upperLowerAdvance: '99' })).toBe(32);

@@ -4,7 +4,7 @@ import type { PersistedSetup, RoomSize, ScheduleLogicKey } from './types';
 /**
  * "Advance to bracket" left empty: the number the app works out from the field (`docs/rules.md`, "Pooling phase"). It
  * is 75-85% of those expected to play, picked to fill equal rooms; head-to-head single elimination and the race double
- * elimination take a power of two first.
+ * elimination take a power of two first. A bracket that seats only some counts (upper and lower) is picked among those.
  */
 
 export interface PracticeBracketEntry {
@@ -19,6 +19,8 @@ interface PracticeInput {
   registered: number;
   roomSize: RoomSize;
   scheduleLogic: ScheduleLogicKey;
+  /** The only counts the bracket can seat; left out, every count from its floor up. */
+  allowed?: readonly number[];
 }
 
 /** How many of those registered are expected to play: 9 in 10. */
@@ -56,28 +58,40 @@ function pickInRange(counts: number[], input: PracticeInput, play: number) {
   return null;
 }
 
-export function practiceBracketEntry(input: PracticeInput): PracticeBracketEntry {
-  const { registered, roomSize, scheduleLogic } = input;
-  const play = expectedToPlay(registered);
+/** The counts the bracket can take: from its floor to everyone registered, only the allowed ones when it has some. */
+function candidateCounts({ registered, roomSize, scheduleLogic, allowed }: PracticeInput): number[] {
   const floor = getMinimumBracketUnits(scheduleLogic, roomSize);
-  const from = Math.max(floor, Math.ceil((3 * play) / 4));
-  const to = Math.min(registered, Math.floor((17 * play) / 20));
-  const counts = Array.from({ length: Math.max(0, to - from + 1) }, (_, index) => from + index);
-  const picked = pickInRange(counts, input, play);
+  const counts = Array.from({ length: Math.max(0, registered - floor + 1) }, (_, index) => floor + index);
+  return allowed ? counts.filter((count) => allowed.includes(count)) : counts;
+}
+
+export function practiceBracketEntry(input: PracticeInput): PracticeBracketEntry {
+  const play = expectedToPlay(input.registered);
+  const counts = candidateCounts(input);
+  const from = Math.ceil((3 * play) / 4);
+  const to = Math.floor((17 * play) / 20);
+  const picked = pickInRange(
+    counts.filter((count) => count >= from && count <= to),
+    input,
+    play,
+  );
   if (picked) return { ...picked, play };
-  const count = Math.min(registered, Math.max(floor, Math.round((4 * play) / 5)));
-  return { count, play, rooms: null };
+  // Nothing in the range: the count closest to 80%; everyone in a field under the floor.
+  return { count: closestToTarget(counts, play) ?? input.registered, play, rooms: null };
 }
 
 /**
  * How many the Setup form asks to advance: the typed "Advance to bracket" (null when it is no positive whole number),
- * or, left empty, the number worked out for this head count. The one reader of the form's `qualAdv`.
+ * or, left empty, the number worked out for this head count, among the `allowed` counts when only some can be seated.
+ * The one reader of the form's `qualAdv`.
  */
 export function requestedBracketEntry(
   setup: Pick<PersistedSetup, 'qualAdv' | 'scheduleLogic'>,
   registered: number,
   roomSize: RoomSize,
+  allowed?: readonly number[],
 ): number | null {
   if (setup.qualAdv.trim()) return parseAdvanceToBracket(setup.qualAdv);
-  return practiceBracketEntry({ registered, roomSize, scheduleLogic: setup.scheduleLogic }).count;
+  const { scheduleLogic } = setup;
+  return practiceBracketEntry({ registered, roomSize, scheduleLogic, allowed }).count;
 }

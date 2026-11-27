@@ -376,9 +376,9 @@ export interface AutomaticRequest {
 /**
  * The automatic request of the upper and lower bracket: the pooling setting, as the other bracket styles read it.
  * After a qualification table or a Swiss it is the form's "Advance to bracket" (`qualAdv`; left empty, the number the
- * app works out for this head count); after a group stage the exit of the group settings: groups times the qualifiers
- * per group, or the total of an Even split or a Fair cut (which is that same `qualAdv`). One reader for generation,
- * the Setup panel and the running Admin's re-work.
+ * app works out for this head count, one of `upperLowerEntries`); after a group stage the exit of the group settings:
+ * groups times the qualifiers per group, or the total of an Even split or a Fair cut (which is that same `qualAdv`).
+ * One reader for generation, the Setup panel and the running Admin's re-work.
  */
 export function automaticRequest(
   form: Pick<PersistedSetup, 'poolingPhase' | 'qualAdv' | 'qualifiersPerGroup' | 'groupExit'>,
@@ -386,10 +386,12 @@ export function automaticRequest(
   unitCount: number,
   roomSize: RoomSize,
 ): AutomaticRequest {
+  // Left empty, the number is picked among those an upper and lower bracket can seat; a typed one is refused as ever.
   const total = requestedBracketEntry(
     { qualAdv: form.qualAdv, scheduleLogic: 'upper-lower' },
     unitCount,
     roomSize,
+    upperLowerEntries(roomSize),
   );
   if (form.poolingPhase !== 'group-stage' || groupExitIsTotal(form)) return { request: total };
   const { qualifiersPerGroup: qualifiers } = groupSettingsOf(form);

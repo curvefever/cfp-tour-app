@@ -68,6 +68,26 @@ describe('practiceBracketEntry', () => {
   });
 });
 
+describe('practiceBracketEntry among the counts a bracket can seat', () => {
+  const SEATED = [12, 13, 14, 15, 16, 24, 25, 26, 27, 28, 29, 30, 31, 32];
+  const countAt = (registered: number) =>
+    practiceBracketEntry({ registered, roomSize: FFA, scheduleLogic: 'upper-lower', allowed: SEATED }).count;
+
+  it('picks by the same rooms inside the range', () => {
+    // 37: 25 to 28, and 28 is four rooms of 7, though 26 is closer to 80%. 43: 32 is four rooms of 8.
+    expect([37, 43].map(countAt)).toEqual([28, 32]);
+  });
+
+  it('takes the closest seated count to 80% when none is in the range', () => {
+    // 31: 21 to 23, with 16 and 24 on each side of 22.4. 53: 36 to 40, above them all.
+    expect([31, 53].map(countAt)).toEqual([24, 32]);
+  });
+
+  it('is everyone in a field under every seated count', () => {
+    expect(countAt(10)).toBe(10);
+  });
+});
+
 describe('requestedBracketEntry', () => {
   const requested = (qualAdv: string) =>
     requestedBracketEntry({ qualAdv, scheduleLogic: 'single-elimination' }, 37, FFA);
