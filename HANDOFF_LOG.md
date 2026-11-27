@@ -6,7 +6,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Cleanup part 2H-2: TournamentProvider as one hook per job (done — 2026-11-27, on `test`, not pushed)
+## Cleanup part 2H-2: TournamentProvider as one hook per job (done — 2026-11-27, on `test`, not `main`)
 
 **Context.** The second half of the last pass of cleanup part 2. `TournamentProvider` held the whole app state in one component: ten effects, about fifteen callbacks and nine refs (cleanup audit C8-1). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `e0fac6f` (the provider itself unchanged since `3a539e3`). Behaviour does not change. Commits: `78f7c73` (stage 4), `3635566` (5), `4e534f0` (6), `ba13015` (7), `c0105be` (8) and its revert `e35de3e`.
 
@@ -34,6 +34,10 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Testing.** No test added (by plan) or changed. Per stage (4 to 8): eslint, `prettier --check` and the type check clean on the changed files; `vitest related` on them (worktree copies excluded): 45 files, 787 tests passed, each time. After the revert, whose code is identical to `ba13015`, the same run had 783 pass and 4 time out at 5 s, while a mutation check of the review was running in the same checkout; the two files holding those 4 then passed alone, 12 of 12. Import loop check after each stage: 0 groups on `src/features`, the 3 known domain groups on `src`. Stages 5 to 7 were also checked by script: every former code line of the provider is in the new files, apart from `errorText` gaining `export`.
 
+Review: each stage's moved lines compared with the provider's removed ones (only imports, signatures, headers and returns differ), the effect order checked per stage, and the revert's `src/` checked identical to `ba13015`. Mutation checks, each against the related tests (45 files) and the smoke e2e: (e) `useAddressBar` called before `useTournamentSync`, (f) the sync's remote saves made with `{ isViewer: false }`, (g) the spectator effect no longer ending the spectator view on sign-out. **None of the three fails a test: test gaps**, recorded, no test added in this pass (the provider is covered only by `AppShell.spectator.render.test.tsx` and the e2e navigation). (h) does not apply: it checked stage 8, which was reverted. Final review: eslint, `prettier --check` and the type check clean on the 16 changed source files of 2H; import loops 0 on `src/features`, the 3 known groups on `src`. Smoke e2e (`pnpm run test:e2e`): 7 passed on `bd64f6d`. Full suite: passed on `bd64f6d` (313 files, 7,657 tests), covering 2H-1 too. No live check yet (see "Status").
+
+**Status.** Pushed to `test` after the final review, at the organiser's request while away; not `main`. The live check of the plan (a throwaway Test run on the test site: Setup format changes, a round, reload, exit and reopen, spectator view, back to draft, lock) needs a signed-in admin and is left for the organiser unless the built-in browser already has one.
+
 **Found, not changed.**
 - `updateState` and `updateSetup` save in the browser and send to the database inside the function passed to React's setter, which React may run twice. Harmless today: the app has no StrictMode and no transitions. Stage 8 (`c0105be`, reverted by `e35de3e`) worked out the next value from `stateRef` / `setupRef` instead. But every render writes the rendered state back into those refs: if a remote update has set the ref and React renders the provider for a click before applying it, the ref holds the older state until it is applied, and an update made in that gap would build on it and send old values over another admin's change. React's own update queue has no such gap. The gap is narrow and was not shown to be reachable, but could not be ruled out, and there was nothing to gain today. It also changed which browser save lands last when one event changes both the state and the form. Moving the side effects out needs a design that keeps React's queue order against a pending remote update.
 
@@ -41,7 +45,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
-## Cleanup part 2H-1: the Setup format rules out of FormatPanel (done — 2026-11-27, on `test`, not pushed)
+## Cleanup part 2H-1: the Setup format rules out of FormatPanel (done — 2026-11-27, on `test`, not `main`)
 
 **Context.** The first half of the eighth and last pass of cleanup part 2. What a change of the game format, the odd-count strategy or the scoring system does to the other settings was written inside handlers of the `FormatPanel` component, and no test rendered the panel on its own (cleanup audit C6-1, the rules only). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `3a539e3`. Behaviour does not change. Commits: `b7180d1` (stage 0, the render tests alone), `a09dbb8` (1, the rules as pure functions), `4430513` (2, the repeated expressions).
 
@@ -56,6 +60,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 **Lengths** (all lines / code lines): `FormatPanel.tsx` 858 / 820 → 793 / 769. `format-change-rules.ts`: 120 / 86.
 
 **Testing.** Added: the two test files above; no existing test changed. Per stage: eslint, `prettier --check` and the type check clean on the changed files; `vitest related` (worktree copies excluded): stage 1 37 files, 725 tests; stage 2 41 files, 815 tests, all passed. Import loop check: 0 groups on `src/features`, the 3 known domain groups on `src`. No live check or e2e. Not a shared-code build.
+
+Review: the moved handlers compared line for line with the new functions. Mutation checks against the two test files: (a) `setupAfterFormatChange` reading the form's pooling phase in place of the rendered one: 1 failed; (b) no Kings Valley branch in `reconcileScheduleLogicForFormat`: 4 failed; (c) `isRaceCompatible` ignoring Flex: none failed at first, 1 failed after `aca829c`; (d) `setupAfterScoringChange` leaving the tie margin alone: 2 failed. Full suite: not run for 2H-1 alone (no shared code); covered by the 2H-2 run on `bd64f6d`.
 
 **Found, not changed.**
 - `setupAfterOddCountChange` and `setupAfterFormatChange` each mix the rendered form and the form being changed; the two differ only when an update arrives between the render and the click (for cleanup part 3).
