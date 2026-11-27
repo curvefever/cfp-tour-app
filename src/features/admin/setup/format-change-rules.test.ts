@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { getGameFormat } from '../../../domain/tournament/formats';
 import { createDefaultSetup } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import {
+  isHeadToHead,
+  isRaceCompatible,
+  leavesHeadToHeadPooling,
   reconcileScheduleLogicForFormat,
   setupAfterFormatChange,
   setupAfterOddCountChange,
@@ -20,6 +24,33 @@ const TWO_TEAMS = {
 /** The format change as the panel makes it when nothing moved between the render and the click. */
 const toFormat = (start: PersistedSetup, value: PersistedSetup['gameFormat']) =>
   setupAfterFormatChange(start, value, start.poolingPhase);
+
+const FFA = getGameFormat('ffa-individual');
+const HEAD_TO_HEAD = getGameFormat('individual-1v1');
+
+describe('the head-to-head questions', () => {
+  it('an unknown format is not head-to-head', () => {
+    expect(isHeadToHead(HEAD_TO_HEAD)).toBe(true);
+    expect(isHeadToHead(FFA)).toBe(false);
+    expect(isHeadToHead(undefined)).toBe(false);
+  });
+
+  it('the race double elimination needs head-to-head rooms without Flex', () => {
+    expect(isRaceCompatible(HEAD_TO_HEAD, 'flex')).toBe(false);
+    expect(isRaceCompatible(HEAD_TO_HEAD, 'bye')).toBe(true);
+    expect(isRaceCompatible(FFA, 'bye')).toBe(false);
+  });
+
+  it.each([
+    ['swiss', FFA, true],
+    ['group-stage', FFA, true],
+    ['swiss', HEAD_TO_HEAD, false],
+    ['group-stage', HEAD_TO_HEAD, false],
+    ['qual-table', FFA, false],
+  ] as const)('a %s pooling phase has to go: %#', (poolingPhase, format, expected) => {
+    expect(leavesHeadToHeadPooling(poolingPhase, format)).toBe(expected);
+  });
+});
 
 describe('reconcileScheduleLogicForFormat', () => {
   it.each([
