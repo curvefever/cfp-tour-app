@@ -28,7 +28,7 @@ const SETUP_SCHEDULE = {
 };
 const SETUP_POOLING = {
   none: 'None — standard elimination from R1',
-  'qual-table': 'Qualification Table — R1/R2/R3 feed cumulative table',
+  'qual-table': 'Qualification table',
   swiss: 'Swiss — rounds paired by points feed cumulative standings',
   'group-stage': 'Group Stage — round-robin groups, top finishers advance',
 };

@@ -168,7 +168,7 @@ export const POOLING_PHASE_WORDS: Record<PoolingPhaseKey, ChoiceWords<string | n
     list: null,
   },
   'qual-table': {
-    setup: 'Qualification Table — R1/R2/R3 feed cumulative table',
+    setup: 'Qualification table',
     recap: 'Qualification Table',
     list: 'Qualification table',
   },

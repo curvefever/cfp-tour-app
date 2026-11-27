@@ -26,7 +26,7 @@ describe('practiceBracketEntry', () => {
   ])(
     'FFA with %i registered: %i expected to play, %i advance in equal rooms',
     (registered, play, count, rooms) => {
-      expect(entryAt(registered, FFA)).toEqual({ count, play, rooms });
+      expect(entryAt(registered, FFA)).toEqual({ count, play, inRange: true, rooms });
     },
   );
 
@@ -49,6 +49,7 @@ describe('practiceBracketEntry', () => {
     expect(entryAt(25, roomSizeOf('team-2v2v2v2'))).toEqual({
       count: 18,
       play: 23,
+      inRange: true,
       rooms: { count: 6, size: 3 },
     });
   });
@@ -59,7 +60,12 @@ describe('practiceBracketEntry', () => {
   });
 
   it('keeps to the bracket floor when the range falls under it', () => {
-    expect(entryAt(14, FFA)).toEqual({ count: 12, play: 13, rooms: null });
+    expect(entryAt(14, FFA)).toEqual({ count: 12, play: 13, inRange: false, rooms: null });
+  });
+
+  it('says a count is in the range when it is, though it fills no equal rooms', () => {
+    // 1v1 with 12 registered: 11 expected to play, and 9 alone is 75-85% of them.
+    expect(entryAt(12, HEAD_TO_HEAD)).toEqual({ count: 9, play: 11, inRange: true, rooms: null });
   });
 
   it('takes everyone in a field at or below the floor', () => {
@@ -81,6 +87,9 @@ describe('practiceBracketEntry among the counts a bracket can seat', () => {
   it('takes the closest seated count to 80% when none is in the range', () => {
     // 31: 21 to 23, with 16 and 24 on each side of 22.4. 53: 36 to 40, above them all.
     expect([31, 53].map(countAt)).toEqual([24, 32]);
+    expect(
+      practiceBracketEntry({ registered: 31, roomSize: FFA, scheduleLogic: 'upper-lower', allowed: SEATED }),
+    ).toEqual({ count: 24, play: 28, inRange: false, rooms: null });
   });
 
   it('is everyone in a field under every seated count', () => {

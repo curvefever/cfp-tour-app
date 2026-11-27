@@ -20,9 +20,22 @@ describe('automaticAdvanceText', () => {
     });
   });
 
-  it('names no rooms for a count that fills no equal rooms: FFA at 14, kept to the floor of 12', () => {
+  it('says the nearest the bracket can seat when the count is outside 75-85%: FFA at 14, the floor of 12', () => {
     expect(textAt({}, 14).hint).toBe(
-      'Empty: 12, 75-85% of the 13 expected to play (9 in 10 of 14 registered).',
+      'Empty: 12, the nearest the bracket can seat to 80% of the 13 expected to play (9 in 10 of 14 registered).',
+    );
+  });
+
+  it('says the same of an upper and lower bracket that has no count in the range: 24 at 31', () => {
+    expect(textAt({ scheduleLogic: 'upper-lower' }, 31)).toEqual({
+      placeholder: 'automatic: 24',
+      hint: 'Empty: 24, the nearest the bracket can seat to 80% of the 28 expected to play (9 in 10 of 31 registered).',
+    });
+  });
+
+  it('keeps 75-85% for a count in the range that fills no equal rooms: 1v1 at 12', () => {
+    expect(textAt({ gameFormat: 'individual-1v1' }, 12).hint).toBe(
+      'Empty: 9, 75-85% of the 11 expected to play (9 in 10 of 12 registered).',
     );
   });
 

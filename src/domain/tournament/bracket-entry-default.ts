@@ -11,6 +11,8 @@ export interface PracticeBracketEntry {
   count: number;
   /** The number expected to play, which the range is a share of. */
   play: number;
+  /** Whether the count is within 75-85% of those expected to play. */
+  inRange: boolean;
   /** The equal rooms the choice fills; null for a power of two and for a count with no such split. */
   rooms: { count: number; size: number } | null;
 }
@@ -70,14 +72,12 @@ export function practiceBracketEntry(input: PracticeInput): PracticeBracketEntry
   const counts = candidateCounts(input);
   const from = Math.ceil((3 * play) / 4);
   const to = Math.floor((17 * play) / 20);
-  const picked = pickInRange(
-    counts.filter((count) => count >= from && count <= to),
-    input,
-    play,
-  );
-  if (picked) return { ...picked, play };
-  // Nothing in the range: the count closest to 80%; everyone in a field under the floor.
-  return { count: closestToTarget(counts, play) ?? input.registered, play, rooms: null };
+  const isInRange = (count: number) => count >= from && count <= to;
+  const picked = pickInRange(counts.filter(isInRange), input, play);
+  if (picked) return { ...picked, play, inRange: true };
+  // No class has a count in the range: the count closest to 80%; everyone in a field under the floor.
+  const count = closestToTarget(counts, play) ?? input.registered;
+  return { count, play, inRange: isInRange(count), rooms: null };
 }
 
 /**

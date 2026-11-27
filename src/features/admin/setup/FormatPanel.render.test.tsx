@@ -177,11 +177,17 @@ describe('the FORMAT panel of a new tournament', () => {
     const { field, text } = draw(newTournamentSetup(), 37);
     const pooling = document.getElementById('cfg-pooling-phase') as HTMLSelectElement;
     expect(pooling.value).toBe('qual-table');
-    expect(pooling.selectedOptions[0].textContent).toMatch(/^Qualification Table/);
+    expect(pooling.selectedOptions[0].textContent).toBe('Qualification table');
     expect(field.value).toBe('');
     expect(field.placeholder).toBe('automatic: 28');
     expect(text).toContain(
       'Empty: 28, 75-85% of the 33 expected to play (9 in 10 of 37 registered), in 4 rooms of 7.',
+    );
+  });
+
+  it('says the nearest the bracket can seat when the number is outside 75-85%: 12 at 14', () => {
+    expect(draw(newTournamentSetup(), 14).text).toContain(
+      'Empty: 12, the nearest the bracket can seat to 80% of the 13 expected to play (9 in 10 of 14 registered).',
     );
   });
 

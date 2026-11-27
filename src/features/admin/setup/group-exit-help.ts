@@ -1,11 +1,10 @@
 import { clampAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
 import { requestedBracketEntry } from '../../../domain/tournament/bracket-entry-default';
-import { deriveRoomSize, getGameFormat } from '../../../domain/tournament/formats';
 import { groupExitIsTotal, groupExitRefusal, groupExitShape } from '../../../domain/tournament/group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { groupExitHelp } from '../../tournament/components/group-exit-text';
-import { seatedEntriesOf } from './bracket-entry-text';
+import { entrySeatingOf } from './bracket-entry-text';
 
 /**
  * The help line under "Teams out of the groups": what the current roster would do with a total, in words, or why
@@ -41,10 +40,8 @@ function requestedTotal(
   setup: Pick<PersistedSetup, 'gameFormat' | 'scheduleLogic' | 'qualAdv'>,
   registered: number,
 ): number | null {
-  const format = getGameFormat(setup.gameFormat);
-  if (!format) return null;
-  const roomSize = deriveRoomSize(format);
-  return requestedBracketEntry(setup, registered, roomSize, seatedEntriesOf(setup.scheduleLogic, roomSize));
+  const seating = entrySeatingOf(setup);
+  return seating && requestedBracketEntry(setup, registered, seating.roomSize, seating.allowed);
 }
 
 function perGroupHelpLine(
