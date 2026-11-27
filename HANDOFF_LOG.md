@@ -50,6 +50,8 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 **Out of scope.** C5b-3: who won the Final is worked out twice (`finalsProgressState` and `computeRankings`); tying them together changes code, so it is a pass of its own. `bracket.ts` has two jobs, the labels and boxes and the projection; moving the projection to its own file would be a pass like 2E, and would keep the `bracket` and `projected-seeds` type loop unless `ProjectedSlotLabel` moved too. The forced types above, any wording, and renames. A push to `test` or `main` is decided after the final review, with the organiser.
 
+**Full suite**: passed on `0832fdd`: 311 files, 7,604 tests (`pnpm exec vitest run --exclude "**/.claude/**"`, a worktree being present). Final review: eslint, `prettier --check` and the type check clean over the 3 code files of the pass (`rankings.ts`, `bracket.ts`, `finals.ts`). The four render tests that failed once at stage 3 passed.
+
 ---
 
 ## Cleanup part 2E-2: `mutations.ts` in seven files named after their jobs (done — 2026-11-26, on `test`, not pushed)
