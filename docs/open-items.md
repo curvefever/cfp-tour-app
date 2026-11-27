@@ -14,7 +14,7 @@ The organiser's order for what is built next. Each line names an entry of this f
 
 **In this order** (organiser, 2026-11-17 and 2026-11-20). One implementer builds at a time: every build lands on `test` in the same checkout. Planning and the organiser's answers run alongside. A finished item leaves this list; its record is its `HANDOFF_LOG.md` entry.
 
-1. **The rest of the rigidity audit's order**, each its own plan: defaults that follow the organiser's practice (four pooling rounds with the first not counted, the bracket entry from the field); "Showing the app's decisions next to the overrides"; "Room-size policy"; the ladder recipe, to scope with the organiser (Kings Valley merged with the organiser's ladder); versions side by side and planning again when registrations move; "Which pooling system ranks best" as evidence for the starting values.
+1. **The rest of the rigidity audit's order**, each its own plan: "Showing the app's decisions next to the overrides" (until it lands, a new tournament's pooling round numbers are plain values in the Setup form, not shown as the app's own); "Room-size policy"; the ladder recipe, to scope with the organiser (Kings Valley merged with the organiser's ladder); versions side by side and planning again when registrations move; "Which pooling system ranks best" as evidence for the starting values.
 2. **When an event needs them**, out of order: the To do entries of "Bracket, Standings and Rankings" and "Phone layout" as one polish bundle.
 
 **Low priority, parked by the organiser:** every entry tagged Limitation or Idea (not built without a request); in `docs/roadmap.md`, "Seeding qualification rounds by results" (kept as it is for now) and the "What do I need?" line (parked).
