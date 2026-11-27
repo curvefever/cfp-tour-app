@@ -1,4 +1,9 @@
-import { findNextPosition, toRoundIndex, type RaceDoubleEliminationConfig } from './double-elimination';
+import {
+  findNextPosition,
+  nextWinnersPosition,
+  toRoundIndex,
+  type RaceDoubleEliminationConfig,
+} from './double-elimination';
 import { newRound } from './new-round';
 import { distributeRoomsWithBye, isSeatable, splitAdvancement } from './room-distribution';
 import { computeCleanTargets, computeEliminationRoundCount, computeTargets } from './single-elimination';
@@ -128,19 +133,12 @@ function seatableWinnersTarget(
 type SharedSequenceEntry =
   { type: 'wb'; wbIndex: number } | { type: 'lb'; lbIndex: number } | { type: 'final' };
 
-/** Builds a multi-unit bracket where the winners and losers brackets feed one shared final. */
-export function sharedFinalDoubleEliminationBracketPhase(
+/** The winners bracket: its survivor targets (the organiser's own, or computed) and every round with its rooms. */
+function sharedWinnersRounds(
   seedTotal: number,
-  startRoundNum: number,
+  winnersQualifiers: number,
   config: SharedFinalDoubleEliminationConfig,
-): TournamentRound[] {
-  const winnersQualifiers = config.finalSize - config.lbQualifiers;
-  if (!(config.lbQualifiers >= 1) || !(winnersQualifiers >= 1)) {
-    throw new Error(
-      `doubleEliminationSharedFinalBracketPhase requires lbQualifiers >= 1 and finalSize - lbQualifiers >= 1 — got lbQualifiers=${config.lbQualifiers}, finalSize=${config.finalSize}.`,
-    );
-  }
-
+): SharedWinnersRound[] {
   let winnersTargets: number[];
   if (config.explicitTargets) {
     winnersTargets = config.explicitTargets;
@@ -156,7 +154,19 @@ export function sharedFinalDoubleEliminationBracketPhase(
   const winners: SharedWinnersRound[] = winnersTargets.map((target, index) =>
     buildSharedWinnersRound(index === 0 ? seedTotal : winnersTargets[index - 1], target, config),
   );
+  return winners;
+}
 
+/**
+ * The losers bracket, planned along the winners rounds: where each losers round falls, how many survive it, and which
+ * losers round takes each winners round's drops. It changes `winners` in place: lever 3 rebuilds a winners round and the
+ * one after it with a new target, and the steps after this one read the changed array.
+ */
+function planSharedLosersRounds(
+  seedTotal: number,
+  winners: SharedWinnersRound[],
+  config: SharedFinalDoubleEliminationConfig,
+): { losers: SharedLosersRound[]; losersDestinationByWinnersRound: Array<number | null> } {
   const losers: SharedLosersRound[] = [];
   const losersDestinationByWinnersRound: Array<number | null> = Array.from(
     { length: winners.length },
@@ -240,7 +250,14 @@ export function sharedFinalDoubleEliminationBracketPhase(
       `doubleEliminationSharedFinalBracketPhase could not route every winners-bracket round's losers to a losers-bracket round — lbQualifiers (${config.lbQualifiers}) may be too large for how many units winners-bracket play actually eliminates from seedTotal ${seedTotal}.`,
     );
   }
+  return { losers, losersDestinationByWinnersRound };
+}
 
+/** The order the rounds are played in: each winners round, then the losers rounds that fall after it; the Final last. */
+function sharedOrderOfPlay(
+  winners: SharedWinnersRound[],
+  losers: SharedLosersRound[],
+): SharedSequenceEntry[] {
   const sequence: SharedSequenceEntry[] = [];
   for (let winnersIndex = 0; winnersIndex < winners.length; winnersIndex += 1) {
     sequence.push({ type: 'wb', wbIndex: winnersIndex });
@@ -251,7 +268,25 @@ export function sharedFinalDoubleEliminationBracketPhase(
     }
   }
   sequence.push({ type: 'final' });
+  return sequence;
+}
 
+/** The order of play as the tournament's rounds, each pointing to where its winners and losers go. */
+function sharedRoundsFromOrder({
+  sequence,
+  winners,
+  losers,
+  losersDestinationByWinnersRound,
+  startRoundNum,
+  config,
+}: {
+  sequence: SharedSequenceEntry[];
+  winners: SharedWinnersRound[];
+  losers: SharedLosersRound[];
+  losersDestinationByWinnersRound: Array<number | null>;
+  startRoundNum: number;
+  config: SharedFinalDoubleEliminationConfig;
+}): TournamentRound[] {
   const finalPosition = sequence.length - 1;
   const losersSequencePosition = (winnersIndex: number): number | null => {
     const destination = losersDestinationByWinnersRound[winnersIndex];
@@ -279,9 +314,7 @@ export function sharedFinalDoubleEliminationBracketPhase(
       ? null
       : findNextPosition(sequence, position, (candidate) => candidate.type !== 'wb');
     const winnersTo = isWinners
-      ? entry.wbIndex === winners.length - 1
-        ? finalPosition
-        : findNextPosition(sequence, position, (candidate) => candidate.type === 'wb')
+      ? nextWinnersPosition(sequence, position, entry.wbIndex === winners.length - 1, finalPosition)
       : nextLosersOrFinal === -1
         ? finalPosition
         : nextLosersOrFinal;
@@ -301,5 +334,31 @@ export function sharedFinalDoubleEliminationBracketPhase(
         ? { seedingOverride: config.explicitSeedingOverrides[entry.wbIndex] }
         : {}),
     });
+  });
+}
+
+/** Builds a multi-unit bracket where the winners and losers brackets feed one shared final. */
+export function sharedFinalDoubleEliminationBracketPhase(
+  seedTotal: number,
+  startRoundNum: number,
+  config: SharedFinalDoubleEliminationConfig,
+): TournamentRound[] {
+  const winnersQualifiers = config.finalSize - config.lbQualifiers;
+  if (!(config.lbQualifiers >= 1) || !(winnersQualifiers >= 1)) {
+    throw new Error(
+      `doubleEliminationSharedFinalBracketPhase requires lbQualifiers >= 1 and finalSize - lbQualifiers >= 1 — got lbQualifiers=${config.lbQualifiers}, finalSize=${config.finalSize}.`,
+    );
+  }
+
+  const winners = sharedWinnersRounds(seedTotal, winnersQualifiers, config);
+  const { losers, losersDestinationByWinnersRound } = planSharedLosersRounds(seedTotal, winners, config);
+  const sequence = sharedOrderOfPlay(winners, losers);
+  return sharedRoundsFromOrder({
+    sequence,
+    winners,
+    losers,
+    losersDestinationByWinnersRound,
+    startRoundNum,
+    config,
   });
 }

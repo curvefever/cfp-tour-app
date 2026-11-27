@@ -5,7 +5,7 @@ import type { OddCountStrategyKey, RoomSize, TournamentRound } from './types';
 /**
  * Double elimination, the race variant: head to head, a winners and a losers bracket that meet in a Grand Final
  * (`raceDoubleEliminationBracketPhase`). The shared-Final variant is in `double-elimination-shared-final.ts`, which
- * takes this file's config type, `findNextPosition` and `toRoundIndex`.
+ * takes this file's config type, `findNextPosition`, `nextWinnersPosition` and `toRoundIndex`.
  */
 
 interface BracketPowerShape {
@@ -58,6 +58,18 @@ export function findNextPosition<T>(
   matches: (entry: T) => boolean,
 ): number {
   return sequence.findIndex((entry, position) => position > after && matches(entry));
+}
+
+/** Where a winners round's winners go: the next winners round in the order of play, or from the last one the final. */
+export function nextWinnersPosition<T extends { type: string }>(
+  sequence: readonly T[],
+  position: number,
+  isLastWinnersRound: boolean,
+  finalPosition: number,
+): number {
+  return isLastWinnersRound
+    ? finalPosition
+    : findNextPosition(sequence, position, (candidate) => candidate.type === 'wb');
 }
 
 export function toRoundIndex(startRoundNum: number, sequencePosition: number | null): number | null {
@@ -179,9 +191,7 @@ function raceRoundsFromOrder({
           advTotal: losers[entry.lbIndex].rooms.length + losers[entry.lbIndex].byeCount,
         };
     const winnersToPosition = isWinners
-      ? entry.wbIndex === winnersRoundCount - 1
-        ? grandFinalPosition
-        : findNextPosition(sequence, position, (candidate) => candidate.type === 'wb')
+      ? nextWinnersPosition(sequence, position, entry.wbIndex === winnersRoundCount - 1, grandFinalPosition)
       : findNextPosition(sequence, position, (candidate) => candidate.type !== 'wb');
     const losersToPosition = isWinners ? position + 1 : null;
     return newRound({
