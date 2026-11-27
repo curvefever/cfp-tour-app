@@ -6,6 +6,30 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## Cleanup part 2H-1: the Setup format rules out of FormatPanel (done — 2026-11-27, on `test`, not pushed)
+
+**Context.** The first half of the eighth and last pass of cleanup part 2. What a change of the game format, the odd-count strategy or the scoring system does to the other settings was written inside handlers of the `FormatPanel` component, and no test rendered the panel on its own (cleanup audit C6-1, the rules only). It follows the 2H plan and "Rules for every pass" of the part 2 plan; starting point `3a539e3`. Behaviour does not change. Commits: `b7180d1` (stage 0, the render tests alone), `a09dbb8` (1, the rules as pure functions), `4430513` (2, the repeated expressions).
+
+**Stage 0, today's behaviour first.** `FormatPanel.render.test.tsx`, 20 tests, committed before any move: each changes one select and compares the whole resulting form. Two cases of the plan can't be made through the screen as written: only a two-team format offers Flex (1v1 has None and Bye, FFA has no odd-count select), so both use 2v2. Its second start state, Bye with the shared-Final double elimination, can't be picked on screen either.
+
+**Stage 1.** New `format-change-rules.ts`: `reconcileScheduleLogicForFormat` (moved with its comment, the two callers' names in it updated), `setupAfterOddCountChange`, `setupAfterScoringChange`, `setupAfterFormatChange`. `FormatPanel` keeps its three handler names, each one `updateSetup` line. Two values were read from the rendered form, not from the form being changed, and still are: they are explicit parameters, `renderedHeadToHead` and `renderedPoolingPhase`. `format-change-rules.test.ts` (26 tests) covers the four functions, with one case for each of the two parameters where the rendered value differs from the form's.
+
+**Stage 2.** `isHeadToHead`, `isRaceCompatible` and `leavesHeadToHeadPooling`, only where the expression was identical. In `admin/setup/`: `idealRoomSize === 2` and `!== 2` went from 9 places (8 in `FormatPanel`, 1 in `format-fields.ts`) to the one in `isHeadToHead`; "race compatible" from 3 written out to `isRaceCompatible` (2 calls) plus `setupAfterOddCountChange`, which gets only the rendered yes or no and so keeps `renderedHeadToHead && value !== 'flex'`; "leaves head-to-head pooling" from 2 written out to 2 calls.
+
+**Lengths** (all lines / code lines): `FormatPanel.tsx` 858 / 820 → 793 / 769. `format-change-rules.ts`: 120 / 86.
+
+**Testing.** Added: the two test files above; no existing test changed. Per stage: eslint, `prettier --check` and the type check clean on the changed files; `vitest related` (worktree copies excluded): stage 1 37 files, 725 tests; stage 2 41 files, 815 tests, all passed. Import loop check: 0 groups on `src/features`, the 3 known domain groups on `src`. No live check or e2e. Not a shared-code build.
+
+**Found, not changed.**
+- `setupAfterOddCountChange` and `setupAfterFormatChange` each mix the rendered form and the form being changed; the two differ only when an update arrives between the render and the click (for cleanup part 3).
+- The same head-to-head test stays written out in domain code, out of this pass: `generation-plan-gates.ts` (2), `generation-plan.ts` (2), `match-results.ts` (1), `transitions.ts` (1).
+- In `FormatPanel.tsx`, the line "The line under the group exit field …" sits above `GroupsLineExitField`'s own comment; it describes `GroupExitHelpText`.
+- The pooling phase select still writes its change inline in the JSX (not one of the three handlers).
+
+**Out of scope.** The panel's layout split (the decisions display will lay it out again); the LB qualifiers field kept in the screen's memory (C6-2); the domain copies above. Cleanup part 2H-2, `TournamentProvider`, is next.
+
+---
+
 ## Cleanup part 2G-2: double elimination in named steps (done — 2026-11-27, on `test`, not pushed)
 
 **Context.** The second half of the seventh pass of cleanup part 2. Each of the two double elimination builders was one body, and the two shared a file over the length limit (cleanup audit C3b-1). It follows the 2G plan and "Rules for every pass" of the part 2 plan; starting point `bc4fc1b`. Behaviour does not change: not one message, not one check's order, not one stored field. Commits: `4c9c2e6` (stage 8, the file cut), `c464571` (9, the race builder), `f3c6e12` (10, the shared-Final builder), `3977912` (11, the walk's levers). Stage 7 is the harness, never committed; stage 12 is this entry and the docs.
