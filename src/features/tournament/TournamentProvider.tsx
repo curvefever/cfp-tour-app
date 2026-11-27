@@ -104,8 +104,6 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
     state,
     setup,
     activeTab,
-    stateRef,
-    setupRef,
     sync,
     setupSync,
   });

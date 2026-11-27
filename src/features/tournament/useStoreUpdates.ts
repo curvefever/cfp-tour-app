@@ -16,8 +16,6 @@ export function useStoreUpdates({
   state,
   setup,
   activeTab,
-  stateRef,
-  setupRef,
   sync,
   setupSync,
 }: {
@@ -28,8 +26,6 @@ export function useStoreUpdates({
   state: TournamentState;
   setup: PersistedSetup;
   activeTab: ActiveTab;
-  stateRef: RefObject<TournamentState>;
-  setupRef: RefObject<PersistedSetup>;
   sync: RefObject<SyncCoordinator | null>;
   setupSync: RefObject<SetupSync | null>;
 }) {
@@ -40,27 +36,25 @@ export function useStoreUpdates({
     },
     [persist, setup, state],
   );
-  // The next value is worked out from the ref, which takes it at once so a second change in the same event builds on
-  // it. Saving and sending stay outside React's state updater, which React may run twice.
   const updateState = useCallback(
     (updater: TournamentState | ((current: TournamentState) => TournamentState)) => {
-      const current = stateRef.current;
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      stateRef.current = next;
-      setState(next);
-      persist(next, setup, activeTab);
-      sync.current?.updateLocal(current, next);
+      setState((current) => {
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        persist(next, setup, activeTab);
+        sync.current?.updateLocal(current, next);
+        return next;
+      });
     },
     [activeTab, persist, setup],
   );
   const updateSetup = useCallback(
     (updater: PersistedSetup | ((current: PersistedSetup) => PersistedSetup)) => {
-      const current = setupRef.current;
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      setupRef.current = next;
-      setSetup(next);
-      persist(state, next, activeTab);
-      setupSync.current?.updateLocal(current, next);
+      setSetup((current) => {
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        persist(state, next, activeTab);
+        setupSync.current?.updateLocal(current, next);
+        return next;
+      });
     },
     [activeTab, persist, state],
   );
