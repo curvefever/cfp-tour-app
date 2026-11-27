@@ -1,9 +1,11 @@
 import { clampAdvanceToBracket } from '../../../domain/tournament/bracket-entry';
-import { parseAdvanceToBracket } from '../../../domain/tournament/bracket-entry-default';
+import { requestedBracketEntry } from '../../../domain/tournament/bracket-entry-default';
+import { deriveRoomSize, getGameFormat } from '../../../domain/tournament/formats';
 import { groupExitIsTotal, groupExitRefusal, groupExitShape } from '../../../domain/tournament/group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf, groupSizesOf } from '../../../domain/tournament/group-settings';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { groupExitHelp } from '../../tournament/components/group-exit-text';
+import { seatedEntriesOf } from './bracket-entry-text';
 
 /**
  * The help line under "Teams out of the groups": what the current roster would do with a total, in words, or why
@@ -11,7 +13,10 @@ import { groupExitHelp } from '../../tournament/components/group-exit-text';
  * per group, whenever generation would accept it: only the refusal is shown.
  */
 export function groupExitHelpLine(
-  setup: Pick<PersistedSetup, 'groupExit' | 'groupSize' | 'qualAdv' | 'qualifiersPerGroup'>,
+  setup: Pick<
+    PersistedSetup,
+    'gameFormat' | 'scheduleLogic' | 'groupExit' | 'groupSize' | 'qualAdv' | 'qualifiersPerGroup'
+  >,
   registered: number | null,
   unitPlural: string,
 ): { text: string; refused: boolean } | null {
@@ -19,7 +24,7 @@ export function groupExitHelpLine(
   const groupSize = Number.parseInt(setup.groupSize, 10);
   if (!(groupSize >= GROUP_SIZE_BOUNDS.min && groupSize <= GROUP_SIZE_BOUNDS.max)) return null;
   if (!groupExitIsTotal(setup)) return perGroupHelpLine(setup, registered, groupSize, unitPlural);
-  const requested = parseAdvanceToBracket(setup.qualAdv);
+  const requested = requestedTotal(setup, registered);
   if (requested === null) return null;
   const total = clampAdvanceToBracket(requested, registered);
   const refusal = groupExitRefusal(registered, groupSize, setup.groupExit, total, unitPlural);
@@ -29,6 +34,17 @@ export function groupExitHelpLine(
     text: groupExitHelp(groupExitShape(sizes, setup.groupExit, total), sizes, registered, unitPlural),
     refused: false,
   };
+}
+
+/** The total the form asks for, the one the app works out when the field is empty (as generation reads it). */
+function requestedTotal(
+  setup: Pick<PersistedSetup, 'gameFormat' | 'scheduleLogic' | 'qualAdv'>,
+  registered: number,
+): number | null {
+  const format = getGameFormat(setup.gameFormat);
+  if (!format) return null;
+  const roomSize = deriveRoomSize(format);
+  return requestedBracketEntry(setup, registered, roomSize, seatedEntriesOf(setup.scheduleLogic, roomSize));
 }
 
 function perGroupHelpLine(

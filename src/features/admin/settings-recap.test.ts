@@ -53,6 +53,26 @@ function itemsOf(groups: RecapGroup[]): Record<string, string> {
 }
 
 describe('settingsRecapGroups', () => {
+  it('reads an empty "Advance to bracket" as the number the tournament was generated with', () => {
+    const setup = { poolingPhase: 'qual-table', qualAdv: '' } as const;
+    const generated = { ...stateOf(setup), cfg: { qualAdv: 28 } };
+    expect(itemsOf(settingsRecapGroups(generated))['Advance to bracket']).toBe('28 (automatic)');
+    const typed = { ...stateOf({ ...setup, qualAdv: '24' }), cfg: { qualAdv: 24 } };
+    expect(itemsOf(settingsRecapGroups(typed))['Advance to bracket']).toBe('24');
+  });
+
+  it('reads an empty group stage total the same way', () => {
+    const setup = {
+      gameFormat: 'individual-1v1',
+      poolingPhase: 'group-stage',
+      groupExit: 'fair-cut',
+    } as const;
+    const generated = { ...stateOf({ ...setup, qualAdv: '' }), cfg: { qualAdv: 10 } };
+    expect(groupItems(generated)['Advance to bracket']).toBe('10 (automatic) in all');
+    const typed = { ...stateOf({ ...setup, qualAdv: '8' }), cfg: { qualAdv: 8 } };
+    expect(groupItems(typed)['Advance to bracket']).toBe('8 in all');
+  });
+
   it('words a Best of N Semis and Final as Best of N, not as summed games', () => {
     const items = itemsOf(
       settingsRecapGroups(

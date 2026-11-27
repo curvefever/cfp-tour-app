@@ -53,6 +53,13 @@ interface RecapEntry {
 }
 
 const orDefault = (value: string, fallback: string) => value.trim() || fallback;
+
+/** "Advance to bracket" as typed; left empty, the number the app worked out for the tournament. */
+function advanceText(settings: TournamentSettings, state: TournamentState): string {
+  const automatic = state.cfg.qualAdv === undefined ? '—' : `${state.cfg.qualAdv} (automatic)`;
+  return orDefault(settings.qualAdv, automatic);
+}
+
 const matchOf = (games: string, bestOf: string) =>
   matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
 
@@ -162,9 +169,9 @@ const RECAP: Record<RecapField, RecapEntry> = {
   qualAdv: {
     group: 'POOLING',
     label: 'Advance to bracket',
-    value: (settings) => {
+    value: (settings, _pointsVersion, state) => {
       if (standingsKindOfSetup(settings) !== 'qual') {
-        return orDefault(settings.qualAdv, '—');
+        return advanceText(settings, state);
       }
       const advancing = waterfallGraphQualAdvance(settings.waterfallGraph);
       return advancing > 0 ? `${advancing}, set by the custom bracket graph` : '—';
@@ -244,9 +251,9 @@ const RECAP: Record<RecapField, RecapEntry> = {
       if (!groupExitIsTotal(settings)) return 'Qualifiers per group';
       return settings.scheduleLogic === 'upper-lower' ? 'Total out of the groups' : 'Advance to bracket';
     },
-    value: (settings) =>
+    value: (settings, _pointsVersion, state) =>
       groupExitIsTotal(settings)
-        ? `${orDefault(settings.qualAdv, '—')} in all`
+        ? `${advanceText(settings, state)} in all`
         : orDefault(settings.qualifiersPerGroup, '—'),
   },
   qualRoundsOverride: {

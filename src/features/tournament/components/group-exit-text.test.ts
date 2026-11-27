@@ -87,10 +87,23 @@ describe('groupExitHelpLine', () => {
     groupSize = '4',
     qualifiersPerGroup = '2',
   ) => ({
+    gameFormat: 'team-4v4' as const,
+    scheduleLogic: 'single-elimination' as const,
     groupExit,
     qualAdv,
     groupSize,
     qualifiersPerGroup,
+  });
+
+  it('words the total the app works out when the field is empty', () => {
+    // 13 teams: 12 expected to play, 9 or 10, and 10 is even.
+    expect(groupExitHelpLine(setup('fair-cut', ''), 13, 'teams')).toEqual(
+      groupExitHelpLine(setup('fair-cut', '10'), 13, 'teams'),
+    );
+    // An upper and lower bracket seats 4 or 8 two-team rooms, so it asks for 8.
+    expect(
+      groupExitHelpLine({ ...setup('fair-cut', ''), scheduleLogic: 'upper-lower' }, 13, 'teams'),
+    ).toEqual(groupExitHelpLine(setup('fair-cut', '8'), 13, 'teams'));
   });
 
   it('says nothing per group when generation accepts it, but the refusal when it would not', () => {
@@ -104,7 +117,6 @@ describe('groupExitHelpLine', () => {
 
   it('is nothing without a roster, or while a field is not a number', () => {
     expect(groupExitHelpLine(setup('fair-cut', '8'), null, 'teams')).toBeNull();
-    expect(groupExitHelpLine(setup('fair-cut', ''), 13, 'teams')).toBeNull();
     expect(groupExitHelpLine(setup('fair-cut', '8', '9'), 13, 'teams')).toBeNull();
   });
 

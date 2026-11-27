@@ -42,6 +42,7 @@ import {
   setupAfterOddCountChange,
   setupAfterScoringChange,
 } from './format-change-rules';
+import { automaticAdvanceText } from './bracket-entry-text';
 import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
 import { upperLowerAutomaticPlaceholder } from './upper-lower-summary';
 import { layeredGateRefusal } from '../../../domain/tournament/layered-form';
@@ -76,6 +77,35 @@ function GroupsLineExitField({
 function GroupExitHelpText({ help }: { help: ReturnType<typeof groupExitHelpLine> }) {
   if (!help) return null;
   return <p className={cn('text-xs', help.refused ? 'text-warning' : 'text-muted')}>{help.text}</p>;
+}
+
+/** "Advance to bracket": empty, the app works the number out, and the field says which and why. */
+function AdvanceToBracketInput({
+  id,
+  setup,
+  registered,
+  onChange,
+}: {
+  id: string;
+  setup: PersistedSetup;
+  registered: number | null;
+  onChange: (value: string) => void;
+}) {
+  const automatic = automaticAdvanceText(setup, registered);
+  return (
+    <>
+      <Input
+        id={id}
+        type='number'
+        min='1'
+        max={registered ?? undefined}
+        placeholder={automatic.placeholder}
+        value={setup.qualAdv}
+        onChange={(e) => onChange(cappedAdvance(e.target.value, registered))}
+      />
+      {setup.qualAdv.trim() ? null : <p className='text-xs text-muted'>{automatic.hint}</p>}
+    </>
+  );
 }
 
 /** The game format, schedule logic, pooling and scoring settings, and the Generate Schedule button. */
@@ -320,13 +350,11 @@ export function FormatPanel({
               />
             ) : groupExitIsTotal(setup) ? (
               <PresenceField htmlFor='cfg-group-exit-total' label='Advance to bracket'>
-                <Input
+                <AdvanceToBracketInput
                   id='cfg-group-exit-total'
-                  type='number'
-                  min='1'
-                  max={registered ?? undefined}
-                  value={setup.qualAdv}
-                  onChange={(e) => change('qualAdv', cappedAdvance(e.target.value, registered))}
+                  setup={setup}
+                  registered={registered}
+                  onChange={(value) => change('qualAdv', value)}
                 />
                 <GroupExitHelpText help={exitHelp} />
               </PresenceField>
@@ -356,13 +384,11 @@ export function FormatPanel({
               </PresenceField>
             ) : (
               <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
-                <Input
+                <AdvanceToBracketInput
                   id='cfg-qual-adv'
-                  type='number'
-                  min='1'
-                  max={registered ?? undefined}
-                  value={setup.qualAdv}
-                  onChange={(e) => change('qualAdv', cappedAdvance(e.target.value, registered))}
+                  setup={setup}
+                  registered={registered}
+                  onChange={(value) => change('qualAdv', value)}
                 />
                 {registered !== null && (parseAdvanceToBracket(setup.qualAdv) ?? 0) > registered ? (
                   <p className='text-xs text-muted'>

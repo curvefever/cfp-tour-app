@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createDefaultSetup, createDefaultTournamentState } from '../../../domain/tournament/state-defaults';
+import {
+  createDefaultSetup,
+  createDefaultTournamentState,
+  newTournamentSetup,
+} from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { FormatPanel } from './FormatPanel';
 
@@ -158,6 +162,38 @@ describe('a change of the game format', () => {
   it('with Match results, keeps a typed tie margin', () => {
     const start = form({ ...MATCH_RESULTS, tieMargin: '55' });
     expect(choose(start, 'cfg-team-size', '4')).toEqual({ ...start, gameFormat: 'team-4v4' });
+  });
+});
+
+describe('the FORMAT panel of a new tournament', () => {
+  const draw = (setup: PersistedSetup, confirmedCount: number | null) => {
+    current = { state: createDefaultTournamentState({ confirmedCount }), setup };
+    render(<FormatPanel error='' lbQualifiers='2' onGenerate={() => {}} setLbQualifiers={() => {}} />);
+    const field = document.getElementById('cfg-qual-adv') as HTMLInputElement;
+    return { field, text: document.body.textContent };
+  };
+
+  it('shows a qualification table and, at 37 registered, the worked-out "Advance to bracket"', () => {
+    const { field, text } = draw(newTournamentSetup(), 37);
+    const pooling = document.getElementById('cfg-pooling-phase') as HTMLSelectElement;
+    expect(pooling.value).toBe('qual-table');
+    expect(pooling.selectedOptions[0].textContent).toMatch(/^Qualification Table/);
+    expect(field.value).toBe('');
+    expect(field.placeholder).toBe('automatic: 28');
+    expect(text).toContain(
+      'Empty: 28, 75-85% of the 33 expected to play (9 in 10 of 37 registered), in 4 rooms of 7.',
+    );
+  });
+
+  it('waits for a roster', () => {
+    const { field, text } = draw(newTournamentSetup(), null);
+    expect(field.placeholder).toBe('automatic');
+    expect(text).toContain('Worked out from the head count once a roster is loaded.');
+  });
+
+  it('says nothing under a typed number', () => {
+    const { text } = draw({ ...newTournamentSetup(), qualAdv: '20' }, 37);
+    expect(text).not.toContain('Empty:');
   });
 });
 
