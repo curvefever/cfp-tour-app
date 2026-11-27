@@ -1,23 +1,15 @@
 import { isGroupBandKey, isGroupCutoffKey, isQualCutoffKey } from './advancement';
 import { bestPlaceTieKey } from './best-place';
-import { currentUnit, replayBracketPools, sameNames } from './bracket-replay';
 import { GROUP_EXIT_TIE_KEY, groupsLineExit } from './group-exit';
 import { unitLabelPluralLower } from './formats';
 import { sameRoundFormat } from './match-format';
 import { changeRoundMatchFormat } from './match-format-change';
 import { rosterKeys } from './roster';
-import { isRoundDone, isRoundReached, usesDependencyPlay } from './round-columns';
-import { roundHasAnyScore } from './scoring';
+import { usesDependencyPlay } from './round-columns';
 import { sameWinTargets } from './win-stamps';
 import { generatedConfig } from './generated-config';
 import { hasAppWrittenMark, withoutAppWrittenMark } from './rule-versions';
-import type {
-  OrderedWaterfallGraph,
-  PendingBracketSeed,
-  RoomSize,
-  TournamentRound,
-  TournamentState,
-} from './types';
+import type { OrderedWaterfallGraph, RoomSize, TournamentRound, TournamentState } from './types';
 import { fitWaterfallRound, waterfallBracketPhase, waterfallStandingsRoutes } from './waterfall-bracket';
 import { validateAndOrderWaterfallGraph } from './waterfall-graph-check';
 import { parseWaterfallGraph, type StandingsSourceKind } from './waterfall-graph-text';
@@ -27,7 +19,7 @@ import {
   startedRounds,
   winsTargetsRefusal,
 } from './waterfall-live-edit-locks';
-import { advancesReplayed, redrawRounds } from './waterfall-live-edit-replay';
+import { changedLineUps, redrawRounds, withReplayedPools } from './waterfall-live-edit-replay';
 import type { WaterfallParseResult } from './waterfall-parse-result';
 
 /**
@@ -407,6 +399,39 @@ function editedDraft(
   };
 }
 
+/** The tournament with the saved text in its settings and, where it stores one, the ordered graph. */
+function withStoredGraph(
+  state: TournamentState,
+  working: TournamentState,
+  graph: OrderedWaterfallGraph,
+  text: string,
+): TournamentState {
+  const settings = state.settings ? { ...state.settings, waterfallGraph: text } : state.settings;
+  const gamemodeConfig =
+    state.gamemodeConfig.graph !== undefined ? { ...state.gamemodeConfig, graph } : state.gamemodeConfig;
+  return { ...working, settings, gamemodeConfig };
+}
+
+/** The reached rounds in the match format of the edit, or why the typed scores can't be read under it. */
+function withEditedMatchFormats(
+  edited: TournamentState,
+  materialized: TournamentRound[],
+  reached: TournamentRound[],
+  firstWaterfallIndex: number,
+): WaterfallParseResult<TournamentState> {
+  let working = edited;
+
+  // The round in play takes the match format of the edit; its typed scores are carried over or refused.
+  for (const [index, spec] of materialized.slice(0, reached.length).entries()) {
+    const roundIndex = firstWaterfallIndex + index;
+    if (sameRoundFormat(working.rounds[roundIndex], spec)) continue;
+    const changed = changeRoundMatchFormat(working, roundIndex, spec);
+    if ('error' in changed) return { ok: false, error: changed.error };
+    working = changed.state;
+  }
+  return { ok: true, value: working };
+}
+
 export function applyWaterfallGraphEdit(state: TournamentState, text: string): WaterfallGraphEditResult {
   const read = readEditBase(state);
   if (!read.ok) return read;
@@ -444,61 +469,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
   const tieResolutions = keptTieDecisions(state, base, { cfg, rounds, standingsRoutes });
   let working = editedDraft(state, base, { ...lists, cfg, tieResolutions });
 
-  // Replay every advance of the rounds done (in column play: every round before the current column) under the new
-  // routing, accumulating per-destination pools exactly as advanceTournamentRound would across a
-  // sequence of real advances. Recorded line-ups still hold the units that withdrew or were swapped
-  // out: a replayed pool keeps only the units now in the tournament (a swapped-out unit becomes its
-  // replacement), so a withdrawal never moves anyone else up into the empty seat.
-  const roster = new Set(rosterKeys(state.players));
-  const { pools: replayPools } = replayBracketPools(working, advancesReplayed(state));
-
-  // Compare every reached round against what the new routing would have
-  // produced -- except, without a Qual source, the entry round (which has no
-  // inbound routes, so its line-up can never change).
-  const redrawn: number[] = [];
-  for (let index = firstWaterfallIndex + (standingsSource ? 0 : 1); index < keptLength; index += 1) {
-    const round = working.rounds[index];
-    const lineUp = (working.assignments[index] ?? []).flatMap((entry) => {
-      const name = currentUnit(state, roster, entry.name);
-      return name === null ? [] : [name];
-    });
-    const replayed = (replayPools.get(index) ?? []).map((seed) => seed.name);
-    // As a set: a name a list repeats counts once.
-    if (sameNames([...new Set(lineUp)], [...new Set(replayed)])) continue;
-    if (isRoundDone(state, index)) {
-      return {
-        ok: false,
-        error: `Can't save: "${round.customLabel}" has already been played with a different line-up. Undo the routing change that feeds it, or only edit rounds that haven't been played yet.`,
-      };
-    }
-    if (roundHasAnyScore(state, index, state.rounds[index])) {
-      return {
-        ok: false,
-        error: `Can't save: a score has already been entered in "${round.customLabel}", so its rooms can't be re-drawn. Undo the routing change that feeds it, or wait until the round is complete.`,
-      };
-    }
-    redrawn.push(index);
-  }
-
-  // Old pending pools keyed by an index that fell in the old waterfall
-  // range but past the current column belong to rounds that no longer exist at that
-  // index (the edit may have added, removed or reordered unreached rounds)
-  // -- drop them and replace with the freshly replayed pools.
-  const oldBracketLength = state.rounds.length - firstWaterfallIndex;
-  const nextPending: Record<string, PendingBracketSeed[]> = {};
-  for (const [key, seeds] of Object.entries(working.pendingBracketSeeds)) {
-    const index = Number(key);
-    const wasOldUnreachedWaterfallIndex =
-      index >= firstWaterfallIndex &&
-      index < firstWaterfallIndex + oldBracketLength &&
-      !isRoundReached(state, index);
-    if (wasOldUnreachedWaterfallIndex) continue;
-    nextPending[key] = seeds;
-  }
-  for (const [destination, seeds] of replayPools) {
-    if (!isRoundReached(state, destination)) nextPending[destination] = seeds;
-  }
-  working = { ...working, pendingBracketSeeds: nextPending };
+  const compared = changedLineUps({ state, working, firstWaterfallIndex, standingsSource, keptLength });
+  if (!compared.ok) return compared;
+  const { redrawn, replayPools } = compared.value;
+  working = withReplayedPools(state, working, firstWaterfallIndex, replayPools);
 
   if (redrawn.length > 0) {
     const failure = redrawRounds(working, redrawn, replayPools);
@@ -506,19 +480,10 @@ export function applyWaterfallGraphEdit(state: TournamentState, text: string): W
     working = failure.state;
   }
 
-  const settings = state.settings ? { ...state.settings, waterfallGraph: text } : state.settings;
-  const gamemodeConfig =
-    state.gamemodeConfig.graph !== undefined ? { ...state.gamemodeConfig, graph } : state.gamemodeConfig;
-  working = { ...working, settings, gamemodeConfig };
-
-  // The round in play takes the match format of the edit; its typed scores are carried over or refused.
-  for (const [index, spec] of materialized.slice(0, reached.length).entries()) {
-    const roundIndex = firstWaterfallIndex + index;
-    if (sameRoundFormat(working.rounds[roundIndex], spec)) continue;
-    const changed = changeRoundMatchFormat(working, roundIndex, spec);
-    if ('error' in changed) return { ok: false, error: changed.error };
-    working = changed.state;
-  }
+  working = withStoredGraph(state, working, graph, text);
+  const formatted = withEditedMatchFormats(working, materialized, reached, firstWaterfallIndex);
+  if (!formatted.ok) return formatted;
+  working = formatted.value;
 
   const redrawnRound = redrawn.length
     ? redrawn.map((index) => working.rounds[index].customLabel).join(' + ')
