@@ -5,8 +5,32 @@ import { nextTeamScoringRule } from './game-format-choice';
 
 /**
  * What a change of the game format, the odd-count strategy or the scoring system does to the Setup form: the other
- * settings that follow from the choice. Each function returns the whole form after the change.
+ * settings that follow from the choice. Each function returns the whole form after the change. Also the head-to-head
+ * questions the Setup form asks of a game format.
  */
+
+type GameFormatChoice = ReturnType<typeof getGameFormat>;
+
+/** A format of two units to a room; false for an unknown one. */
+export function isHeadToHead(format: GameFormatChoice): boolean {
+  return format?.idealRoomSize === 2;
+}
+
+/** Whether the race double elimination can be drawn: head-to-head rooms that never hold a third unit. */
+export function isRaceCompatible(
+  format: GameFormatChoice,
+  oddCountStrategy: PersistedSetup['oddCountStrategy'],
+): boolean {
+  return isHeadToHead(format) && oddCountStrategy !== 'flex';
+}
+
+/** Whether a Group Stage or a Swiss, which only head-to-head formats play, has to go with this format. */
+export function leavesHeadToHeadPooling(
+  poolingPhase: PersistedSetup['poolingPhase'],
+  format: GameFormatChoice,
+): boolean {
+  return (poolingPhase === 'group-stage' || poolingPhase === 'swiss') && !isHeadToHead(format);
+}
 
 /**
  * A format or odd-count-strategy change can make the currently-selected
@@ -72,10 +96,8 @@ export function setupAfterFormatChange(
 ): PersistedSetup {
   const nextFormat = getGameFormat(value);
   const defaultOdd = (nextFormat && resolveOddCountStrategy(nextFormat, '')) ?? '';
-  const compatible = nextFormat?.idealRoomSize === 2 && defaultOdd !== 'flex';
-  const leavesPooling =
-    (renderedPoolingPhase === 'group-stage' || renderedPoolingPhase === 'swiss') &&
-    nextFormat?.idealRoomSize !== 2;
+  const compatible = isRaceCompatible(nextFormat, defaultOdd);
+  const leavesPooling = leavesHeadToHeadPooling(renderedPoolingPhase, nextFormat);
   return {
     ...current,
     gameFormat: value,
@@ -91,12 +113,8 @@ export function setupAfterFormatChange(
     scheduleLogic: reconcileScheduleLogicForFormat(
       current.scheduleLogic,
       compatible,
-      nextFormat?.idealRoomSize === 2,
+      isHeadToHead(nextFormat),
     ),
-    poolingPhase:
-      (current.poolingPhase === 'group-stage' || current.poolingPhase === 'swiss') &&
-      nextFormat?.idealRoomSize !== 2
-        ? 'none'
-        : current.poolingPhase,
+    poolingPhase: leavesHeadToHeadPooling(current.poolingPhase, nextFormat) ? 'none' : current.poolingPhase,
   };
 }

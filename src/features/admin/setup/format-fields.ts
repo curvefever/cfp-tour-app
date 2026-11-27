@@ -3,6 +3,7 @@ import { matchResultsAllowed } from '../../../domain/tournament/match-results';
 import type { MatchSettings, RoundStage } from '../../../domain/tournament/round-match-formats';
 import type { PersistedSetup, TournamentSettings } from '../../../domain/tournament/types';
 import { matchFormatToken, parseMatchFormatToken } from '../../../domain/tournament/match-format';
+import { isHeadToHead } from './format-change-rules';
 
 /** A setting of the Setup form; `lbQualifiers` lives outside `PersistedSetup` but is one as well. */
 export type FormatField = keyof TournamentSettings;
@@ -126,7 +127,7 @@ export function visibleFormatFields(choices: FormatChoices): ReadonlySet<FormatF
   add((poolingPhase === 'qual-table' || poolingPhase === 'swiss') && !isAppWritten, 'qualAdv');
   add(isUpperLower && poolingPhase !== 'none', 'upperLowerAdvance', 'upperLowerUpper');
   // The Final's uneven wins: an upper and lower bracket of a head-to-head format, where the Final is two finalists.
-  add(isUpperLower && format?.idealRoomSize === 2, 'finalsUnevenWins', 'finalsUpperWins', 'finalsLowerWins');
+  add(isUpperLower && isHeadToHead(format), 'finalsUnevenWins', 'finalsUpperWins', 'finalsLowerWins');
   add(isLayered, 'layeredExpected', 'layeredInBracket', 'layeredRounds', 'layeredLevels', 'layeredTop');
   add(isLayered, 'layeredTopCounts', 'layeredSemiOthers');
   add((format?.supportedOddCountStrategies?.length ?? 0) > 1, 'oddCountStrategy');

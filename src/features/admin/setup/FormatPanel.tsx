@@ -38,6 +38,8 @@ import {
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
 import {
+  isHeadToHead,
+  isRaceCompatible,
   setupAfterFormatChange,
   setupAfterOddCountChange,
   setupAfterScoringChange,
@@ -99,7 +101,7 @@ export function FormatPanel({
   const shown = visibleFormatFields(setup);
   const layeredOffered = layeredGateRefusal(setup) === null;
   const exitHelp = groupExitHelpLine(setup, registered, (format?.unitLabelPlural ?? 'players').toLowerCase());
-  const raceCompatible = format?.idealRoomSize === 2 && setup.oddCountStrategy !== 'flex';
+  const raceCompatible = isRaceCompatible(format, setup.oddCountStrategy);
   const scheduleOptions = useMemo(
     () =>
       raceCompatible
@@ -115,7 +117,7 @@ export function FormatPanel({
   // Swiss pairing and Group Stage round-robin scheduling both only make
   // sense for a head-to-head (exactly 2 units per room) format — neither can
   // represent a multi-way FFA/team room.
-  const headToHeadOnly = format?.idealRoomSize === 2;
+  const headToHeadOnly = isHeadToHead(format);
   const poolingPhaseOptions = useMemo(
     () => [
       { value: 'none', label: POOLING_PHASE_WORDS.none.setup },
@@ -131,7 +133,7 @@ export function FormatPanel({
   );
 
   function changeOddCountStrategy(value: string) {
-    updateSetup((current) => setupAfterOddCountChange(current, value, format?.idealRoomSize === 2));
+    updateSetup((current) => setupAfterOddCountChange(current, value, isHeadToHead(format)));
   }
 
   /** A stage's format select writes both of its settings: the summed games and the Best of N. */
