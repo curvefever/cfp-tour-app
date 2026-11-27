@@ -12,7 +12,6 @@ import {
   defaultTieMargin,
   matchResultsAllowed,
   scoringForPooling,
-  tieMarginAfterFormatChange,
 } from '../../../domain/tournament/match-results';
 import { SCORING_SYSTEM_OPTION_LABELS } from '../../../domain/tournament/scoring';
 import type { RoundStage } from '../../../domain/tournament/round-match-formats';
@@ -38,35 +37,20 @@ import {
   visibleFormatFields,
 } from './format-fields';
 import { GameFormatFields } from './GameFormatFields';
+import {
+  setupAfterFormatChange,
+  setupAfterOddCountChange,
+  setupAfterScoringChange,
+} from './format-change-rules';
 import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
 import { upperLowerAutomaticPlaceholder } from './upper-lower-summary';
 import { layeredGateRefusal } from '../../../domain/tournament/layered-form';
 import { LayeredFields } from './LayeredFields';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
-import { nextTeamScoringRule } from './game-format-choice';
 import { setupDerived } from './setup-derived';
 import { useMatchSettingsChange } from './useMatchSettingsChange';
 import { useSetupChange, useSetupUpdate } from './useSetupChange';
-
-/**
- * A format or odd-count-strategy change can make the currently-selected
- * schedule logic unavailable (its own `<option>` disappears from the
- * dropdown) without resetting the already-selected value -- shared by
- * `changeFormat` and `changeOddCountStrategy` so the two callers can't drift
- * apart. `headToHeadOnly` alone decides the Kings Valley branch since an
- * odd-count-strategy change never flips it (the gate is by format only).
- */
-function reconcileScheduleLogicForFormat(
-  current: PersistedSetup['scheduleLogic'],
-  raceCompatible: boolean,
-  headToHeadOnly: boolean,
-): PersistedSetup['scheduleLogic'] {
-  if (current === 'double-elimination' && !raceCompatible) return 'single-elimination';
-  if (current === 'double-elimination-shared-final' && raceCompatible) return 'single-elimination';
-  if (current === 'kings-valley' && headToHeadOnly) return 'single-elimination';
-  return current;
-}
 
 /** The line under the group exit field: what the roster would do, or why generation would refuse it. */
 /** "Advance to bracket" or "Qualifiers per group" when the Groups line of the custom bracket graph decides it: read only. */
@@ -146,23 +130,8 @@ export function FormatPanel({
     [headToHeadOnly],
   );
 
-  // Odd-count strategy alone can flip raceCompatible (e.g. picking 'flex')
-  // without the game format changing — reconcile scheduleLogic here too,
-  // the same way changeFormat() does, so a stale 'double-elimination'
-  // selection can never survive its own option disappearing from the list.
   function changeOddCountStrategy(value: string) {
-    const strategy = value as PersistedSetup['oddCountStrategy'];
-    const compatible = format?.idealRoomSize === 2 && value !== 'flex';
-    updateSetup((current) => ({
-      ...current,
-      oddCountStrategy: strategy,
-      scoring: scoringForPooling(current.scoring, current.poolingPhase, current.gameFormat, strategy),
-      scheduleLogic: reconcileScheduleLogicForFormat(
-        current.scheduleLogic,
-        compatible,
-        format?.idealRoomSize === 2,
-      ),
-    }));
+    updateSetup((current) => setupAfterOddCountChange(current, value, format?.idealRoomSize === 2));
   }
 
   /** A stage's format select writes both of its settings: the summed games and the Best of N. */
@@ -214,48 +183,12 @@ export function FormatPanel({
     );
   }
 
-  /** Picking Match results fills an empty tie margin with the game format's default. */
   function changeScoring(value: PersistedSetup['scoring']) {
-    updateSetup((current) => ({
-      ...current,
-      scoring: value,
-      tieMargin:
-        value === 'match-results'
-          ? tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, current.gameFormat)
-          : current.tieMargin,
-    }));
+    updateSetup((current) => setupAfterScoringChange(current, value));
   }
 
   function changeFormat(value: PersistedSetup['gameFormat']) {
-    const nextFormat = getGameFormat(value);
-    const defaultOdd = (nextFormat && resolveOddCountStrategy(nextFormat, '')) ?? '';
-    const compatible = nextFormat?.idealRoomSize === 2 && defaultOdd !== 'flex';
-    const leavesPooling =
-      (setup.poolingPhase === 'group-stage' || setup.poolingPhase === 'swiss') &&
-      nextFormat?.idealRoomSize !== 2;
-    updateSetup((current) => ({
-      ...current,
-      gameFormat: value,
-      tieMargin: tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, value),
-      scoring: scoringForPooling(
-        current.scoring,
-        leavesPooling ? 'none' : current.poolingPhase,
-        value,
-        defaultOdd,
-      ),
-      oddCountStrategy: defaultOdd,
-      teamScoringRule: nextTeamScoringRule(current, nextFormat?.teamSize),
-      scheduleLogic: reconcileScheduleLogicForFormat(
-        current.scheduleLogic,
-        compatible,
-        nextFormat?.idealRoomSize === 2,
-      ),
-      poolingPhase:
-        (current.poolingPhase === 'group-stage' || current.poolingPhase === 'swiss') &&
-        nextFormat?.idealRoomSize !== 2
-          ? 'none'
-          : current.poolingPhase,
-    }));
+    updateSetup((current) => setupAfterFormatChange(current, value, setup.poolingPhase));
   }
 
   const {
