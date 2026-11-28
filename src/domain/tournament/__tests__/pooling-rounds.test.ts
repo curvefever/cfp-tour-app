@@ -60,15 +60,37 @@ describe('poolingRoundsOf', () => {
   });
 
   it.each(['', '1'])('lets a typed number win (switch "%s")', (poolingDefaultsVersion) => {
-    const both = { poolingDefaultsVersion, nonCountingRounds: '0' };
+    const both = { poolingDefaultsVersion, nonCountingRounds: '1' };
     expect(resolve({ ...both, poolingPhase: 'qual-table', qualRoundsOverride: '2' }, 37)).toEqual({
       rounds: typed(2),
-      nonCounting: typed(0),
+      nonCounting: typed(1),
     });
     expect(resolve({ ...swiss, ...both, swissRoundsOverride: '2' }, 37)).toEqual({
       rounds: typed(2),
-      nonCounting: typed(0),
+      nonCounting: typed(1),
     });
+  });
+
+  it('takes a stored 0 without the switch as the older rule’s own number', () => {
+    expect(resolve({ poolingPhase: 'qual-table', nonCountingRounds: '0' }, 37).nonCounting).toEqual(app(0));
+  });
+
+  it('takes a 0 under the app rule as typed', () => {
+    const zero = { ...APP_RULE, poolingPhase: 'qual-table' as const, nonCountingRounds: '0' };
+    expect(resolve(zero, 37).nonCounting).toEqual(typed(0));
+  });
+
+  it.each([
+    ['1', 0],
+    ['2', 1],
+  ])('keeps one round that counts of the app’s uncounted rounds: %s table rounds', (rounds, uncounted) => {
+    const setup: Setup = { ...APP_RULE, poolingPhase: 'qual-table', qualRoundsOverride: rounds };
+    expect(resolve(setup, 37).nonCounting).toEqual(app(uncounted));
+  });
+
+  it('does not cap a typed number of uncounted rounds', () => {
+    const setup: Setup = { ...APP_RULE, poolingPhase: 'qual-table', qualRoundsOverride: '1' };
+    expect(resolve({ ...setup, nonCountingRounds: '1' }, 37).nonCounting).toEqual(typed(1));
   });
 
   it('counts text generation would refuse as an empty field', () => {
@@ -120,6 +142,12 @@ describe('generation plays the pooling numbers of its rule', () => {
     const form = createDefaultSetup({ ...HEAD_TO_HEAD, ...APP_RULE, poolingPhase: 'swiss', qualAdv: '' });
     const state = generatedState(generate(count, form));
     expect(uncounted(state.rounds.filter((round) => round.isSwiss))).toEqual(Array(5).fill(false));
+  });
+
+  it('makes 1 counted round from a typed 1 table round with the uncounted field empty', () => {
+    const state = generatedState(generate(37, { ...newTournamentSetup(), qualRoundsOverride: '1' }));
+    expect(uncounted(state.rounds.filter((round) => round.isQual))).toEqual([false]);
+    expect(state.gamemodeConfig).toMatchObject({ qualRounds: 1, nonCountingRounds: 0 });
   });
 
   it('checks the uncounted rounds against the app’s round count', () => {
@@ -219,12 +247,14 @@ describe.each([
         qualAdv: '2',
       };
     }
-
-    it('is the same count the waterfall bracket starts after (a Custom bracket after the qualification table)', () => {
-      const state = buildQualWaterfall(37);
-      const first = state.rounds.findIndex((round) => round.isWaterfall);
-      expect(first).toBe(roundsBeforeBracket(createDefaultSetup({ poolingPhase: 'qual-table' }), 37));
-      expect(state.rounds[first].roundNum).toBe(first + 1);
-    });
   },
 );
+
+describe('roundsBeforeBracket under a Custom bracket', () => {
+  it('is the same count the waterfall bracket starts after (a Custom bracket after the qualification table)', () => {
+    const state = buildQualWaterfall(37);
+    const first = state.rounds.findIndex((round) => round.isWaterfall);
+    expect(first).toBe(roundsBeforeBracket(createDefaultSetup({ poolingPhase: 'qual-table' }), 37));
+    expect(state.rounds[first].roundNum).toBe(first + 1);
+  });
+});

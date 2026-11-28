@@ -57,16 +57,24 @@ function typedOr(typed: number | null | undefined, appValue: number): PoolingNum
   return typeof typed === 'number' ? { value: typed, typed: true } : { value: appValue, typed: false };
 }
 
-/** A qualification table or a Swiss: each of its two fields, typed or the app's. */
+/** The uncounted rounds somebody typed. Without the switch, a stored '0' is `createDefaultSetup`'s own and the older rule's number, so nobody typed it. */
+function typedNonCounting(setup: PoolingRoundsSetup): number | null | undefined {
+  const raw = setup.nonCountingRounds;
+  return !usesAppPoolingDefaults(setup) && raw === '0' ? undefined : parseNonCountingRounds(raw);
+}
+
+/**
+ * A qualification table or a Swiss: each of its two numbers, typed or the app's. The app's uncounted rounds always
+ * leave one round that counts; a typed number is taken as it is, and generation refuses one that leaves none.
+ */
 function standingsRounds(
+  setup: PoolingRoundsSetup,
   override: string,
-  nonCountingField: string,
   app: { rounds: number; nonCounting: number },
 ): PoolingRounds {
-  return {
-    rounds: typedOr(parsePoolingRoundsOverride(override), app.rounds),
-    nonCounting: typedOr(parseNonCountingRounds(nonCountingField), app.nonCounting),
-  };
+  const rounds = typedOr(parsePoolingRoundsOverride(override), app.rounds);
+  const appNonCounting = Math.min(app.nonCounting, rounds.value - 1);
+  return { rounds, nonCounting: typedOr(typedNonCounting(setup), appNonCounting) };
 }
 
 /** A group stage or no pooling phase: no field to type either number in. */
@@ -83,14 +91,14 @@ export function poolingRoundsOf(setup: PoolingRoundsSetup, entrantCount: number)
   switch (setup.poolingPhase) {
     case 'qual-table':
       return standingsRounds(
+        setup,
         setup.qualRoundsOverride,
-        setup.nonCountingRounds,
         appDefaults ? APP_QUAL_TABLE : { rounds: QUALIFICATION_ROUNDS, nonCounting: 0 },
       );
     case 'swiss':
       return standingsRounds(
+        setup,
         setup.swissRoundsOverride,
-        setup.nonCountingRounds,
         appDefaults ? APP_SWISS : { rounds: computeSwissRoundCount(entrantCount), nonCounting: 0 },
       );
     case 'group-stage':
