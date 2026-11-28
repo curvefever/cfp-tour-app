@@ -10,7 +10,7 @@ import type { TournamentState } from './types';
 type GenerateTournamentResult =
   { status: 'generated'; state: TournamentState } | { status: 'invalid'; message: string };
 
-function generationError(message: string): GenerateTournamentResult {
+function generationError(message: string): { status: 'invalid'; message: string } {
   return { status: 'invalid', message };
 }
 
@@ -42,11 +42,16 @@ function buildRounds(plan: TournamentPlan, roster: string[]): ScheduleRounds {
   return progression;
 }
 
-export function generateTournament(
+/** What generation answers with the plan it built from: what a preview reads its numbers off. */
+export type GenerationWithPlanResult =
+  | { status: 'generated'; state: TournamentState; plan: TournamentPlan }
+  | { status: 'invalid'; message: string };
+
+export function generateTournamentWithPlan(
   current: TournamentState,
   form: GenerationForm,
   runtime: TournamentRuntime,
-): GenerateTournamentResult {
+): GenerationWithPlanResult {
   const planned = planTournament(form, current);
   if (!planned.ok) return generationError(planned.message);
 
@@ -55,5 +60,14 @@ export function generateTournament(
   if (!progression.ok) return generationError(progression.error);
 
   const state = startTournament(planned.plan, progression, current, form, runtime);
-  return { status: 'generated', state };
+  return { status: 'generated', state, plan: planned.plan };
+}
+
+export function generateTournament(
+  current: TournamentState,
+  form: GenerationForm,
+  runtime: TournamentRuntime,
+): GenerateTournamentResult {
+  const result = generateTournamentWithPlan(current, form, runtime);
+  return result.status === 'invalid' ? result : { status: 'generated', state: result.state };
 }
