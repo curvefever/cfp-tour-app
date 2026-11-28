@@ -63,7 +63,7 @@ function advanceText(settings: TournamentSettings, state: TournamentState): stri
 const matchOf = (games: string, bestOf: string) =>
   matchLabelOf(Number.parseInt(games, 10) || 1, Number.parseInt(bestOf, 10) || undefined);
 
-/** The Best of N settings are read through the format rows of their stage, and the match-result settings through the scoring system row, not listed of their own. */
+/** The Best of N settings are read through the format rows of their stage, and the match-result settings through the scoring system row, not listed of their own. The pooling switch is no setting anyone sees. */
 type RecapField = Exclude<
   FormatField,
   | 'semisBestOf'
@@ -74,6 +74,7 @@ type RecapField = Exclude<
   | 'matchResultPoints'
   | 'tieMargin'
   | 'waterfallNumberedFrom'
+  | 'poolingDefaultsVersion'
   | 'finalsUnevenWins'
   | 'finalsUpperWins'
   | 'finalsLowerWins'

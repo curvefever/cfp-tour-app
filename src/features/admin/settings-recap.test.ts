@@ -359,7 +359,9 @@ describe('the recap against the Setup form', () => {
 
   it('applies every Setup setting to some combination of choices', () => {
     const applied = new Set<string>(choices.flatMap((choice) => [...visibleFormatFields(choice)]));
-    for (const key of [...SETTING_KEYS, 'lbQualifiers']) expect(applied).toContain(key);
+    // The pooling switch is stored with the settings but is no field of the form.
+    const fields = SETTING_KEYS.filter((key) => key !== 'poolingDefaultsVersion');
+    for (const key of [...fields, 'lbQualifiers']) expect(applied).toContain(key);
   });
 
   it('lists exactly the settings Setup shows for any combination of choices', () => {

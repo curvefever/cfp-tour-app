@@ -353,8 +353,10 @@ export function upperLowerGraphText(
 export type UpperLowerForm = Pick<
   PersistedSetup,
   | 'poolingPhase'
+  | 'poolingDefaultsVersion'
   | 'qualRoundsOverride'
   | 'swissRoundsOverride'
+  | 'nonCountingRounds'
   | 'groupSize'
   | 'roundRobinMode'
   | 'groupExit'

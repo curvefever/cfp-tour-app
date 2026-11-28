@@ -40,10 +40,10 @@ export function createDefaultTournamentState(overrides: Partial<TournamentState>
   };
 }
 
-/** What choosing a qualification table puts in: 4 rounds, the first not counted. */
+/** What choosing a qualification table types into a setup without `poolingDefaultsVersion`: 4 rounds, the first not counted. */
 export const USUAL_QUAL_TABLE_VALUES = { qualRoundsOverride: '4', nonCountingRounds: '1' } as const;
 
-/** What choosing a Swiss puts in: 5 rounds, all counted. */
+/** What choosing a Swiss types into such a setup: 5 rounds, all counted. */
 export const USUAL_SWISS_VALUES = { swissRoundsOverride: '5', nonCountingRounds: '0' } as const;
 
 /**
@@ -60,6 +60,7 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
     tieMargin: '',
     drawPublication: 'adaptive',
     poolingPhase: 'none',
+    poolingDefaultsVersion: '',
     qualAdv: '24',
     nonCountingRounds: '0',
     groupSize: '4',
@@ -109,9 +110,9 @@ export function createDefaultSetup(overrides: Partial<PersistedSetup> = {}): Per
 }
 
 /**
- * The Setup form of a brand-new tournament only: the organiser's usual choices, a qualification table of 4 rounds with
- * the first not counted, and "Advance to bracket" left to the app. `createDefaultSetup` stays what fills the keys
- * missing from stored data.
+ * The Setup form of a brand-new tournament only: the organiser's usual choice of a qualification table, with its numbers
+ * left to the app: the rounds and the uncounted ones (4 and 1, through `poolingDefaultsVersion`) and "Advance to
+ * bracket". `createDefaultSetup` stays what fills the keys missing from stored data.
  */
 export function newTournamentSetup(): PersistedSetup {
   const defaults = createDefaultSetup();
@@ -119,8 +120,9 @@ export function newTournamentSetup(): PersistedSetup {
   return {
     ...defaults,
     poolingPhase: 'qual-table',
+    poolingDefaultsVersion: '1',
     qualAdv: '',
-    ...USUAL_QUAL_TABLE_VALUES,
+    nonCountingRounds: '',
     scoring: scoringForPooling(scoring, 'qual-table', gameFormat, oddCountStrategy),
   };
 }

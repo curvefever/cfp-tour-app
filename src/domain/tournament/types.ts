@@ -511,6 +511,8 @@ export interface PersistedSetup {
   /** Only meaningful for poolingPhase 'qual-table'/'swiss' -- see generation.ts. */
   drawPublication: DrawPublicationKey;
   poolingPhase: PoolingPhaseKey;
+  /** The rule an empty pooling field is read by (`poolingRoundsOf`): '1' = the app's numbers for a new tournament, '' = the rule of setups stored without it. */
+  poolingDefaultsVersion: string;
   qualAdv: string;
   nonCountingRounds: string;
   groupSize: string;

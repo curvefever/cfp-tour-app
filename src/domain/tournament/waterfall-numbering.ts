@@ -14,8 +14,10 @@ type NumberingSetup = Pick<
   PersistedSetup,
   | 'scheduleLogic'
   | 'poolingPhase'
+  | 'poolingDefaultsVersion'
   | 'qualRoundsOverride'
   | 'swissRoundsOverride'
+  | 'nonCountingRounds'
   | 'groupSize'
   | 'roundRobinMode'
   | 'waterfallGraph'

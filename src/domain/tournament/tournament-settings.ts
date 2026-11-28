@@ -16,6 +16,7 @@ export const SETTING_KEYS = [
   'tieMargin',
   'drawPublication',
   'poolingPhase',
+  'poolingDefaultsVersion',
   'qualAdv',
   'nonCountingRounds',
   'groupSize',

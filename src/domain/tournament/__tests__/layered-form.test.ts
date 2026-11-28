@@ -147,6 +147,12 @@ describe('the usual values', () => {
     expect(differsFromUsualValues(formOf(), 31)).toBe(true);
     expect(differsFromUsualValues(formOf(USUAL_FORM_VALUES), 31)).toBe(false);
   });
+
+  it('are what the empty table fields give under the app rule, and not without the switch', () => {
+    const empty = { ...USUAL_FORM_VALUES, qualRoundsOverride: '', nonCountingRounds: '' };
+    expect(differsFromUsualValues(formOf({ ...empty, poolingDefaultsVersion: '1' }), 31)).toBe(false);
+    expect(differsFromUsualValues(formOf(empty), 31)).toBe(true);
+  });
 });
 
 describe('"Adjust rounds by hand"', () => {

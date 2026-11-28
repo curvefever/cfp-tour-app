@@ -1,5 +1,6 @@
 import { getGameFormat, resolveOddCountStrategy } from '../../../domain/tournament/formats';
 import { scoringForPooling, tieMarginAfterFormatChange } from '../../../domain/tournament/match-results';
+import { usesAppPoolingDefaults } from '../../../domain/tournament/pooling-rounds';
 import { USUAL_QUAL_TABLE_VALUES, USUAL_SWISS_VALUES } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { nextTeamScoringRule } from './game-format-choice';
@@ -48,13 +49,25 @@ function poolingAfterFormatChange(
   return poolingPhase === 'qual-table' && entersHeadToHead ? 'swiss' : poolingPhase;
 }
 
-/** The values a pooling phase starts with when it is chosen: the organiser's usual ones. */
+/** The values a pooling phase types into a setup without `poolingDefaultsVersion`: the organiser's usual ones. */
 function poolingUsualValues(poolingPhase: PersistedSetup['poolingPhase']): Partial<PersistedSetup> {
   if (poolingPhase === 'qual-table') return USUAL_QUAL_TABLE_VALUES;
   return poolingPhase === 'swiss' ? USUAL_SWISS_VALUES : {};
 }
 
-/** Choosing a pooling phase puts in its usual values and keeps a scoring system it can play. */
+/**
+ * What a change of the pooling phase does to the pooling numbers. Where an empty field is the app's number, nothing is
+ * typed in: "Non-counting rounds", which a table and a Swiss share, is emptied so that it follows the phase, and each
+ * phase keeps its own round count field. An older setup gets the phase's usual values.
+ */
+function poolingChangeValues(
+  current: PersistedSetup,
+  poolingPhase: PersistedSetup['poolingPhase'],
+): Partial<PersistedSetup> {
+  return usesAppPoolingDefaults(current) ? { nonCountingRounds: '' } : poolingUsualValues(poolingPhase);
+}
+
+/** Choosing a pooling phase changes its numbers as above and keeps a scoring system it can play. */
 export function setupAfterPoolingChange(
   current: PersistedSetup,
   poolingPhase: PersistedSetup['poolingPhase'],
@@ -63,7 +76,7 @@ export function setupAfterPoolingChange(
   return {
     ...current,
     poolingPhase,
-    ...poolingUsualValues(poolingPhase),
+    ...poolingChangeValues(current, poolingPhase),
     scoring: scoringForPooling(scoring, poolingPhase, gameFormat, oddCountStrategy),
   };
 }
@@ -126,7 +139,7 @@ export function setupAfterScoringChange(
 
 /**
  * `renderedPoolingPhase` is the pooling phase shown at the click: the scoring is decided by it. A pooling phase the
- * change switches starts with its usual values.
+ * change switches has its numbers changed as a chosen one does.
  */
 export function setupAfterFormatChange(
   current: PersistedSetup,
@@ -142,7 +155,7 @@ export function setupAfterFormatChange(
   const scoringPhase = renderedAfter === renderedPoolingPhase ? current.poolingPhase : renderedAfter;
   return {
     ...current,
-    ...(poolingPhase === current.poolingPhase ? {} : poolingUsualValues(poolingPhase)),
+    ...(poolingPhase === current.poolingPhase ? {} : poolingChangeValues(current, poolingPhase)),
     gameFormat: value,
     tieMargin: tieMarginAfterFormatChange(current.tieMargin, current.gameFormat, value),
     scoring: scoringForPooling(current.scoring, scoringPhase, value, defaultOdd),

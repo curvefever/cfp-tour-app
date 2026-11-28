@@ -27,6 +27,7 @@ const ALTERNATE_SETTINGS: Pick<PersistedSetup, (typeof SETTING_KEYS)[number]> = 
   tieMargin: '150',
   drawPublication: 'fixed',
   poolingPhase: 'qual-table',
+  poolingDefaultsVersion: '1',
   qualAdv: '16',
   nonCountingRounds: '2',
   groupSize: '5',
@@ -194,5 +195,21 @@ describe('the stage match formats and the round overrides in the settings copy',
       losersGames: '1',
       matchOverrides: '',
     });
+  });
+});
+
+describe('the pooling switch in the settings copy', () => {
+  it('goes through the snapshot, a stored copy and Copy settings', () => {
+    const snapshot = settingsFromForm(createDefaultSetup({ poolingDefaultsVersion: '1' }));
+    const stored = JSON.parse(JSON.stringify(snapshot)) as unknown;
+    expect(readTournamentSettings(stored)?.poolingDefaultsVersion).toBe('1');
+    expect(applyTournamentSettings(createDefaultSetup(), snapshot).poolingDefaultsVersion).toBe('1');
+  });
+
+  it('reads a snapshot without it as the older rule, and copying that ends the app rule', () => {
+    const settings = readTournamentSettings({ poolingPhase: 'qual-table' });
+    expect(settings?.poolingDefaultsVersion).toBe('');
+    const copied = applyTournamentSettings(createDefaultSetup({ poolingDefaultsVersion: '1' }), settings!);
+    expect(copied.poolingDefaultsVersion).toBe('');
   });
 });

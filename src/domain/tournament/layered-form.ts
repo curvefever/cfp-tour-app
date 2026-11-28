@@ -10,7 +10,7 @@ import {
 } from './layered-plan';
 import { bestOfGameCount, matchFormatToken, parseMatchFormatToken } from './match-format';
 import { matchFormatConfig, parseMatchOverrides, stageFormat } from './round-match-formats';
-import { roundsBeforeBracket } from './pooling-rounds';
+import { poolingRoundsOf, roundsBeforeBracket } from './pooling-rounds';
 import type { GameFormatKey, PersistedSetup, PoolingPhaseKey, RoomSize } from './types';
 
 /**
@@ -40,6 +40,7 @@ export type LayeredForm = Pick<
   PersistedSetup,
   | 'gameFormat'
   | 'poolingPhase'
+  | 'poolingDefaultsVersion'
   | 'qualRoundsOverride'
   | 'swissRoundsOverride'
   | 'groupSize'
@@ -208,10 +209,10 @@ export const USUAL_FORM_VALUES = {
 /** Whether the form's table rounds, non-counting rounds, Semis or Finals format differ from the usual values. */
 export function differsFromUsualValues(form: LayeredForm, registered: number): boolean {
   const games = layeredGamesOf(form, { min: 1, ideal: 8, max: 8 }, registered);
-  const nonCounting = Number.parseInt(form.nonCountingRounds, 10) || 0;
+  const { rounds, nonCounting } = poolingRoundsOf(form, registered);
   return (
-    roundsBeforeBracket(form, registered) !== Number(USUAL_FORM_VALUES.qualRoundsOverride) ||
-    nonCounting !== Number(USUAL_FORM_VALUES.nonCountingRounds) ||
+    rounds.value !== Number(USUAL_FORM_VALUES.qualRoundsOverride) ||
+    nonCounting.value !== Number(USUAL_FORM_VALUES.nonCountingRounds) ||
     games.semis !== USUAL_GAMES.semis ||
     games.final !== USUAL_GAMES.final ||
     form.semisBestOf !== '' ||

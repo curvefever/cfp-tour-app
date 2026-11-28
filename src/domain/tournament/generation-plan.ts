@@ -3,7 +3,12 @@ import { groupExitRefusal } from './group-exit';
 import { GROUP_SIZE_BOUNDS, groupSettingsOf } from './group-settings';
 import { layeredGateRefusal } from './layered-form';
 import { QUALIFICATION_ROUNDS, computeSwissRoundCount } from './pooling';
-import { MAX_POOLING_ROUNDS_OVERRIDE, parsePoolingRoundsOverride } from './pooling-rounds';
+import {
+  MAX_POOLING_ROUNDS_OVERRIDE,
+  parseNonCountingRounds,
+  parsePoolingRoundsOverride,
+  poolingRoundsOf,
+} from './pooling-rounds';
 import { rosterFitsFormat, rosterKeys } from './roster';
 import { matchFormatConfig } from './round-match-formats';
 import {
@@ -43,20 +48,10 @@ export function registeredBelowFloorMessage(
   return `This format needs at least ${floorMin} registered ${unitPlural}${reason}. Registered: ${unitCount}.`;
 }
 
-function resolvePoolingRoundsOverride(
-  raw: string,
-  defaultValue: number,
-  label: string,
-): { ok: true; value: number } | { ok: false; error: string } {
-  const parsedValue = parsePoolingRoundsOverride(raw);
-  if (parsedValue === undefined) return { ok: true, value: defaultValue };
-  if (parsedValue === null) {
-    return {
-      ok: false,
-      error: `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`,
-    };
-  }
-  return { ok: true, value: parsedValue };
+/** Why a typed round count override can't be played, or null. */
+function roundsOverrideRefusal(raw: string, label: string): string | null {
+  if (parsePoolingRoundsOverride(raw) !== null) return null;
+  return `${label} round count override must be a whole number from 1 to ${MAX_POOLING_ROUNDS_OVERRIDE} — got "${raw}".`;
 }
 
 /** The roster, the game format, the minimum head count and the layered gate. */
@@ -168,20 +163,21 @@ function planPoolingRounds(
 ): Planned<PlanAfterPoolingRounds> {
   const { config } = plan;
 
-  // Total pooling-phase round count for Qualification Table / Swiss --
-  // normally derived (a fixed constant / a function of entrant count), but
-  // each is independently overridable pre-start.
+  // The round count and the uncounted rounds of the chosen phase: typed, else the app's.
+  const resolved = poolingRoundsOf(form, config.n);
+
+  // The phase not chosen keeps the engine's own count in the stored settings.
   let qualRounds = QUALIFICATION_ROUNDS;
   if (config.poolingPhase === 'qual-table') {
-    const resolved = resolvePoolingRoundsOverride(form.qualRoundsOverride, qualRounds, 'Qualification Table');
-    if (!resolved.ok) return refuse(resolved.error);
-    qualRounds = resolved.value;
+    const refusal = roundsOverrideRefusal(form.qualRoundsOverride, 'Qualification Table');
+    if (refusal) return refuse(refusal);
+    qualRounds = resolved.rounds.value;
   }
   let swissRounds = computeSwissRoundCount(config.n);
   if (config.poolingPhase === 'swiss') {
-    const resolved = resolvePoolingRoundsOverride(form.swissRoundsOverride, swissRounds, 'Swiss');
-    if (!resolved.ok) return refuse(resolved.error);
-    swissRounds = resolved.value;
+    const refusal = roundsOverrideRefusal(form.swissRoundsOverride, 'Swiss');
+    if (refusal) return refuse(refusal);
+    swissRounds = resolved.rounds.value;
   }
 
   // "Non-counting" leading rounds are only meaningful where a cumulative
@@ -191,20 +187,19 @@ function planPoolingRounds(
   // out of this feature's scope.
   let nonCountingRounds = 0;
   if (config.poolingPhase === 'qual-table' || config.poolingPhase === 'swiss') {
-    const rawNonCountingRounds = Number.parseInt(form.nonCountingRounds || '0', 10);
-    if (!Number.isFinite(rawNonCountingRounds) || rawNonCountingRounds < 0) {
+    if (parseNonCountingRounds(form.nonCountingRounds) === null) {
       return refuse(
         `Non-counting rounds must be a non-negative whole number — got "${form.nonCountingRounds}".`,
       );
     }
-    const totalPoolingRounds = config.poolingPhase === 'qual-table' ? qualRounds : swissRounds;
-    if (rawNonCountingRounds >= totalPoolingRounds) {
+    nonCountingRounds = resolved.nonCounting.value;
+    const totalPoolingRounds = resolved.rounds.value;
+    if (nonCountingRounds >= totalPoolingRounds) {
       const phaseName = config.poolingPhase === 'qual-table' ? 'Qualification Table' : 'Swiss';
       return refuse(
-        `Non-counting rounds (${rawNonCountingRounds}) must leave at least one round that counts — this ${phaseName} phase has ${totalPoolingRounds} round${totalPoolingRounds === 1 ? '' : 's'} total.`,
+        `Non-counting rounds (${nonCountingRounds}) must leave at least one round that counts — this ${phaseName} phase has ${totalPoolingRounds} round${totalPoolingRounds === 1 ? '' : 's'} total.`,
       );
     }
-    nonCountingRounds = rawNonCountingRounds;
   }
 
   return { ok: true, plan: { ...plan, qualRounds, swissRounds, nonCountingRounds } };

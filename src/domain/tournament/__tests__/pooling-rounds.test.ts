@@ -3,15 +3,134 @@ import { generateTournament } from '../generation';
 import { QUALIFICATION_ROUNDS, computeSwissRoundCount, groupStageRoundCount } from '../pooling';
 import {
   MAX_POOLING_ROUNDS_OVERRIDE,
+  parseNonCountingRounds,
   parsePoolingRoundsOverride,
+  poolingRoundsOf,
   roundsBeforeBracket,
 } from '../pooling-rounds';
-import { createDefaultSetup, createDefaultTournamentState } from '../state-defaults';
+import { createDefaultSetup, createDefaultTournamentState, newTournamentSetup } from '../state-defaults';
 import type { PersistedSetup } from '../types';
 import { buildQualWaterfall } from './qual-waterfall';
-import { rosterFor, testRuntime, type Setup } from './test-fixtures';
+import { generatedState, rosterFor, testRuntime, type Setup } from './test-fixtures';
 
 const HEAD_TO_HEAD: Setup = { gameFormat: 'individual-1v1' };
+
+/** A setup whose empty pooling fields take the app's numbers. */
+const APP_RULE: Setup = { poolingDefaultsVersion: '1', nonCountingRounds: '' };
+
+const app = (value: number) => ({ value, typed: false });
+const typed = (value: number) => ({ value, typed: true });
+
+describe('parseNonCountingRounds', () => {
+  it('reads a whole number from 0, undefined for an empty field, null for anything else', () => {
+    expect(parseNonCountingRounds('')).toBeUndefined();
+    expect(parseNonCountingRounds('0')).toBe(0);
+    expect(parseNonCountingRounds('2')).toBe(2);
+    for (const raw of ['x', '-1']) expect(parseNonCountingRounds(raw)).toBeNull();
+  });
+});
+
+describe('poolingRoundsOf', () => {
+  const resolve = (overrides: Setup, count: number) => poolingRoundsOf(createDefaultSetup(overrides), count);
+  const swiss: Setup = { ...HEAD_TO_HEAD, poolingPhase: 'swiss' };
+
+  it('gives an empty qualification table 4 rounds, the first not counted, under the app rule', () => {
+    expect(resolve({ ...APP_RULE, poolingPhase: 'qual-table' }, 37)).toEqual({
+      rounds: app(4),
+      nonCounting: app(1),
+    });
+  });
+
+  it('gives it 3 rounds, all counted, without the switch', () => {
+    expect(resolve({ poolingPhase: 'qual-table', nonCountingRounds: '' }, 37)).toEqual({
+      rounds: app(3),
+      nonCounting: app(0),
+    });
+  });
+
+  it.each([9, 37, 53])('gives an empty Swiss of %i 5 rounds, all counted, under the app rule', (count) => {
+    expect(resolve({ ...swiss, ...APP_RULE }, count)).toEqual({ rounds: app(5), nonCounting: app(0) });
+  });
+
+  it('takes a Swiss from the field without the switch: 6 rounds at 37', () => {
+    expect(resolve({ ...swiss, nonCountingRounds: '' }, 37)).toEqual({
+      rounds: app(6),
+      nonCounting: app(0),
+    });
+  });
+
+  it.each(['', '1'])('lets a typed number win (switch "%s")', (poolingDefaultsVersion) => {
+    const both = { poolingDefaultsVersion, nonCountingRounds: '0' };
+    expect(resolve({ ...both, poolingPhase: 'qual-table', qualRoundsOverride: '2' }, 37)).toEqual({
+      rounds: typed(2),
+      nonCounting: typed(0),
+    });
+    expect(resolve({ ...swiss, ...both, swissRoundsOverride: '2' }, 37)).toEqual({
+      rounds: typed(2),
+      nonCounting: typed(0),
+    });
+  });
+
+  it('counts text generation would refuse as an empty field', () => {
+    const bad = { ...APP_RULE, poolingPhase: 'qual-table', qualRoundsOverride: '99', nonCountingRounds: 'x' };
+    expect(resolve(bad as Setup, 37)).toEqual({ rounds: app(4), nonCounting: app(1) });
+  });
+
+  it.each(['', '1'])('has no typed numbers without a table or a Swiss (switch "%s")', (version) => {
+    const fields = { poolingDefaultsVersion: version, qualRoundsOverride: '7', nonCountingRounds: '2' };
+    expect(resolve({ ...fields, poolingPhase: 'none' }, 37)).toEqual({
+      rounds: app(2),
+      nonCounting: app(0),
+    });
+    expect(resolve({ ...HEAD_TO_HEAD, ...fields, poolingPhase: 'group-stage', groupSize: '4' }, 31)).toEqual({
+      rounds: app(3),
+      nonCounting: app(0),
+    });
+  });
+});
+
+describe('generation plays the pooling numbers of its rule', () => {
+  const generate = (count: number, form: ReturnType<typeof createDefaultSetup>) =>
+    generateTournament(
+      createDefaultTournamentState({
+        confirmedCount: count,
+        players: rosterFor(form.gameFormat, count),
+      }),
+      form,
+      testRuntime(),
+    );
+
+  const uncounted = (rounds: Array<{ excludeFromStandings?: boolean }>) =>
+    rounds.map((round) => round.excludeFromStandings === true);
+
+  it('makes 4 table rounds at 37 from a new tournament, the first not counted', () => {
+    const state = generatedState(generate(37, newTournamentSetup()));
+    expect(uncounted(state.rounds.filter((round) => round.isQual))).toEqual([true, false, false, false]);
+    expect(state.gamemodeConfig).toMatchObject({ qualRounds: 4, nonCountingRounds: 1 });
+  });
+
+  it.each(['', '0'])('still makes 3, all counted, without the switch (non-counting "%s")', (field) => {
+    const stored = createDefaultSetup({ poolingPhase: 'qual-table', qualAdv: '', nonCountingRounds: field });
+    const state = generatedState(generate(37, stored));
+    expect(uncounted(state.rounds.filter((round) => round.isQual))).toEqual([false, false, false]);
+    expect(state.gamemodeConfig).toMatchObject({ qualRounds: 3, nonCountingRounds: 0 });
+  });
+
+  it.each([9, 37, 53])('makes a Swiss of 5 at %i under the app rule', (count) => {
+    const form = createDefaultSetup({ ...HEAD_TO_HEAD, ...APP_RULE, poolingPhase: 'swiss', qualAdv: '' });
+    const state = generatedState(generate(count, form));
+    expect(uncounted(state.rounds.filter((round) => round.isSwiss))).toEqual(Array(5).fill(false));
+  });
+
+  it('checks the uncounted rounds against the app’s round count', () => {
+    const form = { ...newTournamentSetup(), nonCountingRounds: '4' };
+    expect(generate(37, form)).toEqual({
+      status: 'invalid',
+      message:
+        'Non-counting rounds (4) must leave at least one round that counts — this Qualification Table phase has 4 rounds total.',
+    });
+  });
+});
 
 describe('parsePoolingRoundsOverride', () => {
   it('reads a whole number from 1 to the ceiling, undefined for no override, null for anything else', () => {
@@ -51,49 +170,61 @@ describe('roundsBeforeBracket', () => {
   });
 });
 
-describe('roundsBeforeBracket equals what generation puts before the bracket', () => {
-  /** The rounds before the first round that is not a pooling round (a bracket round is never "no elimination"). */
-  const poolingRoundCount = (rounds: Array<{ isNoElim: boolean }>) =>
-    rounds.findIndex((round) => !round.isNoElim);
+describe.each([
+  ['without the switch', {}],
+  ['under the app rule', APP_RULE],
+] as Array<[string, Setup]>)(
+  'roundsBeforeBracket equals what generation puts before the bracket, %s',
+  (_rule, rule) => {
+    /** The rounds before the first round that is not a pooling round (a bracket round is never "no elimination"). */
+    const poolingRoundCount = (rounds: Array<{ isNoElim: boolean }>) =>
+      rounds.findIndex((round) => !round.isNoElim);
 
-  function generate(count: number, overrides: Setup) {
-    const form = createDefaultSetup({ qualAdv: '16', ...overrides });
-    const gameFormat = form.gameFormat;
-    const result = generateTournament(
-      createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
-      form,
-      testRuntime(),
-    );
-    if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
-    return { state: result.state, form };
-  }
+    function generate(count: number, overrides: Setup) {
+      const form = createDefaultSetup({ qualAdv: '16', ...rule, ...overrides });
+      const gameFormat = form.gameFormat;
+      const result = generateTournament(
+        createDefaultTournamentState({ confirmedCount: count, players: rosterFor(gameFormat, count) }),
+        form,
+        testRuntime(),
+      );
+      if (result.status !== 'generated') throw new Error(`generation failed: ${result.message}`);
+      return { state: result.state, form };
+    }
 
-  const cases: Array<[string, number, Setup]> = [
-    ['qualification table, 3 rounds', 37, { poolingPhase: 'qual-table' }],
-    ['qualification table, override 5', 43, { poolingPhase: 'qual-table', qualRoundsOverride: '5' }],
-    ['Swiss', 31, { ...HEAD_TO_HEAD, poolingPhase: 'swiss' }],
-    ['Swiss, 4 rounds', 53, { ...HEAD_TO_HEAD, poolingPhase: 'swiss', swissRoundsOverride: '4' }],
-    ['group stage of 31 units in groups of 4', 31, groupStage('4')],
-    ['group stage of 37 units in groups of 4', 37, groupStage('4')],
-    ['double round robin, 37 units in groups of 4', 37, { ...groupStage('4'), roundRobinMode: 'double' }],
-    ['no pooling phase: the 2 warm-up rounds', 37, { poolingPhase: 'none' }],
-  ];
+    const cases: Array<[string, number, Setup]> = [
+      ['qualification table, 3 rounds', 37, { poolingPhase: 'qual-table' }],
+      ['qualification table, override 5', 43, { poolingPhase: 'qual-table', qualRoundsOverride: '5' }],
+      ['Swiss', 31, { ...HEAD_TO_HEAD, poolingPhase: 'swiss' }],
+      ['Swiss, 4 rounds', 53, { ...HEAD_TO_HEAD, poolingPhase: 'swiss', swissRoundsOverride: '4' }],
+      ['group stage of 31 units in groups of 4', 31, groupStage('4')],
+      ['group stage of 37 units in groups of 4', 37, groupStage('4')],
+      ['double round robin, 37 units in groups of 4', 37, { ...groupStage('4'), roundRobinMode: 'double' }],
+      ['no pooling phase: the 2 warm-up rounds', 37, { poolingPhase: 'none' }],
+    ];
 
-  it.each(cases)('%s', (_name, count, overrides) => {
-    const { state, form } = generate(count, overrides);
-    const before = poolingRoundCount(state.rounds);
-    expect(before).toBe(roundsBeforeBracket(form, count));
-    expect(state.rounds[before].roundNum).toBe(before + 1);
-  });
+    it.each(cases)('%s', (_name, count, overrides) => {
+      const { state, form } = generate(count, overrides);
+      const before = poolingRoundCount(state.rounds);
+      expect(before).toBe(roundsBeforeBracket(form, count));
+      expect(state.rounds[before].roundNum).toBe(before + 1);
+    });
 
-  function groupStage(groupSize: string): Setup {
-    return { ...HEAD_TO_HEAD, poolingPhase: 'group-stage', groupSize, qualifiersPerGroup: '2', qualAdv: '2' };
-  }
+    function groupStage(groupSize: string): Setup {
+      return {
+        ...HEAD_TO_HEAD,
+        poolingPhase: 'group-stage',
+        groupSize,
+        qualifiersPerGroup: '2',
+        qualAdv: '2',
+      };
+    }
 
-  it('is the same count the waterfall bracket starts after (a Custom bracket after the qualification table)', () => {
-    const state = buildQualWaterfall(37);
-    const first = state.rounds.findIndex((round) => round.isWaterfall);
-    expect(first).toBe(roundsBeforeBracket(createDefaultSetup({ poolingPhase: 'qual-table' }), 37));
-    expect(state.rounds[first].roundNum).toBe(first + 1);
-  });
-});
+    it('is the same count the waterfall bracket starts after (a Custom bracket after the qualification table)', () => {
+      const state = buildQualWaterfall(37);
+      const first = state.rounds.findIndex((round) => round.isWaterfall);
+      expect(first).toBe(roundsBeforeBracket(createDefaultSetup({ poolingPhase: 'qual-table' }), 37));
+      expect(state.rounds[first].roundNum).toBe(first + 1);
+    });
+  },
+);

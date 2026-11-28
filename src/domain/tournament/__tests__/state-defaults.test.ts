@@ -8,6 +8,7 @@ describe('createDefaultSetup', () => {
   it('keeps the values stored tournaments are read with', () => {
     expect(createDefaultSetup()).toMatchObject({
       poolingPhase: 'none',
+      poolingDefaultsVersion: '',
       qualAdv: '24',
       qualRoundsOverride: '',
       swissRoundsOverride: '',
@@ -17,13 +18,13 @@ describe('createDefaultSetup', () => {
 });
 
 describe('newTournamentSetup', () => {
-  it('is a qualification table of 4 rounds, the first not counted, with "Advance to bracket" empty', () => {
+  it('is a qualification table with every number left to the app, under the app rule', () => {
     expect(newTournamentSetup()).toEqual(
       createDefaultSetup({
         poolingPhase: 'qual-table',
+        poolingDefaultsVersion: '1',
         qualAdv: '',
-        qualRoundsOverride: '4',
-        nonCountingRounds: '1',
+        nonCountingRounds: '',
       }),
     );
   });
