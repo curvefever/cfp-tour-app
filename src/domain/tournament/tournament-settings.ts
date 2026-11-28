@@ -93,6 +93,20 @@ export function readTournamentSettings(raw: unknown): TournamentSettings | null 
   return settings as unknown as TournamentSettings;
 }
 
+/**
+ * Whether the Setup form now asks for something else than the settings a schedule was generated with. False for a
+ * schedule with no stored settings: there is nothing to compare with.
+ */
+export function formDiffersFromSettings(
+  generatedWith: unknown,
+  form: PersistedSetup & { lbQualifiers?: string },
+): boolean {
+  const generated = readTournamentSettings(generatedWith);
+  if (!generated) return false;
+  const now = settingsFromForm(form);
+  return [...SETTING_KEYS, 'lbQualifiers' as const].some((key) => generated[key] !== now[key]);
+}
+
 /** Every setting key from `settings`, the roster fields from `setup`, and no `qual` key (`poolingPhase` decides). */
 export function applyTournamentSettings(setup: PersistedSetup, settings: TournamentSettings): PersistedSetup {
   const next: PersistedSetup = { ...setup };

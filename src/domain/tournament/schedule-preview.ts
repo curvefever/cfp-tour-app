@@ -58,7 +58,9 @@ export function previewSchedule(
   unitCount: number,
   runtime: TournamentRuntime,
 ): SchedulePreview {
-  const isLoadedCount = current.confirmedCount !== null && unitCount === rosterKeys(current.players).length;
+  // As generation reads it: null and a missing count both mean that no roster is loaded.
+  const isLoaded = current.confirmedCount !== null && current.confirmedCount !== undefined;
+  const isLoadedCount = isLoaded && unitCount === rosterKeys(current.players).length;
   const state = isLoadedCount ? current : standInRosterState(form.gameFormat, unitCount);
   return generateTournamentWithPlan(state, form, runtime);
 }

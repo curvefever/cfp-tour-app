@@ -13,7 +13,7 @@ import { InfoContentPanel } from './InfoContentPanel';
 import { ConfirmStartBar } from './setup/ConfirmStartBar';
 import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
-import { SchedulePreviewPanel } from './setup/SchedulePreviewPanel';
+import { AppPlanPanel } from './setup/AppPlanPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
 import { useWaterfallNumbering, WaterfallNumberingContext } from './setup/useWaterfallNumbering';
 import { LayeredPanel } from './setup/LayeredPanel';
@@ -71,7 +71,7 @@ export function SetupView() {
     setLbQualifiers(settings.lbQualifiers);
     let message = `Copied settings from "${sourceTitle}".`;
     if (state.rounds.length && !state.started) {
-      message += ' Generate the schedule again: the preview below still uses the previous settings.';
+      message += ' Generate the schedule again: the generated one still uses the previous settings.';
     }
     if (state.confirmedCount !== null && settings.gameFormat !== previousGameFormat) {
       message += ' The game format changed: load the roster again.';
@@ -100,7 +100,7 @@ export function SetupView() {
           <RosterPanel onLoaded={() => setError('')} />
         </div>
         <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
-          <SchedulePreviewPanel />
+          <AppPlanPanel lbQualifiers={lbQualifiers} />
         </aside>
         <ConfirmStartBar pinned />
       </div>

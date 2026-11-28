@@ -142,7 +142,7 @@ export function RosterPanel({ onLoaded }: { onLoaded: () => void }) {
           onClick={() => {
             if (
               window.confirm(
-                'Clear the registered roster? This removes all players/teams and reserves, and any generated schedule preview. Tournament settings (format, schedule logic, etc.) are kept.',
+                'Clear the registered roster? This removes all players/teams and reserves, and any generated schedule. Tournament settings (format, schedule logic, etc.) are kept.',
               )
             ) {
               updateState(resetRoster(state));

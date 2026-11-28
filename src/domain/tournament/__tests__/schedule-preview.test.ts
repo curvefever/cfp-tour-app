@@ -88,6 +88,13 @@ describe('previewSchedule: whose roster it runs on', () => {
     });
   });
 
+  it('takes a missing confirmed count as no roster, as generation does', () => {
+    const current = { ...loaded('ffa-individual', 37), confirmedCount: undefined as unknown as null };
+    expect(generatedPreview(current, form, 37).state.players).toEqual(
+      standInRosterState('ffa-individual', 37).players,
+    );
+  });
+
   it('writes nothing, and draws the same each time', () => {
     const current = loaded('ffa-individual', 37);
     const before = structuredClone(current);

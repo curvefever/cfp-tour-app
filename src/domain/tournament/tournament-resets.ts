@@ -23,7 +23,7 @@ export function withLoadedRoster(
 /**
  * Clears just the registered roster (players/reserves/individual reserves)
  * plus anything derived from it that would otherwise go stale -- the
- * generated schedule preview, if "Generate Schedule" was already clicked
+ * generated schedule, if "Generate Schedule" was already clicked
  * pre-start. Deliberately preserves title/gameFormat/scheduleLogic/cfg (the
  * Setup configuration itself) -- the complement of resetTournamentState()
  * below, which preserves the roster but clears live progress.

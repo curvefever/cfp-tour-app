@@ -45,7 +45,7 @@ describe('the app’s plan for a new FFA tournament', () => {
       'Not counted: the first round (app)',
       'Rooms: 8 · 8 · 7 · 7 · 7 (app)',
       'In the bracket: 28 of 33 expected (app)',
-      'Semis: 16 players (app)',
+      'Semis: 16 players (2 rooms of 8) (app)',
       'Final: 8 players (app)',
     ]);
   });
@@ -67,9 +67,16 @@ describe('the app’s plan for a new FFA tournament', () => {
       'Not counted: the first round (app)',
       'Rooms: 8 · 7 · 7 · 7 · 7 · 7 (app)',
       'In the bracket: 30 of 39 expected (typed)',
-      'Semis: 16 players (app)',
+      'Semis: 16 players (2 rooms of 8) (app)',
       'Final: 6 players (typed)',
     ]);
+  });
+
+  it('shows the rooms a typed Semis size makes, equal or not', () => {
+    expect(linesOf({ ...ffa, semisOverride: '14' }, 37)).toContain(
+      'Semis: 14 players (2 rooms of 7) (typed)',
+    );
+    expect(linesOf({ ...ffa, semisOverride: '13' }, 37)).toContain('Semis: 13 players (7 · 6) (typed)');
   });
 
   it.each([
@@ -91,8 +98,16 @@ describe('the app’s plan for a new FFA tournament', () => {
 });
 
 describe('the lines other formats have', () => {
-  it('lists a Swiss', () => {
-    expect(linesOf(oneVOne, 37).slice(0, 2)).toEqual(['Swiss: 5 rounds (app)', 'Not counted: none (app)']);
+  it('lists a Swiss, its equal rooms counted and its bye', () => {
+    expect(linesOf(oneVOne, 37).slice(0, 3)).toEqual([
+      'Swiss: 5 rounds (app)',
+      'Not counted: none (app)',
+      'Rooms: 18 rooms of 2, 1 bye (app)',
+    ]);
+  });
+
+  it('counts equal rooms without a bye: 4 rooms of 8 at 32', () => {
+    expect(linesOf(ffa, 32)).toContain('Rooms: 4 rooms of 8 (app)');
   });
 
   it('lists a group stage by its groups, with no bracket number when each group sends so many', () => {

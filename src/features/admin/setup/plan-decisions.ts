@@ -53,10 +53,18 @@ function poolingDecisions(form: GenerationForm, { state, plan }: GeneratedPrevie
   ];
 }
 
-/** The rooms of the first pooling round; a group stage plays matches, not rooms. */
+/** "18 rooms of 2" when every room has the same size, else the sizes: "8 · 8 · 7 · 7 · 7". */
+function roomsText(rooms: readonly number[]): string {
+  const sameSize = rooms.every((size) => size === rooms[0]);
+  return sameSize ? `${plural(rooms.length, 'room')} of ${rooms[0]}` : rooms.join(' · ');
+}
+
+/** The rooms and byes of the first pooling round. */
 function roomDecisions({ state }: GeneratedPreview): PlanDecision[] {
-  const rooms = state.rounds[0].rooms;
-  return rooms.length ? [decision('Rooms', rooms.join(' · '), false)] : [];
+  const { rooms, byeCount } = state.rounds[0];
+  if (!rooms.length) return [];
+  const byes = byeCount ? `, ${plural(byeCount, 'bye')}` : '';
+  return [decision('Rooms', `${roomsText(rooms)}${byes}`, false)];
 }
 
 /**
@@ -76,21 +84,25 @@ function entryDecisions(form: GenerationForm, { plan }: GeneratedPreview): PlanD
   return [decision('In the bracket', text, isTyped(form.qualAdv))];
 }
 
+const stageRound = (state: TournamentState, stage: 'isSemis' | 'isFinal') =>
+  state.rounds.find((round) => round[stage]);
+
 /** The seats of the Semis or the Final. */
-function seatsOf(state: TournamentState, stage: 'isSemis' | 'isFinal'): number | undefined {
-  return state.rounds.find((round) => round[stage])?.players;
-}
+const seatsOf = (state: TournamentState, stage: 'isSemis' | 'isFinal') => stageRound(state, stage)?.players;
 
 function sizeDecisions(form: GenerationForm, { state }: GeneratedPreview): PlanDecision[] {
   if (form.scheduleLogic !== 'single-elimination') return [];
   const units = unitLabelPluralLower(form.gameFormat);
-  const stages = [
-    { label: 'Semis', seats: seatsOf(state, 'isSemis'), field: form.semisOverride },
-    { label: 'Final', seats: seatsOf(state, 'isFinal'), field: form.finalOverride },
-  ];
-  return stages.flatMap(({ label, seats, field }) =>
-    seats === undefined ? [] : [decision(label, `${seats} ${units}`, isTyped(field))],
-  );
+  const semis = stageRound(state, 'isSemis');
+  const final = stageRound(state, 'isFinal');
+  const lines: PlanDecision[] = [];
+  if (semis) {
+    // The override counts units, so the line shows the rooms they make too.
+    const text = `${semis.players} ${units} (${roomsText(semis.rooms)})`;
+    lines.push(decision('Semis', text, isTyped(form.semisOverride)));
+  }
+  if (final) lines.push(decision('Final', `${final.players} ${units}`, isTyped(form.finalOverride)));
+  return lines;
 }
 
 /** The typed survivor counts; the app's own show as what each round's row advances. */

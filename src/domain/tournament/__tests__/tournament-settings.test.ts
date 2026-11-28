@@ -5,6 +5,7 @@ import {
   ROSTER_KEYS,
   SETTING_KEYS,
   applyTournamentSettings,
+  formDiffersFromSettings,
   readTournamentSettings,
   settingsFromForm,
 } from '../tournament-settings';
@@ -150,6 +151,29 @@ describe('readTournamentSettings', () => {
     expect(settings).not.toBeNull();
     expect(settings?.qualAdv).toBe(createDefaultSetup().qualAdv);
     expect(settings).not.toHaveProperty('someFutureField');
+  });
+});
+
+describe('formDiffersFromSettings', () => {
+  const form = createDefaultSetup({ poolingPhase: 'qual-table' });
+  const generatedWith = settingsFromForm(form);
+
+  it('is false for the form the settings were taken from, whatever the roster fields say', () => {
+    expect(formDiffersFromSettings(generatedWith, { ...form, roster: 'P1\nP2' })).toBe(false);
+  });
+
+  it('is true once a setting or "LB qualifiers" differs', () => {
+    expect(formDiffersFromSettings(generatedWith, { ...form, qualAdv: '30' })).toBe(true);
+    expect(formDiffersFromSettings(generatedWith, { ...form, lbQualifiers: '3' })).toBe(true);
+  });
+
+  it('reads a snapshot that lacks a newer setting at its default', () => {
+    const { poolingDefaultsVersion: _switch, ...older } = generatedWith;
+    expect(formDiffersFromSettings(older, form)).toBe(false);
+  });
+
+  it('is false with no stored settings', () => {
+    expect(formDiffersFromSettings(undefined, form)).toBe(false);
   });
 });
 

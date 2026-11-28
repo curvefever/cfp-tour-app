@@ -7,7 +7,7 @@ import { useTournamentApp } from '../../tournament/TournamentProvider';
 /**
  * The Confirm & Start button with what stands in its way (a refusal, an error from the server). Shown while a
  * generated schedule has not started. `pinned` is the phone's copy, at the end of the Setup page and stuck to the
- * bottom of the screen; the other copy sits under the schedule preview and is hidden on a phone.
+ * bottom of the screen; the other copy sits under the app's plan and is hidden on a phone.
  */
 export function ConfirmStartBar({ pinned = false }: { pinned?: boolean }) {
   const { state, startTournamentNow } = useTournamentApp();
