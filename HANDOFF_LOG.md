@@ -6,6 +6,79 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ---
 
+## The app's decisions beside the overrides (done — 2026-11-28, on `test`, not `main`)
+
+**Context.** Rigidity audit, work queue item 1b, with the roadmap's "A schedule picture for a typed head count": both need the plan for a head count worked out before Generate. Plan `plans/2026-11-28-decisions-beside-overrides.md`, built in a split session. Commits: `00f5de7` (stage 1), `eac36ee` (stage 1 follow-up), `cf29a34` (2), `35352b7` (3), then stage 4.
+
+**The organiser's decisions, 2026-11-28.**
+1. One build: the decisions display and the picture for a typed head count.
+2. Layout A: a panel THE APP'S PLAN in the aside beside FORMAT, with the head count at the top (the roster's by default, any number typable), one line per number tagged **app** or **typed**, the rounds, and a link to the schedule picture. In FORMAT each empty override field shows the app's number as its placeholder, and a typed one a line "The app would use 8."
+3. The practice defaults become the app's own numbers for new tournaments, and the fields start empty: a qualification table 4 rounds, the first not counted; a Swiss always 5 rounds, all counted. Stored tournaments keep their rule for an empty field.
+
+**The planner's decisions.**
+- **The switch is a Setup key**, `poolingDefaultsVersion` ('1' on a new tournament, '' in `createDefaultSetup`), not a `gamemodeConfig` stamp: the round count is read from the form while a tournament runs, the Setup must show the right number before Generate, and an older draft does not change meaning when generated later. It is a settings key, so Copy settings makes a copy play as its source did.
+- In a setup with the switch a pooling change types nothing and empties "Non-counting rounds". Without it, the phase's usual values are typed as before. Tournaments created between `72e75c6` and this build hold '4', '1' or '5' typed and no switch: they show as typed, which is correct.
+- The panel replaces SCHEDULE PREVIEW and always follows the form and its own head count, not the generated rounds; Generate and Confirm & Start still use the generated schedule, so a line says when the form has moved away from it. The typed count is this tab's own.
+- The preview is generation itself (`previewSchedule`), so it cannot drift from Generate: on the roster for its own count, else on stand-ins, with a fixed-seed runtime. It stores nothing.
+- The wording is "app: N" in every placeholder, "Advance to bracket" included; with no plan to read, a field keeps its earlier words.
+
+**Decided while building** (open to correction).
+- **The app's number of non-counting rounds leaves one round that counts** (min of the app's value and rounds − 1), so the app's own number never gets a schedule refused. A typed number is not capped.
+- **A stored '0' without the switch is the app's** (`createDefaultSetup` wrote it, and it is the older rule's number). A stored "Advance to bracket" 24 stays typed: 24 is not what an empty field gives.
+- The pooling numbers are two lines, each with its own tag. "Rooms" counts equal rooms ("18 rooms of 2, 1 bye") and lists unequal ones; the Semis line shows its rooms ("16 players (2 rooms of 8)"), since its override is in players.
+- "In the bracket" shows only where Setup has an "Advance to bracket" box.
+- **The plan's panel memo reads the roster alone** (players, reserves, confirmed count), so typing a title or a rule does not generate again.
+- **A typed head count is worked out up to 200**; a loaded roster of any size is planned. A preview cannot be interrupted and the layered one grows fast (Node: 100 players 59 ms, 200 131 ms, 256 408 ms, 300 537 ms, 500 1.6 s, 1000 10.5 s), so typing "1000" would have frozen the tab.
+- At 53 a preview takes under 5 ms in Node (FFA 0.5, layered 2.4, Swiss 0.3, group stage 0.3, fixed-draw table 4.8), so the count input is not deferred.
+- With a schedule generated and another count shown, a second line says which count Confirm & Start starts (raised by the implementer in the stage 3 live check). The button stays: the phone's pinned bar would show it anyway.
+- Emptying the elimination targets for "the app would use" empties the reseed modes too: they are listed per target, and generation refuses modes without the list.
+- `appValueOf` (a generation per field) runs only for typed fields; an empty field reads the panel's own preview.
+- The recap words an empty pooling number "4 (automatic)", "None (automatic)", from `cfg.n`.
+- Two texts the live panel made wrong: Copy settings now ends "the generated one still uses the previous settings."; the roster's Clear confirm says "any generated schedule".
+- The plan's example gave 8 for a typed Semis size at FFA 37. The override counts players, so the app's number is 16; 8 is the Final's.
+
+**Parts, each testable alone.**
+1. `poolingRoundsOf` (`pooling-rounds.ts`) and the switch; generation, `roundsBeforeBracket`, the layered comparison and the pooling-change rule read it.
+2. `schedule-preview.ts` (`previewSchedule`, `previewRuntime`, `standInRosterState`; `generateTournamentWithPlan` in `generation.ts`) and `plan-decisions.ts`.
+3. `AppPlanPanel.tsx` and `useAppPlan.ts` in place of `SchedulePreviewPanel.tsx`; `formDiffersFromSettings`.
+4. `AppValueInput.tsx` at the seven fields, the second warning line, the recap.
+
+**Awkward counts** (a new FFA tournament, single elimination; pinned in tests except the survivors at 31 and 43).
+
+| Registered | First-round rooms | In the bracket | Survivors before the Semis | Semis, Final |
+|---|---|---|---|---|
+| 31 | 8 · 8 · 8 · 7 | 21 of 28 expected | 18, 16 | 16, 8 |
+| 37 | 8 · 8 · 7 · 7 · 7 | 28 of 33 | 23, 19, 16 | 16, 8 |
+| 43 | 8 · 7 · 7 · 7 · 7 · 7 | 32 of 39 | 27, 23, 19, 16 | 16, 8 |
+| 53 | 8 · 8 · 8 · 8 · 7 · 7 · 7 | 40 of 48 | 33, 28, 23, 19, 16 | 16, 8 |
+
+A Swiss under the new rule is 5 rounds at 9, 37 and 53; without the switch it is 6 at 37. The preview of a typed count was checked equal to Generate on a real roster at 31, 37, 43 and 53 in five shapes: FFA table into single elimination and into a layered bracket, a 1v1 Swiss into upper and lower, a 1v1 group stage, and a 2v2v2v2 Custom bracket.
+
+**Testing.** Per stage: eslint, `prettier --check` and the type check (whole project, no errors) clean on the changed files; `vitest related` on them, `.claude/**` excluded: stage 1, 260 files, 6,987 tests, 1 failed (the recap's "every setting is shown" check, which now leaves out the switch), its file rerun after the fix; the follow-up, 239 files, 6,619; stage 2, 231 files, 6,455; stage 3, 234 files, 6,520; stage 4, 242 files, 6,713, with `bracket-entry-text.test.ts` run on its own. All other runs passed. Stage 3 also had a scratch fuzz of the preview, run because it now runs on every Setup keystroke: every setting with odd values over all schedules and pooling phases and three formats at 1, 13 and 37 (189,504 previews with rows, lines and the picture's model): none threw, none took over 300 ms.
+
+Review, per stage 1 to 3 (Planner-Reviewer): every production hunk read, the related tests passed, and the mutations run on each stage were each caught by a test.
+
+**Live check, stage 3** (test site on `35352b7`, built-in browser; a new throwaway Test run, "App plan live check (throwaway)", `1795860895097`). With no roster: the sentence; 43 typed gave 4 rounds and 1 not counted as the app's, rooms 8·7·7·7·7·7, 32 of 39. As 1v1: a Swiss of 5, none uncounted, "21 rooms of 2, 1 bye". With 37 made-up names loaded and generated, the Bracket's room sizes matched the panel's nine rows. "Advance to bracket" 24 typed showed the earlier-settings line and the typed tag; Generate cleared it. With 31 typed, the schedule picture opened and read "31 players". Confirm & Start was not pressed; the tournament was left a draft. One "401" resource error was in the pane's log; the server calls listed all answered 200, and an error hook added after creating the tournament caught nothing. Phone width was not checked.
+
+**Pushes.** The plan said no push, which the planner then corrected: a live check on `test` needs the deployed build. `72e75c6..35352b7` was pushed to `test` for the stage 3 check, and stage 4 for its own. Nothing to `main`.
+
+**Full suite:** (reviewer).
+
+**Out of scope / known effects.**
+- The room-size policy, the recommender, versions side by side and planning again when registrations move: later queue items. The panel is where they will show.
+- A Setup layout rework: FORMAT keeps its layout and the "Advanced round overrides" fold.
+- The layered and upper and lower panels keep their own summaries and fields; their numbers get no tags.
+- A typed head count on the viewers' Info tab: its picture still draws the generated schedule.
+- Grand Final targets, LB qualifiers, group size and qualifiers per group have no "empty is the app's" meaning and get no tag.
+- Clearing the typed '4', '1' and '5' of tournaments created between `72e75c6` and this build.
+- A Semis size override smaller than the Final is accepted (older than this build; `docs/open-items.md`).
+- The panel's round rows still list every room, long in head-to-head ("2 · 2 · 2 …"); only the "Rooms" line counts equal rooms.
+- A stored Swiss without the switch takes its automatic number in the recap from `cfg.n`, which a re-plan after the start moves: if the count crossed a power of two, the recap would name another number than the rounds played.
+- "LB qualifiers" is tab state that reads 2 again after a reload, so a schedule generated with 3 then shows the earlier-settings line, which is accurate: Generate would use 2.
+- `docs/texts-inventory.md` is a snapshot and is not kept in step.
+
+---
+
 ## Defaults that follow the organiser's practice (done — 2026-11-28, on `test`, not `main`)
 
 **Context.** Rigidity audit, work queue item 1a. A new tournament started with no pooling phase and "Advance to bracket" 24 whatever the field. Plan `plans/2026-11-27-practice-defaults.md`, built in a split session. Commits: `a6e1672` (stage 1), `4590a68` (1b), `f12ea31` (2), `186df92` (3), `9cc3929` (docs), `a8e4d5f` (wording).

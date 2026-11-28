@@ -58,7 +58,9 @@ function typedOr(typed: number | null | undefined, appValue: number): PoolingNum
 }
 
 /** The uncounted rounds somebody typed. Without the switch, a stored '0' is `createDefaultSetup`'s own and the older rule's number, so nobody typed it. */
-function typedNonCounting(setup: PoolingRoundsSetup): number | null | undefined {
+export function typedNonCounting(
+  setup: Pick<PersistedSetup, 'nonCountingRounds' | 'poolingDefaultsVersion'>,
+): number | null | undefined {
   const raw = setup.nonCountingRounds;
   return !usesAppPoolingDefaults(setup) && raw === '0' ? undefined : parseNonCountingRounds(raw);
 }

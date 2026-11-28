@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateTournament } from '../../../domain/tournament/generation';
 import { createDefaultTournamentState, newTournamentSetup } from '../../../domain/tournament/state-defaults';
@@ -7,6 +8,7 @@ import type { PersistedSetup, TournamentState } from '../../../domain/tournament
 import { generatedState, rosterFor, testRuntime } from '../../../domain/tournament/__tests__/test-fixtures';
 import { AppPlanPanel } from './AppPlanPanel';
 import { schedulePreviewRows } from './schedule-preview-rows';
+import { useAppPlan } from './useAppPlan';
 
 let current: { state: TournamentState; setup: PersistedSetup };
 
@@ -31,7 +33,14 @@ function show(count: number | null, setup: Partial<PersistedSetup> = {}) {
   current = { state: createDefaultTournamentState(roster), setup: form };
 }
 
-const panel = (lbQualifiers = '2') => <AppPlanPanel lbQualifiers={lbQualifiers} />;
+/** The panel with its plan, as SetupView holds the typed head count. */
+function Panel({ lbQualifiers }: { lbQualifiers: string }) {
+  const [typed, setTyped] = useState<string | null>(null);
+  const plan = useAppPlan(typed, lbQualifiers);
+  return <AppPlanPanel onTypedChange={setTyped} plan={plan} typed={typed} />;
+}
+
+const panel = (lbQualifiers = '2') => <Panel lbQualifiers={lbQualifiers} />;
 
 const countField = () => document.getElementById('app-plan-count') as HTMLInputElement;
 const typeCount = (value: string) => fireEvent.change(countField(), { target: { value } });
@@ -186,12 +195,50 @@ describe('a generated schedule', () => {
     expect(text()).toContain(STALE);
   });
 
-  it('keeps the stale line beside another head count only when the form differs', () => {
+  const otherCount = () => document.getElementById('app-plan-other-count')?.textContent ?? null;
+
+  it('says which count Confirm & Start starts while the rounds shown are another’s', () => {
     show(37);
     generateNow();
     render(panel());
-    typeCount('53');
+    expect(otherCount()).toBeNull();
+    typeCount('31');
+    expect(otherCount()).toBe(
+      'These rounds are for 31 players. Confirm & Start starts the schedule generated for 37.',
+    );
     expect(text()).not.toContain(STALE);
+    typeCount('37');
+    expect(otherCount()).toBeNull();
+    typeCount('53');
+    typeCount('');
+    expect(otherCount()).toBeNull();
+  });
+
+  it('counts teams in that line, and puts it after the stale line', () => {
+    show(31, { gameFormat: 'team-2v2v2v2', teamScoringRule: 'sum-members' });
+    generateNow();
+    const view = render(panel());
+    current = { ...current, setup: { ...current.setup, qualRoundsOverride: '3' } };
+    view.rerender(panel());
+    typeCount('43');
+    expect(otherCount()).toBe(
+      'These rounds are for 43 teams. Confirm & Start starts the schedule generated for 31.',
+    );
+    const ids = [...document.querySelectorAll('[id^="app-plan-"]')].map((node) => node.id);
+    expect(ids.indexOf('app-plan-stale')).toBeGreaterThan(-1);
+    expect(ids.indexOf('app-plan-stale')).toBeLessThan(ids.indexOf('app-plan-other-count'));
+  });
+
+  it('has no such line without rounds to speak of, or before Generate', () => {
+    show(37);
+    render(panel());
+    typeCount('31');
+    expect(otherCount()).toBeNull();
+    cleanup();
+    generateNow();
+    render(panel());
+    typeCount('11');
+    expect(otherCount()).toBeNull();
   });
 
   it('is gone once the tournament has started', () => {

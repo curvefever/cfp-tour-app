@@ -154,6 +154,11 @@ const APP_VALUES: Record<AppValueField, (preview: GeneratedPreview) => string | 
   eliminationRoundTargets: survivorsText,
 };
 
+/** A field's number as a plan has it. For an empty field it is the app's own. */
+export function appValueFrom(field: AppValueField, preview: GeneratedPreview): string | null {
+  return APP_VALUES[field](preview);
+}
+
 /** The form with one field left to the app. The reseed modes are listed per survivor count, so they go with that list. */
 function formWithout(form: GenerationForm, field: AppValueField): GenerationForm {
   const modes = field === 'eliminationRoundTargets' ? { eliminationSeedingOverrides: '' } : {};
@@ -171,5 +176,5 @@ export function appValueOf(
   unitCount: number,
 ): string | null {
   const preview = previewSchedule(current, formWithout(form, field), unitCount, previewRuntime());
-  return preview.status === 'generated' ? APP_VALUES[field](preview) : null;
+  return preview.status === 'generated' ? appValueFrom(field, preview) : null;
 }

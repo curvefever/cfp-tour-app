@@ -336,6 +336,42 @@ describe('the recap of a layered bracket', () => {
   });
 });
 
+describe('the recap of pooling numbers left to the app', () => {
+  const itemsAt = (setup: Partial<PersistedSetup>, n: number | undefined) =>
+    groupItems({ ...stateOf(setup), cfg: n === undefined ? {} : { n } });
+  const table = { poolingPhase: 'qual-table', nonCountingRounds: '' } as const;
+  const swiss = { gameFormat: 'individual-1v1', poolingPhase: 'swiss', nonCountingRounds: '' } as const;
+
+  it('words a new tournament’s table: 4 rounds and 1 not counted, both the app’s', () => {
+    const items = itemsAt({ ...table, poolingDefaultsVersion: '1' }, 37);
+    expect(items['Qualification rounds']).toBe('4 (automatic)');
+    expect(items['Non-counting rounds']).toBe('1 (automatic)');
+  });
+
+  it('words its Swiss: 5 rounds, none uncounted', () => {
+    const items = itemsAt({ ...swiss, poolingDefaultsVersion: '1' }, 37);
+    expect(items['Swiss rounds']).toBe('5 (automatic)');
+    expect(items['Non-counting rounds']).toBe('None (automatic)');
+  });
+
+  it('gives an older setup its own numbers: 3 table rounds, a Swiss from the field, and a stored 0', () => {
+    expect(itemsAt(table, 37)['Qualification rounds']).toBe('3 (automatic)');
+    expect(itemsAt(swiss, 37)['Swiss rounds']).toBe('6 (automatic)');
+    expect(itemsAt({ ...table, nonCountingRounds: '0' }, 37)['Non-counting rounds']).toBe('None');
+  });
+
+  it('keeps typed numbers as typed', () => {
+    const typed = { ...table, poolingDefaultsVersion: '1', qualRoundsOverride: '6', nonCountingRounds: '2' };
+    const items = itemsAt(typed, 37);
+    expect(items['Qualification rounds']).toBe('6');
+    expect(items['Non-counting rounds']).toBe('2');
+  });
+
+  it('shows a dash before there is a head count', () => {
+    expect(itemsAt({ ...table, poolingDefaultsVersion: '1' }, undefined)['Qualification rounds']).toBe('—');
+  });
+});
+
 describe('the recap against the Setup form', () => {
   const formats = Object.keys(GAME_FORMATS) as PersistedSetup['gameFormat'][];
   const logics: PersistedSetup['scheduleLogic'][] = [

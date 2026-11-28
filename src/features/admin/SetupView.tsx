@@ -15,6 +15,7 @@ import { FormatPanel } from './setup/FormatPanel';
 import { RosterPanel } from './setup/RosterPanel';
 import { AppPlanPanel } from './setup/AppPlanPanel';
 import { TournamentPanel } from './setup/TournamentPanel';
+import { useAppPlan } from './setup/useAppPlan';
 import { useWaterfallNumbering, WaterfallNumberingContext } from './setup/useWaterfallNumbering';
 import { LayeredPanel } from './setup/LayeredPanel';
 import { UpperLowerPanel } from './setup/UpperLowerPanel';
@@ -29,6 +30,9 @@ export function SetupView() {
   const { state, setup, runtime, updateSetup, updateState } = useTournamentApp();
   const [error, setError] = useState('');
   const [lbQualifiers, setLbQualifiers] = useState('2');
+  // The head count typed into the app's plan: this tab's own, null while untouched.
+  const [typedCount, setTypedCount] = useState<string | null>(null);
+  const appPlan = useAppPlan(typedCount, lbQualifiers);
   const numbering = useWaterfallNumbering();
 
   function generate() {
@@ -88,6 +92,7 @@ export function SetupView() {
         <div className='flex min-w-0 flex-[999_1_560px] flex-col gap-4.5 [&>*]:mb-0'>
           <TournamentPanel onApplyCopiedSettings={applyCopiedSettings} />
           <FormatPanel
+            appPlan={appPlan}
             error={error}
             lbQualifiers={lbQualifiers}
             onGenerate={generate}
@@ -100,7 +105,7 @@ export function SetupView() {
           <RosterPanel onLoaded={() => setError('')} />
         </div>
         <aside className='flex min-w-0 flex-[1_1_340px] flex-col gap-3.5 [&>*]:mb-0'>
-          <AppPlanPanel lbQualifiers={lbQualifiers} />
+          <AppPlanPanel onTypedChange={setTypedCount} plan={appPlan} typed={typedCount} />
         </aside>
         <ConfirmStartBar pinned />
       </div>

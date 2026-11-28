@@ -14,7 +14,7 @@ import { tournamentFormatLine } from '../../tournaments/tournament-info';
 import { ConfirmStartBar } from './ConfirmStartBar';
 import { planDecisions, type PlanDecision } from './plan-decisions';
 import { schedulePreviewRows, type SchedulePreviewRow } from './schedule-preview-rows';
-import { MAX_TYPED_COUNT, useAppPlan } from './useAppPlan';
+import { MAX_TYPED_COUNT, type AppPlan } from './useAppPlan';
 
 const NOTHING_TO_PLAN = 'Type a head count, or load the roster, to see the plan.';
 const STALE_SCHEDULE =
@@ -24,6 +24,29 @@ const SOURCE_TAGS: Record<PlanDecision['source'], string> = {
   app: 'border-cfp-brand text-cfp-sky',
   typed: 'border-cfp-yellow bg-cfp-yellow text-cfp-brand-ink',
 };
+
+/** The lines under the head count: the generated schedule is not the form's, or not the one for these rounds. */
+function ScheduleNotices({ state, plan }: { state: TournamentState; plan: AppPlan }) {
+  if (state.rounds.length === 0) return null;
+  const { form, rosterCount, count, preview } = plan;
+  const generatedFor = state.cfg.n ?? rosterCount;
+  const otherCount = preview?.status === 'generated' && generatedFor !== null && count !== generatedFor;
+  return (
+    <>
+      {formDiffersFromSettings(state.settings, form) ? (
+        <Alert className='mx-4.5 mt-3' id='app-plan-stale' tone='warning'>
+          {STALE_SCHEDULE}
+        </Alert>
+      ) : null}
+      {otherCount ? (
+        <Alert className='mx-4.5 mt-3' id='app-plan-other-count' tone='warning'>
+          These rounds are for {count} {unitLabelPluralLower(form.gameFormat)}. Confirm & Start starts the
+          schedule generated for {generatedFor}.
+        </Alert>
+      ) : null}
+    </>
+  );
+}
 
 function HeadCountRow({
   unit,
@@ -146,27 +169,30 @@ function PlanBody({ form, preview }: { form: GenerationForm; preview: SchedulePr
  * THE APP'S PLAN: what the Setup form comes to for a head count, before and after Generate, each number the app's or
  * typed. Under it, once a schedule is generated, the (on a desktop) Confirm & Start button. Nothing once started.
  */
-export function AppPlanPanel({ lbQualifiers }: { lbQualifiers: string }) {
+export function AppPlanPanel({
+  plan,
+  typed,
+  onTypedChange,
+}: {
+  plan: AppPlan;
+  /** The head count field as typed; null while untouched. */
+  typed: string | null;
+  onTypedChange: (typed: string | null) => void;
+}) {
   const { state } = useTournamentApp();
-  const [typed, setTyped] = useState<string | null>(null);
-  const { form, rosterCount, count, tooMany, preview } = useAppPlan(typed, lbQualifiers);
   if (state.started) return null;
-  const stale = state.rounds.length > 0 && formDiffersFromSettings(state.settings, form);
+  const { form, rosterCount, count, tooMany, preview } = plan;
   return (
     <div className='flex flex-col gap-3.5' id='preview-wrap'>
       <SectionPanel padded={false} title="THE APP'S PLAN">
         <HeadCountRow
           isRoster={rosterCount !== null && count === rosterCount}
-          onChange={setTyped}
+          onChange={onTypedChange}
           rosterCount={rosterCount}
           typed={typed}
           unit={unitLabelPluralLower(form.gameFormat)}
         />
-        {stale ? (
-          <Alert className='mx-4.5 mt-3' id='app-plan-stale' tone='warning'>
-            {STALE_SCHEDULE}
-          </Alert>
-        ) : null}
+        <ScheduleNotices plan={plan} state={state} />
         {count === null ? <p className='px-4.5 py-4 text-sm text-muted'>{NOTHING_TO_PLAN}</p> : null}
         {tooMany ? (
           <p className='px-4.5 py-4 text-sm text-muted'>

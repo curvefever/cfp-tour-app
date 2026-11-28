@@ -10,6 +10,7 @@ import {
 import { matchResultSettings } from '../../domain/tournament/match-results';
 import { scoringSystemLabel } from '../../domain/tournament/scoring';
 import { groupExitIsTotal } from '../../domain/tournament/group-exit';
+import { poolingRoundsOf, type PoolingRounds } from '../../domain/tournament/pooling-rounds';
 import { createDefaultSetup } from '../../domain/tournament/state-defaults';
 import { parseMatchOverrides } from '../../domain/tournament/round-match-formats';
 import { roundNoteNames } from '../../domain/tournament/round-notes';
@@ -58,6 +59,24 @@ const orDefault = (value: string, fallback: string) => value.trim() || fallback;
 function advanceText(settings: TournamentSettings, state: TournamentState): string {
   const automatic = state.cfg.qualAdv === undefined ? '—' : `${state.cfg.qualAdv} (automatic)`;
   return orDefault(settings.qualAdv, automatic);
+}
+
+/** A pooling number left empty: the one the tournament plays for its head count, "None" for no uncounted round. */
+function automaticPoolingText(
+  settings: TournamentSettings,
+  state: TournamentState,
+  number: keyof PoolingRounds,
+): string {
+  if (state.cfg.n === undefined) return '—';
+  const { value } = poolingRoundsOf(settings, state.cfg.n)[number];
+  return `${number === 'nonCounting' && value === 0 ? 'None' : value} (automatic)`;
+}
+
+/** "Non-counting rounds" as typed, "None" for none; left empty, the app's number. */
+function nonCountingText(settings: TournamentSettings, state: TournamentState): string {
+  const raw = settings.nonCountingRounds.trim();
+  if (!raw) return automaticPoolingText(settings, state, 'nonCounting');
+  return Number.parseInt(raw, 10) > 0 ? raw : 'None';
 }
 
 const matchOf = (games: string, bestOf: string) =>
@@ -227,8 +246,7 @@ const RECAP: Record<RecapField, RecapEntry> = {
   nonCountingRounds: {
     group: 'POOLING',
     label: 'Non-counting rounds',
-    value: (settings) =>
-      Number.parseInt(settings.nonCountingRounds, 10) > 0 ? settings.nonCountingRounds : 'None',
+    value: (settings, _pointsVersion, state) => nonCountingText(settings, state),
   },
   groupSize: {
     group: 'POOLING',
@@ -260,12 +278,14 @@ const RECAP: Record<RecapField, RecapEntry> = {
   qualRoundsOverride: {
     group: 'POOLING',
     label: 'Qualification rounds',
-    value: (settings) => orDefault(settings.qualRoundsOverride, 'Derived'),
+    value: (settings, _pointsVersion, state) =>
+      orDefault(settings.qualRoundsOverride, automaticPoolingText(settings, state, 'rounds')),
   },
   swissRoundsOverride: {
     group: 'POOLING',
     label: 'Swiss rounds',
-    value: (settings) => orDefault(settings.swissRoundsOverride, 'Derived'),
+    value: (settings, _pointsVersion, state) =>
+      orDefault(settings.swissRoundsOverride, automaticPoolingText(settings, state, 'rounds')),
   },
   scoring: {
     group: 'SCORING',

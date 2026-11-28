@@ -42,6 +42,7 @@ import {
   setupAfterOddCountChange,
   setupAfterScoringChange,
 } from './format-change-rules';
+import { AppValueInput, WouldUseLine, appPlaceholder, type AppValue } from './AppValueInput';
 import { automaticAdvanceText } from './bracket-entry-text';
 import { groupExitHelpLine, groupsLineExitText } from './group-exit-help';
 import { upperLowerAutomaticPlaceholder } from './upper-lower-summary';
@@ -50,6 +51,7 @@ import { LayeredFields } from './LayeredFields';
 import { MatchSelect } from './MatchSelect';
 import { RoundOverrideList } from './RoundOverrideList';
 import { setupDerived } from './setup-derived';
+import type { AppPlan } from './useAppPlan';
 import { useMatchSettingsChange } from './useMatchSettingsChange';
 import { useSetupChange, useSetupUpdate } from './useSetupChange';
 
@@ -79,19 +81,30 @@ function GroupExitHelpText({ help }: { help: ReturnType<typeof groupExitHelpLine
   return <p className={cn('text-xs', help.refused ? 'text-warning' : 'text-muted')}>{help.text}</p>;
 }
 
+/** No plan: each field keeps its own words, and the app's number is worked out for the registered count. */
+const NO_PLAN: Pick<AppPlan, 'count' | 'appValue'> = {
+  count: null,
+  appValue: () => ({ value: null, typed: false }),
+};
+
 /** "Advance to bracket": empty, the app works the number out, and the field says which and why. */
 function AdvanceToBracketInput({
   id,
   setup,
   registered,
+  planCount,
+  app,
   onChange,
 }: {
   id: string;
   setup: PersistedSetup;
   registered: number | null;
+  /** The head count of the app's plan, which the app's number is for. */
+  planCount: number | null;
+  app: AppValue;
   onChange: (value: string) => void;
 }) {
-  const automatic = automaticAdvanceText(setup, registered);
+  const automatic = automaticAdvanceText(setup, planCount);
   return (
     <>
       <Input
@@ -99,10 +112,11 @@ function AdvanceToBracketInput({
         type='number'
         min='1'
         max={registered ?? undefined}
-        placeholder={automatic.placeholder}
+        placeholder={appPlaceholder(app, automatic.placeholder)}
         value={setup.qualAdv}
         onChange={(e) => onChange(cappedAdvance(e.target.value, registered))}
       />
+      <WouldUseLine app={app} />
       {setup.qualAdv.trim() ? null : <p className='text-xs text-muted'>{automatic.hint}</p>}
     </>
   );
@@ -110,11 +124,14 @@ function AdvanceToBracketInput({
 
 /** The game format, schedule logic, pooling and scoring settings, and the Generate Schedule button. */
 export function FormatPanel({
+  appPlan = NO_PLAN,
   error,
   lbQualifiers,
   onGenerate,
   setLbQualifiers,
 }: {
+  /** The plan THE APP'S PLAN shows: the override fields read their numbers for the same head count. */
+  appPlan?: Pick<AppPlan, 'count' | 'appValue'>;
   error: string;
   lbQualifiers: string;
   onGenerate: () => void;
@@ -125,6 +142,8 @@ export function FormatPanel({
   const change = useSetupChange();
   const changeMatchSettings = useMatchSettingsChange();
   const registered = state.confirmedCount ?? null;
+  const { appValue } = appPlan;
+  const planCount = appPlan.count ?? registered;
   const format = getGameFormat(setup.gameFormat);
   const shown = visibleFormatFields(setup);
   const layeredOffered = layeredGateRefusal(setup) === null;
@@ -351,7 +370,9 @@ export function FormatPanel({
             ) : groupExitIsTotal(setup) ? (
               <PresenceField htmlFor='cfg-group-exit-total' label='Advance to bracket'>
                 <AdvanceToBracketInput
+                  app={appValue('qualAdv')}
                   id='cfg-group-exit-total'
+                  planCount={planCount}
                   setup={setup}
                   registered={registered}
                   onChange={(value) => change('qualAdv', value)}
@@ -385,7 +406,9 @@ export function FormatPanel({
             ) : (
               <PresenceField htmlFor='cfg-qual-adv' label='Advance to bracket'>
                 <AdvanceToBracketInput
+                  app={appValue('qualAdv')}
                   id='cfg-qual-adv'
+                  planCount={planCount}
                   setup={setup}
                   registered={registered}
                   onChange={(value) => change('qualAdv', value)}
@@ -398,7 +421,8 @@ export function FormatPanel({
               </PresenceField>
             )}
             <PresenceField htmlFor='cfg-non-counting-rounds' label='Non-counting rounds (optional)'>
-              <Input
+              <AppValueInput
+                app={appValue('nonCountingRounds')}
                 id='cfg-non-counting-rounds'
                 type='number'
                 min='0'
@@ -596,11 +620,12 @@ export function FormatPanel({
           <>
             {shown.has('semisOverride') ? (
               <PresenceField htmlFor='cfg-semis-override' label='Semis size override (optional)'>
-                <Input
+                <AppValueInput
+                  app={appValue('semisOverride')}
+                  fallback='derived'
                   id='cfg-semis-override'
                   type='number'
                   min='1'
-                  placeholder='derived'
                   value={setup.semisOverride}
                   onChange={(e) => change('semisOverride', e.target.value)}
                 />
@@ -673,11 +698,12 @@ export function FormatPanel({
         ) : null}
         {shown.has('finalOverride') ? (
           <PresenceField htmlFor='cfg-final-override' label='Final size override (optional)'>
-            <Input
+            <AppValueInput
+              app={appValue('finalOverride')}
+              fallback='derived'
               id='cfg-final-override'
               type='number'
               min='1'
-              placeholder='derived'
               value={setup.finalOverride}
               onChange={(e) => change('finalOverride', e.target.value)}
             />
@@ -698,12 +724,13 @@ export function FormatPanel({
                 htmlFor='cfg-qual-rounds-override'
                 label='Qualification Table round count override'
               >
-                <Input
+                <AppValueInput
+                  app={appValue('qualRoundsOverride')}
+                  fallback='derived'
                   id='cfg-qual-rounds-override'
                   type='number'
                   min='1'
                   max='12'
-                  placeholder='derived'
                   value={setup.qualRoundsOverride}
                   onChange={(e) => change('qualRoundsOverride', e.target.value)}
                 />
@@ -711,12 +738,13 @@ export function FormatPanel({
             ) : null}
             {shown.has('swissRoundsOverride') ? (
               <PresenceField htmlFor='cfg-swiss-rounds-override' label='Swiss round count override'>
-                <Input
+                <AppValueInput
+                  app={appValue('swissRoundsOverride')}
+                  fallback='derived'
                   id='cfg-swiss-rounds-override'
                   type='number'
                   min='1'
                   max='12'
-                  placeholder='derived'
                   value={setup.swissRoundsOverride}
                   onChange={(e) => change('swissRoundsOverride', e.target.value)}
                 />
@@ -735,10 +763,11 @@ export function FormatPanel({
                     </>
                   }
                 >
-                  <Input
+                  <AppValueInput
+                    app={appValue('eliminationRoundTargets')}
+                    fallback='e.g. 24,24,12,6'
                     id='cfg-elimination-round-targets'
                     type='text'
-                    placeholder='e.g. 24,24,12,6'
                     value={setup.eliminationRoundTargets}
                     onChange={(e) => change('eliminationRoundTargets', e.target.value)}
                   />

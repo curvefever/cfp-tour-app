@@ -8,6 +8,14 @@ import {
 } from '../../../domain/tournament/state-defaults';
 import type { PersistedSetup } from '../../../domain/tournament/types';
 import { FormatPanel } from './FormatPanel';
+import { appValueOf } from './plan-decisions';
+import { useAppPlan } from './useAppPlan';
+
+// The real reader, counted: only a typed field may take a plan of its own.
+vi.mock('./plan-decisions', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./plan-decisions')>();
+  return { ...real, appValueOf: vi.fn(real.appValueOf) };
+});
 
 /** What a change of the game format, the odd-count strategy or the scoring system writes: the whole form. */
 
@@ -268,5 +276,107 @@ describe('a change of the scoring system', () => {
       ...start,
       scoring: 'positional-points',
     });
+  });
+});
+
+describe('the app’s number at each override field', () => {
+  /** The panel with its plan, as SetupView holds it; `typed` is the plan's head count field. */
+  function PlannedPanel({ typed }: { typed: string | null }) {
+    const appPlan = useAppPlan(typed, '2');
+    return (
+      <FormatPanel
+        appPlan={appPlan}
+        error=''
+        lbQualifiers='2'
+        onGenerate={() => {}}
+        setLbQualifiers={() => {}}
+      />
+    );
+  }
+
+  function draw(setup: PersistedSetup, confirmedCount: number | null, typed: string | null = null) {
+    const players = Array.from({ length: confirmedCount ?? 0 }, (_, index) => `P${index + 1}`);
+    const roster = confirmedCount === null ? {} : { confirmedCount, players };
+    current = { state: createDefaultTournamentState(roster), setup };
+    vi.mocked(appValueOf).mockClear();
+    render(<PlannedPanel typed={typed} />);
+  }
+
+  const placeholder = (id: string) => (document.getElementById(id) as HTMLInputElement).placeholder;
+  const wouldUse = () => [...(document.body.textContent ?? '').matchAll(/The app would use ([\d, ]+)\./g)];
+  const wouldUseAt = (id: string) =>
+    /The app would use [\d, ]+\./.exec(document.getElementById(id)?.parentElement?.textContent ?? '')?.[0];
+
+  it('shows each empty field the app’s number, at 37 FFA', () => {
+    draw(newTournamentSetup(), 37);
+    expect(
+      [
+        'cfg-qual-rounds-override',
+        'cfg-non-counting-rounds',
+        'cfg-qual-adv',
+        'cfg-semis-override',
+        'cfg-final-override',
+        'cfg-elimination-round-targets',
+      ].map(placeholder),
+    ).toEqual(['app: 4', 'app: 1', 'app: 28', 'app: 16', 'app: 8', 'app: 23, 19, 16']);
+    expect(wouldUse()).toEqual([]);
+    expect(appValueOf).not.toHaveBeenCalled();
+  });
+
+  it('shows 3 table rounds for a setup without the switch', () => {
+    draw(form({ poolingPhase: 'qual-table', nonCountingRounds: '0' }), 37);
+    expect(placeholder('cfg-qual-rounds-override')).toBe('app: 3');
+    // Its stored 0 is nobody's typing; its stored "Advance to bracket" 24 is a number of its own.
+    expect(wouldUseAt('cfg-non-counting-rounds')).toBeUndefined();
+    expect(wouldUseAt('cfg-qual-adv')).toBe('The app would use 28.');
+  });
+
+  it('shows a Swiss 5 rounds', () => {
+    draw({ ...newTournamentSetup(), ...ONE_V_ONE, poolingPhase: 'swiss' }, 53);
+    expect(placeholder('cfg-swiss-rounds-override')).toBe('app: 5');
+  });
+
+  it.each([
+    ['cfg-semis-override', { semisOverride: '6' }, '16'],
+    ['cfg-final-override', { finalOverride: '6' }, '8'],
+    ['cfg-qual-adv', { qualAdv: '30' }, '28'],
+    ['cfg-qual-rounds-override', { qualRoundsOverride: '6' }, '4'],
+    ['cfg-non-counting-rounds', { nonCountingRounds: '0' }, '1'],
+    ['cfg-elimination-round-targets', { eliminationRoundTargets: '20,16' }, '23, 19, 16'],
+  ])('says under a typed %s what the app would use', (id, typedField, value) => {
+    draw({ ...newTournamentSetup(), ...typedField }, 37);
+    expect(wouldUseAt(id)).toBe(`The app would use ${value}.`);
+    expect(wouldUse()).toHaveLength(1);
+    expect(appValueOf).toHaveBeenCalledTimes(1);
+  });
+
+  it('says it under a typed number that the plan refuses', () => {
+    draw({ ...newTournamentSetup(), qualAdv: '5' }, 37);
+    expect(wouldUseAt('cfg-qual-adv')).toBe('The app would use 28.');
+  });
+
+  it('follows the plan’s head count, the line under "Advance to bracket" with it', () => {
+    draw(newTournamentSetup(), 37, '53');
+    expect(placeholder('cfg-qual-adv')).toBe('app: 40');
+    expect(document.body.textContent).toContain(
+      'Empty: 40, 75-85% of the 48 expected to play (9 in 10 of 53 registered), in 5 rooms of 8.',
+    );
+  });
+
+  it('shows the numbers for a typed count with no roster', () => {
+    draw(newTournamentSetup(), null, '43');
+    expect(placeholder('cfg-qual-adv')).toBe('app: 32');
+  });
+
+  it.each([
+    ['no count', null],
+    ['a refused plan', 11],
+  ])('keeps each field’s own words with %s', (_name, count) => {
+    draw(newTournamentSetup(), count);
+    expect(placeholder('cfg-qual-rounds-override')).toBe('derived');
+    expect(placeholder('cfg-semis-override')).toBe('derived');
+    expect(placeholder('cfg-elimination-round-targets')).toBe('e.g. 24,24,12,6');
+    expect(placeholder('cfg-non-counting-rounds')).toBe('');
+    expect(placeholder('cfg-qual-adv')).toBe(count === null ? 'automatic' : 'automatic: 11');
   });
 });
