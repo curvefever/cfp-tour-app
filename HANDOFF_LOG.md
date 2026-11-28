@@ -8,7 +8,7 @@ For **current app state** (rules, what's built, what's not, known issues, immedi
 
 ## The app's decisions beside the overrides (done — 2026-11-28, on `test`, not `main`)
 
-**Context.** Rigidity audit, work queue item 1b, with the roadmap's "A schedule picture for a typed head count": both need the plan for a head count worked out before Generate. Plan `plans/2026-11-28-decisions-beside-overrides.md`, built in a split session. Commits: `00f5de7` (stage 1), `eac36ee` (stage 1 follow-up), `cf29a34` (2), `35352b7` (3), then stage 4.
+**Context.** Rigidity audit, work queue item 1b, with the roadmap's "A schedule picture for a typed head count": both need the plan for a head count worked out before Generate. Plan `plans/2026-11-28-decisions-beside-overrides.md`, built in a split session. Commits: `00f5de7` (stage 1), `eac36ee` (stage 1 follow-up), `cf29a34` (2), `35352b7` (3), `0b02b52` (4, with the docs).
 
 **The organiser's decisions, 2026-11-28.**
 1. One build: the decisions display and the picture for a typed head count.
@@ -60,7 +60,9 @@ Review, per stage 1 to 3 (Planner-Reviewer): every production hunk read, the rel
 
 **Live check, stage 3** (test site on `35352b7`, built-in browser; a new throwaway Test run, "App plan live check (throwaway)", `1795860895097`). With no roster: the sentence; 43 typed gave 4 rounds and 1 not counted as the app's, rooms 8·7·7·7·7·7, 32 of 39. As 1v1: a Swiss of 5, none uncounted, "21 rooms of 2, 1 bye". With 37 made-up names loaded and generated, the Bracket's room sizes matched the panel's nine rows. "Advance to bracket" 24 typed showed the earlier-settings line and the typed tag; Generate cleared it. With 31 typed, the schedule picture opened and read "31 players". Confirm & Start was not pressed; the tournament was left a draft. One "401" resource error was in the pane's log; the server calls listed all answered 200, and an error hook added after creating the tournament caught nothing. Phone width was not checked.
 
-**Pushes.** The plan said no push, which the planner then corrected: a live check on `test` needs the deployed build. `72e75c6..35352b7` was pushed to `test` for the stage 3 check, and stage 4 for its own. Nothing to `main`.
+**Live check, stage 4** (test site on `0b02b52`, the same draft). At the roster's 37 the empty fields read "app: 4", "app: 1", "app: 16", "app: 8" and, for the survivor targets, the draft's "app: 20, 16" under its typed "Advance to bracket" 24, which read "The app would use 28." With 31 typed in the panel that line and the placeholder moved to 21, and the panel read "These rounds are for 31 players. Confirm & Start starts the schedule generated for 37." "Advance to bracket" emptied read "app: 28" over "Empty: 28, …"; the targets read "app: 23, 19, 16". Semis 6 typed read "The app would use 16." (and the targets placeholder then listed that schedule's longer curve, the Semis gap of `docs/open-items.md`). The draft was put back (Semis empty, 24 typed; no warning line) and left a draft. The error hook caught nothing. The recap's "(automatic)" shows only on a running tournament and was checked in tests, not live. Phone width was not checked.
+
+**Pushes.** The plan said no push, which the planner then corrected: a live check on `test` needs the deployed build. `72e75c6..35352b7` was pushed to `test` for the stage 3 check and `35352b7..0b02b52` for the stage 4 check. Nothing to `main`.
 
 **Full suite:** (reviewer).
 
