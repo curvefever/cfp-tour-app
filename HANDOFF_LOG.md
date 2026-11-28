@@ -56,7 +56,7 @@ A Swiss under the new rule is 5 rounds at 9, 37 and 53; without the switch it is
 
 **Testing.** Per stage: eslint, `prettier --check` and the type check (whole project, no errors) clean on the changed files; `vitest related` on them, `.claude/**` excluded: stage 1, 260 files, 6,987 tests, 1 failed (the recap's "every setting is shown" check, which now leaves out the switch), its file rerun after the fix; the follow-up, 239 files, 6,619; stage 2, 231 files, 6,455; stage 3, 234 files, 6,520; stage 4, 242 files, 6,713, with `bracket-entry-text.test.ts` run on its own. All other runs passed. Stage 3 also had a scratch fuzz of the preview, run because it now runs on every Setup keystroke: every setting with odd values over all schedules and pooling phases and three formats at 1, 13 and 37 (189,504 previews with rows, lines and the picture's model): none threw, none took over 300 ms.
 
-Review, per stage 1 to 3 (Planner-Reviewer): every production hunk read, the related tests passed, and the mutations run on each stage were each caught by a test.
+Review, per stage 1 to 4 (Planner-Reviewer): every production hunk read, the related tests passed, and the mutations run on each stage were each caught by a test. Stage 4's: a typed field read from the main preview instead of its own plan; an older setup's stored `'0'` read as typed; the other-count line never shown; the recap's "None (automatic)" wording dropped; every field, empty or typed, given a plan of its own. One correction from the reviewer: the plan's expected Semis value was wrong (the Semis override counts players, so at FFA 37 the app's is 16, not 8); the implementer pinned the real behaviour. Final review: eslint, `prettier --check` and the type check clean on the 31 changed source files of the build.
 
 **Live check, stage 3** (test site on `35352b7`, built-in browser; a new throwaway Test run, "App plan live check (throwaway)", `1795860895097`). With no roster: the sentence; 43 typed gave 4 rounds and 1 not counted as the app's, rooms 8·7·7·7·7·7, 32 of 39. As 1v1: a Swiss of 5, none uncounted, "21 rooms of 2, 1 bye". With 37 made-up names loaded and generated, the Bracket's room sizes matched the panel's nine rows. "Advance to bracket" 24 typed showed the earlier-settings line and the typed tag; Generate cleared it. With 31 typed, the schedule picture opened and read "31 players". Confirm & Start was not pressed; the tournament was left a draft. One "401" resource error was in the pane's log; the server calls listed all answered 200, and an error hook added after creating the tournament caught nothing. Phone width was not checked.
 
@@ -64,7 +64,7 @@ Review, per stage 1 to 3 (Planner-Reviewer): every production hunk read, the rel
 
 **Pushes.** The plan said no push, which the planner then corrected: a live check on `test` needs the deployed build. `72e75c6..35352b7` was pushed to `test` for the stage 3 check and `35352b7..0b02b52` for the stage 4 check. Nothing to `main`.
 
-**Full suite:** (reviewer).
+**Full suite:** passed on `6406a3c` (320 files, 7,861 tests; `.claude/**` excluded, a worktree exists).
 
 **Out of scope / known effects.**
 - The room-size policy, the recommender, versions side by side and planning again when registrations move: later queue items. The panel is where they will show.
